@@ -37,69 +37,165 @@ class BridgeGeometryData:
     total_width: float
     thickness: float
     material_name: str
+    nodes_dict: dict
+    thickness_dict: dict
+
+def create_node_and_thickness_dict(params):
+    # Determine the number of sub-zones based on input dimensions
+    dynamic_arrays = len(params.bridge_segments_array)
+
+    nodes_dict = {}
+    thickness_dict = {}
+
+    # Iterate through each sub-zone to create 3D boxes
+    for dynamic_array in range(1, dynamic_arrays + 1):
+        # Calculate cumulative length for the current sub-zone
+        num_dicts_to_sum = dynamic_array
+        l_sum = sum(item["l"] for item in params.bridge_segments_array[:num_dicts_to_sum])
+
+        # Define dimensions for the previous and current zones
+        ## D n-1
+        d0l = l_sum
+        # Zone 1
+        z1d0l = params.bridge_segments_array[dynamic_array - 1].bz1 + params.bridge_segments_array[dynamic_array - 1].bz2 / 2
+        z1d0r = params.bridge_segments_array[dynamic_array - 1].bz2 / 2
+        z1d0t = 0
+        z1d0b = -params.bridge_segments_array[dynamic_array - 1].dz
+        # Zone 2
+        z2d0l = params.bridge_segments_array[dynamic_array - 1].bz2 / 2
+        z2d0r = -params.bridge_segments_array[dynamic_array - 1].bz2 / 2
+        z2d0t = params.bridge_segments_array[dynamic_array - 1].dz_2 - params.bridge_segments_array[dynamic_array - 1].dz
+        z2d0b = -params.bridge_segments_array[dynamic_array - 1].dz
+        # Zone 3
+        z3d0l = -params.bridge_segments_array[dynamic_array - 1].bz2 / 2
+        z3d0r = -params.bridge_segments_array[dynamic_array - 1].bz3 - params.bridge_segments_array[dynamic_array - 1].bz2 / 2
+        z3d0t = 0
+        z3d0b = -params.bridge_segments_array[dynamic_array - 1].dz
+
+        # ## D
+        # # Zone 1
+        # d1l = params.bridge_segments_array[dynamic_array].l + l_sum
+        # z1d1l = params.bridge_segments_array[dynamic_array].bz1 + params.bridge_segments_array[dynamic_array].bz2 / 2
+        # z1d1r = params.bridge_segments_array[dynamic_array].bz2 / 2
+        # z1d1t = 0
+        # z1d1b = -params.bridge_segments_array[dynamic_array].dz
+        # # Zone 2
+        # z2d1l = params.bridge_segments_array[dynamic_array].bz2 / 2
+        # z2d1r = -params.bridge_segments_array[dynamic_array].bz2 / 2
+        # z2d1t = params.bridge_segments_array[dynamic_array].dz_2 - params.bridge_segments_array[dynamic_array].dz
+        # z2d1b = -params.bridge_segments_array[dynamic_array].dz
+        # # Zone 3
+        # z3d1l = -params.bridge_segments_array[dynamic_array].bz2 / 2
+        # z3d1r = -params.bridge_segments_array[dynamic_array].bz3 - params.bridge_segments_array[dynamic_array].bz2 / 2
+        # z3d1t = 0
+        # z3d1b = -params.bridge_segments_array[dynamic_array].dz
+
+        # Store the calculated dimensions in the 
+        d_num = dynamic_array
+        nodes_dict.update({
+            # (zone 1)
+            f"K_dek:{d_num}_1": [d0l, z1d0r, z1d0b], # Vertex 0: Bottom-front-left -- D-1
+            f"K_dek:{d_num}_2": [d0l, z1d0l, z1d0b], # Vertex 3: Bottom-back-left -- D-1
+            f"K_dek:{d_num}_3": [d0l, z1d0l, z1d0t], # Vertex 7: Top-back-left -- D-1
+            f"K_dek:{d_num}_4": [d0l, z1d0r, z1d0t], # Vertex 4: Top-front-left -- D-1
+            
+            # (zone 2) Alleen als zone 2 andere dikte heeft
+            f"K_dek:{d_num}_5": [d0l, z2d0l, z2d0t],  # Vertex 7: Top-back-left -- D-1
+            f"K_dek:{d_num}_6": [d0l, z2d0r, z2d0t],  # Vertex 4: Top-front-left -- D-1
+
+            # (zone 3)
+            f"K_dek:{d_num}_7": [d0l, z3d0l, z3d0t],  # Vertex 7: Top-back-left -- D-1
+            f"K_dek:{d_num}_8": [d0l, z3d0r, z3d0t],  # Vertex 4: Top-front-left -- D-1
+            f"K_dek:{d_num}_9": [d0l, z3d0r, z3d0b],  # Vertex 0: Bottom-front-left -- D-1
+            f"K_dek:{d_num}_10": [d0l, z3d0l, z3d0b],  # Vertex 3: Bottom-back-left -- D-1  
+        })
+
+    # Iterate through each sub-zone to get zone thicknesses
+    for dynamic_array in range(1, dynamic_arrays):
+        thickness_dict.update({
+            # (zone 1)
+            f"Z1_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+            # (zone 2)
+            f"Z2_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz_2,
+            # (zone 3)
+            f"Z3_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+        })
+    
+    return nodes_dict, thickness_dict
 
 
-def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]]) -> BridgeGeometryData:
-    """
-    Extract bridge geometry data from bridge segment parameters.
 
-    Currently creates a simple rectangular approximation:
-    - Length: Sum of all segment lengths
-    - Width: Uses width of first segment only (bz1 + bz2 + bz3)
-    - Thickness: Hardcoded to 0.5m
+# def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]]) -> BridgeGeometryData:
+#     """
+#     Extract bridge geometry data from bridge segment parameters.
 
-    TODO: Future improvements:
-    - Support variable width along bridge length
-    - Support variable thickness per zone (dz, dz_2 parameters)
-    - Handle complex bridge shapes with proper geometry interpolation
+#     Currently creates a simple rectangular approximation:
+#     - Length: Sum of all segment lengths
+#     - Width: Uses width of first segment only (bz1 + bz2 + bz3)
+#     - Thickness: Hardcoded to 0.5m
 
-    :param bridge_segments_params: List of bridge segment parameter dictionaries
-    :type bridge_segments_params: list[dict[str, Any]]
-    :returns: Bridge geometry data for SCIA model creation
-    :rtype: BridgeGeometryData
-    :raises ValueError: If bridge_segments_params is empty or invalid
-    """
-    if not bridge_segments_params:
-        raise ValueError("No bridge segments provided")
+#     TODO: Future improvements:
+#     - Support variable width along bridge length
+#     - Support variable thickness per zone (dz, dz_2 parameters)
+#     - Handle complex bridge shapes with proper geometry interpolation
 
-    # Calculate total length: sum of all segment lengths
-    # Note: first segment usually has l=0 (starting point), so we sum all l values
-    total_length = sum(float(segment.get("l", 0)) for segment in bridge_segments_params)
+#     :param bridge_segments_params: List of bridge segment parameter dictionaries
+#     :type bridge_segments_params: list[dict[str, Any]]
+#     :returns: Bridge geometry data for SCIA model creation
+#     :rtype: BridgeGeometryData
+#     :raises ValueError: If bridge_segments_params is empty or invalid
+#     """
+#     if not bridge_segments_params:
+#         raise ValueError("No bridge segments provided")
 
-    if total_length <= 0:
-        raise ValueError("Bridge total length must be positive")
+#     # Calculate total length: sum of all segment lengths
+#     # Note: first segment usually has l=0 (starting point), so we sum all l values
+#     total_length = sum(float(segment.get("l", 0)) for segment in bridge_segments_params)
 
-    # Use width of first segment as approximation
-    # This should be enhanced to handle variable width along bridge length
-    first_segment = bridge_segments_params[0]
-    bz1 = float(first_segment.get("bz1", 0))
-    bz2 = float(first_segment.get("bz2", 0))
-    bz3 = float(first_segment.get("bz3", 0))
-    total_width = bz1 + bz2 + bz3
+#     if total_length <= 0:
+#         raise ValueError("Bridge total length must be positive")
 
-    if total_width <= 0:
-        raise ValueError("Bridge total width must be positive")
+#     # Use width of first segment as approximation
+#     # This should be enhanced to handle variable width along bridge length
+#     first_segment = bridge_segments_params[0]
+#     bz1 = float(first_segment.get("bz1", 0))
+#     bz2 = float(first_segment.get("bz2", 0))
+#     bz3 = float(first_segment.get("bz3", 0))
+#     total_width = bz1 + bz2 + bz3
 
-    # Variable thickness support - NO AVERAGING, SEPARATE ZONES REQUIRED
-    # Currently using hardcoded thickness, but should use actual bridge dimensions:
-    #
-    # CORRECT THICKNESS IMPLEMENTATION (3 SEPARATE ZONES):
-    # - Zone 1 (right side, width=bz1): thickness = dz
-    # - Zone 2 (middle, width=bz2): thickness = dz_2 (can be different from zones 1&3)
-    # - Zone 3 (left side, width=bz3): thickness = dz
-    #
-    # NOTE: Do NOT use average thickness - create 3 separate plate elements with their own thicknesses
-    # The simplified rectangular model should be replaced with proper multi-zone implementation
-    thickness = 0.5  # Hardcoded for now - will be replaced by 3-zone implementation
+#     if total_width <= 0:
+#         raise ValueError("Bridge total width must be positive")
+    
+#     nodes_dict, thickness_dict = create_node_and_thickness_dict(bridge_segments_params)
 
-    # Material selection from INFO page parameters
-    # Material should come from params.info.material_grade (incoming feature)
-    material_name = "C30/37"  # Standard concrete grade - will be replaced by INFO page parameter
+#     # Variable thickness support - NO AVERAGING, SEPARATE ZONES REQUIRED
+#     # Currently using hardcoded thickness, but should use actual bridge dimensions:
+#     #
+#     # CORRECT THICKNESS IMPLEMENTATION (3 SEPARATE ZONES):
+#     # - Zone 1 (right side, width=bz1): thickness = dz
+#     # - Zone 2 (middle, width=bz2): thickness = dz_2 (can be different from zones 1&3)
+#     # - Zone 3 (left side, width=bz3): thickness = dz
+#     #
+#     # NOTE: Do NOT use average thickness - create 3 separate plate elements with their own thicknesses
+#     # The simplified rectangular model should be replaced with proper multi-zone implementation
+#     thickness = 0.5  # Hardcoded for now - will be replaced by 3-zone implementation
 
-    return BridgeGeometryData(total_length=total_length, total_width=total_width, thickness=thickness, material_name=material_name)
+#     # Material selection from INFO page parameters
+#     # Material should come from params.info.material_grade (incoming feature)
+#     material_name = "C30/37"  # Standard concrete grade - will be replaced by INFO page parameter
+
+#     # Determine the number of sub-zones based on input dimensions
+#     dynamic_arrays = len(params.bridge_segments_array)
+
+#     return BridgeGeometryData(total_length=total_length,
+#                               total_width=total_width,
+#                               thickness=thickness,
+#                               material_name=material_name,
+#                               nodes_dict=nodes_dict,
+#                               thickness_dict=thickness_dict)
 
 
-def create_simple_scia_plate_model(bridge_geometry: BridgeGeometryData) -> tuple[Any, Any]:
+def create_simple_scia_plate_model(params):
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
@@ -291,19 +387,79 @@ def create_simple_scia_plate_model(bridge_geometry: BridgeGeometryData) -> tuple
 
     # Create material - using correct VIKTOR SCIA API from tutorial
     # The Material constructor requires (material_id, material_name) as shown in tutorial
-    material = scia.Material(0, bridge_geometry.material_name)
+    material_name = "C30/37"
+    material = scia.Material(0, material_name)
 
-    # Create corner nodes for rectangular plate
-    # Coordinate system: X = length direction, Y = width direction, Z = height
-    node1 = model.create_node("N1", 0, 0, 0)
-    node2 = model.create_node("N2", bridge_geometry.total_length, 0, 0)
-    node3 = model.create_node("N3", bridge_geometry.total_length, bridge_geometry.total_width, 0)
-    node4 = model.create_node("N4", 0, bridge_geometry.total_width, 0)
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
+    print(nodes_dict)
+    print(thickness_dict)
 
-    # Create rectangular plane (plate) element using correct API from tutorial
-    # From tutorial: model.create_plane(corner_nodes, thickness, name='...', material=material)
-    corner_nodes = [node1, node2, node3, node4]
-    model.create_plane(corner_nodes, bridge_geometry.thickness, name="BridgePlate", material=material)
+
+    # Determine the number of sub-zones based on input dimensions
+    dynamic_arrays = len(params.bridge_segments_array)
+
+    for span in range(1, dynamic_arrays):
+        print("span", span)
+
+        # Zone 1
+        node1_name = f"K_dek:{span}_3"
+        node1_coords = nodes_dict.get(node1_name)
+        z1node1 = model.create_node(node1_name, node1_coords[0], node1_coords[1], node1_coords[2])
+        node2_name = f"K_dek:{span}_4"
+        node2_coords = nodes_dict.get(node2_name)
+        z1node2 = model.create_node(node2_name, node2_coords[0], node2_coords[1], node2_coords[2])
+        node3_name = f"K_dek:{span + 1}_3"
+        node3_coords = nodes_dict.get(node3_name)
+        z1node3 = model.create_node(node3_name, node3_coords[0], node3_coords[1], node3_coords[2])
+        node4_name = f"K_dek:{span + 1}_4"
+        node4_coords = nodes_dict.get(node4_name)
+        z1node4 = model.create_node(node4_name, node4_coords[0], node4_coords[1], node4_coords[2])
+
+        corner_nodes_z1 = [z1node1, z1node3, z1node4, z1node2] # from top-left to top-right, then bottom-right to bottom-left                                                                   
+        model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
+
+        # zone 3
+        node1_name = f"K_dek:{span}_7"
+        node1_coords = nodes_dict.get(node1_name)
+        z3node1 = model.create_node(node1_name, node1_coords[0], node1_coords[1], node1_coords[2])
+        node2_name = f"K_dek:{span}_8"
+        node2_coords = nodes_dict.get(node2_name)
+        z3node2 = model.create_node(node2_name, node2_coords[0], node2_coords[1], node2_coords[2])
+        node3_name = f"K_dek:{span + 1}_7"
+        node3_coords = nodes_dict.get(node3_name)
+        z3node3 = model.create_node(node3_name, node3_coords[0], node3_coords[1], node3_coords[2])
+        node4_name = f"K_dek:{span + 1}_8"
+        node4_coords = nodes_dict.get(node4_name)
+        z3node4 = model.create_node(node4_name, node4_coords[0], node4_coords[1], node4_coords[2])
+
+        corner_nodes_z3 = [z3node1, z3node3, z3node4, z3node2] # from top-left to top-right, then bottom-right to bottom-left
+        model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
+
+        # zone 2
+        thickness_z1 = thickness_dict.get(f"Z1_{span}")
+        thickness_z2 = thickness_dict.get(f"Z2_{span}")
+
+        if thickness_z1 != thickness_z2:
+            # if thickness is different from zone 1 and 3, create a separate plane
+            node1_name = f"K_dek:{span}_5"
+            node1_coords = nodes_dict.get(node1_name)
+            z2node1 = model.create_node(node1_name, node1_coords[0], node1_coords[1], node1_coords[2])
+            node2_name = f"K_dek:{span}_6"
+            node2_coords = nodes_dict.get(node2_name)
+            z2node2 = model.create_node(node2_name, node2_coords[0], node2_coords[1], node2_coords[2])
+            node3_name = f"K_dek:{span + 1}_5"
+            node3_coords = nodes_dict.get(node3_name)
+            z2node3 = model.create_node(node3_name, node3_coords[0], node3_coords[1], node3_coords[2])
+            node4_name = f"K_dek:{span + 1}_6"
+            node4_coords = nodes_dict.get(node4_name)
+            z2node4 = model.create_node(node4_name, node4_coords[0], node4_coords[1], node4_coords[2])
+
+            corner_nodes_z2 = [z2node1, z2node3, z2node4, z2node2] # from top-left to top-right, then bottom-right to bottom-left
+
+        elif thickness_z1 == thickness_z2:
+            corner_nodes_z2 = [z1node2, z1node4, z3node3, z3node1] # from top-left to top-right, then bottom-right to bottom-left
+
+        model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
 
     # Skip mesh setup for now - can be added later if needed
     # Basic mesh will be handled by SCIA automatically
@@ -345,7 +501,7 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
-def create_bridge_scia_model(bridge_segments_params: list[dict[str, Any]], template_path: Path) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(params, template_path: Path) -> tuple[Any, Any, Any]:
     """
     Main function to create complete SCIA model from bridge parameters.
 
@@ -417,11 +573,11 @@ def create_bridge_scia_model(bridge_segments_params: list[dict[str, Any]], templ
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
-    # Extract bridge geometry
-    bridge_geometry = extract_bridge_geometry_from_params(bridge_segments_params)
+    # # Extract bridge geometry
+    # bridge_geometry = extract_bridge_geometry_from_params(params)
 
     # Create SCIA model
-    xml_file, def_file = create_simple_scia_plate_model(bridge_geometry)
+    xml_file, def_file = create_simple_scia_plate_model(params)
 
     # Create analysis with template
     scia_analysis = create_scia_analysis_from_template(xml_file, def_file, template_path)
