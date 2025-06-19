@@ -10,10 +10,6 @@ from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
-    DataGroup,  # Add DataGroup
-    DataItem,  # Add DataItem
-    DataResult,  # Add DataResult
-    DataView,  # Add DataView
     GeometryResult,
     GeometryView,
     MapPoint,  # Add MapPoint
@@ -144,23 +140,6 @@ class BridgeController(ViktorController):
             return objectnumm, name, None  # noqa: TRY300
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
-
-    @DataView("Bridge Summary", duration_guess=1)
-    def get_bridge_summary_view(self, params: BridgeParametrization, **kwargs) -> DataResult:  # noqa: ARG002
-        """Displays a summary of the bridge information on the Info page."""
-        data = DataGroup(
-            DataItem(label="Bridge ID (OBJECTNUMM)", value=params.info.bridge_objectnumm or "N/A"),
-            DataItem(label="Bridge Name", value=params.info.bridge_name or "N/A"),
-            DataItem(label="Location Description", value=params.info.location_description or "N/A"),
-            DataItem(label="City/Municipality", value=params.info.city or "N/A"),
-            DataItem(label="Construction Year", value=str(params.info.construction_year) if params.info.construction_year else "N/A"),
-            DataItem(label="Total Length", value=f"{params.info.total_length} m" if params.info.total_length is not None else "N/A"),
-            DataItem(label="Total Width", value=f"{params.info.total_width} m" if params.info.total_width is not None else "N/A"),
-            DataItem(label="Last Assessment", value=params.info.assessment_date or "N/A"),
-            DataItem(label="Assessment Status", value=params.info.assessment_status or "N/A"),
-            DataItem(label="Assessment Notes", value=params.info.assessment_notes or "N/A"),
-        )
-        return DataResult(data)
 
     @MapView("Locatie Brug", duration_guess=2)
     def get_bridge_map_view(self, params: BridgeParametrization, **kwargs) -> MapResult:  # noqa: ARG002
