@@ -13,9 +13,10 @@ Future enhancements needed:
 """
 
 import io
-from munch import Munch  # type: ignore[import-untyped]
 from pathlib import Path
 from typing import Any, Dict, Tuple
+
+from munch import Munch  # type: ignore[import-untyped]
 
 
 class NodeTracker:
@@ -487,7 +488,6 @@ def create_bridge_scia_model(params: dict | Munch, template_path: Path) -> tuple
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
-        
     # Create SCIA model
     xml_file, def_file = create_simple_scia_plate_model(params)
 
