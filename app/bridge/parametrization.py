@@ -27,6 +27,7 @@ from viktor.parametrization import (
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
@@ -532,7 +533,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
         "Staalsoort",
         options=get_steel_qualities(),
         default="B500B",
-        description="De kwaliteit van het betonstaal dat wordt toegepast in de brug.",
+        description=("Kwaliteit van het betonstaal. SCIA: alle materialen. IDEA: alleen B500A/B/C. Oude staalsoorten worden automatisch omgezet."),
     )
 
     input.geometrie_wapening.langswapening_buiten = BooleanField(
@@ -765,6 +766,18 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     scia.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
 
     scia.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
+
+    # ----------------------------------
+    # --- IDEA StatiCa Page ---
+    # ----------------------------------
+
+    idea = Page("IDEA StatiCa", views=["get_idea_model_preview"])
+
+    idea.explanation = Text(IDEA_INFO_TEXT)
+
+    # Add download buttons as page attributes below the explanation
+    idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file")
+    idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results")
 
     # ----------------------------------
     # --- Calculations Page ---

@@ -17,6 +17,8 @@ OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindra
 REINFORCEMENT_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonstaalkwaliteit.csv"
 BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"
 
+# Note: Material paths are now managed by src.common.materials module
+
 # ===================================================================================================================
 # Docs - Readme
 # ===================================================================================================================
@@ -417,6 +419,17 @@ Het huidige model is een **vereenvoudigde rechthoekige plaat** gebaseerd op:
 - **Dikte**: Vast op 0.5m (moet nog uitgebreid worden met variabele dikte per zone)
 - **Materiaal**: Standaard beton C30/37
 
+### Materiaal Compatibiliteit
+SCIA Engineer ondersteunt een brede range aan materialen via string-gebaseerde namen:
+
+**Volledig ondersteund:**
+- **Alle moderne Eurocode materialen** (C12/15 tot C90/105, B500A/B/C)
+- **Oudere Nederlandse materialen** (K150-K600, B12,5-B65)
+- **Oude wapeningsstaal** (QR22-QR54, QRn32-QRn54, FeB 220/400/500)
+- **Historische staalsoorten** (St. 37, St. 52, Speciaal st. 36/48)
+
+**Voordeel:** SCIA accepteert materialen direct zoals ze in de project database staan.
+
 ### Download Opties
 Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 
@@ -425,4 +438,45 @@ Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 - Variabele dikte per zone (dz, dz_2 parameters)
 - Belastinggevallen en combinaties
 - Geavanceerde materiaal eigenschappen
+        """
+
+# ===================================================================================================================
+# IDEA StatiCa info text
+# ===================================================================================================================
+
+IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integration
+
+Deze pagina toont een preview van het IDEA RCS model en biedt download opties voor dwarsdoorsnede analyse.
+
+### Model Informatie
+Het huidige model is een **vereenvoudigde rechthoekige plaat** met wapening gebaseerd op:
+- **Breedte**: Breedte van het eerste segment (bz1 + bz2 + bz3)
+- **Dikte**: Realistische dekdikte (maximum 0.8m voor plaatanalyse)
+- **Materiaal**: Standaard beton C30/37
+- **Wapening**: Betonstaal B500B met diameter 12mm en onderlinge afstand 150mm
+- **Bovenwapening**: Hart-op-hart afstand 150mm, betondekking 55mm
+- **Onderwapening**: Hart-op-hart afstand 150mm, betondekking 55mm
+
+### Materiaal Compatibiliteit
+IDEA StatiCa ondersteunt alleen moderne Eurocode materialen:
+
+**Direct ondersteund:**
+- **B500A, B500B, B500C** (moderne Eurocode wapeningsstaal)
+- **C12/15 tot C50/60** (standaard betonklassen)
+
+**Automatische omzetting oude materialen:**
+- **QR24, QR22** naar B500A (lage sterkte: 220-240 N/mm²)
+- **QR30, QR40, FeB 400** naar B500B (medium sterkte: 300-400 N/mm²)
+- **QR48, FeB 500** naar B500C (hoge sterkte: 400+ N/mm²)
+
+**Aanbeveling:** Voor exacte materiaalcontrole, selecteer direct B500A/B/C in wapeningsinstellingen.
+
+### Download Opties
+Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:
+
+### Toekomstige Uitbreidingen
+- T-balken en kokerprofielen
+- Variabele wapeningsconfiguraties per zone
+- Realistische belastinggevallen uit bruggeometrie
+- Uitbreiding van materiaalintegratie met Info pagina parameters
         """

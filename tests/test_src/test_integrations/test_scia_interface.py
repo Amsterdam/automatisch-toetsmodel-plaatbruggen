@@ -180,7 +180,7 @@ class TestMainInterface:
         template_path = Path("test_template.esa")
 
         # Call function
-        xml_file, def_file, scia_analysis = create_bridge_scia_model(bridge_segments, template_path)
+        xml_file, def_file, scia_analysis = create_bridge_scia_model(bridge_segments, template_path, "C30/37")
 
         # Verify calls
         mock_create_model.assert_called_once()
