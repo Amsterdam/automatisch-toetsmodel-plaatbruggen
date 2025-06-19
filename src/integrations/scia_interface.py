@@ -22,6 +22,10 @@ from munch import Munch  # type: ignore[import-untyped]
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
 SciaModel: TypeAlias = object  # More specific type if available from SCIA API
 
+from app.bridge.parametrization import (
+    BridgeParametrization,
+)
+
 
 class NodeTracker:
     """Helper class to track and reuse nodes in SCIA model creation."""
@@ -69,7 +73,7 @@ class NodeTracker:
         return self._nodes_by_name[name]
 
 
-def create_node_and_thickness_dict(params: dict | Munch) -> tuple[dict[str, list[float]], dict[str, float]]:
+def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[str, list[float]], dict[str, float]]:
     """
     Create dictionaries containing node positions and thickness data for SCIA model.
 
@@ -148,7 +152,7 @@ def create_node_and_thickness_dict(params: dict | Munch) -> tuple[dict[str, list
     return nodes_dict, thickness_dict
 
 
-def create_simple_scia_plate_model(params: dict | Munch) -> io.BytesIO:
+def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
