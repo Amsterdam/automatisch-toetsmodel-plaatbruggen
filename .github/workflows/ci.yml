@@ -30,6 +30,4 @@ jobs:
     
     - name: Run quality checks  
       run: |
-        export PATH=$PWD:$PATH
-        python scripts/run_ruff_check.py
         python scripts/quality_check_and_push.py --dry-run 
