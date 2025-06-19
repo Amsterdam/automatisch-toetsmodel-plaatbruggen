@@ -459,7 +459,7 @@ class BridgeController(ViktorController):
         return template_path
 
     # @GeometryView("SCIA Model Preview", duration_guess=5, x_axis_to_right=True)
-    # def get_scia_model_preview(self, params: BridgeParametrization, **kwargs) -> GeometryResult:  # noqa: ARG002
+    # def get_scia_model_preview(self, params: BridgeParametrization, **kwargs) -> GeometryResult:
     #     """
     #     Generate a preview of the SCIA model geometry.
 

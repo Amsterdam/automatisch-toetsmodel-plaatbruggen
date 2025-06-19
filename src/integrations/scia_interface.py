@@ -22,8 +22,9 @@ class NodeTracker:
     """Helper class to track and reuse nodes in SCIA model creation."""
 
     def __init__(self, scia_model):
-        """Initialize the node tracker.
-        
+        """
+        Initialize the node tracker.
+
         :param scia_model: SCIA model instance
         """
         self.model = scia_model
@@ -31,8 +32,9 @@ class NodeTracker:
         self._nodes_by_name: Dict[str, Any] = {}
 
     def get_or_create_node(self, name: str, x: float, y: float, z: float) -> Any:
-        """Get an existing node at the given coordinates or create a new one.
-        
+        """
+        Get an existing node at the given coordinates or create a new one.
+
         :param name: Name for the node (used if creating new)
         :param x: X coordinate
         :param y: Y coordinate
@@ -40,11 +42,11 @@ class NodeTracker:
         :returns: SCIA node object
         """
         coords = (x, y, z)
-        
+
         # First check if we already have a node at these coordinates
         if coords in self._nodes_by_coords:
             return self._nodes_by_coords[coords]
-        
+
         # If not, create a new node
         node = self.model.create_node(name, x, y, z)
         self._nodes_by_coords[coords] = node
@@ -52,8 +54,9 @@ class NodeTracker:
         return node
 
     def get_node_by_name(self, name: str) -> Any:
-        """Get a node by its name.
-        
+        """
+        Get a node by its name.
+
         :param name: Name of the node
         :returns: SCIA node object
         :raises KeyError: If node with given name doesn't exist
@@ -83,6 +86,7 @@ class BridgeGeometryData:
     nodes_dict: dict
     thickness_dict: dict
 
+
 def create_node_and_thickness_dict(params):
     # Determine the number of sub-zones based on input dimensions
     dynamic_arrays = len(params.bridge_segments_array)
@@ -93,54 +97,59 @@ def create_node_and_thickness_dict(params):
     # Helper function to calculate node positions for a cross section
     def calculate_cross_section_positions(segment_idx):
         # Calculate cumulative length for this cross section
-        l_sum = sum(item["l"] for item in params.bridge_segments_array[:segment_idx + 1])
+        l_sum = sum(item["l"] for item in params.bridge_segments_array[: segment_idx + 1])
         segment = params.bridge_segments_array[segment_idx]
-        
+
         return {
-            'x': l_sum,
-            'z1_left': segment.bz1 + segment.bz2 / 2,  # Zone 1 left edge
-            'z1_right': segment.bz2 / 2,  # Zone 1 right edge (boundary with Zone 2)
-            'z3_left': -segment.bz2 / 2,  # Zone 3 left edge (boundary with Zone 2)
-            'z3_right': -segment.bz3 - segment.bz2 / 2,  # Zone 3 right edge
+            "x": l_sum,
+            "z1_left": segment.bz1 + segment.bz2 / 2,  # Zone 1 left edge
+            "z1_right": segment.bz2 / 2,  # Zone 1 right edge (boundary with Zone 2)
+            "z3_left": -segment.bz2 / 2,  # Zone 3 left edge (boundary with Zone 2)
+            "z3_right": -segment.bz3 - segment.bz2 / 2,  # Zone 3 right edge
         }
 
     # Create nodes for the first cross section (start of bridge)
     if dynamic_arrays > 0:
         pos = calculate_cross_section_positions(0)
-        nodes_dict.update({
-            # First cross section nodes
-            "K_dek:1_1": [pos['x'], pos['z1_left'], 0],  # Zone 1 left
-            "K_dek:1_2": [pos['x'], pos['z1_right'], 0],  # Zone 1 right
-            "K_dek:1_3": [pos['x'], pos['z3_left'], 0],  # Zone 3 left
-            "K_dek:1_4": [pos['x'], pos['z3_right'], 0],  # Zone 3 right
-        })
+        nodes_dict.update(
+            {
+                # First cross section nodes
+                "K_dek:1_1": [pos["x"], pos["z1_left"], 0],  # Zone 1 left
+                "K_dek:1_2": [pos["x"], pos["z1_right"], 0],  # Zone 1 right
+                "K_dek:1_3": [pos["x"], pos["z3_left"], 0],  # Zone 3 left
+                "K_dek:1_4": [pos["x"], pos["z3_right"], 0],  # Zone 3 right
+            }
+        )
 
     for dynamic_array in range(1, dynamic_arrays):
         pos = calculate_cross_section_positions(dynamic_array)
         d_num = dynamic_array + 1  # Node numbering starts at 1
-        
-        # Add only the nodes for this cross section
-        nodes_dict.update({
-            # (zone 1)
-            f"K_dek:{d_num}_1": [pos['x'], pos['z1_left'], 0],   # Zone 1 left
-            f"K_dek:{d_num}_2": [pos['x'], pos['z1_right'], 0],  # Zone 1 right
-            # (zone 3)
-            f"K_dek:{d_num}_3": [pos['x'], pos['z3_left'], 0],   # Zone 3 left
-            f"K_dek:{d_num}_4": [pos['x'], pos['z3_right'], 0],  # Zone 3 right
-        })
-        
-        # Add thickness data for the plates that will be created using these nodes
-        thickness_dict.update({
-            # (zone 1)
-            f"Z1_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
-            # (zone 2)
-            f"Z2_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz_2,
-            # (zone 3)
-            f"Z3_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
-        })
-    
-    return nodes_dict, thickness_dict
 
+        # Add only the nodes for this cross section
+        nodes_dict.update(
+            {
+                # (zone 1)
+                f"K_dek:{d_num}_1": [pos["x"], pos["z1_left"], 0],  # Zone 1 left
+                f"K_dek:{d_num}_2": [pos["x"], pos["z1_right"], 0],  # Zone 1 right
+                # (zone 3)
+                f"K_dek:{d_num}_3": [pos["x"], pos["z3_left"], 0],  # Zone 3 left
+                f"K_dek:{d_num}_4": [pos["x"], pos["z3_right"], 0],  # Zone 3 right
+            }
+        )
+
+        # Add thickness data for the plates that will be created using these nodes
+        thickness_dict.update(
+            {
+                # (zone 1)
+                f"Z1_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+                # (zone 2)
+                f"Z2_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz_2,
+                # (zone 3)
+                f"Z3_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+            }
+        )
+
+    return nodes_dict, thickness_dict
 
 
 # def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]]) -> BridgeGeometryData:
@@ -183,7 +192,7 @@ def create_node_and_thickness_dict(params):
 
 #     if total_width <= 0:
 #         raise ValueError("Bridge total width must be positive")
-    
+
 #     nodes_dict, thickness_dict = create_node_and_thickness_dict(bridge_segments_params)
 
 #     # Variable thickness support - NO AVERAGING, SEPARATE ZONES REQUIRED
@@ -402,7 +411,7 @@ def create_simple_scia_plate_model(params):
 
     # Create empty SCIA model using correct VIKTOR SCIA API
     model = scia.Model()
-    
+
     # Initialize the node tracker to avoid duplicate nodes
     node_tracker = NodeTracker(model)
 
@@ -418,7 +427,7 @@ def create_simple_scia_plate_model(params):
 
     # Dictionary to store SCIA nodes for reuse
     scia_nodes = {}
-    
+
     # Create initial nodes for the first cross section
     for node_suffix in range(1, 5):  # Create all 4 nodes of first cross section
         node_name = f"K_dek:1_{node_suffix}"
@@ -427,7 +436,6 @@ def create_simple_scia_plate_model(params):
 
     # Create plates between cross sections
     for span in range(1, dynamic_arrays):
-        
         # Create nodes for the next cross section if they don't exist
         next_span = span + 1
         for node_suffix in range(1, 5):  # Create all 4 nodes of next cross section
@@ -441,7 +449,7 @@ def create_simple_scia_plate_model(params):
             scia_nodes[f"K_dek:{span}_1"],
             scia_nodes[f"K_dek:{next_span}_1"],
             scia_nodes[f"K_dek:{next_span}_2"],
-            scia_nodes[f"K_dek:{span}_2"]
+            scia_nodes[f"K_dek:{span}_2"],
         ]
         model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
 
@@ -450,7 +458,7 @@ def create_simple_scia_plate_model(params):
             scia_nodes[f"K_dek:{span}_3"],
             scia_nodes[f"K_dek:{next_span}_3"],
             scia_nodes[f"K_dek:{next_span}_4"],
-            scia_nodes[f"K_dek:{span}_4"]
+            scia_nodes[f"K_dek:{span}_4"],
         ]
         model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
 
@@ -459,7 +467,7 @@ def create_simple_scia_plate_model(params):
             scia_nodes[f"K_dek:{span}_2"],
             scia_nodes[f"K_dek:{next_span}_2"],
             scia_nodes[f"K_dek:{next_span}_3"],
-            scia_nodes[f"K_dek:{span}_3"]
+            scia_nodes[f"K_dek:{span}_3"],
         ]
         model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
 
