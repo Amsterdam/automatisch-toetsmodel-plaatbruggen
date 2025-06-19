@@ -4,12 +4,12 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
+from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
 from src.geometry.model_creator import BridgeSegmentDimensions
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import controller_test_wrapper
-from viktor.errors import UserError
 
 
 class TestBridgeController(unittest.TestCase):
