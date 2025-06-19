@@ -4,14 +4,27 @@
 
 #### User-Facing
 - Horizontal spawn arrow to the topview
+- Pavement properties for load zones:
+  - Added thickness field for pavement/surfacing per load zone (default 5cm)
+  - Added material selection field with options: Asfalt, Beton, Klinkers, Grind, Tegels
+  - Added explanatory text about eigengewicht calculation (thickness * material density → kN/m2)
 
 #### Developer-Facing
 - Comprehensive Phase 2 VIKTOR view testing infrastructure:
   - Full view execution tests for all `BridgeController` and `OverviewBridgesController` views
   - Advanced VIKTOR result object handling (`DataResult`, `PlotlyResult`, `MapResult`, `GeometryResult`, `PDFResult`)
   - Decorator bypassing for authentic view method testing
-  - 188 total tests across core logic and interface
+  - 15 new test methods covering all controller views with realistic parameter data
 - Dutch testing documentation (`docs/testing_uitleg.md`) with workflows, AI assistance guidance, and seed file maintenance procedures
+- Pavement material constants and infrastructure:
+  - Added `PAVEMENT_MATERIAL_OPTIONS` constant with material types
+  - Added `LOAD_ZONES_INFO_TEXT` constant for centralized text management
+  - TODO comments for Eurocode 1 material density implementation and CSV loading
+- Load zone geometric calculation system:
+  - Added `_calculate_zone_geometry_properties` method following dimensions pattern
+  - Proper zone stacking logic from bridge top to bottom
+  - Integration with existing `prepare_load_zone_geometry_data` function
+- Test data seed files updated with pavement parameters for comprehensive testing coverage
 
 ### Changed
 
@@ -29,10 +42,13 @@
 ### Fixed
 
 #### User-Facing
-- 
+- Load zones view functionality restored after missing geometric calculations were implemented
 
 #### Developer-Facing
-- 
+- Load zones IndexError resolved by implementing proper geometric property calculations
+- Unicode character issues in constants (replaced × with * and ² with 2 for ASCII compatibility)
+- Ruff configuration updated to ignore TODO comments (FIX002) as they will be addressed in separate issues
+- LoadZoneDataRow TypedDict updated to include pavement parameters and calculated geometric fields
 
 
 ## [`v0.0.5`] - 2025-05-22

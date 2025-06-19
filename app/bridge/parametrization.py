@@ -25,7 +25,14 @@ from viktor.parametrization import (
     TextField,
 )
 
-from app.constants import BRIDGE_DATA_PATH, LOAD_ZONE_TYPES, MAX_LOAD_ZONE_SEGMENT_FIELDS, SCIA_INFO_TEXT
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 
 from .geometry_functions import get_steel_qualities
 
@@ -110,7 +117,11 @@ def _create_default_dimension_segment_row(l_value: int, is_first: bool) -> dict[
 
 def _create_default_load_zone_row(zone_type: str, default_width: float) -> dict[str, Any]:
     """Creates a dictionary for a default load zone row."""
-    row: dict[str, Any] = {"zone_type": zone_type}
+    row: dict[str, Any] = {
+        "zone_type": zone_type,
+        "pavement_thickness": 0.05,  # Default 5cm thickness
+        "pavement_material": "Asfalt",  # Default material
+    }
     for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
         row[f"d{i}_width"] = default_width
     return row
@@ -688,15 +699,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # ----------------------------------------
 
     # --- Load Zones (in belastingzones tab) ---
-    input.belastingzones.info_text = Text(
-        """Definieer hier de werkelijke wegindeling op de brug, de belastingen worden hier automatisch van afgeleid.
-De belastingen volgens de theoretische wegindeling worden automatisch gegenereerd op de achtergrond, hier hoef je niets voor in te vullen.
-
-Elke zone wordt gestapeld vanaf één zijde van de brug.
-Vul alleen breedtes in voor de daadwerkelijk gedefinieerde brugsegmenten (D-nummers) onder de tab Dimensies.
-De laatste belastingzone loopt automatisch door tot het einde van de brug;
-hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden."""
-    )
+    input.belastingzones.info_text = Text(LOAD_ZONES_INFO_TEXT)
 
     input.belastingzones.load_zones_array = DynamicArray(
         "Belastingzones",
@@ -710,6 +713,29 @@ hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden."""
         ],
     )
     input.belastingzones.load_zones_array.zone_type = OptionField("Type belastingzone", options=LOAD_ZONE_TYPES, default=LOAD_ZONE_TYPES[0])
+
+    # Pavement properties for load calculation
+    input.belastingzones.load_zones_array.pavement_thickness = NumberField(
+        "Dikte verharding",
+        default=0.05,  # 5cm default
+        min=0.001,  # Minimum 1mm
+        max=1.0,  # Maximum 1m
+        suffix="m",
+        step=0.001,  # 1mm steps
+        description="Dikte van de wegverharding/ophoging voor deze belastingzone. Wordt gebruikt voor berekening eigengewicht.",
+    )
+
+    input.belastingzones.load_zones_array.pavement_material = OptionField(
+        "Materiaal verharding",
+        options=PAVEMENT_MATERIAL_OPTIONS,
+        default="Asfalt",
+        description="Type materiaal van de verharding. Bepaalt de soortelijke massa voor eigengewichtberekening.",
+    )
+
+    # TODO: Add calculated field showing resulting load in kN/m² based on thickness × material density
+    # TODO: This calculation should be implemented in the controller/backend logic
+
+    input.belastingzones.load_zones_array.lb_pavement = LineBreak()
 
     # Dynamically create dX_width fields for the load_zones_array
     for _idx_field in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
