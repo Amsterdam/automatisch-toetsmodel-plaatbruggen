@@ -7,9 +7,11 @@ Currently implements a simple rectangular plate model as a starting point.
 Future enhancements needed:
 - Support for complex bridge geometry matching the actual bridge shape (1:1 with bridge segments)
 - Variable thickness across zones (zone 1, 2, 3 have different thickness values)
-- Load cases and combinations
-- Support for different bridge types
-- Material property customization
+- Load cases and combinations from params.input.belastingzones and belastingcombinaties
+- Support for different bridge types from params.info.bridge_type and static_system
+- Material property customization from params.info.concrete_strength_class
+- Reinforcement modeling from params.input.geometrie_wapening zones
+- Extract all geometry from params.input.dimensions.bridge_segments_array instead of hardcoded values
 """
 
 import io
@@ -39,7 +41,7 @@ class BridgeGeometryData:
     material_name: str
 
 
-def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]]) -> BridgeGeometryData:
+def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]], concrete_material: str | None = None) -> BridgeGeometryData:
     """
     Extract bridge geometry data from bridge segment parameters.
 
@@ -49,12 +51,17 @@ def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, A
     - Thickness: Hardcoded to 0.5m
 
     TODO: Future improvements:
-    - Support variable width along bridge length
-    - Support variable thickness per zone (dz, dz_2 parameters)
+    - Support variable width along bridge length from params.input.dimensions.bridge_segments_array
+    - Support variable thickness per zone (dz, dz_2 parameters) from bridge segments
     - Handle complex bridge shapes with proper geometry interpolation
+    - Extract materials from params.info.concrete_strength_class for realistic modeling
+    - Add reinforcement support from params.input.geometrie_wapening zones
+    - Implement load cases from params.input.belastingzones.load_zones_array
 
     :param bridge_segments_params: List of bridge segment parameter dictionaries
     :type bridge_segments_params: list[dict[str, Any]]
+    :param concrete_material: Concrete material grade (e.g., "C30/37") from material system
+    :type concrete_material: str | None
     :returns: Bridge geometry data for SCIA model creation
     :rtype: BridgeGeometryData
     :raises ValueError: If bridge_segments_params is empty or invalid
@@ -90,11 +97,28 @@ def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, A
     #
     # NOTE: Do NOT use average thickness - create 3 separate plate elements with their own thicknesses
     # The simplified rectangular model should be replaced with proper multi-zone implementation
+    # Extract actual thickness from bridge_segments_array when zone-specific implementation is added
+    # Use construction_height for realistic deck thickness (convert from mm to m) when available
     thickness = 0.5  # Hardcoded for now - will be replaced by 3-zone implementation
 
-    # Material selection from INFO page parameters
-    # Material should come from params.info.material_grade (incoming feature)
-    material_name = "C30/37"  # Standard concrete grade - will be replaced by INFO page parameter
+    # Material selection from centralized material system
+    # Use provided material or get default from centralized system
+    if concrete_material is None:
+        from src.common.materials import get_default_materials
+
+        defaults = get_default_materials()
+        material_name = defaults["concrete"]
+    else:
+        # Validate material exists in project database and is SCIA-compatible
+        from src.common.materials import get_supported_scia_materials, normalize_material_name, validate_material_exists
+
+        if not validate_material_exists(concrete_material, "concrete"):
+            supported_materials = get_supported_scia_materials()["concrete"]
+            raise ValueError(
+                f"Concrete material '{concrete_material}' not found in project database. SCIA-supported materials: {supported_materials}"
+            )
+        # Use normalized material name to ensure compatibility with CSV database format
+        material_name = normalize_material_name(concrete_material)
 
     return BridgeGeometryData(total_length=total_length, total_width=total_width, thickness=thickness, material_name=material_name)
 
@@ -345,7 +369,9 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
-def create_bridge_scia_model(bridge_segments_params: list[dict[str, Any]], template_path: Path) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(
+    bridge_segments_params: list[dict[str, Any]], template_path: Path, concrete_material: str | None = None
+) -> tuple[Any, Any, Any]:
     """
     Main function to create complete SCIA model from bridge parameters.
 
@@ -411,14 +437,16 @@ def create_bridge_scia_model(bridge_segments_params: list[dict[str, Any]], templ
     :type bridge_segments_params: list[dict[str, Any]]
     :param template_path: Path to ESA template file
     :type template_path: Path
+    :param concrete_material: Concrete material grade (e.g., "C30/37") from material system
+    :type concrete_material: str | None
     :returns: Tuple of (xml_file, def_file, scia_analysis)
     :rtype: tuple[Any, Any, Any]
     :raises ValueError: If bridge parameters are invalid
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
-    # Extract bridge geometry
-    bridge_geometry = extract_bridge_geometry_from_params(bridge_segments_params)
+    # Extract bridge geometry with material
+    bridge_geometry = extract_bridge_geometry_from_params(bridge_segments_params, concrete_material)
 
     # Create SCIA model
     xml_file, def_file = create_simple_scia_plate_model(bridge_geometry)
