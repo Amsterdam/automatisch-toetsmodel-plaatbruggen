@@ -13,7 +13,6 @@ Future enhancements needed:
 """
 
 import io
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
@@ -62,29 +61,6 @@ class NodeTracker:
         :raises KeyError: If node with given name doesn't exist
         """
         return self._nodes_by_name[name]
-
-
-@dataclass
-class BridgeGeometryData:
-    """
-    Data structure for bridge geometry information extracted from bridge parameters.
-
-    :param total_length: Total length of the bridge in meters
-    :type total_length: float
-    :param total_width: Total width of the bridge in meters
-    :type total_width: float
-    :param thickness: Thickness of the bridge deck in meters
-    :type thickness: float
-    :param material_name: Name of the material to use
-    :type material_name: str
-    """
-
-    total_length: float
-    total_width: float
-    thickness: float
-    material_name: str
-    nodes_dict: dict
-    thickness_dict: dict
 
 
 def create_node_and_thickness_dict(params):

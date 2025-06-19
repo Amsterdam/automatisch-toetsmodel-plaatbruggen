@@ -9,47 +9,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.integrations.scia_interface import (
-    BridgeGeometryData,
-)
-
-
-class TestSCIAModelCreation:
-    """Test SCIA model creation functions (mocked)."""
-
-    def test_create_simple_scia_plate_model_basic_validation(self) -> None:
-        """Test basic validation of SCIA model creation parameters."""
-        from src.integrations.scia_interface import create_simple_scia_plate_model
-
-        # Test with valid geometry data - this validates the interface works
-        bridge_geometry = BridgeGeometryData(total_length=25.0, total_width=30.0, thickness=0.5, material_name="C30/37")
-
-        # Since VIKTOR is available, we can test basic functionality
-        # This is more of a smoke test to ensure the function doesn't crash
-        with pytest.raises((ImportError, ValueError, TypeError, KeyError)):
-            create_simple_scia_plate_model(bridge_geometry)
-
-    def test_create_simple_scia_plate_model_with_viktor(self) -> None:
-        """Test SCIA model creation with actual VIKTOR available (basic smoke test)."""
-        from src.integrations.scia_interface import create_simple_scia_plate_model
-
-        bridge_geometry = BridgeGeometryData(total_length=25.0, total_width=30.0, thickness=0.5, material_name="C30/37")
-
-        # This should not raise an ImportError since VIKTOR is available
-        # We just test that the function can be called without exceptions
-        # (actual SCIA execution would require SCIA worker)
-        try:
-            xml_file, def_file = create_simple_scia_plate_model(bridge_geometry)
-            # If we get here, the function worked
-            assert xml_file is not None
-            assert def_file is not None
-        except ImportError:
-            # ImportError means VIKTOR SCIA module not available
-            pytest.skip("VIKTOR SCIA module not available")
-        except (ValueError, TypeError, KeyError):
-            # Other errors are expected due to environment/configuration
-            pass
-
 
 class TestSCIAAnalysisCreation:
     """Test SCIA analysis creation functions."""
