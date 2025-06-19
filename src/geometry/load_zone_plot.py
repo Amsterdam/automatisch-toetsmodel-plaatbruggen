@@ -16,7 +16,7 @@ class BridgeBaseGeometry(TypedDict):
 
     x_coords_d_points: list[float]
     y_coords_bridge_top_edge: list[float]
-    y_coords_bridge_bottom_edge: list[float]
+    y_coords_bridge_bottom_edge: list[list[float]]
     num_defined_d_points: int
 
 
@@ -158,9 +158,11 @@ def create_zone_fill_trace(
         mode="none",
         fill="toself",
         fillcolor=appearance_props["fill_color"],
-        fillpattern_shape=appearance_props.get("pattern_shape", ""),
-        fillpattern_fgcolor=appearance_props.get("pattern_fgcolor"),
-        fillpattern_solidity=appearance_props.get("pattern_solidity"),
+        fillpattern={
+            "shape": appearance_props.get("pattern_shape", ""),
+            "fgcolor": appearance_props.get("pattern_fgcolor"),
+            "solidity": appearance_props.get("pattern_solidity"),
+        },
         hoverinfo="skip",
         showlegend=False,
     )
@@ -296,32 +298,60 @@ def build_load_zones_figure(
     all_annotations: list[go.layout.Annotation] = []
     # Unpack bridge_geom for easier access
     x_coords_d_points = bridge_geom["x_coords_d_points"]
-    y_coords_bridge_top_edge = bridge_geom["y_coords_bridge_top_edge"]
-    y_coords_bridge_bottom_edge = bridge_geom["y_coords_bridge_bottom_edge"]
+    y_coords_bridge_bottom_edge: list[list[float]] = bridge_geom["y_coords_bridge_bottom_edge"]
     num_defined_d_points = bridge_geom["num_defined_d_points"]
+    y_coords_bridge_top_edge = bridge_geom["y_coords_bridge_top_edge"]
 
     # Unpack styling_defaults
     zone_appearance_map = styling_defaults["zone_appearance_map"]
     default_plotly_colors = styling_defaults["default_plotly_colors"]
 
-    y_coords_top_of_current_zone = list(y_coords_bridge_top_edge)  # Start with the bridge top edge
+    # Unpack presentation details
+    base_traces = presentation_details.get("base_traces")
+    validation_messages = presentation_details.get("validation_messages")
+    figure_title = presentation_details.get("figure_title", "Belastingzones")
 
-    for zone_idx, zone_data in enumerate(load_zones_data_params):
-        y_coords_bottom_of_current_zone = calculate_zone_bottom_y_coords(
-            zone_idx=zone_idx,
-            num_load_zones=len(load_zones_data_params),
-            num_defined_d_points=num_defined_d_points,
-            y_coords_top_current_zone=y_coords_top_of_current_zone,
-            y_bridge_bottom_at_d_points=y_coords_bridge_bottom_edge,
-            zone_param_data=zone_data,
+    # Style for shared boundary lines
+    sbs_line_thickness = 0.7
+    sbs_offset = 0.003  # Small offset for shared lines
+    absolute_edge_thickness = 1.5
+
+    for zone_idx, zone_param_data in enumerate(load_zones_data_params):
+        zone_type_text = zone_param_data.get("zone_type", f"Zone {zone_idx + 1}")
+        # Ensure access via get for TypedDict compatibility
+        zone_widths_per_d: list[float] = zone_param_data.get("zone_widths_per_d", [])  # type: ignore[assignment]
+        y_coords_top_of_current_zone: list[float] = zone_param_data.get("y_coords_top_current_zone", [])  # type: ignore[assignment]
+
+        if not zone_widths_per_d or not y_coords_top_of_current_zone:
+            # Skip this zone if essential data is missing
+            # This should not happen anymore since controller calculates these fields
+            continue  # Skip this zone and continue to next iteration
+
+        # Extract y_bridge_bottom_at_d_points from bridge_geom (list[list[float]] -> list[float])
+        # Using the first element [0] of each [min_y, max_y] pair
+        y_bridge_bottom_at_d_points = [bottom_edge[0] for bottom_edge in y_coords_bridge_bottom_edge]
+
+        y_coords_bottom_of_current_zone: list[float] = calculate_zone_bottom_y_coords(
+            zone_idx, len(load_zones_data_params), num_defined_d_points, y_coords_top_of_current_zone, y_bridge_bottom_at_d_points, zone_param_data
         )
 
+        # Determine if any part of this zone is lower than the absolute bridge bottom
+        # (e.g., due to errors or extreme parameters)
         exceeds_limits = any(
-            y_coords_bottom_of_current_zone[d_idx] < y_coords_bridge_bottom_edge[d_idx] - 1e-3 for d_idx in range(num_defined_d_points)
+            y_coords_bottom_of_current_zone[d_idx]
+            < y_coords_bridge_bottom_edge[d_idx][0] - 1e-3  # Compare y_coord of zone with min_y of bridge bottom
+            for d_idx in range(num_defined_d_points)
         )
+        # Check if the zone exceeds the top of the bridge
+        exceeds_limits = exceeds_limits or any(
+            y_coords_top_of_current_zone[d_idx] > y_coords_bridge_top_edge[d_idx] + 1e-3  # Compare y_coord of zone with y_coord of bridge top
+            for d_idx in range(num_defined_d_points)
+        )
+
+        current_zone_exceeds_limits = exceeds_limits
 
         appearance_props = get_zone_appearance_properties(
-            zone_data["zone_type"], zone_idx, zone_appearance_map, default_plotly_colors, is_exceeding_limits=exceeds_limits
+            zone_type_text, zone_idx, zone_appearance_map, default_plotly_colors, is_exceeding_limits=current_zone_exceeds_limits
         )
 
         current_zone_geom_for_plotting: ZonePlottingGeometry = {
@@ -341,9 +371,9 @@ def build_load_zones_figure(
 
         boundary_style: ZoneBoundaryLineStyle = {
             "line_color": appearance_props["line_color"],
-            "sbs_line_thickness": 3.0,
-            "sbs_offset": 0.05,
-            "absolute_edge_thickness": 3.0,
+            "sbs_line_thickness": sbs_line_thickness,
+            "sbs_offset": sbs_offset,
+            "absolute_edge_thickness": absolute_edge_thickness,
         }
         boundary_traces = create_zone_boundary_line_traces(
             zone_idx,
@@ -357,7 +387,7 @@ def build_load_zones_figure(
         all_annotations.append(
             create_zone_main_label_annotation(
                 zone_idx=zone_idx,
-                zone_type_text=zone_data["zone_type"],
+                zone_type_text=zone_type_text,
                 geometry=current_zone_geom_for_plotting,  # Pass the grouped geometry
                 # x_offset uses its default value
             )
@@ -365,15 +395,13 @@ def build_load_zones_figure(
 
         all_annotations.extend(
             create_zone_width_annotations(
-                zone_data,
+                zone_param_data,
                 geometry=current_zone_geom_for_plotting,  # Pass the new geometry group
                 num_defined_d_points=num_defined_d_points,  # Still pass if it varies or not part of current_zone_geom
                 zone_idx=zone_idx,
                 num_load_zones=len(load_zones_data_params),
             )
         )
-
-        y_coords_top_of_current_zone = list(y_coords_bottom_of_current_zone)
 
     if validation_messages:
         consolidated_warning_text = "<br>".join([f"<b>Waarschuwing:</b> {msg}" for msg in validation_messages])

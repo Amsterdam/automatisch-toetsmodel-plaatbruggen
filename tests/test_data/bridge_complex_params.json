@@ -1,0 +1,199 @@
+{
+  "info": {
+    "bridge_objectnumm": "BRIDGE-COMPLEX-001",
+    "bridge_name": "Complex Test Bridge",
+    "location_description": "Complex Multi-Segment Bridge Test",
+    "city": "Complex City",
+    "construction_year": 2015,
+    "total_length": 25.0,
+    "total_width": 40.0,
+    "assessment_date": "2024-06-15",
+    "assessment_status": "In progress",
+    "assessment_notes": "Complex bridge for testing with multiple segments"
+  },
+  "input": {
+    "dimensions": {
+      "toggle_sections": true,
+      "horizontal_section_loc": -1.5,
+      "longitudinal_section_loc": 5.0,
+      "cross_section_loc": 12.5
+    },
+    "belastingcombinaties": {
+      "cc_class": ["CC1a/b", "CC2"],
+      "uls_comb_factor": ["ULS", "SLS"]
+    },
+    "geometrie_wapening": {
+      "staalsoort": "B500B",
+      "dekking": 60.0,
+      "langswapening_buiten": false
+    }
+  },
+  "bridge_segments_array": [
+    {
+      "bz1": 12.0,
+      "bz2": 6.0,
+      "bz3": 18.0,
+      "dz": 2.2,
+      "dz_2": 3.2,
+      "col_6": 0.0,
+      "l": 0,
+      "is_first_segment": true
+    },
+    {
+      "bz1": 10.0,
+      "bz2": 5.0,
+      "bz3": 15.0,
+      "dz": 2.0,
+      "dz_2": 3.0,
+      "col_6": 0.0,
+      "l": 12,
+      "is_first_segment": false
+    },
+    {
+      "bz1": 8.0,
+      "bz2": 4.0,
+      "bz3": 12.0,
+      "dz": 1.8,
+      "dz_2": 2.8,
+      "col_6": 0.0,
+      "l": 13,
+      "is_first_segment": false
+    }
+  ],
+  "load_zones_data_array": [
+    {
+      "zone_type": "Voetgangers",
+      "pavement_thickness": 0.025,
+      "pavement_material": "Klinkers",
+      "d1_width": 2.0,
+      "d2_width": 1.8,
+      "d3_width": 1.5,
+      "d4_width": 1.5,
+      "d5_width": 1.5,
+      "d6_width": 1.5,
+      "d7_width": 1.5,
+      "d8_width": 1.5,
+      "d9_width": 1.5,
+      "d10_width": 1.5,
+      "d11_width": 1.5,
+      "d12_width": 1.5,
+      "d13_width": 1.5,
+      "d14_width": 1.5,
+      "d15_width": 1.5
+    },
+    {
+      "zone_type": "Fietsers",
+      "pavement_thickness": 0.035,
+      "pavement_material": "Asfalt",
+      "d1_width": 3.5,
+      "d2_width": 3.2,
+      "d3_width": 2.8,
+      "d4_width": 3.0,
+      "d5_width": 3.0,
+      "d6_width": 3.0,
+      "d7_width": 3.0,
+      "d8_width": 3.0,
+      "d9_width": 3.0,
+      "d10_width": 3.0,
+      "d11_width": 3.0,
+      "d12_width": 3.0,
+      "d13_width": 3.0,
+      "d14_width": 3.0,
+      "d15_width": 3.0
+    },
+    {
+      "zone_type": "Auto (Rijbaan)",
+      "pavement_thickness": 0.12,
+      "pavement_material": "Beton",
+      "d1_width": 14.0,
+      "d2_width": 12.5,
+      "d3_width": 11.0,
+      "d4_width": 10.5,
+      "d5_width": 10.5,
+      "d6_width": 10.5,
+      "d7_width": 10.5,
+      "d8_width": 10.5,
+      "d9_width": 10.5,
+      "d10_width": 10.5,
+      "d11_width": 10.5,
+      "d12_width": 10.5,
+      "d13_width": 10.5,
+      "d14_width": 10.5,
+      "d15_width": 10.5
+    }
+  ],
+  "reinforcement_zones_array": [
+    {
+      "zone_number": "1-1",
+      "hoofdwapening_langs_boven_diameter": 16.0,
+      "hoofdwapening_langs_boven_hart_op_hart": 125.0,
+      "hoofdwapening_langs_onder_diameter": 16.0,
+      "hoofdwapening_langs_onder_hart_op_hart": 125.0,
+      "hoofdwapening_dwars_diameter": 12.0,
+      "hoofdwapening_dwars_hart_op_hart": 150.0,
+      "heeft_bijlegwapening": true,
+      "bijlegwapening_langs_boven_diameter": 12.0,
+      "bijlegwapening_langs_boven_hart_op_hart": 200.0,
+      "bijlegwapening_langs_onder_diameter": 12.0,
+      "bijlegwapening_langs_onder_hart_op_hart": 200.0,
+      "bijlegwapening_dwars_diameter": 10.0,
+      "bijlegwapening_dwars_hart_op_hart": 250.0
+    },
+    {
+      "zone_number": "2-1",
+      "hoofdwapening_langs_boven_diameter": 14.0,
+      "hoofdwapening_langs_boven_hart_op_hart": 130.0,
+      "hoofdwapening_langs_onder_diameter": 14.0,
+      "hoofdwapening_langs_onder_hart_op_hart": 130.0,
+      "hoofdwapening_dwars_diameter": 12.0,
+      "hoofdwapening_dwars_hart_op_hart": 150.0,
+      "heeft_bijlegwapening": false
+    },
+    {
+      "zone_number": "3-1",
+      "hoofdwapening_langs_boven_diameter": 16.0,
+      "hoofdwapening_langs_boven_hart_op_hart": 125.0,
+      "hoofdwapening_langs_onder_diameter": 16.0,
+      "hoofdwapening_langs_onder_hart_op_hart": 125.0,
+      "hoofdwapening_dwars_diameter": 12.0,
+      "hoofdwapening_dwars_hart_op_hart": 150.0,
+      "heeft_bijlegwapening": true,
+      "bijlegwapening_langs_boven_diameter": 12.0,
+      "bijlegwapening_langs_boven_hart_op_hart": 200.0,
+      "bijlegwapening_langs_onder_diameter": 12.0,
+      "bijlegwapening_langs_onder_hart_op_hart": 200.0,
+      "bijlegwapening_dwars_diameter": 10.0,
+      "bijlegwapening_dwars_hart_op_hart": 250.0
+    },
+    {
+      "zone_number": "1-2",
+      "hoofdwapening_langs_boven_diameter": 12.0,
+      "hoofdwapening_langs_boven_hart_op_hart": 150.0,
+      "hoofdwapening_langs_onder_diameter": 12.0,
+      "hoofdwapening_langs_onder_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_diameter": 10.0,
+      "hoofdwapening_dwars_hart_op_hart": 175.0,
+      "heeft_bijlegwapening": false
+    },
+    {
+      "zone_number": "2-2",
+      "hoofdwapening_langs_boven_diameter": 12.0,
+      "hoofdwapening_langs_boven_hart_op_hart": 150.0,
+      "hoofdwapening_langs_onder_diameter": 12.0,
+      "hoofdwapening_langs_onder_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_diameter": 10.0,
+      "hoofdwapening_dwars_hart_op_hart": 175.0,
+      "heeft_bijlegwapening": false
+    },
+    {
+      "zone_number": "3-2",
+      "hoofdwapening_langs_boven_diameter": 12.0,
+      "hoofdwapening_langs_boven_hart_op_hart": 150.0,
+      "hoofdwapening_langs_onder_diameter": 12.0,
+      "hoofdwapening_langs_onder_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_diameter": 10.0,
+      "hoofdwapening_dwars_hart_op_hart": 175.0,
+      "heeft_bijlegwapening": false
+    }
+  ]
+} 

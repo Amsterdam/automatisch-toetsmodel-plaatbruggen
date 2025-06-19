@@ -20,6 +20,11 @@ def create_cross_section_annotations(params: dict | Munch, all_z: list[float]) -
     """
     if not isinstance(params, Munch):
         params = Munch.fromDict(params)
+
+    # Early exit if there are no segments to process
+    if not params.get("bridge_segments_array"):
+        return []
+
     l_values = []
     l_values_cumulative = []
     l_cumulative = 0

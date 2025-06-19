@@ -12,8 +12,12 @@ from io import StringIO
 # Add GeoPandas import (ensure it's installed in your venv)
 import geopandas as gpd
 import markdown
-
 import viktor.api_v1 as api  # Import VIKTOR API
+from viktor.core import ViktorController  # Import Color, ViktorController
+from viktor.errors import UserError  # Import UserError
+from viktor.parametrization import Parametrization  # Import for type hint
+from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
+
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
     get_filtered_bridges_json_path,
@@ -27,10 +31,6 @@ from app.constants import (  # Replace relative imports with absolute imports
     CSS_PATH,
     README_PATH,
 )
-from viktor.core import ViktorController  # Import Color, ViktorController
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
 from .parametrization import OverviewBridgesParametrization
@@ -276,47 +276,159 @@ class OverviewBridgesController(ViktorController):
         existing_objectnumms: set[str],
     ) -> None:
         """Creates child entities for bridges that do not already exist."""
-        created_count = 0
-        skipped_count = 0
         try:
-            # Get parent entity object once
             parent_entity = api.API().get_entity(parent_entity_id)
 
             for bridge_data in filtered_bridge_data:
-                objectnumm = bridge_data.get("OBJECTNUMM")
-
-                if not objectnumm:
-                    skipped_count += 1
+                if self._should_skip_bridge(bridge_data, existing_objectnumms):
                     continue
 
-                objectnumm_str = str(objectnumm)  # Ensure comparison is consistent
-
-                if objectnumm_str in existing_objectnumms:
-                    skipped_count += 1
-                    continue
-
-                # Bridge doesn't exist, create it
-                bridge_name = objectnumm_to_name.get(objectnumm_str)  # Use str for lookup
-
-                # Format child name: "OBJECTNUMM - OBJECTNAAM" or just "OBJECTNUMM"
+                objectnumm_str = str(bridge_data["OBJECTNUMM"])
+                bridge_name = objectnumm_to_name.get(objectnumm_str)
                 child_name = f"{objectnumm_str} - {bridge_name}" if bridge_name else objectnumm_str
 
-                # Prepare parameters for the child entity, now nested under 'info'
-                child_params = {
-                    "info": {
-                        "bridge_objectnumm": objectnumm_str,  # Store as string
-                        "bridge_name": bridge_name,  # Store name or None
-                    }
-                }
-
-                # Call create_child on the parent entity object
+                child_params = self._build_child_params(bridge_data, objectnumm_str, bridge_name)
                 parent_entity.create_child(entity_type_name="Bridge", name=child_name, params=child_params)
-                created_count += 1
-                # Add to set to prevent potential duplicates within this run
                 existing_objectnumms.add(objectnumm_str)
 
         except Exception as e:
             raise UserError(f"Fout tijdens het aanmaken van kind-entiteiten: {e}")
+
+    def _should_skip_bridge(self, bridge_data: dict, existing_objectnumms: set[str]) -> bool:
+        """Check if a bridge should be skipped during creation."""
+        objectnumm = bridge_data.get("OBJECTNUMM")
+        if not objectnumm:
+            return True
+
+        objectnumm_str = str(objectnumm)
+        return objectnumm_str in existing_objectnumms
+
+    def _build_child_params(self, bridge_data: dict, objectnumm_str: str, bridge_name: str | None) -> dict:
+        """Build parameters for a child bridge entity."""
+        basic_info = self._extract_basic_bridge_info(bridge_data)
+        geometric_info = self._extract_geometric_info(bridge_data)
+        structural_info = self._extract_structural_info(bridge_data)
+        width_info = self._extract_width_info(bridge_data)
+        reinforcement_info = self._extract_reinforcement_info(bridge_data)
+
+        return {
+            "info": {
+                "bridge_objectnumm": objectnumm_str,
+                "bridge_name": bridge_name,
+                **basic_info,
+                **geometric_info,
+                **structural_info,
+                **width_info,
+                **reinforcement_info,
+            }
+        }
+
+    def _extract_basic_bridge_info(self, bridge_data: dict) -> dict:
+        """Extract basic bridge information from bridge data."""
+        arb_flag = bridge_data.get("vlag_arb", "Niet ingesteld")
+        basic_test_ghpo = bridge_data.get("basale_toets_ghpo", "Niet ingesteld")
+
+        return {
+            "stadsdeel": bridge_data.get("stadsdeel", ""),
+            "straat": bridge_data.get("straat", ""),
+            "bridge_type": bridge_data.get("type", ""),
+            "construction_year": str(bridge_data.get("stichtingsjaar", "")),
+            "usage": bridge_data.get("gebruik", ""),
+            "arb_flag": (
+                arb_flag
+                if arb_flag in ["puur groen", "groen/oranje", "oranje/groen", "puur oranje", "oranje/rood", "puur rood"]
+                else "Niet ingesteld"
+            ),
+            "basic_test_ghpo": (basic_test_ghpo if basic_test_ghpo in ["groen", "oranje", "rood", "nvt", "Wel"] else "Niet ingesteld"),
+            "concrete_strength_class": bridge_data.get("betonsterkteklasse", ""),
+            "steel_quality_reinforcement": bridge_data.get("staalkwaliteit_wapening", ""),
+            "deck_layer": bridge_data.get("deklaag", ""),
+            "contractor_iha": bridge_data.get("opdrachtnemer_iha", ""),
+        }
+
+    def _extract_geometric_info(self, bridge_data: dict) -> dict:
+        """Extract geometric information from bridge data."""
+        number_of_spans = bridge_data.get("aantal_velden", 1)
+        crossing_angle = bridge_data.get("kruisingshoek", 90.0)
+        construction_height = bridge_data.get("constructiehoogte_dek", 0.0)
+
+        # Note: Multi-span bridges may contain semicolon-separated values for some fields
+        theoretical_length = self._convert_mm_to_m_if_numeric(bridge_data.get("lth", ""))
+        deck_width = self._convert_mm_to_m_if_numeric(bridge_data.get("bbrugdek", ""))
+
+        return {
+            "number_of_spans": number_of_spans if isinstance(number_of_spans, int) else 1,
+            "static_system": bridge_data.get("statisch_systeem", ""),
+            "crossing_angle": crossing_angle if isinstance(crossing_angle, (int, float)) else 90.0,
+            "theoretical_length": theoretical_length,
+            "deck_width": deck_width,
+            "construction_height": construction_height if isinstance(construction_height, (int, float)) else 0.0,
+            "slenderness": bridge_data.get("slankheid_dek", ""),
+            "daily_length": bridge_data.get("ldag", ""),
+        }
+
+    def _extract_structural_info(self, bridge_data: dict) -> dict:
+        """Extract structural information from bridge data."""
+        beams_in_slab = bridge_data.get("liggers_in_plaat", "")
+        edge_loading = bridge_data.get("randbelasting", "")
+
+        return {
+            "bearing_type": bridge_data.get("opleggingen", ""),
+            "orthotropy": bridge_data.get("orthotropie_isotropie", ""),
+            "beams_in_slab": self._normalize_boolean_field(beams_in_slab),
+            "edge_loading": self._normalize_boolean_field(edge_loading),
+        }
+
+    def _extract_width_info(self, bridge_data: dict) -> dict:
+        """Extract width distribution information from bridge data."""
+        # Note: Multi-span bridges may contain ranges like "1418-1724" for sidewalk widths
+        sidewalk_north_east_width = self._convert_mm_to_m_if_numeric(bridge_data.get("breedte_voetpad_noord_oost", ""))
+        sidewalk_south_west_width = self._convert_mm_to_m_if_numeric(bridge_data.get("breedte_voetpad_zuid_west", ""))
+        roadway_width = self._convert_mm_to_m_if_numeric(bridge_data.get("breedte_rijwegen", ""))
+        tram_width = self._convert_mm_to_m_if_numeric(bridge_data.get("breedte_trambaan", ""))
+        bicycle_path_width = self._convert_mm_to_m_if_numeric(bridge_data.get("breedte_fietspad", ""))
+
+        return {
+            "roadway_width": roadway_width,
+            "tram_width": tram_width,
+            "bicycle_path_width": bicycle_path_width,
+            "sidewalk_north_east_width": sidewalk_north_east_width,
+            "sidewalk_south_west_width": sidewalk_south_west_width,
+            "edge_beam_thickness": bridge_data.get("dikte_schampkant", ""),
+        }
+
+    def _extract_reinforcement_info(self, bridge_data: dict) -> dict:
+        """Extract reinforcement information from bridge data."""
+        return {
+            "support_reinforcement_diameter": bridge_data.get("steunpuntswapening_langsrichting_diameter", ""),
+            "support_reinforcement_spacing": bridge_data.get("steunpuntswapening_langsrichting_hoh_afstand", ""),
+            "support_reinforcement_layer": bridge_data.get("steunpuntswapening_laag", ""),
+            "field_reinforcement_diameter": bridge_data.get("veldwapening_langsrichting_diameter", ""),
+            "field_reinforcement_spacing": bridge_data.get("veldwapening_langsrichting_hoh_afstand", ""),
+            "field_reinforcement_layer": bridge_data.get("veldwapening_langsrichting_laag", ""),
+            "field_reinforcement_transverse_diameter": bridge_data.get("veldwapening_dwarsrichting_diameter", ""),
+            "field_reinforcement_transverse_spacing": bridge_data.get("veldwapening_dwarsrichting_hoh_afstand", ""),
+            "field_reinforcement_transverse_layer": bridge_data.get("veldwapening_dwarsrichting_laag", ""),
+            "concrete_cover": bridge_data.get("dekking_buitenkant_wapening", ""),
+        }
+
+    def _convert_mm_to_m_if_numeric(self, value: str) -> str:
+        """Convert numeric string from mm to m, otherwise return as-is."""
+        if value and str(value).isdigit():
+            return str(float(value) / 1000)
+        return str(value) if value else ""
+
+    def _normalize_boolean_field(self, value: str) -> str:
+        """Normalize boolean-like field values to standard options."""
+        if not value:
+            return "Onbekend"
+
+        value_lower = str(value).lower()
+        if value_lower in ["ja", "yes", "true", "1"]:
+            return "Ja"
+        if value_lower in ["nee", "no", "false", "0"]:
+            return "Nee"
+        return "Onbekend"
 
     # --- Main Action Method ---
 

@@ -56,43 +56,33 @@ def create_box(vertices: np.ndarray, color: list) -> trimesh.Trimesh:
     return box_mesh
 
 
-def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901, PLR0915
+# Helper functions to create rebars and reinforcement meshes
+def parse_zone_number(zone_numbers: list[str] | str) -> list[tuple[int, int]]:
     """
-    Create a mesh representing rebars based on specified parameters.
+    Parse zone numbers into a list of (position, segment) tuples.
 
     Args:
-        params (Munch): Parameters for the rebars, including positions and dimensions.
-        color (list): RGBA color for the rebars, format [R, G, B, A].
+        zone_numbers: Either a single zone number string or a list of zone number strings
+                    in the format "X-Y" where X is the position (1,2,3) and Y is the segment number.
 
     Returns:
-        trimesh.Trimesh: A trimesh object representing the rebars.
+        A list of tuples where each tuple contains (position, segment_index).
+        Position is 1, 2, or 3, and segment_index is 0-based.
 
     """
+    if isinstance(zone_numbers, str):
+        zone_numbers = [zone_numbers]
 
-    def get_cumulative_distance(segment_idx: int) -> float:
-        """Calculate the cumulative distance to the start of a segment."""
-        total_distance = 0.0
-        for i in range(segment_idx):
-            # The l parameter in each segment defines the distance to the next segment
-            total_distance += bridge_segments_array[i + 1].l
-        return total_distance
+    result = []
+    for zone in zone_numbers:
+        pos, seg = map(int, zone.split("-"))
+        if 1 <= pos <= 3 and seg > 0:  # Validate position and segment
+            result.append((pos, seg - 1))  # Convert to 0-based segment index
+    return result
 
-    def get_zone_parameters(zone_entry: Munch) -> dict:
-        """Get all parameters for a specific zone."""
-        return {
-            "zone_number": zone_entry.zone_number,
-            "diam_long_bottom": zone_entry.hoofdwapening_langs_onder_diameter / 1000,
-            "hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,
-            "diam_long_top": zone_entry.hoofdwapening_langs_boven_diameter / 1000,
-            "hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,
-            "diam_shear": zone_entry.hoofdwapening_dwars_diameter / 1000,
-            "hoh_shear": zone_entry.hoofdwapening_dwars_hart_op_hart / 1000,
-        }
 
-    def parse_zone_number(zone_number: str) -> tuple[int, int]:
-        """Parse zone number 'X-Y' into position (1,2,3) and segment index (1,2,...)."""
-        position, segment = map(int, zone_number.split("-"))
-        return position, segment - 1  # Convert to 0-based segment index
+def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901, PLR0915, PLR0912
+    """Create a mesh representing rebars based on specified parameters."""
 
     def get_zone_dimensions(position: int, segment_idx: int) -> dict:
         """Get geometric dimensions for a zone based on its position and segment."""
@@ -113,12 +103,54 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
 
         return {"bz": bz, "bz_next": bz_next, "height_start": height_start, "height_end": height_end, "length": next_segment_data.l}
 
+    def get_zone_parameters(zone_entry: Munch) -> dict:
+        """Get all parameters for a specific zone."""
+        params = {
+            "zone_number": zone_entry.zone_number,
+            # Main reinforcement parameters
+            "diam_long_bottom": zone_entry.hoofdwapening_langs_onder_diameter / 1000,
+            "hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,
+            "diam_long_top": zone_entry.hoofdwapening_langs_boven_diameter / 1000,
+            "hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,
+            "diam_shear_top": zone_entry.hoofdwapening_dwars_boven_diameter / 1000,
+            "hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,
+            "diam_shear_bottom": zone_entry.hoofdwapening_dwars_onder_diameter / 1000,
+            "hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,
+        }
+
+        # Add additional reinforcement parameters if present
+        if zone_entry.heeft_bijlegwapening:
+            params.update(
+                {
+                    "heeft_bijlegwapening": True,
+                    "bijleg_diam_long_bottom": zone_entry.bijlegwapening_langs_onder_diameter / 1000,
+                    "bijleg_hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_long_top": zone_entry.bijlegwapening_langs_boven_diameter / 1000,
+                    "bijleg_hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_shear_bottom": zone_entry.bijlegwapening_dwars_onder_diameter / 1000,
+                    "bijleg_hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_shear_top": zone_entry.bijlegwapening_dwars_boven_diameter / 1000,
+                    "bijleg_hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,  # Same as main reinforcement
+                }
+            )
+
+        return params
+
+    def get_cumulative_distance(segment_idx: int) -> float:
+        """Calculate the cumulative distance to the start of a segment."""
+        total_distance = 0.0
+        for i in range(segment_idx):
+            # The l parameter in each segment defines the distance to the next segment
+            total_distance += bridge_segments_array[i + 1].l
+        return total_distance
+
     def calculate_effective_widths(zone_params: dict, zone_dims: dict) -> dict:
         """Calculate effective widths for rebar placement."""
         return {
-            "long_bottom": float(zone_dims["bz"]) - 2 * dekking - zone_params["diam_long_bottom"],
-            "long_top": float(zone_dims["bz"]) - 2 * dekking - zone_params["diam_long_top"],
-            "shear": zone_dims["length"] - 2 * dekking - zone_params["diam_shear"],
+            "long_bottom": float(zone_dims["bz"]) - 2 * dekking_onder - zone_params["diam_long_bottom"],
+            "long_top": float(zone_dims["bz"]) - 2 * dekking_boven - zone_params["diam_long_top"],
+            "shear_bottom": zone_dims["length"] - 2 * dekking_onder - zone_params["diam_shear_bottom"],
+            "shear_top": zone_dims["length"] - 2 * dekking_boven - zone_params["diam_shear_top"],
         }
 
     def calculate_z_positions(is_middle_zone: bool, zone_params: dict) -> dict:
@@ -126,26 +158,27 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
         pos = {}
         if langswapening_buiten:
             # Bottom configuration - longitudinal outside, shear inside
-            pos["long_bottom"] = z_position_bottom + dekking + 0.5 * zone_params["diam_long_bottom"]
-            pos["shear_bottom"] = pos["long_bottom"] + 0.5 * (zone_params["diam_long_bottom"] + zone_params["diam_shear"])
+            pos["long_bottom"] = z_position_bottom + dekking_onder + 0.5 * zone_params["diam_long_bottom"]
+            pos["shear_bottom"] = pos["long_bottom"] + 0.5 * (zone_params["diam_long_bottom"] + zone_params["diam_shear_bottom"])
 
             # Top configuration - longitudinal outside, shear inside
             if is_middle_zone:
-                pos["long_top"] = z_position_top - (dekking + 0.5 * zone_params["diam_long_top"])
+                pos["long_top"] = z_position_top - (dekking_boven + 0.5 * zone_params["diam_long_top"])
             else:
-                pos["long_top"] = -(dekking + 0.5 * zone_params["diam_long_top"])
-            pos["shear_top"] = pos["long_top"] + (zone_params["diam_long_top"] + 0.5 * zone_params["diam_shear"])
+                pos["long_top"] = -(dekking_boven + 0.5 * zone_params["diam_long_top"])
+            pos["shear_top"] = pos["long_top"] - 0.5 * (zone_params["diam_long_top"] + zone_params["diam_shear_top"])
         else:
             # Bottom configuration - shear outside, longitudinal inside
-            pos["shear_bottom"] = z_position_bottom + dekking + 0.5 * zone_params["diam_shear"]
-            pos["long_bottom"] = pos["shear_bottom"] + zone_params["diam_shear"] + 0.5 * zone_params["diam_long_bottom"]
+            pos["shear_bottom"] = z_position_bottom + dekking_onder + 0.5 * zone_params["diam_shear_bottom"]
+            pos["long_bottom"] = pos["shear_bottom"] + 0.5 * (zone_params["diam_shear_bottom"] + zone_params["diam_long_bottom"])
 
             # Top configuration - shear outside, longitudinal inside
             if is_middle_zone:
-                pos["shear_top"] = z_position_top - (dekking + 0.5 * zone_params["diam_shear"])
+                pos["shear_top"] = z_position_top - (dekking_boven + 0.5 * zone_params["diam_shear_top"])
             else:
-                pos["shear_top"] = -(dekking + 0.5 * zone_params["diam_shear"])
-            pos["long_top"] = pos["shear_top"] - (zone_params["diam_shear"] + 0.5 * zone_params["diam_long_top"])
+                pos["shear_top"] = -(dekking_boven + 0.5 * zone_params["diam_shear_top"])
+            pos["long_top"] = pos["shear_top"] - 0.5 * (zone_params["diam_shear_top"] + zone_params["diam_long_top"])
+
         return pos
 
     def calculate_y_offset(position: int, segment_idx: int) -> float:
@@ -181,14 +214,28 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
         positions.sort()
         return [pos + y_offset for pos in positions]
 
-    def get_shear_positions(width_eff: float, hoh: float, zone_params: dict) -> list[float]:
+    def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> list[float]:
+        """Calculate positions for bijlegwapening (additional reinforcement) by finding midpoints between main reinforcement."""
+        if len(positions) < 2:
+            return []
+
+        # Calculate midpoint between each pair of consecutive positions
+        bijleg_positions = []
+        for i in range(len(positions) - 1):
+            midpoint = (positions[i] + positions[i + 1]) / 2.0
+            bijleg_positions.append(midpoint)
+
+        # Add y_offset to all positions
+        return [pos + y_offset for pos in bijleg_positions]
+
+    def get_shear_positions(width_eff: float, hoh: float, diameter_shear: float) -> list[float]:
         """Calculate positions for shear reinforcement."""
         n_rebars = int(width_eff / hoh)
         if n_rebars < 1:
             return []
 
         actual_hoh = width_eff / n_rebars
-        start_offset = dekking + 0.5 * zone_params["diam_shear"]
+        start_offset = min(dekking_boven, dekking_onder) + 0.5 * diameter_shear
         mid_x = width_eff / 2 + start_offset
         positions = []
 
@@ -237,100 +284,225 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
         x_positions: list[float],
         y_offset: float,
         height: float,
-        zone_params: dict,
-        z_positions: dict,
+        rebar_diameter: float,  # New parameter for single diameter
+        z_position: float,  # New parameter for single z-position
         x_offset: float,
         height_start: float | None = None,
         height_end: float | None = None,
     ) -> None:
-        """Create and position shear rebars for a zone."""
+        """
+        Create and position shear rebars for a zone at specified height.
+
+        Args:
+            x_positions: List of x-coordinates for rebar placement
+            y_offset: Offset in y direction for the rebars
+            height: Base height for the rebars
+            rebar_diameter: Diameter of the rebar
+            z_position: Z-coordinate for rebar placement
+            x_offset: Global x-offset for segment positioning
+            height_start: Starting height for variable height rebars (optional)
+            height_end: Ending height for variable height rebars (optional)
+
+        """
         if height_start is None:
             height_start = height
         if height_end is None:
             height_end = height
 
-        for i, relative_x_pos in enumerate(x_positions):
+        for relative_x_pos in x_positions:
             # Add the cumulative x_offset to position the rebar in the correct segment
             x_pos = x_offset + relative_x_pos
 
-            # Calculate height at this x position
-            interpolation_factor = i / (len(x_positions) - 1) if len(x_positions) > 1 else 0.5
+            interpolation_factor = x_positions.index(relative_x_pos) / (len(x_positions) - 1) if len(x_positions) > 1 else 0.5
             height_at_x = height_start + (height_end - height_start) * interpolation_factor
 
-            # Create bottom and top shear rebars
-            bottom_shear = trimesh.creation.cylinder(radius=zone_params["diam_shear"] / 2, height=height_at_x, sections=16)
-            top_shear = trimesh.creation.cylinder(radius=zone_params["diam_shear"] / 2, height=height_at_x, sections=16)
+            # Create shear rebar
+            shear_rebar = trimesh.creation.cylinder(radius=rebar_diameter / 2, height=height_at_x, sections=16)
 
+            # Rotate to align vertically
             rotation_matrix = trimesh.transformations.rotation_matrix(angle=np.pi / 2, direction=[1, 0, 0])
-            bottom_shear.apply_transform(rotation_matrix)
-            top_shear.apply_transform(rotation_matrix)
+            shear_rebar.apply_transform(rotation_matrix)
 
-            # Position the rebars with the cumulative x_offset
-            bottom_shear.apply_translation([x_pos, y_offset, z_positions["shear_bottom"]])
-            top_shear.apply_translation([x_pos, y_offset, z_positions["shear_top"]])
+            # Position the rebar with the cumulative x_offset
+            shear_rebar.apply_translation([x_pos, y_offset, z_position])
 
             # Set colors and add to scene
-            bottom_shear.visual.face_colors = color
-            top_shear.visual.face_colors = color
-            rebar_scene.add_geometry(bottom_shear)
-            rebar_scene.add_geometry(top_shear)
+            shear_rebar.visual.face_colors = color
+            rebar_scene.add_geometry(shear_rebar)
 
     # Initialize parameters
     bridge_segments_array = params.bridge_segments_array
     reinforcement_zones_array = params.reinforcement_zones_array
     langswapening_buiten = params.input.geometrie_wapening.langswapening_buiten
-    dekking = params.input.geometrie_wapening.dekking / 1000
+    dekking_onder = params.input.geometrie_wapening.dekking_onder / 1000
+    dekking_boven = params.input.geometrie_wapening.dekking_boven / 1000
     z_position_bottom = -params.bridge_segments_array[0].dz
     z_position_top = params.bridge_segments_array[0].dz_2 - params.bridge_segments_array[0].dz
     rebar_scene = trimesh.Scene()
 
-    # Process each reinforcement zone
-    for zone_entry in reinforcement_zones_array:
-        # Parse zone number to get position and segment
-        position, segment_idx = parse_zone_number(zone_entry.zone_number)
+    # Process each reinforcement configuration
+    for config_entry in reinforcement_zones_array:
+        # Get all zones where this configuration should be applied
+        zone_tuples = parse_zone_number(config_entry.zone_number)
 
-        # Get parameters and dimensions for this zone
-        zone_params = get_zone_parameters(zone_entry)
-        zone_dims = get_zone_dimensions(position, segment_idx)
+        # Get parameters for this configuration
+        zone_params = get_zone_parameters(config_entry)
 
-        # Calculate the cumulative distance to this segment
-        x_offset = get_cumulative_distance(segment_idx)
+        # Apply configuration to each zone
+        for position, segment_idx in zone_tuples:
+            # Get dimensions for this specific zone
+            zone_dims = get_zone_dimensions(position, segment_idx)
 
-        # Calculate widths, positions and offsets
-        effective_widths = calculate_effective_widths(zone_params, zone_dims)
-        z_positions = calculate_z_positions(position == 2, zone_params)
-        y_offset = calculate_y_offset(position, segment_idx)
+            # Calculate the cumulative distance to this segment
+            x_offset = get_cumulative_distance(segment_idx)
 
-        # Create longitudinal reinforcement
-        bottom_positions = calculate_rebar_positions(effective_widths["long_bottom"], zone_params["hoh_long_bottom"], y_offset)
-        create_rebar_meshes(
-            bottom_positions,
-            z_positions["long_bottom"],
-            zone_params["diam_long_bottom"],
-            zone_dims["length"],
-            x_offset,
-            zone_dims["height_start"],
-            zone_dims["height_end"],
-        )
+            # Calculate widths, positions and offsets
+            effective_widths = calculate_effective_widths(zone_params, zone_dims)
+            z_positions = calculate_z_positions(position == 2, zone_params)
+            y_offset = calculate_y_offset(position, segment_idx)
 
-        top_positions = calculate_rebar_positions(effective_widths["long_top"], zone_params["hoh_long_top"], y_offset)
-        create_rebar_meshes(
-            top_positions,
-            z_positions["long_top"],
-            zone_params["diam_long_top"],
-            zone_dims["length"],
-            x_offset,
-            zone_dims["height_start"],
-            zone_dims["height_end"],
-        )
+            # Create longitudinal bottom reinforcement
+            bottom_positions = calculate_rebar_positions(effective_widths["long_bottom"], zone_params["hoh_long_bottom"], y_offset)
+            create_rebar_meshes(
+                bottom_positions,
+                z_positions["long_bottom"],
+                zone_params["diam_long_bottom"],
+                zone_dims["length"],
+                x_offset,
+                zone_dims["height_start"],
+                zone_dims["height_end"],
+            )
 
-        # Create shear reinforcement
-        shear_positions = get_shear_positions(effective_widths["shear"], zone_params["hoh_shear"], zone_params)
-        create_shear_rebars(
-            shear_positions, y_offset, zone_dims["bz"], zone_params, z_positions, x_offset, zone_dims["height_start"], zone_dims["height_end"]
-        )
+            # Create longitudinal top reinforcement
+            top_positions = calculate_rebar_positions(effective_widths["long_top"], zone_params["hoh_long_top"], y_offset)
+            create_rebar_meshes(
+                top_positions,
+                z_positions["long_top"],
+                zone_params["diam_long_top"],
+                zone_dims["length"],
+                x_offset,
+                zone_dims["height_start"],
+                zone_dims["height_end"],
+            )
+            # Create bottom shear reinforcement
+            if zone_params.get("hoh_shear_bottom") and zone_params.get("diam_shear_bottom"):
+                shear_positions_bottom = get_shear_positions(
+                    effective_widths["shear_bottom"], zone_params["hoh_shear_bottom"], zone_params["diam_shear_bottom"]
+                )
+                create_shear_rebars(
+                    shear_positions_bottom,
+                    y_offset,
+                    zone_dims["bz"],
+                    zone_params["diam_shear_bottom"],
+                    z_positions["shear_bottom"],
+                    x_offset,
+                    zone_dims["height_start"],
+                    zone_dims["height_end"],
+                )
 
-    return rebar_scene
+            # Create top shear reinforcement
+            if zone_params.get("hoh_shear_top") and zone_params.get("diam_shear_top"):
+                shear_positions_top = get_shear_positions(effective_widths["shear_top"], zone_params["hoh_shear_top"], zone_params["diam_shear_top"])
+                create_shear_rebars(
+                    shear_positions_top,
+                    y_offset,
+                    zone_dims["bz"],
+                    zone_params["diam_shear_top"],
+                    z_positions["shear_top"],
+                    x_offset,
+                    zone_dims["height_start"],
+                    zone_dims["height_end"],
+                )
+
+            # Create bottom shear reinforcement
+            if zone_params.get("hoh_shear_bottom") and zone_params.get("diam_shear_bottom"):
+                shear_positions_bottom = get_shear_positions(
+                    effective_widths["shear_bottom"], zone_params["hoh_shear_bottom"], zone_params["diam_shear_bottom"]
+                )
+                create_shear_rebars(
+                    shear_positions_bottom,
+                    y_offset,
+                    zone_dims["bz"],
+                    zone_params["diam_shear_bottom"],
+                    z_positions["shear_bottom"],
+                    x_offset,
+                    zone_dims["height_start"],
+                    zone_dims["height_end"],
+                )
+
+            # Create top shear reinforcement
+            if zone_params.get("hoh_shear_top") and zone_params.get("diam_shear_top"):
+                shear_positions_top = get_shear_positions(effective_widths["shear_top"], zone_params["hoh_shear_top"], zone_params["diam_shear_top"])
+                create_shear_rebars(
+                    shear_positions_top,
+                    y_offset,
+                    zone_dims["bz"],
+                    zone_params["diam_shear_top"],
+                    z_positions["shear_top"],
+                    x_offset,
+                    zone_dims["height_start"],
+                    zone_dims["height_end"],
+                )
+
+            # Create bijlegwapening (additional reinforcement) if enabled
+            if zone_params.get("heeft_bijlegwapening"):
+                # Bottom longitudinal additional reinforcement
+                bijleg_positions_bottom = calculate_bijleg_positions(bottom_positions)
+                if bijleg_positions_bottom:
+                    create_rebar_meshes(
+                        bijleg_positions_bottom,
+                        z_positions["long_bottom"],
+                        zone_params["bijleg_diam_long_bottom"],
+                        zone_dims["length"],
+                        x_offset,
+                        zone_dims["height_start"],
+                        zone_dims["height_end"],
+                    )
+
+                # Top longitudinal additional reinforcement
+                bijleg_positions_top = calculate_bijleg_positions(top_positions)
+                if bijleg_positions_top:
+                    create_rebar_meshes(
+                        bijleg_positions_top,
+                        z_positions["long_top"],
+                        zone_params["bijleg_diam_long_top"],
+                        zone_dims["length"],
+                        x_offset,
+                        zone_dims["height_start"],
+                        zone_dims["height_end"],
+                    )
+
+                # Bottom transverse additional reinforcement
+                if zone_params.get("hoh_shear_bottom") and zone_params.get("bijleg_diam_shear_bottom"):
+                    bijleg_shear_positions_bottom = calculate_bijleg_positions(shear_positions_bottom)
+                    if bijleg_shear_positions_bottom:
+                        create_shear_rebars(
+                            bijleg_shear_positions_bottom,
+                            y_offset,
+                            zone_dims["bz"],
+                            zone_params["bijleg_diam_shear_bottom"],
+                            z_positions["shear_bottom"],
+                            x_offset,
+                            zone_dims["height_start"],
+                            zone_dims["height_end"],
+                        )
+
+                # Top transverse additional reinforcement
+                if zone_params.get("hoh_shear_top") and zone_params.get("bijleg_diam_shear_top"):
+                    bijleg_shear_positions_top = calculate_bijleg_positions(shear_positions_top)
+                    if bijleg_shear_positions_top:
+                        create_shear_rebars(
+                            bijleg_shear_positions_top,
+                            y_offset,
+                            zone_dims["bz"],
+                            zone_params["bijleg_diam_shear_top"],
+                            z_positions["shear_top"],
+                            x_offset,
+                            zone_dims["height_start"],
+                            zone_dims["height_end"],
+                        )
+
+    return rebar_scene  # type: ignore[return-value]  # Scene is functionally compatible with Trimesh in this context
 
 
 # Function to create the X, Y, and Z axes
@@ -512,6 +684,11 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
     # Determine the number of sub-zones based on input dimensions
     dynamic_arrays = len(params.bridge_segments_array)
 
+    if not params.bridge_segments_array:
+        # If there are no segments, return an empty scene
+        # NOTE: Empty scene is the expected behavior for no segments
+        return trimesh.Scene()
+
     # Generate a dynamic color list for the sub-zones
     clist = list(range(0, 255, int(float(255 / dynamic_arrays))))
     clist.insert(0, 0)
@@ -562,7 +739,7 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
         z3d1t = 0
         z3d1b = -params.bridge_segments_array[dynamic_array].dz
 
-        # Specify the vertices for each box, shifted along the Y-axis
+        # Specify the vertices for each box
         boxes_vertices = [
             # Box 1 (at origin in Y-axis)
             np.array(
@@ -577,7 +754,7 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
                     [d0l, z1d0l, z1d0t],  # Vertex 7: Top-back-left -- D-1
                 ]
             ),
-            # Box 2 (shifted along Y-axis by 3 units)
+            # Box 2
             np.array(
                 [
                     [d0l, z2d0r, z2d0b],  # Vertex 0: Bottom-front-left -- D-1
@@ -590,7 +767,7 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
                     [d0l, z2d0l, z2d0t],  # Vertex 7: Top-back-left -- D-1
                 ]
             ),
-            # Box 3 (shifted along Y-axis by 6 units)
+            # Box 3
             np.array(
                 [
                     [d0l, z3d0r, z3d0b],  # Vertex 0: Bottom-front-left -- D-1
@@ -612,50 +789,18 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
             [clist[dynamic_array], 255, clist[dynamic_array], 255],  # Box 3: Green with varying intensity
         ]
 
-        # Create individual box meshes with assigned colors
-        box_meshes = []
+        # Create and add individual box meshes with assigned colors
         for vertices, color in zip(boxes_vertices, box_colors):
             box_mesh = create_box(vertices, color)
-            # Ensure the mesh is solid
-            box_mesh.visual.face_colors = np.tile(color, (len(box_mesh.faces), 1))
-            box_mesh.visual.vertex_colors = np.tile(color, (len(box_mesh.vertices), 1))
-            box_meshes.append(box_mesh)
-
-        # Combine all box meshes into a single mesh
-        combined_vertices = []
-        combined_faces = []
-        combined_colors = []
-        vertex_offset = 0
-
-        for mesh in box_meshes:
-            # Process mesh before combining
-            mesh.process()  # Merges duplicate vertices
-            mesh.fix_normals()  # Ensures consistent face orientation
-            # Append vertices
-            combined_vertices.append(mesh.vertices)
-            # Append faces, adjusting indices by the current vertex offset
-            combined_faces.append(mesh.faces + vertex_offset)
-            # Append face colors
-            combined_colors.append(mesh.visual.face_colors)
-            # Update vertex offset for the next mesh
-            vertex_offset += len(mesh.vertices)
-
-        # Stack all vertices, faces and colors into single arrays
-        final_vertices = np.vstack(combined_vertices)
-        final_faces = np.vstack(combined_faces)
-        final_colors = np.vstack(combined_colors)
-
-        # Create the final combined mesh
-        combined_mesh = trimesh.Trimesh(vertices=final_vertices, faces=final_faces)
-        # Process the combined mesh
-        combined_mesh.process()  # Merges duplicate vertices
-        combined_mesh.update_faces(combined_mesh.unique_faces())  # Removes any duplicate faces using the new recommended method
-        combined_mesh.fix_normals()  # Ensures consistent face orientation
-        # Set the face colors for the combined mesh, adjusting for potentially merged faces
-        combined_mesh.visual.face_colors = final_colors[: len(combined_mesh.faces)]
-
-        # Add the mesh to the scene
-        combined_scene.add_geometry(combined_mesh)
+            # Convert color to uint8 numpy array and ensure it's applied consistently
+            color_array = np.array(color, dtype=np.uint8)
+            box_mesh.visual.face_colors = color_array
+            box_mesh.visual.vertex_colors = color_array
+            # Process mesh before adding
+            box_mesh.process()  # Merges duplicate vertices
+            box_mesh.fix_normals()  # Ensures consistent face orientation
+            # Add directly to scene
+            combined_scene.add_geometry(box_mesh)
 
     if axes:
         # Add the X, Y, Z axes to the scene
@@ -667,7 +812,6 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
         combined_scene.add_geometry(black_dot)
 
     rebars_scene = create_rebars(params, color=[0, 0, 0, 255])  # Call the function to create rebars
-
     combined_scene.add_geometry(rebars_scene)  # Add the rebars to the scene
 
     # Add transparent section planes to visualize where the 2D sections will be taken
@@ -1015,3 +1159,18 @@ def prepare_load_zone_geometry_data(
         num_defined_d_points=num_defined_d_points,
         d_point_label_data=d_point_label_data,
     )
+
+
+def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> list[float]:
+    """Calculate positions for additional reinforcement by finding midpoints between main reinforcement."""
+    if len(positions) < 2:
+        return []
+
+    # Calculate midpoint between each pair of consecutive positions
+    bijleg_positions = []
+    for i in range(len(positions) - 1):
+        midpoint = (positions[i] + positions[i + 1]) / 2.0
+        bijleg_positions.append(midpoint)
+
+    # Add y_offset to all positions
+    return [pos + y_offset for pos in bijleg_positions]

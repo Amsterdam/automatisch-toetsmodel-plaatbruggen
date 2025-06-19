@@ -8,6 +8,7 @@ Dit project gebruikt **Ruff** voor het handhaven van code style (volgens PEP 8) 
 
 De hoofd-dependency voor het draaien van de VIKTOR applicatie zelf wordt geïnstalleerd via:
 
+
 ```bash
 pip install viktor
 ```
@@ -30,7 +31,8 @@ Dit project maakt gebruik van `pre-commit` om automatisch checks (zoals Ruff) ui
 Nadat je de ontwikkel-dependencies hebt geïnstalleerd (zie Installatie), moet je de Git hooks installeren met het volgende commando (uitgevoerd vanuit de hoofdmap):
 
 ```bash
-pre-commit install
+pre-commit migrate-config
+pre-commit install --hook-type pre-push
 ```
 
 Nu zullen de geconfigureerde checks automatisch draaien elke keer dat je `git commit` probeert uit te voeren. Als een check faalt (bijvoorbeeld Ruff vindt fouten), zal de commit worden afgebroken. Je moet dan de fouten oplossen (vaak kan Ruff dit automatisch met `ruff check . --fix`) en de gewijzigde bestanden opnieuw toevoegen (`git add ...`) voordat je opnieuw probeert te committen.

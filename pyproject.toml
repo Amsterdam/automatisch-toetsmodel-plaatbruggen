@@ -33,7 +33,7 @@ show_error_codes = true
 pretty = true
 
 [[tool.mypy.overrides]]
-module = ["viktor.*", "geopandas.*", "shapely.*", "plotly.*", "Munch.*"]
+module = ["viktor.*", "geopandas.*", "shapely.*", "plotly.*", "munch.*", "trimesh.*", "psutil.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

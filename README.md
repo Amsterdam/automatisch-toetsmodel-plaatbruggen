@@ -93,3 +93,49 @@ Voor het melden van bugs of het voorstellen van features, gebruik de [GitHub Iss
 ### Licentie
 
 Dit project is gelicentieerd onder de [European Union Public Licence v. 1.2 (EUPL v. 1.2)](LICENSE).
+
+## 🔧 Development Setup & Quality Checks
+
+This project uses an **automated quality assurance system** with enhanced error reporting that runs on every `git push`:
+
+### Quick Setup
+```bash
+# Install dependencies
+viktor-cli install                    # Main VIKTOR dependencies
+pip install -r requirements_dev.txt  # Development tools
+
+# Test everything works
+python ruft.py --dry-run
+```
+
+*Note: Use `viktor-cli install` for VIKTOR dependencies, then add development tools with pip.*
+
+### Quality Checks (Automatic on Push)
+- **🔧 Ruff Formatter** `0.11.7` - Auto-formats code
+- **✅ Ruff Style Check** `0.11.7` - Auto-fixes style issues  
+- **🔍 MyPy Type Check** `1.15.0` - Validates type hints
+- **🧪 Unit Tests** - Runs ~200 tests (core logic + VIKTOR interface)
+
+### Enhanced Error Reporting
+Our quality check system provides **detailed error information**:
+
+```bash
+[>] Running Ruff Style Check...
+    [X] FAILED - Found 12 errors (8 auto-fixable)
+[>] Running MyPy Type Check...
+    [X] FAILED - Found 3 errors (syntax error, type-arg)
+```
+
+### Manual Quality Checks
+```bash
+# All checks (like git push)
+python ruft.py --dry-run
+
+# Individual checks
+python scripts/run_ruff_check.py    # Style issues + auto-fix
+python scripts/run_ruff_format.py   # Code formatting
+python scripts/run_mypy.py          # Type checking  
+python scripts/run_enhanced_tests.py # Unit tests
+```
+
+**📖 Complete Documentation:** See [`docs/testing_uitleg.md`](docs/testing_uitleg.md)
