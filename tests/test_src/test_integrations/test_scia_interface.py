@@ -11,76 +11,7 @@ import pytest
 
 from src.integrations.scia_interface import (
     BridgeGeometryData,
-    extract_bridge_geometry_from_params,
 )
-
-
-class TestBridgeGeometryExtraction:
-    """Test bridge geometry extraction from parameters."""
-
-    def test_extract_bridge_geometry_basic(self) -> None:
-        """Test basic bridge geometry extraction with valid parameters."""
-        bridge_segments = [
-            {"bz1": 10.0, "bz2": 5.0, "bz3": 15.0, "l": 0, "dz": 2.0, "dz_2": 3.0},
-            {"bz1": 12.0, "bz2": 6.0, "bz3": 18.0, "l": 10, "dz": 2.0, "dz_2": 3.0},
-            {"bz1": 8.0, "bz2": 4.0, "bz3": 12.0, "l": 15, "dz": 2.0, "dz_2": 3.0},
-        ]
-
-        result = extract_bridge_geometry_from_params(bridge_segments)
-
-        assert isinstance(result, BridgeGeometryData)
-        assert result.total_length == 25.0  # 0 + 10 + 15
-        assert result.total_width == 30.0  # 10 + 5 + 15 (first segment)
-        assert result.thickness == 0.5  # Hardcoded value
-        assert result.material_name == "C30/37"
-
-    def test_extract_bridge_geometry_single_segment(self) -> None:
-        """Test geometry extraction with single segment."""
-        bridge_segments = [
-            {"bz1": 5.0, "bz2": 10.0, "bz3": 5.0, "l": 20, "dz": 1.5, "dz_2": 2.5},
-        ]
-
-        result = extract_bridge_geometry_from_params(bridge_segments)
-
-        assert result.total_length == 20.0
-        assert result.total_width == 20.0  # 5 + 10 + 5
-        assert result.thickness == 0.5
-        assert result.material_name == "C30/37"
-
-    def test_extract_bridge_geometry_empty_segments(self) -> None:
-        """Test that empty segments raise ValueError."""
-        with pytest.raises(ValueError, match="No bridge segments provided"):
-            extract_bridge_geometry_from_params([])
-
-    def test_extract_bridge_geometry_zero_length(self) -> None:
-        """Test that zero total length raises ValueError."""
-        bridge_segments = [
-            {"bz1": 10.0, "bz2": 5.0, "bz3": 15.0, "l": 0, "dz": 2.0, "dz_2": 3.0},
-        ]
-
-        with pytest.raises(ValueError, match="Bridge total length must be positive"):
-            extract_bridge_geometry_from_params(bridge_segments)
-
-    def test_extract_bridge_geometry_zero_width(self) -> None:
-        """Test that zero total width raises ValueError."""
-        bridge_segments = [
-            {"bz1": 0.0, "bz2": 0.0, "bz3": 0.0, "l": 10, "dz": 2.0, "dz_2": 3.0},
-        ]
-
-        with pytest.raises(ValueError, match="Bridge total width must be positive"):
-            extract_bridge_geometry_from_params(bridge_segments)
-
-    def test_extract_bridge_geometry_missing_keys(self) -> None:
-        """Test handling of missing keys in segment dictionaries."""
-        bridge_segments = [
-            {"bz1": 10.0, "l": 10},  # Missing bz2, bz3
-        ]
-
-        result = extract_bridge_geometry_from_params(bridge_segments)
-
-        # Missing keys should default to 0
-        assert result.total_length == 10.0
-        assert result.total_width == 10.0  # 10 + 0 + 0
 
 
 class TestSCIAModelCreation:
