@@ -568,7 +568,7 @@ class BridgeController(ViktorController):
                 # Add XML file
                 z.writestr("bridge_model.xml", xml_content)
                 # Add definition file
-                z.writestr("bridge_model.def", def_content)
+                z.writestr("viktor.xml.def", def_content)
 
                 # Add a readme file with instructions
                 readme_content = SCIA_ZIP_README_CONTENT
