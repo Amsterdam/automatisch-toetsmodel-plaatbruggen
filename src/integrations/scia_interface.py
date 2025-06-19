@@ -20,7 +20,11 @@ from munch import Munch  # type: ignore[import-untyped]
 
 # Type alias for SCIA Engineer node objects
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
-SciaModel: TypeAlias = object  # More specific type if available from SCIA API
+SciaModel: TypeAlias = "SciaModelProtocol"
+
+class SciaModelProtocol:
+    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode":
+        ...  # Define the expected behavior of the create_node method
 
 from app.bridge.parametrization import (
     BridgeParametrization,
@@ -362,6 +366,8 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
     for node_suffix in range(1, 5):  # Create all 4 nodes of first cross section
         node_name = f"K_dek:1_{node_suffix}"
         coords = nodes_dict.get(node_name)
+        if coords is None:
+                    raise ValueError(f"Coordinates for node '{node_name}' not found in nodes_dict.")
         scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
 
     # Create plates between cross sections
@@ -372,6 +378,8 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
             node_name = f"K_dek:{next_span}_{node_suffix}"
             if node_name not in scia_nodes:  # Only create if not already exists
                 coords = nodes_dict.get(node_name)
+                if coords is None:
+                    raise ValueError(f"Coordinates for node '{node_name}' not found in nodes_dict.")
                 scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
 
         # Create Zone 1 plate (using nodes 1 and 2 from current and next cross section)
@@ -408,17 +416,16 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
 
 
 def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401
-    """
-    Create SCIA analysis using template file and generated XML input.
+    """Create SCIA analysis using template file and generated XML input.
 
-    :param xml_file: Generated XML input file
+    :param xml_file: Generated XML input file as a BytesIO stream
     :type xml_file: io.BytesIO
-    :param def_file: Generated definition file
+    :param def_file: Generated definition file as a BytesIO stream
     :type def_file: io.BytesIO
     :param template_path: Path to the ESA template file
     :type template_path: Path
     :returns: SCIA analysis object ready for execution
-    :rtype: Any (SCIA analysis object)
+    :rtype: viktor.external.scia.SciaAnalysis
     :raises ImportError: If VIKTOR SCIA module is not available
     :raises FileNotFoundError: If template file doesn't exist
     """
