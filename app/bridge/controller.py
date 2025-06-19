@@ -8,6 +8,22 @@ import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -16,7 +32,10 @@ from app.common.map_utils import (
     process_bridge_geometries,
     validate_shapefile_exists,
 )
+
+# Params for load combinations are in app.constants
 from app.constants import SCIA_ZIP_README_CONTENT  # Import the SCIA ZIP readme content
+from src.combinations.load_factors import create_load_combination_table
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
@@ -121,6 +140,47 @@ class BridgeController(ViktorController):
             print(f"Error preparing bridge geometry for load zones view: {e}")  # noqa: T201
             raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
 
+    def _calculate_zone_geometry_properties(
+        self, load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData
+    ) -> list[LoadZoneDataRow]:
+        """
+        Calculate geometric properties for each load zone based on bridge geometry.
+        This adds the missing zone_widths_per_d and y_coords_top_current_zone fields.
+        """
+        if not load_zones_data_params or not bridge_geom_data:
+            return load_zones_data_params
+
+        updated_zones = []
+        current_y_top = bridge_geom_data.y_top_structural_edge_at_d_points.copy()
+
+        for zone_idx, zone_data in enumerate(load_zones_data_params):
+            # Create a copy of the zone data
+            updated_zone = dict(zone_data)
+
+            # Calculate zone widths for each D-point
+            zone_widths = []
+            for d_idx in range(bridge_geom_data.num_defined_d_points):
+                d_width_field = f"d{d_idx + 1}_width"
+                width_value = zone_data.get(d_width_field)
+                if isinstance(width_value, (int, float)):
+                    zone_widths.append(float(width_value))
+                else:
+                    zone_widths.append(0.0)
+
+            # Add calculated geometric properties
+            updated_zone["zone_widths_per_d"] = zone_widths
+            updated_zone["y_coords_top_current_zone"] = current_y_top.copy()
+
+            # Update current_y_top for next zone (unless it's the last zone)
+            if zone_idx < len(load_zones_data_params) - 1:
+                # Move the top position down by the zone width for each D-point
+                for d_idx in range(bridge_geom_data.num_defined_d_points):
+                    current_y_top[d_idx] -= zone_widths[d_idx]
+
+            updated_zones.append(cast(LoadZoneDataRow, updated_zone))
+
+        return updated_zones
+
     def _get_bridge_entity_data(self, entity_id: int) -> tuple[str | None, str | None, MapResult | None]:
         """Fetches bridge entity data (OBJECTNUMM and name) using the VIKTOR API."""
         if not entity_id:
@@ -139,23 +199,6 @@ class BridgeController(ViktorController):
             return objectnumm, name, None  # noqa: TRY300
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
-
-    @DataView("Bridge Summary", duration_guess=1)
-    def get_bridge_summary_view(self, params: BridgeParametrization, **kwargs) -> DataResult:  # noqa: ARG002
-        """Displays a summary of the bridge information on the Info page."""
-        data = DataGroup(
-            DataItem(label="Bridge ID (OBJECTNUMM)", value=params.info.bridge_objectnumm or "N/A"),
-            DataItem(label="Bridge Name", value=params.info.bridge_name or "N/A"),
-            DataItem(label="Location Description", value=params.info.location_description or "N/A"),
-            DataItem(label="City/Municipality", value=params.info.city or "N/A"),
-            DataItem(label="Construction Year", value=str(params.info.construction_year) if params.info.construction_year else "N/A"),
-            DataItem(label="Total Length", value=f"{params.info.total_length} m" if params.info.total_length is not None else "N/A"),
-            DataItem(label="Total Width", value=f"{params.info.total_width} m" if params.info.total_width is not None else "N/A"),
-            DataItem(label="Last Assessment", value=params.info.assessment_date or "N/A"),
-            DataItem(label="Assessment Status", value=params.info.assessment_status or "N/A"),
-            DataItem(label="Assessment Notes", value=params.info.assessment_notes or "N/A"),
-        )
-        return DataResult(data)
 
     @MapView("Locatie Brug", duration_guess=2)
     def get_bridge_map_view(self, params: BridgeParametrization, **kwargs) -> MapResult:  # noqa: ARG002
@@ -329,7 +372,11 @@ class BridgeController(ViktorController):
         if params.load_zones_data_array:
             for row_param in params.load_zones_data_array:
                 # Construct a dictionary that matches LoadZoneDataRow fields
-                temp_row_data: dict[str, Any] = {"zone_type": row_param.zone_type}
+                temp_row_data: dict[str, Any] = {
+                    "zone_type": row_param.zone_type,
+                    "pavement_thickness": getattr(row_param, "pavement_thickness", 0.05),  # Default 5cm
+                    "pavement_material": getattr(row_param, "pavement_material", "Asfalt"),  # Default Asfalt
+                }
                 for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
                     field_name = f"d{i}_width"
                     value = getattr(row_param, field_name, None)
@@ -350,6 +397,9 @@ class BridgeController(ViktorController):
             fig = go.Figure()
             fig.update_layout(title_text="Belastingzones - Brugsegmenten ongeldig", xaxis_visible=False, yaxis_visible=False)
             return PlotlyResult(fig.to_json())
+
+        # 2a. Calculate zone geometric properties using bridge geometry
+        load_zones_data_params = self._calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
         # 3. Get validation messages
         validation_messages: list[str] = []
@@ -398,6 +448,17 @@ class BridgeController(ViktorController):
         )
 
         return PlotlyResult(fig.to_json())
+
+    @TableView("Belastingscombinaties")
+    def get_load_combinations_view(self, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Display the table of load combinations for the bridge.
+
+        :returns: TableResult containing the load combinations.
+        :rtype: TableResult
+        """
+        combination_table = create_load_combination_table()
+        return TableResult(combination_table)
 
     # ============================================================================================================
     # SCIA Integration
@@ -462,12 +523,10 @@ class BridgeController(ViktorController):
             if not bridge_segments:
                 self._raise_no_bridge_segments_error()
 
-            # Extract geometry using the centralized material system
+            # Extract geometry using the same logic as SCIA interface
+            from src.integrations.scia_interface import extract_bridge_geometry_from_params
 
-            # Extract material from params or use default
-            concrete_material = getattr(params.info, "concrete_strength_class", None) or None
-
-            bridge_geometry = extract_bridge_geometry_from_params(bridge_segments, concrete_material)
+            bridge_geometry = extract_bridge_geometry_from_params(bridge_segments)
 
             # Create a simple box geometry to represent the SCIA plate
             # Using trimesh to create a box with the bridge dimensions

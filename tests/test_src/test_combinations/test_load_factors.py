@@ -13,7 +13,7 @@ import pytest
 from numpy.testing import assert_array_equal
 
 from src.combinations.load_factors import (  # Import the function to be tested and validate_input
-    PSI_FACTORS,
+    PSI_FACTORS_NEN8701,
     _clamp,
     get_interpolation_data,
     get_psi_factor,
@@ -235,7 +235,7 @@ class TestLoadFactorsGetInterpolationData(unittest.TestCase):
     def test_get_interpolation_data_spans_content_and_order(self) -> None:
         """Test get_interpolation_data returns spans in correct order and content."""
         # Arrange
-        expected_spans = np.array(sorted(PSI_FACTORS[100].keys()))
+        expected_spans = np.array(sorted(PSI_FACTORS_NEN8701[100].keys()))
         # Act
         spans, _, _ = get_interpolation_data()
         # Assert
@@ -244,7 +244,7 @@ class TestLoadFactorsGetInterpolationData(unittest.TestCase):
     def test_get_interpolation_data_periods_content_and_order(self) -> None:
         """Test get_interpolation_data returns periods in correct order and content."""
         # Arrange
-        expected_periods = np.array(sorted(PSI_FACTORS.keys(), reverse=True))
+        expected_periods = np.array(sorted(PSI_FACTORS_NEN8701.keys(), reverse=True))
         # Act
         _, periods, _ = get_interpolation_data()
         # Assert
@@ -253,8 +253,8 @@ class TestLoadFactorsGetInterpolationData(unittest.TestCase):
     def test_get_interpolation_data_values_shape(self) -> None:
         """Test get_interpolation_data returns values array with correct shape."""
         # Arrange
-        num_expected_periods = len(PSI_FACTORS.keys())
-        num_expected_spans = len(PSI_FACTORS[100].keys())
+        num_expected_periods = len(PSI_FACTORS_NEN8701.keys())
+        num_expected_spans = len(PSI_FACTORS_NEN8701[100].keys())
         # Act
         _, _, values = get_interpolation_data()
         # Assert
@@ -270,17 +270,17 @@ class TestLoadFactorsGetInterpolationData(unittest.TestCase):
         span_to_idx = {span: i for i, span in enumerate(spans_arr)}
 
         # Verify corner and middle values match PSI_FACTORS table
-        assert values_arr[period_to_idx[100.0], span_to_idx[20]] == PSI_FACTORS[100.0][20]
-        assert values_arr[period_to_idx[1.0 / 12.0], span_to_idx[200]] == PSI_FACTORS[1.0 / 12.0][200]
+        assert values_arr[period_to_idx[100.0], span_to_idx[20]] == PSI_FACTORS_NEN8701[100.0][20]
+        assert values_arr[period_to_idx[1.0 / 12.0], span_to_idx[200]] == PSI_FACTORS_NEN8701[1.0 / 12.0][200]
 
         # Verify middle values
         if 15.0 in period_to_idx and 50 in span_to_idx:
-            assert values_arr[period_to_idx[15.0], span_to_idx[50]] == PSI_FACTORS[15.0][50]
+            assert values_arr[period_to_idx[15.0], span_to_idx[50]] == PSI_FACTORS_NEN8701[15.0][50]
         else:
             self.fail("Key 15.0 or 50 not found in period/span index maps for spot check")
 
         if 1.0 in period_to_idx and 100 in span_to_idx:
-            assert values_arr[period_to_idx[1.0], span_to_idx[100]] == PSI_FACTORS[1.0][100]
+            assert values_arr[period_to_idx[1.0], span_to_idx[100]] == PSI_FACTORS_NEN8701[1.0][100]
         else:
             self.fail("Key 1.0 or 100 not found in period/span index maps for spot check")
 
@@ -291,11 +291,11 @@ class TestLoadFactorsGetPsiFactor(unittest.TestCase):
     def test_get_psi_factor_exact_grid_points(self) -> None:
         """Test get_psi_factor with exact grid points from PSI_FACTORS table."""
         # Test with values directly from PSI_FACTORS table
-        assert get_psi_factor(span=20, reference_period=100) == PSI_FACTORS[100][20]
-        assert get_psi_factor(span=50, reference_period=50) == PSI_FACTORS[50][50]
-        assert get_psi_factor(span=100, reference_period=15) == PSI_FACTORS[15][100]
-        assert get_psi_factor(span=200, reference_period=1.0 / 12.0) == PSI_FACTORS[1.0 / 12.0][200]
-        assert get_psi_factor(span=100, reference_period=1.0) == PSI_FACTORS[1.0][100]
+        assert get_psi_factor(span=20, reference_period=100) == PSI_FACTORS_NEN8701[100][20]
+        assert get_psi_factor(span=50, reference_period=50) == PSI_FACTORS_NEN8701[50][50]
+        assert get_psi_factor(span=100, reference_period=15) == PSI_FACTORS_NEN8701[15][100]
+        assert get_psi_factor(span=200, reference_period=1.0 / 12.0) == PSI_FACTORS_NEN8701[1.0 / 12.0][200]
+        assert get_psi_factor(span=100, reference_period=1.0) == PSI_FACTORS_NEN8701[1.0][100]
 
     def test_get_psi_factor_interpolated_span(self) -> None:
         """Test get_psi_factor with interpolated span values."""
@@ -320,13 +320,13 @@ class TestLoadFactorsGetPsiFactor(unittest.TestCase):
     def test_get_psi_factor_clamped_span_low(self) -> None:
         """Test get_psi_factor with span clamped to minimum value."""
         # Span 10 clamps to 20, should equal PSI_FACTORS[1.0][20]
-        expected = PSI_FACTORS[1.0][20]
+        expected = PSI_FACTORS_NEN8701[1.0][20]
         assert get_psi_factor(span=10, reference_period=1) == expected
 
     def test_get_psi_factor_clamped_span_high(self) -> None:
         """Test get_psi_factor with span clamped to maximum value."""
         # Span 300 clamps to 200, should equal PSI_FACTORS[30.0][200]
-        expected = PSI_FACTORS[30.0][200]
+        expected = PSI_FACTORS_NEN8701[30.0][200]
         assert get_psi_factor(span=300, reference_period=30) == expected
 
     # Tests for exceptions propagated from validate_input
@@ -358,6 +358,6 @@ class TestLoadFactorsGetPsiFactor(unittest.TestCase):
     def test_get_psi_factor_ref_period_at_boundaries(self) -> None:
         """Test get_psi_factor at reference period boundaries."""
         # Test with period at max boundary (100)
-        assert get_psi_factor(span=50, reference_period=100) == PSI_FACTORS[100][50]
+        assert get_psi_factor(span=50, reference_period=100) == PSI_FACTORS_NEN8701[100][50]
         # Test with period at min boundary (1/12)
-        assert get_psi_factor(span=50, reference_period=1.0 / 12.0) == PSI_FACTORS[1.0 / 12.0][50]
+        assert get_psi_factor(span=50, reference_period=1.0 / 12.0) == PSI_FACTORS_NEN8701[1.0 / 12.0][50]
