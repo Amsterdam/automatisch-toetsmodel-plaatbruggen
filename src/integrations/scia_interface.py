@@ -13,6 +13,7 @@ Future enhancements needed:
 """
 
 import io
+from munch import Munch  # type: ignore[import-untyped]
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
@@ -128,7 +129,7 @@ def create_node_and_thickness_dict(params):
     return nodes_dict, thickness_dict
 
 
-def create_simple_scia_plate_model(params):
+def create_simple_scia_plate_model(params: dict | Munch):
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
@@ -414,7 +415,7 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
-def create_bridge_scia_model(params, template_path: Path) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(params: dict | Munch, template_path: Path) -> tuple[Any, Any, Any]:
     """
     Main function to create complete SCIA model from bridge parameters.
 
@@ -486,9 +487,7 @@ def create_bridge_scia_model(params, template_path: Path) -> tuple[Any, Any, Any
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
-    # # Extract bridge geometry
-    # bridge_geometry = extract_bridge_geometry_from_params(params)
-
+        
     # Create SCIA model
     xml_file, def_file = create_simple_scia_plate_model(params)
 
