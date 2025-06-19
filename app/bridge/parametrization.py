@@ -731,8 +731,7 @@ hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden."""
     # --- SCIA Page ---
     # ----------------------------------
 
-    # scia = Page("SCIA", views=["get_scia_model_preview"])
-    scia = Page("SCIA")
+    scia = Page("SCIA", views=["3d_view"])
 
     scia.info_text = Text(SCIA_INFO_TEXT)
 

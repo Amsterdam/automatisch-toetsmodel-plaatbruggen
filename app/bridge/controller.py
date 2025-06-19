@@ -398,29 +398,6 @@ class BridgeController(ViktorController):
     # SCIA Integration
     # ============================================================================================================
 
-    # def _convert_bridge_params_to_dicts(self, params: BridgeParametrization) -> list[dict[str, Any]]:
-    #     """
-    #     Convert bridge segment parameters to dictionary format for SCIA integration.
-
-    #     :param params: Bridge parametrization object
-    #     :type params: BridgeParametrization
-    #     :returns: List of bridge segment dictionaries
-    #     :rtype: list[dict[str, Any]]
-    #     """
-    #     bridge_segments = []
-    #     if params.bridge_segments_array:
-    #         for segment in params.bridge_segments_array:
-    #             segment_dict = {
-    #                 "bz1": getattr(segment, "bz1", 0),
-    #                 "bz2": getattr(segment, "bz2", 0),
-    #                 "bz3": getattr(segment, "bz3", 0),
-    #                 "l": getattr(segment, "l", 0),
-    #                 "dz": getattr(segment, "dz", 0),
-    #                 "dz_2": getattr(segment, "dz_2", 0),
-    #             }
-    #             bridge_segments.append(segment_dict)
-    #     return bridge_segments
-
     def _get_scia_template_path(self) -> Path:
         """
         Get the path to the SCIA template file.
@@ -436,80 +413,6 @@ class BridgeController(ViktorController):
             raise UserError(f"SCIA template file niet gevonden: {template_path}")
 
         return template_path
-
-    # @GeometryView("SCIA Model Preview", duration_guess=5, x_axis_to_right=True)
-    # def get_scia_model_preview(self, params: BridgeParametrization, **kwargs) -> GeometryResult:
-    #     """
-    #     Generate a preview of the SCIA model geometry.
-
-    #     Currently shows a simple rectangular plate representation that will be sent to SCIA.
-    #     This is a simplified preview - the actual SCIA model may contain additional details.
-
-    #     :param params: Bridge parametrization object
-    #     :type params: BridgeParametrization
-    #     :returns: 3D geometry result showing the SCIA model approximation
-    #     :rtype: GeometryResult
-    #     """
-    #     try:
-    #         # Convert bridge parameters to dictionary format
-    #         bridge_segments = self._convert_bridge_params_to_dicts(params)
-
-    #         if not bridge_segments:
-    #             self._raise_no_bridge_segments_error()
-
-    #         # Extract geometry using the same logic as SCIA interface
-    #         from src.integrations.scia_interface import extract_bridge_geometry_from_params
-
-    #         bridge_geometry = extract_bridge_geometry_from_params(bridge_segments)
-
-    #         # Create a simple box geometry to represent the SCIA plate
-    #         # Using trimesh to create a box with the bridge dimensions
-    #         plate_box = trimesh.creation.box(
-    #             extents=[
-    #                 bridge_geometry.total_length,  # X direction (length)
-    #                 bridge_geometry.total_width,  # Y direction (width)
-    #                 bridge_geometry.thickness,  # Z direction (thickness)
-    #             ]
-    #         )
-
-    #         # Position the box so it starts at origin in X and Y, and thickness goes upward
-    #         plate_box.apply_translation(
-    #             [
-    #                 bridge_geometry.total_length / 2,  # Center in X
-    #                 bridge_geometry.total_width / 2,  # Center in Y
-    #                 bridge_geometry.thickness / 2,  # Position so bottom is at Z=0
-    #             ]
-    #         )
-
-    #         # Set material color (concrete gray)
-    #         plate_box.visual.face_colors = [200, 200, 200, 255]  # Light gray
-
-    #         # Create scene and add info text
-    #         scene = trimesh.Scene()
-    #         scene.add_geometry(plate_box, node_name="SCIA_Plate")
-
-    #         # Add coordinate frame for reference
-    #         axis_length = min(bridge_geometry.total_length, bridge_geometry.total_width) * 0.1
-    #         scene.add_geometry(
-    #             trimesh.creation.axis(origin_size=axis_length / 10, axis_radius=axis_length / 50, axis_length=axis_length),
-    #             node_name="Coordinate_Frame",
-    #         )
-
-    #         # Export the scene as a GLTF file and return it as a GeometryResult
-    #         geometry = File()
-    #         with geometry.open_binary() as w:
-    #             w.write(trimesh.exchange.gltf.export_glb(scene))
-    #         return GeometryResult(geometry, geometry_type="gltf")
-
-    #     except Exception as e:
-    #         # Create error visualization
-    #         error_box = trimesh.creation.box(extents=[1, 1, 0.1])
-    #         error_box.visual.face_colors = [255, 100, 100, 255]  # Red color for error
-
-    #         scene = trimesh.Scene()
-    #         scene.add_geometry(error_box, node_name="Error")
-
-    #         raise UserError(f"Fout bij genereren SCIA model preview: {e!s}")
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
@@ -583,13 +486,6 @@ class BridgeController(ViktorController):
         :returns: ESA model file for download
         :rtype: DownloadResult
         """
-        # try:
-        # # Convert bridge parameters
-        # bridge_segments = self._convert_bridge_params_to_dicts(params)
-
-        # if not bridge_segments:
-        #     self._raise_no_bridge_segments_error()
-
         # Get template path
         template_path = self._get_scia_template_path()
 
@@ -634,12 +530,6 @@ class BridgeController(ViktorController):
                 "Probeer in plaats daarvan de XML bestanden te downloaden."
             )
             raise UserError(error_msg)
-
-        # except UserError:
-        #     # Re-raise UserError as-is
-        #     raise
-        # except Exception as e:
-        #     raise UserError(f"Fout bij genereren SCIA ESA model: {e!s}")
 
     def _raise_no_bridge_segments_error(self) -> None:
         """Raise UserError for missing bridge segments."""

@@ -14,25 +14,29 @@ Future enhancements needed:
 
 import io
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, TypeAlias
 
 from munch import Munch  # type: ignore[import-untyped]
+
+# Type alias for SCIA Engineer node objects
+SciaNode: TypeAlias = object  # More specific type if available from SCIA API
+SciaModel: TypeAlias = object  # More specific type if available from SCIA API
 
 
 class NodeTracker:
     """Helper class to track and reuse nodes in SCIA model creation."""
 
-    def __init__(self, scia_model):
+    def __init__(self, scia_model: SciaModel) -> None:
         """
         Initialize the node tracker.
 
         :param scia_model: SCIA model instance
         """
         self.model = scia_model
-        self._nodes_by_coords: Dict[Tuple[float, float, float], Any] = {}
-        self._nodes_by_name: Dict[str, Any] = {}
+        self._nodes_by_coords: dict[tuple[float, float, float], SciaNode] = {}
+        self._nodes_by_name: dict[str, SciaNode] = {}
 
-    def get_or_create_node(self, name: str, x: float, y: float, z: float) -> Any:
+    def get_or_create_node(self, name: str, x: float, y: float, z: float) -> SciaNode:
         """
         Get an existing node at the given coordinates or create a new one.
 
@@ -54,7 +58,7 @@ class NodeTracker:
         self._nodes_by_name[name] = node
         return node
 
-    def get_node_by_name(self, name: str) -> Any:
+    def get_node_by_name(self, name: str) -> SciaNode:
         """
         Get a node by its name.
 
@@ -65,7 +69,15 @@ class NodeTracker:
         return self._nodes_by_name[name]
 
 
-def create_node_and_thickness_dict(params):
+def create_node_and_thickness_dict(params: dict | Munch) -> tuple[dict[str, list[float]], dict[str, float]]:
+    """
+    Create dictionaries containing node positions and thickness data for SCIA model.
+
+    :param params: Bridge parameters containing segment data
+    :returns: Tuple of (nodes_dict, thickness_dict) where:
+             - nodes_dict: Maps node names to [x, y, z] coordinates
+             - thickness_dict: Maps zone names to thickness values
+    """
     # Determine the number of sub-zones based on input dimensions
     dynamic_arrays = len(params.bridge_segments_array)
 
@@ -73,7 +85,13 @@ def create_node_and_thickness_dict(params):
     thickness_dict = {}
 
     # Helper function to calculate node positions for a cross section
-    def calculate_cross_section_positions(segment_idx):
+    def calculate_cross_section_positions(segment_idx: int) -> dict[str, float]:
+        """
+        Calculate node positions for a specific cross section.
+
+        :param segment_idx: Index of the bridge segment
+        :returns: Dictionary with x and z coordinates for the cross section nodes
+        """
         # Calculate cumulative length for this cross section
         l_sum = sum(item["l"] for item in params.bridge_segments_array[: segment_idx + 1])
         segment = params.bridge_segments_array[segment_idx]
@@ -130,7 +148,7 @@ def create_node_and_thickness_dict(params):
     return nodes_dict, thickness_dict
 
 
-def create_simple_scia_plate_model(params: dict | Munch):
+def create_simple_scia_plate_model(params: dict | Munch) -> io.BytesIO:
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
