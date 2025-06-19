@@ -13,6 +13,7 @@ valid value.
 
 import numpy as np
 import pandas as pd
+from pandas.io.formats.style import Styler
 from scipy.interpolate import RegularGridInterpolator  # type: ignore[import-untyped]
 
 from app.constants import COMBINATION_TABLE, PSI_FACTORS_NEN8701
@@ -118,12 +119,15 @@ def get_psi_factor(span: float, reference_period: float) -> float:
     return float(result[0])
 
 
-def create_load_combination_table() -> pd.DataFrame:
+def create_load_combination_table() -> Styler:
     """
-    Generates a table view of load combinations based on the COMBINATION_TABLE constant.
+    Generates a styled table view of load combinations based on the COMBINATION_TABLE constant.
 
-    :returns: Table showing load combinations and their active loads.
-    :rtype: pd.DataFrame
+    Cells representing leading actions (capital "X") are highlighted with light green background
+    based on predefined positions from NEN-EN 1990 table NB.19.
+
+    :returns: Styled table showing load combinations and their active loads.
+    :rtype: Styler
     """
     # Get all unique loads (rows) from the first combination
     loads = list(next(iter(COMBINATION_TABLE.values())).keys())
@@ -137,4 +141,49 @@ def create_load_combination_table() -> pd.DataFrame:
     df_combination_table = pd.DataFrame(data=data, columns=list(COMBINATION_TABLE.keys()), index=loads)
 
     # Replace empty values with '-' for better readability
-    return df_combination_table.fillna("-")
+    df_combination_table = df_combination_table.fillna("-")
+
+    # Predefined positions for leading actions (capital "X") that should be highlighted
+    # Format: (row_name, column_name) - these positions are fixed per NEN-EN 1990 table NB.19
+    leading_action_positions = {
+        ("Permanente belasting", "Perm"),
+        ("Zetting", "Perm zet"),
+        ("TS", "gr1a"),
+        ("UDL", "gr1a"),
+        ("Enkele as", "gr1b"),
+        ("Horizontale belasting", "gr2"),
+        ("Fiets- en voetpaden", "gr3"),
+        ("Mensenmenigte", "gr4"),
+        ("Bijzonder voertuigen", "gr5"),
+        ("Wind Fwk", "Wind gr1a"),
+        ("Wind Fwk", "Wind gr2"),
+        ("Temperatuur", "Temp gr1"),
+        ("Temperatuur", "Temp gr2"),
+        ("Sneeuw", "Sneeuw"),
+        ("Impact op of onder de brug", "Aanrijding gr1a"),
+        ("Impact op of onder de brug", "Aanrijding gr2"),
+    }
+
+    # Create styling function that uses the DataFrame structure to determine positions
+    def highlight_leading_actions(val: str) -> str:
+        """
+        This is a placeholder function - actual styling is applied using set_properties.
+
+        :param val: Cell value (not used in this approach)
+        :type val: str
+        :returns: Empty string (styling applied elsewhere)
+        :rtype: str
+        """
+        return ""
+
+    # Start with base styling
+    styled_df = df_combination_table.style
+
+    # Apply light green background to specific cells using iloc positions
+    for row_name, col_name in leading_action_positions:
+        if row_name in df_combination_table.index and col_name in df_combination_table.columns:
+            row_idx = df_combination_table.index.get_loc(row_name)
+            col_idx = df_combination_table.columns.get_loc(col_name)
+            styled_df = styled_df.set_properties(subset=pd.IndexSlice[row_name, col_name], **{"background-color": "lightgreen"})
+
+    return styled_df

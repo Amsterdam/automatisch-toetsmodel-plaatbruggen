@@ -5,27 +5,8 @@ from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
+
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    DataGroup,  # Add DataGroup
-    DataItem,  # Add DataItem
-    DataResult,  # Add DataResult
-    DataView,  # Add DataView
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -64,6 +45,26 @@ from src.geometry.top_view_plot import build_top_view_figure
 
 # Import SCIA integration from src layer
 from src.integrations.scia_interface import create_bridge_scia_model
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    DataGroup,  # Add DataGroup
+    DataItem,  # Add DataItem
+    DataResult,  # Add DataResult
+    DataView,  # Add DataView
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # Import parametrization from the separate file
 from .parametrization import (
@@ -405,11 +406,16 @@ class BridgeController(ViktorController):
         return PlotlyResult(fig.to_json())
 
     @TableView("Belastingscombinaties")
-    def get_load_combinations_view(self) -> TableResult:
+    def get_load_combinations_view(self, params, **kwargs) -> TableResult:
         """
         Display the table of load combinations for the bridge.
 
-        :returns: TableResult containing the load combinations.
+        The table shows which loads are active in each combination, with:
+        - "X" (capital): Leading action (highlighted in light green)
+        - "x" (lowercase): Accompanying action
+        - "-": Not included in combination
+
+        :returns: TableResult containing the styled load combinations table.
         :rtype: TableResult
         """
         combination_table = create_load_combination_table()
