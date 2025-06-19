@@ -27,12 +27,12 @@ from viktor.parametrization import (
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
-    IDEA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
