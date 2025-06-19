@@ -432,7 +432,7 @@ class BridgeController(ViktorController):
         return PlotlyResult(fig.to_json())
 
     @TableView("Belastingscombinaties")
-    def get_load_combinations_view(self) -> TableResult:
+    def get_load_combinations_view(self, **kwargs) -> TableResult:
         """
         Display the table of load combinations for the bridge.
 
