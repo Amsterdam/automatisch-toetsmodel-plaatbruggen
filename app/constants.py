@@ -14,6 +14,7 @@ README_PATH = PROJECT_PATH / "README.md"
 CHANGELOG_PATH = PROJECT_PATH / "CHANGELOG.md"
 CSS_PATH = PROJECT_PATH / "resources" / "styles" / "style.css"
 OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindrapport.docx"
+REINFORCEMENT_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonstaalkwaliteit.csv"
 BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"
 
 # Note: Material paths are now managed by src.common.materials module

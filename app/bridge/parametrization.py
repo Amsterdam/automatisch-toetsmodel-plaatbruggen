@@ -32,6 +32,7 @@ from app.constants import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
+    IDEA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
