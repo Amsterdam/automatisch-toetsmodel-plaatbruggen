@@ -303,5 +303,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert hasattr(self.default_params.info, "bridge_name")
         assert hasattr(self.default_params.input.dimensions, "horizontal_section_loc")
 
+
 if __name__ == "__main__":
     unittest.main()
