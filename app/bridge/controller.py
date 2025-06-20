@@ -60,6 +60,8 @@ from src.geometry.model_creator import (
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.scia_interface import create_bridge_scia_model
 
+from src.report.report_functions import create_export_report  # Import the report creation function
+
 # Import parametrization from the separate file
 from .parametrization import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
@@ -607,26 +609,6 @@ class BridgeController(ViktorController):
         raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
 
     # ============================================================================================================
-    # output - Rapport
-    # ============================================================================================================
-
-    @PDFView("Rapport", duration_guess=1)
-    def get_output_report(self, params: BridgeParametrization, **kwargs) -> PDFResult:  # noqa: ARG002
-        """
-        Generates a PDF report for the bridge design.
-
-        Args:
-            params (BridgeParametrization): Input parameters for the bridge dimensions.
-            **kwargs: Additional arguments.
-
-        Returns:
-            File: A PDF file containing the report.
-
-        """
-        # TEMPORARILY DISABLED - docxtpl network issue
-        raise UserError("Report generation is temporarily disabled due to network connectivity issues with required dependencies.")
-
-    # ============================================================================================================
     # IDEA StatiCa Integration
     # ============================================================================================================
 
@@ -904,3 +886,26 @@ class BridgeController(ViktorController):
                 "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
             )
             raise UserError(error_msg)
+
+
+    # ============================================================================================================
+    # output - Rapport
+    # ============================================================================================================
+
+    @PDFView("Rapport", duration_guess=1)
+    def get_output_report(self, params: BridgeParametrization, **kwargs) -> PDFResult:  # noqa: ARG002
+        """
+        Generates a PDF report for the bridge design.
+
+        Args:
+            params (BridgeParametrization): Input parameters for the bridge dimensions.
+            **kwargs: Additional arguments.
+
+        Returns:
+            File: A PDF file containing the report.
+
+        """
+        report_pdf = create_export_report(params)  # Call the report generation function
+        if not report_pdf:
+            raise UserError("Rapport kon niet worden gegenereerd. Controleer de parameters en probeer het opnieuw.")
+        return PDFResult(file=report_pdf)
