@@ -7,9 +7,11 @@ Currently implements a simple rectangular plate model as a starting point.
 Future enhancements needed:
 - Support for complex bridge geometry matching the actual bridge shape (1:1 with bridge segments)
 - Variable thickness across zones (zone 1, 2, 3 have different thickness values)
-- Load cases and combinations
-- Support for different bridge types
-- Material property customization
+- Load cases and combinations from params.input.belastingzones and belastingcombinaties
+- Support for different bridge types from params.info.bridge_type and static_system
+- Material property customization from params.info.concrete_strength_class
+- Reinforcement modeling from params.input.geometrie_wapening zones
+- Extract all geometry from params.input.dimensions.bridge_segments_array instead of hardcoded values
 """
 
 import io
@@ -467,6 +469,7 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
 
 
 def create_bridge_scia_model(params: BridgeParametrization, template_path: Path) -> tuple[Any, Any, Any]:
+
     """
     Main function to create complete SCIA model from bridge parameters.
 
@@ -532,12 +535,15 @@ def create_bridge_scia_model(params: BridgeParametrization, template_path: Path)
     :type bridge_segments_params: list[dict[str, Any]]
     :param template_path: Path to ESA template file
     :type template_path: Path
+    :param concrete_material: Concrete material grade (e.g., "C30/37") from material system
+    :type concrete_material: str | None
     :returns: Tuple of (xml_file, def_file, scia_analysis)
     :rtype: tuple[Any, Any, Any]
     :raises ValueError: If bridge parameters are invalid
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
+
     # Create SCIA model
     xml_file, def_file = create_simple_scia_plate_model(params)
 

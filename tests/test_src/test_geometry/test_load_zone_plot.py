@@ -192,7 +192,12 @@ class TestLoadZonePlotHelpers(unittest.TestCase):
 
     def _create_dummy_load_zone_data_row(self, d_widths: list[float]) -> LoadZoneDataRow:
         """Creates a LoadZoneDataRow-like dictionary for testing width annotations."""
-        row_dict: dict[str, Any] = {"zone_type": "Dummy"}  # zone_type not used by create_zone_width_annotations
+        row_dict: dict[str, Any] = {
+            "zone_type": "Dummy",  # zone_type not used by create_zone_width_annotations
+            # Add new pavement fields
+            "pavement_thickness": 0.05,  # Default 5cm
+            "pavement_material": "Asfalt",  # Default material
+        }
         for i, width in enumerate(d_widths):
             row_dict[f"d{i + 1}_width"] = width  # Store raw float, not Munch(value=width)
         # Fill remaining up to 15 with 0.0 if not provided
@@ -218,6 +223,11 @@ class TestBuildLoadZonesFigure(unittest.TestCase):
             "d5_width": d_widths[4] if len(d_widths) > 4 else 0.0,
             # Add the missing y_coords_top_current_zone field that build_load_zones_figure expects
             "y_coords_top_current_zone": [1.0] * len(d_widths),  # Mock top coordinates
+            # Add the missing zone_widths_per_d field that build_load_zones_figure expects
+            "zone_widths_per_d": d_widths[:],  # Copy of d_widths list
+            # Add new pavement fields
+            "pavement_thickness": 0.05,  # Default 5cm
+            "pavement_material": "Asfalt",  # Default material
         }
 
         # Add d6 to d15 as 0.0
