@@ -22,9 +22,10 @@ from munch import Munch  # type: ignore[import-untyped]
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
 SciaModel: TypeAlias = "SciaModelProtocol"
 
+
 class SciaModelProtocol:
-    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode":
-        ...  # Define the expected behavior of the create_node method
+    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode": ...  # Define the expected behavior of the create_node method
+
 
 from app.bridge.parametrization import (
     BridgeParametrization,
@@ -367,7 +368,7 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
         node_name = f"K_dek:1_{node_suffix}"
         coords = nodes_dict.get(node_name)
         if coords is None:
-                    raise ValueError(f"Coordinates for node '{node_name}' not found in nodes_dict.")
+            raise ValueError(f"Coordinates for node '{node_name}' not found in nodes_dict.")
         scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
 
     # Create plates between cross sections
@@ -416,7 +417,8 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
 
 
 def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401
-    """Create SCIA analysis using template file and generated XML input.
+    """
+    Create SCIA analysis using template file and generated XML input.
 
     :param xml_file: Generated XML input file as a BytesIO stream
     :type xml_file: io.BytesIO
