@@ -11,6 +11,8 @@ class LoadZoneDataRow(TypedDict, total=False):
     """
 
     zone_type: str
+    pavement_thickness: float  # New field for pavement thickness
+    pavement_material: str  # New field for pavement material
     d1_width: float | None
     d2_width: float | None
     d3_width: float | None
@@ -26,7 +28,9 @@ class LoadZoneDataRow(TypedDict, total=False):
     d13_width: float | None
     d14_width: float | None
     d15_width: float | None
-    # Add other fields from parametrization if they become part of this data structure
+    # Additional fields used internally by the plotting system
+    zone_widths_per_d: list[float]  # Calculated widths for each D-point
+    y_coords_top_current_zone: list[float]  # Y-coordinates for zone top boundary
 
 
 def calculate_zone_bottom_y_coords(  # noqa: PLR0913

@@ -17,6 +17,8 @@ OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindra
 REINFORCEMENT_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonstaalkwaliteit.csv"
 BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"
 
+# Note: Material paths are now managed by src.common.materials module
+
 # ===================================================================================================================
 # Docs - Readme
 # ===================================================================================================================
@@ -60,6 +62,29 @@ MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
 MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Define how many D-fields (D1 to D15) we'll support for load zones
 LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
 
+# TODO: Load pavement material properties from CSV file according to Eurocode 1
+# TODO: Implement material density lookup and kN/m² calculation
+# TODO: Create materials.csv with specific masses for different pavement types
+PAVEMENT_MATERIAL_OPTIONS = [
+    "Asfalt",  # TODO: Add density value (typical: ~23 kN/m³)
+    "Beton",  # TODO: Add density value (typical: ~24 kN/m³)
+    "Klinkers",  # TODO: Add density value (typical: ~22 kN/m³)
+    "Grind",  # TODO: Add density value (typical: ~18 kN/m³)
+    "Tegels",  # TODO: Add density value (typical: ~20 kN/m³)
+]
+
+LOAD_ZONES_INFO_TEXT = """Definieer hier de werkelijke wegindeling op de brug, de belastingen worden hier automatisch van afgeleid.
+De belastingen volgens de theoretische wegindeling worden automatisch gegenereerd op de achtergrond, hier hoef je niets voor in te vullen.
+
+Elke zone wordt gestapeld vanaf één zijde van de brug.
+Vul alleen breedtes in voor de daadwerkelijk gedefinieerde brugsegmenten (D-nummers) onder de tab Dimensies.
+De laatste belastingzone loopt automatisch door tot het einde van de brug;
+hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden.
+
+**Verharding eigenschappen:**
+Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
+Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
+wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model."""
 
 # ===================================================================================================================
 # Tables from codes
@@ -395,6 +420,17 @@ Het huidige model is een **vereenvoudigde rechthoekige plaat** gebaseerd op:
 - **Dikte**: Vast op 0.5m (moet nog uitgebreid worden met variabele dikte per zone)
 - **Materiaal**: Standaard beton C30/37
 
+### Materiaal Compatibiliteit
+SCIA Engineer ondersteunt een brede range aan materialen via string-gebaseerde namen:
+
+**Volledig ondersteund:**
+- **Alle moderne Eurocode materialen** (C12/15 tot C90/105, B500A/B/C)
+- **Oudere Nederlandse materialen** (K150-K600, B12,5-B65)
+- **Oude wapeningsstaal** (QR22-QR54, QRn32-QRn54, FeB 220/400/500)
+- **Historische staalsoorten** (St. 37, St. 52, Speciaal st. 36/48)
+
+**Voordeel:** SCIA accepteert materialen direct zoals ze in de project database staan.
+
 ### Download Opties
 Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 
@@ -403,4 +439,45 @@ Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 - Variabele dikte per zone (dz, dz_2 parameters)
 - Belastinggevallen en combinaties
 - Geavanceerde materiaal eigenschappen
+        """
+
+# ===================================================================================================================
+# IDEA StatiCa info text
+# ===================================================================================================================
+
+IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integration
+
+Deze pagina toont een preview van het IDEA RCS model en biedt download opties voor dwarsdoorsnede analyse.
+
+### Model Informatie
+Het huidige model is een **vereenvoudigde rechthoekige plaat** met wapening gebaseerd op:
+- **Breedte**: Breedte van het eerste segment (bz1 + bz2 + bz3)
+- **Dikte**: Realistische dekdikte (maximum 0.8m voor plaatanalyse)
+- **Materiaal**: Standaard beton C30/37
+- **Wapening**: Betonstaal B500B met diameter 12mm en onderlinge afstand 150mm
+- **Bovenwapening**: Hart-op-hart afstand 150mm, betondekking 55mm
+- **Onderwapening**: Hart-op-hart afstand 150mm, betondekking 55mm
+
+### Materiaal Compatibiliteit
+IDEA StatiCa ondersteunt alleen moderne Eurocode materialen:
+
+**Direct ondersteund:**
+- **B500A, B500B, B500C** (moderne Eurocode wapeningsstaal)
+- **C12/15 tot C50/60** (standaard betonklassen)
+
+**Automatische omzetting oude materialen:**
+- **QR24, QR22** naar B500A (lage sterkte: 220-240 N/mm²)
+- **QR30, QR40, FeB 400** naar B500B (medium sterkte: 300-400 N/mm²)
+- **QR48, FeB 500** naar B500C (hoge sterkte: 400+ N/mm²)
+
+**Aanbeveling:** Voor exacte materiaalcontrole, selecteer direct B500A/B/C in wapeningsinstellingen.
+
+### Download Opties
+Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:
+
+### Toekomstige Uitbreidingen
+- T-balken en kokerprofielen
+- Variabele wapeningsconfiguraties per zone
+- Realistische belastinggevallen uit bruggeometrie
+- Uitbreiding van materiaalintegratie met Info pagina parameters
         """

@@ -25,7 +25,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         """Test that all view methods exist and are callable."""
         view_methods = [
             "get_3d_view",
-            "get_bridge_summary_view",
             "get_2d_cross_section",
             "get_2d_horizontal_section",
             "get_2d_longitudinal_section",
@@ -53,33 +52,6 @@ class TestBridgeControllerViews(unittest.TestCase):
     # ============================================================================================================
     # PHASE 2: Full View Execution Tests - Bypassing VIKTOR Decorators
     # ============================================================================================================
-
-    @view_test_wrapper("get_bridge_summary_view")
-    def test_get_bridge_summary_view_execution(self) -> None:
-        """Test actual execution of get_bridge_summary_view by calling the underlying method."""
-        # Access the original method by getting the function from the class
-        # The VIKTOR decorator wraps the method, so we need to access __wrapped__ or the original
-        original_method = self.controller.__class__.get_bridge_summary_view
-
-        # Call the method directly, bypassing the decorator
-        result = original_method(self.controller, self.default_params)
-
-        # Assert - verify return type and structure
-        from viktor.views import DataResult
-
-        assert isinstance(result, DataResult)
-        assert result.data is not None
-
-        # Verify specific data items are present
-        # DataGroup extends dict, so DataItems are stored as values
-        data_items = list(result.data.values())
-        assert len(data_items) > 0
-
-        # Check for expected labels (DataItem uses _label attribute)
-        labels = [item._label for item in data_items]  # noqa: SLF001
-        expected_labels = ["Bridge ID (OBJECTNUMM)", "Bridge Name", "Location Description"]
-        for expected_label in expected_labels:
-            assert expected_label in labels
 
     @patch("app.bridge.controller.create_3d_model")
     @patch("trimesh.exchange.gltf.export_glb")
@@ -343,27 +315,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert hasattr(self.default_params.info, "bridge_objectnumm")
         assert hasattr(self.default_params.info, "bridge_name")
         assert hasattr(self.default_params.input.dimensions, "horizontal_section_loc")
-
-    @view_test_wrapper("get_bridge_summary_view")
-    def test_bridge_summary_view_with_complex_data(self) -> None:
-        """Test bridge summary view with complex seed data."""
-        # Access the original method directly
-        original_method = self.controller.__class__.get_bridge_summary_view
-
-        # Act - call bypassing decorator
-        result = original_method(self.controller, self.complex_params)
-
-        # Assert
-        from viktor.views import DataResult
-
-        assert isinstance(result, DataResult)
-
-        # Verify data items contain complex data values
-        # DataGroup extends dict, so DataItems are stored as values
-        data_items = list(result.data.values())
-        bridge_id_item = next((item for item in data_items if item._label == "Bridge ID (OBJECTNUMM)"), None)  # noqa: SLF001
-        assert bridge_id_item is not None
-        assert bridge_id_item._value == "BRIDGE-COMPLEX-001"  # noqa: SLF001
 
     @view_test_wrapper("get_output_report")
     def test_download_report_execution(self) -> None:

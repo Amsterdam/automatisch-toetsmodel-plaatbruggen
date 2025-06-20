@@ -53,6 +53,8 @@
   "load_zones_data_array": [
     {
       "zone_type": "Voetgangers",
+      "pavement_thickness": 0.03,
+      "pavement_material": "Tegels",
       "d1_width": 1.5,
       "d2_width": 1.5,
       "d3_width": 1.5,
@@ -71,6 +73,8 @@
     },
     {
       "zone_type": "Fietsers",
+      "pavement_thickness": 0.04,
+      "pavement_material": "Asfalt",
       "d1_width": 3.0,
       "d2_width": 3.0,
       "d3_width": 3.0,
@@ -89,6 +93,8 @@
     },
     {
       "zone_type": "Berm",
+      "pavement_thickness": 0.02,
+      "pavement_material": "Grind",
       "d1_width": 0.5,
       "d2_width": 0.5,
       "d3_width": 0.5,
@@ -107,6 +113,8 @@
     },
     {
       "zone_type": "Auto (Rijbaan)",
+      "pavement_thickness": 0.08,
+      "pavement_material": "Asfalt",
       "d1_width": 10.5,
       "d2_width": 10.5,
       "d3_width": 10.5,
