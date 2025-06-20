@@ -1,4 +1,11 @@
+# Changelog
 ## [`v0.0.6`] - 2025-xx-xx
+### Added
+### Changed
+### Removed
+### Fixed
+
+## [`v0.0.6`] - 2025-06-19
 
 ### Added
 
