@@ -537,10 +537,11 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     )
 
     input.geometrie_wapening.langswapening_buiten = BooleanField(
-        "Langswapening aan buitenzijde?",
+        "Langswapening in eerste laag?",
         default=True,
         description=(
-            "Indien aangevinkt ligt de langswapening aan de buitenzijde van het beton. Indien uitgevinkt ligt de dwarswapening aan de buitenzijde."
+            "Indien aangevinkt ligt de langswapening in de eerste laag. "
+            "Indien uitgevinkt ligt de dwarswapening in de eerste laag en de langswapening in de tweede laag."
         ),
     )
 
