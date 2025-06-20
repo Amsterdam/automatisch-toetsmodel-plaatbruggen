@@ -13,8 +13,9 @@ Future enhancements needed:
 """
 
 import io
+from io import BytesIO
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, Tuple, Union
 
 from munch import Munch  # type: ignore[import-untyped]
 
@@ -156,8 +157,7 @@ def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[
 
     return nodes_dict, thickness_dict
 
-
-def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
+def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[Tuple[BytesIO, BytesIO]]:
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
@@ -330,10 +330,10 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> io.BytesIO:
 
     Current implementation is a simplified rectangular plate for initial development.
 
-    :param bridge_geometry: Bridge geometry data
-    :type bridge_geometry: BridgeGeometryData
+    :param params: BridgeParametrization object with input parameters
+    :type params: BridgeParametrization
     :returns: Tuple of (xml_file, def_file) for SCIA analysis
-    :rtype: tuple[Any, Any]
+    :rtype: tuple[io.BytesIO, io.BytesIO]
     :raises ImportError: If VIKTOR SCIA module is not available
 
     """
@@ -447,7 +447,7 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
-def create_bridge_scia_model(params: dict | Munch, template_path: Path) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(params: BridgeParametrization, template_path: Path) -> tuple[Any, Any, Any]:
     """
     Main function to create complete SCIA model from bridge parameters.
 
