@@ -147,49 +147,57 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
 
     """
     # Read the code tables from CSV
-    df_gamma = pd.read_csv(GAMMA_NEN8700_PATH, sep=";", index_col=0)
+    df_gamma = pd.read_csv(GAMMA_NEN8700_PATH, sep=";", decimal=",")
 
-    # Filter rows based on consequence class and safety level
-    mask = (df_gamma.index.str.startswith(cc)) & (df_gamma.index.str.contains(safety_level, case=False))
+    # Filter rows based on consequence class (gevolgklasse) and assessment level (toetsniveau)
+    mask = (df_gamma["gevolgklasse"].str.startswith(cc)) & (df_gamma["toetsniveau"].str.contains(safety_level, case=False))
     matching_rows = df_gamma[mask]
 
     if matching_rows.empty:
         raise ValueError(f"No gamma factors found for CC class '{cc}' and safety level '{safety_level}'")
 
     # Create a dictionary with both 6.10a and 6.10b values
-    gamma_factors = {
-        "6.10a": {
-            # Use only rows containing "6.10a"
-            "gamma_Gjsup": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gjsup"].iloc[0]),
-            "gamma_Gjsup_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gjsup_bb2003"].iloc[0]),
-            "gamma_Gjinf": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gjinf"].iloc[0]),
-            "gamma_Qverkeer": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qverkeer"].iloc[0]),
-            "gamma_Qverkeer_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qverkeer_bb2003"].iloc[0]),
-            "gamma_Qwind": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qwind"].iloc[0]),
-            "gamma_Qoverig": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qoverig"].iloc[0]),
-            "gamma_Gset_lin": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gset_lin"].iloc[0]),
-            "gamma_Gset_nonlin": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gset_nonlin"].iloc[0]),
-            "gamma_P": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_P"].iloc[0]),
-        },
-        "6.10b": {
-            # Use only rows containing "6.10b"
-            "gamma_Gjsup": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gjsup"].iloc[0]),
-            "gamma_Gjsup_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gjsup_bb2003"].iloc[0]),
-            "gamma_Gjinf": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gjinf"].iloc[0]),
-            "gamma_Qverkeer": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qverkeer"].iloc[0]),
-            "gamma_Qverkeer_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qverkeer_bb2003"].iloc[0]),
-            "gamma_Qwind": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qwind"].iloc[0]),
-            "gamma_Qoverig": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qoverig"].iloc[0]),
-            "gamma_Gset_lin": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gset_lin"].iloc[0]),
-            "gamma_Gset_nonlin": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gset_nonlin"].iloc[0]),
-            "gamma_P": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_P"].iloc[0]),
-        },
+    gamma_factors: dict[str, dict[str, float]] = {
+        "6.10a": {},
+        "6.10b": {},
     }
+
+    # Define the gamma factor types to extract
+    gamma_keys = [
+        "gamma_Gjsup",
+        "gamma_Gjsup_bb2003",
+        "gamma_Gjinf",
+        "gamma_Qverkeer",
+        "gamma_Qverkeer_bb2003",
+        "gamma_Qwind",
+        "gamma_Qoverig",
+        "gamma_Gset_lin",
+        "gamma_Gset_nonlin",
+        "gamma_P",
+    ]
+
+    # Populate gamma factors for both combinations
+    for combination in ["6.10a", "6.10b"]:
+        combination_rows = matching_rows[matching_rows["vergelijking"].str.contains(combination)]
+        if combination_rows.empty:
+            raise ValueError(f"No data found for combination {combination}")
+
+        for gamma_key in gamma_keys:
+            try:
+                gamma_factors[combination][gamma_key] = float(combination_rows[gamma_key].iloc[0])
+            except (KeyError, IndexError, ValueError) as e:
+                raise ValueError(f"Failed to extract {gamma_key} for combination {combination}") from e
+
+    # Correct gamma factors for the case if building year is 2003 or before
+    if int(building_year) <= 2003:
+        for combination in ["6.10a", "6.10b"]:
+            gamma_factors[combination]["gamma_Gjsup"] = gamma_factors[combination]["gamma_Gjsup_bb2003"]
+            gamma_factors[combination]["gamma_Qverkeer"] = gamma_factors[combination]["gamma_Qverkeer_bb2003"]
 
     return gamma_factors
 
 
-def create_load_combination_table(consequence_class: str, assessment_level: str, building_year: str) -> Styler:
+def create_load_combination_table(params) -> Styler:
     """
     Generates a styled table view of load combinations based on the NEN8700 combination table.
 
@@ -200,16 +208,17 @@ def create_load_combination_table(consequence_class: str, assessment_level: str,
         Styled table showing load combinations and their active loads.
 
     """
-    # Read the code tables from CSV
-    df_combination_table_psi = pd.read_csv(PSI_NEN8700_PATH, sep=";", index_col=0)
+    # Read the code tables from CSV and set "Combinatie" as index
+    df_combination_table_psi = pd.read_csv(PSI_NEN8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
     # Lists for load cases related to permanent-, traffic-, wind- and other loads
-    permanent_loads = ["Perm", "Perm zet"]
-    traffic_loads = ["gr1a", "gr1b", "gr2", "gr3", "gr4", "gr5"]
-    wind_loads = ["Wind gr1a", "Wind gr2"]
-    temperature_loads = ["Temp gr1", "Temp gr2"]
+    permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
+    traffic_loads = ["TS", "UDL", "Enkele as", "Horizontale belasting", "Fiets- en voetpaden", "Mensenmenigte", "Bijzondere voertuigen"]
+    wind_loads = ["Wind Fwk", "Wind Fw*"]
+    temperature_loads = ["Temperatuur"]
     snow_loads = ["Sneeuw"]
-    accident_loads = ["Cal gr1a", "Cal gr2"]
+    accident_loads = ["Calamiteit"]
+    seismic = ["Aardbeving"]
     other_loads = temperature_loads + snow_loads
 
     # Table positions for leading actions which should be highlighted
@@ -233,26 +242,100 @@ def create_load_combination_table(consequence_class: str, assessment_level: str,
         ("Cal gr2", "Calamiteit"),
     }
 
-    # Create styling function that uses the DataFrame structure to determine positions
-    def highlight_leading_actions(val: str) -> str:
-        """
-        Process row value for highlighting.
+    # Creat load combination gamma values
+    gamma_factors = get_gamma_factors(cc=params.cc_class, safety_level=params.design_code, building_year=params.info.construction_year)
 
-        :param val: Cell value (not used in this approach)
-        :type val: str
-        :returns: Empty string (styling applied elsewhere)
-        :rtype: str
-        """
-        return ""
+    # Multiply the psi factors with the gamma factors for all load cases
+    # Create a copy and convert to float64 to ensure dtype compatibility
+    df_combination_table_gamma_psi = df_combination_table_psi.astype('float64')
+
+    # Create masks for different load types based on column names
+    permanent_mask = df_combination_table_gamma_psi.columns.isin(permanent_loads)
+    traffic_mask = df_combination_table_gamma_psi.columns.isin(traffic_loads)
+    wind_mask = df_combination_table_gamma_psi.columns.isin(wind_loads)
+    other_mask = df_combination_table_gamma_psi.columns.isin(other_loads)
+
+    # Apply gamma factors based on combination type (6.10a or 6.10b)
+    for combination in ["6.10a", "6.10b"]:
+        combo_mask = df_combination_table_gamma_psi.index.str.startswith(combination)
+        if combo_mask.any():
+            # Multiply permanent loads with gamma_Gjsup
+            df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] = (
+                df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
+            )
+            # Multiply traffic loads with gamma_Qverkeer
+            df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] = (
+                df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
+            )
+            # Multiply wind loads with gamma_Qwind
+            df_combination_table_gamma_psi.loc[combo_mask, wind_mask] = (
+                df_combination_table_gamma_psi.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
+            )
+            # Multiply other loads with gamma_Qoverig
+            df_combination_table_gamma_psi.loc[combo_mask, other_mask] = (
+                df_combination_table_gamma_psi.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
+            )
+
+    # Filter out rows that only contain zeros
+    df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
+
+    # Filter columns so that the load cases represent the project scope
+    load_cases_project = ["Permanent", "TS", "UDL", "Fiets- en voetpaden", "Mensenmenigte", "Temperatuur"]
+    df_combination_table_gamma_psi = df_combination_table_gamma_psi[
+        df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
+
+    # Filter rows so that the load cases represent the project scope
+    load_combinations_project = [
+        (row_name, col_name) for row_name, col_name in leading_action_positions
+        if col_name in load_cases_project
+    ]
+
+    # Filter rows based on load_combinations_project
+    valid_row_names = {row_name for row_name, _ in load_combinations_project}
+    df_combination_table_gamma_psi = df_combination_table_gamma_psi[
+        [idx.split(" ", 1)[1] in valid_row_names if len(idx.split(" ", 1)) > 1 else False
+         for idx in df_combination_table_gamma_psi.index]
+    ]
+
+    # Round values in table to 5 demical places
+    df_combination_table_gamma_psi = df_combination_table_gamma_psi.round(5)
 
     # Start with base styling
-    styled_df = df_combination_table_psi.style
+    styled_df = df_combination_table_gamma_psi.style
 
     # Apply light green background to specific cells using iloc positions
     for row_name, col_name in leading_action_positions:
-        for index_label in df_combination_table_psi.index:
-            index_label_modified = " ".join(index_label.split()[1:])
-            if row_name == index_label_modified and col_name in df_combination_table_psi.columns:
-                styled_df = styled_df.set_properties(subset=pd.IndexSlice[index_label, col_name], **{"background-color": "lightgreen"})
+        # Skip processing if column doesn't exist in the DataFrame
+        if col_name not in df_combination_table_psi.columns:
+            continue
+
+        # First check if the index exists in the DataFrame
+        matching_indices = [idx for idx in df_combination_table_psi.index
+                          if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
+
+        for idx in matching_indices:
+            # Make sure both DataFrames have the required index and column
+            if (idx in df_combination_table_gamma_psi.index and
+                    col_name in df_combination_table_gamma_psi.columns):
+                styled_df = styled_df.set_properties(
+                    subset=pd.IndexSlice[[idx], [col_name]],
+                    **{"background-color": "lightgreen"}
+                )# Apply light green background to specific cells using iloc positions
+                for row_name, col_name in leading_action_positions:
+                    # Skip processing if column doesn't exist in the DataFrame
+                    if col_name not in df_combination_table_psi.columns:
+                        continue
+
+                    # First check if the index exists in the DataFrame
+                    matching_indices = [idx for idx in df_combination_table_psi.index
+                                      if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
+                    for idx in matching_indices:
+                        # Make sure both DataFrames have the required index and column
+                        if (idx in df_combination_table_gamma_psi.index and
+                                col_name in df_combination_table_gamma_psi.columns):
+                            styled_df = styled_df.set_properties(
+                                subset=pd.IndexSlice[[idx], [col_name]],
+                                **{"background-color": "lightgreen"}
+                            )
 
     return styled_df

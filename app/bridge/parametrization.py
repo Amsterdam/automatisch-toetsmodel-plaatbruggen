@@ -420,8 +420,12 @@ Below you will find important information about this bridge structure."""
     input.belastingcombinaties = Tab("Belastingcombinaties")
 
     # --- Load Combinations (in belastingcombinaties tab) ---
-    input.belastingcombinaties.cc_class = OptionField("Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio")
+    input.belastingcombinaties.cc_class = OptionField("Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2")
     input.belastingcombinaties.comb_types = MultiSelectField("Belastingscombinaties", options=["ULS", "SLS", "FAT"])
+    input.belastingcombinaties.lb = LineBreak()
+    input.belastingcombinaties.design_code = OptionField("Norm", options=["Verbouw", "Afkeur", "Gebruik"], name="design_code", default="Verbouw")
+    input.belastingcombinaties.lb1 = LineBreak()
+    input.belastingcombinaties.shortest_span = NumberField("Korste overspanning", default=20, suffix="m", name="shortest_span")
 
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---

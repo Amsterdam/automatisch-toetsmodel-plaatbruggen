@@ -37,7 +37,7 @@ from app.common.map_utils import (
 
 # Params for load combinations are in app.constants
 from app.constants import SCIA_ZIP_README_CONTENT  # Import the SCIA ZIP readme content
-from src.combinations.load_factors import create_load_combination_table
+from src.combinations.load_factors import create_load_combination_table, get_gamma_factors
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
@@ -417,7 +417,8 @@ class BridgeController(ViktorController):
         :returns: TableResult containing the styled load combinations table.
         :rtype: TableResult
         """
-        combination_table = create_load_combination_table()
+
+        combination_table = create_load_combination_table(params)
         return TableResult(combination_table)
 
     # ============================================================================================================
