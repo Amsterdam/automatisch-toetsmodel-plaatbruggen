@@ -469,7 +469,6 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
 
 
 def create_bridge_scia_model(params: BridgeParametrization, template_path: Path) -> tuple[Any, Any, Any]:
-
     """
     Main function to create complete SCIA model from bridge parameters.
 
@@ -543,7 +542,6 @@ def create_bridge_scia_model(params: BridgeParametrization, template_path: Path)
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
-
     # Create SCIA model
     xml_file, def_file = create_simple_scia_plate_model(params)
 

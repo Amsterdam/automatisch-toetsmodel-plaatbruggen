@@ -147,6 +147,7 @@ def _create_north_arrow_annotation() -> list[go.layout.Annotation]:
         )
     ]
 
+
 def _create_support_annotation(x, y) -> list[go.layout.Annotation]:
     """Creates a triangle annotation under the plot at given coordinates (in data units)."""
     return [
@@ -162,6 +163,7 @@ def _create_support_annotation(x, y) -> list[go.layout.Annotation]:
             yanchor="top",
         )
     ]
+
 
 def build_top_view_figure(top_view_geometric_data: dict[str, Any], validation_messages: list[str] | None = None) -> go.Figure:
     """
