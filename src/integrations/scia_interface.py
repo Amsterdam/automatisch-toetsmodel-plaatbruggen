@@ -15,7 +15,11 @@ Future enhancements needed:
 import io
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Tuple, TypeAlias, Union
+from typing import Any, TypeAlias, Union
+
+from app.bridge.parametrization import (
+    BridgeParametrization,
+)
 
 # Type alias for SCIA Engineer node objects
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
@@ -23,12 +27,28 @@ SciaModel: TypeAlias = "SciaModelProtocol"
 
 
 class SciaModelProtocol:
-    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode": ...  # Define the expected behavior of the create_node method
+    """
+    Protocol for SCIA model objects used in SCIA integration.
 
+    This class defines the expected interface for SCIA model objects, including methods for node creation and other model manipulations.
+    """
 
-from app.bridge.parametrization import (
-    BridgeParametrization,
-)
+    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode":
+        """
+        Create a node in the SCIA model.
+
+        :param name: Name of the node
+        :type name: str
+        :param x: X-coordinate of the node
+        :type x: float
+        :param y: Y-coordinate of the node
+        :type y: float
+        :param z: Z-coordinate of the node
+        :type z: float
+        :returns: The created SCIA node object
+        :rtype: SciaNode
+        """
+        # Define the expected behavior of the create_node method
 
 
 class NodeTracker:
@@ -156,7 +176,7 @@ def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[
     return nodes_dict, thickness_dict
 
 
-def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[Tuple[BytesIO, BytesIO]]:
+def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[tuple[BytesIO, BytesIO]]:
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
