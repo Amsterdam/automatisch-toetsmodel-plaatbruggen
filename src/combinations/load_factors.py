@@ -11,14 +11,26 @@ lengths outside the valid range (20-200m), the values are clamped to the nearest
 valid value.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from pandas.io.formats.style import Styler
 from scipy.interpolate import RegularGridInterpolator  # type: ignore[import-untyped]
 
-from app.constants import COMBINATION_TABLE, PSI_FACTORS_NEN8701
+from app.constants import PSI_FACTORS_NEN8701
 
-""""tedstandard: psi_factor.py"""
+# ===================================================================================================================
+# Paths
+# ===================================================================================================================
+
+PROJECT_PATH = Path(__file__).parent.parent.parent
+PSI_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN8700.csv"
+GAMMA_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamma_NEN8700.csv"
+
+# ===================================================================================================================
+# Functions
+# ===================================================================================================================
 
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
@@ -119,55 +131,112 @@ def get_psi_factor(span: float, reference_period: float) -> float:
     return float(result[0])
 
 
-def create_load_combination_table() -> Styler:
+def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     """
-    Generates a styled table view of load combinations based on the COMBINATION_TABLE constant.
+    Extract gamma factors based on consequence class (CC), assessment level and building year.
 
-    Cells representing leading actions (capital "X") are highlighted with light green background
-    based on predefined positions from NEN-EN 1990 table NB.19.
+    Args:
+        cc: Consequence class ("CC1a/b", "CC2", "CC3")
+        safety_level: Assessment level ("Verbouw", "Afkeur", "Gebruik")
+        building_year: Year of construction (e.g. "1964")
 
-    :returns: Styled table showing load combinations and their active loads.
-    :rtype: Styler
+    Returns:
+        Dictionary containing gamma factors with their values for both 6.10a and 6.10b
+
+    :raises ValueError: If the CC class or safety level is not found in the table
+
     """
-    # Get all unique loads (rows) from the first combination
-    loads = list(next(iter(COMBINATION_TABLE.values())).keys())
+    # Read the code tables from CSV
+    df_gamma = pd.read_csv(GAMMA_NEN8700_PATH, sep=";", index_col=0)
 
-    # Create DataFrame with loads as index and combinations as columns
-    data = []
-    for load in loads:
-        row = [COMBINATION_TABLE[combination][load] for combination in COMBINATION_TABLE]
-        data.append(row)
+    # Filter rows based on consequence class and safety level
+    mask = (df_gamma.index.str.startswith(cc)) & (df_gamma.index.str.contains(safety_level, case=False))
+    matching_rows = df_gamma[mask]
 
-    df_combination_table = pd.DataFrame(data=data, columns=list(COMBINATION_TABLE.keys()), index=loads)
+    if matching_rows.empty:
+        raise ValueError(f"No gamma factors found for CC class '{cc}' and safety level '{safety_level}'")
 
-    # Replace empty values with '-' for better readability
-    df_combination_table = df_combination_table.fillna("-")
+    # Create a dictionary with both 6.10a and 6.10b values
+    gamma_factors = {
+        "6.10a": {
+            # Use only rows containing "6.10a"
+            "gamma_Gjsup": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gjsup"].iloc[0]),
+            "gamma_Gjsup_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gjsup_bb2003"].iloc[0]),
+            "gamma_Gjinf": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gjinf"].iloc[0]),
+            "gamma_Qverkeer": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qverkeer"].iloc[0]),
+            "gamma_Qverkeer_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qverkeer_bb2003"].iloc[0]),
+            "gamma_Qwind": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qwind"].iloc[0]),
+            "gamma_Qoverig": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Qoverig"].iloc[0]),
+            "gamma_Gset_lin": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gset_lin"].iloc[0]),
+            "gamma_Gset_nonlin": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_Gset_nonlin"].iloc[0]),
+            "gamma_P": float(matching_rows[matching_rows.index.str.contains("6.10a")]["gamma_P"].iloc[0]),
+        },
+        "6.10b": {
+            # Use only rows containing "6.10b"
+            "gamma_Gjsup": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gjsup"].iloc[0]),
+            "gamma_Gjsup_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gjsup_bb2003"].iloc[0]),
+            "gamma_Gjinf": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gjinf"].iloc[0]),
+            "gamma_Qverkeer": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qverkeer"].iloc[0]),
+            "gamma_Qverkeer_bb2003": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qverkeer_bb2003"].iloc[0]),
+            "gamma_Qwind": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qwind"].iloc[0]),
+            "gamma_Qoverig": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Qoverig"].iloc[0]),
+            "gamma_Gset_lin": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gset_lin"].iloc[0]),
+            "gamma_Gset_nonlin": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_Gset_nonlin"].iloc[0]),
+            "gamma_P": float(matching_rows[matching_rows.index.str.contains("6.10b")]["gamma_P"].iloc[0]),
+        },
+    }
 
-    # Predefined positions for leading actions (capital "X") that should be highlighted
-    # Format: (row_name, column_name) - these positions are fixed per NEN-EN 1990 table NB.19
+    return gamma_factors
+
+
+def create_load_combination_table(consequence_class: str, assessment_level: str, building_year: str) -> Styler:
+    """
+    Generates a styled table view of load combinations based on the NEN8700 combination table.
+
+    Cells representing leading actions (value of 1) are highlighted with light green background
+    based on the load combinations defined in the CSV file.
+
+    Returns:
+        Styled table showing load combinations and their active loads.
+
+    """
+    # Read the code tables from CSV
+    df_combination_table_psi = pd.read_csv(PSI_NEN8700_PATH, sep=";", index_col=0)
+
+    # Lists for load cases related to permanent-, traffic-, wind- and other loads
+    permanent_loads = ["Perm", "Perm zet"]
+    traffic_loads = ["gr1a", "gr1b", "gr2", "gr3", "gr4", "gr5"]
+    wind_loads = ["Wind gr1a", "Wind gr2"]
+    temperature_loads = ["Temp gr1", "Temp gr2"]
+    snow_loads = ["Sneeuw"]
+    accident_loads = ["Cal gr1a", "Cal gr2"]
+    other_loads = temperature_loads + snow_loads
+
+    # Table positions for leading actions which should be highlighted
     leading_action_positions = {
-        ("Permanente belasting", "Perm"),
-        ("Zetting", "Perm zet"),
-        ("TS", "gr1a"),
-        ("UDL", "gr1a"),
-        ("Enkele as", "gr1b"),
-        ("Horizontale belasting", "gr2"),
-        ("Fiets- en voetpaden", "gr3"),
-        ("Mensenmenigte", "gr4"),
-        ("Bijzonder voertuigen", "gr5"),
-        ("Wind Fwk", "Wind gr1a"),
-        ("Wind Fwk", "Wind gr2"),
-        ("Temperatuur", "Temp gr1"),
-        ("Temperatuur", "Temp gr2"),
+        ("Perm", "Permanent"),
+        ("Perm", "Voorspanning"),
+        ("Perm zet", "Zetting"),
+        ("gr1a", "TS"),
+        ("gr1a", "UDL"),
+        ("gr1b", "Enkele as"),
+        ("gr2", "Horizontale belasting"),
+        ("gr3", "Fiets- en voetpaden"),
+        ("gr4", "Mensenmenigte"),
+        ("gr5", "Bijzondere voertuigen"),
+        ("Wind gr1a", "Wind Fwk"),
+        ("Wind gr2", "Wind Fwk"),
+        ("Temp gr1", "Temperatuur"),
+        ("Temp gr2", "Temperatuur"),
         ("Sneeuw", "Sneeuw"),
-        ("Impact op of onder de brug", "Aanrijding gr1a"),
-        ("Impact op of onder de brug", "Aanrijding gr2"),
+        ("Cal gr1a", "Calamiteit"),
+        ("Cal gr2", "Calamiteit"),
     }
 
     # Create styling function that uses the DataFrame structure to determine positions
     def highlight_leading_actions(val: str) -> str:
         """
-        This is a placeholder function - actual styling is applied using set_properties.
+        Process row value for highlighting.
 
         :param val: Cell value (not used in this approach)
         :type val: str
@@ -177,13 +246,13 @@ def create_load_combination_table() -> Styler:
         return ""
 
     # Start with base styling
-    styled_df = df_combination_table.style
+    styled_df = df_combination_table_psi.style
 
     # Apply light green background to specific cells using iloc positions
     for row_name, col_name in leading_action_positions:
-        if row_name in df_combination_table.index and col_name in df_combination_table.columns:
-            row_idx = df_combination_table.index.get_loc(row_name)
-            col_idx = df_combination_table.columns.get_loc(col_name)
-            styled_df = styled_df.set_properties(subset=pd.IndexSlice[row_name, col_name], **{"background-color": "lightgreen"})
+        for index_label in df_combination_table_psi.index:
+            index_label_modified = " ".join(index_label.split()[1:])
+            if row_name == index_label_modified and col_name in df_combination_table_psi.columns:
+                styled_df = styled_df.set_properties(subset=pd.IndexSlice[index_label, col_name], **{"background-color": "lightgreen"})
 
     return styled_df
