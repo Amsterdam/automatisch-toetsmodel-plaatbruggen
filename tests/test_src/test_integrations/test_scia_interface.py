@@ -5,7 +5,7 @@ These tests verify the core SCIA functionality without requiring VIKTOR SDK or S
 """
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 

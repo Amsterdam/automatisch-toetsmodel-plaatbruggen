@@ -15,9 +15,7 @@ Future enhancements needed:
 import io
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypeAlias, Tuple, Union
-
-from munch import Munch  # type: ignore[import-untyped]
+from typing import Any, Tuple, TypeAlias, Union
 
 # Type alias for SCIA Engineer node objects
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
@@ -156,6 +154,7 @@ def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[
         )
 
     return nodes_dict, thickness_dict
+
 
 def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[Tuple[BytesIO, BytesIO]]:
     """
