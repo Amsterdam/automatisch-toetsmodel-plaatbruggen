@@ -113,7 +113,7 @@ def _create_default_dimension_segment_row(l_value: int, is_first: bool, is_suppo
         "col_6": 0.0,
         "l": l_value,
         "is_first_segment": is_first,
-        "support_toggle": is_support,
+        "is_support": is_support,
     }
 
 
@@ -484,7 +484,7 @@ Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en 
         visible=_l_field_visibility_constraint,
     )
 
-    input.dimensions.array.support_toggle = BooleanField("Oplegging")
+    input.dimensions.array.is_support = BooleanField("Oplegging")
 
     # --- Bridge Geometry (moved to geometrie_brug tab) ---
     input.dimensions.lb1 = LineBreak()

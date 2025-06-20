@@ -242,6 +242,7 @@ class TestModelCreator(unittest.TestCase):
                 "bz3": bz3,
                 "dz": dz,
                 "dz_2": dz_2,
+                "is_support": False,  # Default to False, can be overridden
             }
         )
         segment.update(kwargs)  # Add any additional fields

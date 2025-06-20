@@ -1044,8 +1044,8 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
         label_y_pos = max_y_top_outer + label_y_offset
         cross_section_labels_data.append({"text": f"D{cross_section_number}", "x": cs_x, "y": label_y_pos, "type": "cross_section_label"})
 
-        # --- Add support annotation if support_toggle is True ---
-        if cs_data.support_toggle:
+        # --- Add support annotation if is_support is True ---
+        if cs_data.is_support:
             # Place support just below the bottom outer edge
             support_y = y_bottom_outer - 0.5  # 0.5m below the lowest point (adjust as needed)
             support_annotations_data.append({"x": cs_x, "y": support_y})
