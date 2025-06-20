@@ -33,6 +33,7 @@ from app.constants import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
+    MAX_DIMENSION_SEGMENTS
 )
 
 from .geometry_functions import get_steel_qualities
@@ -485,20 +486,6 @@ Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en 
     )
 
     input.dimensions.array.support_toggle = BooleanField("Oplegging")
-
-    # # Dynamically check if it is the last row and if it is set support toggle to true
-    # for dim_segment in range(1, MAX_DIMENSION_SEGMENTS + 1):
-    #     _field = NumberField(
-    #         f"Breedte zone bij D{_idx_field}",
-    #         default=2.0,  # Default set to 2.0m for all fields
-    #         min=0.01,  # Minimum value set to 0.01m (1cm)
-    #         suffix="m",
-    #         description=f"Breedte van deze belastingzone ter hoogte van dwarsdoorsnede D{_idx_field}.",
-    #         visible=DX_WIDTH_VISIBILITY_CALLBACKS[_idx_field],
-    #     )
-    #     setattr(input.belastingzones.load_zones_array, f"d{_idx_field}_width", _field)
-
-
 
     # --- Bridge Geometry (moved to geometrie_brug tab) ---
     input.dimensions.lb1 = LineBreak()
