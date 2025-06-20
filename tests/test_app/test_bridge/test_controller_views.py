@@ -30,7 +30,6 @@ class TestBridgeControllerViews(unittest.TestCase):
             "get_2d_longitudinal_section",
             "get_top_view",
             "get_load_zones_view",
-            "get_output_report",
             "get_bridge_map_view",
         ]
 
@@ -243,18 +242,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         error_point = result.features[0]
         assert "Ongeldige entity ID" in error_point._description  # noqa: SLF001
 
-    @view_test_wrapper("get_output_report")
-    def test_get_output_report_execution(self) -> None:
-        """Test actual execution of get_output_report."""
-        # Access the original method directly
-        original_method = self.controller.__class__.get_output_report
-
-        # Act - call bypassing decorator - this should raise UserError when disabled
-        from viktor.errors import UserError
-
-        with pytest.raises(UserError, match="Report generation is temporarily disabled"):
-            original_method(self.controller, self.default_params)
-
     # ============================================================================================================
     # Error Handling Tests
     # ============================================================================================================
@@ -315,19 +302,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert hasattr(self.default_params.info, "bridge_objectnumm")
         assert hasattr(self.default_params.info, "bridge_name")
         assert hasattr(self.default_params.input.dimensions, "horizontal_section_loc")
-
-    @view_test_wrapper("get_output_report")
-    def test_download_report_execution(self) -> None:
-        """Test actual execution of get_output_report."""
-        # Access the original method directly
-        original_method = self.controller.__class__.get_output_report
-
-        # Act - call bypassing decorator - this should raise UserError when disabled
-        from viktor.errors import UserError
-
-        with pytest.raises(UserError, match="Report generation is temporarily disabled"):
-            original_method(self.controller, self.default_params)
-
 
 if __name__ == "__main__":
     unittest.main()
