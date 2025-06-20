@@ -59,7 +59,6 @@ from src.geometry.model_creator import (
 )
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.scia_interface import create_bridge_scia_model
-
 from src.report.report_functions import create_export_report  # Import the report creation function
 
 # Import parametrization from the separate file
@@ -886,7 +885,6 @@ class BridgeController(ViktorController):
                 "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
             )
             raise UserError(error_msg)
-
 
     # ============================================================================================================
     # output - Rapport
