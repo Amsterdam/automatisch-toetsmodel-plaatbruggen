@@ -703,6 +703,14 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- Load Zones (in belastingzones tab) ---
     input.belastingzones.info_text = Text(LOAD_ZONES_INFO_TEXT)
 
+    input.belastingzones.lijnlast_leuning = NumberField(
+        "Lijnlast leuning",
+        default=1.0,
+        min=0.0,
+        suffix="kN/m",
+        description="Lijnlast van de leuning op het brugdek",
+    )
+
     input.belastingzones.load_zones_array = DynamicArray(
         "Belastingzones",
         row_label="Belasting Zone",
