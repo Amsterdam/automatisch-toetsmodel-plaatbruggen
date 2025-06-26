@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -24,8 +25,6 @@ from typing import NamedTuple
 
 # Set UTF-8 encoding for Windows compatibility
 if sys.platform == "win32":
-    import os
-
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
 
