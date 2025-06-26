@@ -138,21 +138,36 @@ def run_command(command: str, capture_output: bool = True) -> tuple[int, str]:
                     }
                 )
 
-                result = subprocess.run(  # noqa: UP022
-                    command,
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,  # Capture stderr separately first
-                    stdin=subprocess.DEVNULL,  # Prevent any input
-                    text=True,
-                    cwd=Path.cwd(),
-                    check=False,
-                    encoding="utf-8",
-                    errors="replace",
-                    env=env,
-                    # Additional isolation (Unix only - Windows doesn't support setsid)
-                    **({"preexec_fn": os.setsid} if os.name != "nt" and hasattr(os, "setsid") else {}),
-                )
+                # Additional isolation (Unix only - Windows doesn't support setsid)
+                if os.name != "nt" and hasattr(os, "setsid"):
+                    result = subprocess.run(  # noqa: UP022
+                        command,
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,  # Capture stderr separately first
+                        stdin=subprocess.DEVNULL,  # Prevent any input
+                        text=True,
+                        cwd=Path.cwd(),
+                        check=False,
+                        encoding="utf-8",
+                        errors="replace",
+                        env=env,
+                        preexec_fn=os.setsid,
+                    )
+                else:
+                    result = subprocess.run(  # noqa: UP022
+                        command,
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,  # Capture stderr separately first
+                        stdin=subprocess.DEVNULL,  # Prevent any input
+                        text=True,
+                        cwd=Path.cwd(),
+                        check=False,
+                        encoding="utf-8",
+                        errors="replace",
+                        env=env,
+                    )
                 # Combine all output
                 combined_output = (result.stdout or "") + (result.stderr or "")
                 return result.returncode, combined_output
