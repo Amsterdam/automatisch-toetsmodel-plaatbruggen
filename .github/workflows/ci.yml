@@ -77,19 +77,41 @@ jobs:
     - name: Quality Check Summary
       if: always()
       run: |
-        echo "=================================="
-        echo "🎯 QUALITY CHECK SUMMARY"
-        echo "=================================="
-        echo ""
-        
         # Track overall result
         FAILED_CHECKS=0
         
-        # Check each step result
+        # Check each step result  
+        if [ "${{ steps.ruff-check.outcome }}" != "success" ]; then
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        if [ "${{ steps.ruff-format.outcome }}" != "success" ]; then
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        if [ "${{ steps.mypy-check.outcome }}" != "success" ]; then
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        if [ "${{ steps.unit-tests.outcome }}" != "success" ]; then
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        if [ "${{ steps.viktor-install.outcome }}" != "success" ]; then
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        if [ "${{ steps.viktor-tests.outcome }}" != "success" ]; then
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        
+        # Output clean summary
+        cat << 'EOF'
+        ==================================
+        🎯 QUALITY CHECK SUMMARY
+        ==================================
+        
+        EOF
+        
+        # Show results for each check
         if [ "${{ steps.ruff-check.outcome }}" != "success" ]; then
           echo "❌ Ruff Style Check: FAILED"
           echo "   → Run: python scripts/run_ruff_check.py"
-          FAILED_CHECKS=$((FAILED_CHECKS + 1))
         else
           echo "✅ Ruff Style Check: PASSED"
         fi
@@ -97,7 +119,6 @@ jobs:
         if [ "${{ steps.ruff-format.outcome }}" != "success" ]; then
           echo "❌ Ruff Formatter: FAILED" 
           echo "   → Run: python scripts/run_ruff_format.py"
-          FAILED_CHECKS=$((FAILED_CHECKS + 1))
         else
           echo "✅ Ruff Formatter: PASSED"
         fi
@@ -105,7 +126,6 @@ jobs:
         if [ "${{ steps.mypy-check.outcome }}" != "success" ]; then
           echo "❌ MyPy Type Check: FAILED"
           echo "   → Run: python scripts/run_mypy.py"
-          FAILED_CHECKS=$((FAILED_CHECKS + 1))
         else
           echo "✅ MyPy Type Check: PASSED"
         fi
@@ -113,7 +133,6 @@ jobs:
         if [ "${{ steps.unit-tests.outcome }}" != "success" ]; then
           echo "❌ Unit Tests: FAILED"
           echo "   → Run: python scripts/run_enhanced_tests.py"
-          FAILED_CHECKS=$((FAILED_CHECKS + 1))
         else
           echo "✅ Unit Tests: PASSED"
         fi
@@ -121,7 +140,6 @@ jobs:
         if [ "${{ steps.viktor-install.outcome }}" != "success" ]; then
           echo "❌ VIKTOR App Install: FAILED"
           echo "   → Check VIKTOR configuration and secrets"
-          FAILED_CHECKS=$((FAILED_CHECKS + 1))
         else
           echo "✅ VIKTOR App Install: PASSED"
         fi
@@ -129,7 +147,6 @@ jobs:
         if [ "${{ steps.viktor-tests.outcome }}" != "success" ]; then
           echo "❌ VIKTOR Tests: FAILED"
           echo "   → Run: python scripts/run_viktor_tests.py"
-          FAILED_CHECKS=$((FAILED_CHECKS + 1))
         else
           echo "✅ VIKTOR Tests: PASSED"
         fi
