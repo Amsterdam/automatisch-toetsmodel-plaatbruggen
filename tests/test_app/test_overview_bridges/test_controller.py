@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
-from viktor.errors import UserError
 
 from app.overview_bridges.controller import OverviewBridgesController
 from tests.test_data.seed_loader import create_mocked_entity_list, load_overview_bridges_default_params
+from viktor.errors import UserError
 
 
 class TestOverviewBridgesController(unittest.TestCase):
