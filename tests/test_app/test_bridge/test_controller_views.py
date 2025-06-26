@@ -284,8 +284,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         error_point = result.features[0]
         assert "Ongeldige entity ID" in error_point._description  # noqa: SLF001
 
-
-
     @patch("src.integrations.idea_interface.extract_cross_section_from_params")
     @patch("src.integrations.idea_interface.create_reinforcement_layout")
     @patch("trimesh.exchange.gltf.export_glb")
