@@ -1,17 +1,22 @@
-"""Helper functions for load case logic and manipulation.
+"""
+Helper functions for load case logic and manipulation.
 
 This module provides utility functions for working with load cases in the bridge analysis context.
 
 All functions are independent of the VIKTOR SDK and suitable for use in the core logic layer.
 """
+
+
 def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
-    """Calculate the number of notional lanes and their width based on the bridge deck width.
-    
+    """
+    Calculate the number of notional lanes and their width based on the bridge deck width.
+
     Args:
         width_bridgedeck (float): The width of the bridge deck in meters.
 
     Returns:
         tuple[int, float]: A tuple containing the number of notional lanes and the width per lane in meters.
+
     """
     if width_bridgedeck < 5.4:
         amount = 1
@@ -24,26 +29,29 @@ def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
         width_per_lane = 3
     return amount, width_per_lane
 
+
 def calculate_possibilities_lane_orientation(width_bridgedeck: float) -> tuple[int, float]:
-    """Calculate the number of possibilities according to which the tandemsystems can be applied.
-    
+    """
+    Calculate the number of possibilities according to which the tandemsystems can be applied.
+
     Args:
         width_bridgedeck (float): The width of the bridge deck in meters.
 
     Returns:
         tuple[int, float]: A tuple containing the number of notional lanes and the width per lane in meters.
+
     """
     amount_of_lanes = amount_of_notional_lanes(width_bridgedeck)
-    if amount_of_lanes[0] == 1:
+    if amount_of_lanes[0] == 1 or amount_of_lanes[0] == 2:
         return 2
-    elif amount_of_lanes[0] == 2:
-        return 2
-    else:
-        return 4
-    
+    return 4
+
+
 def calculate_start_of_lanes(thickness_bridgedeck: float) -> float:
-    """Calculate the distance from the edge of the bridge deck, from where the tandem systems start.
+    """
+    Calculate the distance from the edge of the bridge deck, from where the tandem systems start.
     Assuming a spread under 45 degrees, the distance is equal to 0.9 times the thickness of the bridge deck.
+
     Args:
         thickness_bridgedeck (float): The thickness of the bridge deck in meters.
 
@@ -53,16 +61,19 @@ def calculate_start_of_lanes(thickness_bridgedeck: float) -> float:
     """
     return 0.9 * thickness_bridgedeck
 
-def tandem_system_sequencer(length_bridgedeck: float,thickness_bridgedeck: float) -> list[float]:
-    """Calculate the x-positions of the tandem systems in a notional lane along the length of the bridge deck.
+
+def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float) -> list[float]:
+    """
+    Calculate the x-positions of the tandem systems in a notional lane along the length of the bridge deck.
     Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
-    
+
     Args:
         length_bridgedeck (float): The length of the bridge deck in meters.
         thickness_bridgedeck (float): The thickness of the bridge deck in meters.
 
     Returns:
         list[float]: A list containing the positions of the tandem systems along the bridge deck.
+
     """
     start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
     tandem_systems = []
@@ -73,8 +84,8 @@ def tandem_system_sequencer(length_bridgedeck: float,thickness_bridgedeck: float
 
     lane_length = length_bridgedeck - (2 * start_of_lanes)
 
-    aantal_tandems = (lane_length - 1.6) // dx   # Calculate number of tandem systems based on spacing
-    for i in range(0, int(aantal_tandems)):
+    aantal_tandems = (lane_length - 1.6) // dx  # Calculate number of tandem systems based on spacing
+    for i in range(int(aantal_tandems)):
         position = start_of_lanes + (i * dx)
         if position <= (length_bridgedeck - start_of_lanes - 1.6):  # Ensure position does not exceed end span
             tandem_systems.append(position)
@@ -86,10 +97,10 @@ def tandem_system_sequencer(length_bridgedeck: float,thickness_bridgedeck: float
         tandem_systems.append(end_span_position)
     return tandem_systems
 
-def tandem_systems_axes_single_lane(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float
-) -> list[dict[str, object]]:
-    """Calculate the wheel print coordinates and loads for each tandem system in a single notional lane.
+
+def tandem_systems_axes_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, object]]:
+    """
+    Calculate the wheel print coordinates and loads for each tandem system in a single notional lane.
 
     Args:
         length_bridgedeck (float): The length of the bridge deck in meters.
@@ -99,6 +110,7 @@ def tandem_systems_axes_single_lane(
     Returns:
         list[dict[str, object]]: List of dicts, each with keys: 'load_case', 'wheels', 'load'.
             'wheels' is a list of four lists [[x1, y1], [x2, y2], [x3, y3], [x4, y4]] for each wheel (clockwise).
+
     """
     Load = 300 / (0.4 * 0.4)
     wheel_size = 0.4
@@ -123,17 +135,20 @@ def tandem_systems_axes_single_lane(
                     [x0, y0],  # bottom left
                 ]
                 wheels.append(wheel_coords)
-            results.append({
-                "load_case": f"BG{6000 + load_case_number:04d}",
-                "wheels": wheels,
-                "load": Load,
-            })
+            results.append(
+                {
+                    "load_case": f"BG{6000 + load_case_number:04d}",
+                    "wheels": wheels,
+                    "load": Load,
+                }
+            )
             load_case_number += 1
     return results
 
-def tandem_systems_axes_double_lane(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, object]]:
-    """Calculate the wheel print coordinates and loads for each load case in a double notional lane case.
+
+def tandem_systems_axes_double_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, object]]:
+    """
+    Calculate the wheel print coordinates and loads for each load case in a double notional lane case.
 
     Each load case consists of two tandem systems at the same x-position: one on each lane.
     For each configuration, the exterior lane receives 300 kN and the interior 200 kN, then the lanes are swapped.
@@ -146,6 +161,7 @@ def tandem_systems_axes_double_lane(
     Returns:
         results(list[dict[str, object]]): List of dicts, each with keys: 'load_case', 'tandems', where 'tandems' is a list of two dicts (one per lane),
             each with keys 'wheels', 'load', 'lane'.
+
     """
     wheel_size = 0.4
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
@@ -170,15 +186,19 @@ def tandem_systems_axes_double_lane(
                     [x0, y0],
                 ]
                 wheels.append(wheel_coords)
-            tandems.append({
-                "wheels": wheels,
-                "load": load / (0.4 * 0.4),
-                "lane": lane_idx + 1,
-            })
-        results.append({
-            "load_case": f"BG{6000 + load_case_number:04d}",
-            "tandems": tandems,
-        })
+            tandems.append(
+                {
+                    "wheels": wheels,
+                    "load": load / (0.4 * 0.4),
+                    "lane": lane_idx + 1,
+                }
+            )
+        results.append(
+            {
+                "load_case": f"BG{6000 + load_case_number:04d}",
+                "tandems": tandems,
+            }
+        )
         load_case_number += 1
     # Second configuration: 300 kN on right (exterior), 200 kN on left (interior)
     for x in tandem_x_positions:
@@ -195,22 +215,26 @@ def tandem_systems_axes_double_lane(
                     [x0, y0],
                 ]
                 wheels.append(wheel_coords)
-            tandems.append({
-                "wheels": wheels,
-                "load": load / (0.4 * 0.4),
-                "lane": lane_idx + 1,
-            })
-        results.append({
-            "load_case": f"BG{6000 + load_case_number:04d}",
-            "tandems": tandems,
-        })
+            tandems.append(
+                {
+                    "wheels": wheels,
+                    "load": load / (0.4 * 0.4),
+                    "lane": lane_idx + 1,
+                }
+            )
+        results.append(
+            {
+                "load_case": f"BG{6000 + load_case_number:04d}",
+                "tandems": tandems,
+            }
+        )
         load_case_number += 1
     return results
 
-def tandem_systems_axes_more_lanes(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float
-) -> list[dict[str, object]]:
-    """Calculate the wheel print coordinates and loads for each load case in a three notional lane case (wide bridge).
+
+def tandem_systems_axes_more_lanes(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, object]]:
+    """
+    Calculate the wheel print coordinates and loads for each load case in a three notional lane case (wide bridge).
 
     Each load case consists of three tandem systems at the same x-position: one on each lane.
     Four configurations:
@@ -227,6 +251,7 @@ def tandem_systems_axes_more_lanes(
     Returns:
         list[dict[str, object]]: List of dicts, each with keys: 'load_case', 'tandems', where 'tandems' is a list of three dicts (one per lane),
             each with keys 'wheels', 'load', 'lane'.
+
     """
     wheel_size = 0.4
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
@@ -257,14 +282,18 @@ def tandem_systems_axes_more_lanes(
                         [x0, y0],
                     ]
                     wheels.append(wheel_coords)
-                tandems.append({
-                    "wheels": wheels,
-                    "load": load / (0.4 * 0.4),
-                    "lane": lane_idx + 1,
-                })
-            results.append({
-                "load_case": f"BG{6000 + load_case_number:04d}",
-                "tandems": tandems,
-            })
+                tandems.append(
+                    {
+                        "wheels": wheels,
+                        "load": load / (0.4 * 0.4),
+                        "lane": lane_idx + 1,
+                    }
+                )
+            results.append(
+                {
+                    "load_case": f"BG{6000 + load_case_number:04d}",
+                    "tandems": tandems,
+                }
+            )
             load_case_number += 1
     return results
