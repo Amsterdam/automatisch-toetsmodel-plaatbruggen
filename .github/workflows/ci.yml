@@ -29,22 +29,32 @@ jobs:
         pip install -r requirements_dev.txt
     
     - name: Run Ruff Style Check
+      id: ruff-check
+      continue-on-error: true
       run: |
         python scripts/run_ruff_check.py
         
     - name: Run Ruff Formatter  
+      id: ruff-format
+      continue-on-error: true
       run: |
         python scripts/run_ruff_format.py
         
     - name: Run MyPy Type Check
+      id: mypy-check
+      continue-on-error: true
       run: |
         python scripts/run_mypy.py
         
     - name: Run Unit Tests
+      id: unit-tests
+      continue-on-error: true
       run: |
         python scripts/run_enhanced_tests.py
         
     - name: Install VIKTOR App
+      id: viktor-install
+      continue-on-error: true
       env:
         VIKTOR_TOKEN: ${{ secrets.VIKTOR_TOKEN }}
         VIKTOR_ENV: ${{ secrets.VIKTOR_ENV }}
@@ -54,6 +64,8 @@ jobs:
         ./viktor-cli install
         
     - name: Run VIKTOR Tests
+      id: viktor-tests
+      continue-on-error: true
       env:
         VIKTOR_TOKEN: ${{ secrets.VIKTOR_TOKEN }}
         VIKTOR_ENV: ${{ secrets.VIKTOR_ENV }}
@@ -61,6 +73,87 @@ jobs:
       run: |
         export PATH=$PWD:$PATH
         ./viktor-cli ci-test
+
+    - name: Quality Check Summary
+      if: always()
+      run: |
+        echo "=================================="
+        echo "🎯 QUALITY CHECK SUMMARY"
+        echo "=================================="
+        echo ""
+        
+        # Track overall result
+        FAILED_CHECKS=0
+        
+        # Check each step result
+        if [ "${{ steps.ruff-check.outcome }}" != "success" ]; then
+          echo "❌ Ruff Style Check: FAILED"
+          echo "   → Run: python scripts/run_ruff_check.py"
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+          echo "✅ Ruff Style Check: PASSED"
+        fi
+        
+        if [ "${{ steps.ruff-format.outcome }}" != "success" ]; then
+          echo "❌ Ruff Formatter: FAILED" 
+          echo "   → Run: python scripts/run_ruff_format.py"
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+          echo "✅ Ruff Formatter: PASSED"
+        fi
+        
+        if [ "${{ steps.mypy-check.outcome }}" != "success" ]; then
+          echo "❌ MyPy Type Check: FAILED"
+          echo "   → Run: python scripts/run_mypy.py"
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+          echo "✅ MyPy Type Check: PASSED"
+        fi
+        
+        if [ "${{ steps.unit-tests.outcome }}" != "success" ]; then
+          echo "❌ Unit Tests: FAILED"
+          echo "   → Run: python scripts/run_enhanced_tests.py"
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+          echo "✅ Unit Tests: PASSED"
+        fi
+        
+        if [ "${{ steps.viktor-install.outcome }}" != "success" ]; then
+          echo "❌ VIKTOR App Install: FAILED"
+          echo "   → Check VIKTOR configuration and secrets"
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+          echo "✅ VIKTOR App Install: PASSED"
+        fi
+        
+        if [ "${{ steps.viktor-tests.outcome }}" != "success" ]; then
+          echo "❌ VIKTOR Tests: FAILED"
+          echo "   → Run: python scripts/run_viktor_tests.py"
+          FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+          echo "✅ VIKTOR Tests: PASSED"
+        fi
+        
+        echo ""
+        echo "=================================="
+        if [ $FAILED_CHECKS -eq 0 ]; then
+          echo "🎉 ALL CHECKS PASSED!"
+          echo "Code is ready for merge."
+        else
+          echo "💥 $FAILED_CHECKS CHECK(S) FAILED"
+          echo ""
+          echo "Fix the issues above, then run:"
+          echo "  python ruft.py"
+          echo ""
+          echo "This will automatically fix what can be fixed"
+          echo "and show you what requires manual attention."
+        fi
+        echo "=================================="
+        
+        # Fail the job if any checks failed
+        if [ $FAILED_CHECKS -gt 0 ]; then
+          exit 1
+        fi
 
 # ==============================================================================
 # DEBUG VERSION (commented out) - Use if CI issues arise and detailed output needed
