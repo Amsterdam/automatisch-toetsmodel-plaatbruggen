@@ -72,7 +72,7 @@ jobs:
         VIKTOR_DEV: ${{ secrets.VIKTOR_DEV }}
       run: |
         export PATH=$PWD:$PATH
-        ./viktor-cli ci-test
+        python scripts/run_viktor_tests.py
 
     - name: Quality Check Summary
       if: always()
@@ -100,70 +100,77 @@ jobs:
           FAILED_CHECKS=$((FAILED_CHECKS + 1))
         fi
         
+        # Define colors
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        BLUE='\033[0;34m'
+        YELLOW='\033[0;33m'
+        NC='\033[0m' # No Color
+        
         # Output clean summary
         cat << 'EOF'
         ==================================
-        🎯 QUALITY CHECK SUMMARY
+        QUALITY CHECK SUMMARY
         ==================================
         
         EOF
         
         # Show results for each check
         if [ "${{ steps.ruff-check.outcome }}" != "success" ]; then
-          echo "❌ Ruff Style Check: FAILED"
-          echo "   → Run: python scripts/run_ruff_check.py"
+          echo -e "${RED}✗ Ruff Style Check: FAILED${NC}"
+          echo -e "   ${YELLOW}→ Run: python scripts/run_ruff_check.py${NC}"
         else
-          echo "✅ Ruff Style Check: PASSED"
+          echo -e "${GREEN}✓ Ruff Style Check: PASSED${NC}"
         fi
         
         if [ "${{ steps.ruff-format.outcome }}" != "success" ]; then
-          echo "❌ Ruff Formatter: FAILED" 
-          echo "   → Run: python scripts/run_ruff_format.py"
+          echo -e "${RED}✗ Ruff Formatter: FAILED${NC}" 
+          echo -e "   ${YELLOW}→ Run: python scripts/run_ruff_format.py${NC}"
         else
-          echo "✅ Ruff Formatter: PASSED"
+          echo -e "${GREEN}✓ Ruff Formatter: PASSED${NC}"
         fi
         
         if [ "${{ steps.mypy-check.outcome }}" != "success" ]; then
-          echo "❌ MyPy Type Check: FAILED"
-          echo "   → Run: python scripts/run_mypy.py"
+          echo -e "${RED}✗ MyPy Type Check: FAILED${NC}"
+          echo -e "   ${YELLOW}→ Run: python scripts/run_mypy.py${NC}"
         else
-          echo "✅ MyPy Type Check: PASSED"
+          echo -e "${GREEN}✓ MyPy Type Check: PASSED${NC}"
         fi
         
         if [ "${{ steps.unit-tests.outcome }}" != "success" ]; then
-          echo "❌ Unit Tests: FAILED"
-          echo "   → Run: python scripts/run_enhanced_tests.py"
+          echo -e "${RED}✗ Unit Tests: FAILED${NC}"
+          echo -e "   ${YELLOW}→ Run: python scripts/run_enhanced_tests.py${NC}"
         else
-          echo "✅ Unit Tests: PASSED"
+          echo -e "${GREEN}✓ Unit Tests: PASSED${NC}"
         fi
         
         if [ "${{ steps.viktor-install.outcome }}" != "success" ]; then
-          echo "❌ VIKTOR App Install: FAILED"
-          echo "   → Check VIKTOR configuration and secrets"
+          echo -e "${RED}✗ VIKTOR App Install: FAILED${NC}"
+          echo -e "   ${YELLOW}→ Check VIKTOR configuration and secrets${NC}"
         else
-          echo "✅ VIKTOR App Install: PASSED"
+          echo -e "${GREEN}✓ VIKTOR App Install: PASSED${NC}"
         fi
         
         if [ "${{ steps.viktor-tests.outcome }}" != "success" ]; then
-          echo "❌ VIKTOR Tests: FAILED"
-          echo "   → Run: python scripts/run_viktor_tests.py"
+          echo -e "${RED}✗ VIKTOR Tests: FAILED${NC}"
+          echo -e "   ${YELLOW}→ Run: python scripts/run_viktor_tests.py${NC}"
         else
-          echo "✅ VIKTOR Tests: PASSED"
+          echo -e "${GREEN}✓ VIKTOR Tests: PASSED${NC}"
         fi
         
         echo ""
         echo "=================================="
         if [ $FAILED_CHECKS -eq 0 ]; then
-          echo "🎉 ALL CHECKS PASSED!"
-          echo "Code is ready for merge."
+          echo -e "${GREEN}ALL CHECKS PASSED!${NC}"
+          echo -e "${BLUE}Code is ready for merge.${NC}"
         else
-          echo "💥 $FAILED_CHECKS CHECK(S) FAILED"
+          echo -e "${RED}$FAILED_CHECKS CHECK(S) FAILED${NC}"
           echo ""
-          echo "Fix the issues above, then run:"
-          echo "  python ruft.py"
+          echo -e "${YELLOW}Fix the issues above, then run:${NC}"
+          echo -e "${BLUE}  python ruft.py${NC}"
           echo ""
-          echo "This will automatically fix what can be fixed"
-          echo "and show you what requires manual attention."
+          echo -e "${YELLOW}This will automatically fix what can be fixed${NC}"
+          echo -e "${YELLOW}and show you what requires manual attention.${NC}"
         fi
         echo "=================================="
         

@@ -40,7 +40,7 @@ def handle_viktor_concise_output(result: subprocess.CompletedProcess) -> None:
             print(colorized_status_message("VIKTOR test execution failed", is_success=False))  # noqa: T201
 
         print(colorized_status_message("Run the following command for detailed VIKTOR test information:", is_success=False, is_warning=True))  # noqa: T201
-        print(f"  {safe_arrow()}{colored_text('viktor-cli test', Colors.CYAN, bold=True)}")  # noqa: T201
+        print(f"  {safe_arrow()}{colored_text('python scripts/run_viktor_tests.py', Colors.CYAN, bold=True)}")  # noqa: T201
 
 
 def handle_viktor_detailed_output(result: subprocess.CompletedProcess) -> None:
@@ -61,9 +61,12 @@ def run_viktor_tests() -> int:
     if any(os.environ.get(var) for var in ["MSYSTEM", "MINGW_PREFIX", "TERM"]):
         os.environ["FORCE_COLOR"] = "1"
 
+    # Use ci-test in CI environments for more concise output, regular test otherwise
+    viktor_command = "ci-test" if force_concise else "test"
+
     try:
         result = subprocess.run(
-            ["viktor-cli", "test"],
+            ["viktor-cli", viktor_command],
             capture_output=True,
             text=True,
             encoding="utf-8",
