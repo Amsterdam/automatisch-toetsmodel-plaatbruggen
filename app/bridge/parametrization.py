@@ -107,7 +107,7 @@ def _create_default_dimension_segment_row(
     *,  # Force keyword arguments for clarity
     l_value: float = 0,
     is_first: bool = False,
-    ) -> dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a dictionary for a default bridge dimension segment row with customizable values.
 
@@ -127,7 +127,6 @@ def _create_default_dimension_segment_row(
         - "is_first_segment" (bool): Whether this is the first segment (default: value of is_first)
     :rtype: dict[str, Any]
     """
-
     bz1 = 10.0
     bz2 = 3.0
     bz3 = 15.0
