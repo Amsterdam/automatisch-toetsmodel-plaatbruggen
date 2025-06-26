@@ -265,10 +265,7 @@ class TestModelCreator(unittest.TestCase):
             params.bridge_segments_array.append(self._create_mock_bridge_segment_param(l=10.0 + i * 2, bz1=1, bz2=2, bz3=1))
 
         # Mock the calculated support positions (first and last are True)
-        if num_bridge_segments >= 2:
-            support_positions = [True] + [False] * (num_bridge_segments - 2) + [True]
-        else:
-            support_positions = [True]
+        support_positions = [True] + [False] * (num_bridge_segments - 2) + [True] if num_bridge_segments >= 2 else [True]
 
         # Basic input structure required by create_2d_top_view
         params.input = Munch({"dimensions": Munch({"array": Munch({"is_support": support_positions})})})
