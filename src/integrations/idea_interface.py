@@ -14,8 +14,14 @@ Future enhancements needed:
 
 from dataclasses import dataclass
 from typing import Any
+from viktor.external import idea_rcs
+
+from app.bridge.parametrization import (
+    BridgeParametrization,
+)
 
 from src.common.materials import get_default_materials
+from src.integrations.scia_interface import create_node_and_thickness_dict
 
 
 @dataclass
@@ -236,34 +242,37 @@ def create_simple_idea_slab_model(cross_section_data: BridgeCrossSectionData) ->
     # Create concrete material
     # Convert material name to IDEA enum
     concrete_material_enum = _get_concrete_material_enum(cross_section_data.concrete_material)
-    cs_mat = model.create_concrete_material(concrete_material_enum)
+    cs_mat = model.create_concrete_material(idea_rcs.ConcreteMaterial.C30_37)
 
     # Create reinforcement material
     reinforcement_material_enum = _get_reinforcement_material_enum(cross_section_data.reinforcement_material)
-    mat_reinf = model.create_reinforcement_material(reinforcement_material_enum)
+    mat_reinf = model.create_reinforcement_material(idea_rcs.ReinforcementMaterial.B_500B)
+
+    
+
 
     # Create rectangular cross-section
-    cross_section = idea_rcs.RectSection(cross_section_data.width, cross_section_data.height)
+    cross_section = idea_rcs.RectSection(1, 0.8)
 
     # Create one-way slab member (correct for bridge deck analysis)
     slab = model.create_one_way_slab(cross_section, cs_mat)
 
-    # Add reinforcement bars
-    reinforcement = create_reinforcement_layout(cross_section_data)
+    # # Add reinforcement bars
+    # reinforcement = create_reinforcement_layout(cross_section_data)
 
-    # Add top reinforcement
-    for x, y, diameter in reinforcement.main_bars_top:
-        slab.create_bar((x, y), diameter, mat_reinf)
+    # # Add top reinforcement
+    # for x, y, diameter in reinforcement.main_bars_top:
+    #     slab.create_bar((x, y), diameter, mat_reinf)
 
-    # Add bottom reinforcement
-    for x, y, diameter in reinforcement.main_bars_bottom:
-        slab.create_bar((x, y), diameter, mat_reinf)
+    # # Add bottom reinforcement
+    # for x, y, diameter in reinforcement.main_bars_bottom:
+    #     slab.create_bar((x, y), diameter, mat_reinf)
 
-    # Add sample load extremes
-    # Calculate realistic loads from bridge geometry and traffic patterns
-    frequent = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(N=-100000, My=210000))
-    fundamental = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(N=-99999, My=200000))
-    slab.create_extreme(frequent=frequent, fundamental=fundamental)
+    # # Add sample load extremes
+    # # Calculate realistic loads from bridge geometry and traffic patterns
+    # frequent = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(N=-100000, My=210000))
+    # fundamental = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(N=-99999, My=200000))
+    # slab.create_extreme(frequent=frequent, fundamental=fundamental)
 
     return model
 
@@ -365,7 +374,7 @@ def _get_reinforcement_material_enum(material_name: str) -> Any:  # noqa: ANN401
     return material_mapping.get(material_name, idea_rcs.ReinforcementMaterial.B_500B)
 
 
-def create_bridge_idea_model(bridge_segments_params: list[dict[str, Any]]) -> Any:  # noqa: ANN401
+def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN401
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 
@@ -376,8 +385,62 @@ def create_bridge_idea_model(bridge_segments_params: list[dict[str, Any]]) -> An
     :raises ValueError: If parameters are invalid
     :raises ImportError: If VIKTOR IDEA module is not available
     """
-    # Extract cross-section geometry
-    cross_section_data = extract_cross_section_from_params(bridge_segments_params)
+    # Create the IDEA model
+    model = idea_rcs.Model()
+
+    # Create concrete material
+    # Convert material name to IDEA enum
+    cs_mat = model.create_concrete_material(idea_rcs.ConcreteMaterial.C30_37)
+
+    # Create reinforcement material
+    mat_reinf = model.create_reinforcement_material(idea_rcs.ReinforcementMaterial.B_500B)
+
+    # Extract zone thickness data from bridge parameters
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
+
+    # Group thickness_dict keys [zones] by their value [thickness] -> dict[thickness, list[zones]]
+    grouped_thickness: dict[float, list[str]] = {}
+    for key, value in thickness_dict.items():
+        grouped_thickness.setdefault(value, []).append(key[1:].replace("_", "-"))   # to get zone format from Z1_1 to 1-1
+    print("Grouped thickness zones:", grouped_thickness)
+    
+    # Group reinforcement zones by their zone number
+    grouped_rebar_configs: dict[float, list[str]] = {}
+    i = 1
+    for rebar_config in params.reinforcement_zones_array:
+        grouped_rebar_configs[i] = rebar_config.get("zone_number")
+        i += 1
+    print("Grouped reinforcement zones:", grouped_rebar_configs)
+ 
+    # Find matching thickness and reinforcement zone numbers
+    matching_zone_keys: list[tuple[float, str]] = []
+    for thickness, thickness_zones in grouped_thickness.items():
+        for thickness_zone in thickness_zones:
+            for config, rebar_zones in grouped_rebar_configs.items():
+                for rebar_zone in rebar_zones:
+                    if thickness_zone == rebar_zone:
+                        matching_zone_keys.append((thickness, config))
+    # Filter matching_zone_keys to only unique (thickness, config) pairs
+    unique_matching_zone_keys = list({(thickness, config) for thickness, config in matching_zone_keys})
+
+    for thickness, config in unique_matching_zone_keys:
+        print(f"Creating slab for thickness {thickness} and reinforcement config {config}")
+
+        # Create rectangular cross-section
+        cross_section = idea_rcs.RectSection(1, thickness)
+
+        # Create one-way slab member (correct for bridge deck analysis)
+        slab = model.create_one_way_slab(cross_section, cs_mat)
+
+        # Add reinforcement bars based on the configuration
+        rebar_config = params.reinforcement_zones_array[config - 1]
+        print(f"Reinforcement configuration for zone {config}: {rebar_config}")
+
+        # for bar in rebar_config.get("bars", []):
+        #     slab.add_reinforcement_bar(bar)
+
+    exit()
+    
 
     return create_simple_idea_slab_model(cross_section_data)
 
@@ -405,10 +468,10 @@ def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
         xml_input = model.generate_xml_input()
 
         # Create and execute analysis
-        analysis = idea_rcs.IdeaRcsAnalysis(xml_input)
+        analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
         analysis.execute(timeout)
 
-        return analysis.get_output_file()
+        return analysis.get_idea_rcs_file()
 
     except Exception as e:
         raise RuntimeError(f"IDEA analysis failed: {e}") from e

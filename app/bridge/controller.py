@@ -822,29 +822,12 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Extract bridge segments for cross-section analysis
-            bridge_segments_list = []
-            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
-                for segment in params.bridge_segments_array:
-                    segment_dict = {
-                        "bz1": getattr(segment, "bz1", 0),
-                        "bz2": getattr(segment, "bz2", 0),
-                        "bz3": getattr(segment, "bz3", 0),
-                        "dz": getattr(segment, "dz", 0.5),
-                        "dz_2": getattr(segment, "dz_2", 0.5),
-                        "l": getattr(segment, "l", 0),
-                    }
-                    bridge_segments_list.append(segment_dict)
-
-            if not bridge_segments_list:
-                self._raise_no_idea_analysis_segments_error()
-
             # Create IDEA RCS cross-section model with materials from params.info
             from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
 
             try:
                 # Generate XML input file
-                model = create_bridge_idea_model(bridge_segments_list)
+                model = create_bridge_idea_model(params)
                 xml_file = model.generate_xml_input()
 
                 # Validate content
@@ -865,11 +848,11 @@ class BridgeController(ViktorController):
                     # Add analysis output results
                     if hasattr(output_file, "getvalue"):
                         output_content = output_file.getvalue()
-                        z.writestr("rcs_analysis_results.xml", output_content)
+                        z.writestr("rcs_analysis_results.ideaRcs", output_content)
                     elif hasattr(output_file, "source"):
                         # If it's a File object
                         with output_file.open_binary() as f:
-                            z.writestr("rcs_analysis_results.xml", f.read())
+                            z.writestr("rcs_analysis_results.ideaRcs", f.read())
 
                 return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
 
