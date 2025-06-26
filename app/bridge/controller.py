@@ -182,10 +182,7 @@ class BridgeController(ViktorController):
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
 
-    def test_error_function(self) -> str:  # DELIBERATE ERROR: Wrong return type annotation
-        """DELIBERATE ERROR: Test function with wrong return type."""
-        test_string = "single quotes test"  # DELIBERATE ERROR: Single quotes instead of double
-        return 42  # DELIBERATE ERROR: Returning int when str is expected
+
 
     @MapView("Locatie Brug", duration_guess=2)
     def get_bridge_map_view(self, params: BridgeParametrization, **kwargs) -> MapResult:  # noqa: ARG002
