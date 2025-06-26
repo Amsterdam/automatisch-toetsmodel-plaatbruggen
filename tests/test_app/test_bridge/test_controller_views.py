@@ -255,11 +255,11 @@ class TestBridgeControllerViews(unittest.TestCase):
         from viktor.views import TableResult
 
         assert isinstance(result, TableResult)
-        
+
         # Verify table has data
-        assert hasattr(result, 'data')
+        assert hasattr(result, "data")
         assert len(result.data) > 0
-        
+
         # Check for expected load combination columns
         assert len(result.data[0]) > 1  # Should have multiple columns
 
@@ -267,11 +267,13 @@ class TestBridgeControllerViews(unittest.TestCase):
     @patch("src.integrations.idea_interface.create_reinforcement_layout")
     @patch("trimesh.exchange.gltf.export_glb")
     @view_test_wrapper("get_idea_model_preview")
-    def test_get_idea_model_preview_execution(self, mock_export_glb: MagicMock, mock_create_reinforcement: MagicMock, mock_extract_cross: MagicMock) -> None:
+    def test_get_idea_model_preview_execution(
+        self, mock_export_glb: MagicMock, mock_create_reinforcement: MagicMock, mock_extract_cross: MagicMock
+    ) -> None:
         """Test actual execution of get_idea_model_preview with mocked dependencies."""
         # Arrange
         from unittest.mock import Mock
-        
+
         # Mock cross-section data
         mock_cross_section = Mock()
         mock_cross_section.width = 10.0
