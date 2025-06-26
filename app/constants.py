@@ -83,7 +83,9 @@ hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden.
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
 Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
-wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model."""
+wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
+
+De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
 
 # ===================================================================================================================
 # Tables from codes
