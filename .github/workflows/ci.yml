@@ -30,15 +30,15 @@ jobs:
     
     - name: Run Ruff Style Check
       run: |
-        python -m ruff check --config=.ruff.toml --fix
+        python scripts/run_ruff_check.py
         
     - name: Run Ruff Formatter  
       run: |
-        python -m ruff format --config=.ruff.toml
+        python scripts/run_ruff_format.py
         
     - name: Run MyPy Type Check
       run: |
-        python -m mypy .
+        python scripts/run_mypy.py
         
     - name: Run Unit Tests
       run: |
@@ -61,3 +61,28 @@ jobs:
       run: |
         export PATH=$PWD:$PATH
         ./viktor-cli ci-test
+
+# ==============================================================================
+# DEBUG VERSION (commented out) - Use if CI issues arise and detailed output needed
+# ==============================================================================
+#
+# Replace the quality check steps above with these for maximum debugging output:
+#
+#    - name: Run Ruff Style Check (Debug)
+#      run: |
+#        python -m ruff check --config=.ruff.toml --fix
+#        
+#    - name: Run Ruff Formatter (Debug)
+#      run: |
+#        python -m ruff format --config=.ruff.toml
+#        
+#    - name: Run MyPy Type Check (Debug)
+#      run: |
+#        python -m mypy .
+#        
+#    - name: Run Unit Tests (Debug)
+#      run: |
+#        python scripts/run_enhanced_tests.py
+#
+# The debug version uses direct tool execution for maximum output visibility,
+# while the main version uses scripts for better user experience with concise CI output.
