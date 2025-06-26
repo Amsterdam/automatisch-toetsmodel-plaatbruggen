@@ -6,7 +6,6 @@ template processing, and PDF conversion functions.
 """
 
 import unittest
-from datetime import datetime
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
@@ -182,9 +181,7 @@ class TestCreateExportReport(unittest.TestCase):
 
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_template_load_error(
-        self, mock_output_path: MagicMock, mock_docx_template: MagicMock
-    ) -> None:
+    def test_create_export_report_template_load_error(self, mock_output_path: MagicMock, mock_docx_template: MagicMock) -> None:
         """Test handling of template loading errors."""
         # Arrange
         mock_template_path = "/path/to/nonexistent_template.docx"
@@ -384,4 +381,4 @@ class TestCreateExportReport(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()

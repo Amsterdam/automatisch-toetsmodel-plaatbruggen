@@ -7,7 +7,6 @@ particularly load zone width validation functionality.
 
 import unittest
 from typing import Any
-from unittest.mock import MagicMock
 
 from munch import Munch  # type: ignore[import-untyped]
 
@@ -321,4 +320,4 @@ class TestParamsForLoadZonesProtocol(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()

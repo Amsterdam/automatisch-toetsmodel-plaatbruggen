@@ -5,11 +5,7 @@ This module contains comprehensive tests for material data access,
 validation, and compatibility checking functions.
 """
 
-import csv
-import tempfile
 import unittest
-from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
@@ -247,9 +243,7 @@ class TestCheckMaterialCompatibility(unittest.TestCase):
 
     @patch("src.common.materials.get_reinforcement_material_properties")
     @patch("src.common.materials.get_concrete_material_properties")
-    def test_check_material_compatibility_valid_materials(
-        self, mock_concrete_props: MagicMock, mock_reinf_props: MagicMock
-    ) -> None:
+    def test_check_material_compatibility_valid_materials(self, mock_concrete_props: MagicMock, mock_reinf_props: MagicMock) -> None:
         """Test compatibility check with valid materials."""
         # Arrange
         mock_concrete_props.return_value = {"name": "C30/37", "fck": 30.0, "fcd": 20.0}
@@ -265,9 +259,7 @@ class TestCheckMaterialCompatibility(unittest.TestCase):
 
     @patch("src.common.materials.get_reinforcement_material_properties")
     @patch("src.common.materials.get_concrete_material_properties")
-    def test_check_material_compatibility_invalid_concrete(
-        self, mock_concrete_props: MagicMock, mock_reinf_props: MagicMock
-    ) -> None:
+    def test_check_material_compatibility_invalid_concrete(self, mock_concrete_props: MagicMock, mock_reinf_props: MagicMock) -> None:
         """Test compatibility check with invalid concrete material."""
         # Arrange
         mock_concrete_props.side_effect = ValueError("Material not found")
@@ -281,9 +273,7 @@ class TestCheckMaterialCompatibility(unittest.TestCase):
 
     @patch("src.common.materials.get_reinforcement_material_properties")
     @patch("src.common.materials.get_concrete_material_properties")
-    def test_check_material_compatibility_invalid_reinforcement(
-        self, mock_concrete_props: MagicMock, mock_reinf_props: MagicMock
-    ) -> None:
+    def test_check_material_compatibility_invalid_reinforcement(self, mock_concrete_props: MagicMock, mock_reinf_props: MagicMock) -> None:
         """Test compatibility check with invalid reinforcement material."""
         # Arrange
         mock_concrete_props.return_value = {"name": "C30/37", "fck": 30.0, "fcd": 20.0}
@@ -556,4 +546,4 @@ class TestGetMaterialCompatibilityInfo(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()
