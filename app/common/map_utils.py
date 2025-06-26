@@ -6,6 +6,7 @@ import os
 
 import geopandas as gpd
 from shapely.geometry import MultiPolygon, Polygon
+
 from viktor.core import Color
 from viktor.errors import UserError
 from viktor.views import MapFeature, MapPoint, MapPolygon

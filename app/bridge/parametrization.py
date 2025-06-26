@@ -4,6 +4,15 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -23,16 +32,6 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
-)
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -702,6 +701,14 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 
     # --- Load Zones (in belastingzones tab) ---
     input.belastingzones.info_text = Text(LOAD_ZONES_INFO_TEXT)
+
+    input.belastingzones.lijnlast_leuning = NumberField(
+        "Lijnlast leuning",
+        default=1.0,
+        min=0.0,
+        suffix="kN/m",
+        description="Lijnlast van de leuning op het brugdek",
+    )
 
     input.belastingzones.load_zones_array = DynamicArray(
         "Belastingzones",
