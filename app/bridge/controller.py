@@ -433,10 +433,12 @@ class BridgeController(ViktorController):
         return PlotlyResult(fig.to_json())
 
     @TableView("Belastingscombinaties")
-    def get_load_combinations_view(self, **kwargs) -> TableResult:  # noqa: ARG002
+    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
         """
         Display the table of load combinations for the bridge.
 
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
         :returns: TableResult containing the load combinations.
         :rtype: TableResult
         """

@@ -1,6 +1,7 @@
 # Changelog
 ## [`v0.0.6`] - 2025-xx-xx
 ### Added
+- Inputfield for line load parapet
 ### Changed
 ### Removed
 ### Fixed
