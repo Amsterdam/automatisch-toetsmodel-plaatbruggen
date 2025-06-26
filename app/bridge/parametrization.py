@@ -106,6 +106,7 @@ def _create_default_dimension_segment_row(
     *,  # Force keyword arguments for clarity
     l_value: float = 0,
     is_first: bool = False,
+    is_support: bool = False,
 ) -> dict[str, Any]:
     """
     Create a dictionary for a default bridge dimension segment row with customizable values.
@@ -114,6 +115,8 @@ def _create_default_dimension_segment_row(
     :type l_value: float
     :param is_first: Whether this is the first segment. Defaults to False.
     :type is_first: bool
+    :param is_support: Whether this segment is a support location. Defaults to False.
+    :type is_support: bool
 
     :returns: Dictionary containing the segment row parameters with the following keys:
         - "bz1" (float): Width of zone 1 (default: 10.0 m)
@@ -124,6 +127,7 @@ def _create_default_dimension_segment_row(
         - "col_6" (float): Alpha angle (default: 0.0 degrees)
         - "l" (float): Distance to previous section (default: value of l_value)
         - "is_first_segment" (bool): Whether this is the first segment (default: value of is_first)
+        - "is_support" (bool): Whether this is a support location (default: value of is_support)
     :rtype: dict[str, Any]
     """
     bz1 = 10.0
