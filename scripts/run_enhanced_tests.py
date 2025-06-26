@@ -36,9 +36,7 @@ def print_concise_summary(result: TextTestResult) -> None:
         # Overall status message - more generic since other checks might have failed
         print("\n" + "=" * 60)
         print(colorized_status_message("ALL CHECKS COMPLETED", is_success=False, is_warning=True))
-        print(
-            colorized_status_message("Check the logs above. If there are no errors, your changes will be pushed.", is_success=False, is_warning=True)
-        )
+        print(colorized_status_message("Check the logs above.", is_success=False, is_warning=True))
         print("=" * 60)
     else:
         safe_emoji_text("❌ TESTS FAILED", "TESTS FAILED")
