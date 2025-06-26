@@ -6,6 +6,7 @@ from typing import Any
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
@@ -34,17 +35,6 @@ from viktor.parametrization import (
     TextField,
 )
 
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
 from .geometry_functions import get_steel_qualities
 
 # --- Helper functions for Bridge Data Loading ---
@@ -110,7 +100,6 @@ def _bridge_field_is_empty(objectnumm: str, field_name: str) -> bool:
 
 
 # --- Helper functions for DynamicArray Default Rows ---
-
 
 
 def _create_default_dimension_segment_row(
