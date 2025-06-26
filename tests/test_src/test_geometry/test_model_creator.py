@@ -271,13 +271,7 @@ class TestModelCreator(unittest.TestCase):
             support_positions = [True]
 
         # Basic input structure required by create_2d_top_view
-        params.input = Munch({
-            "dimensions": Munch({
-                "array": Munch({
-                    "is_support": support_positions
-                })
-            })
-        })
+        params.input = Munch({"dimensions": Munch({"array": Munch({"is_support": support_positions})})})
         return params
 
     def test_create_2d_top_view_simple_case(self) -> None:

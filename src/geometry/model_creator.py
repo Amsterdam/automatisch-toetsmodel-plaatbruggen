@@ -993,7 +993,7 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
     # Ensure support_positions list matches number of cross-sections
     while len(support_positions) < num_cross_sections:
         support_positions.append(False)
-    
+
     # --- Process Cross-Sections (for transverse bridge lines and bz-dimensions texts) ---
     cumulative_x = 0.0
     support_annotations_data = []  # List of dicts with x, y for supports
