@@ -226,6 +226,31 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
     return dx_width_visibility_function
 
 
+def _calculate_support_positions(params, **kwargs) -> list[bool]:  # noqa: ANN001, ARG001
+    """
+    Calculate which bridge segments should have supports.
+
+    Automatically sets supports at the first and last segments.
+    All other segments will not have supports.
+
+    :param params: Parameters containing bridge_segments_array
+    :returns: List of boolean values indicating support positions
+    :rtype: list[bool]
+    """
+    num_segments = _get_current_num_segments(params)
+
+    if num_segments <= 0:
+        return []
+
+    support_positions = []
+    for i in range(num_segments):
+        # First segment (i=0) and last segment (i=num_segments-1) should have supports
+        is_support = (i == 0) or (i == num_segments - 1)
+        support_positions.append(is_support)
+
+    return support_positions
+
+
 # Generate the visibility callbacks using a dictionary comprehension
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
 
@@ -482,10 +507,10 @@ Below you will find important information about this bridge structure."""
         min=2,
         name="bridge_segments_array",
         default=[
-            _create_default_dimension_segment_row(l_value=0, is_first=True),
-            _create_default_dimension_segment_row(l_value=25, is_first=False),
-            _create_default_dimension_segment_row(l_value=15, is_first=False),
-            _create_default_dimension_segment_row(l_value=10, is_first=False),
+            _create_default_dimension_segment_row(l_value=0, is_first=True, is_support=True),
+            _create_default_dimension_segment_row(l_value=25, is_first=False, is_support=False),
+            _create_default_dimension_segment_row(l_value=15, is_first=False, is_support=False),
+            _create_default_dimension_segment_row(l_value=10, is_first=False, is_support=True),
         ],
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
@@ -508,7 +533,7 @@ Below you will find important information about this bridge structure."""
         visible=_l_field_visibility_constraint,
     )
 
-    input.dimensions.array.is_support = BooleanField("Oplegging")
+    input.dimensions.array.is_support = OutputField("Oplegging", value=_calculate_support_positions)
 
     # --- Bridge Geometry (moved to geometrie_brug tab) ---
     input.dimensions.lb1 = LineBreak()
