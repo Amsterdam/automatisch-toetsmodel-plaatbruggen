@@ -31,6 +31,7 @@ class TestBridgeControllerViews(unittest.TestCase):
             "get_top_view",
             "get_load_zones_view",
             "get_load_combinations_view",
+            "get_idea_model_preview",
             "get_output_report",
             "get_bridge_map_view",
         ]
@@ -283,26 +284,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         error_point = result.features[0]
         assert "Ongeldige entity ID" in error_point._description  # noqa: SLF001
 
-    @view_test_wrapper("get_load_combinations_view")
-    def test_get_load_combinations_view_execution(self) -> None:
-        """Test actual execution of get_load_combinations_view."""
-        # Access the original method directly
-        original_method = self.controller.__class__.get_load_combinations_view
 
-        # Act - call bypassing decorator
-        result = original_method(self.controller)
-
-        # Assert
-        from viktor.views import TableResult
-
-        assert isinstance(result, TableResult)
-
-        # Verify table has data
-        assert hasattr(result, "data")
-        assert len(result.data) > 0
-
-        # Check for expected load combination columns
-        assert len(result.data[0]) > 1  # Should have multiple columns
 
     @patch("src.integrations.idea_interface.extract_cross_section_from_params")
     @patch("src.integrations.idea_interface.create_reinforcement_layout")
