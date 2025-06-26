@@ -28,7 +28,27 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements_dev.txt
     
-    - name: Run quality checks  
+    - name: Run Ruff Style Check
       run: |
         export PATH=$PWD:$PATH
-        python scripts/quality_check_and_push.py --dry-run
+        python scripts/run_ruff_check.py
+        
+    - name: Run Ruff Formatter  
+      run: |
+        export PATH=$PWD:$PATH
+        python scripts/run_ruff_format.py
+        
+    - name: Run MyPy Type Check
+      run: |
+        export PATH=$PWD:$PATH
+        python scripts/run_mypy.py
+        
+    - name: Run Unit Tests
+      run: |
+        export PATH=$PWD:$PATH
+        python scripts/run_enhanced_tests.py
+        
+    - name: Run VIKTOR Tests
+      run: |
+        export PATH=$PWD:$PATH
+        python scripts/run_viktor_tests.py
