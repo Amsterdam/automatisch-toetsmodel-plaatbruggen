@@ -27,13 +27,13 @@ from viktor.parametrization import (
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -129,6 +129,7 @@ def _create_default_dimension_segment_row(
 
     Returns:
         dict[str, Any]: Dictionary containing the segment row parameters.
+
     """
     return {
         "bz1": bz1,
