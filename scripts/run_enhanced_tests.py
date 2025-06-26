@@ -37,7 +37,7 @@ def print_concise_summary(result: TextTestResult) -> None:
         print("\n" + "=" * 60)
         print(colorized_status_message("ALL CHECKS COMPLETED", is_success=False, is_warning=True))
         print(
-            colorized_status_message("Check the logs above. If there are no errors, your changes will be pushed.", is_success=False, is_warning=True)
+            colorized_status_message("Check the logs above.", is_success=False, is_warning=True)
         )
         print("=" * 60)
     else:
