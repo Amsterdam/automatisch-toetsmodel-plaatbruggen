@@ -15,6 +15,7 @@ CONCRETE_PATH = MATERIALS_DIR / "betonkwaliteit.csv"
 REINFORCEMENT_PATH = MATERIALS_DIR / "betonstaalkwaliteit.csv"
 PRESTRESS_PATH = MATERIALS_DIR / "voorspanstaalkwaliteit.csv"
 BENDING_RADIUS_PATH = MATERIALS_DIR / "wapening_buigstraal.csv"
+MATERIAL_DENSITY_PATH = MATERIALS_DIR / "soortelijkgewicht.csv"
 
 
 def get_concrete_qualities() -> list[str]:
@@ -341,6 +342,22 @@ def get_supported_scia_materials() -> dict[str, list[str]]:
     supported_reinforcement = [mat for mat in scia_reinforcement_materials if mat in available_reinforcement]
 
     return {"concrete": supported_concrete, "reinforcement": supported_reinforcement}
+
+
+def get_material_densities() -> list[tuple[str, float]]:
+    """
+    Obtain a list of materials and their densities from the CSV file.
+
+    :returns: List of tuples (materialname, density in kN/m³)
+    :rtype: list[tuple[str, float]]
+    :raises FileNotFoundError: When the csv file is not found
+    """
+    try:
+        with MATERIAL_DENSITY_PATH.open(encoding="utf-8") as f:
+            csv_reader = csv.DictReader(f, delimiter=";")
+            return [(row["Materiaal"].strip('"'), float(row["Soortelijk gewicht (kN/m³)"])) for row in csv_reader]
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Material density file not found: {MATERIAL_DENSITY_PATH}") from e
 
 
 # Legacy compatibility functions (to be deprecated)
