@@ -107,30 +107,34 @@ def _create_default_dimension_segment_row(
     *,  # Force keyword arguments for clarity
     l_value: float = 0,
     is_first: bool = False,
-    bz1: float = 10.0,
-    bz2: float = 3.0,
-    bz3: float = 15.0,
-    dz: float = 0.7,
-    dz_2: float = 0.8,
-    col_6: float = 0.0,
-) -> dict[str, Any]:
+    ) -> dict[str, Any]:
     """
-    Creates a dictionary for a default bridge dimension segment row with customizable values.
+    Create a dictionary for a default bridge dimension segment row with customizable values.
 
-    Args:
-        l_value: Distance to previous section. Default: 0.
-        is_first: Whether this is the first segment. Default: False.
-        bz1: Width of zone 1 (Breedte zone 1). Default: 16.0 m.
-        bz2: Width of zone 2 (Breedte zone 2). Default: 3.0 m.
-        bz3: Width of zone 3 (Breedte zone 3). Default: 16.0 m.
-        dz: Thickness of zones 1 and 3 (Dikte zone 1 en 3). Default: 1.0 m.
-        dz_2: Thickness of zone 2 (Dikte zone 2). Default: 1.5 m.
-        col_6: Alpha angle. Default: 0.0 degrees.
+    :param l_value: Distance to previous section. Defaults to 0.
+    :type l_value: float
+    :param is_first: Whether this is the first segment. Defaults to False.
+    :type is_first: bool
 
-    Returns:
-        dict[str, Any]: Dictionary containing the segment row parameters.
-
+    :returns: Dictionary containing the segment row parameters with the following keys:
+        - "bz1" (float): Width of zone 1 (default: 10.0 m)
+        - "bz2" (float): Width of zone 2 (default: 3.0 m)
+        - "bz3" (float): Width of zone 3 (default: 15.0 m)
+        - "dz" (float): Thickness of zones 1 and 3 (default: 0.7 m)
+        - "dz_2" (float): Thickness of zone 2 (default: 0.8 m)
+        - "col_6" (float): Alpha angle (default: 0.0 degrees)
+        - "l" (float): Distance to previous section (default: value of l_value)
+        - "is_first_segment" (bool): Whether this is the first segment (default: value of is_first)
+    :rtype: dict[str, Any]
     """
+
+    bz1 = 10.0
+    bz2 = 3.0
+    bz3 = 15.0
+    dz = 0.7
+    dz_2 = 0.8
+    col_6 = 0.0
+
     return {
         "bz1": bz1,
         "bz2": bz2,
