@@ -5,7 +5,10 @@ This module provides utility functions for working with load cases in the bridge
 
 All functions are independent of the VIKTOR SDK and suitable for use in the core logic layer.
 """
+
 from typing import Any
+
+
 def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
     """
     Calculate the number of notional lanes and their width based on the bridge deck width.
