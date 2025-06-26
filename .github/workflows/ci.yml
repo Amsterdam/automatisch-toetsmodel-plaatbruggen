@@ -30,25 +30,21 @@ jobs:
     
     - name: Run Ruff Style Check
       run: |
-        export PATH=$PWD:$PATH
-        python scripts/run_ruff_check.py
+        python -m ruff check --config=.ruff.toml --fix
         
     - name: Run Ruff Formatter  
       run: |
-        export PATH=$PWD:$PATH
-        python scripts/run_ruff_format.py
+        python -m ruff format --config=.ruff.toml
         
     - name: Run MyPy Type Check
       run: |
-        export PATH=$PWD:$PATH
-        python scripts/run_mypy.py
+        python -m mypy .
         
     - name: Run Unit Tests
       run: |
-        export PATH=$PWD:$PATH
         python scripts/run_enhanced_tests.py
         
     - name: Run VIKTOR Tests
       run: |
         export PATH=$PWD:$PATH
-        python scripts/run_viktor_tests.py
+        viktor-cli test
