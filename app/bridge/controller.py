@@ -492,33 +492,30 @@ class BridgeController(ViktorController):
             if not def_content:
                 self._raise_empty_def_error()
 
+            # Get bridge ID for file naming
+            bridge_id = getattr(params.info, "bridge_objectnumm", "") or "bridge_model"
+
             # Create ZIP file using VIKTOR's recommended approach from documentation
             import zipfile
 
             # Use File object and write directly to it
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                # Add XML file
-                z.writestr("bridge_model.xml", xml_content)
-                # Add definition file
+                # Add XML file with bridge ID as filename
+                z.writestr(f"{bridge_id}.xml", xml_content)
+                # Add definition file with standard name (referenced in XML)
                 z.writestr("viktor.xml.def", def_content)
+
+                # Add template file
+                with template_path.open("rb") as template_file:
+                    z.writestr("model.esa", template_file.read())
 
                 # Add a readme file with instructions
                 readme_content = SCIA_ZIP_README_CONTENT
                 z.writestr("README.txt", readme_content)
 
-            # Generate filename with bridge info if available
-            bridge_name = getattr(params.info, "bridge_name", "UnknownBridge") or "UnknownBridge"
-            bridge_id = getattr(params.info, "bridge_objectnumm", "") or ""
-
-            filename_parts = ["SCIA_Model"]
-            if bridge_name and bridge_name != "UnknownBridge":
-                filename_parts.append(bridge_name.replace(" ", "_"))
-            if bridge_id:
-                filename_parts.append(bridge_id)
-            filename_parts.append("XML_Files.zip")
-
-            filename = "_".join(filename_parts)
+            # Generate simplified filename
+            filename = f"{bridge_id}_Input_Files.zip"
 
             # Return File object directly as shown in VIKTOR documentation
             return DownloadResult(zip_file_obj, filename)
@@ -555,18 +552,9 @@ class BridgeController(ViktorController):
             if not esa_model_file:
                 self._raise_empty_esa_error()
 
-            # Generate filename
-            bridge_name = getattr(params.info, "bridge_name", "UnknownBridge") or "UnknownBridge"
-            bridge_id = getattr(params.info, "bridge_objectnumm", "") or ""
-
-            filename_parts = ["SCIA_Model"]
-            if bridge_name and bridge_name != "UnknownBridge":
-                filename_parts.append(bridge_name.replace(" ", "_"))
-            if bridge_id:
-                filename_parts.append(bridge_id)
-            filename_parts.append("Model.esa")
-
-            filename = "_".join(filename_parts)
+            # Generate simplified filename
+            bridge_id = getattr(params.info, "bridge_objectnumm", "") or "bridge"
+            filename = f"{bridge_id}_model.esa"
 
             return DownloadResult(esa_model_file, filename)
 

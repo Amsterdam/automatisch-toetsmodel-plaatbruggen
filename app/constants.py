@@ -384,27 +384,34 @@ COMBINATION_TABLE = {
 # SCIA zip readme content
 # ===================================================================================================================
 
-SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Files - Bridge Model
+SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Bestanden - Brugmodel
 
-This ZIP contains the generated SCIA model files:
+Deze ZIP bevat de gegenereerde SCIA model bestanden:
 
-1. bridge_model.xml - Main model definition with geometry, materials, and mesh
-2. bridge_model.def - Definition file with additional model parameters
+1. [BrugID].xml - Hoofdmodel definitie met geometrie, materialen en mesh
+2. viktor.xml.def - Definitie bestand met aanvullende model parameters
+3. model.esa - Leeg template bestand met juiste project instellingen
 
-To use these files:
-1. Open SCIA Engineer (version 24.0.3015.64 or compatible)
-2. Create a new project or open existing template
-3. Import the XML files: File > Import > XML files
-4. Review the imported model geometry and settings
-5. Define load cases and run analysis as needed
+BELANGRIJK - Hoe deze bestanden te gebruiken:
 
-Note: This is a simplified rectangular plate model. Future versions will support:
-- Complex bridge geometry matching actual shape
-- Variable thickness per zone
-- Load cases and combinations
-- Advanced material properties
+1. Pak ALLE 3 bestanden uit naar DEZELFDE MAP
+   (Het is cruciaal dat de XML, DEF en ESA bestanden op dezelfde locatie staan)
 
-Generated from VIKTOR Bridge Assessment Tool
+2. Open SCIA Engineer (versie 24.0.3015.64 of compatibel)
+
+3. Open het LEGE model.esa bestand uit de uitgepakte map
+   (Dit dient als template met de juiste instellingen)
+
+4. Klik in SCIA Engineer op "Bijwerken vanuit"
+
+5. Klik op "XML bestand"
+
+6. Selecteer het [BrugID].xml bestand uit dezelfde map
+
+Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebruikt.
+
+
+
 """
 
 # ===================================================================================================================
