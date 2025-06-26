@@ -1,5 +1,6 @@
 """Module for the Bridge entity controller."""
 
+import zipfile
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
@@ -10,10 +11,6 @@ from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
-    DataGroup,  # Add DataGroup
-    DataItem,  # Add DataItem
-    DataResult,  # Add DataResult
-    DataView,  # Add DataView
     GeometryResult,
     GeometryView,
     MapPoint,  # Add MapPoint
@@ -23,6 +20,8 @@ from viktor.views import (
     PDFView,
     PlotlyResult,  # Import PlotlyResult
     PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
 )
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -32,7 +31,10 @@ from app.common.map_utils import (
     process_bridge_geometries,
     validate_shapefile_exists,
 )
+
+# Params for load combinations are in app.constants
 from app.constants import SCIA_ZIP_README_CONTENT  # Import the SCIA ZIP readme content
+from src.combinations.load_factors import create_load_combination_table
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
@@ -56,8 +58,6 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-
-# Import SCIA integration from src layer
 from src.integrations.scia_interface import create_bridge_scia_model
 
 # Import parametrization from the separate file
@@ -121,6 +121,47 @@ class BridgeController(ViktorController):
             print(f"Error preparing bridge geometry for load zones view: {e}")  # noqa: T201
             raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
 
+    def _calculate_zone_geometry_properties(
+        self, load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData
+    ) -> list[LoadZoneDataRow]:
+        """
+        Calculate geometric properties for each load zone based on bridge geometry.
+        This adds the missing zone_widths_per_d and y_coords_top_current_zone fields.
+        """
+        if not load_zones_data_params or not bridge_geom_data:
+            return load_zones_data_params
+
+        updated_zones = []
+        current_y_top = bridge_geom_data.y_top_structural_edge_at_d_points.copy()
+
+        for zone_idx, zone_data in enumerate(load_zones_data_params):
+            # Create a copy of the zone data
+            updated_zone = dict(zone_data)
+
+            # Calculate zone widths for each D-point
+            zone_widths = []
+            for d_idx in range(bridge_geom_data.num_defined_d_points):
+                d_width_field = f"d{d_idx + 1}_width"
+                width_value = zone_data.get(d_width_field)
+                if isinstance(width_value, (int, float)):
+                    zone_widths.append(float(width_value))
+                else:
+                    zone_widths.append(0.0)
+
+            # Add calculated geometric properties
+            updated_zone["zone_widths_per_d"] = zone_widths
+            updated_zone["y_coords_top_current_zone"] = current_y_top.copy()
+
+            # Update current_y_top for next zone (unless it's the last zone)
+            if zone_idx < len(load_zones_data_params) - 1:
+                # Move the top position down by the zone width for each D-point
+                for d_idx in range(bridge_geom_data.num_defined_d_points):
+                    current_y_top[d_idx] -= zone_widths[d_idx]
+
+            updated_zones.append(cast(LoadZoneDataRow, updated_zone))
+
+        return updated_zones
+
     def _get_bridge_entity_data(self, entity_id: int) -> tuple[str | None, str | None, MapResult | None]:
         """Fetches bridge entity data (OBJECTNUMM and name) using the VIKTOR API."""
         if not entity_id:
@@ -139,23 +180,6 @@ class BridgeController(ViktorController):
             return objectnumm, name, None  # noqa: TRY300
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
-
-    @DataView("Bridge Summary", duration_guess=1)
-    def get_bridge_summary_view(self, params: BridgeParametrization, **kwargs) -> DataResult:  # noqa: ARG002
-        """Displays a summary of the bridge information on the Info page."""
-        data = DataGroup(
-            DataItem(label="Bridge ID (OBJECTNUMM)", value=params.info.bridge_objectnumm or "N/A"),
-            DataItem(label="Bridge Name", value=params.info.bridge_name or "N/A"),
-            DataItem(label="Location Description", value=params.info.location_description or "N/A"),
-            DataItem(label="City/Municipality", value=params.info.city or "N/A"),
-            DataItem(label="Construction Year", value=str(params.info.construction_year) if params.info.construction_year else "N/A"),
-            DataItem(label="Total Length", value=f"{params.info.total_length} m" if params.info.total_length is not None else "N/A"),
-            DataItem(label="Total Width", value=f"{params.info.total_width} m" if params.info.total_width is not None else "N/A"),
-            DataItem(label="Last Assessment", value=params.info.assessment_date or "N/A"),
-            DataItem(label="Assessment Status", value=params.info.assessment_status or "N/A"),
-            DataItem(label="Assessment Notes", value=params.info.assessment_notes or "N/A"),
-        )
-        return DataResult(data)
 
     @MapView("Locatie Brug", duration_guess=2)
     def get_bridge_map_view(self, params: BridgeParametrization, **kwargs) -> MapResult:  # noqa: ARG002
@@ -329,7 +353,11 @@ class BridgeController(ViktorController):
         if params.load_zones_data_array:
             for row_param in params.load_zones_data_array:
                 # Construct a dictionary that matches LoadZoneDataRow fields
-                temp_row_data: dict[str, Any] = {"zone_type": row_param.zone_type}
+                temp_row_data: dict[str, Any] = {
+                    "zone_type": row_param.zone_type,
+                    "pavement_thickness": getattr(row_param, "pavement_thickness", 0.05),  # Default 5cm
+                    "pavement_material": getattr(row_param, "pavement_material", "Asfalt"),  # Default Asfalt
+                }
                 for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
                     field_name = f"d{i}_width"
                     value = getattr(row_param, field_name, None)
@@ -350,6 +378,9 @@ class BridgeController(ViktorController):
             fig = go.Figure()
             fig.update_layout(title_text="Belastingzones - Brugsegmenten ongeldig", xaxis_visible=False, yaxis_visible=False)
             return PlotlyResult(fig.to_json())
+
+        # 2a. Calculate zone geometric properties using bridge geometry
+        load_zones_data_params = self._calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
         # 3. Get validation messages
         validation_messages: list[str] = []
@@ -399,32 +430,20 @@ class BridgeController(ViktorController):
 
         return PlotlyResult(fig.to_json())
 
+    @TableView("Belastingscombinaties")
+    def get_load_combinations_view(self, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Display the table of load combinations for the bridge.
+
+        :returns: TableResult containing the load combinations.
+        :rtype: TableResult
+        """
+        combination_table = create_load_combination_table()
+        return TableResult(combination_table)
+
     # ============================================================================================================
     # SCIA Integration
     # ============================================================================================================
-
-    def _convert_bridge_params_to_dicts(self, params: BridgeParametrization) -> list[dict[str, Any]]:
-        """
-        Convert bridge segment parameters to dictionary format for SCIA integration.
-
-        :param params: Bridge parametrization object
-        :type params: BridgeParametrization
-        :returns: List of bridge segment dictionaries
-        :rtype: list[dict[str, Any]]
-        """
-        bridge_segments = []
-        if params.bridge_segments_array:
-            for segment in params.bridge_segments_array:
-                segment_dict = {
-                    "bz1": getattr(segment, "bz1", 0),
-                    "bz2": getattr(segment, "bz2", 0),
-                    "bz3": getattr(segment, "bz3", 0),
-                    "l": getattr(segment, "l", 0),
-                    "dz": getattr(segment, "dz", 0),
-                    "dz_2": getattr(segment, "dz_2", 0),
-                }
-                bridge_segments.append(segment_dict)
-        return bridge_segments
 
     def _get_scia_template_path(self) -> Path:
         """
@@ -442,80 +461,6 @@ class BridgeController(ViktorController):
 
         return template_path
 
-    @GeometryView("SCIA Model Preview", duration_guess=5, x_axis_to_right=True)
-    def get_scia_model_preview(self, params: BridgeParametrization, **kwargs) -> GeometryResult:  # noqa: ARG002
-        """
-        Generate a preview of the SCIA model geometry.
-
-        Currently shows a simple rectangular plate representation that will be sent to SCIA.
-        This is a simplified preview - the actual SCIA model may contain additional details.
-
-        :param params: Bridge parametrization object
-        :type params: BridgeParametrization
-        :returns: 3D geometry result showing the SCIA model approximation
-        :rtype: GeometryResult
-        """
-        try:
-            # Convert bridge parameters to dictionary format
-            bridge_segments = self._convert_bridge_params_to_dicts(params)
-
-            if not bridge_segments:
-                self._raise_no_bridge_segments_error()
-
-            # Extract geometry using the same logic as SCIA interface
-            from src.integrations.scia_interface import extract_bridge_geometry_from_params
-
-            bridge_geometry = extract_bridge_geometry_from_params(bridge_segments)
-
-            # Create a simple box geometry to represent the SCIA plate
-            # Using trimesh to create a box with the bridge dimensions
-            plate_box = trimesh.creation.box(
-                extents=[
-                    bridge_geometry.total_length,  # X direction (length)
-                    bridge_geometry.total_width,  # Y direction (width)
-                    bridge_geometry.thickness,  # Z direction (thickness)
-                ]
-            )
-
-            # Position the box so it starts at origin in X and Y, and thickness goes upward
-            plate_box.apply_translation(
-                [
-                    bridge_geometry.total_length / 2,  # Center in X
-                    bridge_geometry.total_width / 2,  # Center in Y
-                    bridge_geometry.thickness / 2,  # Position so bottom is at Z=0
-                ]
-            )
-
-            # Set material color (concrete gray)
-            plate_box.visual.face_colors = [200, 200, 200, 255]  # Light gray
-
-            # Create scene and add info text
-            scene = trimesh.Scene()
-            scene.add_geometry(plate_box, node_name="SCIA_Plate")
-
-            # Add coordinate frame for reference
-            axis_length = min(bridge_geometry.total_length, bridge_geometry.total_width) * 0.1
-            scene.add_geometry(
-                trimesh.creation.axis(origin_size=axis_length / 10, axis_radius=axis_length / 50, axis_length=axis_length),
-                node_name="Coordinate_Frame",
-            )
-
-            # Export the scene as a GLTF file and return it as a GeometryResult
-            geometry = File()
-            with geometry.open_binary() as w:
-                w.write(trimesh.exchange.gltf.export_glb(scene))
-            return GeometryResult(geometry, geometry_type="gltf")
-
-        except Exception as e:
-            # Create error visualization
-            error_box = trimesh.creation.box(extents=[1, 1, 0.1])
-            error_box.visual.face_colors = [255, 100, 100, 255]  # Red color for error
-
-            scene = trimesh.Scene()
-            scene.add_geometry(error_box, node_name="Error")
-
-            raise UserError(f"Fout bij genereren SCIA model preview: {e!s}")
-
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
         Generate and download SCIA XML input files.
@@ -528,17 +473,11 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Convert bridge parameters
-            bridge_segments = self._convert_bridge_params_to_dicts(params)
-
-            if not bridge_segments:
-                self._raise_no_bridge_segments_error()
-
             # Get template path
             template_path = self._get_scia_template_path()
 
             # Create SCIA model
-            xml_file, def_file, _ = create_bridge_scia_model(bridge_segments, template_path)
+            xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
 
             # Debug: Check if files have content
             xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else b""
@@ -558,7 +497,7 @@ class BridgeController(ViktorController):
                 # Add XML file
                 z.writestr("bridge_model.xml", xml_content)
                 # Add definition file
-                z.writestr("bridge_model.def", def_content)
+                z.writestr("viktor.xml.def", def_content)
 
                 # Add a readme file with instructions
                 readme_content = SCIA_ZIP_README_CONTENT
@@ -594,63 +533,50 @@ class BridgeController(ViktorController):
         :returns: ESA model file for download
         :rtype: DownloadResult
         """
+        # Get template path
+        template_path = self._get_scia_template_path()
+
+        # Create SCIA model and analysis
+        xml_file, def_file, scia_analysis = create_bridge_scia_model(params, template_path)
+
+        # Execute the analysis to generate the ESA model
+        # Note: This requires SCIA worker to be available
         try:
-            # Convert bridge parameters
-            bridge_segments = self._convert_bridge_params_to_dicts(params)
+            scia_analysis.execute(timeout=300)  # 5 minute timeout
 
-            if not bridge_segments:
-                self._raise_no_bridge_segments_error()
+            # Get the updated ESA model with our geometry
+            esa_model_file = scia_analysis.get_updated_esa_model()
 
-            # Get template path
-            template_path = self._get_scia_template_path()
+            # Debug: Check if ESA model file has content
+            if not esa_model_file:
+                self._raise_empty_esa_error()
 
-            # Create SCIA model and analysis
-            xml_file, def_file, scia_analysis = create_bridge_scia_model(bridge_segments, template_path)
+            # Generate filename
+            bridge_name = getattr(params.info, "bridge_name", "UnknownBridge") or "UnknownBridge"
+            bridge_id = getattr(params.info, "bridge_objectnumm", "") or ""
 
-            # Execute the analysis to generate the ESA model
-            # Note: This requires SCIA worker to be available
-            try:
-                scia_analysis.execute(timeout=300)  # 5 minute timeout
+            filename_parts = ["SCIA_Model"]
+            if bridge_name and bridge_name != "UnknownBridge":
+                filename_parts.append(bridge_name.replace(" ", "_"))
+            if bridge_id:
+                filename_parts.append(bridge_id)
+            filename_parts.append("Model.esa")
 
-                # Get the updated ESA model with our geometry
-                esa_model_file = scia_analysis.get_updated_esa_model()
+            filename = "_".join(filename_parts)
 
-                # Debug: Check if ESA model file has content
-                if not esa_model_file:
-                    self._raise_empty_esa_error()
+            return DownloadResult(esa_model_file, filename)
 
-                # Generate filename
-                bridge_name = getattr(params.info, "bridge_name", "UnknownBridge") or "UnknownBridge"
-                bridge_id = getattr(params.info, "bridge_objectnumm", "") or ""
-
-                filename_parts = ["SCIA_Model"]
-                if bridge_name and bridge_name != "UnknownBridge":
-                    filename_parts.append(bridge_name.replace(" ", "_"))
-                if bridge_id:
-                    filename_parts.append(bridge_id)
-                filename_parts.append("Model.esa")
-
-                filename = "_".join(filename_parts)
-
-                return DownloadResult(esa_model_file, filename)
-
-            except Exception as worker_error:
-                # If SCIA worker fails, provide helpful error message
-                error_msg = (
-                    f"SCIA worker uitvoering gefaald: {worker_error!s}\n\n"
-                    "Mogelijke oorzaken:\n"
-                    "- SCIA worker niet beschikbaar of niet correct geïnstalleerd\n"
-                    "- SCIA Engineer licentie problemen\n"
-                    "- Template bestand incompatibel met huidige SCIA versie\n\n"
-                    "Probeer in plaats daarvan de XML bestanden te downloaden."
-                )
-                raise UserError(error_msg)
-
-        except UserError:
-            # Re-raise UserError as-is
-            raise
-        except Exception as e:
-            raise UserError(f"Fout bij genereren SCIA ESA model: {e!s}")
+        except Exception as worker_error:
+            # If SCIA worker fails, provide helpful error message
+            error_msg = (
+                f"SCIA worker uitvoering gefaald: {worker_error!s}\n\n"
+                "Mogelijke oorzaken:\n"
+                "- SCIA worker niet beschikbaar of niet correct geïnstalleerd\n"
+                "- SCIA Engineer licentie problemen\n"
+                "- Template bestand incompatibel met huidige SCIA versie\n\n"
+                "Probeer in plaats daarvan de XML bestanden te downloaden."
+            )
+            raise UserError(error_msg)
 
     def _raise_no_bridge_segments_error(self) -> None:
         """Raise UserError for missing bridge segments."""
@@ -665,8 +591,20 @@ class BridgeController(ViktorController):
         raise UserError("Definition bestand is leeg - SCIA model generatie gefaald")
 
     def _raise_empty_esa_error(self) -> None:
-        """Raise UserError for empty ESA model file."""
-        raise UserError("ESA model bestand is leeg - SCIA analyse gefaald")
+        """Raise UserError for empty ESA file."""
+        raise UserError("ESA bestand is leeg - SCIA worker uitvoering gefaald")
+
+    def _raise_no_idea_segments_error(self) -> None:
+        """Raise UserError for missing bridge segments in IDEA RCS model."""
+        raise UserError("Geen brugsegmenten gevonden voor IDEA RCS model")
+
+    def _raise_no_idea_analysis_segments_error(self) -> None:
+        """Raise UserError for missing bridge segments in IDEA RCS analysis."""
+        raise UserError("Geen brugsegmenten gevonden voor IDEA RCS analyse")
+
+    def _raise_empty_idea_xml_error(self) -> None:
+        """Raise UserError for empty IDEA XML file."""
+        raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
 
     # ============================================================================================================
     # output - Rapport
@@ -687,3 +625,282 @@ class BridgeController(ViktorController):
         """
         # TEMPORARILY DISABLED - docxtpl network issue
         raise UserError("Report generation is temporarily disabled due to network connectivity issues with required dependencies.")
+
+    # ============================================================================================================
+    # IDEA StatiCa Integration
+    # ============================================================================================================
+
+    @GeometryView("IDEA RCS Dwarsdoorsnede", duration_guess=3, x_axis_to_right=True)
+    def get_idea_model_preview(self, params: BridgeParametrization, **kwargs) -> GeometryResult:  # noqa: ARG002
+        """
+        Generate 3D preview of IDEA StatiCa RCS cross-section model.
+
+        Shows the cross-section as viewed from the front, with:
+        - Concrete section as gray rectangular block
+        - Reinforcement bars as detailed cylinders
+        - Proper proportions for cross-section analysis
+
+        :param params: Bridge parametrization
+        :type params: BridgeParametrization
+        :returns: 3D visualization of the cross-section for RCS analysis
+        :rtype: GeometryResult
+        """
+        try:
+            # Extract bridge segments for cross-section analysis
+            bridge_segments_list = []
+            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+                for segment in params.bridge_segments_array:
+                    segment_dict = {
+                        "bz1": getattr(segment, "bz1", 0),
+                        "bz2": getattr(segment, "bz2", 0),
+                        "bz3": getattr(segment, "bz3", 0),
+                        "dz": getattr(segment, "dz", 0.5),
+                        "dz_2": getattr(segment, "dz_2", 0.5),
+                        "l": getattr(segment, "l", 0),
+                    }
+                    bridge_segments_list.append(segment_dict)
+
+            if not bridge_segments_list:
+                self._raise_no_idea_segments_error()
+
+            # Extract cross-section from first segment
+            from src.integrations.idea_interface import extract_cross_section_from_params
+
+            # Use materials from params.info when available
+            concrete_material = getattr(params.info, "concrete_strength_class", None) or "C30/37"
+            reinforcement_material = getattr(params.info, "steel_quality_reinforcement", None) or "B500B"
+
+            cross_section_data = extract_cross_section_from_params(bridge_segments_list, concrete_material, reinforcement_material)
+
+            # Create scene
+            scene = trimesh.Scene()
+
+            # Create concrete plate - horizontal orientation for bridge deck cross-section
+            # For a bridge plate, thickness is the height, width is the width
+            plate_thickness = cross_section_data.height
+            plate_width = cross_section_data.width
+            plate_length = max(2.0, plate_width * 0.3)  # Show some depth for 3D visualization
+
+            concrete_plate = trimesh.creation.box(extents=[plate_width, plate_length, plate_thickness])
+            # Light concrete gray
+            concrete_plate.visual.face_colors = [180, 180, 180, 255]
+            scene.add_geometry(concrete_plate, node_name="ConcretePlate")
+
+            # Create reinforcement visualization
+            from src.integrations.idea_interface import create_reinforcement_layout
+
+            reinforcement = create_reinforcement_layout(cross_section_data)
+
+            # Add reinforcement bars as cylinders running in length direction (Y-axis)
+            bar_length = plate_length * 1.1  # Slightly longer than plate for visibility
+
+            # Top reinforcement bars (near top surface of plate)
+            top_z_position = plate_thickness / 2 - 0.055  # 55mm from top
+            for i, (x, y, diameter) in enumerate(reinforcement.main_bars_top):
+                # Create cylinder for reinforcement bar running in Y direction
+                bar_cylinder = trimesh.creation.cylinder(
+                    radius=diameter / 2000,  # Convert mm to m
+                    height=bar_length,
+                    sections=8,
+                )
+                # Rotate to align with Y-axis (length direction)
+                bar_cylinder.apply_transform(trimesh.transformations.rotation_matrix(angle=3.14159 / 2, direction=[1, 0, 0]))
+                # Position the bar (x from reinforcement, y=0 center, z=top layer)
+                bar_cylinder.apply_translation([x - plate_width / 2, 0, top_z_position])
+                # Dark steel color
+                bar_cylinder.visual.face_colors = [101, 67, 33, 255]  # Dark brown steel
+                scene.add_geometry(bar_cylinder, node_name=f"TopReinforcement_{i}")
+
+            # Bottom reinforcement bars (near bottom surface of plate)
+            bottom_z_position = -plate_thickness / 2 + 0.055  # 55mm from bottom
+            for i, (x, y, diameter) in enumerate(reinforcement.main_bars_bottom):
+                # Create cylinder for reinforcement bar running in Y direction
+                bar_cylinder = trimesh.creation.cylinder(
+                    radius=diameter / 2000,  # Convert mm to m
+                    height=bar_length,
+                    sections=8,
+                )
+                # Rotate to align with Y-axis (length direction)
+                bar_cylinder.apply_transform(trimesh.transformations.rotation_matrix(angle=3.14159 / 2, direction=[1, 0, 0]))
+                # Position the bar (x from reinforcement, y=0 center, z=bottom layer)
+                bar_cylinder.apply_translation([x - plate_width / 2, 0, bottom_z_position])
+                # Dark steel color
+                bar_cylinder.visual.face_colors = [101, 67, 33, 255]  # Dark brown steel
+                scene.add_geometry(bar_cylinder, node_name=f"BottomReinforcement_{i}")
+
+            # Add coordinate system indicator for orientation
+            # Small coordinate arrows to show orientation
+            arrow_scale = min(plate_width, plate_thickness) * 0.1
+
+            # X-axis arrow (red) - width direction
+            x_arrow = trimesh.creation.cylinder(radius=0.01, height=arrow_scale)
+            x_arrow.apply_transform(trimesh.transformations.rotation_matrix(angle=3.14159 / 2, direction=[0, 0, 1]))
+            x_arrow.apply_translation([plate_width / 2 + arrow_scale / 2, -plate_length / 2 - 0.1, -plate_thickness / 2 - 0.1])
+            x_arrow.visual.face_colors = [255, 0, 0, 255]  # Red for X
+            scene.add_geometry(x_arrow, node_name="X_Axis")
+
+            # Z-axis arrow (blue) - thickness/height direction
+            z_arrow = trimesh.creation.cylinder(radius=0.01, height=arrow_scale)
+            z_arrow.apply_translation([plate_width / 2 + 0.1, -plate_length / 2 - 0.1, -plate_thickness / 2 + arrow_scale / 2])
+            z_arrow.visual.face_colors = [0, 0, 255, 255]  # Blue for Z
+            scene.add_geometry(z_arrow, node_name="Z_Axis")
+
+            # Export as GLTF
+            geometry_file = File()
+            with geometry_file.open_binary() as w:
+                w.write(trimesh.exchange.gltf.export_glb(scene))
+
+            return GeometryResult(geometry_file, geometry_type="gltf")
+
+        except Exception as e:
+            raise UserError(f"IDEA RCS dwarsdoorsnede preview gefaald: {e!s}")
+
+    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """
+        Download IDEA StatiCa RCS XML input file for cross-section analysis.
+
+        Creates a rectangular beam cross-section model from the first bridge segment
+        with automatic reinforcement layout and sample loads.
+
+        :param params: Bridge parametrization
+        :type params: BridgeParametrization
+        :returns: XML file download for IDEA RCS
+        :rtype: DownloadResult
+        """
+        try:
+            # Extract bridge segments for cross-section analysis
+            bridge_segments_list = []
+            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+                for segment in params.bridge_segments_array:
+                    segment_dict = {
+                        "bz1": getattr(segment, "bz1", 0),
+                        "bz2": getattr(segment, "bz2", 0),
+                        "bz3": getattr(segment, "bz3", 0),
+                        "dz": getattr(segment, "dz", 0.5),
+                        "dz_2": getattr(segment, "dz_2", 0.5),
+                        "l": getattr(segment, "l", 0),
+                    }
+                    bridge_segments_list.append(segment_dict)
+
+            if not bridge_segments_list:
+                self._raise_no_idea_analysis_segments_error()
+
+            # Create IDEA RCS cross-section model with materials from params.info
+            from src.integrations.idea_interface import create_bridge_idea_model
+
+            try:
+                # Generate XML input file
+                model = create_bridge_idea_model(bridge_segments_list)
+                xml_file = model.generate_xml_input()
+
+                # Validate content
+                xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+
+                if not xml_content:
+                    self._raise_empty_idea_xml_error()
+
+                return DownloadResult(xml_content, "idea_rcs_cross_section.xml")
+
+            except Exception as e:
+                raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
+
+        except Exception as e:
+            raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
+
+    def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """
+        Download IDEA StatiCa RCS analysis results for cross-section capacity assessment.
+
+        Executes the cross-section analysis and returns:
+        - Input XML model file
+        - Analysis results with capacity calculations
+        - Interaction diagrams and stress distributions
+
+        :param params: Bridge parametrization
+        :type params: BridgeParametrization
+        :returns: ZIP with analysis input and results
+        :rtype: DownloadResult
+        """
+        try:
+            # Extract bridge segments for cross-section analysis
+            bridge_segments_list = []
+            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+                for segment in params.bridge_segments_array:
+                    segment_dict = {
+                        "bz1": getattr(segment, "bz1", 0),
+                        "bz2": getattr(segment, "bz2", 0),
+                        "bz3": getattr(segment, "bz3", 0),
+                        "dz": getattr(segment, "dz", 0.5),
+                        "dz_2": getattr(segment, "dz_2", 0.5),
+                        "l": getattr(segment, "l", 0),
+                    }
+                    bridge_segments_list.append(segment_dict)
+
+            if not bridge_segments_list:
+                self._raise_no_idea_analysis_segments_error()
+
+            # Create IDEA RCS cross-section model with materials from params.info
+            from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
+
+            try:
+                # Generate XML input file
+                model = create_bridge_idea_model(bridge_segments_list)
+                xml_file = model.generate_xml_input()
+
+                # Validate content
+                xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+
+                if not xml_content:
+                    self._raise_empty_idea_xml_error()
+
+                # Run cross-section analysis
+                output_file = run_idea_analysis(model, timeout=120)
+
+                # Create ZIP with XML input and analysis results
+                zip_file_obj = File()
+                with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+                    # Add input XML model
+                    z.writestr("rcs_input_model.xml", xml_content)
+
+                    # Add analysis output results
+                    if hasattr(output_file, "getvalue"):
+                        output_content = output_file.getvalue()
+                        z.writestr("rcs_analysis_results.xml", output_content)
+                    elif hasattr(output_file, "source"):
+                        # If it's a File object
+                        with output_file.open_binary() as f:
+                            z.writestr("rcs_analysis_results.xml", f.read())
+
+                return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
+
+            except Exception as e:
+                error_msg = (
+                    f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n"
+                    "Mogelijke oorzaken:\n"
+                    "- IDEA RCS worker niet beschikbaar of niet correct geïnstalleerd\n"
+                    "- IDEA StatiCa licentie problemen of expired\n"
+                    "- Cross-section model configuratie ongeldig\n"
+                    "- Timeout tijdens capaciteitsberekeningen\n\n"
+                    "💡 Suggesties:\n"
+                    "- Controleer IDEA StatiCa installatie en licentie\n"
+                    "- Probeer in plaats daarvan alleen de XML input te downloaden\n"
+                    "- Verhoog timeout voor complexe doorsneden\n"
+                    "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
+                )
+                raise UserError(error_msg)
+
+        except Exception as e:
+            error_msg = (
+                f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n"
+                "Mogelijke oorzaken:\n"
+                "- IDEA RCS worker niet beschikbaar of niet correct geïnstalleerd\n"
+                "- IDEA StatiCa licentie problemen of expired\n"
+                "- Cross-section model configuratie ongeldig\n"
+                "- Timeout tijdens capaciteitsberekeningen\n\n"
+                "💡 Suggesties:\n"
+                "- Controleer IDEA StatiCa installatie en licentie\n"
+                "- Probeer in plaats daarvan alleen de XML input te downloaden\n"
+                "- Verhoog timeout voor complexe doorsneden\n"
+                "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
+            )
+            raise UserError(error_msg)

@@ -79,6 +79,9 @@ ignore = [
     # tryceratops
     "TRY003", # raise-vanilla-args
 
+    # flake8-fixme (TODO comments)
+    "FIX002", # Line contains TODO - will be addressed in separate issues
+
     # Ruff-specific rules
     "RUF002", # ambiguous-unicode-character-docstring
     "RUF003", # ambiguous-unicode-character-comment

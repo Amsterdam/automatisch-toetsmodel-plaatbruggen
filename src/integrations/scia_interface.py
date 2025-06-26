@@ -7,99 +7,178 @@ Currently implements a simple rectangular plate model as a starting point.
 Future enhancements needed:
 - Support for complex bridge geometry matching the actual bridge shape (1:1 with bridge segments)
 - Variable thickness across zones (zone 1, 2, 3 have different thickness values)
-- Load cases and combinations
-- Support for different bridge types
-- Material property customization
+- Load cases and combinations from params.input.belastingzones and belastingcombinaties
+- Support for different bridge types from params.info.bridge_type and static_system
+- Material property customization from params.info.concrete_strength_class
+- Reinforcement modeling from params.input.geometrie_wapening zones
+- Extract all geometry from params.input.dimensions.bridge_segments_array instead of hardcoded values
 """
 
 import io
-from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias, Union
+
+from app.bridge.parametrization import (
+    BridgeParametrization,
+)
+
+# Type alias for SCIA Engineer node objects
+SciaNode: TypeAlias = object  # More specific type if available from SCIA API
+SciaModel: TypeAlias = "SciaModelProtocol"
 
 
-@dataclass
-class BridgeGeometryData:
+class SciaModelProtocol:
     """
-    Data structure for bridge geometry information extracted from bridge parameters.
+    Protocol for SCIA model objects used in SCIA integration.
 
-    :param total_length: Total length of the bridge in meters
-    :type total_length: float
-    :param total_width: Total width of the bridge in meters
-    :type total_width: float
-    :param thickness: Thickness of the bridge deck in meters
-    :type thickness: float
-    :param material_name: Name of the material to use
-    :type material_name: str
+    This class defines the expected interface for SCIA model objects, including methods for node creation and other model manipulations.
     """
 
-    total_length: float
-    total_width: float
-    thickness: float
-    material_name: str
+    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode":
+        """
+        Create a node in the SCIA model.
+
+        :param name: Name of the node
+        :type name: str
+        :param x: X-coordinate of the node
+        :type x: float
+        :param y: Y-coordinate of the node
+        :type y: float
+        :param z: Z-coordinate of the node
+        :type z: float
+        :returns: The created SCIA node object
+        :rtype: SciaNode
+        """
+        # Define the expected behavior of the create_node method
 
 
-def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]]) -> BridgeGeometryData:
+class NodeTracker:
+    """Helper class to track and reuse nodes in SCIA model creation."""
+
+    def __init__(self, scia_model: SciaModel) -> None:
+        """
+        Initialize the node tracker.
+
+        :param scia_model: SCIA model instance
+        """
+        self.model = scia_model
+        self._nodes_by_coords: dict[tuple[float, float, float], SciaNode] = {}
+        self._nodes_by_name: dict[str, SciaNode] = {}
+
+    def get_or_create_node(self, name: str, x: float, y: float, z: float) -> SciaNode:
+        """
+        Get an existing node at the given coordinates or create a new one.
+
+        :param name: Name for the node (used if creating new)
+        :param x: X coordinate
+        :param y: Y coordinate
+        :param z: Z coordinate
+        :returns: SCIA node object
+        """
+        coords = (x, y, z)
+
+        # First check if we already have a node at these coordinates
+        if coords in self._nodes_by_coords:
+            return self._nodes_by_coords[coords]
+
+        # If not, create a new node
+        node = self.model.create_node(name, x, y, z)
+        self._nodes_by_coords[coords] = node
+        self._nodes_by_name[name] = node
+        return node
+
+    def get_node_by_name(self, name: str) -> SciaNode:
+        """
+        Get a node by its name.
+
+        :param name: Name of the node
+        :returns: SCIA node object
+        :raises KeyError: If node with given name doesn't exist
+        """
+        return self._nodes_by_name[name]
+
+
+def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[str, list[float]], dict[str, float]]:
     """
-    Extract bridge geometry data from bridge segment parameters.
+    Create dictionaries containing node positions and thickness data for SCIA model.
 
-    Currently creates a simple rectangular approximation:
-    - Length: Sum of all segment lengths
-    - Width: Uses width of first segment only (bz1 + bz2 + bz3)
-    - Thickness: Hardcoded to 0.5m
-
-    TODO: Future improvements:
-    - Support variable width along bridge length
-    - Support variable thickness per zone (dz, dz_2 parameters)
-    - Handle complex bridge shapes with proper geometry interpolation
-
-    :param bridge_segments_params: List of bridge segment parameter dictionaries
-    :type bridge_segments_params: list[dict[str, Any]]
-    :returns: Bridge geometry data for SCIA model creation
-    :rtype: BridgeGeometryData
-    :raises ValueError: If bridge_segments_params is empty or invalid
+    :param params: Bridge parameters containing segment data
+    :returns: Tuple of (nodes_dict, thickness_dict) where:
+             - nodes_dict: Maps node names to [x, y, z] coordinates
+             - thickness_dict: Maps zone names to thickness values
     """
-    if not bridge_segments_params:
-        raise ValueError("No bridge segments provided")
+    # Determine the number of sub-zones based on input dimensions
+    dynamic_arrays = len(params.bridge_segments_array)
 
-    # Calculate total length: sum of all segment lengths
-    # Note: first segment usually has l=0 (starting point), so we sum all l values
-    total_length = sum(float(segment.get("l", 0)) for segment in bridge_segments_params)
+    nodes_dict = {}
+    thickness_dict = {}
 
-    if total_length <= 0:
-        raise ValueError("Bridge total length must be positive")
+    # Helper function to calculate node positions for a cross section
+    def calculate_cross_section_positions(segment_idx: int) -> dict[str, float]:
+        """
+        Calculate node positions for a specific cross section.
 
-    # Use width of first segment as approximation
-    # This should be enhanced to handle variable width along bridge length
-    first_segment = bridge_segments_params[0]
-    bz1 = float(first_segment.get("bz1", 0))
-    bz2 = float(first_segment.get("bz2", 0))
-    bz3 = float(first_segment.get("bz3", 0))
-    total_width = bz1 + bz2 + bz3
+        :param segment_idx: Index of the bridge segment
+        :returns: Dictionary with x and z coordinates for the cross section nodes
+        """
+        # Calculate cumulative length for this cross section
+        l_sum = sum(item["l"] for item in params.bridge_segments_array[: segment_idx + 1])
+        segment = params.bridge_segments_array[segment_idx]
 
-    if total_width <= 0:
-        raise ValueError("Bridge total width must be positive")
+        return {
+            "x": l_sum,
+            "z1_left": segment.bz1 + segment.bz2 / 2,  # Zone 1 left edge
+            "z1_right": segment.bz2 / 2,  # Zone 1 right edge (boundary with Zone 2)
+            "z3_left": -segment.bz2 / 2,  # Zone 3 left edge (boundary with Zone 2)
+            "z3_right": -segment.bz3 - segment.bz2 / 2,  # Zone 3 right edge
+        }
 
-    # Variable thickness support - NO AVERAGING, SEPARATE ZONES REQUIRED
-    # Currently using hardcoded thickness, but should use actual bridge dimensions:
-    #
-    # CORRECT THICKNESS IMPLEMENTATION (3 SEPARATE ZONES):
-    # - Zone 1 (right side, width=bz1): thickness = dz
-    # - Zone 2 (middle, width=bz2): thickness = dz_2 (can be different from zones 1&3)
-    # - Zone 3 (left side, width=bz3): thickness = dz
-    #
-    # NOTE: Do NOT use average thickness - create 3 separate plate elements with their own thicknesses
-    # The simplified rectangular model should be replaced with proper multi-zone implementation
-    thickness = 0.5  # Hardcoded for now - will be replaced by 3-zone implementation
+    # Create nodes for the first cross section (start of bridge)
+    if dynamic_arrays > 0:
+        pos = calculate_cross_section_positions(0)
+        nodes_dict.update(
+            {
+                # First cross section nodes
+                "K_dek:1_1": [pos["x"], pos["z1_left"], 0],  # Zone 1 left
+                "K_dek:1_2": [pos["x"], pos["z1_right"], 0],  # Zone 1 right
+                "K_dek:1_3": [pos["x"], pos["z3_left"], 0],  # Zone 3 left
+                "K_dek:1_4": [pos["x"], pos["z3_right"], 0],  # Zone 3 right
+            }
+        )
 
-    # Material selection from INFO page parameters
-    # Material should come from params.info.material_grade (incoming feature)
-    material_name = "C30/37"  # Standard concrete grade - will be replaced by INFO page parameter
+    for dynamic_array in range(1, dynamic_arrays):
+        pos = calculate_cross_section_positions(dynamic_array)
+        d_num = dynamic_array + 1  # Node numbering starts at 1
 
-    return BridgeGeometryData(total_length=total_length, total_width=total_width, thickness=thickness, material_name=material_name)
+        # Add only the nodes for this cross section
+        nodes_dict.update(
+            {
+                # (zone 1)
+                f"K_dek:{d_num}_1": [pos["x"], pos["z1_left"], 0],  # Zone 1 left
+                f"K_dek:{d_num}_2": [pos["x"], pos["z1_right"], 0],  # Zone 1 right
+                # (zone 3)
+                f"K_dek:{d_num}_3": [pos["x"], pos["z3_left"], 0],  # Zone 3 left
+                f"K_dek:{d_num}_4": [pos["x"], pos["z3_right"], 0],  # Zone 3 right
+            }
+        )
+
+        # Add thickness data for the plates that will be created using these nodes
+        thickness_dict.update(
+            {
+                # (zone 1)
+                f"Z1_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+                # (zone 2)
+                f"Z2_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz_2,
+                # (zone 3)
+                f"Z3_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+            }
+        )
+
+    return nodes_dict, thickness_dict
 
 
-def create_simple_scia_plate_model(bridge_geometry: BridgeGeometryData) -> tuple[Any, Any]:
+def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[tuple[BytesIO, BytesIO]]:
     """
     Create a simple rectangular plate SCIA model from bridge geometry.
 
@@ -272,10 +351,10 @@ def create_simple_scia_plate_model(bridge_geometry: BridgeGeometryData) -> tuple
 
     Current implementation is a simplified rectangular plate for initial development.
 
-    :param bridge_geometry: Bridge geometry data
-    :type bridge_geometry: BridgeGeometryData
+    :param params: BridgeParametrization object with input parameters
+    :type params: BridgeParametrization
     :returns: Tuple of (xml_file, def_file) for SCIA analysis
-    :rtype: tuple[Any, Any]
+    :rtype: tuple[io.BytesIO, io.BytesIO]
     :raises ImportError: If VIKTOR SCIA module is not available
 
     """
@@ -289,24 +368,68 @@ def create_simple_scia_plate_model(bridge_geometry: BridgeGeometryData) -> tuple
     # Create empty SCIA model using correct VIKTOR SCIA API
     model = scia.Model()
 
-    # Create material - using correct VIKTOR SCIA API from tutorial
-    # The Material constructor requires (material_id, material_name) as shown in tutorial
-    material = scia.Material(0, bridge_geometry.material_name)
+    # Initialize the node tracker to avoid duplicate nodes
+    node_tracker = NodeTracker(model)
 
-    # Create corner nodes for rectangular plate
-    # Coordinate system: X = length direction, Y = width direction, Z = height
-    node1 = model.create_node("N1", 0, 0, 0)
-    node2 = model.create_node("N2", bridge_geometry.total_length, 0, 0)
-    node3 = model.create_node("N3", bridge_geometry.total_length, bridge_geometry.total_width, 0)
-    node4 = model.create_node("N4", 0, bridge_geometry.total_width, 0)
+    # Create material
+    material_name = "C30/37"
+    material = scia.Material(0, material_name)
 
-    # Create rectangular plane (plate) element using correct API from tutorial
-    # From tutorial: model.create_plane(corner_nodes, thickness, name='...', material=material)
-    corner_nodes = [node1, node2, node3, node4]
-    model.create_plane(corner_nodes, bridge_geometry.thickness, name="BridgePlate", material=material)
+    # Get node coordinates and thicknesses
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
 
-    # Skip mesh setup for now - can be added later if needed
-    # Basic mesh will be handled by SCIA automatically
+    # Determine the number of sub-zones based on input dimensions
+    dynamic_arrays = len(params.bridge_segments_array)
+
+    # Dictionary to store SCIA nodes for reuse
+    scia_nodes = {}
+
+    # Create initial nodes for the first cross section
+    for node_suffix in range(1, 5):  # Create all 4 nodes of first cross section
+        node_name = f"K_dek:1_{node_suffix}"
+        coords = nodes_dict.get(node_name)
+        if coords is None:
+            raise ValueError(f"Coordinates for node '{node_name}' not found in nodes_dict.")
+        scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
+
+    # Create plates between cross sections
+    for span in range(1, dynamic_arrays):
+        # Create nodes for the next cross section if they don't exist
+        next_span = span + 1
+        for node_suffix in range(1, 5):  # Create all 4 nodes of next cross section
+            node_name = f"K_dek:{next_span}_{node_suffix}"
+            if node_name not in scia_nodes:  # Only create if not already exists
+                coords = nodes_dict.get(node_name)
+                if coords is None:
+                    raise ValueError(f"Coordinates for node '{node_name}' not found in nodes_dict.")
+                scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
+
+        # Create Zone 1 plate (using nodes 1 and 2 from current and next cross section)
+        corner_nodes_z1 = [
+            scia_nodes[f"K_dek:{span}_1"],
+            scia_nodes[f"K_dek:{next_span}_1"],
+            scia_nodes[f"K_dek:{next_span}_2"],
+            scia_nodes[f"K_dek:{span}_2"],
+        ]
+        model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
+
+        # Create Zone 3 plate (using nodes 3 and 4 from current and next cross section)
+        corner_nodes_z3 = [
+            scia_nodes[f"K_dek:{span}_3"],
+            scia_nodes[f"K_dek:{next_span}_3"],
+            scia_nodes[f"K_dek:{next_span}_4"],
+            scia_nodes[f"K_dek:{span}_4"],
+        ]
+        model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
+
+        # Create Zone 2 plate (using nodes 2 and 3 from both cross sections)
+        corner_nodes_z2 = [
+            scia_nodes[f"K_dek:{span}_2"],
+            scia_nodes[f"K_dek:{next_span}_2"],
+            scia_nodes[f"K_dek:{next_span}_3"],
+            scia_nodes[f"K_dek:{span}_3"],
+        ]
+        model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
 
     # Generate XML input files
     xml_file, def_file = model.generate_xml_input()
@@ -318,14 +441,14 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     """
     Create SCIA analysis using template file and generated XML input.
 
-    :param xml_file: Generated XML input file
+    :param xml_file: Generated XML input file as a BytesIO stream
     :type xml_file: io.BytesIO
-    :param def_file: Generated definition file
+    :param def_file: Generated definition file as a BytesIO stream
     :type def_file: io.BytesIO
     :param template_path: Path to the ESA template file
     :type template_path: Path
     :returns: SCIA analysis object ready for execution
-    :rtype: Any (SCIA analysis object)
+    :rtype: viktor.external.scia.SciaAnalysis
     :raises ImportError: If VIKTOR SCIA module is not available
     :raises FileNotFoundError: If template file doesn't exist
     """
@@ -345,7 +468,7 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
-def create_bridge_scia_model(bridge_segments_params: list[dict[str, Any]], template_path: Path) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(params: BridgeParametrization, template_path: Path) -> tuple[Any, Any, Any]:
     """
     Main function to create complete SCIA model from bridge parameters.
 
@@ -411,17 +534,16 @@ def create_bridge_scia_model(bridge_segments_params: list[dict[str, Any]], templ
     :type bridge_segments_params: list[dict[str, Any]]
     :param template_path: Path to ESA template file
     :type template_path: Path
+    :param concrete_material: Concrete material grade (e.g., "C30/37") from material system
+    :type concrete_material: str | None
     :returns: Tuple of (xml_file, def_file, scia_analysis)
     :rtype: tuple[Any, Any, Any]
     :raises ValueError: If bridge parameters are invalid
     :raises FileNotFoundError: If template file doesn't exist
     :raises ImportError: If VIKTOR SCIA module is not available
     """
-    # Extract bridge geometry
-    bridge_geometry = extract_bridge_geometry_from_params(bridge_segments_params)
-
     # Create SCIA model
-    xml_file, def_file = create_simple_scia_plate_model(bridge_geometry)
+    xml_file, def_file = create_simple_scia_plate_model(params)
 
     # Create analysis with template
     scia_analysis = create_scia_analysis_from_template(xml_file, def_file, template_path)
