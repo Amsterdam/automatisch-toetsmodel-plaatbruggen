@@ -44,6 +44,15 @@ jobs:
       run: |
         python scripts/run_enhanced_tests.py
         
+    - name: Install VIKTOR App
+      env:
+        VIKTOR_TOKEN: ${{ secrets.VIKTOR_TOKEN }}
+        VIKTOR_ENV: ${{ secrets.VIKTOR_ENV }}
+        VIKTOR_DEV: ${{ secrets.VIKTOR_DEV }}
+      run: |
+        export PATH=$PWD:$PATH
+        ./viktor-cli install
+        
     - name: Run VIKTOR Tests
       env:
         VIKTOR_TOKEN: ${{ secrets.VIKTOR_TOKEN }}
@@ -51,4 +60,4 @@ jobs:
         VIKTOR_DEV: ${{ secrets.VIKTOR_DEV }}
       run: |
         export PATH=$PWD:$PATH
-        viktor-cli test
+        ./viktor-cli ci-test
