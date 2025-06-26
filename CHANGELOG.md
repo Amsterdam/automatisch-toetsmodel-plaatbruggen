@@ -1,8 +1,12 @@
 # Changelog
 ## [`v0.0.7`] - 2025-xx-xx
 ### Added
+<<<<<<< 103-invoer---dimensies---nadenken-en-inplementeren-opleggingen
 - Added the option to add supports in Input -> Dimensions
 - Added csv file for material densities
+=======
+- Inputfield for line load parapet
+>>>>>>> development
 ### Changed
 ### Removed
 ### Fixed
