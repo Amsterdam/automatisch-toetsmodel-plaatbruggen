@@ -28,26 +28,25 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements_dev.txt
     
-    # Temporarily using debug versions to diagnose Windows/Linux differences
-    - name: Run Ruff Style Check (Debug)
+    - name: Run Ruff Style Check
       id: ruff-check
       continue-on-error: true
       run: |
-        python -m ruff check --config=.ruff.toml --fix
+        python scripts/run_ruff_check.py
         
-    - name: Run Ruff Formatter (Debug)
+    - name: Run Ruff Formatter  
       id: ruff-format
       continue-on-error: true
       run: |
-        python -m ruff format --config=.ruff.toml
+        python scripts/run_ruff_format.py
         
-    - name: Run MyPy Type Check (Debug)
+    - name: Run MyPy Type Check
       id: mypy-check
       continue-on-error: true
       run: |
-        python -m mypy .
+        python scripts/run_mypy.py
         
-    - name: Run Unit Tests (Debug)
+    - name: Run Unit Tests
       id: unit-tests
       continue-on-error: true
       run: |
