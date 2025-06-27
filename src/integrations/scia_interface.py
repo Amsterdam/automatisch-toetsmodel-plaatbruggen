@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, TypeAlias, Union
 
 from app.bridge.parametrization import BridgeParametrization
-from src.integrations.scia_utils import create_patch_surface_load
+from src.integrations.scia_utils import create_patch_surface_load, create_load_case_complete, create_load_combination_by_type, create_load_group_by_type
+
 
 # Type aliases
 SciaNode: TypeAlias = object
@@ -219,11 +220,6 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
     - Use src.loadcase_helper_functions
     - Map to bridge segments
     """
-    from src.integrations.scia_utils import (
-        create_load_case_complete,
-        create_load_combination_by_type,
-        create_load_group_by_type,
-    )
 
     # Create load groups
     permanent_group = create_load_group_by_type(model, "PERMANENT", "LG_Permanent")
