@@ -31,6 +31,7 @@ class NodeTracker:
     """Helper to track and reuse nodes in SCIA model."""
 
     def __init__(self, scia_model: SciaModel) -> None:
+        """Initialize the node tracker."""
         self.model = scia_model
         self._nodes_by_coords: dict[tuple[float, float, float], SciaNode] = {}
         self._nodes_by_name: dict[str, SciaNode] = {}

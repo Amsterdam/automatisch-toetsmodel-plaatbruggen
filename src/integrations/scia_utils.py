@@ -88,6 +88,7 @@ def create_load_case_complete(
     case_name: str,
     description: str,
     case_type: str,
+    *,
     permanent_type: str = "STANDARD",
     variable_type: str = "STATIC",
     specification: str = "STANDARD",
