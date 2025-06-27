@@ -307,7 +307,9 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[tuple
 
 def _add_dummy_wheel_loads(model: SciaModel) -> None:
     """
-    Add dummy load patterns to the SCIA model for demonstration. This entire function can be replaced with the load zone data from the params.input.belastingzones.
+    Add dummy load patterns to the SCIA model for demonstration.
+    
+    This entire function can be replaced with the load zone data from the params.input.belastingzones.
 
     This function shows how the interface layer uses the generic utility functions
     from `scia_utils.py` to add specific loads to the model. Demonstrates both:
