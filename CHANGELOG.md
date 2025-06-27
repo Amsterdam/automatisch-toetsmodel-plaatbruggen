@@ -4,13 +4,16 @@
 - Added the option to add supports in Input -> Dimensions
 - Added csv file for material densities
 - Inputfield for line load parapet
-- **SCIA Load Application Utilities**: Complete infrastructure for applying localized loads to SCIA models
-  - `create_patch_surface_load()` function for creating surface loads on specific 4-point patches
-  - `create_load_case_with_name()` helper for creating SCIA load cases with proper load groups
-  - Support for both permanent and variable load cases with Eurocode-compliant parameters
-  - Proven plane-based approach for localized wheel loads and equipment loads
-  - Integration points for connecting existing load calculation backend with SCIA models
-  - Demonstration examples showing crane outriggers, maintenance equipment, and wheel loads
+- **SCIA Load Framework**: Comprehensive infrastructure for creating standardized load cases and combinations
+  - `create_load_group_by_type()` function for EN 1990 compliant load groups (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
+  - `create_load_case_complete()` function with full parameter control for permanent and variable load cases
+  - `create_load_combination_by_type()` function supporting all standard combinations (ULS, SLS, accidental, seismic)
+  - `create_patch_surface_load()` function for applying localized loads with automatic patch plane creation
+  - Complete 4-step workflow: Load Groups → Load Cases → Load Combinations → Load Application
+  - EN 1990 load factors and combination factors built into the framework
+  - String-based interface for easy colleague usage (no need to understand SCIA enums)
+  - Working demonstration in SCIA interface showing complete workflow with realistic wheel loads
+  - Simplified documentation with links to official VIKTOR SCIA documentation
 
 ### Changed
 - **SCIA File Naming**: Simplified SCIA download zip file naming conventions
