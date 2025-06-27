@@ -1,17 +1,84 @@
-## [`v0.0.6`] - 2025-xx-xx
+# Changelog
+## [`v0.0.7`] - 2025-xx-xx
+### Added
+- Added the option to add supports in Input -> Dimensions
+- Added csv file for material densities
+- Inputfield for line load parapet
+### Changed
+- **SCIA File Naming**: Simplified SCIA download zip file naming conventions
+  - ESA model files: `{bridge_id}_model.esa` (e.g., `BRU2196_model.esa`)
+  - Input files ZIP: `{bridge_id}_Input_Files.zip` (e.g., `BRU2196_Input_Files.zip`)
+  - XML files within ZIP: `{bridge_id}.xml` (bridge-specific naming)
+  - DEF files within ZIP: `viktor.xml.def` (keeps standard name for XML reference)
+  - Added `model.esa` template file to input files ZIP for proper workflow
+  - Updated README instructions to Dutch with step-by-step SCIA Engineer import workflow
+
+### Removed
+### Fixed
+
+## [`v0.0.6`] - 2025-06-19
 
 ### Added
 
 #### User-Facing
 - Horizontal spawn arrow to the topview
+- **SCIA Engineer Integration**: Complete integration with SCIA Engineer for structural analysis
+  - SCIA model preview with 3D visualization of bridge geometry
+  - XML and DEF file downloads for SCIA Engineer import
+  - ESA model generation with worker integration for complete analysis
+  - Automatic bridge plate model creation from parametrized dimensions
+  - Template-based SCIA project setup with I/O document configuration
+- **IDEA StatiCa RCS Integration**: Cross-section analysis capability for bridge assessment
+  - IDEA RCS model preview showing reinforced concrete cross-section
+  - XML model file download for IDEA StatiCa RCS import
+  - Complete analysis workflow with capacity calculations and results download
+  - Automatic cross-section generation from first bridge segment parameters
+  - Reinforcement layout creation based on parametrized wapening configurations
+- **Material Compatibility System**: Comprehensive material support across integrations
+  - Centralized material database from CSV files (concrete, reinforcement, prestressing steel)
+  - Material validation and normalization for localization support (decimal separator handling)
+  - Automatic material mapping for old bridge materials to modern Eurocode equivalents
+  - Clear user notifications about material compatibility and automatic conversions
+  - Enhanced parametrization descriptions with integration compatibility information
+  - Strength-based material mapping (QR24→B500A, QR40→B500B, QR48→B500C)
+  - Full support for historical materials (QR series, FeB grades, St. grades) in SCIA
+  - IDEA StatiCa limited to modern Eurocode materials (B500A/B/C) with automatic fallback
+- Pavement properties for load zones:
+  - Added thickness field for pavement/surfacing per load zone (default 5cm)
+  - Added material selection field with options: Asfalt, Beton, Klinkers, Grind, Tegels
+  - Added explanatory text about eigengewicht calculation (thickness * material density → kN/m2)
 
 #### Developer-Facing
 - Comprehensive Phase 2 VIKTOR view testing infrastructure:
   - Full view execution tests for all `BridgeController` and `OverviewBridgesController` views
   - Advanced VIKTOR result object handling (`DataResult`, `PlotlyResult`, `MapResult`, `GeometryResult`, `PDFResult`)
   - Decorator bypassing for authentic view method testing
-  - 188 total tests across core logic and interface
+  - 15 new test methods covering all controller views with realistic parameter data
 - Dutch testing documentation (`docs/testing_uitleg.md`) with workflows, AI assistance guidance, and seed file maintenance procedures
+- **SCIA Interface Module** (`src/integrations/scia_interface.py`):
+  - Geometry extraction from VIKTOR parameters to SCIA-compatible data structures
+  - SCIA model creation with materials, nodes, plates, and analysis setup
+  - Worker integration for automated analysis execution
+  - Template file management and I/O document configuration
+- **IDEA Interface Module** (`src/integrations/idea_interface.py`):
+  - Cross-section data extraction from bridge segment parameters
+  - IDEA RCS model creation with concrete materials and reinforcement layouts
+  - Material enum mapping between project database and IDEA StatiCa enums
+  - Analysis execution with timeout handling and result processing
+- **Material System Architecture** (`src/common/materials.py`):
+  - CSV-based material database with getter functions for each material type
+  - Material validation and normalization functions
+  - Integration-specific material support functions (SCIA vs IDEA compatibility)
+  - Material compatibility information system for user guidance
+- Pavement material constants and infrastructure:
+  - Added `PAVEMENT_MATERIAL_OPTIONS` constant with material types
+  - Added `LOAD_ZONES_INFO_TEXT` constant for centralized text management
+  - TODO comments for Eurocode 1 material density implementation and CSV loading
+- Load zone geometric calculation system:
+  - Added `_calculate_zone_geometry_properties` method following dimensions pattern
+  - Proper zone stacking logic from bridge top to bottom
+  - Integration with existing `prepare_load_zone_geometry_data` function
+- Test data seed files updated with pavement parameters for comprehensive testing coverage
 
 ### Changed
 
@@ -29,10 +96,13 @@
 ### Fixed
 
 #### User-Facing
-- 
+- Load zones view functionality restored after missing geometric calculations were implemented
 
 #### Developer-Facing
-- 
+- Load zones IndexError resolved by implementing proper geometric property calculations
+- Unicode character issues in constants (replaced × with * and ² with 2 for ASCII compatibility)
+- Ruff configuration updated to ignore TODO comments (FIX002) as they will be addressed in separate issues
+- LoadZoneDataRow TypedDict updated to include pavement parameters and calculated geometric fields
 
 
 ## [`v0.0.5`] - 2025-05-22

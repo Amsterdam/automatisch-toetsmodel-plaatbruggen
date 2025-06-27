@@ -148,6 +148,23 @@ def _create_north_arrow_annotation() -> list[go.layout.Annotation]:
     ]
 
 
+def _create_support_annotation(x: float, y: float) -> list[go.layout.Annotation]:
+    """Creates a triangle annotation under the plot at given coordinates (in data units)."""
+    return [
+        go.layout.Annotation(
+            text="▲",  # Unicode triangle
+            x=x,  # Data coordinate
+            y=y,  # Data coordinate
+            xref="x",
+            yref="y",
+            showarrow=False,
+            font={"size": 30, "color": "black"},
+            xanchor="center",
+            yanchor="top",
+        )
+    ]
+
+
 def build_top_view_figure(top_view_geometric_data: dict[str, Any], validation_messages: list[str] | None = None) -> go.Figure:
     """
     Builds the Plotly Figure for the 2D Top View of the bridge deck.
@@ -173,6 +190,10 @@ def build_top_view_figure(top_view_geometric_data: dict[str, Any], validation_me
     all_annotations.extend(_create_dimension_text_annotations(top_view_geometric_data.get("dimension_texts", [])))
     # Add span arrows
     all_annotations.extend(_create_north_arrow_annotation())
+
+    # --- Add support annotations at specified locations ---
+    for support in top_view_geometric_data.get("support_annotations", []):
+        all_annotations.extend(_create_support_annotation(support["x"], support["y"]))
 
     cs_labels_data = top_view_geometric_data.get("cross_section_labels", [])
     if cs_labels_data:

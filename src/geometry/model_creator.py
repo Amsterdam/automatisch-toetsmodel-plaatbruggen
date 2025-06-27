@@ -56,61 +56,33 @@ def create_box(vertices: np.ndarray, color: list) -> trimesh.Trimesh:
     return box_mesh
 
 
-def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, PLR0915
+# Helper functions to create rebars and reinforcement meshes
+def parse_zone_number(zone_numbers: list[str] | str) -> list[tuple[int, int]]:
     """
-    Create a mesh representing rebars based on specified parameters.
+    Parse zone numbers into a list of (position, segment) tuples.
 
     Args:
-        params (Munch): Parameters for the rebars, including positions and dimensions.
-        color (list): RGBA color for the rebars, format [R, G, B, A].
+        zone_numbers: Either a single zone number string or a list of zone number strings
+                    in the format "X-Y" where X is the position (1,2,3) and Y is the segment number.
 
     Returns:
-        trimesh.Scene: A trimesh object representing the rebars.
+        A list of tuples where each tuple contains (position, segment_index).
+        Position is 1, 2, or 3, and segment_index is 0-based.
 
     """
+    if isinstance(zone_numbers, str):
+        zone_numbers = [zone_numbers]
 
-    def parse_zone_number(zone_numbers: list[str] | str) -> list[tuple[int, int]]:
-        """
-        Parse zone numbers into a list of (position, segment) tuples.
+    result = []
+    for zone in zone_numbers:
+        pos, seg = map(int, zone.split("-"))
+        if 1 <= pos <= 3 and seg > 0:  # Validate position and segment
+            result.append((pos, seg - 1))  # Convert to 0-based segment index
+    return result
 
-        Args:
-            zone_numbers: Either a single zone number string or a list of zone number strings
-                        in the format "X-Y" where X is the position (1,2,3) and Y is the segment number.
 
-        Returns:
-            List of tuples, each containing (position, segment_idx) where segment_idx is 0-based.
-
-        """
-        if isinstance(zone_numbers, str):
-            zone_numbers = [zone_numbers]
-
-        result = []
-        for zone_number in zone_numbers:
-            position, segment = map(int, zone_number.split("-"))
-            result.append((position, segment - 1))  # Convert to 0-based segment index
-        return result
-
-    def get_cumulative_distance(segment_idx: int) -> float:
-        """Calculate the cumulative distance to the start of a segment."""
-        total_distance = 0.0
-        for i in range(segment_idx):
-            # The l parameter in each segment defines the distance to the next segment
-            total_distance += bridge_segments_array[i + 1].l
-        return total_distance
-
-    def get_zone_parameters(zone_entry: Munch) -> dict:
-        """Get all parameters for a specific zone."""
-        return {
-            "zone_number": zone_entry.zone_number,
-            "diam_long_bottom": zone_entry.hoofdwapening_langs_onder_diameter / 1000,
-            "hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,
-            "diam_long_top": zone_entry.hoofdwapening_langs_boven_diameter / 1000,
-            "hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,
-            "diam_shear_top": zone_entry.hoofdwapening_dwars_boven_diameter / 1000,
-            "hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,
-            "diam_shear_bottom": zone_entry.hoofdwapening_dwars_onder_diameter / 1000,
-            "hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,
-        }
+def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901, PLR0915, PLR0912
+    """Create a mesh representing rebars based on specified parameters."""
 
     def get_zone_dimensions(position: int, segment_idx: int) -> dict:
         """Get geometric dimensions for a zone based on its position and segment."""
@@ -130,6 +102,47 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
             height_end = bz_next
 
         return {"bz": bz, "bz_next": bz_next, "height_start": height_start, "height_end": height_end, "length": next_segment_data.l}
+
+    def get_zone_parameters(zone_entry: Munch) -> dict:
+        """Get all parameters for a specific zone."""
+        params = {
+            "zone_number": zone_entry.zone_number,
+            # Main reinforcement parameters
+            "diam_long_bottom": zone_entry.hoofdwapening_langs_onder_diameter / 1000,
+            "hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,
+            "diam_long_top": zone_entry.hoofdwapening_langs_boven_diameter / 1000,
+            "hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,
+            "diam_shear_top": zone_entry.hoofdwapening_dwars_boven_diameter / 1000,
+            "hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,
+            "diam_shear_bottom": zone_entry.hoofdwapening_dwars_onder_diameter / 1000,
+            "hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,
+        }
+
+        # Add additional reinforcement parameters if present
+        if zone_entry.heeft_bijlegwapening:
+            params.update(
+                {
+                    "heeft_bijlegwapening": True,
+                    "bijleg_diam_long_bottom": zone_entry.bijlegwapening_langs_onder_diameter / 1000,
+                    "bijleg_hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_long_top": zone_entry.bijlegwapening_langs_boven_diameter / 1000,
+                    "bijleg_hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_shear_bottom": zone_entry.bijlegwapening_dwars_onder_diameter / 1000,
+                    "bijleg_hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_shear_top": zone_entry.bijlegwapening_dwars_boven_diameter / 1000,
+                    "bijleg_hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,  # Same as main reinforcement
+                }
+            )
+
+        return params
+
+    def get_cumulative_distance(segment_idx: int) -> float:
+        """Calculate the cumulative distance to the start of a segment."""
+        total_distance = 0.0
+        for i in range(segment_idx):
+            # The l parameter in each segment defines the distance to the next segment
+            total_distance += bridge_segments_array[i + 1].l
+        return total_distance
 
     def calculate_effective_widths(zone_params: dict, zone_dims: dict) -> dict:
         """Calculate effective widths for rebar placement."""
@@ -165,6 +178,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
             else:
                 pos["shear_top"] = -(dekking_boven + 0.5 * zone_params["diam_shear_top"])
             pos["long_top"] = pos["shear_top"] - 0.5 * (zone_params["diam_shear_top"] + zone_params["diam_long_top"])
+
         return pos
 
     def calculate_y_offset(position: int, segment_idx: int) -> float:
@@ -199,6 +213,20 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
 
         positions.sort()
         return [pos + y_offset for pos in positions]
+
+    def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> list[float]:
+        """Calculate positions for bijlegwapening (additional reinforcement) by finding midpoints between main reinforcement."""
+        if len(positions) < 2:
+            return []
+
+        # Calculate midpoint between each pair of consecutive positions
+        bijleg_positions = []
+        for i in range(len(positions) - 1):
+            midpoint = (positions[i] + positions[i + 1]) / 2.0
+            bijleg_positions.append(midpoint)
+
+        # Add y_offset to all positions
+        return [pos + y_offset for pos in bijleg_positions]
 
     def get_shear_positions(width_eff: float, hoh: float, diameter_shear: float) -> list[float]:
         """Calculate positions for shear reinforcement."""
@@ -281,12 +309,11 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
         if height_end is None:
             height_end = height
 
-        for i, relative_x_pos in enumerate(x_positions):
+        for relative_x_pos in x_positions:
             # Add the cumulative x_offset to position the rebar in the correct segment
             x_pos = x_offset + relative_x_pos
 
-            # Calculate height at this x position
-            interpolation_factor = i / (len(x_positions) - 1) if len(x_positions) > 1 else 0.5
+            interpolation_factor = x_positions.index(relative_x_pos) / (len(x_positions) - 1) if len(x_positions) > 1 else 0.5
             height_at_x = height_start + (height_end - height_start) * interpolation_factor
 
             # Create shear rebar
@@ -334,7 +361,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
             z_positions = calculate_z_positions(position == 2, zone_params)
             y_offset = calculate_y_offset(position, segment_idx)
 
-            # Create longitudinal reinforcement
+            # Create longitudinal bottom reinforcement
             bottom_positions = calculate_rebar_positions(effective_widths["long_bottom"], zone_params["hoh_long_bottom"], y_offset)
             create_rebar_meshes(
                 bottom_positions,
@@ -346,6 +373,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
                 zone_dims["height_end"],
             )
 
+            # Create longitudinal top reinforcement
             top_positions = calculate_rebar_positions(effective_widths["long_top"], zone_params["hoh_long_top"], y_offset)
             create_rebar_meshes(
                 top_positions,
@@ -385,6 +413,94 @@ def create_rebars(params: Munch, color: list) -> trimesh.Scene:  # noqa: C901, P
                     zone_dims["height_start"],
                     zone_dims["height_end"],
                 )
+
+            # Create bottom shear reinforcement
+            if zone_params.get("hoh_shear_bottom") and zone_params.get("diam_shear_bottom"):
+                shear_positions_bottom = get_shear_positions(
+                    effective_widths["shear_bottom"], zone_params["hoh_shear_bottom"], zone_params["diam_shear_bottom"]
+                )
+                create_shear_rebars(
+                    shear_positions_bottom,
+                    y_offset,
+                    zone_dims["bz"],
+                    zone_params["diam_shear_bottom"],
+                    z_positions["shear_bottom"],
+                    x_offset,
+                    zone_dims["height_start"],
+                    zone_dims["height_end"],
+                )
+
+            # Create top shear reinforcement
+            if zone_params.get("hoh_shear_top") and zone_params.get("diam_shear_top"):
+                shear_positions_top = get_shear_positions(effective_widths["shear_top"], zone_params["hoh_shear_top"], zone_params["diam_shear_top"])
+                create_shear_rebars(
+                    shear_positions_top,
+                    y_offset,
+                    zone_dims["bz"],
+                    zone_params["diam_shear_top"],
+                    z_positions["shear_top"],
+                    x_offset,
+                    zone_dims["height_start"],
+                    zone_dims["height_end"],
+                )
+
+            # Create bijlegwapening (additional reinforcement) if enabled
+            if zone_params.get("heeft_bijlegwapening"):
+                # Bottom longitudinal additional reinforcement
+                bijleg_positions_bottom = calculate_bijleg_positions(bottom_positions)
+                if bijleg_positions_bottom:
+                    create_rebar_meshes(
+                        bijleg_positions_bottom,
+                        z_positions["long_bottom"],
+                        zone_params["bijleg_diam_long_bottom"],
+                        zone_dims["length"],
+                        x_offset,
+                        zone_dims["height_start"],
+                        zone_dims["height_end"],
+                    )
+
+                # Top longitudinal additional reinforcement
+                bijleg_positions_top = calculate_bijleg_positions(top_positions)
+                if bijleg_positions_top:
+                    create_rebar_meshes(
+                        bijleg_positions_top,
+                        z_positions["long_top"],
+                        zone_params["bijleg_diam_long_top"],
+                        zone_dims["length"],
+                        x_offset,
+                        zone_dims["height_start"],
+                        zone_dims["height_end"],
+                    )
+
+                # Bottom transverse additional reinforcement
+                if zone_params.get("hoh_shear_bottom") and zone_params.get("bijleg_diam_shear_bottom"):
+                    bijleg_shear_positions_bottom = calculate_bijleg_positions(shear_positions_bottom)
+                    if bijleg_shear_positions_bottom:
+                        create_shear_rebars(
+                            bijleg_shear_positions_bottom,
+                            y_offset,
+                            zone_dims["bz"],
+                            zone_params["bijleg_diam_shear_bottom"],
+                            z_positions["shear_bottom"],
+                            x_offset,
+                            zone_dims["height_start"],
+                            zone_dims["height_end"],
+                        )
+
+                # Top transverse additional reinforcement
+                if zone_params.get("hoh_shear_top") and zone_params.get("bijleg_diam_shear_top"):
+                    bijleg_shear_positions_top = calculate_bijleg_positions(shear_positions_top)
+                    if bijleg_shear_positions_top:
+                        create_shear_rebars(
+                            bijleg_shear_positions_top,
+                            y_offset,
+                            zone_dims["bz"],
+                            zone_params["bijleg_diam_shear_top"],
+                            z_positions["shear_top"],
+                            x_offset,
+                            zone_dims["height_start"],
+                            zone_dims["height_end"],
+                        )
 
     return rebar_scene  # type: ignore[return-value]  # Scene is functionally compatible with Trimesh in this context
 
@@ -860,8 +976,27 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
 
             current_x = next_x
 
+    # --- Get support positions from calculated list ---
+    support_positions = []
+    try:
+        # Access the calculated support positions from the parametrization
+        calculated_supports = viktor_params.input.dimensions.array.is_support
+        if calculated_supports and isinstance(calculated_supports, list):
+            support_positions = calculated_supports
+        else:
+            # Fallback: calculate first/last as True if no calculated list
+            support_positions = [True] + [False] * (num_cross_sections - 2) + [True] if num_cross_sections >= 2 else [True]
+    except AttributeError:
+        # Fallback: calculate first/last as True if parameter doesn't exist
+        support_positions = [True] + [False] * (num_cross_sections - 2) + [True] if num_cross_sections >= 2 else [True]
+
+    # Ensure support_positions list matches number of cross-sections
+    while len(support_positions) < num_cross_sections:
+        support_positions.append(False)
+
     # --- Process Cross-Sections (for transverse bridge lines and bz-dimensions texts) ---
     cumulative_x = 0.0
+    support_annotations_data = []  # List of dicts with x, y for supports
     for j in range(num_cross_sections):
         cs_data = segments_data[j]
         if j > 0:
@@ -927,12 +1062,19 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
         label_y_pos = max_y_top_outer + label_y_offset
         cross_section_labels_data.append({"text": f"D{cross_section_number}", "x": cs_x, "y": label_y_pos, "type": "cross_section_label"})
 
+        # --- Add support annotation if support position is True ---
+        if j < len(support_positions) and support_positions[j]:
+            # Place support just below the bottom outer edge
+            support_y = y_bottom_outer - 0.5  # 0.5m below the lowest point (adjust as needed)
+            support_annotations_data.append({"x": cs_x, "y": support_y})
+
     return {
         "bridge_lines": bridge_lines,
         "zone_annotations": zone_annotations,
         "dimension_texts": dimension_texts_data,
         "cross_section_labels": cross_section_labels_data,
         "zone_polygons": zone_polygons_data,
+        "support_annotations": support_annotations_data,  # New key for supports
     }
 
 
@@ -1043,3 +1185,18 @@ def prepare_load_zone_geometry_data(
         num_defined_d_points=num_defined_d_points,
         d_point_label_data=d_point_label_data,
     )
+
+
+def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> list[float]:
+    """Calculate positions for additional reinforcement by finding midpoints between main reinforcement."""
+    if len(positions) < 2:
+        return []
+
+    # Calculate midpoint between each pair of consecutive positions
+    bijleg_positions = []
+    for i in range(len(positions) - 1):
+        midpoint = (positions[i] + positions[i + 1]) / 2.0
+        bijleg_positions.append(midpoint)
+
+    # Add y_offset to all positions
+    return [pos + y_offset for pos in bijleg_positions]

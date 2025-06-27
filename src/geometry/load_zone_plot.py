@@ -323,11 +323,9 @@ def build_load_zones_figure(
         y_coords_top_of_current_zone: list[float] = zone_param_data.get("y_coords_top_current_zone", [])  # type: ignore[assignment]
 
         if not zone_widths_per_d or not y_coords_top_of_current_zone:
-            # Skip this zone if essential data is missing, or handle error appropriately
-            # This might happen if LoadZoneDataRow is not correctly populated
-            # For now, let's assume valid data structure from earlier processing steps.
-            # If this becomes an issue, add more robust error handling or default value generation.
-            pass  # Or continue to next iteration
+            # Skip this zone if essential data is missing
+            # This should not happen anymore since controller calculates these fields
+            continue  # Skip this zone and continue to next iteration
 
         # Extract y_bridge_bottom_at_d_points from bridge_geom (list[list[float]] -> list[float])
         # Using the first element [0] of each [min_y, max_y] pair

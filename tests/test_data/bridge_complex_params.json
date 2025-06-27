@@ -37,7 +37,8 @@
       "dz_2": 3.2,
       "col_6": 0.0,
       "l": 0,
-      "is_first_segment": true
+      "is_first_segment": true,
+      "is_support": true
     },
     {
       "bz1": 10.0,
@@ -47,7 +48,8 @@
       "dz_2": 3.0,
       "col_6": 0.0,
       "l": 12,
-      "is_first_segment": false
+      "is_first_segment": false,
+      "is_support": false
     },
     {
       "bz1": 8.0,
@@ -57,12 +59,15 @@
       "dz_2": 2.8,
       "col_6": 0.0,
       "l": 13,
-      "is_first_segment": false
+      "is_first_segment": false,
+      "is_support": true
     }
   ],
   "load_zones_data_array": [
     {
       "zone_type": "Voetgangers",
+      "pavement_thickness": 0.025,
+      "pavement_material": "Klinkers",
       "d1_width": 2.0,
       "d2_width": 1.8,
       "d3_width": 1.5,
@@ -81,6 +86,8 @@
     },
     {
       "zone_type": "Fietsers",
+      "pavement_thickness": 0.035,
+      "pavement_material": "Asfalt",
       "d1_width": 3.5,
       "d2_width": 3.2,
       "d3_width": 2.8,
@@ -99,6 +106,8 @@
     },
     {
       "zone_type": "Auto (Rijbaan)",
+      "pavement_thickness": 0.12,
+      "pavement_material": "Beton",
       "d1_width": 14.0,
       "d2_width": 12.5,
       "d3_width": 11.0,
