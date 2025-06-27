@@ -118,16 +118,46 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
     :returns: Created SCIA load case
     :rtype: SciaLoadCase
     :raises ImportError: If VIKTOR SCIA module is not available
+    :raises ValueError: If invalid load case type is provided
     """
     # Verify VIKTOR SCIA module is available
     try:
-        import viktor.external.scia  # noqa: F401
+        from viktor.external import scia
     except ImportError as e:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
 
-    # Create load case based on type
+    # Create load group first (required for load case creation)
+    load_group_name = f"LG_{load_case_name}"
+    
     if load_case_type.upper() == "PERMANENT":
-        return model.create_load_case_permanent(load_case_name)
-    if load_case_type.upper() == "VARIABLE":
-        return model.create_load_case_variable(load_case_name)
-    raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+        # Create permanent load group and load case
+        load_group = model.create_load_group(
+            load_group_name,
+            scia.LoadGroup.LoadOption.PERMANENT,
+            scia.LoadGroup.RelationOption.STANDARD,
+            scia.LoadGroup.LoadTypeOption.CAT_G
+        )
+        return model.create_permanent_load_case(
+            load_case_name,
+            f"Permanent load case: {load_case_name}",
+            load_group,
+            scia.LoadCase.PermanentLoadType.STANDARD
+        )
+    elif load_case_type.upper() == "VARIABLE":
+        # Create variable load group and load case
+        load_group = model.create_load_group(
+            load_group_name,
+            scia.LoadGroup.LoadOption.VARIABLE,
+            scia.LoadGroup.RelationOption.STANDARD,
+            scia.LoadGroup.LoadTypeOption.CAT_G
+        )
+        return model.create_variable_load_case(
+            load_case_name,
+            f"Variable load case: {load_case_name}",
+            load_group,
+            scia.LoadCase.VariableLoadType.STATIC,
+            scia.LoadCase.Specification.STANDARD,
+            scia.LoadCase.Duration.SHORT
+        )
+    else:
+        raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
