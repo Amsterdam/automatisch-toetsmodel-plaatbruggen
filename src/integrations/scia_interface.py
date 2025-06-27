@@ -326,20 +326,20 @@ def _add_dummy_wheel_loads(model: SciaModel) -> None:
 
     # 2. EXAMPLE: Individual patch loads for special equipment
     # DUMMY VALUES: Construction equipment or special loads
-    
+
     # Crane outrigger patch (1.5m x 1.0m at x=5m, y=2m)
     crane_corners = [
-        (4.25, 1.5, 0.0),   # Bottom-left: x-0.75, y-0.5
-        (5.75, 1.5, 0.0),   # Bottom-right: x+0.75, y-0.5
-        (5.75, 2.5, 0.0),   # Top-right: x+0.75, y+0.5
-        (4.25, 2.5, 0.0),   # Top-left: x-0.75, y+0.5
+        (4.25, 1.5, 0.0),  # Bottom-left: x-0.75, y-0.5
+        (5.75, 1.5, 0.0),  # Bottom-right: x+0.75, y-0.5
+        (5.75, 2.5, 0.0),  # Top-right: x+0.75, y+0.5
+        (4.25, 2.5, 0.0),  # Top-left: x-0.75, y+0.5
     ]
     create_patch_surface_load(
         model=model,
         load_case=special_load_case,
         corner_points=crane_corners,
-        load_value=50000.0,     # 50 kN/m² equipment pressure
-        load_name="CraneOutrigger_1"
+        load_value=50000.0,  # 50 kN/m² equipment pressure
+        load_name="CraneOutrigger_1",
     )
 
     # Maintenance equipment patch (2.0m x 0.8m at x=15m, y=-1.5m)
@@ -353,27 +353,27 @@ def _add_dummy_wheel_loads(model: SciaModel) -> None:
         model=model,
         load_case=special_load_case,
         corner_points=maintenance_corners,
-        load_value=75000.0,     # 75 kN/m² equipment pressure
-        load_name="MaintenanceEquip_1"
+        load_value=75000.0,  # 75 kN/m² equipment pressure
+        load_name="MaintenanceEquip_1",
     )
 
     # 3. EXAMPLE: Individual wheel loads using existing tandem system data
     # TODO: Integrate with tandem_systems_axes_single_lane() from loadcase_helper_functions.py
     # This would use the existing backend logic and convert to SCIA loads via create_patch_surface_load()
-    
+
     # DUMMY EXAMPLE: Single wheel load patch
     wheel_corners = [
-        (9.8, -0.2, 0.0),   # Bottom-left
-        (10.2, -0.2, 0.0),  # Bottom-right  
-        (10.2, 0.2, 0.0),   # Top-right
-        (9.8, 0.2, 0.0),    # Top-left
+        (9.8, -0.2, 0.0),  # Bottom-left
+        (10.2, -0.2, 0.0),  # Bottom-right
+        (10.2, 0.2, 0.0),  # Top-right
+        (9.8, 0.2, 0.0),  # Top-left
     ]
     create_patch_surface_load(
         model=model,
         load_case=traffic_load_case,
         corner_points=wheel_corners,
         load_value=468750.0,  # 468.75 kN/m² (example wheel pressure)
-        load_name="ExampleWheel_1"
+        load_name="ExampleWheel_1",
     )
 
 

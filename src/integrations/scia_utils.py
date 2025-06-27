@@ -102,13 +102,6 @@ def create_patch_surface_load(
     )
 
 
-
-
-
-
-
-
-
 def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_type: str = "VARIABLE") -> SciaLoadCase:
     """
     Helper function to create a SCIA load case with proper naming.
