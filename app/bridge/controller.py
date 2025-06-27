@@ -6,8 +6,23 @@ from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -19,7 +34,7 @@ from app.common.map_utils import (
 
 # Params for load combinations are in app.constants
 from app.constants import SCIA_ZIP_README_CONTENT  # Import the SCIA ZIP readme content
-from src.combinations.load_factors import create_load_combination_table, get_gamma_factors
+from src.combinations.load_factors import create_load_combination_table
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
@@ -45,22 +60,6 @@ from src.geometry.model_creator import (
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.scia_interface import create_bridge_scia_model
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
 from .parametrization import (
@@ -442,7 +441,6 @@ class BridgeController(ViktorController):
         :returns: TableResult containing the load combinations.
         :rtype: TableResult
         """
-
         combination_table = create_load_combination_table(params)
         return TableResult(combination_table)
 

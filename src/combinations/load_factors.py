@@ -143,7 +143,7 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     Returns:
         Dictionary containing gamma factors with their values for both 6.10a and 6.10b
 
-    :raises ValueError: If the CC class or safety level is not found in the table
+    :raises ValueError: If the CC class or safety level is not found in the table, or if gamma factors cannot be extracted
 
     """
     # Read the code tables from CSV
@@ -186,11 +186,11 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
         if combination_rows.empty:
             raise ValueError(f"No data found for combination {combination}")
 
-        for gamma_key in gamma_keys:
-            try:
+        try:
+            for gamma_key in gamma_keys:
                 gamma_factors[combination][gamma_key] = float(combination_rows[gamma_key].iloc[0])
-            except (KeyError, IndexError, ValueError) as e:
-                raise ValueError(f"Failed to extract {gamma_key} for combination {combination}") from e
+        except (KeyError, IndexError, ValueError) as e:
+            raise ValueError(f"Failed to extract {gamma_key} for combination {combination}") from e
 
     # Correct gamma factors for the case if building year is 2003 or before
     if int(building_year) <= 2003:
@@ -201,12 +201,12 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     return gamma_factors
 
 
-def create_load_combination_table(params) -> Styler:
+def create_load_combination_table(params: dict) -> Styler:
     """
     Generates a styled table view of load combinations based on the NEN8700 combination table.
 
-    Cells representing leading actions (value of 1) are highlighted with light green background
-    based on the load combinations defined in the CSV file.
+    Args:
+        params (dict): Object containing parameters for load combination generation
 
     Returns:
         Styled table showing load combinations and their active loads.
@@ -221,8 +221,6 @@ def create_load_combination_table(params) -> Styler:
     wind_loads = ["Wind Fwk", "Wind Fw*"]
     temperature_loads = ["Temperatuur"]
     snow_loads = ["Sneeuw"]
-    accident_loads = ["Calamiteit"]
-    seismic = ["Aardbeving"]
     other_loads = temperature_loads + snow_loads
 
     # Table positions for leading actions which should be highlighted
@@ -246,12 +244,12 @@ def create_load_combination_table(params) -> Styler:
         ("Cal gr2", "Calamiteit"),
     }
 
-    # Creat load combination gamma values
+    # Create load combination gamma values
     gamma_factors = get_gamma_factors(cc=params.cc_class, safety_level=params.design_code, building_year=params.info.construction_year)
 
     # Multiply the psi factors with the gamma factors for all load cases
     # Create a copy and convert to float64 to ensure dtype compatibility
-    df_combination_table_gamma_psi = df_combination_table_psi.astype('float64')
+    df_combination_table_gamma_psi = df_combination_table_psi.astype("float64")
 
     # Create masks for different load types based on column names
     permanent_mask = df_combination_table_gamma_psi.columns.isin(permanent_loads)
@@ -285,23 +283,18 @@ def create_load_combination_table(params) -> Styler:
 
     # Filter columns so that the load cases represent the project scope
     load_cases_project = ["Permanent", "TS", "UDL", "Fiets- en voetpaden", "Mensenmenigte", "Temperatuur"]
-    df_combination_table_gamma_psi = df_combination_table_gamma_psi[
-        df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
+    df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
 
     # Filter rows so that the load cases represent the project scope
-    load_combinations_project = [
-        (row_name, col_name) for row_name, col_name in leading_action_positions
-        if col_name in load_cases_project
-    ]
+    load_combinations_project = [(row_name, col_name) for row_name, col_name in leading_action_positions if col_name in load_cases_project]
 
     # Filter rows based on load_combinations_project
     valid_row_names = {row_name for row_name, _ in load_combinations_project}
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[
-        [idx.split(" ", 1)[1] in valid_row_names if len(idx.split(" ", 1)) > 1 else False
-         for idx in df_combination_table_gamma_psi.index]
+        [idx.split(" ", 1)[1] in valid_row_names if len(idx.split(" ", 1)) > 1 else False for idx in df_combination_table_gamma_psi.index]
     ]
 
-    # Round values in table to 5 demical places
+    # Round values in table to 5 decimal places
     df_combination_table_gamma_psi = df_combination_table_gamma_psi.round(5)
 
     # Start with base styling
@@ -314,32 +307,12 @@ def create_load_combination_table(params) -> Styler:
             continue
 
         # First check if the index exists in the DataFrame
-        matching_indices = [idx for idx in df_combination_table_psi.index
-                          if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
+        matching_indices = [idx for idx in df_combination_table_psi.index if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
 
         for idx in matching_indices:
             # Make sure both DataFrames have the required index and column
-            if (idx in df_combination_table_gamma_psi.index and
-                    col_name in df_combination_table_gamma_psi.columns):
-                styled_df = styled_df.set_properties(
-                    subset=pd.IndexSlice[[idx], [col_name]],
-                    **{"background-color": "lightgreen"}
-                )# Apply light green background to specific cells using iloc positions
-                for row_name, col_name in leading_action_positions:
-                    # Skip processing if column doesn't exist in the DataFrame
-                    if col_name not in df_combination_table_psi.columns:
-                        continue
-
-                    # First check if the index exists in the DataFrame
-                    matching_indices = [idx for idx in df_combination_table_psi.index
-                                      if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
-                    for idx in matching_indices:
-                        # Make sure both DataFrames have the required index and column
-                        if (idx in df_combination_table_gamma_psi.index and
-                                col_name in df_combination_table_gamma_psi.columns):
-                            styled_df = styled_df.set_properties(
-                                subset=pd.IndexSlice[[idx], [col_name]],
-                                **{"background-color": "lightgreen"}
-                            )
+            if idx in df_combination_table_gamma_psi.index and col_name in df_combination_table_gamma_psi.columns:
+                # Create proper index and column labels for styling
+                styled_df = styled_df.set_properties(subset=(idx, col_name), **{"background-color": "lightgreen"})
 
     return styled_df
