@@ -8,11 +8,11 @@ SCIA plane elements, using internal edges to define load areas.
 from typing import Any
 
 # Type aliases for SCIA objects (using Any for external SDK types)
-SciaModel: type[Any] = Any  # noqa: ANN401
-SciaNode: type[Any] = Any  # noqa: ANN401
-SciaPlane: type[Any] = Any  # noqa: ANN401
-SciaLoadCase: type[Any] = Any  # noqa: ANN401
-SciaSurfaceLoad: type[Any] = Any  # noqa: ANN401
+SciaModel: type[Any] = Any
+SciaNode: type[Any] = Any
+SciaPlane: type[Any] = Any
+SciaLoadCase: type[Any] = Any
+SciaSurfaceLoad: type[Any] = Any
 
 
 def create_patch_surface_load(
