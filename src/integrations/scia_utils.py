@@ -5,14 +5,14 @@ This module provides helper functions to create specific load patches within lar
 SCIA plane elements, using internal edges to define load areas.
 """
 
-from typing import Any
+from typing import Any, TypeAlias
 
 # Type aliases for SCIA objects (using Any for external SDK types)
-SciaModel: type[Any] = Any
-SciaNode: type[Any] = Any
-SciaPlane: type[Any] = Any
-SciaLoadCase: type[Any] = Any
-SciaSurfaceLoad: type[Any] = Any
+SciaModel: TypeAlias = Any  # noqa: ANN401
+SciaNode: TypeAlias = Any  # noqa: ANN401
+SciaPlane: TypeAlias = Any  # noqa: ANN401
+SciaLoadCase: TypeAlias = Any  # noqa: ANN401
+SciaSurfaceLoad: TypeAlias = Any  # noqa: ANN401
 
 
 def create_patch_surface_load(
