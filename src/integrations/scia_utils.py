@@ -44,7 +44,6 @@ def create_load_group_by_type(
     model: SciaModel,
     load_option: str,
     group_name: str,
-    load_type: str = "CAT_G",
     relation: str = "STANDARD",
 ) -> SciaLoadGroup:
     """
