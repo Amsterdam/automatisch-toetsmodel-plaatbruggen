@@ -31,7 +31,7 @@ SciaPlane: TypeAlias = Any
 SciaLoadGroup: TypeAlias = Any
 SciaLoadCase: TypeAlias = Any
 SciaLoadCombination: TypeAlias = Any
-SciaSurfaceLoad: TypeAlias = Any
+SciaFreeSurfaceLoad: TypeAlias = Any
 
 
 def _check_scia_availability() -> None:
@@ -196,9 +196,9 @@ def create_patch_surface_load(
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_name: str = "PatchLoad",
-) -> SciaSurfaceLoad:
+) -> SciaFreeSurfaceLoad:
     """
-    Create surface load on 4-point patch by creating separate load plane.
+    Create free surface load on 4-point patch (XY-plane only).
 
     :param model: SCIA model instance
     :param load_case: SCIA load case for the load application
@@ -211,27 +211,31 @@ def create_patch_surface_load(
     if len(corner_points) != 4:
         raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
 
-    # Create nodes at patch corners
-    patch_nodes = []
-    for i, (x, y, z) in enumerate(corner_points, 1):
-        node_name = f"{load_name}_Corner_{i}"
-        patch_node = model.create_node(node_name, x, y, z)
-        patch_nodes.append(patch_node)
+    # Convert 3D points to 2D (XY only) for free surface load
+    xy_points = [(x, y) for x, y, z in corner_points]
 
-    # Create material and plane for the load patch
-    material = scia.Material(999, "C30/37")
-    load_patch_plane = model.create_plane(patch_nodes, 0.01, material=material, name=f"{load_name}_Plane")
+    # Calculate patch area for load conversion from N/m² to total N
+    # Using shoelace formula for polygon area
+    def polygon_area(points: list[tuple[float, float]]) -> float:
+        n = len(points)
+        area = 0.0
+        for i in range(n):
+            j = (i + 1) % n
+            area += points[i][0] * points[j][1]
+            area -= points[j][0] * points[i][1]
+        return abs(area) / 2.0
 
-    # Apply surface load to the patch plane
-    return model.create_surface_load(
+    patch_area = polygon_area(xy_points)
+    total_load = load_value * patch_area  # Convert N/m² to N
+
+    # Create free surface load with uniform distribution
+    return model.create_free_surface_load(
         name=load_name,
         load_case=load_case,
-        plane=load_patch_plane,
-        direction=scia.SurfaceLoad.Direction.Z,
-        load_type=scia.SurfaceLoad.Type.FORCE,
-        load_value=load_value,
-        c_sys=scia.SurfaceLoad.CSys.GLOBAL,
-        location=scia.SurfaceLoad.Location.LENGTH,
+        direction=scia.FreeSurfaceLoad.Direction.Z,
+        q1=total_load,
+        points=xy_points,
+        distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
     )
 
 
