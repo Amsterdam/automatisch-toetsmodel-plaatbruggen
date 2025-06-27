@@ -22,6 +22,7 @@ from typing import Any, TypeAlias, Union
 from app.bridge.parametrization import (
     BridgeParametrization,
 )
+from src.integrations.scia_utils import create_load_case_with_name, create_wheel_load_pattern
 
 # Type alias for SCIA Engineer node objects
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
@@ -431,10 +432,40 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[tuple
         ]
         model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
 
+    # Add dummy wheel loads to demonstrate the utils
+    _add_dummy_wheel_loads(model)
+
     # Generate XML input files
     xml_file, def_file = model.generate_xml_input()
 
     return xml_file, def_file
+
+
+def _add_dummy_wheel_loads(model: SciaModel) -> None:
+    """
+    Add a dummy wheel load pattern to the SCIA model for demonstration.
+
+    This function shows how the interface layer uses the generic utility functions
+    from `scia_utils.py` to add specific loads to the model.
+
+    DUMMY VALUES: This function uses hardcoded coordinates and load values.
+    A real implementation would derive these from `params.input.belastingzones`.
+
+    :param model: The SCIA model instance to which loads will be added.
+    :type model: SciaModel
+    """
+    # 1. Create a load case for the traffic loads
+    traffic_load_case = create_load_case_with_name(model, "LM1_Traffic", "VARIABLE")
+
+    # 2. Add a dummy wheel load pattern at a specific location
+    # DUMMY VALUES: Positioned at x=10m, y=0m with a 200kN axle load
+    create_wheel_load_pattern(
+        model=model,
+        load_case=traffic_load_case,
+        axle_position_x=10.0,  # 10m from bridge start
+        axle_position_y=0.0,  # Bridge centerline
+        axle_load=200000.0,  # 200 kN total axle load
+    )
 
 
 def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401

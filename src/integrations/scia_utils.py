@@ -8,11 +8,11 @@ SCIA plane elements, using internal edges to define load areas.
 from typing import Any, TypeAlias
 
 # Type aliases for SCIA objects (using Any for external SDK types)
-SciaModel: TypeAlias = Any
-SciaNode: TypeAlias = Any
-SciaPlane: TypeAlias = Any
-SciaLoadCase: TypeAlias = Any
-SciaSurfaceLoad: TypeAlias = Any
+SciaModel: TypeAlias = Any  # noqa: ANN401
+SciaNode: TypeAlias = Any  # noqa: ANN401
+SciaPlane: TypeAlias = Any  # noqa: ANN401
+SciaLoadCase: TypeAlias = Any  # noqa: ANN401
+SciaSurfaceLoad: TypeAlias = Any  # noqa: ANN401
 
 
 def create_patch_surface_load(
@@ -227,53 +227,3 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
     if load_case_type.upper() == "VARIABLE":
         return model.create_load_case_variable(load_case_name)
     raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
-
-
-def example_usage_simple_patch_load(
-    model: SciaModel,
-) -> SciaSurfaceLoad:
-    """
-    Example function demonstrating how to create a simple 4-point patch load.
-
-    DUMMY VALUES CLEARLY MARKED: This function shows how colleagues can use the patch loading system.
-    Replace dummy coordinates and load values with real bridge parameters.
-
-    :param model: SCIA model instance with existing bridge geometry
-    :type model: SciaModel
-    :returns: Created surface load object
-    :rtype: SciaSurfaceLoad
-
-    Example integration in bridge analysis:
-        >>> # After creating bridge model with plates
-        >>> scia_model = create_simple_scia_plate_model(params)
-        >>> # Apply a simple patch load (creates its own patch plane)
-        >>> patch_load = example_usage_simple_patch_load(scia_model)
-        >>> # Generate XML with loads included
-        >>> xml_file, def_file = scia_model.generate_xml_input()
-    """
-    # DUMMY VALUES - Replace with real bridge coordinates and load data
-
-    # Create load case for the patch loads
-    live_load_case = create_load_case_with_name(model, "TrafficLoad_LM1", "VARIABLE")
-
-    # Define a 2m x 1.5m load patch at position (15m longitudinal, 3m transverse)
-    # DUMMY COORDINATES - Replace with actual bridge coordinate system
-    patch_corners = [
-        (15.0, 3.0, 0.0),  # Corner 1: x=15m, y=3m (bottom-left)
-        (17.0, 3.0, 0.0),  # Corner 2: x=17m, y=3m (bottom-right)
-        (17.0, 4.5, 0.0),  # Corner 3: x=17m, y=4.5m (top-right)
-        (15.0, 4.5, 0.0),  # Corner 4: x=15m, y=4.5m (top-left)
-    ]
-
-    # DUMMY LOAD VALUE - Replace with actual traffic load from Eurocode
-    # 100 kN/m² = 100,000 N/m² (typical heavy vehicle pressure)
-    load_pressure = 100000.0  # N/m²
-
-    # Create the patch load
-    return create_patch_surface_load(
-        model=model,
-        load_case=live_load_case,
-        corner_points=patch_corners,
-        load_value=load_pressure,
-        load_name="ExamplePatchLoad",
-    )
