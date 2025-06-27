@@ -22,6 +22,7 @@ from typing import Any, TypeAlias, Union
 from app.bridge.parametrization import (
     BridgeParametrization,
 )
+from src.integrations.scia_utils import create_load_case_with_name, create_patch_surface_load
 
 # Type alias for SCIA Engineer node objects
 SciaNode: TypeAlias = object  # More specific type if available from SCIA API
@@ -180,183 +181,47 @@ def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[
 
 def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[tuple[BytesIO, BytesIO]]:
     """
-    Create a simple rectangular plate SCIA model from bridge geometry.
+    Create a complete SCIA bridge model from bridge parameters.
 
-    Creates a basic rectangular plate with:
-    - 4 corner nodes
-    - 1 rectangular plane element
-    - Basic concrete material
-    - Simple mesh setup
+    This function creates a detailed bridge model with:
+    - Multiple cross-sections at each D1, D2, D3... location from bridge_segments_array
+    - Three separate zone plates (Zone 1, Zone 2, Zone 3) between cross-sections
+    - Variable thickness per zone (dz for zones 1&3, dz_2 for zone 2)
+    - Proper node positioning based on actual bridge geometry (bz1, bz2, bz3 widths)
+    - Cumulative length calculation from segment distances
+    - Concrete material (C30/37)
+    - Demonstration load patches using scia_utils functions
 
-    TODO: Future enhancements for complete bridge modeling:
+    Bridge Structure Created:
+    - **Nodes**: Created at each cross-section with naming "K_dek:X_Y" where X=section, Y=zone
+    - **Zone 1 plates**: Right side of bridge (thickness = dz)
+    - **Zone 2 plates**: Middle of bridge (thickness = dz_2, can differ from zones 1&3)
+    - **Zone 3 plates**: Left side of bridge (thickness = dz)
+    - **Load demonstrations**: Example wheel loads and equipment loads
 
-    1. COMPLEX GEOMETRY WITH NODES PER CROSS-SECTION (D1, D2, D3, etc.):
-       - Create nodes at each cross-section (D1, D2, D3...) defined in bridge_segments_params
-       - Node naming convention: "D{section}.{zone}" (e.g., D1.1, D1.2, D1.3, D2.1, D2.2, D2.3)
-       - For each cross-section at position x_i, create nodes:
-         * D{i}.1: Y-coordinate at -bz2/2 - bz3 (left edge zone 3)
-         * D{i}.2: Y-coordinate at -bz2/2 (zone 2/3 boundary)
-         * D{i}.3: Y-coordinate at +bz2/2 (zone 1/2 boundary)
-         * D{i}.4: Y-coordinate at +bz2/2 + bz1 (right edge zone 1)
-         * Z-coordinates: 0 (top), -dz (zone 1&3), -dz_2 (zone 2 bottom)
+    Coordinate System:
+    - X: Bridge longitudinal direction (cumulative segment lengths)
+    - Y: Bridge transverse direction (zone boundaries based on bz1, bz2, bz3)
+    - Z: Vertical direction (0 at top surface, negative downward)
 
-       Example implementation pattern:
-       ```python
-       nodes = {}
-       x_position = 0
-       for i, segment in enumerate(bridge_segments_params):
-           if i > 0:  # Skip first segment (reference point)
-               x_position += segment["l"]
-           section_name = f"D{i + 1}"
+    Zone Layout (transverse direction):
+    ```
+    Zone 3    Zone 2    Zone 1
+    |--bz3--|--bz2--|--bz1--|
+    ```
 
-           # Zone boundaries in Y direction
-           y_left_edge = -(segment["bz2"] / 2 + segment["bz3"])
-           y_zone23_boundary = -segment["bz2"] / 2
-           y_zone12_boundary = segment["bz2"] / 2
-           y_right_edge = segment["bz2"] / 2 + segment["bz1"]
+    TODO: Future enhancements:
+    - Replace _add_dummy_wheel_loads() with real load zone data from params.input.belastingzones
+    - Add material customization from params.info.concrete_strength_class
+    - Add support conditions based on bridge type
+    - Add load combinations for ULS/SLS analysis
 
-           # Create nodes for this cross-section
-           nodes[f"{section_name}.1"] = model.create_node(f"{section_name}.1", x_position, y_left_edge, 0)
-           nodes[f"{section_name}.2"] = model.create_node(f"{section_name}.2", x_position, y_zone23_boundary, 0)
-           nodes[f"{section_name}.3"] = model.create_node(f"{section_name}.3", x_position, y_zone12_boundary, 0)
-           nodes[f"{section_name}.4"] = model.create_node(f"{section_name}.4", x_position, y_right_edge, 0)
-
-           # Bottom nodes for different zone thicknesses
-           nodes[f"{section_name}.1B"] = model.create_node(f"{section_name}.1B", x_position, y_left_edge, -segment["dz"])
-           nodes[f"{section_name}.2B"] = model.create_node(f"{section_name}.2B", x_position, y_zone23_boundary, -segment["dz_2"])
-           nodes[f"{section_name}.3B"] = model.create_node(f"{section_name}.3B", x_position, y_zone12_boundary, -segment["dz_2"])
-           nodes[f"{section_name}.4B"] = model.create_node(f"{section_name}.4B", x_position, y_right_edge, -segment["dz"])
-       ```
-
-         2. MULTIPLE ZONES WITH DIFFERENT MATERIALS/THICKNESSES:
-        - Create separate material for each zone (material from INFO page parameters)
-        - Zone 1 (right): thickness = dz, material = from params.info.material_grade
-        - Zone 2 (middle): thickness = dz_2 (can differ from zones 1&3), material = from params.info.material_grade
-        - Zone 3 (left): thickness = dz, material = from params.info.material_grade
-
-    Example:
-        ```python
-        # Get material from INFO page parameters (when available)
-        base_material_name = bridge_params.get("info", {}).get("material_grade", "C30/37")
-
-        # Create materials for different zones (could be same or different materials)
-        zone1_material = scia.Material(1, f"{base_material_name}_Zone1")
-        zone2_material = scia.Material(2, f"{base_material_name}_Zone2")
-        zone3_material = scia.Material(3, f"{base_material_name}_Zone3")
-
-       # Create plates for each zone between adjacent cross-sections
-       for i in range(len(bridge_segments_params) - 1):
-           current_section = f"D{i+1}"
-           next_section = f"D{i+2}"
-
-           # Zone 1 plate (right side)
-           zone1_nodes = [nodes[f"{current_section}.3"], nodes[f"{next_section}.3"],
-                         nodes[f"{next_section}.4"], nodes[f"{current_section}.4"]]
-           zone1_plate = model.create_plane(zone1_nodes, segments[i]["dz"],
-                                          name=f"Zone1_{current_section}_{next_section}",
-                                          material=zone1_material)
-
-           # Zone 2 plate (middle)
-           zone2_nodes = [nodes[f"{current_section}.2"], nodes[f"{next_section}.2"],
-                         nodes[f"{next_section}.3"], nodes[f"{current_section}.3"]]
-           zone2_plate = model.create_plane(zone2_nodes, segments[i]["dz_2"],
-                                          name=f"Zone2_{current_section}_{next_section}",
-                                          material=zone2_material)
-
-           # Zone 3 plate (left side)
-           zone3_nodes = [nodes[f"{current_section}.1"], nodes[f"{next_section}.1"],
-                         nodes[f"{next_section}.2"], nodes[f"{current_section}.2"]]
-           zone3_plate = model.create_plane(zone3_nodes, segments[i]["dz"],
-                                          name=f"Zone3_{current_section}_{next_section}",
-                                          material=zone3_material)
-       ```
-
-    3. LOAD CASES AND COMBINATIONS:
-       - Define basic load cases: Dead load, Live load, Wind, Temperature
-       - Create load combinations according to Eurocode (ULS/SLS)
-
-    Example:
-       ```python
-       # Create load cases
-       dead_load_case = model.create_load_case("DL", "Dead Load")
-       live_load_case = model.create_load_case("LL", "Live Load")
-       wind_load_case = model.create_load_case("WL", "Wind Load")
-
-       # Apply loads to plates
-       # Dead load: self-weight (automatic in SCIA)
-       # Live load: traffic loads from load zone data
-       for zone_plate in zone_plates:
-           # Apply distributed load (N/m²)
-           live_load = model.create_surface_load(
-               load_case=live_load_case,
-               surface=zone_plate,
-               load_value=5000,  # 5 kN/m² typical traffic load
-               direction="Z",  # Vertical downward
-               coordinate_system="Global",
-           )
-
-       # Create load combinations (ULS)
-       uls_combo = model.create_load_combination("ULS1", "Ultimate Limit State 1")
-       uls_combo.add_load_case(dead_load_case, factor=1.35)  # γG = 1.35
-       uls_combo.add_load_case(live_load_case, factor=1.5)  # γQ = 1.5
-
-       # Create load combinations (SLS)
-       sls_combo = model.create_load_combination("SLS1", "Serviceability Limit State 1")
-       sls_combo.add_load_case(dead_load_case, factor=1.0)
-       sls_combo.add_load_case(live_load_case, factor=1.0)
-       ```
-
-    4. BOUNDARY CONDITIONS AND SUPPORTS:
-       - Add supports at bridge bearings/abutments
-       - Define appropriate restraints based on bridge type
-
-    Example:
-       ```python
-       # Support at start (abutment)
-       start_support = model.create_point_support(
-           node=nodes["D1.1"],
-           ux=True,
-           uy=True,
-           uz=True,  # Fixed translation
-           rx=False,
-           ry=False,
-           rz=False,  # Free rotation
-       )
-
-       # Support at end (expansion bearing)
-       end_support = model.create_point_support(
-           node=nodes[f"D{len(segments)}.1"],
-           ux=False,
-           uy=True,
-           uz=True,  # Free in X (expansion)
-           rx=False,
-           ry=False,
-           rz=False,
-       )
-       ```
-
-    5. MESH REFINEMENT:
-       - Define appropriate mesh density for different zones
-       - Consider stress concentration areas
-
-    Example:
-       ```python
-       # Create mesh setup for refined analysis
-       mesh_setup = model.create_mesh_setup("BridgeMesh", max_element_size=1.0)
-
-       # Apply mesh to all plates
-       for plate in all_plates:
-           model.assign_mesh_setup(plate, mesh_setup)
-       ```
-
-    Current implementation is a simplified rectangular plate for initial development.
-
-    :param params: BridgeParametrization object with input parameters
+    :param params: BridgeParametrization object with bridge segment data
     :type params: BridgeParametrization
     :returns: Tuple of (xml_file, def_file) for SCIA analysis
     :rtype: tuple[io.BytesIO, io.BytesIO]
     :raises ImportError: If VIKTOR SCIA module is not available
-
+    :raises ValueError: If bridge segment data is invalid
     """
     try:
         # Import VIKTOR SCIA module only when needed
@@ -431,10 +296,87 @@ def create_simple_scia_plate_model(params: BridgeParametrization) -> Union[tuple
         ]
         model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
 
+    # Add dummy wheel loads to demonstrate the utils
+    _add_dummy_wheel_loads(model)
+
     # Generate XML input files
     xml_file, def_file = model.generate_xml_input()
 
     return xml_file, def_file
+
+
+def _add_dummy_wheel_loads(model: SciaModel) -> None:
+    """
+    Add dummy load patterns to the SCIA model for demonstration.
+
+    This entire function can be replaced with the load zone data from the params.input.belastingzones.
+
+    This function shows how the interface layer uses the generic utility functions
+    from `scia_utils.py` to add specific loads to the model. Demonstrates both:
+    1. Individual patch loads (for custom/special loads)
+    2. Vehicle load patterns (for standard traffic loads)
+
+    DUMMY VALUES: This function uses hardcoded coordinates and load values.
+    A real implementation would derive these from `params.input.belastingzones`.
+
+    :param model: The SCIA model instance to which loads will be added.
+    :type model: SciaModel
+    """
+    # 1. Create load cases for different load types
+    traffic_load_case = create_load_case_with_name(model, "LM1_Traffic", "VARIABLE")
+    special_load_case = create_load_case_with_name(model, "SpecialEquipment", "VARIABLE")
+
+    # 2. EXAMPLE: Individual patch loads for special equipment
+    # DUMMY VALUES: Construction equipment or special loads
+
+    # Crane outrigger patch (1.5m x 1.0m at x=5m, y=2m)
+    crane_corners = [
+        (4.25, 1.5, 0.0),  # Bottom-left: x-0.75, y-0.5
+        (5.75, 1.5, 0.0),  # Bottom-right: x+0.75, y-0.5
+        (5.75, 2.5, 0.0),  # Top-right: x+0.75, y+0.5
+        (4.25, 2.5, 0.0),  # Top-left: x-0.75, y+0.5
+    ]
+    create_patch_surface_load(
+        model=model,
+        load_case=special_load_case,
+        corner_points=crane_corners,
+        load_value=50000.0,  # 50 kN/m² equipment pressure
+        load_name="CraneOutrigger_1",
+    )
+
+    # Maintenance equipment patch (2.0m x 0.8m at x=15m, y=-1.5m)
+    maintenance_corners = [
+        (14.0, -1.9, 0.0),  # Bottom-left: x-1.0, y-0.4
+        (16.0, -1.9, 0.0),  # Bottom-right: x+1.0, y-0.4
+        (16.0, -1.1, 0.0),  # Top-right: x+1.0, y+0.4
+        (14.0, -1.1, 0.0),  # Top-left: x-1.0, y+0.4
+    ]
+    create_patch_surface_load(
+        model=model,
+        load_case=special_load_case,
+        corner_points=maintenance_corners,
+        load_value=75000.0,  # 75 kN/m² equipment pressure
+        load_name="MaintenanceEquip_1",
+    )
+
+    # 3. EXAMPLE: Individual wheel loads using existing tandem system data
+    # TODO: Integrate with tandem_systems_axes_single_lane() from loadcase_helper_functions.py
+    # This would use the existing backend logic and convert to SCIA loads via create_patch_surface_load()
+
+    # DUMMY EXAMPLE: Single wheel load patch
+    wheel_corners = [
+        (9.8, -0.2, 0.0),  # Bottom-left
+        (10.2, -0.2, 0.0),  # Bottom-right
+        (10.2, 0.2, 0.0),  # Top-right
+        (9.8, 0.2, 0.0),  # Top-left
+    ]
+    create_patch_surface_load(
+        model=model,
+        load_case=traffic_load_case,
+        corner_points=wheel_corners,
+        load_value=468750.0,  # 468.75 kN/m² (example wheel pressure)
+        load_name="ExampleWheel_1",
+    )
 
 
 def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401

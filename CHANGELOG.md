@@ -4,6 +4,14 @@
 - Added the option to add supports in Input -> Dimensions
 - Added csv file for material densities
 - Inputfield for line load parapet
+- **SCIA Load Application Utilities**: Complete infrastructure for applying localized loads to SCIA models
+  - `create_patch_surface_load()` function for creating surface loads on specific 4-point patches
+  - `create_load_case_with_name()` helper for creating SCIA load cases with proper load groups
+  - Support for both permanent and variable load cases with Eurocode-compliant parameters
+  - Proven plane-based approach for localized wheel loads and equipment loads
+  - Integration points for connecting existing load calculation backend with SCIA models
+  - Demonstration examples showing crane outriggers, maintenance equipment, and wheel loads
+
 ### Changed
 - **SCIA File Naming**: Simplified SCIA download zip file naming conventions
   - ESA model files: `{bridge_id}_model.esa` (e.g., `BRU2196_model.esa`)
@@ -12,6 +20,10 @@
   - DEF files within ZIP: `viktor.xml.def` (keeps standard name for XML reference)
   - Added `model.esa` template file to input files ZIP for proper workflow
   - Updated README instructions to Dutch with step-by-step SCIA Engineer import workflow
+- **SCIA Model Documentation**: Updated function documentation to accurately reflect complete bridge model creation
+  - Corrected `create_simple_scia_plate_model()` description from "simple rectangular plate" to "complete bridge model"
+  - Added detailed documentation of zone structure, coordinate system, and node naming conventions
+  - Clarified integration points for load zone data replacement
 
 ### Removed
 ### Fixed
