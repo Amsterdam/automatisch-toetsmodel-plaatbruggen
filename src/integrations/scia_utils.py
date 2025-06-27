@@ -21,10 +21,6 @@ def create_patch_surface_load(
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_name: str = "PatchLoad",
-    *,
-    force_direction: str = "Z",
-    patch_thickness: float = 0.01,
-    material_name: str = "C30/37",
 ) -> SciaSurfaceLoad:
     """
     Create a surface load on a specific 4-point patch by creating a separate load plane.
@@ -45,12 +41,7 @@ def create_patch_surface_load(
     :type load_value: float
     :param load_name: Name identifier for the load (default: "PatchLoad")
     :type load_name: str
-    :param force_direction: Load direction - "X", "Y", or "Z" (default: "Z" for vertical loads)
-    :type force_direction: str
-    :param patch_thickness: Thickness of the load patch plane in [m] (default: 0.01m = 1cm)
-    :type patch_thickness: float
-    :param material_name: Material name for the patch plane (default: "C30/37")
-    :type material_name: str
+
     :returns: Created SCIA surface load object
     :rtype: SciaSurfaceLoad
     :raises ValueError: If corner_points doesn't contain exactly 4 points
@@ -71,7 +62,6 @@ def create_patch_surface_load(
         ...     corner_points=wheel_corners,
         ...     load_value=150000.0,  # 150 kN/m² in N/m²
         ...     load_name="WheelLoad_Axle1",
-        ...     force_direction="Z",
         ... )
     """
     try:
@@ -94,29 +84,18 @@ def create_patch_surface_load(
 
     # STEP 2: Create material for the load patch
     # Use material ID of 999 to avoid conflicts with bridge materials (typically 0, 1, 2, etc.)
-    material = scia.Material(999, material_name)
+    material = scia.Material(999, "C30/37")
 
     # STEP 3: Create a thin plane (patch) for the load area
     # PROVEN APPROACH: Create separate plane instead of using internal edges
-    load_patch_plane = model.create_plane(patch_nodes, patch_thickness, material=material, name=f"{load_name}_Plane")
+    load_patch_plane = model.create_plane(patch_nodes, 0.01, material=material, name=f"{load_name}_Plane")
 
-    # STEP 4: Apply surface load to the patch plane
-    # Convert direction string to SCIA enum
-    direction_map = {
-        "X": scia.SurfaceLoad.Direction.X,
-        "Y": scia.SurfaceLoad.Direction.Y,
-        "Z": scia.SurfaceLoad.Direction.Z,
-    }
-
-    if force_direction not in direction_map:
-        raise ValueError(f"Invalid force direction '{force_direction}'. Use 'X', 'Y', or 'Z'")
-
-    # Create surface load on the dedicated load patch plane
+    # STEP 4: Apply surface load to the patch plane (vertical downward by default)
     return model.create_surface_load(
         name=load_name,
         load_case=load_case,
         plane=load_patch_plane,  # Apply to the dedicated patch plane
-        direction=direction_map[force_direction],
+        direction=scia.SurfaceLoad.Direction.Z,
         load_type=scia.SurfaceLoad.Type.FORCE,
         load_value=load_value,
         c_sys=scia.SurfaceLoad.CSys.GLOBAL,
@@ -129,10 +108,6 @@ def create_wheel_load_pattern(
     load_case: SciaLoadCase,
     axle_position_x: float,
     axle_position_y: float,
-    *,
-    wheel_spacing: float = 2.0,
-    wheel_contact_length: float = 0.6,
-    wheel_contact_width: float = 0.4,
     axle_load: float = 100000.0,
 ) -> list[SciaSurfaceLoad]:
     """
@@ -150,12 +125,7 @@ def create_wheel_load_pattern(
     :type axle_position_x: float
     :param axle_position_y: Axle center position in bridge transverse direction [m]
     :type axle_position_y: float
-    :param wheel_spacing: Distance between wheel centers [m] (default: 2.0m typical)
-    :type wheel_spacing: float
-    :param wheel_contact_length: Wheel contact patch length [m] (default: 0.6m)
-    :type wheel_contact_length: float
-    :param wheel_contact_width: Wheel contact patch width [m] (default: 0.4m)
-    :type wheel_contact_width: float
+
     :param axle_load: Total axle load [N] (default: 100kN, distributed equally to wheels)
     :type axle_load: float
     :returns: List of created wheel surface loads [left_wheel, right_wheel]
@@ -171,6 +141,11 @@ def create_wheel_load_pattern(
         ...     axle_load=200000.0,  # 200 kN total axle load
         ... )
     """
+    # DUMMY VALUES: Use fixed wheel geometry (replace with real parameters)
+    wheel_spacing = 2.0  # 2m between wheels
+    wheel_contact_length = 0.6  # 0.6m contact patch length
+    wheel_contact_width = 0.4  # 0.4m contact patch width
+
     # Calculate individual wheel load (half of axle load)
     wheel_load = axle_load / 2.0
 
@@ -200,7 +175,6 @@ def create_wheel_load_pattern(
         corner_points=left_corners,
         load_value=wheel_pressure,
         load_name=f"LeftWheel_X{axle_position_x:.1f}",
-        force_direction="Z",
     )
     wheel_loads.append(left_wheel_load)
 
@@ -218,7 +192,6 @@ def create_wheel_load_pattern(
         corner_points=right_corners,
         load_value=wheel_pressure,
         load_name=f"RightWheel_X{axle_position_x:.1f}",
-        force_direction="Z",
     )
     wheel_loads.append(right_wheel_load)
 
@@ -297,13 +270,10 @@ def example_usage_simple_patch_load(
     load_pressure = 100000.0  # N/m²
 
     # Create the patch load
-    patch_load = create_patch_surface_load(
+    return create_patch_surface_load(
         model=model,
         load_case=live_load_case,
         corner_points=patch_corners,
         load_value=load_pressure,
         load_name="ExamplePatchLoad",
-        force_direction="Z",  # Vertical downward
     )
-
-    return patch_load
