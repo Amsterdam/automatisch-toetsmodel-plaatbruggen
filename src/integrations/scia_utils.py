@@ -1,18 +1,217 @@
 """
-SCIA Engineer utility functions for creating localized loads and patches.
+SCIA Engineer utility functions for creating loads, load cases, and load combinations.
 
-This module provides helper functions to create specific load patches within larger
-SCIA plane elements, using internal edges to define load areas.
+FRAMEWORK USAGE:
+================
+1. Create Load Group: create_load_group_by_type()
+2. Create Load Case: create_load_case_complete()  
+3. Create Load Combination: create_load_combination_by_type()
+4. Apply Loads: create_patch_surface_load()
+
+See VIKTOR documentation for detailed parameters:
+- LoadGroup: https://docs.viktor.ai/sdk/api/external/scia/#_LoadGroup
+- LoadCase: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
+- LoadCombination: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCombination
+- Model methods: https://docs.viktor.ai/sdk/api/external/scia/#Model
 """
 
 from typing import Any, TypeAlias
 
-# Type aliases for SCIA objects (using Any for external SDK types)
+# Type aliases for SCIA objects
 SciaModel: TypeAlias = Any
 SciaNode: TypeAlias = Any
 SciaPlane: TypeAlias = Any
+SciaLoadGroup: TypeAlias = Any
 SciaLoadCase: TypeAlias = Any
+SciaLoadCombination: TypeAlias = Any
 SciaSurfaceLoad: TypeAlias = Any
+
+
+def create_load_group_by_type(
+    model: SciaModel,
+    load_option: str,
+    group_name: str,
+    load_type: str = "CAT_G",
+    relation: str = "STANDARD",
+) -> SciaLoadGroup:
+    """
+    Create SCIA load group with standardized settings.
+    
+    :param model: SCIA model instance
+    :param load_option: "PERMANENT", "VARIABLE", "ACCIDENTAL", "SEISMIC"
+    :param group_name: Name for the load group
+    :param load_type: Load type (default: "CAT_G" for bridges)
+    :param relation: "STANDARD", "EXCLUSIVE", "TOGETHER"
+    
+    See: https://docs.viktor.ai/sdk/api/external/scia/#Model.create_load_group
+    """
+    try:
+        from viktor.external import scia
+    except ImportError as e:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+
+    load_option_map = {
+        "PERMANENT": scia.LoadGroup.LoadOption.PERMANENT,
+        "VARIABLE": scia.LoadGroup.LoadOption.VARIABLE,
+        "ACCIDENTAL": scia.LoadGroup.LoadOption.ACCIDENTAL,
+        "SEISMIC": scia.LoadGroup.LoadOption.SEISMIC,
+    }
+
+    relation_map = {
+        "STANDARD": scia.LoadGroup.RelationOption.STANDARD,
+        "EXCLUSIVE": scia.LoadGroup.RelationOption.EXCLUSIVE,
+        "TOGETHER": scia.LoadGroup.RelationOption.TOGETHER,
+    }
+
+    load_type_map = {
+        "CAT_A": scia.LoadGroup.LoadTypeOption.CAT_A,
+        "CAT_B": scia.LoadGroup.LoadTypeOption.CAT_B,
+        "CAT_C": scia.LoadGroup.LoadTypeOption.CAT_C,
+        "CAT_D": scia.LoadGroup.LoadTypeOption.CAT_D,
+        "CAT_E": scia.LoadGroup.LoadTypeOption.CAT_E,
+        "CAT_F": scia.LoadGroup.LoadTypeOption.CAT_F,
+        "CAT_G": scia.LoadGroup.LoadTypeOption.CAT_G,  # Vehicle >30kN (bridges)
+        "CAT_H": scia.LoadGroup.LoadTypeOption.CAT_H,
+        "SNOW": scia.LoadGroup.LoadTypeOption.SNOW,
+        "WIND": scia.LoadGroup.LoadTypeOption.WIND,
+        "TEMPERATURE": scia.LoadGroup.LoadTypeOption.TEMPERATURE,
+        "RAIN_WATER": scia.LoadGroup.LoadTypeOption.RAIN_WATER,
+        "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
+    }
+
+    return model.create_load_group(
+        group_name,
+        load_option_map[load_option],
+        relation_map[relation],
+        load_type_map[load_type]
+    )
+
+
+def create_load_case_complete(
+    model: SciaModel,
+    load_group: SciaLoadGroup,
+    case_name: str,
+    description: str,
+    case_type: str,
+    permanent_type: str = "STANDARD",
+    variable_type: str = "STATIC",
+    specification: str = "STANDARD",
+    duration: str = "SHORT",
+) -> SciaLoadCase:
+    """
+    Create SCIA load case with all parameters.
+    
+    :param model: SCIA model instance
+    :param load_group: Load group that this case belongs to
+    :param case_name: Name for the load case
+    :param description: Description of the load case
+    :param case_type: "PERMANENT" or "VARIABLE"
+    :param permanent_type: For permanent: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"
+    :param variable_type: For variable: "STATIC", "PRIMARY_EFFECT"
+    :param specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"
+    :param duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"
+    
+    See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
+    """
+    try:
+        from viktor.external import scia
+    except ImportError as e:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+
+    permanent_type_map = {
+        "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT,
+        "STANDARD": scia.LoadCase.PermanentLoadType.STANDARD,
+        "PRIMARY_EFFECT": scia.LoadCase.PermanentLoadType.PRIMARY_EFFECT,
+    }
+
+    variable_type_map = {
+        "STATIC": scia.LoadCase.VariableLoadType.STATIC,
+        "PRIMARY_EFFECT": scia.LoadCase.VariableLoadType.PRIMARY_EFFECT,
+    }
+
+    specification_map = {
+        "STANDARD": scia.LoadCase.Specification.STANDARD,
+        "TEMPERATURE": scia.LoadCase.Specification.TEMPERATURE,
+        "STATIC_WIND": scia.LoadCase.Specification.STATIC_WIND,
+        "EARTHQUAKE": scia.LoadCase.Specification.EARTHQUAKE,
+        "SNOW": scia.LoadCase.Specification.SNOW,
+    }
+
+    duration_map = {
+        "LONG": scia.LoadCase.Duration.LONG,
+        "MEDIUM": scia.LoadCase.Duration.MEDIUM,
+        "SHORT": scia.LoadCase.Duration.SHORT,
+        "INSTANTANEOUS": scia.LoadCase.Duration.INSTANTANEOUS,
+    }
+
+    if case_type.upper() == "PERMANENT":
+        return model.create_permanent_load_case(
+            case_name, description, load_group, permanent_type_map[permanent_type]
+        )
+    elif case_type.upper() == "VARIABLE":
+        return model.create_variable_load_case(
+            case_name, description, load_group, variable_type_map[variable_type],
+            specification_map[specification], duration_map[duration]
+        )
+    else:
+        raise ValueError(f"Invalid case_type '{case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+
+
+def create_load_combination_by_type(
+    model: SciaModel,
+    combination_type: str,
+    combination_name: str,
+    load_cases: dict[SciaLoadCase, float],
+    description: str = "",
+) -> SciaLoadCombination:
+    """
+    Create SCIA load combination with standardized types.
+    
+    :param model: SCIA model instance
+    :param combination_type: "ULS", "SLS_CHAR", "SLS_FREQ", "SLS_QUASI", "ACCIDENTAL", "SEISMIC", etc.
+    :param combination_name: Name for the combination
+    :param load_cases: Dictionary mapping load cases to their factors
+    :param description: Optional description
+    
+    See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCombination
+    """
+    try:
+        from viktor.external import scia
+    except ImportError as e:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+
+    combination_type_map = {
+        # Ultimate Limit State
+        "ULS": scia.LoadCombination.Type.EN_ULS_SET_B,
+        "ULS_SET_B": scia.LoadCombination.Type.EN_ULS_SET_B,
+        "ULS_SET_C": scia.LoadCombination.Type.EN_ULS_SET_C,
+        "ENVELOPE_ULS": scia.LoadCombination.Type.ENVELOPE_ULTIMATE,
+        "LINEAR_ULS": scia.LoadCombination.Type.LINEAR_ULTIMATE,
+        
+        # Serviceability Limit State  
+        "SLS": scia.LoadCombination.Type.EN_SLS_CHAR,
+        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
+        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
+        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
+        "ENVELOPE_SLS": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY,
+        "LINEAR_SLS": scia.LoadCombination.Type.LINEAR_SERVICEABILITY,
+        
+        # Special cases
+        "ACCIDENTAL": scia.LoadCombination.Type.EN_ACC_ONE,
+        "ACCIDENTAL_1": scia.LoadCombination.Type.EN_ACC_ONE,
+        "ACCIDENTAL_2": scia.LoadCombination.Type.EN_ACC_TWO,
+        "SEISMIC": scia.LoadCombination.Type.EN_SEISMIC,
+    }
+
+    if combination_type not in combination_type_map:
+        raise ValueError(f"Invalid combination_type '{combination_type}'. Use: {list(combination_type_map.keys())}")
+
+    return model.create_load_combination(
+        combination_name,
+        combination_type_map[combination_type],
+        load_cases,
+        description=description or f"Load combination: {combination_name}"
+    )
 
 
 def create_patch_surface_load(
@@ -23,77 +222,38 @@ def create_patch_surface_load(
     load_name: str = "PatchLoad",
 ) -> SciaSurfaceLoad:
     """
-    Create a surface load on a specific 4-point patch by creating a separate load plane.
-
-    This function creates a localized load area by:
-    1. Creating nodes at the 4 corner points
-    2. Creating a thin plane (patch) with these 4 nodes
-    3. Applying surface load to the patch plane
-
+    Create surface load on 4-point patch by creating separate load plane.
+    
     :param model: SCIA model instance
-    :type model: SciaModel
     :param load_case: SCIA load case for the load application
-    :type load_case: SciaLoadCase
     :param corner_points: List of 4 corner coordinates [(x1,y1,z1), (x2,y2,z2), (x3,y3,z3), (x4,y4,z4)]
-                         Points should be ordered to form a valid rectangle/quadrilateral
-    :type corner_points: list[tuple[float, float, float]]
-    :param load_value: Load magnitude in [N/m²] (positive = downward for typical bridge loads)
-    :type load_value: float
-    :param load_name: Name identifier for the load (default: "PatchLoad")
-    :type load_name: str
-
-    :returns: Created SCIA surface load object
-    :rtype: SciaSurfaceLoad
-    :raises ValueError: If corner_points doesn't contain exactly 4 points
-    :raises ImportError: If VIKTOR SCIA module is not available
-
-    Example usage:
-        >>> # Define wheel load patch corners (2m x 1m patch on bridge deck)
-        >>> wheel_corners = [
-        ...     (10.0, 5.0, 0.0),  # Point 1: x=10m, y=5m, z=0m
-        ...     (12.0, 5.0, 0.0),  # Point 2: x=12m, y=5m, z=0m
-        ...     (12.0, 6.0, 0.0),  # Point 3: x=12m, y=6m, z=0m
-        ...     (10.0, 6.0, 0.0),  # Point 4: x=10m, y=6m, z=0m
-        ... ]
-        >>> # Apply 150 kN/m² wheel load (typical heavy vehicle)
-        >>> wheel_load = create_patch_surface_load(
-        ...     model=scia_model,
-        ...     load_case=live_load_case,
-        ...     corner_points=wheel_corners,
-        ...     load_value=150000.0,  # 150 kN/m² in N/m²
-        ...     load_name="WheelLoad_Axle1",
-        ... )
+    :param load_value: Load magnitude in [N/m²] (positive = downward)
+    :param load_name: Name identifier for the load
     """
     try:
-        # Import VIKTOR SCIA module only when needed
         from viktor.external import scia
     except ImportError as e:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
 
-    # Validate input
     if len(corner_points) != 4:
         raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
 
-    # STEP 1: Create nodes at patch corners
-    # Use patch-specific naming to avoid conflicts with existing bridge nodes
+    # Create nodes at patch corners
     patch_nodes = []
     for i, (x, y, z) in enumerate(corner_points, 1):
         node_name = f"{load_name}_Corner_{i}"
         patch_node = model.create_node(node_name, x, y, z)
         patch_nodes.append(patch_node)
 
-    # STEP 2: Create material for the load patch
-    # Use material ID of 999 to avoid conflicts with bridge materials (typically 0, 1, 2, etc.)
+    # Create material and plane for the load patch
     material = scia.Material(999, "C30/37")
-
-    # STEP 3: Create a thin plane (patch) for the load area
     load_patch_plane = model.create_plane(patch_nodes, 0.01, material=material, name=f"{load_name}_Plane")
 
-    # STEP 4: Apply surface load to the patch plane (vertical downward by default)
+    # Apply surface load to the patch plane
     return model.create_surface_load(
         name=load_name,
         load_case=load_case,
-        plane=load_patch_plane,  # Apply to the dedicated patch plane
+        plane=load_patch_plane,
         direction=scia.SurfaceLoad.Direction.Z,
         load_type=scia.SurfaceLoad.Type.FORCE,
         load_value=load_value,
@@ -102,52 +262,14 @@ def create_patch_surface_load(
     )
 
 
+# Legacy function for backwards compatibility
 def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_type: str = "VARIABLE") -> SciaLoadCase:
     """
-    Helper function to create a SCIA load case with proper naming.
-
-    DUMMY VALUES: Using standard load case types.
-    Real implementation should integrate with bridge load combinations.
-
-    :param model: SCIA model instance
-    :type model: SciaModel
-    :param load_case_name: Name for the load case (e.g., "LM1_TrafficLoad")
-    :type load_case_name: str
-    :param load_case_type: Type of load case - "PERMANENT" or "VARIABLE" (default: "VARIABLE")
-    :type load_case_type: str
-    :returns: Created SCIA load case
-    :rtype: SciaLoadCase
-    :raises ImportError: If VIKTOR SCIA module is not available
-    :raises ValueError: If invalid load case type is provided
+    DEPRECATED: Use create_load_case_complete() instead.
+    Helper function to create a SCIA load case with basic settings.
     """
-    # Verify VIKTOR SCIA module is available
-    try:
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
-
-    # Create load group first (required for load case creation)
-    load_group_name = f"LG_{load_case_name}"
-
-    if load_case_type.upper() == "PERMANENT":
-        # Create permanent load group and load case
-        load_group = model.create_load_group(
-            load_group_name, scia.LoadGroup.LoadOption.PERMANENT, scia.LoadGroup.RelationOption.STANDARD, scia.LoadGroup.LoadTypeOption.CAT_G
-        )
-        return model.create_permanent_load_case(
-            load_case_name, f"Permanent load case: {load_case_name}", load_group, scia.LoadCase.PermanentLoadType.STANDARD
-        )
-    if load_case_type.upper() == "VARIABLE":
-        # Create variable load group and load case
-        load_group = model.create_load_group(
-            load_group_name, scia.LoadGroup.LoadOption.VARIABLE, scia.LoadGroup.RelationOption.STANDARD, scia.LoadGroup.LoadTypeOption.CAT_G
-        )
-        return model.create_variable_load_case(
-            load_case_name,
-            f"Variable load case: {load_case_name}",
-            load_group,
-            scia.LoadCase.VariableLoadType.STATIC,
-            scia.LoadCase.Specification.STANDARD,
-            scia.LoadCase.Duration.SHORT,
-        )
-    raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+    group_name = f"LG_{load_case_name}"
+    load_group = create_load_group_by_type(model, load_case_type, group_name)
+    return create_load_case_complete(
+        model, load_group, load_case_name, f"{load_case_type} load case: {load_case_name}", load_case_type
+    )
