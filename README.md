@@ -114,7 +114,8 @@ python ruft.py --dry-run
 - **🔧 Ruff Formatter** `0.11.7` - Auto-formats code
 - **✅ Ruff Style Check** `0.11.7` - Auto-fixes style issues  
 - **🔍 MyPy Type Check** `1.15.0` - Validates type hints
-- **🧪 Unit Tests** - Runs ~200 tests (core logic + VIKTOR interface)
+- **🧪 Unit Tests** - Runs ~200 tests (core logic)
+- **🎯 VIKTOR Tests** - Runs `@view_test_wrapper` tests in VIKTOR environment
 
 ### Enhanced Error Reporting
 Our quality check system provides **detailed error information**:
@@ -132,10 +133,12 @@ Our quality check system provides **detailed error information**:
 python ruft.py --dry-run
 
 # Individual checks
-python scripts/run_ruff_check.py    # Style issues + auto-fix
-python scripts/run_ruff_format.py   # Code formatting
-python scripts/run_mypy.py          # Type checking  
-python scripts/run_enhanced_tests.py # Unit tests
+python scripts/run_ruff_check.py      # Style issues + auto-fix
+python scripts/run_ruff_format.py     # Code formatting
+python scripts/run_mypy.py            # Type checking  
+python scripts/run_enhanced_tests.py  # Unit tests (pure Python)
+python scripts/run_viktor_tests.py    # VIKTOR tests (@view_test_wrapper)
+viktor-cli test                       # Direct VIKTOR test execution
 ```
 
 **📖 Complete Documentation:** See [`docs/testing_uitleg.md`](docs/testing_uitleg.md)

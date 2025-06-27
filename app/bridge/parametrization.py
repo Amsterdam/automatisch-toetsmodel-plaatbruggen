@@ -6,6 +6,7 @@ from typing import Any
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
@@ -101,17 +102,51 @@ def _bridge_field_is_empty(objectnumm: str, field_name: str) -> bool:
 # --- Helper functions for DynamicArray Default Rows ---
 
 
-def _create_default_dimension_segment_row(l_value: int, is_first: bool) -> dict[str, Any]:
-    """Creates a dictionary for a default bridge dimension segment row."""
+def _create_default_dimension_segment_row(
+    *,  # Force keyword arguments for clarity
+    l_value: float = 0,
+    is_first: bool = False,
+    is_support: bool = False,
+) -> dict[str, Any]:
+    """
+    Create a dictionary for a default bridge dimension segment row with customizable values.
+
+    :param l_value: Distance to previous section. Defaults to 0.
+    :type l_value: float
+    :param is_first: Whether this is the first segment. Defaults to False.
+    :type is_first: bool
+    :param is_support: Whether this segment is a support location. Defaults to False.
+    :type is_support: bool
+
+    :returns: Dictionary containing the segment row parameters with the following keys:
+        - "bz1" (float): Width of zone 1 (default: 10.0 m)
+        - "bz2" (float): Width of zone 2 (default: 3.0 m)
+        - "bz3" (float): Width of zone 3 (default: 15.0 m)
+        - "dz" (float): Thickness of zones 1 and 3 (default: 0.7 m)
+        - "dz_2" (float): Thickness of zone 2 (default: 0.8 m)
+        - "col_6" (float): Alpha angle (default: 0.0 degrees)
+        - "l" (float): Distance to previous section (default: value of l_value)
+        - "is_first_segment" (bool): Whether this is the first segment (default: value of is_first)
+        - "is_support" (bool): Whether this is a support location (default: value of is_support)
+    :rtype: dict[str, Any]
+    """
+    bz1 = 10.0
+    bz2 = 3.0
+    bz3 = 15.0
+    dz = 0.7
+    dz_2 = 0.8
+    col_6 = 0.0
+
     return {
-        "bz1": 10.0,
-        "bz2": 5.0,
-        "bz3": 15.0,
-        "dz": 2.0,
-        "dz_2": 3.0,
-        "col_6": 0.0,
+        "bz1": bz1,
+        "bz2": bz2,
+        "bz3": bz3,
+        "dz": dz,
+        "dz_2": dz_2,
+        "col_6": col_6,
         "l": l_value,
         "is_first_segment": is_first,
+        "is_support": is_support,
     }
 
 
@@ -189,6 +224,31 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
         return visibility_list
 
     return dx_width_visibility_function
+
+
+def _calculate_support_positions(params, **kwargs) -> list[bool]:  # noqa: ANN001, ARG001
+    """
+    Calculate which bridge segments should have supports.
+
+    Automatically sets supports at the first and last segments.
+    All other segments will not have supports.
+
+    :param params: Parameters containing bridge_segments_array
+    :returns: List of boolean values indicating support positions
+    :rtype: list[bool]
+    """
+    num_segments = _get_current_num_segments(params)
+
+    if num_segments <= 0:
+        return []
+
+    support_positions = []
+    for i in range(num_segments):
+        # First segment (i=0) and last segment (i=num_segments-1) should have supports
+        is_support = (i == 0) or (i == num_segments - 1)
+        support_positions.append(is_support)
+
+    return support_positions
 
 
 # Generate the visibility callbacks using a dictionary comprehension
@@ -439,18 +499,7 @@ Below you will find important information about this bridge structure."""
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
 
-    input.dimensions.segment_explanation = Text(
-        """Definieer hier de dwarsdoorsneden (snedes) van de brug.
-Elk item in de lijst hieronder representeert een dwarsdoorsnede.
-- Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
-- Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
-- Het veld '**Afstand tot vorige snede**' (`l`) geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
-  Dit veld is niet zichtbaar voor de eerste snede.
-- De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
-  beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
-Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
-Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen."""
-    )
+    input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
 
     input.dimensions.array = DynamicArray(
         "Brug dimensies",
@@ -458,17 +507,19 @@ Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en 
         min=2,
         name="bridge_segments_array",
         default=[
-            _create_default_dimension_segment_row(l_value=0, is_first=True),
-            _create_default_dimension_segment_row(l_value=10, is_first=False),
+            _create_default_dimension_segment_row(l_value=0, is_first=True, is_support=True),
+            _create_default_dimension_segment_row(l_value=25, is_first=False, is_support=False),
+            _create_default_dimension_segment_row(l_value=15, is_first=False, is_support=False),
+            _create_default_dimension_segment_row(l_value=10, is_first=False, is_support=True),
         ],
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
 
     input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m")
-    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=5.0, suffix="m")
+    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m")
     input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m")
-    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=2.0, suffix="m")
-    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=3.0, suffix="m")
+    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m")
+    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=0.8, suffix="m")
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
 
     _l_field_visibility_constraint = DynamicArrayConstraint(
@@ -481,6 +532,8 @@ Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en 
         suffix="m",
         visible=_l_field_visibility_constraint,
     )
+
+    input.dimensions.array.is_support = OutputField("Oplegging", value=_calculate_support_positions)
 
     # --- Bridge Geometry (moved to geometrie_brug tab) ---
     input.dimensions.lb1 = LineBreak()
@@ -701,6 +754,14 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 
     # --- Load Zones (in belastingzones tab) ---
     input.belastingzones.info_text = Text(LOAD_ZONES_INFO_TEXT)
+
+    input.belastingzones.lijnlast_leuning = NumberField(
+        "Lijnlast leuning",
+        default=1.0,
+        min=0.0,
+        suffix="kN/m",
+        description="Lijnlast van de leuning op het brugdek",
+    )
 
     input.belastingzones.load_zones_array = DynamicArray(
         "Belastingzones",

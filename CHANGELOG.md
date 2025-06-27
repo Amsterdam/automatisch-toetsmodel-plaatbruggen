@@ -1,7 +1,18 @@
 # Changelog
-## [`v0.0.6`] - 2025-xx-xx
+## [`v0.0.7`] - 2025-xx-xx
 ### Added
+- Added the option to add supports in Input -> Dimensions
+- Added csv file for material densities
+- Inputfield for line load parapet
 ### Changed
+- **SCIA File Naming**: Simplified SCIA download zip file naming conventions
+  - ESA model files: `{bridge_id}_model.esa` (e.g., `BRU2196_model.esa`)
+  - Input files ZIP: `{bridge_id}_Input_Files.zip` (e.g., `BRU2196_Input_Files.zip`)
+  - XML files within ZIP: `{bridge_id}.xml` (bridge-specific naming)
+  - DEF files within ZIP: `viktor.xml.def` (keeps standard name for XML reference)
+  - Added `model.esa` template file to input files ZIP for proper workflow
+  - Updated README instructions to Dutch with step-by-step SCIA Engineer import workflow
+
 ### Removed
 ### Fixed
 

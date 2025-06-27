@@ -242,6 +242,7 @@ class TestModelCreator(unittest.TestCase):
                 "bz3": bz3,
                 "dz": dz,
                 "dz_2": dz_2,
+                # NOTE: 'is_support' is no longer used as it's now calculated automatically
             }
         )
         segment.update(kwargs)  # Add any additional fields
@@ -263,8 +264,11 @@ class TestModelCreator(unittest.TestCase):
             # Each segment defines its length and zone dimensions
             params.bridge_segments_array.append(self._create_mock_bridge_segment_param(l=10.0 + i * 2, bz1=1, bz2=2, bz3=1))
 
+        # Mock the calculated support positions (first and last are True)
+        support_positions = [True] + [False] * (num_bridge_segments - 2) + [True] if num_bridge_segments >= 2 else [True]
+
         # Basic input structure required by create_2d_top_view
-        params.input = Munch({"dimensions": Munch({})})
+        params.input = Munch({"dimensions": Munch({"array": Munch({"is_support": support_positions})})})
         return params
 
     def test_create_2d_top_view_simple_case(self) -> None:
