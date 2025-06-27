@@ -5,7 +5,7 @@ This module provides helper functions to create specific load patches within lar
 SCIA plane elements, using internal edges to define load areas.
 """
 
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 # Type aliases for SCIA objects
 SciaModel: TypeAlias = "SciaModelProtocol"
@@ -61,10 +61,10 @@ def create_patch_surface_load(
     Example usage:
         >>> # Define wheel load patch corners (2m x 1m patch on bridge deck)
         >>> wheel_corners = [
-        ...     (10.0, 5.0, 0.0),   # Point 1: x=10m, y=5m, z=0m
-        ...     (12.0, 5.0, 0.0),   # Point 2: x=12m, y=5m, z=0m  
-        ...     (12.0, 6.0, 0.0),   # Point 3: x=12m, y=6m, z=0m
-        ...     (10.0, 6.0, 0.0),   # Point 4: x=10m, y=6m, z=0m
+        ...     (10.0, 5.0, 0.0),  # Point 1: x=10m, y=5m, z=0m
+        ...     (12.0, 5.0, 0.0),  # Point 2: x=12m, y=5m, z=0m
+        ...     (12.0, 6.0, 0.0),  # Point 3: x=12m, y=6m, z=0m
+        ...     (10.0, 6.0, 0.0),  # Point 4: x=10m, y=6m, z=0m
         ... ]
         >>> # Apply 150 kN/m² wheel load (typical heavy vehicle)
         >>> wheel_load = create_patch_surface_load(
@@ -73,7 +73,7 @@ def create_patch_surface_load(
         ...     corner_points=wheel_corners,
         ...     load_value=150000.0,  # 150 kN/m² in N/m²
         ...     load_name="WheelLoad_Axle1",
-        ...     force_direction="Z"
+        ...     force_direction="Z",
         ... )
     """
     try:
@@ -100,21 +100,16 @@ def create_patch_surface_load(
 
     # STEP 3: Create a thin plane (patch) for the load area
     # PROVEN APPROACH: Create separate plane instead of using internal edges
-    load_patch_plane = model.create_plane(
-        patch_nodes,
-        patch_thickness,
-        material=material,
-        name=f"{load_name}_Plane"
-    )
+    load_patch_plane = model.create_plane(patch_nodes, patch_thickness, material=material, name=f"{load_name}_Plane")
 
     # STEP 4: Apply surface load to the patch plane
     # Convert direction string to SCIA enum
     direction_map = {
         "X": scia.SurfaceLoad.Direction.X,
-        "Y": scia.SurfaceLoad.Direction.Y, 
+        "Y": scia.SurfaceLoad.Direction.Y,
         "Z": scia.SurfaceLoad.Direction.Z,
     }
-    
+
     if force_direction not in direction_map:
         raise ValueError(f"Invalid force direction '{force_direction}'. Use 'X', 'Y', or 'Z'")
 
@@ -127,7 +122,7 @@ def create_patch_surface_load(
         load_type=scia.SurfaceLoad.Type.FORCE,
         load_value=load_value,
         c_sys=scia.SurfaceLoad.CSys.GLOBAL,
-        location=scia.SurfaceLoad.Location.LENGTH
+        location=scia.SurfaceLoad.Location.LENGTH,
     )
 
     return surface_load
@@ -156,7 +151,7 @@ def create_wheel_load_pattern(
     :type load_case: SciaLoadCase
     :param axle_position_x: Axle center position in bridge longitudinal direction [m]
     :type axle_position_x: float
-    :param axle_position_y: Axle center position in bridge transverse direction [m]  
+    :param axle_position_y: Axle center position in bridge transverse direction [m]
     :type axle_position_y: float
     :param wheel_spacing: Distance between wheel centers [m] (default: 2.0m typical)
     :type wheel_spacing: float
@@ -175,13 +170,13 @@ def create_wheel_load_pattern(
         ...     model=scia_model,
         ...     load_case=lm1_load_case,
         ...     axle_position_x=20.0,  # 20m from bridge start
-        ...     axle_position_y=0.0,   # Bridge centerline
-        ...     axle_load=200000.0     # 200 kN total axle load
+        ...     axle_position_y=0.0,  # Bridge centerline
+        ...     axle_load=200000.0,  # 200 kN total axle load
         ... )
     """
     # Calculate individual wheel load (half of axle load)
     wheel_load = axle_load / 2.0
-    
+
     # Calculate wheel contact pressure [N/m²]
     contact_area = wheel_contact_length * wheel_contact_width
     wheel_pressure = wheel_load / contact_area
@@ -193,40 +188,40 @@ def create_wheel_load_pattern(
 
     # Create wheel contact patches
     wheel_loads = []
-    
+
     # Left wheel
     left_corners = [
-        (axle_position_x - wheel_contact_length/2, left_wheel_y - wheel_contact_width/2, 0.0),
-        (axle_position_x + wheel_contact_length/2, left_wheel_y - wheel_contact_width/2, 0.0),
-        (axle_position_x + wheel_contact_length/2, left_wheel_y + wheel_contact_width/2, 0.0),
-        (axle_position_x - wheel_contact_length/2, left_wheel_y + wheel_contact_width/2, 0.0),
+        (axle_position_x - wheel_contact_length / 2, left_wheel_y - wheel_contact_width / 2, 0.0),
+        (axle_position_x + wheel_contact_length / 2, left_wheel_y - wheel_contact_width / 2, 0.0),
+        (axle_position_x + wheel_contact_length / 2, left_wheel_y + wheel_contact_width / 2, 0.0),
+        (axle_position_x - wheel_contact_length / 2, left_wheel_y + wheel_contact_width / 2, 0.0),
     ]
-    
+
     left_wheel_load = create_patch_surface_load(
         model=model,
         load_case=load_case,
         corner_points=left_corners,
         load_value=wheel_pressure,
         load_name=f"LeftWheel_X{axle_position_x:.1f}",
-        force_direction="Z"
+        force_direction="Z",
     )
     wheel_loads.append(left_wheel_load)
 
-    # Right wheel  
+    # Right wheel
     right_corners = [
-        (axle_position_x - wheel_contact_length/2, right_wheel_y - wheel_contact_width/2, 0.0),
-        (axle_position_x + wheel_contact_length/2, right_wheel_y - wheel_contact_width/2, 0.0),
-        (axle_position_x + wheel_contact_length/2, right_wheel_y + wheel_contact_width/2, 0.0),
-        (axle_position_x - wheel_contact_length/2, right_wheel_y + wheel_contact_width/2, 0.0),
+        (axle_position_x - wheel_contact_length / 2, right_wheel_y - wheel_contact_width / 2, 0.0),
+        (axle_position_x + wheel_contact_length / 2, right_wheel_y - wheel_contact_width / 2, 0.0),
+        (axle_position_x + wheel_contact_length / 2, right_wheel_y + wheel_contact_width / 2, 0.0),
+        (axle_position_x - wheel_contact_length / 2, right_wheel_y + wheel_contact_width / 2, 0.0),
     ]
-    
+
     right_wheel_load = create_patch_surface_load(
         model=model,
         load_case=load_case,
         corner_points=right_corners,
         load_value=wheel_pressure,
         load_name=f"RightWheel_X{axle_position_x:.1f}",
-        force_direction="Z"
+        force_direction="Z",
     )
     wheel_loads.append(right_wheel_load)
 
@@ -258,10 +253,9 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
     # Create load case based on type
     if load_case_type.upper() == "PERMANENT":
         return model.create_load_case_permanent(load_case_name)
-    elif load_case_type.upper() == "VARIABLE":
+    if load_case_type.upper() == "VARIABLE":
         return model.create_load_case_variable(load_case_name)
-    else:
-        raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+    raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
 
 
 def example_usage_simple_patch_load(
@@ -281,31 +275,29 @@ def example_usage_simple_patch_load(
     Example integration in bridge analysis:
         >>> # After creating bridge model with plates
         >>> scia_model = create_simple_scia_plate_model(params)
-        >>> 
         >>> # Apply a simple patch load (creates its own patch plane)
         >>> patch_load = example_usage_simple_patch_load(scia_model)
-        >>> 
         >>> # Generate XML with loads included
         >>> xml_file, def_file = scia_model.generate_xml_input()
     """
     # DUMMY VALUES - Replace with real bridge coordinates and load data
-    
+
     # Create load case for the patch loads
     live_load_case = create_load_case_with_name(model, "TrafficLoad_LM1", "VARIABLE")
-    
+
     # Define a 2m x 1.5m load patch at position (15m longitudinal, 3m transverse)
     # DUMMY COORDINATES - Replace with actual bridge coordinate system
     patch_corners = [
-        (15.0, 3.0, 0.0),    # Corner 1: x=15m, y=3m (bottom-left)
-        (17.0, 3.0, 0.0),    # Corner 2: x=17m, y=3m (bottom-right)
-        (17.0, 4.5, 0.0),    # Corner 3: x=17m, y=4.5m (top-right)
-        (15.0, 4.5, 0.0),    # Corner 4: x=15m, y=4.5m (top-left)
+        (15.0, 3.0, 0.0),  # Corner 1: x=15m, y=3m (bottom-left)
+        (17.0, 3.0, 0.0),  # Corner 2: x=17m, y=3m (bottom-right)
+        (17.0, 4.5, 0.0),  # Corner 3: x=17m, y=4.5m (top-right)
+        (15.0, 4.5, 0.0),  # Corner 4: x=15m, y=4.5m (top-left)
     ]
-    
+
     # DUMMY LOAD VALUE - Replace with actual traffic load from Eurocode
     # 100 kN/m² = 100,000 N/m² (typical heavy vehicle pressure)
     load_pressure = 100000.0  # N/m²
-    
+
     # Create the patch load
     patch_load = create_patch_surface_load(
         model=model,
@@ -313,7 +305,7 @@ def example_usage_simple_patch_load(
         corner_points=patch_corners,
         load_value=load_pressure,
         load_name="ExamplePatchLoad",
-        force_direction="Z"  # Vertical downward
+        force_direction="Z",  # Vertical downward
     )
-    
-    return patch_load 
+
+    return patch_load
