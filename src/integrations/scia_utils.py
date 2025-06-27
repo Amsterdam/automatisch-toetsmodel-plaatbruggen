@@ -4,7 +4,7 @@ SCIA Engineer utility functions for creating loads, load cases, and load combina
 FRAMEWORK USAGE:
 ================
 1. Create Load Group: create_load_group_by_type()
-2. Create Load Case: create_load_case_complete()  
+2. Create Load Case: create_load_case_complete()
 3. Create Load Combination: create_load_combination_by_type()
 4. Apply Loads: create_patch_surface_load()
 
@@ -36,13 +36,13 @@ def create_load_group_by_type(
 ) -> SciaLoadGroup:
     """
     Create SCIA load group with standardized settings.
-    
+
     :param model: SCIA model instance
     :param load_option: "PERMANENT", "VARIABLE", "ACCIDENTAL", "SEISMIC"
     :param group_name: Name for the load group
     :param load_type: Load type (default: "CAT_G" for bridges)
     :param relation: "STANDARD", "EXCLUSIVE", "TOGETHER"
-    
+
     See: https://docs.viktor.ai/sdk/api/external/scia/#Model.create_load_group
     """
     try:
@@ -79,12 +79,7 @@ def create_load_group_by_type(
         "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
     }
 
-    return model.create_load_group(
-        group_name,
-        load_option_map[load_option],
-        relation_map[relation],
-        load_type_map[load_type]
-    )
+    return model.create_load_group(group_name, load_option_map[load_option], relation_map[relation], load_type_map[load_type])
 
 
 def create_load_case_complete(
@@ -100,7 +95,7 @@ def create_load_case_complete(
 ) -> SciaLoadCase:
     """
     Create SCIA load case with all parameters.
-    
+
     :param model: SCIA model instance
     :param load_group: Load group that this case belongs to
     :param case_name: Name for the load case
@@ -110,7 +105,7 @@ def create_load_case_complete(
     :param variable_type: For variable: "STATIC", "PRIMARY_EFFECT"
     :param specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"
     :param duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"
-    
+
     See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
     """
     try:
@@ -145,16 +140,12 @@ def create_load_case_complete(
     }
 
     if case_type.upper() == "PERMANENT":
-        return model.create_permanent_load_case(
-            case_name, description, load_group, permanent_type_map[permanent_type]
-        )
-    elif case_type.upper() == "VARIABLE":
+        return model.create_permanent_load_case(case_name, description, load_group, permanent_type_map[permanent_type])
+    if case_type.upper() == "VARIABLE":
         return model.create_variable_load_case(
-            case_name, description, load_group, variable_type_map[variable_type],
-            specification_map[specification], duration_map[duration]
+            case_name, description, load_group, variable_type_map[variable_type], specification_map[specification], duration_map[duration]
         )
-    else:
-        raise ValueError(f"Invalid case_type '{case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+    raise ValueError(f"Invalid case_type '{case_type}'. Use 'PERMANENT' or 'VARIABLE'")
 
 
 def create_load_combination_by_type(
@@ -166,13 +157,13 @@ def create_load_combination_by_type(
 ) -> SciaLoadCombination:
     """
     Create SCIA load combination with standardized types.
-    
+
     :param model: SCIA model instance
     :param combination_type: "ULS", "SLS_CHAR", "SLS_FREQ", "SLS_QUASI", "ACCIDENTAL", "SEISMIC", etc.
     :param combination_name: Name for the combination
     :param load_cases: Dictionary mapping load cases to their factors
     :param description: Optional description
-    
+
     See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCombination
     """
     try:
@@ -187,15 +178,13 @@ def create_load_combination_by_type(
         "ULS_SET_C": scia.LoadCombination.Type.EN_ULS_SET_C,
         "ENVELOPE_ULS": scia.LoadCombination.Type.ENVELOPE_ULTIMATE,
         "LINEAR_ULS": scia.LoadCombination.Type.LINEAR_ULTIMATE,
-        
-        # Serviceability Limit State  
+        # Serviceability Limit State
         "SLS": scia.LoadCombination.Type.EN_SLS_CHAR,
         "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
         "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
         "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
         "ENVELOPE_SLS": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY,
         "LINEAR_SLS": scia.LoadCombination.Type.LINEAR_SERVICEABILITY,
-        
         # Special cases
         "ACCIDENTAL": scia.LoadCombination.Type.EN_ACC_ONE,
         "ACCIDENTAL_1": scia.LoadCombination.Type.EN_ACC_ONE,
@@ -207,10 +196,7 @@ def create_load_combination_by_type(
         raise ValueError(f"Invalid combination_type '{combination_type}'. Use: {list(combination_type_map.keys())}")
 
     return model.create_load_combination(
-        combination_name,
-        combination_type_map[combination_type],
-        load_cases,
-        description=description or f"Load combination: {combination_name}"
+        combination_name, combination_type_map[combination_type], load_cases, description=description or f"Load combination: {combination_name}"
     )
 
 
@@ -223,7 +209,7 @@ def create_patch_surface_load(
 ) -> SciaSurfaceLoad:
     """
     Create surface load on 4-point patch by creating separate load plane.
-    
+
     :param model: SCIA model instance
     :param load_case: SCIA load case for the load application
     :param corner_points: List of 4 corner coordinates [(x1,y1,z1), (x2,y2,z2), (x3,y3,z3), (x4,y4,z4)]
@@ -270,6 +256,4 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
     """
     group_name = f"LG_{load_case_name}"
     load_group = create_load_group_by_type(model, load_case_type, group_name)
-    return create_load_case_complete(
-        model, load_group, load_case_name, f"{load_case_type} load case: {load_case_name}", load_case_type
-    )
+    return create_load_case_complete(model, load_group, load_case_name, f"{load_case_type} load case: {load_case_name}", load_case_type)

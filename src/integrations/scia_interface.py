@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, TypeAlias, Union
 
 from app.bridge.parametrization import BridgeParametrization
-from src.integrations.scia_utils import create_load_case_with_name, create_patch_surface_load
+from src.integrations.scia_utils import create_patch_surface_load
 
 # Type aliases
 SciaNode: TypeAlias = object
@@ -55,7 +55,7 @@ class NodeTracker:
 def create_node_and_thickness_dict(params: BridgeParametrization) -> tuple[dict[str, list[float]], dict[str, float]]:
     """
     Create node positions and thickness data from bridge parameters.
-    
+
     :param params: Bridge parameters
     :returns: (nodes_dict, thickness_dict)
     """
@@ -209,7 +209,7 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
 
     Shows 4-step workflow:
     1. Create load groups
-    2. Create load cases  
+    2. Create load cases
     3. Create load combinations (EN 1990 factors)
     4. Apply loads (wheel patches)
 
@@ -219,10 +219,9 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
     - Map to bridge segments
     """
     from src.integrations.scia_utils import (
-        create_load_group_by_type,
         create_load_case_complete,
         create_load_combination_by_type,
-        create_patch_surface_load,
+        create_load_group_by_type,
     )
 
     # Create load groups
@@ -232,39 +231,30 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
 
     # Create load cases
     dead_load_case = create_load_case_complete(
-        model, permanent_group, "G1_DeadLoad", "Superimposed dead load",
-        case_type="PERMANENT", permanent_type="STANDARD"
+        model, permanent_group, "G1_DeadLoad", "Superimposed dead load", case_type="PERMANENT", permanent_type="STANDARD"
     )
-    
+
     lm1_case = create_load_case_complete(
-        model, traffic_group, "Q1_LM1", "Load Model 1 - Tandem + UDL",
-        case_type="VARIABLE", variable_type="STATIC", duration="SHORT"
+        model, traffic_group, "Q1_LM1", "Load Model 1 - Tandem + UDL", case_type="VARIABLE", variable_type="STATIC", duration="SHORT"
     )
-    
+
     wind_case = create_load_case_complete(
-        model, wind_group, "Q2_Wind", "Wind Load",
-        case_type="VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="SHORT"
+        model, wind_group, "Q2_Wind", "Wind Load", case_type="VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="SHORT"
     )
 
     # Create load combinations (EN 1990 factors)
-    uls_basic = create_load_combination_by_type(
-        model, "ULS", "ULS_1_G+LM1", {dead_load_case: 1.35, lm1_case: 1.5}
-    )
-    
-    uls_wind = create_load_combination_by_type(
-        model, "ULS", "ULS_2_G+LM1+W", {dead_load_case: 1.35, lm1_case: 1.5, wind_case: 1.5 * 0.6}
-    )
-    
-    sls_char = create_load_combination_by_type(
-        model, "SLS_CHAR", "SLS_Char_G+LM1", {dead_load_case: 1.0, lm1_case: 1.0}
-    )
+    uls_basic = create_load_combination_by_type(model, "ULS", "ULS_1_G+LM1", {dead_load_case: 1.35, lm1_case: 1.5})
+
+    uls_wind = create_load_combination_by_type(model, "ULS", "ULS_2_G+LM1+W", {dead_load_case: 1.35, lm1_case: 1.5, wind_case: 1.5 * 0.6})
+
+    sls_char = create_load_combination_by_type(model, "SLS_CHAR", "SLS_Char_G+LM1", {dead_load_case: 1.0, lm1_case: 1.0})
 
     # Apply LM1 tandem loads (dummy positions)
     wheel_1_corners = [(10.0, 1.8, 0.0), (10.4, 1.8, 0.0), (10.4, 2.2, 0.0), (10.0, 2.2, 0.0)]
     wheel_2_corners = [(10.0, -0.2, 0.0), (10.4, -0.2, 0.0), (10.4, 0.2, 0.0), (10.0, 0.2, 0.0)]
     wheel_3_corners = [(11.2, 1.8, 0.0), (11.6, 1.8, 0.0), (11.6, 2.2, 0.0), (11.2, 2.2, 0.0)]
     wheel_4_corners = [(11.2, -0.2, 0.0), (11.6, -0.2, 0.0), (11.6, 0.2, 0.0), (11.2, 0.2, 0.0)]
-    
+
     # 300kN/0.16m² = 1,875,000 N/m², 200kN/0.16m² = 1,250,000 N/m²
     create_patch_surface_load(model, lm1_case, wheel_1_corners, 1875000.0, "LM1_Axle1_Wheel1")
     create_patch_surface_load(model, lm1_case, wheel_2_corners, 1875000.0, "LM1_Axle1_Wheel2")
@@ -281,9 +271,9 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
 def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401
     """
     Create SCIA analysis using template file.
-    
+
     :param xml_file: Generated XML input file
-    :param def_file: Generated definition file  
+    :param def_file: Generated definition file
     :param template_path: Path to ESA template
     :returns: SCIA analysis object
     """
@@ -305,7 +295,7 @@ def create_bridge_scia_model(params: BridgeParametrization, template_path: Path)
     Main function to create complete SCIA model from bridge parameters.
 
     Creates geometry from bridge_segments_array and sets up analysis with template.
-    
+
     TODO: Integrate with load zone data from params.input.belastingzones for realistic loads.
 
     :param params: Bridge parameters
