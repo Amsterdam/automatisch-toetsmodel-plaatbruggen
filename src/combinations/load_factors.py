@@ -137,7 +137,7 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
 
     Args:
         cc: Consequence class ("CC1a/b", "CC2", "CC3")
-        safety_level: Assessment level ("Verbouw", "Afkeur", "Gebruik")
+        safety_level: Assessment level ("NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur")
         building_year: Year of construction (e.g. "1964")
 
     Returns:
@@ -148,6 +148,10 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     """
     # Read the code tables from CSV
     df_gamma = pd.read_csv(GAMMA_NEN8700_PATH, sep=";", decimal=",")
+
+    # Extract the safety level if design code is NEN 8700
+    if "NEN 8700" in safety_level:
+        safety_level = safety_level.replace("NEN 8700 ", "").strip().capitalize()
 
     # Filter rows based on consequence class (gevolgklasse) and assessment level (toetsniveau)
     mask = (df_gamma["gevolgklasse"].str.startswith(cc)) & (df_gamma["toetsniveau"].str.contains(safety_level, case=False))
@@ -161,7 +165,7 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
         "6.10a": {},
         "6.10b": {},
     }
-
+d
     # Define the gamma factor types to extract
     gamma_keys = [
         "gamma_Gjsup",
