@@ -87,7 +87,6 @@ def create_patch_surface_load(
     material = scia.Material(999, "C30/37")
 
     # STEP 3: Create a thin plane (patch) for the load area
-    # PROVEN APPROACH: Create separate plane instead of using internal edges
     load_patch_plane = model.create_plane(patch_nodes, 0.01, material=material, name=f"{load_name}_Plane")
 
     # STEP 4: Apply surface load to the patch plane (vertical downward by default)
@@ -103,99 +102,11 @@ def create_patch_surface_load(
     )
 
 
-def create_wheel_load_pattern(
-    model: SciaModel,
-    load_case: SciaLoadCase,
-    axle_position_x: float,
-    axle_position_y: float,
-    axle_load: float = 100000.0,
-) -> list[SciaSurfaceLoad]:
-    """
-    Create a typical vehicle axle load pattern with two wheel loads.
 
-    DUMMY VALUES: This function uses typical heavy vehicle dimensions.
-    Real implementation should extract values from load zone parameters.
 
-    :param model: SCIA model instance
-    :type model: SciaModel
 
-    :param load_case: SCIA load case for vehicle loads
-    :type load_case: SciaLoadCase
-    :param axle_position_x: Axle center position in bridge longitudinal direction [m]
-    :type axle_position_x: float
-    :param axle_position_y: Axle center position in bridge transverse direction [m]
-    :type axle_position_y: float
 
-    :param axle_load: Total axle load [N] (default: 100kN, distributed equally to wheels)
-    :type axle_load: float
-    :returns: List of created wheel surface loads [left_wheel, right_wheel]
-    :rtype: list[SciaSurfaceLoad]
 
-    Example usage:
-        >>> # Create 200kN axle load at bridge midspan
-        >>> axle_loads = create_wheel_load_pattern(
-        ...     model=scia_model,
-        ...     load_case=lm1_load_case,
-        ...     axle_position_x=20.0,  # 20m from bridge start
-        ...     axle_position_y=0.0,  # Bridge centerline
-        ...     axle_load=200000.0,  # 200 kN total axle load
-        ... )
-    """
-    # DUMMY VALUES: Use fixed wheel geometry (replace with real parameters)
-    wheel_spacing = 2.0  # 2m between wheels
-    wheel_contact_length = 0.6  # 0.6m contact patch length
-    wheel_contact_width = 0.4  # 0.4m contact patch width
-
-    # Calculate individual wheel load (half of axle load)
-    wheel_load = axle_load / 2.0
-
-    # Calculate wheel contact pressure [N/m²]
-    contact_area = wheel_contact_length * wheel_contact_width
-    wheel_pressure = wheel_load / contact_area
-
-    # Define wheel positions (left and right of axle centerline)
-    half_spacing = wheel_spacing / 2.0
-    left_wheel_y = axle_position_y - half_spacing
-    right_wheel_y = axle_position_y + half_spacing
-
-    # Create wheel contact patches
-    wheel_loads = []
-
-    # Left wheel
-    left_corners = [
-        (axle_position_x - wheel_contact_length / 2, left_wheel_y - wheel_contact_width / 2, 0.0),
-        (axle_position_x + wheel_contact_length / 2, left_wheel_y - wheel_contact_width / 2, 0.0),
-        (axle_position_x + wheel_contact_length / 2, left_wheel_y + wheel_contact_width / 2, 0.0),
-        (axle_position_x - wheel_contact_length / 2, left_wheel_y + wheel_contact_width / 2, 0.0),
-    ]
-
-    left_wheel_load = create_patch_surface_load(
-        model=model,
-        load_case=load_case,
-        corner_points=left_corners,
-        load_value=wheel_pressure,
-        load_name=f"LeftWheel_X{axle_position_x:.1f}",
-    )
-    wheel_loads.append(left_wheel_load)
-
-    # Right wheel
-    right_corners = [
-        (axle_position_x - wheel_contact_length / 2, right_wheel_y - wheel_contact_width / 2, 0.0),
-        (axle_position_x + wheel_contact_length / 2, right_wheel_y - wheel_contact_width / 2, 0.0),
-        (axle_position_x + wheel_contact_length / 2, right_wheel_y + wheel_contact_width / 2, 0.0),
-        (axle_position_x - wheel_contact_length / 2, right_wheel_y + wheel_contact_width / 2, 0.0),
-    ]
-
-    right_wheel_load = create_patch_surface_load(
-        model=model,
-        load_case=load_case,
-        corner_points=right_corners,
-        load_value=wheel_pressure,
-        load_name=f"RightWheel_X{axle_position_x:.1f}",
-    )
-    wheel_loads.append(right_wheel_load)
-
-    return wheel_loads
 
 
 def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_type: str = "VARIABLE") -> SciaLoadCase:
