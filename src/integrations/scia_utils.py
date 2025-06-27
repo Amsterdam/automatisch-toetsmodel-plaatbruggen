@@ -5,14 +5,14 @@ This module provides helper functions to create specific load patches within lar
 SCIA plane elements, using internal edges to define load areas.
 """
 
-from typing import TypeAlias
+from typing import Any
 
-# Type aliases for SCIA objects
-SciaModel: TypeAlias = "SciaModelProtocol"
-SciaNode: TypeAlias = object
-SciaPlane: TypeAlias = object
-SciaLoadCase: TypeAlias = object
-SciaSurfaceLoad: TypeAlias = object
+# Type aliases for SCIA objects (using Any for external SDK types)
+SciaModel: type[Any] = Any  # noqa: ANN401
+SciaNode: type[Any] = Any  # noqa: ANN401
+SciaPlane: type[Any] = Any  # noqa: ANN401
+SciaLoadCase: type[Any] = Any  # noqa: ANN401
+SciaSurfaceLoad: type[Any] = Any  # noqa: ANN401
 
 
 def create_patch_surface_load(
@@ -21,6 +21,7 @@ def create_patch_surface_load(
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_name: str = "PatchLoad",
+    *,
     force_direction: str = "Z",
     patch_thickness: float = 0.01,
     material_name: str = "C30/37",
@@ -32,9 +33,6 @@ def create_patch_surface_load(
     1. Creating nodes at the 4 corner points
     2. Creating a thin plane (patch) with these 4 nodes
     3. Applying surface load to the patch plane
-
-    PROVEN APPROACH: Based on successful tree load implementation.
-    Creates separate small planes for each load patch instead of trying to subdivide existing planes.
 
     :param model: SCIA model instance
     :type model: SciaModel
@@ -114,7 +112,7 @@ def create_patch_surface_load(
         raise ValueError(f"Invalid force direction '{force_direction}'. Use 'X', 'Y', or 'Z'")
 
     # Create surface load on the dedicated load patch plane
-    surface_load = model.create_surface_load(
+    return model.create_surface_load(
         name=load_name,
         load_case=load_case,
         plane=load_patch_plane,  # Apply to the dedicated patch plane
@@ -125,14 +123,13 @@ def create_patch_surface_load(
         location=scia.SurfaceLoad.Location.LENGTH,
     )
 
-    return surface_load
-
 
 def create_wheel_load_pattern(
     model: SciaModel,
     load_case: SciaLoadCase,
     axle_position_x: float,
     axle_position_y: float,
+    *,
     wheel_spacing: float = 2.0,
     wheel_contact_length: float = 0.6,
     wheel_contact_width: float = 0.4,
@@ -245,8 +242,9 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
     :rtype: SciaLoadCase
     :raises ImportError: If VIKTOR SCIA module is not available
     """
+    # Verify VIKTOR SCIA module is available
     try:
-        from viktor.external import scia
+        import viktor.external.scia  # noqa: F401
     except ImportError as e:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
 
