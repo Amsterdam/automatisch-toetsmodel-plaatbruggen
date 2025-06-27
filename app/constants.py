@@ -58,6 +58,7 @@ README_CONTENT = """
 # Parametrization Constants
 # ===================================================================================================================
 
+MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
 MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Define how many D-fields (D1 to D15) we'll support for load zones
 LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
 
@@ -83,7 +84,9 @@ hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden.
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
 Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
-wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model."""
+wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
+
+De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
 
 # ===================================================================================================================
 # Tables from codes
@@ -381,27 +384,34 @@ COMBINATION_TABLE = {
 # SCIA zip readme content
 # ===================================================================================================================
 
-SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Files - Bridge Model
+SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Bestanden - Brugmodel
 
-This ZIP contains the generated SCIA model files:
+Deze ZIP bevat de gegenereerde SCIA model bestanden:
 
-1. bridge_model.xml - Main model definition with geometry, materials, and mesh
-2. bridge_model.def - Definition file with additional model parameters
+1. [BrugID].xml - Hoofdmodel definitie met geometrie, materialen en mesh
+2. viktor.xml.def - Definitie bestand met aanvullende model parameters
+3. model.esa - Leeg template bestand met juiste project instellingen
 
-To use these files:
-1. Open SCIA Engineer (version 24.0.3015.64 or compatible)
-2. Create a new project or open existing template
-3. Import the XML files: File > Import > XML files
-4. Review the imported model geometry and settings
-5. Define load cases and run analysis as needed
+BELANGRIJK - Hoe deze bestanden te gebruiken:
 
-Note: This is a simplified rectangular plate model. Future versions will support:
-- Complex bridge geometry matching actual shape
-- Variable thickness per zone
-- Load cases and combinations
-- Advanced material properties
+1. Pak ALLE 3 bestanden uit naar DEZELFDE MAP
+   (Het is cruciaal dat de XML, DEF en ESA bestanden op dezelfde locatie staan)
 
-Generated from VIKTOR Bridge Assessment Tool
+2. Open SCIA Engineer (versie 24.0.3015.64 of compatibel)
+
+3. Open het LEGE model.esa bestand uit de uitgepakte map
+   (Dit dient als template met de juiste instellingen)
+
+4. Klik in SCIA Engineer op "Bijwerken vanuit"
+
+5. Klik op "XML bestand"
+
+6. Selecteer het [BrugID].xml bestand uit dezelfde map
+
+Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebruikt.
+
+
+
 """
 
 # ===================================================================================================================
@@ -439,6 +449,21 @@ Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 - Belastinggevallen en combinaties
 - Geavanceerde materiaal eigenschappen
         """
+
+# ===================================================================================================================
+# Invoer Page dimensions segments explanation
+# ===================================================================================================================
+
+DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) van de brug.
+Elk item in de lijst hieronder representeert een dwarsdoorsnede.
+- Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
+- Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
+- Het veld '**Afstand tot vorige snede**' (`l`) geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
+  Dit veld is niet zichtbaar voor de eerste snede.
+- De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
+  beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
+Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
+Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen."""
 
 # ===================================================================================================================
 # IDEA StatiCa info text

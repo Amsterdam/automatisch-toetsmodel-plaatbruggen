@@ -976,8 +976,27 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
 
             current_x = next_x
 
+    # --- Get support positions from calculated list ---
+    support_positions = []
+    try:
+        # Access the calculated support positions from the parametrization
+        calculated_supports = viktor_params.input.dimensions.array.is_support
+        if calculated_supports and isinstance(calculated_supports, list):
+            support_positions = calculated_supports
+        else:
+            # Fallback: calculate first/last as True if no calculated list
+            support_positions = [True] + [False] * (num_cross_sections - 2) + [True] if num_cross_sections >= 2 else [True]
+    except AttributeError:
+        # Fallback: calculate first/last as True if parameter doesn't exist
+        support_positions = [True] + [False] * (num_cross_sections - 2) + [True] if num_cross_sections >= 2 else [True]
+
+    # Ensure support_positions list matches number of cross-sections
+    while len(support_positions) < num_cross_sections:
+        support_positions.append(False)
+
     # --- Process Cross-Sections (for transverse bridge lines and bz-dimensions texts) ---
     cumulative_x = 0.0
+    support_annotations_data = []  # List of dicts with x, y for supports
     for j in range(num_cross_sections):
         cs_data = segments_data[j]
         if j > 0:
@@ -1043,12 +1062,19 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
         label_y_pos = max_y_top_outer + label_y_offset
         cross_section_labels_data.append({"text": f"D{cross_section_number}", "x": cs_x, "y": label_y_pos, "type": "cross_section_label"})
 
+        # --- Add support annotation if support position is True ---
+        if j < len(support_positions) and support_positions[j]:
+            # Place support just below the bottom outer edge
+            support_y = y_bottom_outer - 0.5  # 0.5m below the lowest point (adjust as needed)
+            support_annotations_data.append({"x": cs_x, "y": support_y})
+
     return {
         "bridge_lines": bridge_lines,
         "zone_annotations": zone_annotations,
         "dimension_texts": dimension_texts_data,
         "cross_section_labels": cross_section_labels_data,
         "zone_polygons": zone_polygons_data,
+        "support_annotations": support_annotations_data,  # New key for supports
     }
 
 
