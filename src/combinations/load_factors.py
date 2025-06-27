@@ -218,6 +218,7 @@ def create_load_combination_table(params: dict) -> Styler:
 
     Raises:
         KeyError: If required parameters are missing from the params dict.
+
     """
     # Validate required parameters
     if not all(key in params for key in ["cc_class", "design_code"]):
@@ -258,11 +259,7 @@ def create_load_combination_table(params: dict) -> Styler:
     }
 
     # Create load combination gamma values
-    gamma_factors = get_gamma_factors(
-        cc=params["cc_class"],
-        safety_level=params["design_code"],
-        building_year=params["info"]["construction_year"]
-    )
+    gamma_factors = get_gamma_factors(cc=params["cc_class"], safety_level=params["design_code"], building_year=params["info"]["construction_year"])
 
     # Multiply the psi factors with the gamma factors for all load cases
     # Create a copy and convert to float64 to ensure dtype compatibility
@@ -317,7 +314,7 @@ def create_load_combination_table(params: dict) -> Styler:
     def highlight_leading_actions(df: pd.DataFrame) -> pd.DataFrame:
         """
         Apply highlighting to leading action cells in the load combination table.
-        
+
         :param df: DataFrame to style
         :type df: pd.DataFrame
         :returns: DataFrame with background-color styling applied
@@ -325,29 +322,23 @@ def create_load_combination_table(params: dict) -> Styler:
         """
         # Create empty styling DataFrame with same shape
         styling = pd.DataFrame("", index=df.index, columns=df.columns)
-        
+
         # Apply highlighting to leading action positions
         for row_name, col_name in leading_action_positions:
             # Skip if column doesn't exist in the DataFrame
             if col_name not in df.columns:
                 continue
-                
+
             # Find matching indices in the current DataFrame
-            matching_indices = [
-                idx for idx in df.index 
-                if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]
-            ]
-            
+            matching_indices = [idx for idx in df.index if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
+
             for idx in matching_indices:
                 if idx in df.index and col_name in df.columns:
                     styling.loc[idx, col_name] = "background-color: lightgreen"
-        
+
         return styling
 
     # Apply styling using the apply method (type-safe approach)
-    styled_df = df_combination_table_gamma_psi.style.apply(
-        lambda _: highlight_leading_actions(df_combination_table_gamma_psi), 
-        axis=None
-    )
+    styled_df = df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)
 
     return styled_df
