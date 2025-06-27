@@ -165,7 +165,7 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
         "6.10a": {},
         "6.10b": {},
     }
-d
+
     # Define the gamma factor types to extract
     gamma_keys = [
         "gamma_Gjsup",
