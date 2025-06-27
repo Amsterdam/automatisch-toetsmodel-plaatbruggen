@@ -256,10 +256,10 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
     wheel_4_corners = [(11.2, -0.2, 0.0), (11.6, -0.2, 0.0), (11.6, 0.2, 0.0), (11.2, 0.2, 0.0)]
 
     # 300kN/0.16m² = 1,875,000 N/m², 200kN/0.16m² = 1,250,000 N/m²
-    create_patch_surface_load(model, lm1_case, wheel_1_corners, 1875000.0, "LM1_Axle1_Wheel1")
-    create_patch_surface_load(model, lm1_case, wheel_2_corners, 1875000.0, "LM1_Axle1_Wheel2")
-    create_patch_surface_load(model, lm1_case, wheel_3_corners, 1250000.0, "LM1_Axle2_Wheel1")
-    create_patch_surface_load(model, lm1_case, wheel_4_corners, 1250000.0, "LM1_Axle2_Wheel2")
+    create_patch_surface_load(model, lm1_case, wheel_1_corners, -1875000.0, "LM1_Axle1_Wheel1")
+    create_patch_surface_load(model, lm1_case, wheel_2_corners, -1875000.0, "LM1_Axle1_Wheel2")
+    create_patch_surface_load(model, lm1_case, wheel_3_corners, -1250000.0, "LM1_Axle2_Wheel1")
+    create_patch_surface_load(model, lm1_case, wheel_4_corners, -1250000.0, "LM1_Axle2_Wheel2")
 
     return {
         "load_groups": {"permanent": permanent_group, "traffic": traffic_group, "wind": wind_group},
