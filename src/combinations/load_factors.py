@@ -187,11 +187,12 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
         if combination_rows.empty:
             raise ValueError(f"No data found for combination {combination}")
 
-        for gamma_key in gamma_keys:
-            try:
-                gamma_factors[combination][gamma_key] = float(combination_rows[gamma_key].iloc[0])
-            except (KeyError, IndexError, ValueError) as e:
-                raise ValueError(f"Failed to extract {gamma_key} for combination {combination}") from e
+        try:
+            # Extract all gamma factors for the current combination at once
+            gamma_values = {gamma_key: float(combination_rows[gamma_key].iloc[0]) for gamma_key in gamma_keys}
+            gamma_factors[combination].update(gamma_values)
+        except (KeyError, IndexError, ValueError) as e:
+            raise ValueError(f"Failed to extract gamma factors for combination {combination}") from e
 
     # Correct gamma factors for the case if building year is 2003 or before
     if int(building_year) <= 2003:
@@ -338,7 +339,5 @@ def create_load_combination_table(params: dict) -> Styler:
 
         return styling
 
-    # Apply styling using the apply method (type-safe approach)
-    styled_df = df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)
-
-    return styled_df
+    # Apply styling using the apply method (type-safe approach) and return directly
+    return df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)
