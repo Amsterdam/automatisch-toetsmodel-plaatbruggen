@@ -143,7 +143,8 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     Returns:
         Dictionary containing gamma factors with their values for both 6.10a and 6.10b
 
-    :raises ValueError: If the CC class or safety level is not found in the table, or if gamma factors cannot be extracted
+    Raises:
+        ValueError: If the CC class or safety level is not found in the table, or if gamma factors cannot be extracted
 
     """
     # Read the code tables from CSV
@@ -186,11 +187,11 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
         if combination_rows.empty:
             raise ValueError(f"No data found for combination {combination}")
 
-        try:
-            for gamma_key in gamma_keys:
+        for gamma_key in gamma_keys:
+            try:
                 gamma_factors[combination][gamma_key] = float(combination_rows[gamma_key].iloc[0])
-        except (KeyError, IndexError, ValueError) as e:
-            raise ValueError(f"Failed to extract {gamma_key} for combination {combination}") from e
+            except (KeyError, IndexError, ValueError) as e:
+                raise ValueError(f"Failed to extract {gamma_key} for combination {combination}") from e
 
     # Correct gamma factors for the case if building year is 2003 or before
     if int(building_year) <= 2003:
@@ -206,12 +207,24 @@ def create_load_combination_table(params: dict) -> Styler:
     Generates a styled table view of load combinations based on the NEN8700 combination table.
 
     Args:
-        params (dict): Object containing parameters for load combination generation
+        params (dict): Object containing parameters for load combination generation.
+                      Required keys:
+                      - cc_class: The consequence class
+                      - design_code: The safety level code
+                      - info: Dictionary containing construction_year
 
     Returns:
         Styled table showing load combinations and their active loads.
 
+    Raises:
+        KeyError: If required parameters are missing from the params dict.
     """
+    # Validate required parameters
+    if not all(key in params for key in ["cc_class", "design_code"]):
+        raise KeyError("Missing required parameters: cc_class and/or design_code")
+    if "info" not in params or "construction_year" not in params["info"]:
+        raise KeyError("Missing required parameter: info.construction_year")
+
     # Read the code tables from CSV and set "Combinatie" as index
     df_combination_table_psi = pd.read_csv(PSI_NEN8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
@@ -245,7 +258,11 @@ def create_load_combination_table(params: dict) -> Styler:
     }
 
     # Create load combination gamma values
-    gamma_factors = get_gamma_factors(cc=params.cc_class, safety_level=params.design_code, building_year=params.info.construction_year)
+    gamma_factors = get_gamma_factors(
+        cc=params["cc_class"],
+        safety_level=params["design_code"],
+        building_year=params["info"]["construction_year"]
+    )
 
     # Multiply the psi factors with the gamma factors for all load cases
     # Create a copy and convert to float64 to ensure dtype compatibility
@@ -312,7 +329,10 @@ def create_load_combination_table(params: dict) -> Styler:
         for idx in matching_indices:
             # Make sure both DataFrames have the required index and column
             if idx in df_combination_table_gamma_psi.index and col_name in df_combination_table_gamma_psi.columns:
-                # Create proper index and column labels for styling
-                styled_df = styled_df.set_properties(subset=(idx, col_name), **{"background-color": "lightgreen"})
+                # Use pd.IndexSlice for proper subsetting
+                styled_df = styled_df.set_properties(
+                    subset=pd.IndexSlice[idx, col_name],
+                    **{"background-color": "lightgreen"}
+                )
 
     return styled_df
