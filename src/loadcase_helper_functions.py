@@ -301,7 +301,7 @@ def tandem_systems_axes_more_lanes(length_bridgedeck: float, width_bridgedeck: f
     return results
 
 
-def UDL_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, Any]:
+def udl_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, Any]:
     """
     Calculate the UDL (Uniformly Distributed Load) for a single notional lane (small bridge deck).
 
@@ -338,7 +338,7 @@ def UDL_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness
     }
 
 
-def UDL_double_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
+def udl_double_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
     """
     Calculate the UDL (Uniformly Distributed Load) for two notional lanes (medium bridge deck).
 
@@ -384,7 +384,7 @@ def UDL_double_lane(length_bridgedeck: float, width_bridgedeck: float, thickness
             {"udl_value": 2.5, "coordinates": lane_coords[1]},
         ],
     }
-    # BG2002: reversed
+    # BG2002: inversed # noqa: ERA001
     case2 = {
         "load_case": "BG2002",
         "udl_lanes": [
@@ -395,7 +395,7 @@ def UDL_double_lane(length_bridgedeck: float, width_bridgedeck: float, thickness
     return [case1, case2]
 
 
-def UDL_more_lanes(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
+def udl_more_lanes(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
     """
     Calculate the UDL (Uniformly Distributed Load) for bridge decks with more than two notional lanes (wide bridge).
 
@@ -436,13 +436,13 @@ def UDL_more_lanes(length_bridgedeck: float, width_bridgedeck: float, thickness_
     udl_lanes_1 = []
     udl_lanes_1.append({"udl_value": 9.0, "coordinates": lane_coords[0]})
     for i in range(1, min(n_lanes, 5)):
-        udl_lanes_1.append({"udl_value": 2.5, "coordinates": lane_coords[i]})
+        udl_lanes_1.append({"udl_value": 2.5, "coordinates": lane_coords[i]})  # noqa: PERF401
     cases.append({"load_case": "BG2001", "udl_lanes": udl_lanes_1})
     # BG2002: 9 kN/m^2 on leftmost lane (highest y), 2.5 kN/m^2 on up to 4 adjacent lanes to the right (max 5 lanes loaded)
     udl_lanes_2 = []
     udl_lanes_2.append({"udl_value": 9.0, "coordinates": lane_coords[-1]})
     for i in range(n_lanes - 2, max(-1, n_lanes - 6), -1):
-        udl_lanes_2.append({"udl_value": 2.5, "coordinates": lane_coords[i]})
+        udl_lanes_2.append({"udl_value": 2.5, "coordinates": lane_coords[i]})  # noqa: PERF401
     cases.append({"load_case": "BG2002", "udl_lanes": udl_lanes_2})
     # BG2003: 9 kN/m^2 on the middle lane, 2.5 kN/m^2 on up to two adjacent lanes on each side (max 5 lanes loaded)
     udl_lanes_3 = []
