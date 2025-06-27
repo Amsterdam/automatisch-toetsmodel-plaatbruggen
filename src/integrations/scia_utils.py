@@ -52,7 +52,6 @@ def create_load_group_by_type(
     :param model: SCIA model instance
     :param load_option: "PERMANENT", "VARIABLE", "ACCIDENTAL", "SEISMIC"
     :param group_name: Name for the load group
-    :param load_type: Load type (default: "CAT_G" for bridges)
     :param relation: "STANDARD", "EXCLUSIVE", "TOGETHER"
 
     See: https://docs.viktor.ai/sdk/api/external/scia/#Model.create_load_group

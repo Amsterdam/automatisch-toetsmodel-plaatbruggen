@@ -226,8 +226,8 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
     """
     # Create load groups
     permanent_group = create_load_group_by_type(model, "PERMANENT", "LG_Permanent")
-    traffic_group = create_load_group_by_type(model, "VARIABLE", "LG_Traffic", "CAT_G")
-    wind_group = create_load_group_by_type(model, "VARIABLE", "LG_Wind", "WIND")
+    traffic_group = create_load_group_by_type(model, "VARIABLE", "LG_Traffic")
+    wind_group = create_load_group_by_type(model, "VARIABLE", "LG_Wind")
 
     # Create load cases
     dead_load_case = create_load_case_complete(
