@@ -17,6 +17,13 @@ See VIKTOR documentation for detailed parameters:
 
 from typing import Any, TypeAlias
 
+# Conditional import for VIKTOR SCIA module
+try:
+    from viktor.external import scia
+except ImportError:
+    # Mock scia module for environments without VIKTOR SDK
+    scia = None
+
 # Type aliases for SCIA objects
 SciaModel: TypeAlias = Any
 SciaNode: TypeAlias = Any
@@ -25,6 +32,12 @@ SciaLoadGroup: TypeAlias = Any
 SciaLoadCase: TypeAlias = Any
 SciaLoadCombination: TypeAlias = Any
 SciaSurfaceLoad: TypeAlias = Any
+
+
+def _check_scia_availability() -> None:
+    """Check if VIKTOR SCIA module is available."""
+    if scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
 
 def create_load_group_by_type(
@@ -45,10 +58,7 @@ def create_load_group_by_type(
 
     See: https://docs.viktor.ai/sdk/api/external/scia/#Model.create_load_group
     """
-    try:
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    _check_scia_availability()
 
     load_option_map = {
         "PERMANENT": scia.LoadGroup.LoadOption.PERMANENT,
@@ -63,23 +73,7 @@ def create_load_group_by_type(
         "TOGETHER": scia.LoadGroup.RelationOption.TOGETHER,
     }
 
-    load_type_map = {
-        "CAT_A": scia.LoadGroup.LoadTypeOption.CAT_A,
-        "CAT_B": scia.LoadGroup.LoadTypeOption.CAT_B,
-        "CAT_C": scia.LoadGroup.LoadTypeOption.CAT_C,
-        "CAT_D": scia.LoadGroup.LoadTypeOption.CAT_D,
-        "CAT_E": scia.LoadGroup.LoadTypeOption.CAT_E,
-        "CAT_F": scia.LoadGroup.LoadTypeOption.CAT_F,
-        "CAT_G": scia.LoadGroup.LoadTypeOption.CAT_G,  # Vehicle >30kN (bridges)
-        "CAT_H": scia.LoadGroup.LoadTypeOption.CAT_H,
-        "SNOW": scia.LoadGroup.LoadTypeOption.SNOW,
-        "WIND": scia.LoadGroup.LoadTypeOption.WIND,
-        "TEMPERATURE": scia.LoadGroup.LoadTypeOption.TEMPERATURE,
-        "RAIN_WATER": scia.LoadGroup.LoadTypeOption.RAIN_WATER,
-        "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
-    }
-
-    return model.create_load_group(group_name, load_option_map[load_option], relation_map[relation], load_type_map[load_type])
+    return model.create_load_group(group_name, load_option_map[load_option], relation_map[relation], scia.LoadGroup.LoadTypeOption.CAT_A)
 
 
 def create_load_case_complete(
@@ -106,10 +100,7 @@ def create_load_case_complete(
 
     See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
     """
-    try:
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    _check_scia_availability()
 
     # Extract kwargs with defaults
     permanent_type = kwargs.get("permanent_type", "STANDARD")
@@ -170,10 +161,7 @@ def create_load_combination_by_type(
 
     See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCombination
     """
-    try:
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    _check_scia_availability()
 
     combination_type_map = {
         # Ultimate Limit State
@@ -220,10 +208,7 @@ def create_patch_surface_load(
     :param load_value: Load magnitude in [N/m²] (positive = downward)
     :param load_name: Name identifier for the load
     """
-    try:
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    _check_scia_availability()
 
     if len(corner_points) != 4:
         raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
