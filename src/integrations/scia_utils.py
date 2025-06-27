@@ -128,28 +128,19 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
 
     # Create load group first (required for load case creation)
     load_group_name = f"LG_{load_case_name}"
-    
+
     if load_case_type.upper() == "PERMANENT":
         # Create permanent load group and load case
         load_group = model.create_load_group(
-            load_group_name,
-            scia.LoadGroup.LoadOption.PERMANENT,
-            scia.LoadGroup.RelationOption.STANDARD,
-            scia.LoadGroup.LoadTypeOption.CAT_G
+            load_group_name, scia.LoadGroup.LoadOption.PERMANENT, scia.LoadGroup.RelationOption.STANDARD, scia.LoadGroup.LoadTypeOption.CAT_G
         )
         return model.create_permanent_load_case(
-            load_case_name,
-            f"Permanent load case: {load_case_name}",
-            load_group,
-            scia.LoadCase.PermanentLoadType.STANDARD
+            load_case_name, f"Permanent load case: {load_case_name}", load_group, scia.LoadCase.PermanentLoadType.STANDARD
         )
-    elif load_case_type.upper() == "VARIABLE":
+    if load_case_type.upper() == "VARIABLE":
         # Create variable load group and load case
         load_group = model.create_load_group(
-            load_group_name,
-            scia.LoadGroup.LoadOption.VARIABLE,
-            scia.LoadGroup.RelationOption.STANDARD,
-            scia.LoadGroup.LoadTypeOption.CAT_G
+            load_group_name, scia.LoadGroup.LoadOption.VARIABLE, scia.LoadGroup.RelationOption.STANDARD, scia.LoadGroup.LoadTypeOption.CAT_G
         )
         return model.create_variable_load_case(
             load_case_name,
@@ -157,7 +148,6 @@ def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_
             load_group,
             scia.LoadCase.VariableLoadType.STATIC,
             scia.LoadCase.Specification.STANDARD,
-            scia.LoadCase.Duration.SHORT
+            scia.LoadCase.Duration.SHORT,
         )
-    else:
-        raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+    raise ValueError(f"Invalid load case type '{load_case_type}'. Use 'PERMANENT' or 'VARIABLE'")
