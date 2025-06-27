@@ -88,31 +88,34 @@ def create_load_case_complete(
     case_name: str,
     description: str,
     case_type: str,
-    *,
-    permanent_type: str = "STANDARD",
-    variable_type: str = "STATIC",
-    specification: str = "STANDARD",
-    duration: str = "SHORT",
+    **kwargs: str,
 ) -> SciaLoadCase:
     """
     Create SCIA load case with all parameters.
-
+    
     :param model: SCIA model instance
     :param load_group: Load group that this case belongs to
     :param case_name: Name for the load case
     :param description: Description of the load case
     :param case_type: "PERMANENT" or "VARIABLE"
-    :param permanent_type: For permanent: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"
-    :param variable_type: For variable: "STATIC", "PRIMARY_EFFECT"
-    :param specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"
-    :param duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"
-
+    :param kwargs: Optional parameters:
+        - permanent_type: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT" (default: "STANDARD")
+        - variable_type: "STATIC", "PRIMARY_EFFECT" (default: "STATIC")
+        - specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE" (default: "STANDARD")
+        - duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG" (default: "SHORT")
+    
     See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
     """
     try:
         from viktor.external import scia
     except ImportError as e:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+
+    # Extract kwargs with defaults
+    permanent_type = kwargs.get("permanent_type", "STANDARD")
+    variable_type = kwargs.get("variable_type", "STATIC")
+    specification = kwargs.get("specification", "STANDARD")
+    duration = kwargs.get("duration", "SHORT")
 
     permanent_type_map = {
         "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT,

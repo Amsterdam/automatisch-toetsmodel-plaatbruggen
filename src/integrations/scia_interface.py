@@ -232,15 +232,15 @@ def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
 
     # Create load cases
     dead_load_case = create_load_case_complete(
-        model, permanent_group, "G1_DeadLoad", "Superimposed dead load", case_type="PERMANENT", permanent_type="STANDARD"
+        model, permanent_group, "G1_DeadLoad", "Superimposed dead load", "PERMANENT", permanent_type="STANDARD"
     )
 
     lm1_case = create_load_case_complete(
-        model, traffic_group, "Q1_LM1", "Load Model 1 - Tandem + UDL", case_type="VARIABLE", variable_type="STATIC", duration="SHORT"
+        model, traffic_group, "Q1_LM1", "Load Model 1 - Tandem + UDL", "VARIABLE", variable_type="STATIC", duration="SHORT"
     )
 
     wind_case = create_load_case_complete(
-        model, wind_group, "Q2_Wind", "Wind Load", case_type="VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="SHORT"
+        model, wind_group, "Q2_Wind", "Wind Load", "VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="SHORT"
     )
 
     # Create load combinations (EN 1990 factors)
