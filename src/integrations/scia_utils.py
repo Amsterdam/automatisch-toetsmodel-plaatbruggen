@@ -92,7 +92,7 @@ def create_load_case_complete(
 ) -> SciaLoadCase:
     """
     Create SCIA load case with all parameters.
-    
+
     :param model: SCIA model instance
     :param load_group: Load group that this case belongs to
     :param case_name: Name for the load case
@@ -103,7 +103,7 @@ def create_load_case_complete(
         - variable_type: "STATIC", "PRIMARY_EFFECT" (default: "STATIC")
         - specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE" (default: "STANDARD")
         - duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG" (default: "SHORT")
-    
+
     See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
     """
     try:
