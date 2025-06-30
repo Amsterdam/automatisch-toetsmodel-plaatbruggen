@@ -15,10 +15,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import datetime
 from pandas.io.formats.style import Styler
 from scipy.interpolate import RegularGridInterpolator  # type: ignore[import-untyped]
-
-from app.constants import PSI_FACTORS_NEN8701
 
 # ===================================================================================================================
 # Paths
@@ -27,109 +26,12 @@ from app.constants import PSI_FACTORS_NEN8701
 PROJECT_PATH = Path(__file__).parent.parent.parent
 PSI_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN8700.csv"
 GAMMA_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamma_NEN8700.csv"
+PSI_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_nen8701.csv"
+ALPHA_TREND_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_trend_NEN8701.csv"
 
 # ===================================================================================================================
 # Functions
 # ===================================================================================================================
-
-
-def _clamp(value: float, min_value: float, max_value: float) -> float:
-    """
-    Clamps a value between min and max values.
-
-    Args:
-        value: The value to clamp
-        min_value: The minimum allowed value
-        max_value: The maximum allowed value
-
-    Returns:
-        The clamped value
-
-    """
-    return max(min_value, min(value, max_value))
-
-
-def validate_input(span: float, reference_period: float) -> tuple[float, float]:
-    """
-    Validate input parameters for psi factor calculation and clamp span between 20 and 200.
-
-    Args:
-        span: Bridge span length in meters
-        reference_period: Reference period in years
-
-    Returns:
-        Tuple of (clamped_span, reference_period)
-
-    Raises:
-        TypeError: If inputs are not numeric values
-        ValueError: If inputs are invalid values
-
-    """
-    if not isinstance(span, int | float) or not isinstance(reference_period, int | float):
-        raise TypeError("Span and reference period must be numeric values")
-
-    if span <= 0:
-        raise ValueError("Span must be positive")
-    if reference_period <= 0:
-        raise ValueError("Reference period must be positive")
-
-    valid_periods = sorted(PSI_FACTORS_NEN8701.keys())
-
-    if reference_period > max(valid_periods):
-        raise ValueError(f"Reference period must not exceed {max(valid_periods)} years")
-
-    # Clamp span between 20 and 200 meters
-    clamped_span = _clamp(span, 20, 200)
-
-    return clamped_span, reference_period
-
-
-def get_interpolation_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Prepare data for 2D interpolation from PSI_FACTORS_NEN8701 table.
-
-    Returns:
-        Tuple containing span values, period values, and psi values as 2D array
-
-    """
-    spans = sorted(PSI_FACTORS_NEN8701[100].keys())
-    periods = sorted(PSI_FACTORS_NEN8701.keys(), reverse=True)  # Sort periods in descending order
-
-    values = np.zeros((len(periods), len(spans)))
-    for i, period in enumerate(periods):
-        for j, span in enumerate(spans):
-            values[i, j] = PSI_FACTORS_NEN8701[period][span]
-
-    return np.array(spans), np.array(periods), values
-
-
-def get_psi_factor(span: float, reference_period: float) -> float:
-    """
-    Calculate psi factor using bilinear interpolation.
-
-    Args:
-        span: Bridge span length in meters (will be clamped between 20 and 200)
-        reference_period: Reference period in years
-
-    Returns:
-        Interpolated psi factor value
-
-    Raises:
-        ValueError: If inputs are invalid or interpolation fails
-
-    """
-    clamped_span, ref_period = validate_input(span, reference_period)
-
-    spans, periods, values = get_interpolation_data()
-    interpolator = RegularGridInterpolator((periods, spans), values, method="linear", bounds_error=False, fill_value=None)
-
-    result = interpolator(np.array([ref_period, clamped_span]))
-
-    if result is None or np.isnan(result[0]):
-        raise ValueError("Interpolation failed. Input values may be outside valid range.")
-
-    return float(result[0])
-
 
 def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     """
@@ -341,3 +243,107 @@ def create_load_combination_table(params: dict) -> Styler:
 
     # Apply styling using the apply method (type-safe approach) and return directly
     return df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)
+
+
+def get_psi_nen8701(span: float, reference_period: float) -> float:
+    """
+    Calculate the psi factor according to NEN 8701 based on span length and reference period.
+
+    For spans outside the valid range:
+    - Spans < 20m are calculated using span = 20m
+    - Spans > 200m are calculated using span = 200m
+
+    For reference periods outside the table range:
+    - Values are clamped to the nearest valid value
+
+    Args:
+        span: Length of the span in meters
+        reference_period: Reference period in years
+
+    Returns:
+        float: Interpolated psi factor value
+
+    Raises:
+        ValueError: If reference period is outside the valid range
+    """
+    # Read the CSV file
+    df = pd.read_csv(PSI_NEN8701_PATH, sep=";", decimal=",")
+
+    # Extract x (span) and y (reference period) coordinates from column headers and index
+    x_coords = np.array([float(col) for col in df.columns[1:]])  # spans
+    y_coords = np.array([float(row) for row in df.iloc[:, 0]])   # reference periods
+
+    # Extract z values (psi factors)
+    z_values = df.iloc[:, 1:].values
+
+    # Create interpolator
+    interpolator = RegularGridInterpolator(
+        (y_coords, x_coords),
+        z_values,
+        method="linear",
+        bounds_error=False,  # Use clamping for out-of-bounds values
+        fill_value=None  # Will use nearest value for out-of-bounds points
+    )
+
+    # Clamp span and reference period to valid ranges
+    clamped_span = min(max(span, min(x_coords)), max(x_coords))
+    clamped_reference_period = min(max(reference_period, min(y_coords)), max(y_coords))
+
+    # Return interpolated value - extract first (and only) element from the array
+    result = interpolator([clamped_reference_period, clamped_span])
+    return float(result.item())
+
+
+def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
+    """
+    Calculate the alpha trend factor according to NEN 8701 based on span length and design life.
+
+    The alpha trend factor is determined by interpolating values from NEN 8701 based on
+    the span length and design life. Design life determines the target year relative to 2010
+    (design life + 2010).
+
+    For spans outside the valid range:
+    - Spans < 0m are calculated using span = 0m
+    - Spans > 100m are calculated using span = 100m
+
+    For target years outside the table range:
+    - Years before 2010 use the 2010 values
+    - Years after 2060 use the 2060 values
+
+    Args:
+        span: Length of the span in meters
+        design_life: Design life in years from the present (e.g., 30 for a 30-year design life)
+
+    Returns:
+        float: Interpolated alpha trend factor value
+    """
+    # Read the CSV file
+    df = pd.read_csv(ALPHA_TREND_NEN8701_PATH, sep=";", decimal=",")
+
+    # Extract x (years) and y (spans) coordinates from column headers and index
+    years = np.array([int(col) for col in df.columns[1:]])  # years from columns
+    spans = np.array([float(row) for row in df.iloc[:, 0]])  # spans from first column
+
+    # Extract z values (alpha trend factors)
+    z_values = df.iloc[:, 1:].values
+
+    # Create interpolator
+    interpolator = RegularGridInterpolator(
+        (spans, years),
+        z_values,
+        method="linear",
+        bounds_error=False,  # Allow extrapolation for years
+        fill_value=None  # Will use nearest value for out-of-bounds points
+    )
+
+    # Clamp span to valid ranges
+    clamped_span = min(max(span, min(spans)), max(spans))
+
+    # Calculate target year (relative to 2010 base year)
+    present_year = datetime.datetime.now().year
+    target_year = present_year + design_life
+    clamped_year = min(max(target_year, min(years)), max(years))
+
+    # Return interpolated value - extract first (and only) element from the array
+    result = interpolator([clamped_span, clamped_year])
+    return float(result.item())
