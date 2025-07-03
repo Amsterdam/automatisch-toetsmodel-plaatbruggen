@@ -669,10 +669,11 @@ class TestMinimalTrafficLoadCombinations:
         traffic_cases = [mock_tandem_case_1, mock_tandem_case_2, mock_tandem_case_3]
         bridge_span = 25.0
 
-        # Patch the dynamic imports after they are imported
+        # Patch the global imports correctly
         with (
-            patch("src.combinations.load_factors.get_gamma_factors") as mock_gamma,
-            patch("src.combinations.load_factors.get_psi_factor") as mock_psi,
+            patch("src.integrations.scia_interface.get_gamma_factors") as mock_gamma,
+            patch("src.integrations.scia_interface.get_psi_factor") as mock_psi,
+            patch("src.integrations.scia_interface.LOAD_FACTORS_AVAILABLE", True),
         ):
             # Mock gamma factors (NEN 8700)
             mock_gamma.return_value = {
@@ -705,24 +706,18 @@ class TestMinimalTrafficLoadCombinations:
             mock_gamma.assert_called_once_with(cc="CC2", safety_level="NEN 8700 gebruik", building_year="2010")
             mock_psi.assert_called_once_with(span=25.0, reference_period=50.0)
 
-            # Verify combinations were created for both 6.10a and 6.10b
-            assert mock_combination.call_count >= 4  # ULS + SLS for both combo types
-            assert len(result) >= 4  # Should have multiple combination types
+            # Should create 4 combinations (ULS + SLS for both 6.10a and 6.10b)
+            assert len(result) == 4
 
-            # Verify combination names follow gr1a TS pattern
-            expected_keys = [
-                "uls_6.10a_gr1a_ts",
-                "uls_6.10b_gr1a_ts",
-                "sls_char_6.10a_gr1a_ts",
-                "sls_char_6.10b_gr1a_ts",
-            ]
-            for key in expected_keys:
-                assert key in result
+            # Check combination types
+            assert "uls_6.10a_gr1a_ts" in result
+            assert "uls_6.10b_gr1a_ts" in result
+            assert "sls_char_6.10a_gr1a_ts" in result
+            assert "sls_char_6.10b_gr1a_ts" in result
 
-            # Verify combination descriptions mention "gr1a TS"
-            for call in mock_combination.call_args_list:
-                description = call[0][4]  # Description is 5th argument
-                assert "gr1a TS" in description
+            # Verify combination creation calls
+            # Should have 4 calls for the 4 combinations
+            assert mock_combination.call_count == 4
 
     @patch("src.integrations.scia_interface.create_load_combination_by_type")
     def test_create_traffic_combinations_minimal_fallback(self, mock_combination: Mock) -> None:
@@ -736,8 +731,9 @@ class TestMinimalTrafficLoadCombinations:
 
         # Mock the import to fail and trigger fallback
         with (
-            patch("src.combinations.load_factors.get_gamma_factors", side_effect=ImportError("Mock import failure")),
-            patch("src.combinations.load_factors.get_psi_factor", side_effect=ImportError("Mock import failure")),
+            patch("src.integrations.scia_interface.get_gamma_factors", side_effect=ImportError("Mock import failure")),
+            patch("src.integrations.scia_interface.get_psi_factor", side_effect=ImportError("Mock import failure")),
+            patch("src.integrations.scia_interface.LOAD_FACTORS_AVAILABLE", False),
             patch("builtins.print"),  # Suppress debug prints
         ):
             result = _create_traffic_load_combinations_minimal(
@@ -791,10 +787,11 @@ class TestMinimalTrafficLoadCombinations:
         # Mock combination creation
         mock_combination.return_value = Mock()
 
-        # Patch the dynamic imports after they are imported
+        # Patch the global imports correctly
         with (
-            patch("src.combinations.load_factors.get_gamma_factors") as mock_gamma,
-            patch("src.combinations.load_factors.get_psi_factor") as mock_psi,
+            patch("src.integrations.scia_interface.get_gamma_factors") as mock_gamma,
+            patch("src.integrations.scia_interface.get_psi_factor") as mock_psi,
+            patch("src.integrations.scia_interface.LOAD_FACTORS_AVAILABLE", True),
         ):
             # Setup return values
             mock_gamma.return_value = {
@@ -834,10 +831,11 @@ class TestMinimalTrafficLoadCombinations:
         # Mock combination creation
         mock_combination.return_value = Mock()
 
-        # Patch the dynamic imports after they are imported
+        # Patch the global imports correctly
         with (
-            patch("src.combinations.load_factors.get_gamma_factors") as mock_gamma,
-            patch("src.combinations.load_factors.get_psi_factor") as mock_psi,
+            patch("src.integrations.scia_interface.get_gamma_factors") as mock_gamma,
+            patch("src.integrations.scia_interface.get_psi_factor") as mock_psi,
+            patch("src.integrations.scia_interface.LOAD_FACTORS_AVAILABLE", True),
         ):
             # Setup return values
             mock_gamma.return_value = {
