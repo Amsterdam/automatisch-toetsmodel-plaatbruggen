@@ -749,9 +749,11 @@ class TestMinimalTrafficLoadCombinations:
                 dead_load_case=mock_dead_case,
                 traffic_load_cases=traffic_cases,
                 bridge_span=bridge_span,
-                consequence_class="CC2",
-                safety_level="NEN 8700 gebruik",
-                construction_year="2010",
+                config={
+                    "consequence_class": "CC2",
+                    "safety_level": "NEN 8700 gebruik",
+                    "construction_year": "2010",
+                },
             )
 
             # Verify function calls
@@ -964,9 +966,11 @@ class TestDutchStandardLoadCombinations:
             dead_load_case=mock_dead_case,
             traffic_load_cases=mock_traffic_cases,
             bridge_span=25.0,
-            consequence_class="CC2",
-            safety_level="NEN 8700 gebruik",
-            construction_year="2010",
+            config={
+                "consequence_class": "CC2",
+                "safety_level": "NEN 8700 gebruik",
+                "construction_year": "2010",
+            },
         )
 
         # Verify result is passed through

@@ -827,8 +827,7 @@ def _create_traffic_load_combinations_minimal(
                 model, "SLS_CHAR", "SLS_Basic_G+TS", {dead_load_case: 1.0, primary_tandem: 1.0}, "Basic SLS: Dead + Tandem System (Fallback)"
             )
             return {"uls_basic_traffic": uls_basic_traffic, "sls_basic_traffic": sls_basic_traffic}
-        else:
-            return {}
+        return {}
     else:
         return combinations
 
