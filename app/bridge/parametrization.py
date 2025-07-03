@@ -550,7 +550,7 @@ Below you will find important information about this bridge structure."""
     input.dimensions.lb2 = LineBreak()
     input.dimensions.horizontal_section_loc = NumberField(
         "Horizontale doorsnede z =",
-        default=-1.0,
+        default=-0.1,
         suffix="m",
         visible=Lookup("input.dimensions.toggle_sections"),
         min=_get_model_zmin,
