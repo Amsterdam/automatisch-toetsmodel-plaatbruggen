@@ -8,6 +8,190 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import Any
 
+# ========================================================================
+# THEORETICAL TRAFFIC LANE INTEGRATION
+# ========================================================================
+# These functions connect tandem loads to theoretical traffic lanes from
+# src.geometry.load_zone_geometry for proper structural engineering analysis.
+
+
+def generate_theoretical_lane_positions(width_bridgedeck: float, lane_width: float = 3.0) -> list[float]:
+    """
+    Generate Y-positions for theoretical traffic lanes across bridge width.
+
+    Creates lane center positions based on geometric division of bridge width.
+    This provides the foundation for theoretical lane-based tandem loading.
+
+    :param width_bridgedeck: Total bridge width in meters
+    :type width_bridgedeck: float
+    :param lane_width: Standard lane width in meters (default 3.0m)
+    :type lane_width: float
+    :returns: List of Y-coordinates for lane centers
+    :rtype: list[float]
+    :raises ValueError: If bridge_width or lane_width is not positive
+
+    Examples:
+        >>> generate_theoretical_lane_positions(30.0, 3.0)
+        [1.5, 4.5, 7.5, 10.5, 13.5, 16.5, 19.5, 22.5, 25.5, 28.5]
+
+        >>> generate_theoretical_lane_positions(10.0, 3.0)
+        [1.5, 4.5, 7.5]  # 3 complete lanes, 1m rest ignored
+
+    """
+    if width_bridgedeck <= 0:
+        raise ValueError("Bridge width must be positive")
+    if lane_width <= 0:
+        raise ValueError("Lane width must be positive")
+
+    # Calculate number of complete lanes
+    num_lanes = int(width_bridgedeck // lane_width)
+
+    # Generate lane center positions
+    lane_centers = []
+    for lane_idx in range(num_lanes):
+        lane_start = lane_idx * lane_width
+        lane_center = lane_start + (lane_width / 2)  # Center of each lane
+        lane_centers.append(lane_center)
+
+    return lane_centers
+
+
+def tandem_systems_theoretical_lanes(
+    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, lane_width: float = 3.0
+) -> list[dict[str, Any]]:
+    """
+    Generate tandem loads positioned at theoretical traffic lane centers.
+
+    This function replaces the fixed Eurocode notional lane positions with
+    theoretical lane positions based on geometric bridge width division.
+    Provides comprehensive coverage across full bridge width.
+
+    :param length_bridgedeck: Bridge length in meters
+    :type length_bridgedeck: float
+    :param width_bridgedeck: Bridge width in meters
+    :type width_bridgedeck: float
+    :param thickness_bridgedeck: Bridge thickness in meters
+    :type thickness_bridgedeck: float
+    :param lane_width: Standard lane width in meters (default 3.0m)
+    :type lane_width: float
+    :returns: List of tandem load cases with full width coverage
+    :rtype: list[dict[str, Any]]
+
+    Load Case Structure:
+        Each load case contains:
+        - load_case: "TH6001", "TH6002", etc. (TH = Theoretical)
+        - wheels: List of 4 wheel coordinates per tandem
+        - load: Load intensity in N/m²
+
+    Future Integration Points:
+        - Phase 2: Add lane shifting capability for critical loading
+        - Phase 3: Connect to params.input.belastingzones actual lanes
+    """
+    load = 300 / (0.4 * 0.4)  # 300 kN over 0.4m x 0.4m = 1,875,000 N/m²
+    wheel_size = 0.4
+
+    # Get longitudinal positions (same as existing system)
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
+
+    # Get theoretical lane positions (NEW: replaces fixed positions)
+    lane_y_positions = generate_theoretical_lane_positions(width_bridgedeck, lane_width)
+
+    results = []
+    load_case_number = 1
+
+    # Generate load cases for each lane position
+    for y_lane_center in lane_y_positions:
+        for x in tandem_x_positions:
+            wheels = []
+
+            # Position tandem system at lane center
+            # Tandem dimensions: 1.2m x 1.2m (2x2 wheels with 1.2m spacing)
+            tandem_start_y = y_lane_center - 0.6  # Center the 1.2m tandem in lane
+
+            # Four wheels per tandem system, spaced 1.2m apart in x, 1.2m apart in y
+            for dx, dy in [(0, 0), (1.2, 0), (0, 1.2), (1.2, 1.2)]:
+                x0 = x + dx
+                y0 = tandem_start_y + dy
+
+                # Clockwise wheel coordinates: bottom right, top right, top left, bottom left
+                wheel_coords = [
+                    [x0 + wheel_size, y0],  # bottom right
+                    [x0 + wheel_size, y0 + wheel_size],  # top right
+                    [x0, y0 + wheel_size],  # top left
+                    [x0, y0],  # bottom left
+                ]
+                wheels.append(wheel_coords)
+
+            results.append(
+                {
+                    "load_case": f"TH{6000 + load_case_number:04d}",  # TH = Theoretical
+                    "wheels": wheels,
+                    "load": load,
+                }
+            )
+            load_case_number += 1
+
+    return results
+
+
+# ========================================================================
+# FUTURE INTEGRATION ARCHITECTURE
+# ========================================================================
+# The following function signatures are planned for future implementation:
+
+
+def tandem_systems_shiftable_lanes(
+    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, num_shift_positions: int = 5
+) -> list[dict[str, Any]]:
+    """
+    FUTURE IMPLEMENTATION: Generate tandem loads with freely shiftable lane positions.
+
+    This will enable testing all possible transverse positions to find critical
+    loading scenarios for maximum structural effects.
+
+    :param num_shift_positions: Number of transverse positions to test
+    :returns: Load cases with shifting tandem positions for optimization
+
+    Planned Features:
+        - Multiple transverse positions per longitudinal location
+        - Load case naming: "SH6001", "SH6002", etc. (SH = Shiftable)
+        - Integration with influence line analysis
+        - Automatic critical position detection
+    """
+    # TODO: Implement in Phase 2
+    # This will generate tandems at multiple Y positions per X position
+    # for comprehensive coverage and critical loading analysis
+    raise NotImplementedError("Shiftable lanes implementation planned for Phase 2")
+
+
+def tandem_systems_actual_lanes(length_bridgedeck: float, actual_lane_positions: list[float], thickness_bridgedeck: float) -> list[dict[str, Any]]:
+    """
+    FUTURE IMPLEMENTATION: Generate tandem loads based on actual traffic lane data.
+
+    This will connect to params.input.belastingzones to use real lane configurations
+    from the bridge parametrization for practical loading scenarios.
+
+    :param actual_lane_positions: Y-coordinates from load zone car lanes
+    :returns: Load cases based on actual lane configuration
+
+    Planned Features:
+        - Integration with params.input.belastingzones
+        - Load case naming: "AC6001", "AC6002", etc. (AC = Actual)
+        - Variable lane widths support
+        - Different load intensities per lane type
+    """
+    # TODO: Implement in Phase 3
+    # This will extract lane positions from params.input.belastingzones
+    # and generate tandems at actual traffic lane locations
+    raise NotImplementedError("Actual lanes implementation planned for Phase 3")
+
+
+# ========================================================================
+# ORIGINAL EUROCODE FUNCTIONS (PRESERVED FOR COMPLIANCE)
+# ========================================================================
+# These functions maintain Eurocode notional lane compliance and are kept
+# for regulatory requirements and comparison purposes.
+
 
 def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
     """

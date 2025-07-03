@@ -701,139 +701,276 @@ class TestTandemSCIAApplication:
             assert call_args[3] == -1875000.0  # Negative for downward direction
 
 
-class TestDutchStandardLoadCombinations:
-    """Test Dutch standard load combinations (NEN 8700/8701) implementation."""
+class TestMinimalTrafficLoadCombinations:
+    """Test minimal traffic load combinations (gr1a TS focus) implementation."""
 
-    @patch("src.integrations.scia_interface.get_gamma_factors")
-    @patch("src.integrations.scia_interface.get_psi_factor")
     @patch("src.integrations.scia_interface.create_load_combination_by_type")
-    def test_create_dutch_standard_load_combinations_success(self, mock_combination: Mock, mock_psi: Mock, mock_gamma: Mock) -> None:
-        """Test successful creation of Dutch standard load combinations."""
+    def test_create_traffic_combinations_minimal_success(self, mock_combination: Mock) -> None:
+        """Test successful creation of minimal traffic load combinations."""
+        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
+
+        # Setup mocks
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_tandem_case_1 = Mock()
+        mock_tandem_case_2 = Mock()
+        mock_tandem_case_3 = Mock()
+        mock_combo_object = Mock()
+
+        # Mock combination creation
+        mock_combination.return_value = mock_combo_object
+
+        # Test parameters - focus on traffic (TS - Tandem System)
+        traffic_cases = [mock_tandem_case_1, mock_tandem_case_2, mock_tandem_case_3]
+        bridge_span = 25.0
+
+        # Patch the dynamic imports after they are imported
+        with (
+            patch("src.combinations.load_factors.get_gamma_factors") as mock_gamma,
+            patch("src.combinations.load_factors.get_psi_factor") as mock_psi,
+        ):
+            # Mock gamma factors (NEN 8700)
+            mock_gamma.return_value = {
+                "6.10a": {
+                    "gamma_Gjsup": 1.25,
+                    "gamma_Qverkeer": 1.25,
+                },
+                "6.10b": {
+                    "gamma_Gjsup": 1.15,
+                    "gamma_Qverkeer": 1.25,
+                },
+            }
+
+            # Mock psi factor (NEN 8701)
+            mock_psi.return_value = 0.95
+
+            result = _create_traffic_load_combinations_minimal(
+                model=mock_model,
+                dead_load_case=mock_dead_case,
+                traffic_load_cases=traffic_cases,
+                bridge_span=bridge_span,
+                consequence_class="CC2",
+                safety_level="NEN 8700 gebruik",
+                construction_year="2010",
+            )
+
+            # Verify function calls
+            mock_gamma.assert_called_once_with(cc="CC2", safety_level="NEN 8700 gebruik", building_year="2010")
+            mock_psi.assert_called_once_with(span=25.0, reference_period=50.0)
+
+            # Verify combinations were created for both 6.10a and 6.10b
+            assert mock_combination.call_count >= 4  # ULS + SLS for both combo types
+            assert len(result) >= 4  # Should have multiple combination types
+
+            # Verify combination names follow gr1a TS pattern
+            expected_keys = [
+                "uls_6.10a_gr1a_ts",
+                "uls_6.10b_gr1a_ts",
+                "sls_char_6.10a_gr1a_ts",
+                "sls_char_6.10b_gr1a_ts",
+            ]
+            for key in expected_keys:
+                assert key in result
+
+            # Verify combination descriptions mention "gr1a TS"
+            for call in mock_combination.call_args_list:
+                description = call[0][4]  # Description is 5th argument
+                assert "gr1a TS" in description
+
+    @patch("src.integrations.scia_interface.create_load_combination_by_type")
+    def test_create_traffic_combinations_minimal_fallback(self, mock_combination: Mock) -> None:
+        """Test fallback to basic combinations when traffic combinations fail."""
+        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
+
+        # Setup mocks
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_tandem_case = Mock()
+
+        # Mock combination creation
+        mock_combination.return_value = Mock()
+
+        # Mock the import to fail and trigger fallback
+        with (
+            patch("src.combinations.load_factors.get_gamma_factors", side_effect=ImportError("Mock import failure")),
+            patch("src.combinations.load_factors.get_psi_factor", side_effect=ImportError("Mock import failure")),
+            patch("builtins.print"),  # Suppress debug prints
+        ):
+            result = _create_traffic_load_combinations_minimal(
+                model=mock_model,
+                dead_load_case=mock_dead_case,
+                traffic_load_cases=[mock_tandem_case],
+                bridge_span=25.0,
+            )
+
+            # Should fall back to basic traffic combinations
+            assert len(result) == 2
+            assert "uls_basic_traffic" in result
+            assert "sls_basic_traffic" in result
+
+            # Verify basic combinations were created with TS naming
+            assert mock_combination.call_count == 2
+
+            # Check ULS combination
+            uls_call = mock_combination.call_args_list[0]
+            assert uls_call[0][2] == "ULS_Basic_G+TS"  # Combination name
+            assert "Tandem System" in uls_call[0][4]  # Description
+
+            # Check SLS combination
+            sls_call = mock_combination.call_args_list[1]
+            assert sls_call[0][2] == "SLS_Basic_G+TS"  # Combination name
+            assert "Tandem System" in sls_call[0][4]  # Description
+
+    def test_create_traffic_combinations_minimal_no_traffic(self) -> None:
+        """Test behavior when no traffic load cases are provided."""
+        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
+
+        mock_model = Mock()
+        mock_dead_case = Mock()
+
+        # No need to mock gamma/psi factors since function should exit early
+        result = _create_traffic_load_combinations_minimal(
+            model=mock_model,
+            dead_load_case=mock_dead_case,
+            traffic_load_cases=[],  # No traffic cases
+            bridge_span=25.0,
+        )
+
+        # Should return empty result for no traffic cases
+        assert result == {}
+
+    @patch("src.integrations.scia_interface.create_load_combination_by_type")
+    def test_create_traffic_combinations_minimal_single_tandem(self, mock_combination: Mock) -> None:
+        """Test combinations with single tandem load case."""
+        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
+
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_tandem_case = Mock()
+
+        # Mock combination creation
+        mock_combination.return_value = Mock()
+
+        # Patch the dynamic imports after they are imported
+        with (
+            patch("src.combinations.load_factors.get_gamma_factors") as mock_gamma,
+            patch("src.combinations.load_factors.get_psi_factor") as mock_psi,
+        ):
+            # Setup return values
+            mock_gamma.return_value = {
+                "6.10a": {"gamma_Gjsup": 1.25, "gamma_Qverkeer": 1.25},
+                "6.10b": {"gamma_Gjsup": 1.15, "gamma_Qverkeer": 1.25},
+            }
+            mock_psi.return_value = 0.95
+
+            result = _create_traffic_load_combinations_minimal(
+                model=mock_model,
+                dead_load_case=mock_dead_case,
+                traffic_load_cases=[mock_tandem_case],  # Single tandem
+                bridge_span=25.0,
+            )
+
+            # Should create combinations for single tandem
+            assert len(result) == 4  # ULS + SLS for both 6.10a and 6.10b
+            assert mock_combination.call_count == 4
+
+            # Verify that only primary tandem is used (no accompanying loads)
+            for call in mock_combination.call_args_list:
+                factors = call[0][3]  # Load factors dictionary
+                assert len(factors) == 2  # Only dead load + primary tandem
+                assert mock_dead_case in factors
+                assert mock_tandem_case in factors
+
+    @patch("src.integrations.scia_interface.create_load_combination_by_type")
+    def test_create_traffic_combinations_minimal_multiple_tandems(self, mock_combination: Mock) -> None:
+        """Test combinations with multiple tandem load cases (leading + accompanying)."""
+        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
+
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_primary_tandem = Mock()
+        mock_tandem_2 = Mock()
+        mock_tandem_3 = Mock()
+        mock_tandem_4 = Mock()  # Should be ignored (limit to 2 accompanying)
+
+        # Mock combination creation
+        mock_combination.return_value = Mock()
+
+        # Patch the dynamic imports after they are imported
+        with (
+            patch("src.combinations.load_factors.get_gamma_factors") as mock_gamma,
+            patch("src.combinations.load_factors.get_psi_factor") as mock_psi,
+        ):
+            # Setup return values
+            mock_gamma.return_value = {
+                "6.10a": {"gamma_Gjsup": 1.25, "gamma_Qverkeer": 1.25},
+                "6.10b": {"gamma_Gjsup": 1.15, "gamma_Qverkeer": 1.25},
+            }
+            mock_psi.return_value = 0.95
+
+            result = _create_traffic_load_combinations_minimal(
+                model=mock_model,
+                dead_load_case=mock_dead_case,
+                traffic_load_cases=[mock_primary_tandem, mock_tandem_2, mock_tandem_3, mock_tandem_4],
+                bridge_span=25.0,
+            )
+
+            # Should create combinations with primary + 2 accompanying tandems max
+            assert len(result) == 4
+            assert mock_combination.call_count == 4
+
+            # Verify load factors include primary + 2 accompanying (not 4th tandem)
+            for call in mock_combination.call_args_list:
+                factors = call[0][3]  # Load factors dictionary
+                assert len(factors) == 4  # Dead + primary + 2 accompanying
+                assert mock_dead_case in factors
+                assert mock_primary_tandem in factors
+                assert mock_tandem_2 in factors
+                assert mock_tandem_3 in factors
+                assert mock_tandem_4 not in factors  # Should be excluded
+
+
+class TestDutchStandardLoadCombinations:
+    """Test deprecated Dutch standard load combinations (compatibility)."""
+
+    @patch("src.integrations.scia_interface._create_traffic_load_combinations_minimal")
+    def test_create_dutch_standard_load_combinations_redirect(self, mock_minimal: Mock) -> None:
+        """Test that deprecated function redirects to minimal implementation."""
         from src.integrations.scia_interface import _create_dutch_standard_load_combinations
 
         # Setup mocks
         mock_model = Mock()
         mock_dead_case = Mock()
-        mock_traffic_case_1 = Mock()
-        mock_traffic_case_2 = Mock()
+        mock_traffic_cases = [Mock(), Mock()]
         mock_wind_case = Mock()
-        mock_combo_object = Mock()
+        mock_result = {"uls_6.10a_gr1a_ts": Mock()}
 
-        # Mock gamma factors (NEN 8700)
-        mock_gamma.return_value = {
-            "6.10a": {
-                "gamma_Gjsup": 1.25,
-                "gamma_Qverkeer": 1.25,
-                "gamma_Qwind": 1.4,
-            },
-            "6.10b": {
-                "gamma_Gjsup": 1.15,
-                "gamma_Qverkeer": 1.25,
-                "gamma_Qwind": 1.4,
-            },
-        }
-
-        # Mock psi factor (NEN 8701)
-        mock_psi.return_value = 0.95
-
-        # Mock combination creation
-        mock_combination.return_value = mock_combo_object
-
-        # Test parameters
-        traffic_cases = [mock_traffic_case_1, mock_traffic_case_2]
-        bridge_span = 25.0
+        mock_minimal.return_value = mock_result
 
         result = _create_dutch_standard_load_combinations(
             model=mock_model,
             dead_load_case=mock_dead_case,
-            traffic_load_cases=traffic_cases,
-            wind_case=mock_wind_case,
-            bridge_span=bridge_span,
+            traffic_load_cases=mock_traffic_cases,
+            wind_case=mock_wind_case,  # Wind case passed but not used in minimal
+            bridge_span=25.0,
             consequence_class="CC2",
             safety_level="NEN 8700 gebruik",
             construction_year="2010",
         )
 
-        # Verify function calls
-        mock_gamma.assert_called_once_with(cc="CC2", safety_level="NEN 8700 gebruik", building_year="2010")
-        mock_psi.assert_called_once_with(span=25.0, reference_period=50.0)
+        # Verify redirect to minimal function
+        mock_minimal.assert_called_once_with(
+            model=mock_model,
+            dead_load_case=mock_dead_case,
+            traffic_load_cases=mock_traffic_cases,
+            bridge_span=25.0,
+            consequence_class="CC2",
+            safety_level="NEN 8700 gebruik",
+            construction_year="2010",
+        )
 
-        # Verify combinations were created
-        assert mock_combination.call_count >= 6  # Multiple combinations for both 6.10a and 6.10b
-        assert len(result) >= 6  # Should have multiple combination types
-
-        # Verify combination names follow expected pattern
-        expected_keys = [
-            "uls_6.10a_traffic",
-            "uls_6.10a_traffic_wind",
-            "uls_6.10a_wind_traffic",
-            "sls_char_6.10a",
-            "sls_freq_6.10a",
-        ]
-        for key in expected_keys:
-            assert key in result
-
-    @patch("src.integrations.scia_interface.get_gamma_factors")
-    def test_create_dutch_standard_load_combinations_fallback(self, mock_gamma: Mock) -> None:
-        """Test fallback to basic combinations when Dutch standards fail."""
-        from src.integrations.scia_interface import _create_dutch_standard_load_combinations
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_dead_case = Mock()
-        mock_traffic_case = Mock()
-        mock_wind_case = Mock()
-
-        # Mock gamma factors to raise exception
-        mock_gamma.side_effect = ValueError("Gamma factors not found")
-
-        with (
-            patch("src.integrations.scia_interface.create_load_combination_by_type") as mock_combination,
-            patch("builtins.print"),  # Suppress debug prints
-        ):
-            mock_combination.return_value = Mock()
-
-            result = _create_dutch_standard_load_combinations(
-                model=mock_model,
-                dead_load_case=mock_dead_case,
-                traffic_load_cases=[mock_traffic_case],
-                wind_case=mock_wind_case,
-                bridge_span=25.0,
-            )
-
-            # Should fall back to basic combinations
-            assert len(result) == 2
-            assert "uls_basic" in result
-            assert "sls_basic" in result
-
-            # Verify basic combinations were created
-            assert mock_combination.call_count == 2
-
-    def test_create_dutch_standard_load_combinations_no_traffic(self) -> None:
-        """Test behavior when no traffic load cases are provided."""
-        from src.integrations.scia_interface import _create_dutch_standard_load_combinations
-
-        mock_model = Mock()
-        mock_dead_case = Mock()
-        mock_wind_case = Mock()
-
-        with (
-            patch("src.integrations.scia_interface.get_gamma_factors") as mock_gamma,
-            patch("src.integrations.scia_interface.get_psi_factor") as mock_psi,
-        ):
-            mock_gamma.return_value = {"6.10a": {}, "6.10b": {}}
-            mock_psi.return_value = 0.95
-
-            result = _create_dutch_standard_load_combinations(
-                model=mock_model,
-                dead_load_case=mock_dead_case,
-                traffic_load_cases=[],  # No traffic cases
-                wind_case=mock_wind_case,
-                bridge_span=25.0,
-            )
-
-            # Should return empty result for no traffic cases
-            assert result == {}
+        # Verify result is passed through
+        assert result is mock_result
 
 
 class TestRealisticTandemLoadsComplete:
@@ -916,7 +1053,7 @@ class TestRealisticTandemLoadsComplete:
             assert len(result["load_cases"]) >= 5  # At least the tandem cases (may include others)
 
     def test_dutch_standard_combinations_integration(self) -> None:
-        """Test that Dutch standard combinations are called with correct parameters."""
+        """Test that minimal traffic combinations are called with correct parameters."""
         from src.integrations.scia_interface import _add_realistic_tandem_loads
 
         mock_model = Mock()
@@ -927,7 +1064,7 @@ class TestRealisticTandemLoadsComplete:
             patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply,
             patch("src.integrations.scia_interface.create_load_group_by_type") as mock_create_group,
             patch("src.integrations.scia_interface.create_load_case_complete") as mock_create_case,
-            patch("src.integrations.scia_interface._create_dutch_standard_load_combinations") as mock_dutch_combos,
+            patch("src.integrations.scia_interface._create_traffic_load_combinations_minimal") as mock_traffic_combos,
         ):
             # Setup mocks
             mock_load_group = Mock()
@@ -937,28 +1074,375 @@ class TestRealisticTandemLoadsComplete:
 
             mock_create_group.return_value = mock_load_group
             mock_create_case.side_effect = [mock_dead_case, mock_wind_case]
-            mock_generate.return_value = [{"load_case": "BG6001", "wheels": [], "load": 1000}]
+            mock_generate.return_value = [{"load_case": "TH6001", "wheels": [], "load": 1000}]
             mock_apply.return_value = mock_traffic_cases
-            mock_dutch_combos.return_value = {"uls_6.10a_traffic": Mock(), "sls_char_6.10a": Mock()}
+            mock_traffic_combos.return_value = {"uls_6.10a_gr1a_ts": Mock(), "sls_char_6.10a_gr1a_ts": Mock()}
 
             result = _add_realistic_tandem_loads(mock_model, params)
 
-            # Verify Dutch combinations function was called with correct parameters
-            mock_dutch_combos.assert_called_once()
-            call_args = mock_dutch_combos.call_args[1]  # keyword arguments
+            # Verify minimal traffic combinations function was called with correct parameters
+            mock_traffic_combos.assert_called_once()
+            call_args = mock_traffic_combos.call_args[1]  # keyword arguments
 
+            # Note: The call goes through _create_dutch_standard_load_combinations which redirects
+            # to _create_traffic_load_combinations_minimal, so we verify the redirect path works
             assert call_args["model"] is mock_model
             assert call_args["dead_load_case"] is mock_dead_case
             assert call_args["traffic_load_cases"] is mock_traffic_cases
-            assert call_args["wind_case"] is mock_wind_case
             assert call_args["bridge_span"] == 10.0  # From bridge_default_params.json
             assert call_args["consequence_class"] == "CC2"
             assert call_args["safety_level"] == "NEN 8700 gebruik"
             assert call_args["construction_year"] == "2010"
 
-            # Verify combinations are returned
+            # Verify combinations are returned (gr1a TS focus)
             assert "combinations" in result
             assert len(result["combinations"]) == 2
+
+    def test_load_case_naming_theoretical_vs_eurocode(self) -> None:
+        """Test that load case naming distinguishes between theoretical and eurocode modes."""
+        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
+
+        bridge_params = {"length_bridgedeck": 20.0, "width_bridgedeck": 30.0, "thickness_bridgedeck": 1.5}
+
+        with (
+            patch("src.integrations.scia_interface.tandem_systems_theoretical_lanes") as mock_theoretical,
+            patch("src.integrations.scia_interface.tandem_systems_axes_more_lanes") as mock_eurocode,
+        ):
+            # Mock theoretical mode with TH prefix
+            mock_theoretical.return_value = [{"load_case": "TH6001", "wheels": [], "load": 1875000.0}]
+
+            # Mock eurocode mode with BG prefix
+            mock_eurocode.return_value = [{"load_case": "BG6001", "wheels": [], "load": 1875000.0}]
+
+            # Test theoretical mode
+            theoretical_result = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
+            assert theoretical_result[0]["load_case"].startswith("TH")
+
+            # Test eurocode mode
+            eurocode_result = generate_tandem_loads_for_bridge(bridge_params, mode="eurocode")
+            assert eurocode_result[0]["load_case"].startswith("BG")
+
+
+class TestTheoreticalLaneFunctions:
+    """Test theoretical lane functions from loadcase_helper_functions."""
+
+    def test_generate_theoretical_lane_positions_30m_bridge(self) -> None:
+        """Test lane position generation for 30m bridge."""
+        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
+
+        positions = generate_theoretical_lane_positions(30.0, 3.0)
+
+        # 30m ÷ 3m = 10 complete lanes
+        expected_positions = [1.5, 4.5, 7.5, 10.5, 13.5, 16.5, 19.5, 22.5, 25.5, 28.5]
+        assert positions == expected_positions
+        assert len(positions) == 10
+
+    def test_generate_theoretical_lane_positions_with_remainder(self) -> None:
+        """Test lane position generation when bridge width has remainder."""
+        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
+
+        positions = generate_theoretical_lane_positions(10.0, 3.0)
+
+        # 10m ÷ 3m = 3 complete lanes (1m remainder ignored)
+        expected_positions = [1.5, 4.5, 7.5]
+        assert positions == expected_positions
+        assert len(positions) == 3
+
+    def test_generate_theoretical_lane_positions_custom_lane_width(self) -> None:
+        """Test lane position generation with custom lane width."""
+        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
+
+        positions = generate_theoretical_lane_positions(20.0, 4.0)
+
+        # 20m ÷ 4m = 5 complete lanes
+        expected_positions = [2.0, 6.0, 10.0, 14.0, 18.0]  # Centers at lane_width/2 + n*lane_width
+        assert positions == expected_positions
+        assert len(positions) == 5
+
+    def test_generate_theoretical_lane_positions_edge_cases(self) -> None:
+        """Test edge cases for lane position generation."""
+        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
+
+        # Very narrow bridge (< 1 lane)
+        positions = generate_theoretical_lane_positions(2.0, 3.0)
+        assert positions == []  # No complete lanes
+
+        # Exact multiple
+        positions = generate_theoretical_lane_positions(9.0, 3.0)
+        assert len(positions) == 3
+        assert positions == [1.5, 4.5, 7.5]
+
+    def test_generate_theoretical_lane_positions_error_handling(self) -> None:
+        """Test error handling for invalid inputs."""
+        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
+
+        with pytest.raises(ValueError, match="Bridge width must be positive"):
+            generate_theoretical_lane_positions(0.0, 3.0)
+
+        with pytest.raises(ValueError, match="Bridge width must be positive"):
+            generate_theoretical_lane_positions(-5.0, 3.0)
+
+        with pytest.raises(ValueError, match="Lane width must be positive"):
+            generate_theoretical_lane_positions(30.0, 0.0)
+
+        with pytest.raises(ValueError, match="Lane width must be positive"):
+            generate_theoretical_lane_positions(30.0, -2.0)
+
+    @patch("src.loads.loadcase_helper_functions.tandem_system_sequencer")
+    def test_tandem_systems_theoretical_lanes_basic_functionality(self, mock_sequencer: Mock) -> None:
+        """Test basic functionality of theoretical lane tandem system."""
+        from src.loads.loadcase_helper_functions import tandem_systems_theoretical_lanes
+
+        # Mock longitudinal positions
+        mock_sequencer.return_value = [5.0, 15.0]  # Two X positions
+
+        result = tandem_systems_theoretical_lanes(20.0, 9.0, 1.5, lane_width=3.0)
+
+        # Bridge: 20m length, 9m width = 3 lanes (at Y positions 1.5, 4.5, 7.5)
+        # Longitudinal: 2 positions = 2 * 3 = 6 load cases total
+        assert len(result) == 6
+
+        # Verify load case naming
+        load_case_names = [case["load_case"] for case in result]
+        expected_names = ["TH6001", "TH6002", "TH6003", "TH6004", "TH6005", "TH6006"]
+        assert load_case_names == expected_names
+
+        # Verify all cases have required structure
+        for case in result:
+            assert "load_case" in case
+            assert "wheels" in case
+            assert "load" in case
+            assert abs(case["load"] - 1875.0) < 1e-6  # Standard load intensity: 300 kN / 0.16 m²
+
+    @patch("src.loads.loadcase_helper_functions.tandem_system_sequencer")
+    def test_tandem_systems_theoretical_lanes_wheel_positioning(self, mock_sequencer: Mock) -> None:
+        """Test wheel positioning in theoretical lane system."""
+        from src.loads.loadcase_helper_functions import tandem_systems_theoretical_lanes
+
+        # Mock single longitudinal position for clearer testing
+        mock_sequencer.return_value = [10.0]
+
+        result = tandem_systems_theoretical_lanes(20.0, 6.0, 1.5, lane_width=3.0)
+
+        # Bridge: 6m width = 2 lanes at Y positions 1.5, 4.5
+        assert len(result) == 2
+
+        # Check first lane (Y center = 1.5)
+        first_case = result[0]
+        wheels_lane_1 = first_case["wheels"]
+        assert len(wheels_lane_1) == 4  # 4 wheels per tandem
+
+        # Tandem should be centered at lane 1 (Y=1.5)
+        # Tandem start_y = 1.5 - 0.6 = 0.9
+        # First wheel should be at (10.0, 0.9) to (10.4, 1.3)
+        first_wheel = wheels_lane_1[0]
+        assert first_wheel[0] == [10.4, 0.9]  # bottom right
+        assert first_wheel[1] == [10.4, 1.3]  # top right
+        assert first_wheel[2] == [10.0, 1.3]  # top left
+        assert first_wheel[3] == [10.0, 0.9]  # bottom left
+
+    def test_tandem_systems_theoretical_lanes_lane_width_integration(self) -> None:
+        """Test integration with different lane widths matching load_zone_geometry."""
+        from src.loads.loadcase_helper_functions import tandem_systems_theoretical_lanes
+
+        # Test with same lane width as load_zone_geometry default (3.0m)
+        with patch("src.loads.loadcase_helper_functions.tandem_system_sequencer") as mock_seq:
+            mock_seq.return_value = [10.0]
+
+            result_3m = tandem_systems_theoretical_lanes(20.0, 30.0, 1.5, lane_width=3.0)
+            result_custom = tandem_systems_theoretical_lanes(20.0, 30.0, 1.5, lane_width=2.5)
+
+            # 30m width: 3.0m lanes = 10 lanes, 2.5m lanes = 12 lanes
+            assert len(result_3m) == 10
+            assert len(result_custom) == 12
+
+    def test_future_function_placeholders(self) -> None:
+        """Test that future functions raise NotImplementedError."""
+        from src.loads.loadcase_helper_functions import tandem_systems_actual_lanes, tandem_systems_shiftable_lanes
+
+        with pytest.raises(NotImplementedError, match="Shiftable lanes implementation planned for Phase 2"):
+            tandem_systems_shiftable_lanes(20.0, 30.0, 1.5)
+
+        with pytest.raises(NotImplementedError, match="Actual lanes implementation planned for Phase 3"):
+            tandem_systems_actual_lanes(20.0, [1.5, 4.5, 7.5], 1.5)
+
+
+class TestTheoreticalLaneIntegration:
+    """Test theoretical traffic lane integration with tandem loads."""
+
+    def test_determine_tandem_function_theoretical_mode(self) -> None:
+        """Test tandem function determination in theoretical mode."""
+        # Import here to avoid circular import issues
+        import sys
+
+        sys.path.insert(0, "src")
+
+        from src.integrations.scia_interface import determine_tandem_function_for_bridge
+
+        bridge_dims = {"width_bridgedeck": 30.0}
+        result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
+
+        assert result["function_name"] == "tandem_systems_theoretical_lanes"
+        assert result["lane_count"] == 10  # 30m ÷ 3m = 10 lanes
+        assert result["mode"] == "theoretical"
+        assert "10 lanes across 30m" in result["description"]
+
+    def test_determine_tandem_function_eurocode_mode(self) -> None:
+        """Test tandem function determination in eurocode mode."""
+        from src.integrations.scia_interface import determine_tandem_function_for_bridge
+
+        bridge_dims = {"width_bridgedeck": 30.0}
+        result = determine_tandem_function_for_bridge(bridge_dims, mode="eurocode")
+
+        assert result["function_name"] == "tandem_systems_axes_more_lanes"  # 30m > 6m = more lanes
+        assert result["mode"] == "eurocode"
+        assert "Eurocode notional lanes" in result["description"]
+
+    def test_determine_tandem_function_mode_comparison(self) -> None:
+        """Test that theoretical and eurocode modes produce different lane counts."""
+        from src.integrations.scia_interface import determine_tandem_function_for_bridge
+
+        bridge_dims = {"width_bridgedeck": 15.0}  # 15m bridge
+
+        theoretical_result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
+        eurocode_result = determine_tandem_function_for_bridge(bridge_dims, mode="eurocode")
+
+        # Theoretical: 15m ÷ 3m = 5 lanes
+        assert theoretical_result["lane_count"] == 5
+        assert theoretical_result["function_name"] == "tandem_systems_theoretical_lanes"
+
+        # Eurocode: Uses notional lane calculation (different result)
+        assert eurocode_result["mode"] == "eurocode"
+        assert eurocode_result["function_name"] in [
+            "tandem_systems_axes_single_lane",
+            "tandem_systems_axes_double_lane",
+            "tandem_systems_axes_more_lanes",
+        ]
+
+    def test_determine_tandem_function_invalid_mode(self) -> None:
+        """Test error handling for invalid modes."""
+        from src.integrations.scia_interface import determine_tandem_function_for_bridge
+
+        bridge_dims = {"width_bridgedeck": 30.0}
+
+        with pytest.raises(ValueError, match="Unsupported mode 'invalid'"):
+            determine_tandem_function_for_bridge(bridge_dims, mode="invalid")
+
+    def test_determine_tandem_function_future_modes(self) -> None:
+        """Test that future modes raise NotImplementedError."""
+        from src.integrations.scia_interface import determine_tandem_function_for_bridge
+
+        bridge_dims = {"width_bridgedeck": 30.0}
+
+        with pytest.raises(NotImplementedError, match="planned for future implementation"):
+            determine_tandem_function_for_bridge(bridge_dims, mode="shiftable")
+
+        with pytest.raises(NotImplementedError, match="planned for future implementation"):
+            determine_tandem_function_for_bridge(bridge_dims, mode="actual")
+
+    @patch("src.integrations.scia_interface.tandem_systems_theoretical_lanes")
+    def test_generate_tandem_loads_theoretical_mode(self, mock_theoretical_lanes: Mock) -> None:
+        """Test tandem load generation in theoretical mode."""
+        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
+
+        # Setup mock
+        mock_theoretical_lanes.return_value = [
+            {"load_case": "TH6001", "wheels": [], "load": 1875000.0},
+            {"load_case": "TH6002", "wheels": [], "load": 1875000.0},
+        ]
+
+        bridge_params = {"length_bridgedeck": 20.0, "width_bridgedeck": 30.0, "thickness_bridgedeck": 1.5}
+
+        result = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
+
+        # Verify theoretical function was called
+        mock_theoretical_lanes.assert_called_once_with(20.0, 30.0, 1.5)
+        assert len(result) == 2
+        assert result[0]["load_case"] == "TH6001"
+
+    @patch("src.integrations.scia_interface.tandem_systems_axes_more_lanes")
+    def test_generate_tandem_loads_eurocode_mode(self, mock_eurocode_lanes: Mock) -> None:
+        """Test tandem load generation in eurocode mode."""
+        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
+
+        # Setup mock
+        mock_eurocode_lanes.return_value = [{"load_case": "BG6001", "wheels": [], "load": 1875000.0}]
+
+        bridge_params = {
+            "length_bridgedeck": 20.0,
+            "width_bridgedeck": 30.0,  # > 6m = more lanes function
+            "thickness_bridgedeck": 1.5,
+        }
+
+        result = generate_tandem_loads_for_bridge(bridge_params, mode="eurocode")
+
+        # Verify eurocode function was called
+        mock_eurocode_lanes.assert_called_once_with(20.0, 30.0, 1.5)
+        assert len(result) == 1
+        assert result[0]["load_case"] == "BG6001"
+
+    def test_theoretical_lane_integration_end_to_end(self) -> None:
+        """Test end-to-end theoretical lane integration with real bridge data."""
+        from src.integrations.scia_interface import _add_realistic_tandem_loads
+
+        # Setup mocks
+        mock_model = Mock()
+
+        # Load real test data
+        params = load_bridge_default_params()
+
+        with (
+            patch("src.integrations.scia_interface.create_load_group_by_type") as mock_create_group,
+            patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply_loads,
+            patch("src.integrations.scia_interface._create_dutch_standard_load_combinations") as mock_dutch_combos,
+            patch("src.integrations.scia_interface.tandem_systems_theoretical_lanes") as mock_theoretical_func,
+        ):
+            # Setup return values
+            mock_create_group.side_effect = [Mock(), Mock(), Mock()]  # Three load groups
+            mock_apply_loads.return_value = [Mock(), Mock(), Mock()]  # Multiple load cases
+            mock_dutch_combos.return_value = {"uls_6.10a_traffic": Mock(), "sls_char_6.10a": Mock()}
+
+            # Mock theoretical lanes function with realistic output
+            mock_theoretical_func.return_value = [
+                {"load_case": "TH6001", "wheels": [[[10, 1.5], [10.4, 1.5], [10.4, 1.9], [10, 1.9]]], "load": 1875000.0},
+                {"load_case": "TH6002", "wheels": [[[10, 4.5], [10.4, 4.5], [10.4, 4.9], [10, 4.9]]], "load": 1875000.0},
+                {"load_case": "TH6003", "wheels": [[[10, 7.5], [10.4, 7.5], [10.4, 7.9], [10, 7.9]]], "load": 1875000.0},
+            ]
+
+            result = _add_realistic_tandem_loads(mock_model, params)
+
+            # Verify theoretical lanes function was called with bridge dimensions
+            # Bridge from default params: length=10m, width=30m, thickness=2.0m
+            mock_theoretical_func.assert_called_once_with(10.0, 30.0, 2.0)
+
+            # Verify structure is returned correctly
+            assert "load_groups" in result
+            assert "load_cases" in result
+            assert "combinations" in result
+
+    def test_load_case_naming_theoretical_vs_eurocode(self) -> None:
+        """Test that load case naming distinguishes between theoretical and eurocode modes."""
+        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
+
+        bridge_params = {"length_bridgedeck": 20.0, "width_bridgedeck": 30.0, "thickness_bridgedeck": 1.5}
+
+        with (
+            patch("src.integrations.scia_interface.tandem_systems_theoretical_lanes") as mock_theoretical,
+            patch("src.integrations.scia_interface.tandem_systems_axes_more_lanes") as mock_eurocode,
+        ):
+            # Mock theoretical mode with TH prefix
+            mock_theoretical.return_value = [{"load_case": "TH6001", "wheels": [], "load": 1875000.0}]
+
+            # Mock eurocode mode with BG prefix
+            mock_eurocode.return_value = [{"load_case": "BG6001", "wheels": [], "load": 1875000.0}]
+
+            # Test theoretical mode
+            theoretical_result = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
+            assert theoretical_result[0]["load_case"].startswith("TH")
+
+            # Test eurocode mode
+            eurocode_result = generate_tandem_loads_for_bridge(bridge_params, mode="eurocode")
+            assert eurocode_result[0]["load_case"].startswith("BG")
 
 
 if __name__ == "__main__":
