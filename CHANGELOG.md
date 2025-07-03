@@ -1,5 +1,5 @@
 # Changelog
-## [`v0.0.7`] - 2025-xx-xx
+## [`v0.0.7`] - 2025-07-03
 ### Added
 - Added the option to add supports in Input -> Dimensions
 - Added csv file for material densities
