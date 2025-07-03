@@ -127,6 +127,7 @@ def tandem_systems_axes_single_lane(length_bridgedeck: float, width_bridgedeck: 
             wheels = []
             # Four wheels per tandem system, spaced 1.2 m apart in x, 2.0 m apart in y
             for dx, dy in [(0, 0), (1.2, 0), (0, 2.0), (1.2, 2.0)]:
+
                 x0 = x + dx
                 y0 = y + dy
                 # Clockwise: bottom right, top right, top left, bottom left
@@ -179,6 +180,7 @@ def tandem_systems_axes_double_lane(length_bridgedeck: float, width_bridgedeck: 
         for lane_idx, (y, load) in enumerate(zip(y_positions, [300, 200])):
             wheels = []
             for dx, dy in [(0, 0), (1.2, 0), (0, 1.2), (2.0, 2.0)]:
+
                 x0 = x + dx
                 y0 = y + dy
                 wheel_coords = [
@@ -208,6 +210,7 @@ def tandem_systems_axes_double_lane(length_bridgedeck: float, width_bridgedeck: 
         for lane_idx, (y, load) in enumerate(zip(y_positions, [200, 300])):
             wheels = []
             for dx, dy in [(0, 0), (1.2, 0), (0, 2.0), (1.2, 2.0)]:
+
                 x0 = x + dx
                 y0 = y + dy
                 wheel_coords = [
@@ -275,6 +278,7 @@ def tandem_systems_axes_more_lanes(length_bridgedeck: float, width_bridgedeck: f
             for lane_idx, (y, load) in enumerate(zip(y_positions, config)):
                 wheels = []
                 for dx, dy in [(0, 0), (1.2, 0), (0, 2.0), (1.2, 2.0)]:
+
                     x0 = x + dx
                     y0 = y + dy
                     wheel_coords = [
@@ -299,7 +303,6 @@ def tandem_systems_axes_more_lanes(length_bridgedeck: float, width_bridgedeck: f
             )
             load_case_number += 1
     return results
-
 
 def udl_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, Any]:
     """
@@ -459,3 +462,4 @@ def udl_more_lanes(length_bridgedeck: float, width_bridgedeck: float, thickness_
             added += 1
     cases.append({"load_case": "BG2003", "udl_lanes": udl_lanes_3})
     return cases
+
