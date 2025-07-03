@@ -22,6 +22,7 @@ from app.bridge.parametrization import (
 
 from src.common.materials import get_default_materials
 from src.integrations.scia_interface import create_node_and_thickness_dict
+from src.geometry.model_creator import create_rebars
 
 
 @dataclass
@@ -373,6 +374,27 @@ def _get_reinforcement_material_enum(material_name: str) -> Any:  # noqa: ANN401
 
     return material_mapping.get(material_name, idea_rcs.ReinforcementMaterial.B_500B)
 
+def calculate_rebar_positions(width: float, hoh: float, y_offset: float = 0) -> list[float]:
+        """Calculate positions for longitudinal reinforcement."""
+        n_rebars = int(width / hoh)  # Round down to ensure minimum hoh is maintained
+        if n_rebars < 1:
+            return []
+
+        actual_hoh = width / n_rebars
+        positions = []
+
+        if n_rebars % 2 == 0:  # Even number of rebars
+            for i in range(n_rebars // 2):
+                offset = (i + 0.5) * actual_hoh
+                positions.extend([-offset, offset])
+        else:  # Odd number of rebars
+            positions = [0]  # Center rebar
+            for i in range(1, (n_rebars + 1) // 2):
+                offset = i * actual_hoh
+                positions.extend([-offset, offset])
+
+        positions.sort()
+        return [pos + y_offset for pos in positions]
 
 def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN401
     """
@@ -386,14 +408,17 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
     :raises ImportError: If VIKTOR IDEA module is not available
     """
     # Create the IDEA model
-    model = idea_rcs.Model()
+    model = idea_rcs.OpenModel()
 
     # Create concrete material
     # Convert material name to IDEA enum
-    cs_mat = model.create_concrete_material(idea_rcs.ConcreteMaterial.C30_37)
+    cs_mat = model.create_matconcrete_ec2(idea_rcs.ConcreteMaterial.C30_37)
 
     # Create reinforcement material
-    mat_reinf = model.create_reinforcement_material(idea_rcs.ReinforcementMaterial.B_500B)
+    mat_reinf = model.create_matreinforcement_ec2(idea_rcs.ReinforcementMaterial.B_500B)
+    # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
+    top_reinf_cover = params.input.geometrie_wapening.dekking_boven
+    bottom_reinf_cover = params.input.geometrie_wapening.dekking_onder
 
     # Extract zone thickness data from bridge parameters
     nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
@@ -423,26 +448,106 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
     # Filter matching_zone_keys to only unique (thickness, config) pairs
     unique_matching_zone_keys = list({(thickness, config) for thickness, config in matching_zone_keys})
 
+    # Loop through unique thickness and reinforcement configurations
     for thickness, config in unique_matching_zone_keys:
         print(f"Creating slab for thickness {thickness} and reinforcement config {config}")
 
-        # Create rectangular cross-section
-        cross_section = idea_rcs.RectSection(1, thickness)
+        # Get needed reinforcement data in mm
+        diameters = {
+            "top_along": rebar_config.get("hoofdwapening_langs_boven_diameter"),
+            "top_across": rebar_config.get("hoofdwapening_dwars_boven_diameter"),
+            "bottom_along": rebar_config.get("hoofdwapening_langs_onder_diameter"),
+            "bottom_across": rebar_config.get("hoofdwapening_dwars_onder_diameter"),
+        }
 
-        # Create one-way slab member (correct for bridge deck analysis)
-        slab = model.create_one_way_slab(cross_section, cs_mat)
+        # Get center to center distances in mm
+        ctc_distances = {
+            "top_along": rebar_config.get("hoofdwapening_langs_boven_hart_op_hart"),
+            "top_across": rebar_config.get("hoofdwapening_dwars_boven_hart_op_hart"),
+            "bottom_along": rebar_config.get("hoofdwapening_langs_onder_hart_op_hart"),
+            "bottom_across": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart"),
+        }
 
-        # Add reinforcement bars based on the configuration
-        rebar_config = params.reinforcement_zones_array[config - 1]
-        print(f"Reinforcement configuration for zone {config}: {rebar_config}")
+        reinf_heights = {}
+        thickness_mm = thickness*1000 # Convert thickness from m to mm
+        if params.input.geometrie_wapening.langswapening_buiten: # If langswapening_buiten is True, we assume the reinforcement is placed at the edges
+            reinf_heights["top_along"] = thickness_mm/2 - top_reinf_cover - diameters["top_along"] / 2
+            reinf_heights["top_across"] = thickness_mm/2 - top_reinf_cover - diameters["top_along"] - diameters["top_across"] / 2
+            reinf_heights["bottom_along"] = -thickness_mm/2 + bottom_reinf_cover + diameters["bottom_along"] / 2
+            reinf_heights["bottom_across"] = -thickness_mm/2 + bottom_reinf_cover + diameters["bottom_along"] + diameters["bottom_across"] / 2
+        else:
+            # If langswapening_buiten is False, we assume the reinforcement is placed as a second layer
+            reinf_heights["top_along"] = thickness_mm/2 - top_reinf_cover - diameters["top_across"] - diameters["top_along"] / 2
+            reinf_heights["top_across"] = thickness_mm/2 - top_reinf_cover - diameters["top_across"] / 2
+            reinf_heights["bottom_along"] = -thickness_mm/2 + bottom_reinf_cover + diameters["bottom_across"] + diameters["bottom_along"] / 2
+            reinf_heights["bottom_across"] = -thickness/2 + bottom_reinf_cover + diameters["bottom_across"] / 2
 
-        # for bar in rebar_config.get("bars", []):
-        #     slab.add_reinforcement_bar(bar)
+        print(f"Reinforcement diameters: {diameters}")
+        print(f"Reinforcement heights: {reinf_heights}")
 
-    exit()
+        # Create slab for each unique thickness and reinforcement configuration for both directions since we cant create separate sections for each direction
+        for direction in ["along"]:
+
+            # Create rectangular cross-section
+            # cs = model.create_cross_section_parameter(name=f'cs_{config}_{direction}',
+            #                                           cross_section_type=idea_rcs.CrossSectionType.RECT,
+            #                                           material=cs_mat,
+            #                                           Width=1.0, Height=thickness)
+            
+            cs = model.create_cross_section_parameter(name=f'cs',
+                                                      cross_section_type=idea_rcs.CrossSectionType.RECT,
+                                                      material=cs_mat,
+                                                      Width=1.0, Height=thickness)
+
+            # # Create one-way slab member (correct for bridge deck analysis)
+            # slab = model.create_one_way_slab(cs, cs_mat)
+
+            # Add reinforcement bars based on the configuration
+            rebar_config = params.reinforcement_zones_array[config - 1]
+            print(f"Reinforcement configuration for zone {config}: {rebar_config}")
+
+            rcs = model.create_reinforced_cross_section(name="rcs", cross_section=cs)
+
+            # for location in ["top"]:
+            #     number_of_bars = int(1000 / ctc_distances[f"{location}_{direction}"])  # Can be decimal
+            #     rcs.create_bar_layer(
+            #         origin=(0, (reinf_heights[f"{location}_{direction}"])/1000),  # Centered origin for the slab Y Z
+            #         diameter=diameters[f"{location}_{direction}"]/1000,  # Convert diameter from mm to m
+            #         material=mat_reinf,
+            #         number_of_bars=number_of_bars, # needs to be integer
+            #         delta_y= 0.5 - 0.05,
+            #         delta_z=0,  # Convert height from mm to m
+            #     )
+
+            for location in ["top", "bottom"]:
+                bar_locations_x = calculate_rebar_positions(1, ctc_distances[f"{location}_{direction}"])
+                bar_locations_y = [reinf_heights[f"{location}_{direction}"]/1000] * len(bar_locations_x)  # Convert height from mm to m
+                bar_diameters = [diameters[f"{location}_{direction}"]/1000] * len(bar_locations_x)  # Convert diameter from mm to m 
+                bar_locations = list(zip(bar_locations_x, bar_locations_y))
+
+                # bar_locations = list(zip(bar_locations_x, bar_locations_y))
+                # bar_diameters = [0.016, 0.016, 0.016, 0.016]
+                print(f"Creating {location} reinforcement bars at {bar_locations} with diameters {bar_diameters}")
+
+                for coords, diameter in zip(bar_locations, bar_diameters):
+                    rcs.create_bar(coords, diameter, mat_reinf)
+
+            member = model.create_check_member1d()
+
+            # # 'Assign' the CheckMember to a CheckSection with the previously defined reinforced section and add extremes.
+            check_section = model.add_check_section(check_member=member, reinf_section=rcs)
+            freq = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(N=-100000, My=210000))
+            fund = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(N=-99999, My=200000))
+            check_section.create_extreme(frequent=freq, fundamental=fund)
+
+            # 'Assign' the necessary additional data to the CheckMember.
+            model.add_member_data_ec2(member, idea_rcs.MemberType.BEAM_SLAB, idea_rcs.TwoWaySlabType.SHELL_AS_PLATE)
+
+
+    # exit()
     
 
-    return create_simple_idea_slab_model(cross_section_data)
+    return model
 
 
 def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
