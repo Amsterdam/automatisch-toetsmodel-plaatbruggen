@@ -10,15 +10,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from tests.test_data.seed_loader import load_bridge_default_params
-
 # Global imports from SCIA interface module - moved to top level for CI compatibility
 from src.integrations.scia_interface import (
     NodeTracker,
     _add_dummy_wheel_loads,
     _add_realistic_tandem_loads,
+    _create_dutch_standard_load_combinations,
+    _create_traffic_load_combinations_minimal,
     apply_tandem_loads_to_scia_model,
-    convert_tandem_data_to_scia_format,
     create_bridge_scia_model,
     create_node_and_thickness_dict,
     create_scia_analysis_from_template,
@@ -26,8 +25,6 @@ from src.integrations.scia_interface import (
     determine_tandem_function_for_bridge,
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
-    _create_dutch_standard_load_combinations,
-    _create_traffic_load_combinations_minimal,
 )
 
 # Global imports from loadcase helper functions - moved to top level for CI compatibility
@@ -37,6 +34,7 @@ from src.loads.loadcase_helper_functions import (
     tandem_systems_shiftable_lanes,
     tandem_systems_theoretical_lanes,
 )
+from tests.test_data.seed_loader import load_bridge_default_params
 
 
 class TestNodeTracker:

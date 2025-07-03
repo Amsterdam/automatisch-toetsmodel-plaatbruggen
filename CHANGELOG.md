@@ -218,7 +218,17 @@
     - Updating `OverviewBridgesController` (`_create_missing_children` method) to correctly structure parameters under an "info" key when creating new bridge entities.
 
 #### Developer-Facing
-- 
+- **Global Import Architecture for CI Pipeline Compatibility**
+  - **CI/CD COMPATIBILITY**: Moved all dynamic imports to global level for Linux CI pipeline compatibility
+    - Fixed `src.integrations.scia_interface.py` dynamic imports of `get_gamma_factors` and `get_psi_factor`
+    - Fixed test imports that were previously inside function calls
+    - Added robust import fallback mechanism with `LOAD_FACTORS_AVAILABLE` flag
+    - **RESOLVED**: Import issues that could cause failures in GitHub Actions CI environment
+    - **ARCHITECTURE**: Maintains clean separation while ensuring cross-platform compatibility
+  - **TEST INFRASTRUCTURE**: Updated all test mocking to use correct global import paths
+    - Fixed patching of `src.integrations.scia_interface.get_gamma_factors` instead of module-level imports
+    - Added proper `LOAD_FACTORS_AVAILABLE` flag handling in tests
+    - **VERIFICATION**: All 5 traffic load combination tests passing
 
 ## [`v0.0.4`] - 2025-05-08
 
