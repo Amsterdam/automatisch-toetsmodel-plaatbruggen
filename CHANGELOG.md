@@ -1,4 +1,51 @@
-## [`v0.0.6`] - 2025-xx-xx
+# Changelog
+## [`v0.0.7`] - 2025-07-03
+### Added
+- Added the option to add supports in Input -> Dimensions
+- Added csv file for material densities
+- Inputfield for line load parapet
+- **SCIA Load Framework**: Standardized load cases and combinations
+  - EN 1990 compliant load groups (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
+  - Full parameter control for permanent and variable load cases
+  - Support for ULS, SLS, accidental and seismic combinations
+  - Localized patch surface loads with automatic plane creation
+  - String-based interface for easy usage
+  - Working demonstration with realistic wheel loads
+- **Realistic Tandem Load Integration**
+  - Support for single lane, double lane, and multi-lane tandem configurations
+  - Automatic lane count determination
+  - Integration with actual bridge geometry
+- **Dutch Standard Load Combinations (NEN 8700/8701)**
+  - Automatic gamma factors based on consequence class, safety level, and construction year
+  - Psi factors calculated from bridge span length and reference period
+  - Support for 6.10a and 6.10b load combination equations
+  - ULS combinations: Dead + Traffic, Dead + Traffic + Wind, Dead + Wind + Traffic
+  - SLS combinations: Characteristic and Frequent combinations
+  - Configurable parameters for consequence class, safety level, and construction year
+
+### Changed
+- **Load Module Organization**: Restructured load-related functionality for better package organization
+  - Moved `loadcase_helper_functions.py` from `src/` to `src/loads/loadcase_helper_functions.py`
+  - Created new `src/loads/` package with proper `__init__.py` documentation
+  - Updated all import statements and references throughout codebase
+  - Updated documentation and comments to reflect new module location
+  - Maintained backward compatibility and functionality during reorganization
+- **SCIA File Naming**: Simplified SCIA download zip file naming conventions
+  - ESA model files: `{bridge_id}_model.esa` (e.g., `BRU2196_model.esa`)
+  - Input files ZIP: `{bridge_id}_Input_Files.zip` (e.g., `BRU2196_Input_Files.zip`)
+  - XML files within ZIP: `{bridge_id}.xml` (bridge-specific naming)
+  - DEF files within ZIP: `viktor.xml.def` (keeps standard name for XML reference)
+  - Added `model.esa` template file to input files ZIP for proper workflow
+  - Updated README instructions to Dutch with step-by-step SCIA Engineer import workflow
+- **SCIA Model Documentation**: Updated function documentation to accurately reflect complete bridge model creation
+  - Corrected `create_simple_scia_plate_model()` description from "simple rectangular plate" to "complete bridge model"
+  - Added detailed documentation of zone structure, coordinate system, and node naming conventions
+  - Clarified integration points for load zone data replacement
+
+### Removed
+### Fixed
+
+## [`v0.0.6`] - 2025-06-19
 
 ### Added
 

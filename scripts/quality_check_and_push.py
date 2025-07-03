@@ -15,16 +15,16 @@ Usage:
 
 import argparse
 import hashlib
+import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import NamedTuple
 
 # Set UTF-8 encoding for Windows compatibility
 if sys.platform == "win32":
-    import os
-
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
 
@@ -125,6 +125,53 @@ def run_command(command: str, capture_output: bool = True) -> tuple[int, str]:
     """Run a shell command and return exit code and output."""
     try:
         if capture_output:
+            # Enhanced capture for viktor-cli to prevent subprocess leaks
+            if "viktor-cli" in command:
+                # Use most aggressive capture possible for viktor-cli
+                # Create a completely isolated environment
+                env = dict(os.environ)
+                env.update(
+                    {
+                        "PYTHONUNBUFFERED": "1",
+                        "GIT_TERMINAL_PROMPT": "0",  # Disable git prompts
+                        "GIT_ASKPASS": "echo",  # Disable git password prompts
+                    }
+                )
+
+                # Additional isolation (Unix only - Windows doesn't support setsid)
+                if os.name != "nt" and hasattr(os, "setsid"):
+                    result = subprocess.run(  # noqa: UP022
+                        command,
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,  # Capture stderr separately first
+                        stdin=subprocess.DEVNULL,  # Prevent any input
+                        text=True,
+                        cwd=Path.cwd(),
+                        check=False,
+                        encoding="utf-8",
+                        errors="replace",
+                        env=env,
+                        preexec_fn=os.setsid,
+                    )
+                else:
+                    result = subprocess.run(  # noqa: UP022
+                        command,
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,  # Capture stderr separately first
+                        stdin=subprocess.DEVNULL,  # Prevent any input
+                        text=True,
+                        cwd=Path.cwd(),
+                        check=False,
+                        encoding="utf-8",
+                        errors="replace",
+                        env=env,
+                    )
+                # Combine all output
+                combined_output = (result.stdout or "") + (result.stderr or "")
+                return result.returncode, combined_output
+            # Standard capture for other commands
             result = subprocess.run(
                 command,
                 shell=True,
@@ -147,6 +194,38 @@ def check_git_status() -> bool:
     """Check if there are uncommitted changes."""
     exit_code, output = run_command("git status --porcelain")
     return len(output.strip()) > 0
+
+
+def safe_input(prompt: str, max_attempts: int = 3) -> str:
+    """Safely get user input with retry logic for different terminals."""
+    for attempt in range(max_attempts):
+        try:
+            # Ensure clean state before prompting
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+            # Clear any remaining spinner artifacts
+            print("\r" + " " * 80 + "\r", end="", flush=True)
+
+            # Use traditional input() which works better across terminals (direct return fixes RET504)
+            return input(prompt).strip()
+
+        except (EOFError, KeyboardInterrupt):  # noqa: PERF203
+            if attempt < max_attempts - 1:
+                print(f"\n{Colors.YELLOW}[!] Input interrupted, retrying... (Ctrl+C again to cancel){Colors.RESET}")
+                time.sleep(0.5)
+                continue
+            print(f"\n{Colors.YELLOW}[!] Input cancelled, proceeding with default behavior{Colors.RESET}")
+            return ""
+        except Exception as e:
+            if attempt < max_attempts - 1:
+                print(f"\n{Colors.YELLOW}[!] Input error ({e}), retrying...{Colors.RESET}")
+                time.sleep(0.5)
+                continue
+            print(f"\n{Colors.YELLOW}[!] Input failed, proceeding with default behavior{Colors.RESET}")
+            return ""
+
+    return ""
 
 
 def commit_changes(message: str) -> bool:
@@ -188,29 +267,99 @@ def commit_changes(message: str) -> bool:
     return True
 
 
-def run_quality_check(name: str, command: str, can_auto_fix: bool = False) -> CheckResult:
-    """Run a single quality check and return the result."""
-    print(f"{Colors.CYAN}[>] Running {name}...{Colors.RESET}")
-    exit_code, output = run_command(command)
+def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool = False) -> CheckResult:
+    """Run a single quality check with live progress indication."""
+    import itertools
+    import threading
+    import time
+
+    print(f"{Colors.CYAN}[>] Running {name}...{Colors.RESET}", end="", flush=True)
+    start_time = time.time()
+
+    # Progress indicator for longer operations
+    spinner = itertools.cycle(["|", "/", "-", "\\"])
+    stop_spinner = threading.Event()
+
+    def show_spinner() -> None:
+        """Show animated spinner while operation is running."""
+        # Test encoding support once before the loop (PERF203 fix)
+        use_colors = True
+        try:
+            print(f"\r{Colors.CYAN}[>] Running {name}... |{Colors.RESET}", end="", flush=True)
+        except UnicodeEncodeError:
+            use_colors = False
+
+        while not stop_spinner.is_set():
+            try:
+                if use_colors:
+                    print(f"\r{Colors.CYAN}[>] Running {name}... {next(spinner)}{Colors.RESET}", end="", flush=True)
+                else:
+                    print(f"\r[>] Running {name}... {next(spinner)}", end="", flush=True)
+                time.sleep(0.2)
+            except (UnicodeEncodeError, Exception):  # noqa: PERF203
+                # Fallback to simple output if any encoding or other issues
+                print(f"\r[>] Running {name}...", end="", flush=True)
+                time.sleep(0.2)
+
+    # Start spinner for tests (which take longer)
+    if "Tests" in name:
+        spinner_thread = threading.Thread(target=show_spinner)
+        spinner_thread.daemon = True
+        spinner_thread.start()
+
+    try:
+        # For VIKTOR tests, add extra debugging
+        if "VIKTOR Tests" in name:
+            # Flush all output streams before running
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+        exit_code, output = run_command(command)
+
+        # For VIKTOR tests, check for any leaked output
+        if "VIKTOR Tests" in name and output:
+            # Check if output contains git-related content that shouldn't be there
+            git_keywords = ["Enumerating objects", "Counting objects", "Compressing objects", "Writing objects", "remote:", "To https://github.com"]
+            leaked_git_output = any(keyword in output for keyword in git_keywords)
+            if leaked_git_output:
+                # This shouldn't happen with proper capture, but let's log it
+                print(f"\n{Colors.YELLOW}[DEBUG] Detected git output in VIKTOR tests: {output[:200]}...{Colors.RESET}")
+
+    finally:
+        if "Tests" in name:
+            stop_spinner.set()
+            # Clear the spinner line and flush
+            print(f"\r{Colors.CYAN}[>] Running {name}...{Colors.RESET}", end="", flush=True)
+            sys.stdout.flush()
+
     passed = exit_code == 0
+    duration = time.time() - start_time
 
     # Parse error details
     error_count, error_details = parse_error_details(name, output)
 
     if passed:
-        status = f"{Colors.GREEN}[+] PASSED"
+        status = f" {Colors.GREEN}[+] PASSED"
+        if duration > 1.0:  # Show duration for longer operations
+            status += f" ({duration:.1f}s)"
     else:
-        status = f"{Colors.RED}[X] FAILED"
+        status = f" {Colors.RED}[X] FAILED"
         if error_count > 0:
             status += f" - Found {error_count} error{'s' if error_count != 1 else ''}"
             if error_details:
                 status += f" ({error_details})"
 
-    print(f"    {status}{Colors.RESET}")
+    print(f"{status}{Colors.RESET}")
 
     return CheckResult(
         name=name, passed=passed, can_auto_fix=can_auto_fix, command=command, output=output, error_count=error_count, error_details=error_details
     )
+
+
+def run_quality_check(name: str, command: str, can_auto_fix: bool = False) -> CheckResult:
+    """Run a single quality check and return the result."""
+    # Use progress indicator for longer operations
+    return run_quality_check_with_progress(name, command, can_auto_fix)
 
 
 def get_git_diff_hash() -> str:
@@ -264,15 +413,22 @@ def main() -> int:
     if check_git_status():
         print(f"{Colors.YELLOW}[!] Uncommitted changes detected{Colors.RESET}")
         if not args.dry_run:
-            response = input(f"{Colors.CYAN}Commit all changes before quality checks? (y/N): {Colors.RESET}").strip().lower()
+            # Stop any active spinners before prompting for input
+            print()  # Ensure clean line
+
+            response = safe_input(f"{Colors.CYAN}Commit all changes before quality checks? (y/N): {Colors.RESET}").lower()
+
             if response in ("y", "yes"):
-                commit_message = input(f"{Colors.CYAN}Enter commit message: {Colors.RESET}").strip()
+                commit_message = safe_input(f"{Colors.CYAN}Enter commit message: {Colors.RESET}")
                 print(f"{Colors.YELLOW}[*] Processing commit...{Colors.RESET}", flush=True)
                 if not commit_message:
                     commit_message = "Manual changes before quality checks"
                 if not commit_changes(commit_message):
                     return 1
+            elif response in ("n", "no", ""):
+                print(f"{Colors.YELLOW}[i] Proceeding with uncommitted changes (only auto-fixes will be committed){Colors.RESET}")
             else:
+                print(f"{Colors.YELLOW}[i] Unrecognized response '{response}', treating as 'no'{Colors.RESET}")
                 print(f"{Colors.YELLOW}[i] Proceeding with uncommitted changes (only auto-fixes will be committed){Colors.RESET}")
         else:
             print(f"{Colors.YELLOW}[DRY RUN] Would prompt to commit uncommitted changes{Colors.RESET}")
@@ -317,6 +473,9 @@ def main() -> int:
         # 4. Run unit tests (cannot auto-fix)
         test_check = run_quality_check("Unit Tests", "python scripts/run_enhanced_tests.py", can_auto_fix=False)
 
+        # 5. Run VIKTOR tests (cannot auto-fix)
+        viktor_test_check = run_quality_check("VIKTOR Tests", "python scripts/run_viktor_tests.py", can_auto_fix=False)
+
         # If no auto-fixes were made, we're done with iterations
         if not made_fixes:
             print(f"{Colors.CYAN}[i] No auto-fixes applied this iteration, proceeding to final report{Colors.RESET}")
@@ -325,7 +484,7 @@ def main() -> int:
         print(f"{Colors.YELLOW}[!] Auto-fixes applied, running checks again...{Colors.RESET}")
 
     # Final status report
-    all_checks = [ruff_check, ruff_format, mypy_check, test_check]
+    all_checks = [ruff_check, ruff_format, mypy_check, test_check, viktor_test_check]
     failed_checks = print_final_status_report(all_checks)
 
     # If there are failures that can't be auto-fixed

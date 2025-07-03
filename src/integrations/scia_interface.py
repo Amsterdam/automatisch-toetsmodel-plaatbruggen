@@ -1,457 +1,994 @@
 """
-SCIA Engineer integration module for bridge analysis.
+SCIA Engineer integration for bridge analysis.
 
-This module provides functionality to create SCIA models from bridge parameters.
-Currently implements a simple rectangular plate model as a starting point.
+Creates SCIA models from bridge parameters with:
+- Multi-zone plates (Zone 1, 2, 3) with variable thickness
+- Proper node positioning from bridge_segments_array
+- Realistic tandem load application from src.loads.loadcase_helper_functions
 
-Future enhancements needed:
-- Support for complex bridge geometry matching the actual bridge shape (1:1 with bridge segments)
-- Variable thickness across zones (zone 1, 2, 3 have different thickness values)
-- Load cases and combinations from params.input.belastingzones and belastingcombinaties
-- Support for different bridge types from params.info.bridge_type and static_system
-- Material property customization from params.info.concrete_strength_class
-- Reinforcement modeling from params.input.geometrie_wapening zones
-- Extract all geometry from params.input.dimensions.bridge_segments_array instead of hardcoded values
+========================================================================
+COLLEAGUE INTEGRATION POINTS SUMMARY
+========================================================================
+
+This file contains 10 clearly marked integration points where your colleague
+needs to integrate load combinations, load cases, and results classes:
+
+INTEGRATION POINT 1: Load Groups (Line ~550)
+- Location: _add_realistic_tandem_loads function
+- Purpose: Replace basic load groups with comprehensive EN 1990 load groups
+- Needs: Traffic, pedestrian, wind, thermal load groups with proper relationships
+
+INTEGRATION POINT 2: Basic Load Cases (Line ~565)
+- Location: _add_realistic_tandem_loads function
+- Purpose: Expand basic load cases beyond dead/wind
+- Needs: Self-weight, UDL, pedestrian, environmental loads
+
+INTEGRATION POINT 3: Tandem Load Cases (Line ~580)
+- Location: _add_realistic_tandem_loads function
+- Purpose: Enhance tandem load case metadata
+- Needs: Position descriptions, DAF, filtering, fatigue variants
+
+INTEGRATION POINT 4: Load Combinations - CRITICAL (Line ~590)
+- Location: _add_realistic_tandem_loads function
+- Purpose: Replace basic ULS/SLS with comprehensive EN 1990 combinations
+- Needs: All combination types, envelope strategies, proper factors
+
+INTEGRATION POINT 5: Results Classes (Line ~650)
+- Location: _add_realistic_tandem_loads function
+- Purpose: Future results processing integration
+- Needs: BridgeAnalysisResults, ResultsProcessor, code checkers
+
+INTEGRATION POINT 6: Return Structure (Line ~670)
+- Location: _add_realistic_tandem_loads function
+- Purpose: Enhance return data with metadata
+- Needs: Combination metadata, critical combinations, analysis settings
+
+INTEGRATION POINT 7: Load Zone Data (Line ~690)
+- Location: create_bridge_scia_model function
+- Purpose: Integrate params.input.belastingzones data
+- Needs: Zone-specific load processing and mapping
+
+INTEGRATION POINT 8: Results Processing (Line ~710)
+- Location: create_bridge_scia_model function
+- Purpose: Add complete results processing pipeline
+- Needs: Analysis execution, code checks, report generation
+
+INTEGRATION POINT 9: Load Case Metadata (Line ~340)
+- Location: apply_tandem_loads_to_scia_model function
+- Purpose: Enhance load case creation with metadata
+- Needs: Priorities, DAF, filtering, position descriptions
+
+INTEGRATION POINT 10: Enhanced Descriptions (Line ~360)
+- Location: apply_tandem_loads_to_scia_model function
+- Purpose: Add detailed load case descriptions
+- Needs: Position info, magnitudes, analysis purpose
+
+========================================================================
+INTEGRATION PRIORITY & CHECKLIST
+========================================================================
+
+HIGH PRIORITY (Core Functionality):
+[✅] Point 4: Load Combinations - IMPLEMENTED Dutch standard NEN 8700/8701 system
+[ ] Point 1: Load Groups - Add comprehensive load group management
+[ ] Point 2: Basic Load Cases - Expand beyond dead/wind loads
+
+MEDIUM PRIORITY (Enhanced Functionality):
+[ ] Point 7: Load Zone Data - Integrate params.input.belastingzones
+[ ] Point 3: Tandem Load Cases - Add metadata and optimization
+[ ] Point 9: Load Case Metadata - Enhance with priorities and DAF
+
+LOW PRIORITY (Future Enhancements):
+[ ] Point 8: Results Processing - Complete analysis pipeline
+[ ] Point 5: Results Classes - Post-processing and code checks
+[ ] Point 6: Return Structure - Enhanced metadata
+[ ] Point 10: Enhanced Descriptions - Detailed load case info
+
+SUGGESTED IMPLEMENTATION ORDER:
+1. Start with Point 4 (Load Combinations) - This is the most critical
+2. Implement Point 1 (Load Groups) to support combinations
+3. Add Point 2 (Basic Load Cases) for comprehensive load modeling
+4. Continue with medium priority items based on project needs
+
+========================================================================
 """
 
 import io
-from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
+
+# Global VIKTOR imports with error handling for CI/testing environments
+try:
+    from viktor.core import File
+    from viktor.external import scia
+
+    VIKTOR_AVAILABLE = True
+except ImportError:
+    # Mock objects for environments without VIKTOR SDK
+    File = None  # type: ignore[misc,assignment]
+    scia = None  # type: ignore[misc,assignment]
+    VIKTOR_AVAILABLE = False
+
+from src.combinations.load_factors import get_gamma_factors, get_psi_factor
+from src.integrations.scia_utils import (
+    create_load_case_complete,
+    create_load_combination_by_type,
+    create_load_group_by_type,
+    create_patch_surface_load,
+)
+from src.loads.loadcase_helper_functions import (
+    amount_of_notional_lanes,
+    tandem_systems_axes_double_lane,
+    tandem_systems_axes_more_lanes,
+    tandem_systems_axes_single_lane,
+)
+
+# Type aliases
+SciaNode: TypeAlias = object
+SciaModel: TypeAlias = "SciaModelProtocol"
 
 
-@dataclass
-class BridgeGeometryData:
+class SciaModelProtocol:
+    """Protocol for SCIA model objects."""
+
+    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode":
+        """Create a node in the SCIA model."""
+
+
+class NodeTracker:
+    """Helper to track and reuse nodes in SCIA model."""
+
+    def __init__(self, scia_model: SciaModel) -> None:
+        """Initialize the node tracker."""
+        self.model = scia_model
+        self._nodes_by_coords: dict[tuple[float, float, float], SciaNode] = {}
+        self._nodes_by_name: dict[str, SciaNode] = {}
+
+    def get_or_create_node(self, name: str, x: float, y: float, z: float) -> SciaNode:
+        """Get existing node at coordinates or create new one."""
+        coords = (x, y, z)
+
+        if coords in self._nodes_by_coords:
+            return self._nodes_by_coords[coords]
+
+        node = self.model.create_node(name, x, y, z)
+        self._nodes_by_coords[coords] = node
+        self._nodes_by_name[name] = node
+        return node
+
+    def get_node_by_name(self, name: str) -> SciaNode:
+        """Get node by name."""
+        return self._nodes_by_name[name]
+
+
+def create_node_and_thickness_dict(params: Any) -> tuple[dict[str, list[float]], dict[str, float]]:  # noqa: ANN401
     """
-    Data structure for bridge geometry information extracted from bridge parameters.
+    Create node positions and thickness data from bridge parameters.
 
-    :param total_length: Total length of the bridge in meters
-    :type total_length: float
-    :param total_width: Total width of the bridge in meters
-    :type total_width: float
-    :param thickness: Thickness of the bridge deck in meters
-    :type thickness: float
-    :param material_name: Name of the material to use
-    :type material_name: str
+    :param params: Bridge parameters
+    :returns: (nodes_dict, thickness_dict)
     """
+    dynamic_arrays = len(params.bridge_segments_array)
+    nodes_dict = {}
+    thickness_dict = {}
 
-    total_length: float
-    total_width: float
-    thickness: float
-    material_name: str
+    def calculate_cross_section_positions(segment_idx: int) -> dict[str, float]:
+        """Calculate node positions for cross section."""
+        l_sum = sum(item["l"] for item in params.bridge_segments_array[: segment_idx + 1])
+        segment = params.bridge_segments_array[segment_idx]
+
+        return {
+            "x": l_sum,
+            "z1_left": segment.bz1 + segment.bz2 / 2,
+            "z1_right": segment.bz2 / 2,
+            "z3_left": -segment.bz2 / 2,
+            "z3_right": -segment.bz3 - segment.bz2 / 2,
+        }
+
+    # Create first cross section
+    if dynamic_arrays > 0:
+        pos = calculate_cross_section_positions(0)
+        nodes_dict.update(
+            {
+                "K_dek:1_1": [pos["x"], pos["z1_left"], 0],
+                "K_dek:1_2": [pos["x"], pos["z1_right"], 0],
+                "K_dek:1_3": [pos["x"], pos["z3_left"], 0],
+                "K_dek:1_4": [pos["x"], pos["z3_right"], 0],
+            }
+        )
+
+    # Create remaining cross sections and thickness data
+    for dynamic_array in range(1, dynamic_arrays):
+        pos = calculate_cross_section_positions(dynamic_array)
+        d_num = dynamic_array + 1
+
+        nodes_dict.update(
+            {
+                f"K_dek:{d_num}_1": [pos["x"], pos["z1_left"], 0],
+                f"K_dek:{d_num}_2": [pos["x"], pos["z1_right"], 0],
+                f"K_dek:{d_num}_3": [pos["x"], pos["z3_left"], 0],
+                f"K_dek:{d_num}_4": [pos["x"], pos["z3_right"], 0],
+            }
+        )
+
+        thickness_dict.update(
+            {
+                f"Z1_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+                f"Z2_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz_2,
+                f"Z3_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
+            }
+        )
+
+    return nodes_dict, thickness_dict
 
 
-def extract_bridge_geometry_from_params(bridge_segments_params: list[dict[str, Any]], concrete_material: str | None = None) -> BridgeGeometryData:
+def extract_tandem_parameters_from_bridge(params: Any) -> dict[str, float]:  # noqa: ANN401
     """
-    Extract bridge geometry data from bridge segment parameters.
+    Extract parameters needed for src.loads.loadcase_helper_functions from bridge data.
 
-    Currently creates a simple rectangular approximation:
-    - Length: Sum of all segment lengths
-    - Width: Uses width of first segment only (bz1 + bz2 + bz3)
-    - Thickness: Hardcoded to 0.5m
-
-    TODO: Future improvements:
-    - Support variable width along bridge length from params.input.dimensions.bridge_segments_array
-    - Support variable thickness per zone (dz, dz_2 parameters) from bridge segments
-    - Handle complex bridge shapes with proper geometry interpolation
-    - Extract materials from params.info.concrete_strength_class for realistic modeling
-    - Add reinforcement support from params.input.geometrie_wapening zones
-    - Implement load cases from params.input.belastingzones.load_zones_array
-
-    :param bridge_segments_params: List of bridge segment parameter dictionaries
-    :type bridge_segments_params: list[dict[str, Any]]
-    :param concrete_material: Concrete material grade (e.g., "C30/37") from material system
-    :type concrete_material: str | None
-    :returns: Bridge geometry data for SCIA model creation
-    :rtype: BridgeGeometryData
-    :raises ValueError: If bridge_segments_params is empty or invalid
+    :param params: Bridge parameters
+    :returns: Dictionary with length_bridgedeck, width_bridgedeck, thickness_bridgedeck
+    :rtype: dict[str, float]
+    :raises IndexError: When no bridge segments are provided
     """
-    if not bridge_segments_params:
-        raise ValueError("No bridge segments provided")
+    if not params.bridge_segments_array:
+        raise IndexError("No bridge segments provided")
 
-    # Calculate total length: sum of all segment lengths
-    # Note: first segment usually has l=0 (starting point), so we sum all l values
-    total_length = sum(float(segment.get("l", 0)) for segment in bridge_segments_params)
+    # Calculate total bridge length (cumulative sum of segment lengths)
+    length_bridgedeck = sum(segment.l for segment in params.bridge_segments_array)
 
-    if total_length <= 0:
-        raise ValueError("Bridge total length must be positive")
+    # Calculate total bridge width from first segment (bz1 + bz2 + bz3)
+    first_segment = params.bridge_segments_array[0]
+    width_bridgedeck = first_segment.bz1 + first_segment.bz2 + first_segment.bz3
 
-    # Use width of first segment as approximation
-    # This should be enhanced to handle variable width along bridge length
-    first_segment = bridge_segments_params[0]
-    bz1 = float(first_segment.get("bz1", 0))
-    bz2 = float(first_segment.get("bz2", 0))
-    bz3 = float(first_segment.get("bz3", 0))
-    total_width = bz1 + bz2 + bz3
+    # Use thickness from first segment (dz)
+    thickness_bridgedeck = first_segment.dz
 
-    if total_width <= 0:
-        raise ValueError("Bridge total width must be positive")
+    return {
+        "length_bridgedeck": length_bridgedeck,
+        "width_bridgedeck": width_bridgedeck,
+        "thickness_bridgedeck": thickness_bridgedeck,
+    }
 
-    # Variable thickness support - NO AVERAGING, SEPARATE ZONES REQUIRED
-    # Currently using hardcoded thickness, but should use actual bridge dimensions:
-    #
-    # CORRECT THICKNESS IMPLEMENTATION (3 SEPARATE ZONES):
-    # - Zone 1 (right side, width=bz1): thickness = dz
-    # - Zone 2 (middle, width=bz2): thickness = dz_2 (can be different from zones 1&3)
-    # - Zone 3 (left side, width=bz3): thickness = dz
-    #
-    # NOTE: Do NOT use average thickness - create 3 separate plate elements with their own thicknesses
-    # The simplified rectangular model should be replaced with proper multi-zone implementation
-    # Extract actual thickness from bridge_segments_array when zone-specific implementation is added
-    # Use construction_height for realistic deck thickness (convert from mm to m) when available
-    thickness = 0.5  # Hardcoded for now - will be replaced by 3-zone implementation
 
-    # Material selection from centralized material system
-    # Use provided material or get default from centralized system
-    if concrete_material is None:
-        from src.common.materials import get_default_materials
+def determine_tandem_function_for_bridge(bridge_dims: dict[str, float]) -> dict[str, Any]:
+    """
+    Determine which tandem function to use based on bridge width.
 
-        defaults = get_default_materials()
-        material_name = defaults["concrete"]
+    :param bridge_dims: Bridge dimensions dictionary
+    :returns: Dictionary with function_name and lane_count
+    :rtype: dict[str, Any]
+    :raises ValueError: When bridge width is invalid
+    """
+    width = bridge_dims["width_bridgedeck"]
+
+    if width <= 0:
+        raise ValueError("Invalid bridge width")
+
+    lane_count, _ = amount_of_notional_lanes(width)
+
+    if lane_count == 1:
+        function_name = "tandem_systems_axes_single_lane"
+    elif lane_count == 2:
+        function_name = "tandem_systems_axes_double_lane"
     else:
-        # Validate material exists in project database and is SCIA-compatible
-        from src.common.materials import get_supported_scia_materials, normalize_material_name, validate_material_exists
+        function_name = "tandem_systems_axes_more_lanes"
 
-        if not validate_material_exists(concrete_material, "concrete"):
-            supported_materials = get_supported_scia_materials()["concrete"]
-            raise ValueError(
-                f"Concrete material '{concrete_material}' not found in project database. SCIA-supported materials: {supported_materials}"
-            )
-        # Use normalized material name to ensure compatibility with CSV database format
-        material_name = normalize_material_name(concrete_material)
-
-    return BridgeGeometryData(total_length=total_length, total_width=total_width, thickness=thickness, material_name=material_name)
+    return {
+        "function_name": function_name,
+        "lane_count": lane_count,
+    }
 
 
-def create_simple_scia_plate_model(bridge_geometry: BridgeGeometryData) -> tuple[Any, Any]:
+def generate_tandem_loads_for_bridge(bridge_params: dict[str, float]) -> list[dict[str, Any]]:
     """
-    Create a simple rectangular plate SCIA model from bridge geometry.
+    Generate tandem loads using appropriate loadcase_helper function.
 
-    Creates a basic rectangular plate with:
-    - 4 corner nodes
-    - 1 rectangular plane element
-    - Basic concrete material
-    - Simple mesh setup
+    :param bridge_params: Bridge parameters dictionary with length, width, thickness
+    :returns: List of tandem load data
+    :rtype: list[dict[str, Any]]
+    :raises KeyError: When required bridge parameters are missing
+    """
+    required_keys = ["length_bridgedeck", "width_bridgedeck", "thickness_bridgedeck"]
+    for key in required_keys:
+        if key not in bridge_params:
+            raise KeyError(f"Missing required parameter: {key}")
 
-    TODO: Future enhancements for complete bridge modeling:
+    length = bridge_params["length_bridgedeck"]
+    width = bridge_params["width_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
 
-    1. COMPLEX GEOMETRY WITH NODES PER CROSS-SECTION (D1, D2, D3, etc.):
-       - Create nodes at each cross-section (D1, D2, D3...) defined in bridge_segments_params
-       - Node naming convention: "D{section}.{zone}" (e.g., D1.1, D1.2, D1.3, D2.1, D2.2, D2.3)
-       - For each cross-section at position x_i, create nodes:
-         * D{i}.1: Y-coordinate at -bz2/2 - bz3 (left edge zone 3)
-         * D{i}.2: Y-coordinate at -bz2/2 (zone 2/3 boundary)
-         * D{i}.3: Y-coordinate at +bz2/2 (zone 1/2 boundary)
-         * D{i}.4: Y-coordinate at +bz2/2 + bz1 (right edge zone 1)
-         * Z-coordinates: 0 (top), -dz (zone 1&3), -dz_2 (zone 2 bottom)
+    # Determine which function to use
+    tandem_config = determine_tandem_function_for_bridge(bridge_params)
+    function_name = tandem_config["function_name"]
 
-       Example implementation pattern:
-       ```python
-       nodes = {}
-       x_position = 0
-       for i, segment in enumerate(bridge_segments_params):
-           if i > 0:  # Skip first segment (reference point)
-               x_position += segment["l"]
-           section_name = f"D{i + 1}"
+    # Call appropriate tandem function
+    if function_name == "tandem_systems_axes_single_lane":
+        return tandem_systems_axes_single_lane(length, width, thickness)
+    if function_name == "tandem_systems_axes_double_lane":
+        return tandem_systems_axes_double_lane(length, width, thickness)
+    # tandem_systems_axes_more_lanes
+    return tandem_systems_axes_more_lanes(length, width, thickness)
 
-           # Zone boundaries in Y direction
-           y_left_edge = -(segment["bz2"] / 2 + segment["bz3"])
-           y_zone23_boundary = -segment["bz2"] / 2
-           y_zone12_boundary = segment["bz2"] / 2
-           y_right_edge = segment["bz2"] / 2 + segment["bz1"]
 
-           # Create nodes for this cross-section
-           nodes[f"{section_name}.1"] = model.create_node(f"{section_name}.1", x_position, y_left_edge, 0)
-           nodes[f"{section_name}.2"] = model.create_node(f"{section_name}.2", x_position, y_zone23_boundary, 0)
-           nodes[f"{section_name}.3"] = model.create_node(f"{section_name}.3", x_position, y_zone12_boundary, 0)
-           nodes[f"{section_name}.4"] = model.create_node(f"{section_name}.4", x_position, y_right_edge, 0)
+def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[float, float, float]]:
+    """
+    Convert 2D wheel coordinates to 3D SCIA coordinates.
 
-           # Bottom nodes for different zone thicknesses
-           nodes[f"{section_name}.1B"] = model.create_node(f"{section_name}.1B", x_position, y_left_edge, -segment["dz"])
-           nodes[f"{section_name}.2B"] = model.create_node(f"{section_name}.2B", x_position, y_zone23_boundary, -segment["dz_2"])
-           nodes[f"{section_name}.3B"] = model.create_node(f"{section_name}.3B", x_position, y_zone12_boundary, -segment["dz_2"])
-           nodes[f"{section_name}.4B"] = model.create_node(f"{section_name}.4B", x_position, y_right_edge, -segment["dz"])
-       ```
+    :param wheel_2d: List of [x, y] coordinates
+    :returns: List of (x, y, z) tuples with z=0
+    :rtype: list[tuple[float, float, float]]
+    """
+    return [(x, y, 0.0) for x, y in wheel_2d]
 
-         2. MULTIPLE ZONES WITH DIFFERENT MATERIALS/THICKNESSES:
-        - Create separate material for each zone (material from INFO page parameters)
-        - Zone 1 (right): thickness = dz, material = from params.info.material_grade
-        - Zone 2 (middle): thickness = dz_2 (can differ from zones 1&3), material = from params.info.material_grade
-        - Zone 3 (left): thickness = dz, material = from params.info.material_grade
 
-    Example:
-        ```python
-        # Get material from INFO page parameters (when available)
-        base_material_name = bridge_params.get("info", {}).get("material_grade", "C30/37")
+def align_bridge_coordinates_to_scia(
+    bridge_coords: list[tuple[float, float, float]], _bridge_dims: dict[str, float]
+) -> list[tuple[float, float, float]]:
+    """
+    Align bridge coordinate system to SCIA model coordinate system.
 
-        # Create materials for different zones (could be same or different materials)
-        zone1_material = scia.Material(1, f"{base_material_name}_Zone1")
-        zone2_material = scia.Material(2, f"{base_material_name}_Zone2")
-        zone3_material = scia.Material(3, f"{base_material_name}_Zone3")
+    Currently maintains coordinates as-is. Future enhancement could map
+    bridge edge coordinates to SCIA zone boundaries.
 
-       # Create plates for each zone between adjacent cross-sections
-       for i in range(len(bridge_segments_params) - 1):
-           current_section = f"D{i+1}"
-           next_section = f"D{i+2}"
+    :param bridge_coords: Bridge coordinates
+    :param _bridge_dims: Bridge dimensions for reference (unused)
+    :returns: SCIA-aligned coordinates
+    :rtype: list[tuple[float, float, float]]
+    """
+    # For now, maintain coordinates as-is
+    # Future: map Y coordinates from bridge edge system to SCIA zone system
+    return bridge_coords
 
-           # Zone 1 plate (right side)
-           zone1_nodes = [nodes[f"{current_section}.3"], nodes[f"{next_section}.3"],
-                         nodes[f"{next_section}.4"], nodes[f"{current_section}.4"]]
-           zone1_plate = model.create_plane(zone1_nodes, segments[i]["dz"],
-                                          name=f"Zone1_{current_section}_{next_section}",
-                                          material=zone1_material)
 
-           # Zone 2 plate (middle)
-           zone2_nodes = [nodes[f"{current_section}.2"], nodes[f"{next_section}.2"],
-                         nodes[f"{next_section}.3"], nodes[f"{current_section}.3"]]
-           zone2_plate = model.create_plane(zone2_nodes, segments[i]["dz_2"],
-                                          name=f"Zone2_{current_section}_{next_section}",
-                                          material=zone2_material)
+def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Convert tandem data to SCIA patch load format.
 
-           # Zone 3 plate (left side)
-           zone3_nodes = [nodes[f"{current_section}.1"], nodes[f"{next_section}.1"],
-                         nodes[f"{next_section}.2"], nodes[f"{current_section}.2"]]
-           zone3_plate = model.create_plane(zone3_nodes, segments[i]["dz"],
-                                          name=f"Zone3_{current_section}_{next_section}",
-                                          material=zone3_material)
-       ```
+    Handles both single lane and multi-lane tandem data formats.
 
-    3. LOAD CASES AND COMBINATIONS:
-       - Define basic load cases: Dead load, Live load, Wind, Temperature
-       - Create load combinations according to Eurocode (ULS/SLS)
+    :param tandem_data: Tandem load data from src.loads.loadcase_helper_functions
+    :returns: SCIA-formatted load case data
+    :rtype: list[dict[str, Any]]
+    :raises KeyError: When tandem data structure is invalid
+    """
+    scia_load_cases = []
 
-    Example:
-       ```python
-       # Create load cases
-       dead_load_case = model.create_load_case("DL", "Dead Load")
-       live_load_case = model.create_load_case("LL", "Live Load")
-       wind_load_case = model.create_load_case("WL", "Wind Load")
+    for tandem in tandem_data:
+        if "load_case" not in tandem:
+            raise KeyError("Missing 'load_case' in tandem data")
 
-       # Apply loads to plates
-       # Dead load: self-weight (automatic in SCIA)
-       # Live load: traffic loads from load zone data
-       for zone_plate in zone_plates:
-           # Apply distributed load (N/m²)
-           live_load = model.create_surface_load(
-               load_case=live_load_case,
-               surface=zone_plate,
-               load_value=5000,  # 5 kN/m² typical traffic load
-               direction="Z",  # Vertical downward
-               coordinate_system="Global",
-           )
+        load_case_name = tandem["load_case"]
+        patch_loads = []
 
-       # Create load combinations (ULS)
-       uls_combo = model.create_load_combination("ULS1", "Ultimate Limit State 1")
-       uls_combo.add_load_case(dead_load_case, factor=1.35)  # γG = 1.35
-       uls_combo.add_load_case(live_load_case, factor=1.5)  # γQ = 1.5
+        # Handle single lane format: {load_case, wheels, load}
+        if "wheels" in tandem and "load" in tandem:
+            wheels = tandem["wheels"]
+            load_value = tandem["load"]
 
-       # Create load combinations (SLS)
-       sls_combo = model.create_load_combination("SLS1", "Serviceability Limit State 1")
-       sls_combo.add_load_case(dead_load_case, factor=1.0)
-       sls_combo.add_load_case(live_load_case, factor=1.0)
-       ```
+            for wheel_coords in wheels:
+                corners_3d = convert_wheel_coordinates_to_3d(wheel_coords)
+                patch_loads.append(
+                    {
+                        "corners": corners_3d,
+                        "load_value": load_value,
+                    }
+                )
 
-    4. BOUNDARY CONDITIONS AND SUPPORTS:
-       - Add supports at bridge bearings/abutments
-       - Define appropriate restraints based on bridge type
+        # Handle multi-lane format: {load_case, tandems}
+        elif "tandems" in tandem:
+            for lane_tandem in tandem["tandems"]:
+                if "wheels" not in lane_tandem or "load" not in lane_tandem:
+                    raise KeyError("Missing 'wheels' or 'load' in lane tandem data")
 
-    Example:
-       ```python
-       # Support at start (abutment)
-       start_support = model.create_point_support(
-           node=nodes["D1.1"],
-           ux=True,
-           uy=True,
-           uz=True,  # Fixed translation
-           rx=False,
-           ry=False,
-           rz=False,  # Free rotation
-       )
+                wheels = lane_tandem["wheels"]
+                load_value = lane_tandem["load"]
 
-       # Support at end (expansion bearing)
-       end_support = model.create_point_support(
-           node=nodes[f"D{len(segments)}.1"],
-           ux=False,
-           uy=True,
-           uz=True,  # Free in X (expansion)
-           rx=False,
-           ry=False,
-           rz=False,
-       )
-       ```
+                for wheel_coords in wheels:
+                    corners_3d = convert_wheel_coordinates_to_3d(wheel_coords)
+                    patch_loads.append(
+                        {
+                            "corners": corners_3d,
+                            "load_value": load_value,
+                        }
+                    )
+        else:
+            raise KeyError("Invalid tandem data structure: missing 'wheels' or 'tandems'")
 
-    5. MESH REFINEMENT:
-       - Define appropriate mesh density for different zones
-       - Consider stress concentration areas
+        scia_load_cases.append(
+            {
+                "load_case": load_case_name,
+                "patch_loads": patch_loads,
+            }
+        )
 
-    Example:
-       ```python
-       # Create mesh setup for refined analysis
-       mesh_setup = model.create_mesh_setup("BridgeMesh", max_element_size=1.0)
+    return scia_load_cases
 
-       # Apply mesh to all plates
-       for plate in all_plates:
-           model.assign_mesh_setup(plate, mesh_setup)
-       ```
 
-    Current implementation is a simplified rectangular plate for initial development.
+def apply_tandem_loads_to_scia_model(
+    model: SciaModel,
+    scia_tandem_data: list[dict[str, Any]],
+    load_group: Any,  # noqa: ANN401
+) -> list[Any]:
+    """
+    Apply tandem loads to SCIA model using existing framework.
 
-    :param bridge_geometry: Bridge geometry data
-    :type bridge_geometry: BridgeGeometryData
-    :returns: Tuple of (xml_file, def_file) for SCIA analysis
-    :rtype: tuple[Any, Any]
-    :raises ImportError: If VIKTOR SCIA module is not available
+    :param model: SCIA model instance
+    :param scia_tandem_data: SCIA-formatted tandem load data
+    :param load_group: SCIA load group for the load cases
+    :returns: List of created SCIA load cases
+    :rtype: list[Any]
+    """
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 9: LOAD CASE METADATA ENHANCEMENT
+    # ========================================================================
+    # TODO: Enhance load case creation with metadata and optimization
+    # CURRENT: Basic load case creation with simple naming
+    # READY FOR ENHANCEMENT: Your colleague can extend to add:
+    # - Load case priorities (critical vs. non-critical positions)
+    # - Position descriptions ("Mid-span critical", "Support region", etc.)
+    # - Dynamic amplification factors (DAF) based on bridge natural frequency
+    # - Load case filtering (only create most critical cases for optimization)
+    # - Fatigue load case variants with cycle counting
+    # - Integration with influence line analysis for critical positioning
 
+    load_cases = []
+
+    for load_case_data in scia_tandem_data:
+        load_case_name = load_case_data["load_case"]
+        patch_loads = load_case_data["patch_loads"]
+
+        # ========================================================================
+        # COLLEAGUE INTEGRATION POINT 10: ENHANCED LOAD CASE DESCRIPTIONS
+        # ========================================================================
+        # CURRENT: Simple description with load case name
+        # ENHANCEMENT OPPORTUNITY: Add detailed descriptions:
+        # - Position information (x-coordinate, critical section)
+        # - Load magnitude and configuration
+        # - Analysis purpose (ULS, SLS, fatigue)
+        # - Load case dependencies or relationships
+
+        # Create load case for this tandem configuration
+        description = f"Load Model 1 - Tandem system {load_case_name}"
+        load_case = create_load_case_complete(model, load_group, load_case_name, description, "VARIABLE", variable_type="STATIC", duration="SHORT")
+
+        # Apply all patch loads for this load case
+        for i, patch_load in enumerate(patch_loads):
+            corners = patch_load["corners"]
+            load_value = patch_load["load_value"]
+            load_name = f"{load_case_name}_Wheel_{i + 1}"
+
+            # Apply loads as negative values to point downward (correct direction for bridge loads)
+            create_patch_surface_load(model, load_case, corners, -load_value, load_name)
+
+        load_cases.append(load_case)
+
+    return load_cases
+
+
+def create_simple_scia_plate_model(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
+    """
+    Create SCIA bridge model with multi-zone plates.
+
+    Creates:
+    - Cross-sections at each bridge segment
+    - Three zone plates (Zone 1, 2, 3) with variable thickness
+    - Demonstration loads using scia_utils framework
+
+    Coordinate system:
+    - X: Longitudinal (cumulative segment lengths)
+    - Y: Transverse (zone boundaries from bz1, bz2, bz3)
+    - Z: Vertical (0 at top surface)
+
+    Zone layout: Zone 3 | Zone 2 | Zone 1
+                |--bz3--|--bz2--|--bz1--|
+
+    :param params: Bridge parameters
+    :returns: (xml_file, def_file) for SCIA analysis
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    # Create model and material
+    model = scia.Model()
+    node_tracker = NodeTracker(model)
+    material = scia.Material(0, "C30/37")
+
+    # Get geometry data
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
+    dynamic_arrays = len(params.bridge_segments_array)
+    scia_nodes = {}
+
+    # Create initial cross section nodes
+    for node_suffix in range(1, 5):
+        node_name = f"K_dek:1_{node_suffix}"
+        coords = nodes_dict.get(node_name)
+        if coords is None:
+            raise ValueError(f"Coordinates for node '{node_name}' not found.")
+        scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
+
+    # Create plates between cross sections
+    for span in range(1, dynamic_arrays):
+        next_span = span + 1
+
+        # Create next cross section nodes
+        for node_suffix in range(1, 5):
+            node_name = f"K_dek:{next_span}_{node_suffix}"
+            if node_name not in scia_nodes:
+                coords = nodes_dict.get(node_name)
+                if coords is None:
+                    raise ValueError(f"Coordinates for node '{node_name}' not found.")
+                scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
+
+        # Create zone plates
+        # Zone 1 plate
+        corner_nodes_z1 = [
+            scia_nodes[f"K_dek:{span}_1"],
+            scia_nodes[f"K_dek:{next_span}_1"],
+            scia_nodes[f"K_dek:{next_span}_2"],
+            scia_nodes[f"K_dek:{span}_2"],
+        ]
+        model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
+
+        # Zone 3 plate
+        corner_nodes_z3 = [
+            scia_nodes[f"K_dek:{span}_3"],
+            scia_nodes[f"K_dek:{next_span}_3"],
+            scia_nodes[f"K_dek:{next_span}_4"],
+            scia_nodes[f"K_dek:{span}_4"],
+        ]
+        model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
+
+        # Zone 2 plate
+        corner_nodes_z2 = [
+            scia_nodes[f"K_dek:{span}_2"],
+            scia_nodes[f"K_dek:{next_span}_2"],
+            scia_nodes[f"K_dek:{next_span}_3"],
+            scia_nodes[f"K_dek:{span}_3"],
+        ]
+        model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
+
+    # Add realistic tandem loads based on bridge parameters
+    _add_realistic_tandem_loads(model, params)
+
+    return model.generate_xml_input()
+
+
+def _create_dutch_standard_load_combinations(  # noqa: PLR0913, C901
+    model: SciaModel,
+    dead_load_case: Any,  # noqa: ANN401
+    traffic_load_cases: list[Any],
+    wind_case: Any,  # noqa: ANN401
+    bridge_span: float,
+    consequence_class: str = "CC2",
+    safety_level: str = "NEN 8700 gebruik",
+    construction_year: str = "2010",
+) -> dict[str, Any]:
+    """
+    Create Dutch standard load combinations according to NEN 8700/8701.
+
+    Generates load combinations using proper gamma factors (NEN 8700) and psi factors
+    (NEN 8701) for bridge analysis. Replaces basic EN 1990 combinations with Dutch
+    standards compliant combinations.
+
+    :param model: SCIA model instance
+    :param dead_load_case: Dead load case object
+    :param traffic_load_cases: List of traffic load case objects
+    :param wind_case: Wind load case object
+    :param bridge_span: Bridge span length for psi factor calculation
+    :param consequence_class: Consequence class (CC1a/b, CC2, CC3)
+    :param safety_level: Safety assessment level
+    :param construction_year: Year of construction for material factors
+    :returns: Dictionary with created load combinations
+    :rtype: dict[str, Any]
     """
     try:
-        # Import VIKTOR SCIA module only when needed
-        # This allows the core logic to be tested without VIKTOR dependencies
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+        # Get gamma factors from NEN 8700 based on project parameters
+        gamma_factors = get_gamma_factors(cc=consequence_class, safety_level=safety_level, building_year=construction_year)
 
-    # Create empty SCIA model using correct VIKTOR SCIA API
-    model = scia.Model()
+        # Get psi factor from NEN 8701 based on bridge span (assuming 50 year reference period)
+        psi_traffic = get_psi_factor(span=bridge_span, reference_period=50.0)
 
-    # Create material - using correct VIKTOR SCIA API from tutorial
-    # The Material constructor requires (material_id, material_name) as shown in tutorial
-    material = scia.Material(0, bridge_geometry.material_name)
+        combinations = {}
 
-    # Create corner nodes for rectangular plate
-    # Coordinate system: X = length direction, Y = width direction, Z = height
-    node1 = model.create_node("N1", 0, 0, 0)
-    node2 = model.create_node("N2", bridge_geometry.total_length, 0, 0)
-    node3 = model.create_node("N3", bridge_geometry.total_length, bridge_geometry.total_width, 0)
-    node4 = model.create_node("N4", 0, bridge_geometry.total_width, 0)
+        # Create combination sets for both 6.10a and 6.10b
+        for combo_type in ["6.10a", "6.10b"]:
+            gamma_set = gamma_factors[combo_type]
 
-    # Create rectangular plane (plate) element using correct API from tutorial
-    # From tutorial: model.create_plane(corner_nodes, thickness, name='...', material=material)
-    corner_nodes = [node1, node2, node3, node4]
-    model.create_plane(corner_nodes, bridge_geometry.thickness, name="BridgePlate", material=material)
+            # ULS Combination 1: Dead + Leading Traffic
+            if traffic_load_cases:
+                primary_traffic = traffic_load_cases[0]
+                uls_1_factors = {
+                    dead_load_case: gamma_set["gamma_Gjsup"],
+                    primary_traffic: gamma_set["gamma_Qverkeer"],
+                }
 
-    # Skip mesh setup for now - can be added later if needed
-    # Basic mesh will be handled by SCIA automatically
+                # Add accompanying traffic loads with psi factor
+                for traffic_case in traffic_load_cases[1:]:
+                    uls_1_factors[traffic_case] = gamma_set["gamma_Qverkeer"] * psi_traffic
 
-    # Generate XML input files
-    xml_file, def_file = model.generate_xml_input()
+                uls_1 = create_load_combination_by_type(
+                    model, "ULS", f"ULS_{combo_type}_G+Q_Traffic", uls_1_factors, f"ULS {combo_type}: Dead + Traffic (NEN 8700/8701)"
+                )
+                combinations[f"uls_{combo_type}_traffic"] = uls_1
 
-    return xml_file, def_file
+            # ULS Combination 2: Dead + Leading Traffic + Accompanying Wind
+            if traffic_load_cases and wind_case:
+                primary_traffic = traffic_load_cases[0]
+                uls_2_factors = {
+                    dead_load_case: gamma_set["gamma_Gjsup"],
+                    primary_traffic: gamma_set["gamma_Qverkeer"],
+                    wind_case: gamma_set["gamma_Qwind"] * 0.6,  # psi_0 for wind = 0.6
+                }
+
+                uls_2 = create_load_combination_by_type(
+                    model, "ULS", f"ULS_{combo_type}_G+Q_Traffic+Wind", uls_2_factors, f"ULS {combo_type}: Dead + Traffic + Wind (NEN 8700/8701)"
+                )
+                combinations[f"uls_{combo_type}_traffic_wind"] = uls_2
+
+            # ULS Combination 3: Dead + Leading Wind + Accompanying Traffic
+            if traffic_load_cases and wind_case:
+                primary_traffic = traffic_load_cases[0]
+                uls_3_factors = {
+                    dead_load_case: gamma_set["gamma_Gjsup"],
+                    wind_case: gamma_set["gamma_Qwind"],
+                    primary_traffic: gamma_set["gamma_Qverkeer"] * psi_traffic,
+                }
+
+                uls_3 = create_load_combination_by_type(
+                    model, "ULS", f"ULS_{combo_type}_G+Wind+Q_Traffic", uls_3_factors, f"ULS {combo_type}: Dead + Wind + Traffic (NEN 8700/8701)"
+                )
+                combinations[f"uls_{combo_type}_wind_traffic"] = uls_3
+
+            # SLS Characteristic Combination: Dead + Traffic
+            if traffic_load_cases:
+                primary_traffic = traffic_load_cases[0]
+                sls_char_factors = {
+                    dead_load_case: 1.0,  # No factor for dead loads in SLS
+                    primary_traffic: 1.0,  # Characteristic value
+                }
+
+                # Add accompanying traffic loads with psi factor
+                for traffic_case in traffic_load_cases[1:]:
+                    sls_char_factors[traffic_case] = psi_traffic
+
+                sls_char = create_load_combination_by_type(
+                    model,
+                    "SLS_CHAR",
+                    f"SLS_CHAR_{combo_type}_G+Q_Traffic",
+                    sls_char_factors,
+                    f"SLS Characteristic {combo_type}: Dead + Traffic (NEN 8700/8701)",
+                )
+                combinations[f"sls_char_{combo_type}"] = sls_char
+
+            # SLS Frequent Combination: Dead + Frequent Traffic
+            if traffic_load_cases:
+                primary_traffic = traffic_load_cases[0]
+                psi1_traffic = 0.75  # ψ₁ for traffic from EN 1991-2
+
+                sls_freq_factors = {
+                    dead_load_case: 1.0,
+                    primary_traffic: psi1_traffic,
+                }
+
+                sls_freq = create_load_combination_by_type(
+                    model,
+                    "SLS_FREQ",
+                    f"SLS_FREQ_{combo_type}_G+Psi1_Q",
+                    sls_freq_factors,
+                    f"SLS Frequent {combo_type}: Dead + ψ₁*Traffic (NEN 8700/8701)",
+                )
+                combinations[f"sls_freq_{combo_type}"] = sls_freq
+
+        return combinations  # noqa: TRY300
+
+    except Exception as e:
+        # Fallback to basic combinations if Dutch standard combinations fail
+        print(f"DEBUG: Dutch standard combinations failed: {e}")  # noqa: T201
+        print("DEBUG: Falling back to basic combinations")  # noqa: T201
+
+        # Create basic fallback combinations
+        if traffic_load_cases:
+            primary_traffic = traffic_load_cases[0]
+            uls_basic = create_load_combination_by_type(
+                model, "ULS", "ULS_Basic_G+Q", {dead_load_case: 1.35, primary_traffic: 1.5}, "Basic ULS: Dead + Traffic (Fallback)"
+            )
+            sls_basic = create_load_combination_by_type(
+                model, "SLS_CHAR", "SLS_Basic_G+Q", {dead_load_case: 1.0, primary_traffic: 1.0}, "Basic SLS: Dead + Traffic (Fallback)"
+            )
+            return {"uls_basic": uls_basic, "sls_basic": sls_basic}
+
+        return {}
+
+
+def _add_dummy_wheel_loads(model: SciaModel) -> dict[str, Any]:
+    """
+    DEPRECATED: Replaced by _add_realistic_tandem_loads.
+
+    Legacy demonstration load framework from scia_utils.
+    Shows 4-step workflow for reference but no longer used in production.
+
+    Use _add_realistic_tandem_loads instead for actual bridge analysis.
+    """
+    # Create load groups
+    permanent_group = create_load_group_by_type(model, "PERMANENT", "LG_Permanent")
+    traffic_group = create_load_group_by_type(model, "VARIABLE", "LG_Traffic")
+    wind_group = create_load_group_by_type(model, "VARIABLE", "LG_Wind")
+
+    # Create load cases
+    dead_load_case = create_load_case_complete(
+        model, permanent_group, "G1_DeadLoad", "Superimposed dead load", "PERMANENT", permanent_type="STANDARD"
+    )
+
+    lm1_case = create_load_case_complete(
+        model, traffic_group, "Q1_LM1", "Load Model 1 - Tandem + UDL", "VARIABLE", variable_type="STATIC", duration="SHORT"
+    )
+
+    wind_case = create_load_case_complete(
+        model, wind_group, "Q2_Wind", "Wind Load", "VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="SHORT"
+    )
+
+    # Create load combinations (EN 1990 factors)
+    uls_basic = create_load_combination_by_type(model, "ULS", "ULS_1_G+LM1", {dead_load_case: 1.35, lm1_case: 1.5})
+
+    uls_wind = create_load_combination_by_type(model, "ULS", "ULS_2_G+LM1+W", {dead_load_case: 1.35, lm1_case: 1.5, wind_case: 1.5 * 0.6})
+
+    sls_char = create_load_combination_by_type(model, "SLS_CHAR", "SLS_Char_G+LM1", {dead_load_case: 1.0, lm1_case: 1.0})
+
+    # Apply LM1 tandem loads (dummy positions)
+    wheel_1_corners = [(10.0, 1.8, 0.0), (10.4, 1.8, 0.0), (10.4, 2.2, 0.0), (10.0, 2.2, 0.0)]
+    wheel_2_corners = [(10.0, -0.2, 0.0), (10.4, -0.2, 0.0), (10.4, 0.2, 0.0), (10.0, 0.2, 0.0)]
+    wheel_3_corners = [(11.2, 1.8, 0.0), (11.6, 1.8, 0.0), (11.6, 2.2, 0.0), (11.2, 2.2, 0.0)]
+    wheel_4_corners = [(11.2, -0.2, 0.0), (11.6, -0.2, 0.0), (11.6, 0.2, 0.0), (11.2, 0.2, 0.0)]
+
+    # 300kN/0.16m² = 1,875,000 N/m², 200kN/0.16m² = 1,250,000 N/m²
+    create_patch_surface_load(model, lm1_case, wheel_1_corners, -1875000.0, "LM1_Axle1_Wheel1")
+    create_patch_surface_load(model, lm1_case, wheel_2_corners, -1875000.0, "LM1_Axle1_Wheel2")
+    create_patch_surface_load(model, lm1_case, wheel_3_corners, -1250000.0, "LM1_Axle2_Wheel1")
+    create_patch_surface_load(model, lm1_case, wheel_4_corners, -1250000.0, "LM1_Axle2_Wheel2")
+
+    return {
+        "load_groups": {"permanent": permanent_group, "traffic": traffic_group, "wind": wind_group},
+        "load_cases": {"dead_load": dead_load_case, "lm1": lm1_case, "wind": wind_case},
+        "combinations": {"uls_basic": uls_basic, "uls_wind": uls_wind, "sls_char": sls_char},
+    }
+
+
+def _add_realistic_tandem_loads(model: SciaModel, params: Any) -> dict[str, Any]:  # noqa: ANN401
+    """
+    Apply realistic tandem loads to SCIA model from bridge parameters.
+
+    Replaces _add_dummy_wheel_loads with loads generated from src.loads.loadcase_helper_functions
+    using actual bridge geometry and dimensions.
+
+    :param model: SCIA model instance
+    :param params: Bridge parameters
+    :returns: Dictionary with load_groups, load_cases, combinations (compatible with dummy loads)
+    :rtype: dict[str, Any]
+    """
+    # Extract bridge parameters for tandem load generation
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+
+    # Generate tandem loads using src.loads.loadcase_helper_functions
+    raw_tandem_data = generate_tandem_loads_for_bridge(bridge_params)
+
+    # Convert to SCIA format
+    scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
+
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 1: LOAD GROUPS
+    # ========================================================================
+    # TODO: Replace basic load groups with comprehensive EN 1990 load groups
+    # CURRENT: Simple permanent/traffic/wind groups
+    # NEEDED: Your colleague should integrate sophisticated load group management
+    # - Multiple variable load groups (traffic, pedestrian, wind, thermal, etc.)
+    # - Proper load group relationships (exclusive, standard, together)
+    # - Load group categorization (Cat A, B, C, D, E)
+    # - Integration with params.input.belastingzones if available
+
+    # Create load groups (maintain compatibility with existing structure)
+    permanent_group = create_load_group_by_type(model, "PERMANENT", "LG_Permanent")
+    traffic_group = create_load_group_by_type(model, "VARIABLE", "LG_Traffic")
+    wind_group = create_load_group_by_type(model, "VARIABLE", "LG_Wind")
+
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 2: BASIC LOAD CASES
+    # ========================================================================
+    # TODO: Expand basic load case creation with comprehensive load case management
+    # CURRENT: Simple dead load and wind load cases
+    # NEEDED: Your colleague should add:
+    # - Dead load variants (self-weight, superimposed dead loads, equipment)
+    # - Live load cases beyond tandem (UDL, pedestrian, special vehicles)
+    # - Environmental loads (wind profiles, thermal gradients, settlement)
+    # - Load case metadata (duration, dynamic factors, partial factors)
+    # - Integration with bridge-specific load requirements
+
+    # Create basic load cases (maintain compatibility)
+    dead_load_case = create_load_case_complete(
+        model, permanent_group, "G1_DeadLoad", "Superimposed dead load", "PERMANENT", permanent_type="STANDARD"
+    )
+
+    wind_case = create_load_case_complete(
+        model, wind_group, "Q2_Wind", "Wind Load", "VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="SHORT"
+    )
+
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 3: TANDEM LOAD CASES
+    # ========================================================================
+    # CURRENT: All tandem load cases applied with basic settings
+    # READY FOR ENHANCEMENT: Your colleague can extend this section to:
+    # - Add load case metadata (position descriptions, critical sections)
+    # - Implement load case filtering/optimization (critical cases only)
+    # - Add dynamic amplification factors
+    # - Integrate with fatigue load models
+    # - Add special tandem configurations (emergency vehicles, permit loads)
+
+    # Apply realistic tandem loads
+    tandem_load_cases = apply_tandem_loads_to_scia_model(model, scia_tandem_data, traffic_group)
+
+    # ========================================================================
+    # INTEGRATION POINT 4: DUTCH STANDARD LOAD COMBINATIONS (NEN 8700/8701)
+    # ========================================================================
+    # ✅ IMPLEMENTED: Dutch standard load combinations with proper factors
+    # REPLACED: Basic EN 1990 combinations with NEN 8700/8701 compliant system
+    # FEATURES:
+    # - Gamma factors from NEN 8700 based on consequence class and safety level
+    # - Psi factors from NEN 8701 based on bridge span and reference period
+    # - Both 6.10a and 6.10b combination equations
+    # - ULS combinations (dead+traffic, dead+traffic+wind, dead+wind+traffic)
+    # - SLS combinations (characteristic, frequent)
+    # - Proper accompanying load factors with psi values
+    # - Fallback to basic combinations if Dutch standards fail
+
+    # Calculate bridge span for psi factor determination
+    bridge_span = bridge_params["length_bridgedeck"]
+
+    # Create Dutch standard load combinations
+    # TODO: FUTURE ENHANCEMENT - Make these parameters configurable from bridge params:
+    # - consequence_class: Extract from params.bridge.consequence_class or params.input.cc_class
+    # - safety_level: Extract from params.bridge.design_code or params.input.design_code
+    # - construction_year: Extract from params.bridge.construction_year or params.info.construction_year
+    combinations = _create_dutch_standard_load_combinations(
+        model=model,
+        dead_load_case=dead_load_case,
+        traffic_load_cases=tandem_load_cases,
+        wind_case=wind_case,
+        bridge_span=bridge_span,
+        consequence_class="CC2",  # Default consequence class
+        safety_level="NEN 8700 gebruik",  # Default safety level
+        construction_year="2010",  # Default construction year
+    )
+
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 5: RESULTS CLASSES (FUTURE)
+    # ========================================================================
+    # TODO: When colleague implements results processing, add results integration here
+    # SUGGESTED INTERFACE:
+    # - BridgeAnalysisResults class to store/process SCIA output
+    # - ResultsProcessor class for post-processing (code checks, utilization)
+    # - ReportGenerator class for automated report generation
+    # INTEGRATION LOCATION: After model.generate_xml_input() in main function
+    # RETURN EXTENSION: Add "results_config" to return dictionary
+
+    # Build load cases dictionary
+    load_cases = {
+        "dead_load": dead_load_case,
+        "wind": wind_case,
+    }
+
+    # Add all tandem load cases
+    for i, tandem_case in enumerate(tandem_load_cases):
+        load_cases[f"tandem_{i + 1}"] = tandem_case
+
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 6: RETURN STRUCTURE ENHANCEMENT
+    # ========================================================================
+    # CURRENT: Basic compatibility structure
+    # READY FOR EXTENSION: Your colleague can add:
+    # - "combination_metadata": {...} - Combination descriptions and factors
+    # - "critical_combinations": [...] - Pre-identified critical combinations
+    # - "load_case_mapping": {...} - BG6001 → description mapping
+    # - "analysis_settings": {...} - Analysis parameters and options
+    # - "results_config": {...} - Results processing configuration
+
+    return {
+        "load_groups": {"permanent": permanent_group, "traffic": traffic_group, "wind": wind_group},
+        "load_cases": load_cases,
+        "combinations": combinations,
+    }
 
 
 def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401
     """
-    Create SCIA analysis using template file and generated XML input.
+    Create SCIA analysis using template file.
 
     :param xml_file: Generated XML input file
-    :type xml_file: io.BytesIO
     :param def_file: Generated definition file
-    :type def_file: io.BytesIO
-    :param template_path: Path to the ESA template file
-    :type template_path: Path
-    :returns: SCIA analysis object ready for execution
-    :rtype: Any (SCIA analysis object)
-    :raises ImportError: If VIKTOR SCIA module is not available
-    :raises FileNotFoundError: If template file doesn't exist
+    :param template_path: Path to ESA template
+    :returns: SCIA analysis object
     """
-    try:
-        from viktor.core import File
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    if not VIKTOR_AVAILABLE or scia is None or File is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
     if not template_path.exists():
         raise FileNotFoundError(f"SCIA template file not found: {template_path}")
 
-    # Load template file
     esa_template = File.from_path(template_path)
-
-    # Create SCIA analysis using tutorial format: SciaAnalysis(input_xml, input_def, input_esa)
     return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
-def create_bridge_scia_model(
-    bridge_segments_params: list[dict[str, Any]], template_path: Path, concrete_material: str | None = None
-) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401
     """
     Main function to create complete SCIA model from bridge parameters.
 
-    This is the primary interface function that:
-    1. Extracts geometry from bridge parameters
-    2. Creates SCIA model with rectangular plate approximation
-    3. Sets up analysis with template file
+    Creates geometry from bridge_segments_array and sets up analysis with template.
 
-    TODO: Integration with load zone data for realistic loading:
-
-    LOAD ZONE INTEGRATION:
-    The current implementation creates geometry only. For complete analysis, integrate with
-    load zone data from params.load_zones_data_array to apply realistic traffic loads:
-
-         ```python
-     def create_bridge_scia_model(bridge_segments_params, template_path,
-                                  load_zones_params=None, info_params=None):
-         # Extract material from INFO page parameters
-         material_grade = "C30/37"  # Default
-         if info_params:
-             material_grade = info_params.get("material_grade", "C30/37")
-
-         # Current geometry creation with proper materials...
-         xml_file, def_file = create_complex_scia_plate_model(bridge_geometry, material_grade)
-
-         # Add load cases and load zone integration
-         if load_zones_params:
-             model = add_load_zones_to_scia_model(model, load_zones_params, bridge_segments_params)
-             xml_file, def_file = model.generate_xml_input()  # Regenerate with loads
-
-         # Create analysis...
-         return xml_file, def_file, scia_analysis
-
-    def add_load_zones_to_scia_model(model, load_zones_params, bridge_segments_params):
-        # Map load zones to SCIA plate elements
-        # Apply distributed loads based on load zone types (LM1, SV, etc.)
-        # Consider load zone widths at each D-section (d1_width, d2_width, etc.)
-
-        for zone_idx, load_zone in enumerate(load_zones_params):
-            zone_type = load_zone.get("load_zone_type", "LM1")
-
-            # Get load intensities for this zone type
-            if zone_type == "LM1":
-                characteristic_load = 9.0  # kN/m² (TS tandem + UDL)
-            elif zone_type == "SV":
-                characteristic_load = 15.0  # kN/m² (Special Vehicle)
-            # ... other load types
-
-            # Apply loads to appropriate plate elements for this zone
-            # Consider varying zone width along bridge length (d1_width, d2_width, etc.)
-
-        return model
-    ```
-
-    COORDINATE SYSTEM INTEGRATION:
-    Ensure SCIA coordinate system matches the bridge coordinate system used in the 3D view
-    and load zone calculations. Currently:
-    - X: Bridge longitudinal direction (length)
-    - Y: Bridge transverse direction (width, zones 1-2-3)
-    - Z: Vertical (thickness direction)
-
-    :param bridge_segments_params: Bridge segment parameters from VIKTOR
-    :type bridge_segments_params: list[dict[str, Any]]
+    :param params: Bridge parameters
     :param template_path: Path to ESA template file
-    :type template_path: Path
-    :param concrete_material: Concrete material grade (e.g., "C30/37") from material system
-    :type concrete_material: str | None
-    :returns: Tuple of (xml_file, def_file, scia_analysis)
-    :rtype: tuple[Any, Any, Any]
-    :raises ValueError: If bridge parameters are invalid
-    :raises FileNotFoundError: If template file doesn't exist
-    :raises ImportError: If VIKTOR SCIA module is not available
+    :returns: (xml_file, def_file, scia_analysis)
     """
-    # Extract bridge geometry with material
-    bridge_geometry = extract_bridge_geometry_from_params(bridge_segments_params, concrete_material)
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 7: LOAD ZONE DATA INTEGRATION
+    # ========================================================================
+    # TODO: Integrate with load zone data from params.input.belastingzones for realistic loads.
+    # CURRENT: Only using tandem loads from src.loads.loadcase_helper_functions
+    # NEEDED: Your colleague should add integration for:
+    # - params.input.belastingzones data processing
+    # - Zone-specific load application (different loads per bridge zone)
+    # - Load distribution algorithms across bridge segments
+    # - Zone-to-SCIA coordinate mapping
+    # - Multi-zone load combination strategies
+    # INTEGRATION LOCATION: In _add_realistic_tandem_loads function - Point 1
 
-    # Create SCIA model
-    xml_file, def_file = create_simple_scia_plate_model(bridge_geometry)
-
-    # Create analysis with template
+    xml_file, def_file = create_simple_scia_plate_model(params)
     scia_analysis = create_scia_analysis_from_template(xml_file, def_file, template_path)
+
+    # ========================================================================
+    # COLLEAGUE INTEGRATION POINT 8: RESULTS PROCESSING INTEGRATION
+    # ========================================================================
+    # TODO: Add results processing pipeline after SCIA analysis creation
+    # SUGGESTED IMPLEMENTATION:
+    #
+    # from src.results.bridge_results import BridgeAnalysisResults, ResultsProcessor  # noqa: ERA001
+    # from src.results.code_checks import EurocodeChecker, UtilizationCalculator  # noqa: ERA001
+    # from src.results.report_generator import AutomatedReportGenerator  # noqa: ERA001
+    #
+    # # Execute analysis and get results
+    # if enable_analysis_execution:
+    #     try:  # noqa: ERA001
+    #         scia_analysis.execute(timeout=600)  # 10 minutes max  # noqa: ERA001
+    #         results_data = scia_analysis.get_results()  # noqa: ERA001
+    #
+    #         # Process results
+    #         bridge_results = BridgeAnalysisResults(results_data, bridge_geometry=params)  # noqa: ERA001
+    #         processor = ResultsProcessor(bridge_results)  # noqa: ERA001
+    #
+    #         # Perform code checks
+    #         checker = EurocodeChecker(processor)  # noqa: ERA001
+    #         code_check_results = checker.perform_checks()  # noqa: ERA001
+    #
+    #         # Calculate utilization ratios
+    #         utilization = UtilizationCalculator(processor)  # noqa: ERA001
+    #         utilization_results = utilization.calculate_all()  # noqa: ERA001
+    #
+    #         # Generate automated report
+    #         report_gen = AutomatedReportGenerator(bridge_results, code_check_results, utilization_results)  # noqa: ERA001
+    #         report_file = report_gen.generate_report()  # noqa: ERA001
+    #
+    #         return xml_file, def_file, scia_analysis, bridge_results, report_file  # noqa: ERA001
+    #     except Exception as e:  # noqa: ERA001
+    #         # Analysis failed - return model files only
+    #         return xml_file, def_file, scia_analysis, None, None  # noqa: ERA001
+    #
+    # CLASSES TO IMPLEMENT:
+    # - BridgeAnalysisResults: Parse and store SCIA results (forces, moments, displacements)
+    # - ResultsProcessor: Post-process results (max/min values, critical sections)
+    # - EurocodeChecker: Automated code compliance checks (EN 1992-2, EN 1991-2)
+    # - UtilizationCalculator: Capacity/demand ratios for all critical sections
+    # - AutomatedReportGenerator: PDF report generation with plots and tables
+    #
+    # RETURN STRUCTURE EXTENSION:
+    # Current: (xml_file, def_file, scia_analysis)  # noqa: ERA001
+    # Enhanced: (xml_file, def_file, scia_analysis, bridge_results, report_file)  # noqa: ERA001
 
     return xml_file, def_file, scia_analysis
