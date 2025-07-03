@@ -6,6 +6,7 @@ without requiring the full VIKTOR app layer.
 """
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -19,12 +20,12 @@ class TestSCIAInterfaceCoreFunctions:
 
         # Define the NodeTracker class inline to avoid circular import
         class NodeTracker:
-            def __init__(self, scia_model):
+            def __init__(self, scia_model: Any) -> None:  # noqa: ANN401
                 self.model = scia_model
-                self._nodes_by_coords = {}
-                self._nodes_by_name = {}
+                self._nodes_by_coords: dict[tuple[float, float, float], Any] = {}
+                self._nodes_by_name: dict[str, Any] = {}
 
-            def get_or_create_node(self, name: str, x: float, y: float, z: float):
+            def get_or_create_node(self, name: str, x: float, y: float, z: float) -> Any:  # noqa: ANN401
                 coords = (x, y, z)
                 if coords in self._nodes_by_coords:
                     return self._nodes_by_coords[coords]
@@ -34,7 +35,7 @@ class TestSCIAInterfaceCoreFunctions:
                 self._nodes_by_name[name] = node
                 return node
 
-            def get_node_by_name(self, name: str):
+            def get_node_by_name(self, name: str) -> Any:  # noqa: ANN401
                 return self._nodes_by_name[name]
 
         # Test the class
@@ -46,8 +47,8 @@ class TestSCIAInterfaceCoreFunctions:
 
         # Test initialization
         assert tracker.model is mock_model
-        assert tracker._nodes_by_coords == {}
-        assert tracker._nodes_by_name == {}
+        assert tracker._nodes_by_coords == {}  # noqa: SLF001
+        assert tracker._nodes_by_name == {}  # noqa: SLF001
 
         # Test node creation
         result = tracker.get_or_create_node("N1", 0.0, 0.0, 0.0)
@@ -67,7 +68,7 @@ class TestSCIAInterfaceCoreFunctions:
         """Test coordinate calculation logic directly."""
 
         # Simulate the coordinate calculation logic from the SCIA interface
-        def calculate_cross_section_positions(bridge_segments_array, segment_idx: int):
+        def calculate_cross_section_positions(bridge_segments_array: list[dict[str, float]], segment_idx: int) -> dict[str, float]:
             """Calculate node positions for cross section."""
             l_sum = sum(item["l"] for item in bridge_segments_array[: segment_idx + 1])
             segment = bridge_segments_array[segment_idx]
@@ -106,7 +107,7 @@ class TestSCIAInterfaceCoreFunctions:
         """Test thickness data creation logic."""
 
         # Simulate the thickness data creation logic
-        def create_thickness_dict(bridge_segments_array):
+        def create_thickness_dict(bridge_segments_array: list[dict[str, float]]) -> dict[str, float]:
             thickness_dict = {}
             dynamic_arrays = len(bridge_segments_array)
 
@@ -144,7 +145,7 @@ class TestSCIAInterfaceCoreFunctions:
     def test_polygon_area_calculation(self) -> None:
         """Test polygon area calculation using shoelace formula."""
 
-        def polygon_area(points):
+        def polygon_area(points: list[tuple[float, float]]) -> float:
             """Calculate polygon area using shoelace formula."""
             n = len(points)
             area = 0.0
@@ -170,10 +171,10 @@ class TestSCIAInterfaceCoreFunctions:
         assert area == 0.0  # No area
 
     @patch("pathlib.Path.exists")
-    def test_template_file_validation(self, mock_exists) -> None:
+    def test_template_file_validation(self, mock_exists: Mock) -> None:
         """Test template file validation logic."""
 
-        def validate_template_file(template_path):
+        def validate_template_file(template_path: Path) -> bool:
             """Validate template file exists."""
             if not template_path.exists():
                 raise FileNotFoundError(f"SCIA template file not found: {template_path}")
@@ -192,7 +193,7 @@ class TestSCIAInterfaceCoreFunctions:
     def test_load_value_conversion(self) -> None:
         """Test load value conversion from N/m² to total N."""
 
-        def convert_pressure_to_total_load(pressure_n_per_m2, area_m2):
+        def convert_pressure_to_total_load(pressure_n_per_m2: float, area_m2: float) -> float:
             """Convert pressure load to total load."""
             return pressure_n_per_m2 * area_m2
 
@@ -245,17 +246,17 @@ class TestSCIAInterfaceCoreFunctions:
     def test_error_handling_patterns(self) -> None:
         """Test error handling patterns used in SCIA integration."""
 
-        def check_scia_availability(scia_module):
+        def check_scia_availability(scia_module: Any) -> None:  # noqa: ANN401
             """Check if SCIA module is available."""
             if scia_module is None:
                 raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
-        def validate_corner_points(corner_points):
+        def validate_corner_points(corner_points: list[tuple[float, float, float]]) -> None:
             """Validate corner points for surface load."""
             if len(corner_points) != 4:
                 raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
 
-        def validate_case_type(case_type):
+        def validate_case_type(case_type: str) -> None:
             """Validate load case type."""
             valid_types = ["PERMANENT", "VARIABLE"]
             if case_type.upper() not in valid_types:
@@ -291,9 +292,8 @@ class TestSCIAWorkflowLogic:
         # Simulate workflow execution
         executed_steps = []
 
-        def execute_workflow():
-            for step in workflow_steps:
-                executed_steps.append(step)
+        def execute_workflow() -> None:
+            executed_steps.extend(workflow_steps)
 
         execute_workflow()
 
@@ -340,15 +340,12 @@ class TestSCIAWorkflowLogic:
 
     def test_bridge_geometry_coordinate_system(self) -> None:
         """Test bridge geometry coordinate system conventions."""
-        # Bridge coordinate system:
-        # X: Longitudinal (along bridge length)
-        # Y: Transverse (across bridge width)
-        # Z: Vertical (elevation)
+        # Bridge coordinate system convention
 
         # Zone layout: Zone 3 | Zone 2 | Zone 1
         #              |--bz3--|--bz2--|--bz1--|
 
-        def calculate_zone_boundaries(bz1, bz2, bz3):
+        def calculate_zone_boundaries(bz1: float, bz2: float, bz3: float) -> dict[str, float]:
             """Calculate zone boundaries in Y direction."""
             # Starting from right edge (positive Y)
             z1_right = bz2 / 2

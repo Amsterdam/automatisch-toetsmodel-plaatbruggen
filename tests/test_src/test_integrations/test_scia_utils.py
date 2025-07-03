@@ -22,7 +22,8 @@ class TestSCIAAvailabilityCheck:
             _check_scia_availability()
 
     @patch("src.integrations.scia_utils.scia")
-    def test_check_scia_availability_available(self, mock_scia) -> None:
+    @pytest.mark.usefixtures("_mock_scia")
+    def test_check_scia_availability_available(self) -> None:
         """Test SCIA availability check when SCIA is available."""
         from src.integrations.scia_utils import _check_scia_availability
 
@@ -34,7 +35,7 @@ class TestLoadGroupCreation:
     """Test load group creation functions."""
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_group_by_type_permanent(self, mock_scia) -> None:
+    def test_create_load_group_by_type_permanent(self, mock_scia: Mock) -> None:
         """Test creating permanent load group."""
         from src.integrations.scia_utils import create_load_group_by_type
 
@@ -55,7 +56,7 @@ class TestLoadGroupCreation:
         assert result is mock_load_group
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_group_by_type_variable(self, mock_scia) -> None:
+    def test_create_load_group_by_type_variable(self, mock_scia: Mock) -> None:
         """Test creating variable load group."""
         from src.integrations.scia_utils import create_load_group_by_type
 
@@ -76,7 +77,8 @@ class TestLoadGroupCreation:
         assert result is mock_load_group
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_group_by_type_invalid_option(self, mock_scia) -> None:
+    @pytest.mark.usefixtures("_mock_scia")
+    def test_create_load_group_by_type_invalid_option(self) -> None:
         """Test error handling for invalid load option."""
         from src.integrations.scia_utils import create_load_group_by_type
 
@@ -100,7 +102,7 @@ class TestLoadCaseCreation:
     """Test load case creation functions."""
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_permanent(self, mock_scia) -> None:
+    def test_create_load_case_complete_permanent(self, mock_scia: Mock) -> None:
         """Test creating permanent load case."""
         from src.integrations.scia_utils import create_load_case_complete
 
@@ -120,7 +122,7 @@ class TestLoadCaseCreation:
         assert result is mock_load_case
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_variable(self, mock_scia) -> None:
+    def test_create_load_case_complete_variable(self, mock_scia: Mock) -> None:
         """Test creating variable load case."""
         from src.integrations.scia_utils import create_load_case_complete
 
@@ -144,7 +146,8 @@ class TestLoadCaseCreation:
         assert result is mock_load_case
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_invalid_type(self, mock_scia) -> None:
+    @pytest.mark.usefixtures("_mock_scia")
+    def test_create_load_case_complete_invalid_type(self) -> None:
         """Test error handling for invalid case type."""
         from src.integrations.scia_utils import create_load_case_complete
 
@@ -155,7 +158,7 @@ class TestLoadCaseCreation:
             create_load_case_complete(mock_model, mock_load_group, "X1", "Invalid", "INVALID")
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_default_parameters(self, mock_scia) -> None:
+    def test_create_load_case_complete_default_parameters(self, mock_scia: Mock) -> None:
         """Test load case creation with default parameters."""
         from src.integrations.scia_utils import create_load_case_complete
 
@@ -183,7 +186,7 @@ class TestLoadCombinationCreation:
     """Test load combination creation functions."""
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_combination_by_type_uls(self, mock_scia) -> None:
+    def test_create_load_combination_by_type_uls(self, mock_scia: Mock) -> None:
         """Test creating ULS load combination."""
         from src.integrations.scia_utils import create_load_combination_by_type
 
@@ -205,7 +208,7 @@ class TestLoadCombinationCreation:
         assert result is mock_combination
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_combination_by_type_sls(self, mock_scia) -> None:
+    def test_create_load_combination_by_type_sls(self, mock_scia: Mock) -> None:
         """Test creating SLS load combination."""
         from src.integrations.scia_utils import create_load_combination_by_type
 
@@ -226,7 +229,8 @@ class TestLoadCombinationCreation:
         assert result is mock_combination
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_combination_by_type_invalid(self, mock_scia) -> None:
+    @pytest.mark.usefixtures("_mock_scia")
+    def test_create_load_combination_by_type_invalid(self) -> None:
         """Test error handling for invalid combination type."""
         from src.integrations.scia_utils import create_load_combination_by_type
 
@@ -237,7 +241,7 @@ class TestLoadCombinationCreation:
             create_load_combination_by_type(mock_model, "INVALID", "Test", {mock_load_case: 1.0})
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_load_combination_by_type_all_types(self, mock_scia) -> None:
+    def test_create_load_combination_by_type_all_types(self, mock_scia: Mock) -> None:
         """Test that all combination types are supported."""
         from src.integrations.scia_utils import create_load_combination_by_type
 
@@ -279,7 +283,7 @@ class TestPatchSurfaceLoadCreation:
     """Test patch surface load creation functions."""
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_patch_surface_load_success(self, mock_scia) -> None:
+    def test_create_patch_surface_load_success(self, mock_scia: Mock) -> None:
         """Test successful patch surface load creation."""
         from src.integrations.scia_utils import create_patch_surface_load
 
@@ -314,7 +318,8 @@ class TestPatchSurfaceLoadCreation:
         assert result is mock_surface_load
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_patch_surface_load_invalid_points(self, mock_scia) -> None:
+    @pytest.mark.usefixtures("_mock_scia")
+    def test_create_patch_surface_load_invalid_points(self) -> None:
         """Test error handling for invalid number of points."""
         from src.integrations.scia_utils import create_patch_surface_load
 
@@ -328,7 +333,7 @@ class TestPatchSurfaceLoadCreation:
             create_patch_surface_load(mock_model, mock_load_case, corner_points, 1000.0)
 
     @patch("src.integrations.scia_utils.scia")
-    def test_create_patch_surface_load_area_calculation(self, mock_scia) -> None:
+    def test_create_patch_surface_load_area_calculation(self, mock_scia: Mock) -> None:
         """Test area calculation for different polygon shapes."""
         from src.integrations.scia_utils import create_patch_surface_load
 
@@ -378,7 +383,7 @@ class TestLegacyFunction:
 
     @patch("src.integrations.scia_utils.create_load_group_by_type")
     @patch("src.integrations.scia_utils.create_load_case_complete")
-    def test_create_load_case_with_name_default(self, mock_create_case, mock_create_group) -> None:
+    def test_create_load_case_with_name_default(self, mock_create_case: Mock, mock_create_group: Mock) -> None:
         """Test legacy function with default parameters."""
         from src.integrations.scia_utils import create_load_case_with_name
 
@@ -398,7 +403,7 @@ class TestLegacyFunction:
 
     @patch("src.integrations.scia_utils.create_load_group_by_type")
     @patch("src.integrations.scia_utils.create_load_case_complete")
-    def test_create_load_case_with_name_permanent(self, mock_create_case, mock_create_group) -> None:
+    def test_create_load_case_with_name_permanent(self, mock_create_case: Mock, mock_create_group: Mock) -> None:
         """Test legacy function with permanent load type."""
         from src.integrations.scia_utils import create_load_case_with_name
 
@@ -505,7 +510,7 @@ class TestIntegrationScenarios:
     """Test integration scenarios combining multiple functions."""
 
     @patch("src.integrations.scia_utils.scia")
-    def test_complete_load_workflow(self, mock_scia) -> None:
+    def test_complete_load_workflow(self, mock_scia: Mock) -> None:
         """Test complete workflow: group -> case -> combination -> load."""
         from src.integrations.scia_utils import (
             create_load_case_complete,
@@ -560,7 +565,7 @@ class TestIntegrationScenarios:
         mock_model.create_free_surface_load.assert_called_once()
 
     @patch("src.integrations.scia_utils.scia")
-    def test_multiple_load_cases_same_group(self, mock_scia) -> None:
+    def test_multiple_load_cases_same_group(self, mock_scia: Mock) -> None:
         """Test creating multiple load cases in same group."""
         from src.integrations.scia_utils import create_load_case_complete, create_load_group_by_type
 
@@ -585,8 +590,8 @@ class TestIntegrationScenarios:
         load_group = create_load_group_by_type(mock_model, "VARIABLE", "LG_Traffic")
 
         # Create multiple load cases in same group
-        load_case_1 = create_load_case_complete(mock_model, load_group, "Q1_LM1", "Load Model 1", "VARIABLE")
-        load_case_2 = create_load_case_complete(mock_model, load_group, "Q2_LM2", "Load Model 2", "VARIABLE")
+        create_load_case_complete(mock_model, load_group, "Q1_LM1", "Load Model 1", "VARIABLE")
+        create_load_case_complete(mock_model, load_group, "Q2_LM2", "Load Model 2", "VARIABLE")
 
         # Verify both cases use same group
         assert mock_model.create_variable_load_case.call_count == 2
