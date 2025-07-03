@@ -198,16 +198,12 @@ class TestCreateExportReport(unittest.TestCase):
         with pytest.raises(OSError, match="Template file not found"):
             create_export_report(params)
 
-    @patch("src.report.report_functions.convert_word_to_pdf")
-    @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
     def test_create_export_report_template_render_error(
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
-        mock_file: MagicMock,
-        mock_convert_word_to_pdf: MagicMock,
     ) -> None:
         """Test handling of template rendering errors."""
         # Arrange
@@ -228,16 +224,12 @@ class TestCreateExportReport(unittest.TestCase):
         with pytest.raises(Exception, match="Template rendering failed"):
             create_export_report(params)
 
-    @patch("src.report.report_functions.convert_word_to_pdf")
-    @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
     def test_create_export_report_save_error(
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
-        mock_file: MagicMock,
-        mock_convert_word_to_pdf: MagicMock,
     ) -> None:
         """Test handling of document save errors."""
         # Arrange

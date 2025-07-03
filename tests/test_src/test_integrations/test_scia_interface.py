@@ -508,7 +508,7 @@ class TestErrorHandling:
 
 
 class TestTandemParameterExtraction:
-    """Test extracting parameters for loadcase_helper_functions integration."""
+    """Test extracting parameters for src.loads.loadcase_helper_functions integration."""
 
     def test_extract_tandem_parameters_from_bridge_default_data(self) -> None:
         """Test parameter extraction using bridge_default_params.json data."""
@@ -624,16 +624,13 @@ class TestTandemSCIAApplication:
         assert len(result) == 1
         assert result[0] == mock_load_case
 
-    @patch("src.integrations.scia_interface.create_patch_surface_load")
-    def test_apply_wheel_loads_to_scia_model(self, mock_patch_load: Mock) -> None:
+    def test_apply_wheel_loads_to_scia_model(self) -> None:
         """Test applying individual wheel loads as patch loads."""
         from src.integrations.scia_interface import apply_tandem_loads_to_scia_model
 
         # Mock SCIA objects
         mock_model = Mock()
         mock_load_group = Mock()
-        mock_surface_load = Mock()
-        mock_patch_load.return_value = mock_surface_load
 
         # Mock tandem load data with multiple wheels
         scia_tandem_data = [
@@ -652,9 +649,12 @@ class TestTandemSCIAApplication:
             }
         ]
 
-        with patch("src.integrations.scia_interface.create_load_case_complete") as mock_create_case:
-            mock_load_case = Mock()
-            mock_create_case.return_value = mock_load_case
+        with (
+            patch("src.integrations.scia_interface.create_load_case_complete") as mock_create_case,
+            patch("src.integrations.scia_interface.create_patch_surface_load") as mock_patch_load,
+        ):
+            mock_create_case.return_value = Mock()
+            mock_patch_load.return_value = Mock()
 
             apply_tandem_loads_to_scia_model(mock_model, scia_tandem_data, mock_load_group)
 
@@ -666,44 +666,45 @@ class TestTandemSCIAApplication:
             assert call_args_1[0][2] == [(10.0, 1.0, 0.0), (10.4, 1.0, 0.0), (10.4, 1.4, 0.0), (10.0, 1.4, 0.0)]
             assert call_args_1[0][3] == 1875000.0
 
-    def test_load_value_handling_already_converted(self) -> None:
-        """Test that load values from tandem functions are used directly."""
+    def test_load_value_handling_downward_direction(self) -> None:
+        """Test that load values are applied as negative (downward direction)."""
         from src.integrations.scia_interface import apply_tandem_loads_to_scia_model
 
         # Mock SCIA objects
         mock_model = Mock()
         mock_load_group = Mock()
 
-        # Mock tandem data with pressure values (already converted)
+        # Mock tandem data with pressure values (positive from tandem functions)
         scia_tandem_data = [
             {
                 "load_case": "BG6001",
                 "patch_loads": [
                     {
                         "corners": [(10.0, 1.0, 0.0), (10.4, 1.0, 0.0), (10.4, 1.4, 0.0), (10.0, 1.4, 0.0)],
-                        "load_value": 1875000.0,  # Already in N/m²
+                        "load_value": 1875000.0,  # Positive value from tandem functions
                     }
                 ],
             }
         ]
 
-        with patch("src.integrations.scia_interface.create_load_case_complete") as mock_create_case:
-            with patch("src.integrations.scia_interface.create_patch_surface_load") as mock_patch_load:
-                mock_create_case.return_value = Mock()
-                mock_patch_load.return_value = Mock()
+        with (
+            patch("src.integrations.scia_interface.create_load_case_complete") as mock_create_case,
+            patch("src.integrations.scia_interface.create_patch_surface_load") as mock_patch_load,
+        ):
+            mock_create_case.return_value = Mock()
+            mock_patch_load.return_value = Mock()
 
-                apply_tandem_loads_to_scia_model(mock_model, scia_tandem_data, mock_load_group)
+            apply_tandem_loads_to_scia_model(mock_model, scia_tandem_data, mock_load_group)
 
-                # Verify load value is used directly without conversion
-                call_args = mock_patch_load.call_args[0]
-                assert call_args[3] == 1875000.0  # Same value, no conversion
+            # Verify load value is negative (downward direction)
+            call_args = mock_patch_load.call_args[0]
+            assert call_args[3] == -1875000.0  # Negative for downward direction
 
 
 class TestRealisticTandemLoadsComplete:
     """Test complete realistic tandem loads implementation."""
 
-    @patch("src.integrations.scia_interface.scia")
-    def test_add_realistic_tandem_loads_with_real_bridge_data(self, mock_scia: Mock) -> None:
+    def test_add_realistic_tandem_loads_with_real_bridge_data(self) -> None:
         """Test using real bridge_default_params.json data."""
         from src.integrations.scia_interface import _add_realistic_tandem_loads
 
@@ -718,15 +719,17 @@ class TestRealisticTandemLoadsComplete:
         # Load real test data
         params = load_bridge_default_params()
 
-        with patch("src.integrations.scia_interface.create_load_group_by_type", return_value=mock_load_group):
-            with patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model", return_value=[mock_load_case]):
-                with patch("src.integrations.scia_interface.create_load_combination_by_type", return_value=mock_combination):
-                    result = _add_realistic_tandem_loads(mock_model, params)
+        with (
+            patch("src.integrations.scia_interface.create_load_group_by_type", return_value=mock_load_group),
+            patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model", return_value=[mock_load_case]),
+            patch("src.integrations.scia_interface.create_load_combination_by_type", return_value=mock_combination),
+        ):
+            result = _add_realistic_tandem_loads(mock_model, params)
 
-                    # Verify structure matches dummy loads format
-                    assert "load_groups" in result
-                    assert "load_cases" in result
-                    assert "combinations" in result
+            # Verify structure matches dummy loads format
+            assert "load_groups" in result
+            assert "load_cases" in result
+            assert "combinations" in result
 
     def test_realistic_loads_return_structure_compatibility(self) -> None:
         """Test return structure matches _add_dummy_wheel_loads."""
@@ -736,21 +739,23 @@ class TestRealisticTandemLoadsComplete:
         mock_model = Mock()
         params = load_bridge_default_params()
 
-        with patch("src.integrations.scia_interface.create_load_group_by_type") as mock_create_group:
-            with patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply_loads:
-                with patch("src.integrations.scia_interface.create_load_combination_by_type") as mock_create_combo:
-                    mock_create_group.side_effect = [Mock(), Mock(), Mock()]  # traffic, permanent, wind groups
-                    mock_apply_loads.return_value = [Mock(), Mock()]  # multiple load cases
-                    mock_create_combo.side_effect = [Mock(), Mock(), Mock()]  # multiple combinations
+        with (
+            patch("src.integrations.scia_interface.create_load_group_by_type") as mock_create_group,
+            patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply_loads,
+            patch("src.integrations.scia_interface.create_load_combination_by_type") as mock_create_combo,
+        ):
+            mock_create_group.side_effect = [Mock(), Mock(), Mock()]  # traffic, permanent, wind groups
+            mock_apply_loads.return_value = [Mock(), Mock()]  # multiple load cases
+            mock_create_combo.side_effect = [Mock(), Mock(), Mock()]  # multiple combinations
 
-                    result = _add_realistic_tandem_loads(mock_model, params)
+            result = _add_realistic_tandem_loads(mock_model, params)
 
-                    # Verify exact structure compatibility
-                    assert isinstance(result, dict)
-                    assert set(result.keys()) == {"load_groups", "load_cases", "combinations"}
-                    assert isinstance(result["load_groups"], dict)
-                    assert isinstance(result["load_cases"], dict)
-                    assert isinstance(result["combinations"], dict)
+            # Verify exact structure compatibility
+            assert isinstance(result, dict)
+            assert set(result.keys()) == {"load_groups", "load_cases", "combinations"}
+            assert isinstance(result["load_groups"], dict)
+            assert isinstance(result["load_cases"], dict)
+            assert isinstance(result["combinations"], dict)
 
     def test_load_case_count_matches_tandem_positions(self) -> None:
         """Test number of load cases matches tandem system output."""
@@ -759,18 +764,20 @@ class TestRealisticTandemLoadsComplete:
         mock_model = Mock()
         params = load_bridge_default_params()
 
-        with patch("src.integrations.scia_interface.generate_tandem_loads_for_bridge") as mock_generate:
-            with patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply:
-                with patch("src.integrations.scia_interface.create_load_group_by_type"):
-                    with patch("src.integrations.scia_interface.create_load_combination_by_type"):
-                        # Mock tandem generation returning 5 load cases
-                        mock_generate.return_value = [{"load_case": f"BG600{i}", "wheels": [], "load": 1000} for i in range(1, 6)]
-                        mock_apply.return_value = [Mock() for _ in range(5)]
+        with (
+            patch("src.integrations.scia_interface.generate_tandem_loads_for_bridge") as mock_generate,
+            patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply,
+            patch("src.integrations.scia_interface.create_load_group_by_type"),
+            patch("src.integrations.scia_interface.create_load_combination_by_type"),
+        ):
+            # Mock tandem generation returning 5 load cases
+            mock_generate.return_value = [{"load_case": f"BG600{i}", "wheels": [], "load": 1000} for i in range(1, 6)]
+            mock_apply.return_value = [Mock() for _ in range(5)]
 
-                        result = _add_realistic_tandem_loads(mock_model, params)
+            result = _add_realistic_tandem_loads(mock_model, params)
 
-                        # Verify tandem load cases are created
-                        assert len(result["load_cases"]) >= 5  # At least the tandem cases (may include others)
+            # Verify tandem load cases are created
+            assert len(result["load_cases"]) >= 5  # At least the tandem cases (may include others)
 
 
 if __name__ == "__main__":

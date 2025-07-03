@@ -4,7 +4,7 @@ SCIA Engineer integration for bridge analysis.
 Creates SCIA models from bridge parameters with:
 - Multi-zone plates (Zone 1, 2, 3) with variable thickness
 - Proper node positioning from bridge_segments_array
-- Realistic tandem load application from loadcase_helper_functions
+- Realistic tandem load application from src.loads.loadcase_helper_functions
 
 ========================================================================
 COLLEAGUE INTEGRATION POINTS SUMMARY
@@ -95,7 +95,7 @@ SUGGESTED IMPLEMENTATION ORDER:
 import io
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypeAlias, Union
+from typing import Any, TypeAlias
 
 from src.integrations.scia_utils import (
     create_load_case_complete,
@@ -103,7 +103,7 @@ from src.integrations.scia_utils import (
     create_load_group_by_type,
     create_patch_surface_load,
 )
-from src.loadcase_helper_functions import (
+from src.loads.loadcase_helper_functions import (
     amount_of_notional_lanes,
     tandem_systems_axes_double_lane,
     tandem_systems_axes_more_lanes,
@@ -211,7 +211,7 @@ def create_node_and_thickness_dict(params: Any) -> tuple[dict[str, list[float]],
 
 def extract_tandem_parameters_from_bridge(params: Any) -> dict[str, float]:  # noqa: ANN401
     """
-    Extract parameters needed for loadcase_helper_functions from bridge data.
+    Extract parameters needed for src.loads.loadcase_helper_functions from bridge data.
 
     :param params: Bridge parameters
     :returns: Dictionary with length_bridgedeck, width_bridgedeck, thickness_bridgedeck
@@ -310,7 +310,7 @@ def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[f
 
 
 def align_bridge_coordinates_to_scia(
-    bridge_coords: list[tuple[float, float, float]], bridge_dims: dict[str, float]
+    bridge_coords: list[tuple[float, float, float]], _bridge_dims: dict[str, float]
 ) -> list[tuple[float, float, float]]:
     """
     Align bridge coordinate system to SCIA model coordinate system.
@@ -319,7 +319,7 @@ def align_bridge_coordinates_to_scia(
     bridge edge coordinates to SCIA zone boundaries.
 
     :param bridge_coords: Bridge coordinates
-    :param bridge_dims: Bridge dimensions for reference
+    :param _bridge_dims: Bridge dimensions for reference (unused)
     :returns: SCIA-aligned coordinates
     :rtype: list[tuple[float, float, float]]
     """
@@ -334,7 +334,7 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
 
     Handles both single lane and multi-lane tandem data formats.
 
-    :param tandem_data: Tandem load data from loadcase_helper_functions
+    :param tandem_data: Tandem load data from src.loads.loadcase_helper_functions
     :returns: SCIA-formatted load case data
     :rtype: list[dict[str, Any]]
     :raises KeyError: When tandem data structure is invalid
@@ -445,14 +445,15 @@ def apply_tandem_loads_to_scia_model(
             load_value = patch_load["load_value"]
             load_name = f"{load_case_name}_Wheel_{i + 1}"
 
-            create_patch_surface_load(model, load_case, corners, load_value, load_name)
+            # Apply loads as negative values to point downward (correct direction for bridge loads)
+            create_patch_surface_load(model, load_case, corners, -load_value, load_name)
 
         load_cases.append(load_case)
 
     return load_cases
 
 
-def create_simple_scia_plate_model(params: Any) -> Union[tuple[BytesIO, BytesIO]]:  # noqa: ANN401
+def create_simple_scia_plate_model(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
     """
     Create SCIA bridge model with multi-zone plates.
 
@@ -599,7 +600,7 @@ def _add_realistic_tandem_loads(model: SciaModel, params: Any) -> dict[str, Any]
     """
     Apply realistic tandem loads to SCIA model from bridge parameters.
 
-    Replaces _add_dummy_wheel_loads with loads generated from loadcase_helper_functions
+    Replaces _add_dummy_wheel_loads with loads generated from src.loads.loadcase_helper_functions
     using actual bridge geometry and dimensions.
 
     :param model: SCIA model instance
@@ -610,7 +611,7 @@ def _add_realistic_tandem_loads(model: SciaModel, params: Any) -> dict[str, Any]
     # Extract bridge parameters for tandem load generation
     bridge_params = extract_tandem_parameters_from_bridge(params)
 
-    # Generate tandem loads using loadcase_helper_functions
+    # Generate tandem loads using src.loads.loadcase_helper_functions
     raw_tandem_data = generate_tandem_loads_for_bridge(bridge_params)
 
     # Convert to SCIA format
@@ -792,7 +793,7 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     # COLLEAGUE INTEGRATION POINT 7: LOAD ZONE DATA INTEGRATION
     # ========================================================================
     # TODO: Integrate with load zone data from params.input.belastingzones for realistic loads.
-    # CURRENT: Only using tandem loads from loadcase_helper_functions
+    # CURRENT: Only using tandem loads from src.loads.loadcase_helper_functions
     # NEEDED: Your colleague should add integration for:
     # - params.input.belastingzones data processing
     # - Zone-specific load application (different loads per bridge zone)
@@ -810,36 +811,36 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     # TODO: Add results processing pipeline after SCIA analysis creation
     # SUGGESTED IMPLEMENTATION:
     #
-    # from src.results.bridge_results import BridgeAnalysisResults, ResultsProcessor
-    # from src.results.code_checks import EurocodeChecker, UtilizationCalculator
-    # from src.results.report_generator import AutomatedReportGenerator
+    # from src.results.bridge_results import BridgeAnalysisResults, ResultsProcessor  # noqa: ERA001
+    # from src.results.code_checks import EurocodeChecker, UtilizationCalculator  # noqa: ERA001
+    # from src.results.report_generator import AutomatedReportGenerator  # noqa: ERA001
     #
     # # Execute analysis and get results
     # if enable_analysis_execution:
-    #     try:
-    #         scia_analysis.execute(timeout=600)  # 10 minutes max
-    #         results_data = scia_analysis.get_results()
+    #     try:  # noqa: ERA001
+    #         scia_analysis.execute(timeout=600)  # 10 minutes max  # noqa: ERA001
+    #         results_data = scia_analysis.get_results()  # noqa: ERA001
     #
     #         # Process results
-    #         bridge_results = BridgeAnalysisResults(results_data, bridge_geometry=params)
-    #         processor = ResultsProcessor(bridge_results)
+    #         bridge_results = BridgeAnalysisResults(results_data, bridge_geometry=params)  # noqa: ERA001
+    #         processor = ResultsProcessor(bridge_results)  # noqa: ERA001
     #
     #         # Perform code checks
-    #         checker = EurocodeChecker(processor)
-    #         code_check_results = checker.perform_checks()
+    #         checker = EurocodeChecker(processor)  # noqa: ERA001
+    #         code_check_results = checker.perform_checks()  # noqa: ERA001
     #
     #         # Calculate utilization ratios
-    #         utilization = UtilizationCalculator(processor)
-    #         utilization_results = utilization.calculate_all()
+    #         utilization = UtilizationCalculator(processor)  # noqa: ERA001
+    #         utilization_results = utilization.calculate_all()  # noqa: ERA001
     #
     #         # Generate automated report
-    #         report_gen = AutomatedReportGenerator(bridge_results, code_check_results, utilization_results)
-    #         report_file = report_gen.generate_report()
+    #         report_gen = AutomatedReportGenerator(bridge_results, code_check_results, utilization_results)  # noqa: ERA001
+    #         report_file = report_gen.generate_report()  # noqa: ERA001
     #
-    #         return xml_file, def_file, scia_analysis, bridge_results, report_file
-    #     except Exception as e:
+    #         return xml_file, def_file, scia_analysis, bridge_results, report_file  # noqa: ERA001
+    #     except Exception as e:  # noqa: ERA001
     #         # Analysis failed - return model files only
-    #         return xml_file, def_file, scia_analysis, None, None
+    #         return xml_file, def_file, scia_analysis, None, None  # noqa: ERA001
     #
     # CLASSES TO IMPLEMENT:
     # - BridgeAnalysisResults: Parse and store SCIA results (forces, moments, displacements)
@@ -849,7 +850,7 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     # - AutomatedReportGenerator: PDF report generation with plots and tables
     #
     # RETURN STRUCTURE EXTENSION:
-    # Current: (xml_file, def_file, scia_analysis)
-    # Enhanced: (xml_file, def_file, scia_analysis, bridge_results, report_file)
+    # Current: (xml_file, def_file, scia_analysis)  # noqa: ERA001
+    # Enhanced: (xml_file, def_file, scia_analysis, bridge_results, report_file)  # noqa: ERA001
 
     return xml_file, def_file, scia_analysis

@@ -200,7 +200,8 @@ class TestValidateLoadZoneWidths(unittest.TestCase):
         # Check for specific overrun amounts in messages
         for warning in warnings:
             assert "overschrijdt brugbreedte" in warning
-            assert "met" in warning and "m." in warning  # Should include overrun amount
+            assert "met" in warning  # Should include overrun amount
+            assert "m." in warning  # Should include unit
 
     def test_validate_load_zone_widths_last_zone_calculation(self) -> None:
         """Test that the last zone width is calculated correctly."""
@@ -294,7 +295,7 @@ class TestParamsForLoadZonesProtocol(unittest.TestCase):
         params = Munch({"load_zones_data_array": load_zones})
 
         # Act & Assert - This should not raise any type errors
-        def use_params_protocol(p: ParamsForLoadZones) -> Any:
+        def use_params_protocol(p: ParamsForLoadZones) -> list[Any]:
             return p.load_zones_data_array
 
         result = use_params_protocol(params)
