@@ -12,14 +12,38 @@ import pytest
 
 from tests.test_data.seed_loader import load_bridge_default_params
 
+# Global imports from SCIA interface module - moved to top level for CI compatibility
+from src.integrations.scia_interface import (
+    NodeTracker,
+    _add_dummy_wheel_loads,
+    _add_realistic_tandem_loads,
+    apply_tandem_loads_to_scia_model,
+    convert_tandem_data_to_scia_format,
+    create_bridge_scia_model,
+    create_node_and_thickness_dict,
+    create_scia_analysis_from_template,
+    create_simple_scia_plate_model,
+    determine_tandem_function_for_bridge,
+    extract_tandem_parameters_from_bridge,
+    generate_tandem_loads_for_bridge,
+    _create_dutch_standard_load_combinations,
+    _create_traffic_load_combinations_minimal,
+)
+
+# Global imports from loadcase helper functions - moved to top level for CI compatibility
+from src.loads.loadcase_helper_functions import (
+    generate_theoretical_lane_positions,
+    tandem_systems_actual_lanes,
+    tandem_systems_shiftable_lanes,
+    tandem_systems_theoretical_lanes,
+)
+
 
 class TestNodeTracker:
     """Test NodeTracker helper class."""
 
     def test_node_tracker_initialization(self) -> None:
         """Test NodeTracker initialization."""
-        from src.integrations.scia_interface import NodeTracker
-
         mock_model = Mock()
         tracker = NodeTracker(mock_model)
 
@@ -29,8 +53,6 @@ class TestNodeTracker:
 
     def test_get_or_create_node_new_node(self) -> None:
         """Test creating new node when coordinates don't exist."""
-        from src.integrations.scia_interface import NodeTracker
-
         mock_model = Mock()
         mock_node = Mock()
         mock_model.create_node.return_value = mock_node
@@ -45,8 +67,6 @@ class TestNodeTracker:
 
     def test_get_or_create_node_existing_node(self) -> None:
         """Test reusing existing node at same coordinates."""
-        from src.integrations.scia_interface import NodeTracker
-
         mock_model = Mock()
         mock_node = Mock()
 
@@ -60,8 +80,6 @@ class TestNodeTracker:
 
     def test_get_node_by_name(self) -> None:
         """Test retrieving node by name."""
-        from src.integrations.scia_interface import NodeTracker
-
         mock_model = Mock()
         mock_node = Mock()
 
@@ -77,9 +95,6 @@ class TestNodeAndThicknessDictCreation:
 
     def test_create_node_and_thickness_dict_single_segment(self) -> None:
         """Test node creation with single bridge segment."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
-        # Create minimal test parameters - use dictionary access for Mock objects
         segment = Mock()
         segment.__getitem__ = lambda _self, key: {"l": 10.0}[key]
         segment.bz1 = 5.0
@@ -106,9 +121,6 @@ class TestNodeAndThicknessDictCreation:
 
     def test_create_node_and_thickness_dict_multiple_segments(self) -> None:
         """Test node creation with multiple bridge segments."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
-        # Create test parameters with 3 segments
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=0, bz1=5.0, bz2=3.0, bz3=4.0, dz=2.0, dz_2=2.5),  # First segment (l=0)
@@ -141,8 +153,6 @@ class TestNodeAndThicknessDictCreation:
 
     def test_create_node_and_thickness_dict_empty_segments(self) -> None:
         """Test behavior with empty segments array."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
         params = Mock()
         params.bridge_segments_array = []
 
@@ -158,9 +168,6 @@ class TestSCIAModelCreation:
     @patch("src.integrations.scia_interface.scia")
     def test_create_simple_scia_plate_model_mocked(self, mock_scia: Any) -> None:  # noqa: ANN401
         """Test SCIA model creation with mocked SDK."""
-        from src.integrations.scia_interface import create_simple_scia_plate_model
-
-        # Setup mocks
         mock_model = Mock()
         mock_material = Mock()
         mock_node = Mock()
@@ -190,8 +197,6 @@ class TestSCIAModelCreation:
 
     def test_create_simple_scia_plate_model_no_viktor(self) -> None:
         """Test SCIA model creation without VIKTOR SDK."""
-        from src.integrations.scia_interface import create_simple_scia_plate_model
-
         params = Mock()
         params.bridge_segments_array = [Mock(l=0, bz1=5.0, bz2=3.0, bz3=4.0)]
 
@@ -201,9 +206,6 @@ class TestSCIAModelCreation:
     @patch("src.integrations.scia_interface.scia")
     def test_create_simple_scia_plate_model_missing_coordinates(self, mock_scia: Any) -> None:  # noqa: ANN401
         """Test error handling when node coordinates are missing."""
-        from src.integrations.scia_interface import create_simple_scia_plate_model
-
-        # Setup mocks
         mock_model = Mock()
         mock_scia.Model.return_value = mock_model
         mock_scia.Material.return_value = Mock()
@@ -217,9 +219,6 @@ class TestSCIAModelCreation:
 
     def test_create_simple_scia_plate_model_with_real_data(self) -> None:
         """Test SCIA model creation with real test data."""
-        from src.integrations.scia_interface import create_simple_scia_plate_model
-
-        # Load real test parameters
         params = load_bridge_default_params()
 
         try:
@@ -236,8 +235,6 @@ class TestSCIAAnalysisCreation:
 
     def test_create_scia_analysis_missing_template(self) -> None:
         """Test that FileNotFoundError is raised for missing template."""
-        from src.integrations.scia_interface import create_scia_analysis_from_template
-
         mock_xml_file = Mock()
         mock_def_file = Mock()
         missing_template_path = Path("/nonexistent/template.esa")
@@ -247,8 +244,6 @@ class TestSCIAAnalysisCreation:
 
     def test_create_scia_analysis_no_viktor(self) -> None:
         """Test SCIA analysis creation without VIKTOR SDK."""
-        from src.integrations.scia_interface import create_scia_analysis_from_template
-
         mock_xml_file = Mock()
         mock_def_file = Mock()
         template_path = Path("dummy.esa")
@@ -260,9 +255,6 @@ class TestSCIAAnalysisCreation:
     @patch("src.integrations.scia_interface.File")
     def test_create_scia_analysis_success(self, mock_file_class: Any, mock_scia: Any) -> None:  # noqa: ANN401
         """Test successful SCIA analysis creation."""
-        from src.integrations.scia_interface import create_scia_analysis_from_template
-
-        # Setup mocks
         mock_xml_file = Mock()
         mock_def_file = Mock()
         mock_template_file = Mock()
@@ -296,9 +288,6 @@ class TestMainBridgeModelFunction:
     @patch("src.integrations.scia_interface.create_scia_analysis_from_template")
     def test_create_bridge_scia_model_success(self, mock_create_analysis: Any, mock_create_model: Any) -> None:  # noqa: ANN401
         """Test successful bridge SCIA model creation."""
-        from src.integrations.scia_interface import create_bridge_scia_model
-
-        # Setup mocks
         mock_xml = Mock()
         mock_def = Mock()
         mock_analysis = Mock()
@@ -324,9 +313,6 @@ class TestMainBridgeModelFunction:
 
     def test_create_bridge_scia_model_with_real_template(self) -> None:
         """Test bridge model creation with real template file."""
-        from src.integrations.scia_interface import create_bridge_scia_model
-
-        # Load real test parameters
         params = load_bridge_default_params()
 
         # Use project's template file
@@ -355,9 +341,6 @@ class TestDummyLoadDemonstration:
     @patch("src.integrations.scia_interface.create_patch_surface_load")
     def test_add_dummy_wheel_loads(self, mock_patch_load: Any, mock_combination: Any, mock_load_case: Any, mock_load_group: Any) -> None:  # noqa: ANN401
         """Test dummy wheel loads demonstration."""
-        from src.integrations.scia_interface import _add_dummy_wheel_loads
-
-        # Setup mocks
         mock_model = Mock()
         mock_permanent_group = Mock()
         mock_traffic_group = Mock()
@@ -404,9 +387,6 @@ class TestIntegrationWithRealData:
 
     def test_node_creation_with_real_bridge_data(self) -> None:
         """Test node creation with real bridge parameters."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
-        # Load real test data
         params = load_bridge_default_params()
 
         nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
@@ -426,9 +406,6 @@ class TestIntegrationWithRealData:
 
     def test_coordinate_calculation_accuracy(self) -> None:
         """Test coordinate calculation accuracy with known values."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
-        # Create test parameters with known dimensions
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=0, bz1=10.0, bz2=5.0, bz3=15.0, dz=2.0, dz_2=3.0),
@@ -466,9 +443,6 @@ class TestErrorHandling:
 
     def test_invalid_bridge_segments_structure(self) -> None:
         """Test handling of invalid bridge segments structure."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
-        # Test with missing attributes
         params = Mock()
         params.bridge_segments_array = [Mock()]  # Missing required attributes
 
@@ -477,8 +451,6 @@ class TestErrorHandling:
 
     def test_zero_length_segments(self) -> None:
         """Test handling of zero-length segments."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=0, bz1=5.0, bz2=3.0, bz3=4.0, dz=2.0, dz_2=2.5),
@@ -493,8 +465,6 @@ class TestErrorHandling:
 
     def test_negative_dimensions(self) -> None:
         """Test handling of negative dimensions."""
-        from src.integrations.scia_interface import create_node_and_thickness_dict
-
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=0, bz1=-5.0, bz2=3.0, bz3=4.0, dz=2.0, dz_2=2.5),  # Negative bz1
@@ -512,9 +482,6 @@ class TestTandemParameterExtraction:
 
     def test_extract_tandem_parameters_from_bridge_default_data(self) -> None:
         """Test parameter extraction using bridge_default_params.json data."""
-        from src.integrations.scia_interface import extract_tandem_parameters_from_bridge
-
-        # Load real test data
         params = load_bridge_default_params()
 
         result = extract_tandem_parameters_from_bridge(params)
@@ -529,9 +496,6 @@ class TestTandemParameterExtraction:
 
     def test_extract_tandem_parameters_single_segment(self) -> None:
         """Test parameter extraction with single segment."""
-        from src.integrations.scia_interface import extract_tandem_parameters_from_bridge
-
-        # Create test parameters with single segment
         params = Mock()
         params.bridge_segments_array = [Mock(l=0, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.5)]
 
@@ -543,9 +507,6 @@ class TestTandemParameterExtraction:
 
     def test_extract_tandem_parameters_multiple_segments(self) -> None:
         """Test parameter extraction with multiple segments."""
-        from src.integrations.scia_interface import extract_tandem_parameters_from_bridge
-
-        # Create test parameters with multiple segments
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=0, bz1=5.0, bz2=3.0, bz3=7.0, dz=1.8),
@@ -561,8 +522,6 @@ class TestTandemParameterExtraction:
 
     def test_extract_tandem_parameters_zero_length_segments(self) -> None:
         """Test parameter extraction with zero-length segments."""
-        from src.integrations.scia_interface import extract_tandem_parameters_from_bridge
-
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=0, bz1=6.0, bz2=2.0, bz3=8.0, dz=2.2),
@@ -577,8 +536,6 @@ class TestTandemParameterExtraction:
 
     def test_extract_tandem_parameters_empty_segments(self) -> None:
         """Test error handling with empty segments array."""
-        from src.integrations.scia_interface import extract_tandem_parameters_from_bridge
-
         params = Mock()
         params.bridge_segments_array = []
 
@@ -592,9 +549,6 @@ class TestTandemSCIAApplication:
     @patch("src.integrations.scia_interface.create_load_case_complete")
     def test_create_tandem_load_cases_from_bg_naming(self, mock_create_case: Mock) -> None:
         """Test creating load cases with BG6001, BG6002 naming."""
-        from src.integrations.scia_interface import apply_tandem_loads_to_scia_model
-
-        # Mock SCIA objects
         mock_model = Mock()
         mock_load_group = Mock()
         mock_load_case = Mock()
@@ -626,9 +580,6 @@ class TestTandemSCIAApplication:
 
     def test_apply_wheel_loads_to_scia_model(self) -> None:
         """Test applying individual wheel loads as patch loads."""
-        from src.integrations.scia_interface import apply_tandem_loads_to_scia_model
-
-        # Mock SCIA objects
         mock_model = Mock()
         mock_load_group = Mock()
 
@@ -668,9 +619,6 @@ class TestTandemSCIAApplication:
 
     def test_load_value_handling_downward_direction(self) -> None:
         """Test that load values are applied as negative (downward direction)."""
-        from src.integrations.scia_interface import apply_tandem_loads_to_scia_model
-
-        # Mock SCIA objects
         mock_model = Mock()
         mock_load_group = Mock()
 
@@ -707,9 +655,6 @@ class TestMinimalTrafficLoadCombinations:
     @patch("src.integrations.scia_interface.create_load_combination_by_type")
     def test_create_traffic_combinations_minimal_success(self, mock_combination: Mock) -> None:
         """Test successful creation of minimal traffic load combinations."""
-        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
-
-        # Setup mocks
         mock_model = Mock()
         mock_dead_case = Mock()
         mock_tandem_case_1 = Mock()
@@ -782,9 +727,6 @@ class TestMinimalTrafficLoadCombinations:
     @patch("src.integrations.scia_interface.create_load_combination_by_type")
     def test_create_traffic_combinations_minimal_fallback(self, mock_combination: Mock) -> None:
         """Test fallback to basic combinations when traffic combinations fail."""
-        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
-
-        # Setup mocks
         mock_model = Mock()
         mock_dead_case = Mock()
         mock_tandem_case = Mock()
@@ -825,8 +767,6 @@ class TestMinimalTrafficLoadCombinations:
 
     def test_create_traffic_combinations_minimal_no_traffic(self) -> None:
         """Test behavior when no traffic load cases are provided."""
-        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
-
         mock_model = Mock()
         mock_dead_case = Mock()
 
@@ -844,8 +784,6 @@ class TestMinimalTrafficLoadCombinations:
     @patch("src.integrations.scia_interface.create_load_combination_by_type")
     def test_create_traffic_combinations_minimal_single_tandem(self, mock_combination: Mock) -> None:
         """Test combinations with single tandem load case."""
-        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
-
         mock_model = Mock()
         mock_dead_case = Mock()
         mock_tandem_case = Mock()
@@ -886,8 +824,6 @@ class TestMinimalTrafficLoadCombinations:
     @patch("src.integrations.scia_interface.create_load_combination_by_type")
     def test_create_traffic_combinations_minimal_multiple_tandems(self, mock_combination: Mock) -> None:
         """Test combinations with multiple tandem load cases (leading + accompanying)."""
-        from src.integrations.scia_interface import _create_traffic_load_combinations_minimal
-
         mock_model = Mock()
         mock_dead_case = Mock()
         mock_primary_tandem = Mock()
@@ -938,9 +874,6 @@ class TestDutchStandardLoadCombinations:
     @patch("src.integrations.scia_interface._create_traffic_load_combinations_minimal")
     def test_create_dutch_standard_load_combinations_redirect(self, mock_minimal: Mock) -> None:
         """Test that deprecated function redirects to minimal implementation."""
-        from src.integrations.scia_interface import _create_dutch_standard_load_combinations
-
-        # Setup mocks
         mock_model = Mock()
         mock_dead_case = Mock()
         mock_traffic_cases = [Mock(), Mock()]
@@ -982,9 +915,6 @@ class TestRealisticTandemLoadsComplete:
 
     def test_add_realistic_tandem_loads_with_real_bridge_data(self) -> None:
         """Test using real bridge_default_params.json data."""
-        from src.integrations.scia_interface import _add_realistic_tandem_loads
-
-        # Setup mocks
         mock_model = Mock()
         mock_load_group = Mock()
         mock_load_case = Mock()
@@ -1009,9 +939,6 @@ class TestRealisticTandemLoadsComplete:
 
     def test_realistic_loads_return_structure_compatibility(self) -> None:
         """Test return structure matches _add_dummy_wheel_loads."""
-        from src.integrations.scia_interface import _add_realistic_tandem_loads
-
-        # Mock all dependencies
         mock_model = Mock()
         params = load_bridge_default_params()
 
@@ -1035,8 +962,6 @@ class TestRealisticTandemLoadsComplete:
 
     def test_load_case_count_matches_tandem_positions(self) -> None:
         """Test number of load cases matches tandem system output."""
-        from src.integrations.scia_interface import _add_realistic_tandem_loads
-
         mock_model = Mock()
         params = load_bridge_default_params()
 
@@ -1058,8 +983,6 @@ class TestRealisticTandemLoadsComplete:
 
     def test_dutch_standard_combinations_integration(self) -> None:
         """Test that minimal traffic combinations are called with correct parameters."""
-        from src.integrations.scia_interface import _add_realistic_tandem_loads
-
         mock_model = Mock()
         params = load_bridge_default_params()
 
@@ -1104,8 +1027,6 @@ class TestRealisticTandemLoadsComplete:
 
     def test_load_case_naming_theoretical_vs_eurocode(self) -> None:
         """Test that load case naming distinguishes between theoretical and eurocode modes."""
-        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
-
         bridge_params = {"length_bridgedeck": 20.0, "width_bridgedeck": 30.0, "thickness_bridgedeck": 1.5}
 
         with (
@@ -1132,8 +1053,6 @@ class TestTheoreticalLaneFunctions:
 
     def test_generate_theoretical_lane_positions_30m_bridge(self) -> None:
         """Test lane position generation for 30m bridge."""
-        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-
         positions = generate_theoretical_lane_positions(30.0, 3.0)
 
         # 30m ÷ 3m = 10 complete lanes
@@ -1143,8 +1062,6 @@ class TestTheoreticalLaneFunctions:
 
     def test_generate_theoretical_lane_positions_with_remainder(self) -> None:
         """Test lane position generation when bridge width has remainder."""
-        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-
         positions = generate_theoretical_lane_positions(10.0, 3.0)
 
         # 10m ÷ 3m = 3 complete lanes (1m remainder ignored)
@@ -1154,8 +1071,6 @@ class TestTheoreticalLaneFunctions:
 
     def test_generate_theoretical_lane_positions_custom_lane_width(self) -> None:
         """Test lane position generation with custom lane width."""
-        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-
         positions = generate_theoretical_lane_positions(20.0, 4.0)
 
         # 20m ÷ 4m = 5 complete lanes
@@ -1165,21 +1080,15 @@ class TestTheoreticalLaneFunctions:
 
     def test_generate_theoretical_lane_positions_edge_cases(self) -> None:
         """Test edge cases for lane position generation."""
-        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-
-        # Very narrow bridge (< 1 lane)
         positions = generate_theoretical_lane_positions(2.0, 3.0)
         assert positions == []  # No complete lanes
 
-        # Exact multiple
         positions = generate_theoretical_lane_positions(9.0, 3.0)
         assert len(positions) == 3
         assert positions == [1.5, 4.5, 7.5]
 
     def test_generate_theoretical_lane_positions_error_handling(self) -> None:
         """Test error handling for invalid inputs."""
-        from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-
         with pytest.raises(ValueError, match="Bridge width must be positive"):
             generate_theoretical_lane_positions(0.0, 3.0)
 
@@ -1195,9 +1104,6 @@ class TestTheoreticalLaneFunctions:
     @patch("src.loads.loadcase_helper_functions.tandem_system_sequencer")
     def test_tandem_systems_theoretical_lanes_basic_functionality(self, mock_sequencer: Mock) -> None:
         """Test basic functionality of theoretical lane tandem system."""
-        from src.loads.loadcase_helper_functions import tandem_systems_theoretical_lanes
-
-        # Mock longitudinal positions
         mock_sequencer.return_value = [5.0, 15.0]  # Two X positions
 
         result = tandem_systems_theoretical_lanes(20.0, 9.0, 1.5, lane_width=3.0)
@@ -1221,9 +1127,6 @@ class TestTheoreticalLaneFunctions:
     @patch("src.loads.loadcase_helper_functions.tandem_system_sequencer")
     def test_tandem_systems_theoretical_lanes_wheel_positioning(self, mock_sequencer: Mock) -> None:
         """Test wheel positioning in theoretical lane system."""
-        from src.loads.loadcase_helper_functions import tandem_systems_theoretical_lanes
-
-        # Mock single longitudinal position for clearer testing
         mock_sequencer.return_value = [10.0]
 
         result = tandem_systems_theoretical_lanes(20.0, 6.0, 1.5, lane_width=3.0)
@@ -1247,9 +1150,6 @@ class TestTheoreticalLaneFunctions:
 
     def test_tandem_systems_theoretical_lanes_lane_width_integration(self) -> None:
         """Test integration with different lane widths matching load_zone_geometry."""
-        from src.loads.loadcase_helper_functions import tandem_systems_theoretical_lanes
-
-        # Test with same lane width as load_zone_geometry default (3.0m)
         with patch("src.loads.loadcase_helper_functions.tandem_system_sequencer") as mock_seq:
             mock_seq.return_value = [10.0]
 
@@ -1262,8 +1162,6 @@ class TestTheoreticalLaneFunctions:
 
     def test_future_function_placeholders(self) -> None:
         """Test that future functions raise NotImplementedError."""
-        from src.loads.loadcase_helper_functions import tandem_systems_actual_lanes, tandem_systems_shiftable_lanes
-
         with pytest.raises(NotImplementedError, match="Shiftable lanes implementation planned for Phase 2"):
             tandem_systems_shiftable_lanes(20.0, 30.0, 1.5)
 
@@ -1276,13 +1174,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_determine_tandem_function_theoretical_mode(self) -> None:
         """Test tandem function determination in theoretical mode."""
-        # Import here to avoid circular import issues
-        import sys
-
-        sys.path.insert(0, "src")
-
-        from src.integrations.scia_interface import determine_tandem_function_for_bridge
-
         bridge_dims = {"width_bridgedeck": 30.0}
         result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
 
@@ -1293,8 +1184,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_determine_tandem_function_eurocode_mode(self) -> None:
         """Test tandem function determination in eurocode mode."""
-        from src.integrations.scia_interface import determine_tandem_function_for_bridge
-
         bridge_dims = {"width_bridgedeck": 30.0}
         result = determine_tandem_function_for_bridge(bridge_dims, mode="eurocode")
 
@@ -1304,8 +1193,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_determine_tandem_function_mode_comparison(self) -> None:
         """Test that theoretical and eurocode modes produce different lane counts."""
-        from src.integrations.scia_interface import determine_tandem_function_for_bridge
-
         bridge_dims = {"width_bridgedeck": 15.0}  # 15m bridge
 
         theoretical_result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
@@ -1325,8 +1212,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_determine_tandem_function_invalid_mode(self) -> None:
         """Test error handling for invalid modes."""
-        from src.integrations.scia_interface import determine_tandem_function_for_bridge
-
         bridge_dims = {"width_bridgedeck": 30.0}
 
         with pytest.raises(ValueError, match="Unsupported mode 'invalid'"):
@@ -1334,8 +1219,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_determine_tandem_function_future_modes(self) -> None:
         """Test that future modes raise NotImplementedError."""
-        from src.integrations.scia_interface import determine_tandem_function_for_bridge
-
         bridge_dims = {"width_bridgedeck": 30.0}
 
         with pytest.raises(NotImplementedError, match="planned for future implementation"):
@@ -1347,9 +1230,6 @@ class TestTheoreticalLaneIntegration:
     @patch("src.integrations.scia_interface.tandem_systems_theoretical_lanes")
     def test_generate_tandem_loads_theoretical_mode(self, mock_theoretical_lanes: Mock) -> None:
         """Test tandem load generation in theoretical mode."""
-        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
-
-        # Setup mock
         mock_theoretical_lanes.return_value = [
             {"load_case": "TH6001", "wheels": [], "load": 1875000.0},
             {"load_case": "TH6002", "wheels": [], "load": 1875000.0},
@@ -1367,9 +1247,6 @@ class TestTheoreticalLaneIntegration:
     @patch("src.integrations.scia_interface.tandem_systems_axes_more_lanes")
     def test_generate_tandem_loads_eurocode_mode(self, mock_eurocode_lanes: Mock) -> None:
         """Test tandem load generation in eurocode mode."""
-        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
-
-        # Setup mock
         mock_eurocode_lanes.return_value = [{"load_case": "BG6001", "wheels": [], "load": 1875000.0}]
 
         bridge_params = {
@@ -1387,9 +1264,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_theoretical_lane_integration_end_to_end(self) -> None:
         """Test end-to-end theoretical lane integration with real bridge data."""
-        from src.integrations.scia_interface import _add_realistic_tandem_loads
-
-        # Setup mocks
         mock_model = Mock()
 
         # Load real test data
@@ -1426,8 +1300,6 @@ class TestTheoreticalLaneIntegration:
 
     def test_load_case_naming_theoretical_vs_eurocode(self) -> None:
         """Test that load case naming distinguishes between theoretical and eurocode modes."""
-        from src.integrations.scia_interface import generate_tandem_loads_for_bridge
-
         bridge_params = {"length_bridgedeck": 20.0, "width_bridgedeck": 30.0, "thickness_bridgedeck": 1.5}
 
         with (

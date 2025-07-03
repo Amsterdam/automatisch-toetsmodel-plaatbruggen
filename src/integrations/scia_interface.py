@@ -135,16 +135,7 @@ except ImportError:
     scia = None  # type: ignore[misc,assignment]
     VIKTOR_AVAILABLE = False
 
-# --- CONDITIONAL IMPORTS (AVOID CIRCULAR IMPORT) ---
-# Note: Moved import inside function to avoid circular import:
-# src.integrations.scia_interface → src.combinations.load_factors → app.constants → app.bridge.controller → src.combinations.load_factors
-try:
-    from src.combinations.load_factors import get_gamma_factors, get_psi_factor
-except ImportError:
-    # Fallback for circular import - imports will be done dynamically
-    get_gamma_factors = None  # type: ignore[assignment]
-    get_psi_factor = None  # type: ignore[assignment]
-
+# Global imports from project modules
 from src.integrations.scia_utils import (
     create_load_case_complete,
     create_load_combination_by_type,
@@ -158,6 +149,16 @@ from src.loads.loadcase_helper_functions import (
     tandem_systems_axes_single_lane,
     tandem_systems_theoretical_lanes,
 )
+
+# Global imports for load factors - using try/except for robustness
+try:
+    from src.combinations.load_factors import get_gamma_factors, get_psi_factor
+    LOAD_FACTORS_AVAILABLE = True
+except ImportError:
+    # Will use basic combinations if load factors not available
+    LOAD_FACTORS_AVAILABLE = False
+    get_gamma_factors = None  # type: ignore[assignment]
+    get_psi_factor = None  # type: ignore[assignment]
 
 # Type aliases
 SciaNode: TypeAlias = object
@@ -714,14 +715,6 @@ def _create_traffic_load_combinations_minimal(
     :returns: Dictionary with created load combinations
     :rtype: dict[str, Any]
     """
-    # --- DYNAMIC IMPORT (AVOID CIRCULAR IMPORT) ---
-    # Import here to avoid circular import issue
-    try:
-        from src.combinations.load_factors import get_gamma_factors, get_psi_factor
-    except ImportError:
-        # Fall back to basic combinations if import fails
-        return _create_basic_traffic_combinations(model, dead_load_case, traffic_load_cases)
-
     # Use default config if not provided
     if config is None:
         config = {
@@ -729,6 +722,11 @@ def _create_traffic_load_combinations_minimal(
             "safety_level": "NEN 8700 gebruik",
             "construction_year": "2010",
         }
+
+    # Check if load factors are available from global imports
+    if not LOAD_FACTORS_AVAILABLE or get_gamma_factors is None or get_psi_factor is None:
+        # Fall back to basic combinations if load factors not available
+        return _create_basic_traffic_combinations(model, dead_load_case, traffic_load_cases)
 
     try:
         # Get gamma factors from NEN 8700
