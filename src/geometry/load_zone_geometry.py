@@ -83,42 +83,130 @@ def calculate_zone_bottom_y_coords(  # noqa: PLR0913
 
 
 # ========================================================================
-# THEORETICAL TRAFFIC LANE FUNCTIONS
+# MINIMAL THEORETICAL LANE DIVISION ("THEORETISCHE RIJ INDELING") 
 # ========================================================================
+# 
+# ⚠️  IMPORTANT: This is only a MINIMAL BASELINE implementation! ⚠️
 #
-# The functions below implement THEORETICAL traffic load distribution based on
-# simple geometric division of bridge width. This provides a baseline traffic
-# loading pattern for structural analysis.
+# The functions below implement the most basic geometric division of bridge
+# width into theoretical traffic lanes. This is NOT the complete theoretical
+# lane division as required by Eurocode standards.
 #
-# FUTURE ENHANCEMENT: PRACTICAL/REALISTIC LOAD ZONES
+# IMPLEMENTATION STATUS:
+# ✅ MINIMAL BASELINE: Simple geometric division (bridge_width ÷ 3)
+# ❌ TRUE THEORETICAL: Advanced Eurocode-compliant theoretical modeling 
+# ❌ REALISTIC DIVISION: Actual lane configuration based on real traffic data
+#
 # ========================================================================
-# Later implementation will add practical/realistic load zone functionality:
+# TODO: COMPLETE "THEORETISCHE RIJ INDELING" (TRUE THEORETICAL DIVISION)
+# ========================================================================
+# The TRUE theoretical lane division must implement:
 #
-# 1. PRACTICAL LANE CONFIGURATION:
-#    - Based on actual traffic engineering standards (NEN-EN 1991-2)
-#    - Variable lane widths (3.0m, 3.25m, 3.5m depending on road type)
-#    - Shoulder and emergency lane considerations
-#    - Guardrail and safety barrier allowances
+# 1. LANE SHIFTING & VARIABLE TESTING:
+#    - Multiple lane position combinations for critical load cases
+#    - Lateral shifting of traffic lanes to find maximum effects
+#    - Variable lane configurations (1, 2, 3+ lane scenarios)
+#    - Load position optimization across bridge width
 #
-# 2. REALISTIC LOAD DISTRIBUTION:
+# 2. DOMINANT ROAD LOAD SCENARIOS (EN 1991-2):
+#    - Freight-dominant lanes (heavy traffic corridors)
+#    - Mixed traffic patterns (passenger + freight combinations)
+#    - Asymmetric loading (one lane heavier than others)
+#    - Special transport routes (exceptional loads)
+#
+# 3. EUROCODE COMPLIANCE (EN 1991-2 Section 4):
+#    - Load Model 1 (LM1) with proper lane factors
+#    - Tandem system + UDL distribution per lane
+#    - ψ factors for multi-lane scenarios
+#    - Critical lane combinations and envelope analysis
+#
+# ========================================================================
+# TODO: COMPLETE "WERKELIJKE RIJ INDELING" (REALISTIC LANE DIVISION)
+# ========================================================================
+# The REALISTIC lane division must implement:
+#
+# 1. ACTUAL TRAFFIC ENGINEERING (NEN-EN 1991-2):
+#    - Real lane widths based on road classification
+#    - Shoulder and emergency lane configurations
+#    - Guardrail, barrier, and safety zone allowances
 #    - Integration with params.input.belastingzones data
-#    - Zone-specific load intensities and patterns
-#    - Pedestrian and cyclist load combinations
-#    - Special vehicle load cases (emergency, maintenance)
 #
-# 3. ADVANCED LOAD MODELING:
-#    - Dynamic amplification factors per zone type
-#    - Load distribution length calculations
-#    - Influence line-based load positioning
+# 2. SITE-SPECIFIC LOAD PATTERNS:
+#    - Measured traffic data integration
+#    - Route-specific vehicle classifications
+#    - Time-dependent loading patterns
+#    - Environmental and seasonal variations
+#
+# 3. ADVANCED ANALYSIS FEATURES:
+#    - Dynamic amplification factors per zone
+#    - Influence line-based critical positioning
 #    - Fatigue load models for high-traffic zones
+#    - Multi-directional traffic scenarios
 #
-# INTEGRATION POINTS FOR FUTURE DEVELOPMENT:
-# - generate_practical_load_zones(params, traffic_data, design_standards)
-# - apply_realistic_load_patterns(zones, load_cases, bridge_geometry)
-# - optimize_load_positions(influence_lines, critical_sections)
-#
-# The theoretical functions below provide the foundation for these enhancements.
 # ========================================================================
+# CURRENT IMPLEMENTATION: MINIMAL BASELINE ONLY
+# ========================================================================
+# What this implementation provides:
+# - Simple geometric division: bridge_width ÷ lane_width
+# - Sequential lane placement from one side
+# - Basic "Auto" and "Berm" zone types
+# - Foundation for advanced implementations
+#
+# What this implementation DOES NOT provide:
+# - Eurocode-compliant theoretical modeling
+# - Lane shifting or variable positioning
+# - Dominant road load scenarios
+# - Realistic traffic engineering standards
+# - Integration with actual traffic data
+#
+# Use this ONLY as a starting point for structural analysis!
+# ========================================================================
+
+
+def _set_d_point_widths(zone: LoadZoneDataRow, num_d_points: int, width: float) -> None:  # noqa: C901, PLR0912
+    """
+    Set width values for all D-points in a load zone.
+
+    Helper function to reduce complexity by setting d1_width through d15_width
+    explicitly for TypedDict compatibility.
+
+    :param zone: Load zone data structure to modify
+    :type zone: LoadZoneDataRow
+    :param num_d_points: Number of D-points to set
+    :type num_d_points: int
+    :param width: Width value to set for all D-points
+    :type width: float
+    """
+    if num_d_points >= 1:
+        zone["d1_width"] = width
+    if num_d_points >= 2:
+        zone["d2_width"] = width
+    if num_d_points >= 3:
+        zone["d3_width"] = width
+    if num_d_points >= 4:
+        zone["d4_width"] = width
+    if num_d_points >= 5:
+        zone["d5_width"] = width
+    if num_d_points >= 6:
+        zone["d6_width"] = width
+    if num_d_points >= 7:
+        zone["d7_width"] = width
+    if num_d_points >= 8:
+        zone["d8_width"] = width
+    if num_d_points >= 9:
+        zone["d9_width"] = width
+    if num_d_points >= 10:
+        zone["d10_width"] = width
+    if num_d_points >= 11:
+        zone["d11_width"] = width
+    if num_d_points >= 12:
+        zone["d12_width"] = width
+    if num_d_points >= 13:
+        zone["d13_width"] = width
+    if num_d_points >= 14:
+        zone["d14_width"] = width
+    if num_d_points >= 15:
+        zone["d15_width"] = width
 
 
 def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float = 3.0) -> TheoreticalLaneResult:
@@ -221,10 +309,8 @@ def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane
             "y_coords_top_current_zone": [],  # Will be calculated by controller
         }
 
-        # Set width for each D-point
-        for d_idx in range(1, num_d_points + 1):
-            d_field = f"d{d_idx}_width"
-            zone[d_field] = lane_width  # type: ignore[assignment]
+        # Set width for each D-point (explicit assignment for TypedDict compatibility)
+        _set_d_point_widths(zone, num_d_points, lane_width)
 
         zones.append(zone)
 
@@ -238,10 +324,8 @@ def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane
             "y_coords_top_current_zone": [],  # Will be calculated by controller
         }
 
-        # Set width for each D-point
-        for d_idx in range(1, num_d_points + 1):
-            d_field = f"d{d_idx}_width"
-            rest_zone[d_field] = lane_calc["rest_width"]  # type: ignore[assignment]
+        # Set width for each D-point (explicit assignment for TypedDict compatibility)
+        _set_d_point_widths(rest_zone, num_d_points, lane_calc["rest_width"])
 
         zones.append(rest_zone)
 

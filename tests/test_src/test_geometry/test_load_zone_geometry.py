@@ -297,9 +297,12 @@ class TestGenerateTheoreticalLoadZones:
 
         # Check that all D-point widths are set correctly
         for zone in result:
-            for d_idx in range(1, num_d_points + 1):
-                d_field = f"d{d_idx}_width"
-                assert zone[d_field] == 3.0
+            # Check all 5 D-points explicitly for TypedDict compatibility
+            assert zone["d1_width"] == 3.0
+            assert zone["d2_width"] == 3.0
+            assert zone["d3_width"] == 3.0
+            assert zone["d4_width"] == 3.0
+            assert zone["d5_width"] == 3.0
 
     def test_generate_theoretical_load_zones_narrow_bridge(self) -> None:
         """Test generating zones for very narrow bridge (no lanes possible)."""
