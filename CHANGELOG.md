@@ -218,7 +218,17 @@
     - Updating `OverviewBridgesController` (`_create_missing_children` method) to correctly structure parameters under an "info" key when creating new bridge entities.
 
 #### Developer-Facing
-- 
+- **Global Import Architecture for CI Pipeline Compatibility**
+  - **CI/CD COMPATIBILITY**: Moved all dynamic imports to global level for Linux CI pipeline compatibility
+    - Fixed `src.integrations.scia_interface.py` dynamic imports of `get_gamma_factors` and `get_psi_factor`
+    - Fixed test imports that were previously inside function calls
+    - Added robust import fallback mechanism with `LOAD_FACTORS_AVAILABLE` flag
+    - **RESOLVED**: Import issues that could cause failures in GitHub Actions CI environment
+    - **ARCHITECTURE**: Maintains clean separation while ensuring cross-platform compatibility
+  - **TEST INFRASTRUCTURE**: Updated all test mocking to use correct global import paths
+    - Fixed patching of `src.integrations.scia_interface.get_gamma_factors` instead of module-level imports
+    - Added proper `LOAD_FACTORS_AVAILABLE` flag handling in tests
+    - **VERIFICATION**: All 5 traffic load combination tests passing
 
 ## [`v0.0.4`] - 2025-05-08
 
@@ -287,3 +297,62 @@
 - Initial project structure
 
 ## [`v0.0.1`] - 2025-05-01
+
+## [Unreleased]
+
+### Added
+- **Theoretical Traffic Lane Integration (Phase 1)**: Connected tandem loads to theoretical traffic lanes from `load_zone_geometry` system
+  - New `tandem_systems_theoretical_lanes()` function generates tandems positioned at theoretical lane centers
+  - Enhanced `determine_tandem_function_for_bridge()` with mode selection: "theoretical" vs "eurocode"
+  - Theoretical mode uses geometric lane division (bridge_width ÷ 3m) for comprehensive coverage
+  - Eurocode mode maintains existing Eurocode notional lane compliance
+  - Architecture prepared for Phase 2 (shiftable lanes) and Phase 3 (actual parametrized lanes)
+  - Comprehensive test suite covering lane positioning, mode selection, and integration patterns
+  - Load case naming distinguishes modes: "TH" prefix for theoretical, "BG" prefix for eurocode
+
+#### Minimal Traffic Load Combinations for Single Lane Testing
+- **SIMPLIFIED LOAD COMBINATIONS**: Implemented minimal traffic load combinations focusing on single lane testing
+  - Based on `leading_action_positions` approach from `load_factors.py`
+  - **Implemented**: `("gr1a", "TS")` - Tandem System leading action
+  - **TODO**: Remaining traffic actions (`UDL`, `Enkele as`, `Horizontale belasting`, etc.)
+- **NEW FUNCTION**: `_create_traffic_load_combinations_minimal()`
+  - Focuses specifically on tandem system (TS) combinations
+  - Creates ULS and SLS combinations for both NEN 8700 6.10a and 6.10b equations
+  - Includes leading tandem + up to 2 accompanying tandems with psi factors
+  - Proper gamma factors from NEN 8700 and psi factors from NEN 8701
+- **DEPRECATED**: `_create_dutch_standard_load_combinations()` now redirects to minimal implementation
+  - Complex multi-load-type combinations moved to TODO for future implementation
+  - Maintains compatibility while simplifying for testing
+- **COMPREHENSIVE TESTING**: Updated test suite for minimal traffic combinations
+  - Tests single tandem scenarios
+  - Tests multiple tandem scenarios (leading + accompanying)
+  - Tests fallback behavior and error handling
+  - Verifies proper `gr1a TS` naming convention
+
+#### Code Quality Improvements
+- **COMPREHENSIVE DOCUMENTATION**: Added detailed TODO sections for future load combination expansion
+  - Permanent combinations: `("Perm", "Permanent")`, `("Perm", "Voorspanning")`, `("Perm zet", "Zetting")`
+  - Wind combinations: `("Wind gr1a", "Wind Fwk")`, `("Wind gr2", "Wind Fwk")`
+  - Temperature combinations: `("Temp gr1", "Temperatuur")`
+  - Environmental combinations: `("Sneeuw", "Sneeuw")`
+  - Accidental combinations: `("Cal gr1a", "Calamiteit")`, `("Cal gr2", "Calamiteit")`
+- **CLEAR IMPLEMENTATION PATH**: Provides step-by-step strategy for expanding from minimal to comprehensive combinations
+- **MAINTAINED COMPATIBILITY**: All existing integrations continue to work through redirect mechanism
+
+### Modified
+
+- **INTEGRATION POINT 4**: Updated from comprehensive Dutch combinations to minimal traffic focus
+- **TEST STRUCTURE**: Reorganized test classes to separate minimal traffic tests from deprecated compatibility tests
+- **LOAD COMBINATION NAMING**: Changed from generic traffic combinations to specific `gr1a_TS` pattern
+- **FALLBACK BEHAVIOR**: Updated fallback combinations to use tandem-specific naming (`G+TS` instead of `G+Q`)
+
+### Architecture Impact
+
+- **MINIMAL VIABLE PRODUCT**: Establishes working foundation for single lane traffic analysis
+- **SCALABLE DESIGN**: Framework ready for systematic expansion to remaining leading actions
+- **CLEAR SEPARATION**: Distinguishes between implemented features and planned expansions
+- **INTEGRATION FRIENDLY**: Maintains compatibility with existing tandem load generation system
+
+## Previous Entries
+
+### Realistic Tandem Load Integration

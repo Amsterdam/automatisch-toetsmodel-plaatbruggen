@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [ development, main ]
 
+env:
+  DEBUG_MODE: false # Set to true for detailed debugging output
+
 jobs:
   code-quality:
     runs-on: ubuntu-latest
@@ -32,25 +35,41 @@ jobs:
       id: ruff-check
       continue-on-error: true
       run: |
-        python scripts/run_ruff_check.py
+        if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+          python -m ruff check --config=.ruff.toml --fix
+        else
+          python scripts/run_ruff_check.py
+        fi
         
     - name: Run Ruff Formatter  
       id: ruff-format
       continue-on-error: true
       run: |
-        python scripts/run_ruff_format.py
+        if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+          python -m ruff format --config=.ruff.toml
+        else
+          python scripts/run_ruff_format.py
+        fi
         
     - name: Run MyPy Type Check
       id: mypy-check
       continue-on-error: true
       run: |
-        python scripts/run_mypy.py
+        if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+          python -m mypy .
+        else
+          python scripts/run_mypy.py
+        fi
         
     - name: Run Unit Tests
       id: unit-tests
       continue-on-error: true
       run: |
-        python scripts/run_enhanced_tests.py
+        if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+          python -m pytest tests/
+        else
+          python scripts/run_enhanced_tests.py
+        fi
         
     - name: Install VIKTOR App
       id: viktor-install
@@ -98,6 +117,15 @@ jobs:
         fi
         if [ "${{ steps.viktor-tests.outcome }}" != "success" ]; then
           FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        fi
+        
+        # Skip detailed summary if in debug mode
+        if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+          echo "Running in DEBUG mode - check detailed tool output above"
+          if [ $FAILED_CHECKS -gt 0 ]; then
+            exit 1
+          fi
+          exit 0
         fi
         
         # Define colors
@@ -178,28 +206,3 @@ jobs:
         if [ $FAILED_CHECKS -gt 0 ]; then
           exit 1
         fi
-
-# ==============================================================================
-# DEBUG VERSION (commented out) - Use if CI issues arise and detailed output needed
-# ==============================================================================
-#
-# Replace the quality check steps above with these for maximum debugging output:
-#
-#    - name: Run Ruff Style Check (Debug)
-#      run: |
-#        python -m ruff check --config=.ruff.toml --fix
-#        
-#    - name: Run Ruff Formatter (Debug)
-#      run: |
-#        python -m ruff format --config=.ruff.toml
-#        
-#    - name: Run MyPy Type Check (Debug)
-#      run: |
-#        python -m mypy .
-#        
-#    - name: Run Unit Tests (Debug)
-#      run: |
-#        python scripts/run_enhanced_tests.py
-#
-# The debug version uses direct tool execution for maximum output visibility,
-# while the main version uses scripts for better user experience with concise CI output.
