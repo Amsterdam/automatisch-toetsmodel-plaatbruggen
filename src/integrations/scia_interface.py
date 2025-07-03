@@ -97,6 +97,18 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, TypeAlias
 
+# Global VIKTOR imports with error handling for CI/testing environments
+try:
+    from viktor.core import File
+    from viktor.external import scia
+
+    VIKTOR_AVAILABLE = True
+except ImportError:
+    # Mock objects for environments without VIKTOR SDK
+    File = None  # type: ignore[misc,assignment]
+    scia = None  # type: ignore[misc,assignment]
+    VIKTOR_AVAILABLE = False
+
 from src.combinations.load_factors import get_gamma_factors, get_psi_factor
 from src.integrations.scia_utils import (
     create_load_case_complete,
@@ -474,10 +486,8 @@ def create_simple_scia_plate_model(params: Any) -> tuple[BytesIO, BytesIO]:  # n
     :param params: Bridge parameters
     :returns: (xml_file, def_file) for SCIA analysis
     """
-    try:
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
     # Create model and material
     model = scia.Model()
@@ -544,7 +554,7 @@ def create_simple_scia_plate_model(params: Any) -> tuple[BytesIO, BytesIO]:  # n
     return model.generate_xml_input()
 
 
-def _create_dutch_standard_load_combinations(
+def _create_dutch_standard_load_combinations(  # noqa: PLR0913, C901
     model: SciaModel,
     dead_load_case: Any,  # noqa: ANN401
     traffic_load_cases: list[Any],
@@ -666,16 +676,16 @@ def _create_dutch_standard_load_combinations(
                     "SLS_FREQ",
                     f"SLS_FREQ_{combo_type}_G+Psi1_Q",
                     sls_freq_factors,
-                    f"SLS Frequent {combo_type}: Dead + ψ₁×Traffic (NEN 8700/8701)",
+                    f"SLS Frequent {combo_type}: Dead + ψ₁*Traffic (NEN 8700/8701)",
                 )
                 combinations[f"sls_freq_{combo_type}"] = sls_freq
 
-        return combinations
+        return combinations  # noqa: TRY300
 
     except Exception as e:
         # Fallback to basic combinations if Dutch standard combinations fail
-        print(f"DEBUG: Dutch standard combinations failed: {e}")
-        print("DEBUG: Falling back to basic combinations")
+        print(f"DEBUG: Dutch standard combinations failed: {e}")  # noqa: T201
+        print("DEBUG: Falling back to basic combinations")  # noqa: T201
 
         # Create basic fallback combinations
         if traffic_load_cases:
@@ -897,11 +907,8 @@ def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesI
     :param template_path: Path to ESA template
     :returns: SCIA analysis object
     """
-    try:
-        from viktor.core import File
-        from viktor.external import scia
-    except ImportError as e:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.") from e
+    if not VIKTOR_AVAILABLE or scia is None or File is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
     if not template_path.exists():
         raise FileNotFoundError(f"SCIA template file not found: {template_path}")
