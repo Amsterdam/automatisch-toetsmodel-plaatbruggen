@@ -701,6 +701,141 @@ class TestTandemSCIAApplication:
             assert call_args[3] == -1875000.0  # Negative for downward direction
 
 
+class TestDutchStandardLoadCombinations:
+    """Test Dutch standard load combinations (NEN 8700/8701) implementation."""
+
+    @patch("src.integrations.scia_interface.get_gamma_factors")
+    @patch("src.integrations.scia_interface.get_psi_factor")
+    @patch("src.integrations.scia_interface.create_load_combination_by_type")
+    def test_create_dutch_standard_load_combinations_success(self, mock_combination: Mock, mock_psi: Mock, mock_gamma: Mock) -> None:
+        """Test successful creation of Dutch standard load combinations."""
+        from src.integrations.scia_interface import _create_dutch_standard_load_combinations
+
+        # Setup mocks
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_traffic_case_1 = Mock()
+        mock_traffic_case_2 = Mock()
+        mock_wind_case = Mock()
+        mock_combo_object = Mock()
+
+        # Mock gamma factors (NEN 8700)
+        mock_gamma.return_value = {
+            "6.10a": {
+                "gamma_Gjsup": 1.25,
+                "gamma_Qverkeer": 1.25,
+                "gamma_Qwind": 1.4,
+            },
+            "6.10b": {
+                "gamma_Gjsup": 1.15,
+                "gamma_Qverkeer": 1.25,
+                "gamma_Qwind": 1.4,
+            },
+        }
+
+        # Mock psi factor (NEN 8701)
+        mock_psi.return_value = 0.95
+
+        # Mock combination creation
+        mock_combination.return_value = mock_combo_object
+
+        # Test parameters
+        traffic_cases = [mock_traffic_case_1, mock_traffic_case_2]
+        bridge_span = 25.0
+
+        result = _create_dutch_standard_load_combinations(
+            model=mock_model,
+            dead_load_case=mock_dead_case,
+            traffic_load_cases=traffic_cases,
+            wind_case=mock_wind_case,
+            bridge_span=bridge_span,
+            consequence_class="CC2",
+            safety_level="NEN 8700 gebruik",
+            construction_year="2010",
+        )
+
+        # Verify function calls
+        mock_gamma.assert_called_once_with(cc="CC2", safety_level="NEN 8700 gebruik", building_year="2010")
+        mock_psi.assert_called_once_with(span=25.0, reference_period=50.0)
+
+        # Verify combinations were created
+        assert mock_combination.call_count >= 6  # Multiple combinations for both 6.10a and 6.10b
+        assert len(result) >= 6  # Should have multiple combination types
+
+        # Verify combination names follow expected pattern
+        expected_keys = [
+            "uls_6.10a_traffic",
+            "uls_6.10a_traffic_wind",
+            "uls_6.10a_wind_traffic",
+            "sls_char_6.10a",
+            "sls_freq_6.10a",
+        ]
+        for key in expected_keys:
+            assert key in result
+
+    @patch("src.integrations.scia_interface.get_gamma_factors")
+    def test_create_dutch_standard_load_combinations_fallback(self, mock_gamma: Mock) -> None:
+        """Test fallback to basic combinations when Dutch standards fail."""
+        from src.integrations.scia_interface import _create_dutch_standard_load_combinations
+
+        # Setup mocks
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_traffic_case = Mock()
+        mock_wind_case = Mock()
+
+        # Mock gamma factors to raise exception
+        mock_gamma.side_effect = ValueError("Gamma factors not found")
+
+        with (
+            patch("src.integrations.scia_interface.create_load_combination_by_type") as mock_combination,
+            patch("builtins.print"),  # Suppress debug prints
+        ):
+            mock_combination.return_value = Mock()
+
+            result = _create_dutch_standard_load_combinations(
+                model=mock_model,
+                dead_load_case=mock_dead_case,
+                traffic_load_cases=[mock_traffic_case],
+                wind_case=mock_wind_case,
+                bridge_span=25.0,
+            )
+
+            # Should fall back to basic combinations
+            assert len(result) == 2
+            assert "uls_basic" in result
+            assert "sls_basic" in result
+
+            # Verify basic combinations were created
+            assert mock_combination.call_count == 2
+
+    def test_create_dutch_standard_load_combinations_no_traffic(self) -> None:
+        """Test behavior when no traffic load cases are provided."""
+        from src.integrations.scia_interface import _create_dutch_standard_load_combinations
+
+        mock_model = Mock()
+        mock_dead_case = Mock()
+        mock_wind_case = Mock()
+
+        with (
+            patch("src.integrations.scia_interface.get_gamma_factors") as mock_gamma,
+            patch("src.integrations.scia_interface.get_psi_factor") as mock_psi,
+        ):
+            mock_gamma.return_value = {"6.10a": {}, "6.10b": {}}
+            mock_psi.return_value = 0.95
+
+            result = _create_dutch_standard_load_combinations(
+                model=mock_model,
+                dead_load_case=mock_dead_case,
+                traffic_load_cases=[],  # No traffic cases
+                wind_case=mock_wind_case,
+                bridge_span=25.0,
+            )
+
+            # Should return empty result for no traffic cases
+            assert result == {}
+
+
 class TestRealisticTandemLoadsComplete:
     """Test complete realistic tandem loads implementation."""
 
@@ -768,16 +903,62 @@ class TestRealisticTandemLoadsComplete:
             patch("src.integrations.scia_interface.generate_tandem_loads_for_bridge") as mock_generate,
             patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply,
             patch("src.integrations.scia_interface.create_load_group_by_type"),
-            patch("src.integrations.scia_interface.create_load_combination_by_type"),
+            patch("src.integrations.scia_interface._create_dutch_standard_load_combinations") as mock_dutch_combos,
         ):
             # Mock tandem generation returning 5 load cases
             mock_generate.return_value = [{"load_case": f"BG600{i}", "wheels": [], "load": 1000} for i in range(1, 6)]
             mock_apply.return_value = [Mock() for _ in range(5)]
+            mock_dutch_combos.return_value = {"uls_6.10a_traffic": Mock(), "sls_char_6.10a": Mock()}
 
             result = _add_realistic_tandem_loads(mock_model, params)
 
             # Verify tandem load cases are created
             assert len(result["load_cases"]) >= 5  # At least the tandem cases (may include others)
+
+    def test_dutch_standard_combinations_integration(self) -> None:
+        """Test that Dutch standard combinations are called with correct parameters."""
+        from src.integrations.scia_interface import _add_realistic_tandem_loads
+
+        mock_model = Mock()
+        params = load_bridge_default_params()
+
+        with (
+            patch("src.integrations.scia_interface.generate_tandem_loads_for_bridge") as mock_generate,
+            patch("src.integrations.scia_interface.apply_tandem_loads_to_scia_model") as mock_apply,
+            patch("src.integrations.scia_interface.create_load_group_by_type") as mock_create_group,
+            patch("src.integrations.scia_interface.create_load_case_complete") as mock_create_case,
+            patch("src.integrations.scia_interface._create_dutch_standard_load_combinations") as mock_dutch_combos,
+        ):
+            # Setup mocks
+            mock_load_group = Mock()
+            mock_dead_case = Mock()
+            mock_wind_case = Mock()
+            mock_traffic_cases = [Mock(), Mock()]
+
+            mock_create_group.return_value = mock_load_group
+            mock_create_case.side_effect = [mock_dead_case, mock_wind_case]
+            mock_generate.return_value = [{"load_case": "BG6001", "wheels": [], "load": 1000}]
+            mock_apply.return_value = mock_traffic_cases
+            mock_dutch_combos.return_value = {"uls_6.10a_traffic": Mock(), "sls_char_6.10a": Mock()}
+
+            result = _add_realistic_tandem_loads(mock_model, params)
+
+            # Verify Dutch combinations function was called with correct parameters
+            mock_dutch_combos.assert_called_once()
+            call_args = mock_dutch_combos.call_args[1]  # keyword arguments
+
+            assert call_args["model"] is mock_model
+            assert call_args["dead_load_case"] is mock_dead_case
+            assert call_args["traffic_load_cases"] is mock_traffic_cases
+            assert call_args["wind_case"] is mock_wind_case
+            assert call_args["bridge_span"] == 10.0  # From bridge_default_params.json
+            assert call_args["consequence_class"] == "CC2"
+            assert call_args["safety_level"] == "NEN 8700 gebruik"
+            assert call_args["construction_year"] == "2010"
+
+            # Verify combinations are returned
+            assert "combinations" in result
+            assert len(result["combinations"]) == 2
 
 
 if __name__ == "__main__":

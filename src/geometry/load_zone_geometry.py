@@ -270,12 +270,25 @@ def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float =
 
 def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane_width: float = 3.0) -> list[LoadZoneDataRow]:
     """
-    Generate theoretical load zone data structures for bridge analysis.
+    Generate MINIMAL theoretical load zone data structures for bridge analysis.
 
-    Creates load zones based on theoretical traffic lane distribution:
+    ⚠️  MINIMAL BASELINE IMPLEMENTATION ONLY! ⚠️
+
+    This function creates the most basic theoretical load zones from simple
+    geometric division. This is NOT the complete theoretical or realistic
+    load zone configuration required for proper bridge analysis.
+
+    CURRENT APPROACH: Simple sequential placement
     - Traffic lanes: "Auto" zones with standard lane width
     - Rest area: "Berm" zone for any remaining width
     - All zones placed sequentially from one side of bridge
+
+    MISSING FEATURES (for complete implementation):
+    - Eurocode-compliant theoretical lane modeling
+    - Lane shifting and variable positioning
+    - Dominant road load scenarios
+    - Integration with params.input.belastingzones
+    - Realistic traffic engineering standards
 
     :param bridge_width: Total bridge width in meters
     :type bridge_width: float
