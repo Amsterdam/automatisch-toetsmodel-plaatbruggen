@@ -83,9 +83,9 @@ def calculate_zone_bottom_y_coords(  # noqa: PLR0913
 
 
 # ========================================================================
-# MINIMAL THEORETICAL LANE DIVISION ("THEORETISCHE RIJ INDELING") 
+# MINIMAL THEORETICAL LANE DIVISION ("THEORETISCHE RIJ INDELING")
 # ========================================================================
-# 
+#
 # ⚠️  IMPORTANT: This is only a MINIMAL BASELINE implementation! ⚠️
 #
 # The functions below implement the most basic geometric division of bridge
@@ -94,7 +94,7 @@ def calculate_zone_bottom_y_coords(  # noqa: PLR0913
 #
 # IMPLEMENTATION STATUS:
 # ✅ MINIMAL BASELINE: Simple geometric division (bridge_width ÷ 3)
-# ❌ TRUE THEORETICAL: Advanced Eurocode-compliant theoretical modeling 
+# ❌ TRUE THEORETICAL: Advanced Eurocode-compliant theoretical modeling
 # ❌ REALISTIC DIVISION: Actual lane configuration based on real traffic data
 #
 # ========================================================================
@@ -211,15 +211,25 @@ def _set_d_point_widths(zone: LoadZoneDataRow, num_d_points: int, width: float) 
 
 def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float = 3.0) -> TheoreticalLaneResult:
     """
-    Calculate theoretical traffic lane distribution based on bridge width.
+    Calculate MINIMAL theoretical traffic lane distribution based on bridge width.
 
-    Divides bridge width by standard lane width to determine maximum number of
-    theoretical traffic lanes that can fit. Remainder becomes rest/berm zone.
+    ⚠️  MINIMAL BASELINE IMPLEMENTATION ONLY! ⚠️
 
-    Algorithm:
+    This function provides the most basic geometric division of bridge width
+    into theoretical traffic lanes. This is NOT the complete theoretical lane
+    division as required by Eurocode standards.
+
+    CURRENT ALGORITHM: Simple geometric division
     - num_lanes = floor(bridge_width / lane_width)
     - total_lanes_width = num_lanes * lane_width
     - rest_width = bridge_width - total_lanes_width
+
+    MISSING FEATURES (for complete theoretical division):
+    - Lane shifting for critical load cases
+    - Variable lane configurations
+    - Dominant road load scenarios
+    - Eurocode-compliant lane factors
+    - Load position optimization
 
     :param bridge_width: Total bridge width in meters
     :type bridge_width: float
