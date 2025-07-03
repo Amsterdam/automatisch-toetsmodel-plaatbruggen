@@ -4,33 +4,24 @@
 - Added the option to add supports in Input -> Dimensions
 - Added csv file for material densities
 - Inputfield for line load parapet
-- **SCIA Load Framework**: Comprehensive infrastructure for creating standardized load cases and combinations
-  - `create_load_group_by_type()` function for EN 1990 compliant load groups (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
-  - `create_load_case_complete()` function with full parameter control for permanent and variable load cases
-  - `create_load_combination_by_type()` function supporting all standard combinations (ULS, SLS, accidental, seismic)
-  - `create_patch_surface_load()` function for applying localized loads with automatic patch plane creation
-  - Complete 4-step workflow: Load Groups → Load Cases → Load Combinations → Load Application
-  - EN 1990 load factors and combination factors built into the framework
-  - String-based interface for easy colleague usage (no need to understand SCIA enums)
-  - Working demonstration in SCIA interface showing complete workflow with realistic wheel loads
-  - Simplified documentation with links to official VIKTOR SCIA documentation
-- **SCIA Integration Test Suite**: Comprehensive test coverage for all SCIA integration components
-  - `test_scia_interface.py` with 25+ test methods covering complete bridge model creation workflow
-  - `test_scia_utils.py` with 20+ test methods for load framework functions and error handling
-  - `test_scia_core.py` with core functionality tests for node tracking and template validation
-  - `test_scia_interface_focused.py` with focused integration tests and real parameter validation
-  - Environment-aware testing supporting both VIKTOR and non-VIKTOR environments
-  - Mock-based testing for SCIA SDK components with proper error simulation
-  - Real data integration tests using project test parameters
-  - Complete coverage of geometry extraction, model creation, analysis setup, and load application
-  - Type-safe test infrastructure with comprehensive error handling patterns
-- **Realistic Tandem Load Integration**: Enhanced SCIA integration with production-ready tandem load application
-  - Integration of `src.loads.loadcase_helper_functions` tandem systems with SCIA model creation
-  - Replacement of dummy wheel loads with realistic tandem loads based on actual bridge geometry
+- **SCIA Load Framework**: Standardized load cases and combinations
+  - EN 1990 compliant load groups (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
+  - Full parameter control for permanent and variable load cases
+  - Support for ULS, SLS, accidental and seismic combinations
+  - Localized patch surface loads with automatic plane creation
+  - String-based interface for easy usage
+  - Working demonstration with realistic wheel loads
+- **Realistic Tandem Load Integration**
   - Support for single lane, double lane, and multi-lane tandem configurations
-  - Automatic lane count determination and appropriate tandem function selection
-  - 2D to 3D coordinate conversion for SCIA patch load application
-  - Data format conversion between tandem system output and SCIA load case requirements
+  - Automatic lane count determination
+  - Integration with actual bridge geometry
+- **Dutch Standard Load Combinations (NEN 8700/8701)**
+  - Automatic gamma factors based on consequence class, safety level, and construction year
+  - Psi factors calculated from bridge span length and reference period
+  - Support for 6.10a and 6.10b load combination equations
+  - ULS combinations: Dead + Traffic, Dead + Traffic + Wind, Dead + Wind + Traffic
+  - SLS combinations: Characteristic and Frequent combinations
+  - Configurable parameters for consequence class, safety level, and construction year
 
 ### Changed
 - **Load Module Organization**: Restructured load-related functionality for better package organization
