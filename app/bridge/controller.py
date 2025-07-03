@@ -442,7 +442,7 @@ class BridgeController(ViktorController):
         :returns: TableResult containing the load combinations.
         :rtype: TableResult
         """
-        combination_table = create_load_combination_table()
+        combination_table = create_load_combination_table(params)
         return TableResult(combination_table)
 
     # ============================================================================================================
