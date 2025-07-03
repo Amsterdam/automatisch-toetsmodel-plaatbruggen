@@ -496,7 +496,6 @@ Below you will find important information about this bridge structure."""
     input.belastingcombinaties.cc_class = OptionField(
         "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
     )
-    input.belastingcombinaties.comb_types = MultiSelectField("Belastingscombinaties", options=["ULS", "SLS", "FAT"], name="comb_types")
     input.belastingcombinaties.lb = LineBreak()
     input.belastingcombinaties.design_code = OptionField(
         "Norm", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"

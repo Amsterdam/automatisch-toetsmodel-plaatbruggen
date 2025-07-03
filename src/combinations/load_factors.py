@@ -11,11 +11,12 @@ lengths outside the valid range (20-200m), the values are clamped to the nearest
 valid value.
 """
 
+import datetime
+import zoneinfo
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import datetime
 from pandas.io.formats.style import Styler
 from scipy.interpolate import RegularGridInterpolator  # type: ignore[import-untyped]
 
@@ -32,6 +33,7 @@ ALPHA_TREND_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" /
 # ===================================================================================================================
 # Functions
 # ===================================================================================================================
+
 
 def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     """
@@ -249,12 +251,17 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
     """
     Calculate the psi factor according to NEN 8701 based on span length and reference period.
 
+    The psi factor is determined by interpolating values from NEN 8701 based on
+    the span length and reference period. The function uses bilinear interpolation
+    to calculate intermediate values for combinations not directly available in the table.
+
     For spans outside the valid range:
     - Spans < 20m are calculated using span = 20m
     - Spans > 200m are calculated using span = 200m
 
-    For reference periods outside the table range:
-    - Values are clamped to the nearest valid value
+    For reference periods outside the valid range:
+    - Reference periods < 1 year are calculated using reference_period = 1 year
+    - Reference periods > 1000 years are calculated using reference_period = 1000 years
 
     Args:
         span: Length of the span in meters
@@ -265,16 +272,17 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
 
     Raises:
         ValueError: If reference period is outside the valid range
+
     """
     # Read the CSV file
-    df = pd.read_csv(PSI_NEN8701_PATH, sep=";", decimal=",")
+    psi_data = pd.read_csv(PSI_NEN8701_PATH, sep=";", decimal=",")
 
     # Extract x (span) and y (reference period) coordinates from column headers and index
-    x_coords = np.array([float(col) for col in df.columns[1:]])  # spans
-    y_coords = np.array([float(row) for row in df.iloc[:, 0]])   # reference periods
+    x_coords = np.array([float(col) for col in psi_data.columns[1:]])  # spans
+    y_coords = np.array([float(row) for row in psi_data.iloc[:, 0]])  # reference periods
 
     # Extract z values (psi factors)
-    z_values = df.iloc[:, 1:].values
+    z_values = psi_data.iloc[:, 1:].to_numpy()
 
     # Create interpolator
     interpolator = RegularGridInterpolator(
@@ -282,7 +290,7 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
         z_values,
         method="linear",
         bounds_error=False,  # Use clamping for out-of-bounds values
-        fill_value=None  # Will use nearest value for out-of-bounds points
+        fill_value=None,  # Will use nearest value for out-of-bounds points
     )
 
     # Clamp span and reference period to valid ranges
@@ -316,16 +324,17 @@ def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
 
     Returns:
         float: Interpolated alpha trend factor value
+
     """
     # Read the CSV file
-    df = pd.read_csv(ALPHA_TREND_NEN8701_PATH, sep=";", decimal=",")
+    alpha_trend_data = pd.read_csv(ALPHA_TREND_NEN8701_PATH, sep=";", decimal=",")
 
     # Extract x (years) and y (spans) coordinates from column headers and index
-    years = np.array([int(col) for col in df.columns[1:]])  # years from columns
-    spans = np.array([float(row) for row in df.iloc[:, 0]])  # spans from first column
+    years = np.array([int(col) for col in alpha_trend_data.columns[1:]])  # years from columns
+    spans = np.array([float(row) for row in alpha_trend_data.iloc[:, 0]])  # spans from first column
 
     # Extract z values (alpha trend factors)
-    z_values = df.iloc[:, 1:].values
+    z_values = alpha_trend_data.iloc[:, 1:].to_numpy()
 
     # Create interpolator
     interpolator = RegularGridInterpolator(
@@ -333,14 +342,14 @@ def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
         z_values,
         method="linear",
         bounds_error=False,  # Allow extrapolation for years
-        fill_value=None  # Will use nearest value for out-of-bounds points
+        fill_value=None,  # Will use nearest value for out-of-bounds points
     )
 
     # Clamp span to valid ranges
     clamped_span = min(max(span, min(spans)), max(spans))
 
     # Calculate target year (relative to 2010 base year)
-    present_year = datetime.datetime.now().year
+    present_year = datetime.datetime.now(tz=zoneinfo.ZoneInfo("UTC")).year
     target_year = present_year + design_life
     clamped_year = min(max(target_year, min(years)), max(years))
 
