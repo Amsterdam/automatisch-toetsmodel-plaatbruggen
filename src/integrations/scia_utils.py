@@ -17,12 +17,15 @@ See VIKTOR documentation for detailed parameters:
 
 from typing import Any, TypeAlias
 
-# Conditional import for VIKTOR SCIA module
+# Global VIKTOR imports with error handling for CI/testing environments
 try:
     from viktor.external import scia
+
+    VIKTOR_AVAILABLE = True
 except ImportError:
     # Mock scia module for environments without VIKTOR SDK
-    scia = None
+    scia = None  # type: ignore[misc,assignment]
+    VIKTOR_AVAILABLE = False
 
 # Type aliases for SCIA objects
 SciaModel: TypeAlias = Any
@@ -36,7 +39,7 @@ SciaFreeSurfaceLoad: TypeAlias = Any
 
 def _check_scia_availability() -> None:
     """Check if VIKTOR SCIA module is available."""
-    if scia is None:
+    if not VIKTOR_AVAILABLE or scia is None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
 

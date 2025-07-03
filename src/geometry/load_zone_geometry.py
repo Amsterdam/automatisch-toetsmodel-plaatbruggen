@@ -33,6 +33,15 @@ class LoadZoneDataRow(TypedDict, total=False):
     y_coords_top_current_zone: list[float]  # Y-coordinates for zone top boundary
 
 
+class TheoreticalLaneResult(TypedDict):
+    """Result structure for theoretical traffic lane calculations."""
+
+    num_lanes: int
+    lane_width: float
+    rest_width: float
+    total_lanes_width: float
+
+
 def calculate_zone_bottom_y_coords(  # noqa: PLR0913
     zone_idx: int,
     num_load_zones: int,
@@ -71,3 +80,276 @@ def calculate_zone_bottom_y_coords(  # noqa: PLR0913
         y_bottom_val = y_coords_top_current_zone[d_idx_loop] - zone_width_at_this_d_point
         y_coords_bottom.append(y_bottom_val)
     return y_coords_bottom
+
+
+# ========================================================================
+# MINIMAL THEORETICAL LANE DIVISION ("THEORETISCHE RIJ INDELING")
+# ========================================================================
+#
+# ⚠️  IMPORTANT: This is only a MINIMAL BASELINE implementation! ⚠️
+#
+# The functions below implement the most basic geometric division of bridge
+# width into theoretical traffic lanes. This is NOT the complete theoretical
+# lane division as required by Eurocode standards.
+#
+# IMPLEMENTATION STATUS:
+# ✅ MINIMAL BASELINE: Simple geometric division (bridge_width ÷ 3)
+# ❌ TRUE THEORETICAL: Advanced Eurocode-compliant theoretical modeling
+# ❌ REALISTIC DIVISION: Actual lane configuration based on real traffic data
+#
+# ========================================================================
+# TODO: COMPLETE "THEORETISCHE RIJ INDELING" (TRUE THEORETICAL DIVISION)
+# ========================================================================
+# The TRUE theoretical lane division must implement:
+#
+# 1. LANE SHIFTING & VARIABLE TESTING:
+#    - Multiple lane position combinations for critical load cases
+#    - Lateral shifting of traffic lanes to find maximum effects
+#    - Variable lane configurations (1, 2, 3+ lane scenarios)
+#    - Load position optimization across bridge width
+#
+# 2. DOMINANT ROAD LOAD SCENARIOS (EN 1991-2):
+#    - Freight-dominant lanes (heavy traffic corridors)
+#    - Mixed traffic patterns (passenger + freight combinations)
+#    - Asymmetric loading (one lane heavier than others)
+#    - Special transport routes (exceptional loads)
+#
+# 3. EUROCODE COMPLIANCE (EN 1991-2 Section 4):
+#    - Load Model 1 (LM1) with proper lane factors
+#    - Tandem system + UDL distribution per lane
+#    - ψ factors for multi-lane scenarios
+#    - Critical lane combinations and envelope analysis
+#
+# ========================================================================
+# TODO: COMPLETE "WERKELIJKE RIJ INDELING" (REALISTIC LANE DIVISION)
+# ========================================================================
+# The REALISTIC lane division must implement:
+#
+# 1. ACTUAL TRAFFIC ENGINEERING (NEN-EN 1991-2):
+#    - Real lane widths based on road classification
+#    - Shoulder and emergency lane configurations
+#    - Guardrail, barrier, and safety zone allowances
+#    - Integration with params.input.belastingzones data
+#
+# 2. SITE-SPECIFIC LOAD PATTERNS:
+#    - Measured traffic data integration
+#    - Route-specific vehicle classifications
+#    - Time-dependent loading patterns
+#    - Environmental and seasonal variations
+#
+# 3. ADVANCED ANALYSIS FEATURES:
+#    - Dynamic amplification factors per zone
+#    - Influence line-based critical positioning
+#    - Fatigue load models for high-traffic zones
+#    - Multi-directional traffic scenarios
+#
+# ========================================================================
+# CURRENT IMPLEMENTATION: MINIMAL BASELINE ONLY
+# ========================================================================
+# What this implementation provides:
+# - Simple geometric division: bridge_width ÷ lane_width
+# - Sequential lane placement from one side
+# - Basic "Auto" and "Berm" zone types
+# - Foundation for advanced implementations
+#
+# What this implementation DOES NOT provide:
+# - Eurocode-compliant theoretical modeling
+# - Lane shifting or variable positioning
+# - Dominant road load scenarios
+# - Realistic traffic engineering standards
+# - Integration with actual traffic data
+#
+# Use this ONLY as a starting point for structural analysis!
+# ========================================================================
+
+
+def _set_d_point_widths(zone: LoadZoneDataRow, num_d_points: int, width: float) -> None:  # noqa: C901, PLR0912
+    """
+    Set width values for all D-points in a load zone.
+
+    Helper function to reduce complexity by setting d1_width through d15_width
+    explicitly for TypedDict compatibility.
+
+    :param zone: Load zone data structure to modify
+    :type zone: LoadZoneDataRow
+    :param num_d_points: Number of D-points to set
+    :type num_d_points: int
+    :param width: Width value to set for all D-points
+    :type width: float
+    """
+    if num_d_points >= 1:
+        zone["d1_width"] = width
+    if num_d_points >= 2:
+        zone["d2_width"] = width
+    if num_d_points >= 3:
+        zone["d3_width"] = width
+    if num_d_points >= 4:
+        zone["d4_width"] = width
+    if num_d_points >= 5:
+        zone["d5_width"] = width
+    if num_d_points >= 6:
+        zone["d6_width"] = width
+    if num_d_points >= 7:
+        zone["d7_width"] = width
+    if num_d_points >= 8:
+        zone["d8_width"] = width
+    if num_d_points >= 9:
+        zone["d9_width"] = width
+    if num_d_points >= 10:
+        zone["d10_width"] = width
+    if num_d_points >= 11:
+        zone["d11_width"] = width
+    if num_d_points >= 12:
+        zone["d12_width"] = width
+    if num_d_points >= 13:
+        zone["d13_width"] = width
+    if num_d_points >= 14:
+        zone["d14_width"] = width
+    if num_d_points >= 15:
+        zone["d15_width"] = width
+
+
+def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float = 3.0) -> TheoreticalLaneResult:
+    """
+    Calculate MINIMAL theoretical traffic lane distribution based on bridge width.
+
+    ⚠️  MINIMAL BASELINE IMPLEMENTATION ONLY! ⚠️
+
+    This function provides the most basic geometric division of bridge width
+    into theoretical traffic lanes. This is NOT the complete theoretical lane
+    division as required by Eurocode standards.
+
+    CURRENT ALGORITHM: Simple geometric division
+    - num_lanes = floor(bridge_width / lane_width)
+    - total_lanes_width = num_lanes * lane_width
+    - rest_width = bridge_width - total_lanes_width
+
+    MISSING FEATURES (for complete theoretical division):
+    - Lane shifting for critical load cases
+    - Variable lane configurations
+    - Dominant road load scenarios
+    - Eurocode-compliant lane factors
+    - Load position optimization
+
+    :param bridge_width: Total bridge width in meters
+    :type bridge_width: float
+    :param lane_width: Standard lane width in meters (default 3.0m)
+    :type lane_width: float
+    :returns: Dictionary with lane calculation results
+    :rtype: TheoreticalLaneResult
+    :raises ValueError: If bridge_width or lane_width is not positive
+
+    Examples:
+        >>> calculate_theoretical_traffic_lanes(30.0)
+        {'num_lanes': 10, 'lane_width': 3.0, 'rest_width': 0.0, 'total_lanes_width': 30.0}
+
+        >>> calculate_theoretical_traffic_lanes(10.0)
+        {'num_lanes': 3, 'lane_width': 3.0, 'rest_width': 1.0, 'total_lanes_width': 9.0}
+
+    """
+    if bridge_width <= 0:
+        raise ValueError("Bridge width must be positive")
+
+    if lane_width <= 0:
+        raise ValueError("Lane width must be positive")
+
+    # Calculate maximum number of complete lanes
+    num_lanes = int(bridge_width // lane_width)
+
+    # Calculate dimensions
+    total_lanes_width = num_lanes * lane_width
+    rest_width = bridge_width - total_lanes_width
+
+    return TheoreticalLaneResult(
+        num_lanes=num_lanes,
+        lane_width=lane_width,
+        rest_width=rest_width,
+        total_lanes_width=total_lanes_width,
+    )
+
+
+def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane_width: float = 3.0) -> list[LoadZoneDataRow]:
+    """
+    Generate MINIMAL theoretical load zone data structures for bridge analysis.
+
+    ⚠️  MINIMAL BASELINE IMPLEMENTATION ONLY! ⚠️
+
+    This function creates the most basic theoretical load zones from simple
+    geometric division. This is NOT the complete theoretical or realistic
+    load zone configuration required for proper bridge analysis.
+
+    CURRENT APPROACH: Simple sequential placement
+    - Traffic lanes: "Auto" zones with standard lane width
+    - Rest area: "Berm" zone for any remaining width
+    - All zones placed sequentially from one side of bridge
+
+    MISSING FEATURES (for complete implementation):
+    - Eurocode-compliant theoretical lane modeling
+    - Lane shifting and variable positioning
+    - Dominant road load scenarios
+    - Integration with params.input.belastingzones
+    - Realistic traffic engineering standards
+
+    :param bridge_width: Total bridge width in meters
+    :type bridge_width: float
+    :param num_d_points: Number of D-points along bridge length
+    :type num_d_points: int
+    :param lane_width: Standard lane width in meters (default 3.0m)
+    :type lane_width: float
+    :returns: List of load zone data structures
+    :rtype: list[LoadZoneDataRow]
+    :raises ValueError: If inputs are invalid
+
+    Zone Properties:
+        Traffic Lanes ("Auto"):
+        - zone_type: "Auto"
+        - pavement_thickness: 0.1m (asphalt)
+        - pavement_material: "Asfalt"
+
+        Rest Zone ("Berm"):
+        - zone_type: "Berm"
+        - pavement_thickness: 0.05m (gravel)
+        - pavement_material: "Gravel"
+    """
+    if bridge_width <= 0:
+        raise ValueError("Bridge width must be positive")
+
+    if num_d_points <= 0:
+        raise ValueError("Number of D-points must be positive")
+
+    # Calculate lane distribution
+    lane_calc = calculate_theoretical_traffic_lanes(bridge_width, lane_width)
+
+    zones: list[LoadZoneDataRow] = []
+
+    # Create traffic lane zones
+    for lane_idx in range(lane_calc["num_lanes"]):
+        zone: LoadZoneDataRow = {
+            "zone_type": "Auto",
+            "pavement_thickness": 0.1,  # 10cm asphalt for traffic lanes
+            "pavement_material": "Asfalt",
+            "zone_widths_per_d": [lane_width] * num_d_points,
+            "y_coords_top_current_zone": [],  # Will be calculated by controller
+        }
+
+        # Set width for each D-point (explicit assignment for TypedDict compatibility)
+        _set_d_point_widths(zone, num_d_points, lane_width)
+
+        zones.append(zone)
+
+    # Create rest zone if there's remaining width
+    if lane_calc["rest_width"] > 0.001:  # Small tolerance for floating point
+        rest_zone: LoadZoneDataRow = {
+            "zone_type": "Berm",
+            "pavement_thickness": 0.05,  # 5cm gravel for rest area
+            "pavement_material": "Gravel",
+            "zone_widths_per_d": [lane_calc["rest_width"]] * num_d_points,
+            "y_coords_top_current_zone": [],  # Will be calculated by controller
+        }
+
+        # Set width for each D-point (explicit assignment for TypedDict compatibility)
+        _set_d_point_widths(rest_zone, num_d_points, lane_calc["rest_width"])
+
+        zones.append(rest_zone)
+
+    return zones

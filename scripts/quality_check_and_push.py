@@ -290,11 +290,16 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
             use_colors = False
 
         while not stop_spinner.is_set():
-            if use_colors:
-                print(f"\r{Colors.CYAN}[>] Running {name}... {next(spinner)}{Colors.RESET}", end="", flush=True)
-            else:
-                print(f"\r[>] Running {name}... {next(spinner)}", end="", flush=True)
-            time.sleep(0.2)
+            try:
+                if use_colors:
+                    print(f"\r{Colors.CYAN}[>] Running {name}... {next(spinner)}{Colors.RESET}", end="", flush=True)
+                else:
+                    print(f"\r[>] Running {name}... {next(spinner)}", end="", flush=True)
+                time.sleep(0.2)
+            except (UnicodeEncodeError, Exception):  # noqa: PERF203
+                # Fallback to simple output if any encoding or other issues
+                print(f"\r[>] Running {name}...", end="", flush=True)
+                time.sleep(0.2)
 
     # Start spinner for tests (which take longer)
     if "Tests" in name:
