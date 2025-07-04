@@ -115,7 +115,6 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
 
     # Loop through unique thickness and reinforcement configurations
     for thickness, config in unique_matching_zone_keys:
-
         # Add reinforcement bars based on the configuration
         rebar_config = params.reinforcement_zones_array[config - 1]
 
