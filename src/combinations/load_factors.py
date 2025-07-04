@@ -30,6 +30,16 @@ GAMMA_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamm
 PSI_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_nen8701.csv"
 ALPHA_TREND_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_trend_NEN8701.csv"
 
+# PSI Factors from NEN 8701 - extracted from CSV for efficient access
+PSI_FACTORS_NEN8701: dict[float, dict[int, float]] = {
+    100.0: {20: 1.0, 50: 1.0, 100: 1.0, 200: 1.0},
+    50.0: {20: 0.99, 50: 0.99, 100: 0.99, 200: 0.99},
+    30.0: {20: 0.99, 50: 0.99, 100: 0.98, 200: 0.97},
+    15.0: {20: 0.98, 50: 0.98, 100: 0.96, 200: 0.96},
+    1.0: {20: 0.95, 50: 0.94, 100: 0.89, 200: 0.88},
+    1.0 / 12.0: {20: 0.91, 50: 0.91, 100: 0.81, 200: 0.81},  # 0.08333333333
+}
+
 # ===================================================================================================================
 # Functions
 # ===================================================================================================================
@@ -247,6 +257,77 @@ def create_load_combination_table(params: dict) -> Styler:
     return df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)
 
 
+def get_interpolation_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Get interpolation data from PSI_FACTORS_NEN8701 for use with RegularGridInterpolator.
+
+    :returns: Tuple of (spans, periods, values) arrays for interpolation
+    :rtype: tuple[np.ndarray, np.ndarray, np.ndarray]
+    """
+    # Extract spans (sorted) and periods (sorted descending for interpolator)
+    spans = np.array(sorted(PSI_FACTORS_NEN8701[100.0].keys()))  # [20, 50, 100, 200]
+    periods = np.array(sorted(PSI_FACTORS_NEN8701.keys(), reverse=True))  # [100.0, 50.0, 30.0, 15.0, 1.0, 0.083...]
+
+    # Create values array
+    values = np.zeros((len(periods), len(spans)))
+    for i, period in enumerate(periods):
+        for j, span in enumerate(spans):
+            values[i, j] = PSI_FACTORS_NEN8701[period][span]
+
+    return spans, periods, values
+
+
+def validate_input(span: float, reference_period: float) -> tuple[float, float]:
+    """
+    Validate and clamp input parameters for PSI factor calculation.
+
+    :param span: Span length in meters
+    :type span: float | int
+    :param reference_period: Reference period in years
+    :type reference_period: float | int
+    :returns: Tuple of (clamped_span, reference_period)
+    :rtype: tuple[float, float]
+    :raises TypeError: If span or reference_period are not numeric
+    :raises ValueError: If span or reference_period are not positive or reference_period exceeds maximum
+    """
+    # Type validation
+    if not isinstance(span, (int, float)) or not isinstance(reference_period, (int, float)):
+        raise TypeError("Span and reference period must be numeric values")
+
+    # Value validation
+    if span <= 0:
+        raise ValueError("Span must be positive")
+    if reference_period <= 0:
+        raise ValueError("Reference period must be positive")
+    if reference_period > 100.0:  # Max from PSI_FACTORS_NEN8701
+        raise ValueError("Reference period must not exceed 100 years")
+
+    # Get valid ranges from PSI_FACTORS_NEN8701
+    valid_spans = sorted(PSI_FACTORS_NEN8701[100.0].keys())  # [20, 50, 100, 200]
+    min_span, max_span = min(valid_spans), max(valid_spans)
+
+    # Clamp span to valid range
+    clamped_span = _clamp(float(span), float(min_span), float(max_span))
+
+    return clamped_span, float(reference_period)
+
+
+def _clamp(value: float, min_val: float, max_val: float) -> float:
+    """
+    Clamp a value to a specified range.
+
+    :param value: Value to clamp
+    :type value: float
+    :param min_val: Minimum allowed value
+    :type min_val: float
+    :param max_val: Maximum allowed value
+    :type max_val: float
+    :returns: Clamped value
+    :rtype: float
+    """
+    return min(max(value, min_val), max_val)
+
+
 def get_psi_nen8701(span: float, reference_period: float) -> float:
     """
     Calculate the psi factor according to NEN 8701 based on span length and reference period.
@@ -261,7 +342,7 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
 
     For reference periods outside the valid range:
     - Reference periods < 1 year are calculated using reference_period = 1 year
-    - Reference periods > 1000 years are calculated using reference_period = 1000 years
+    - Reference periods > 100 years are calculated using reference_period = 100 years
 
     Args:
         span: Length of the span in meters
@@ -272,17 +353,14 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
 
     Raises:
         ValueError: If reference period is outside the valid range
+        TypeError: If inputs are not numeric
 
     """
-    # Read the CSV file
-    psi_data = pd.read_csv(PSI_NEN8701_PATH, sep=";", decimal=",")
+    # Validate and clamp input parameters
+    clamped_span, clamped_reference_period = validate_input(span, reference_period)
 
-    # Extract x (span) and y (reference period) coordinates from column headers and index
-    x_coords = np.array([float(col) for col in psi_data.columns[1:]])  # spans
-    y_coords = np.array([float(row) for row in psi_data.iloc[:, 0]])  # reference periods
-
-    # Extract z values (psi factors)
-    z_values = psi_data.iloc[:, 1:].to_numpy()
+    # Get interpolation data from extracted constant
+    x_coords, y_coords, z_values = get_interpolation_data()
 
     # Create interpolator
     interpolator = RegularGridInterpolator(
@@ -293,13 +371,16 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
         fill_value=None,  # Will use nearest value for out-of-bounds points
     )
 
-    # Clamp span and reference period to valid ranges
-    clamped_span = min(max(span, min(x_coords)), max(x_coords))
-    clamped_reference_period = min(max(reference_period, min(y_coords)), max(y_coords))
+    # Clamp reference period to interpolation range (additional safety check)
+    final_reference_period = _clamp(clamped_reference_period, min(y_coords), max(y_coords))
 
     # Return interpolated value - extract first (and only) element from the array
-    result = interpolator([clamped_reference_period, clamped_span])
+    result = interpolator([final_reference_period, clamped_span])
     return float(result.item())
+
+
+# Backward compatibility alias
+get_psi_factor = get_psi_nen8701
 
 
 def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
