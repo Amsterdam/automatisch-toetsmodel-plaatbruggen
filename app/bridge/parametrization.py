@@ -376,6 +376,7 @@ Below you will find important information about this bridge structure."""
         description="Primaire functie van de brug (bijv. wegverkeer, voetgangers)",
     )
 
+    @staticmethod
     def _get_concrete_quality_options() -> list[str]:
         """
         Load concrete quality options from resources/data/materials/betonkwaliteit.csv.

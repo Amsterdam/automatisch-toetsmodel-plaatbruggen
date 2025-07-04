@@ -22,7 +22,13 @@ from app.bridge.parametrization import (
 from src.integrations.scia_interface import create_node_and_thickness_dict
 
 
-def _get_unique_matching_zone_keys(params: BridgeParametrization) -> list[tuple[float, str]]:
+def _get_unique_matching_zone_keys(
+    params: BridgeParametrization,
+) -> tuple[
+    list[tuple[float, str]],
+    dict[float, list[str]],
+    dict[float, list[str]],
+]:
     """
     Extract unique matching zone keys from bridge parameters.
 
@@ -56,7 +62,7 @@ def _get_unique_matching_zone_keys(params: BridgeParametrization) -> list[tuple[
             for config, rebar_zones in grouped_rebar_configs.items():
                 for rebar_zone in rebar_zones:  # ignore PERF401
                     if thickness_zone == rebar_zone:
-                        matching_zone_keys.append((thickness, config))  # noqa: PERF401
+                        matching_zone_keys.append((thickness, str(config)))  # noqa: PERF401
     # Filter matching_zone_keys to only unique (thickness, config) pairs
     unique_matching_zone_keys = list({(thickness, config) for thickness, config in matching_zone_keys})
     return unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs
@@ -115,8 +121,10 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
 
     # Loop through unique thickness and reinforcement configurations
     for thickness, config in unique_matching_zone_keys:
-        # Add reinforcement bars based on the configuration
-        rebar_config = params.reinforcement_zones_array[config - 1]
+        # config is a string, but reinforcement_zones_array is indexed by int (1-based)
+        # Convert config to int for correct indexing
+        config_idx = int(config) - 1
+        rebar_config = params.reinforcement_zones_array[config_idx]
 
         # Get needed reinforcement data in mm
         diameters = {
