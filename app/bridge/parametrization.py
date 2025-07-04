@@ -3,19 +3,8 @@
 import csv
 import json
 from collections.abc import Callable, Mapping
-from pathlib import Path
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -39,13 +28,14 @@ from viktor.parametrization import (
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
-    CONCRETEQUALITY_CSV_PATH,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -393,7 +383,6 @@ Below you will find important information about this bridge structure."""
         :returns: List of concrete quality keys (e.g., ["K150", "K160", ...])
         :rtype: list[str]
         """
-        from app.constants import CONCRETEQUALITY_CSV_PATH
         csv_path = CONCRETEQUALITY_CSV_PATH
         with csv_path.open(encoding="utf-8") as f:
             reader = csv.DictReader(f, delimiter=";")
