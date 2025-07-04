@@ -5,7 +5,7 @@ on:
     branches: [ development, main ]
 
 env:
-  DEBUG_MODE: false # Set to true for detailed debugging output
+  DEBUG_MODE: true # Set to true for detailed debugging output
 
 jobs:
   code-quality:
