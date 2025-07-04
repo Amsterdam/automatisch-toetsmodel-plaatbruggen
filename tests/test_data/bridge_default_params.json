@@ -14,7 +14,7 @@
   "input": {
     "dimensions": {
       "toggle_sections": false,
-      "horizontal_section_loc": -1.0,
+      "horizontal_section_loc": -0.1,
       "longitudinal_section_loc": 0.0,
       "cross_section_loc": 0.0
     },
@@ -37,7 +37,8 @@
       "dz_2": 3.0,
       "col_6": 0.0,
       "l": 0,
-      "is_first_segment": true
+      "is_first_segment": true,
+      "is_support": true
     },
     {
       "bz1": 10.0,
@@ -47,7 +48,8 @@
       "dz_2": 3.0,
       "col_6": 0.0,
       "l": 10,
-      "is_first_segment": false
+      "is_first_segment": false,
+      "is_support": true
     }
   ],
   "load_zones_data_array": [

@@ -6,23 +6,8 @@ from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
+
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -59,6 +44,23 @@ from src.geometry.model_creator import (
 )
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.scia_interface import create_bridge_scia_model
+from src.report.report_functions import create_export_report  # Import the report creation function
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 from src.integrations.idea_interface import _get_unique_matching_zone_keys
 
@@ -433,14 +435,16 @@ class BridgeController(ViktorController):
         return PlotlyResult(fig.to_json())
 
     @TableView("Belastingscombinaties")
-    def get_load_combinations_view(self, **kwargs) -> TableResult:  # noqa: ARG002
+    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
         """
         Display the table of load combinations for the bridge.
 
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
         :returns: TableResult containing the load combinations.
         :rtype: TableResult
         """
-        combination_table = create_load_combination_table()
+        combination_table = create_load_combination_table(params)
         return TableResult(combination_table)
 
     # ============================================================================================================
@@ -490,33 +494,30 @@ class BridgeController(ViktorController):
             if not def_content:
                 self._raise_empty_def_error()
 
+            # Get bridge ID for file naming
+            bridge_id = getattr(params.info, "bridge_objectnumm", "") or "bridge_model"
+
             # Create ZIP file using VIKTOR's recommended approach from documentation
             import zipfile
 
             # Use File object and write directly to it
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                # Add XML file
-                z.writestr("bridge_model.xml", xml_content)
-                # Add definition file
+                # Add XML file with bridge ID as filename
+                z.writestr(f"{bridge_id}.xml", xml_content)
+                # Add definition file with standard name (referenced in XML)
                 z.writestr("viktor.xml.def", def_content)
+
+                # Add template file
+                with template_path.open("rb") as template_file:
+                    z.writestr("model.esa", template_file.read())
 
                 # Add a readme file with instructions
                 readme_content = SCIA_ZIP_README_CONTENT
                 z.writestr("README.txt", readme_content)
 
-            # Generate filename with bridge info if available
-            bridge_name = getattr(params.info, "bridge_name", "UnknownBridge") or "UnknownBridge"
-            bridge_id = getattr(params.info, "bridge_objectnumm", "") or ""
-
-            filename_parts = ["SCIA_Model"]
-            if bridge_name and bridge_name != "UnknownBridge":
-                filename_parts.append(bridge_name.replace(" ", "_"))
-            if bridge_id:
-                filename_parts.append(bridge_id)
-            filename_parts.append("XML_Files.zip")
-
-            filename = "_".join(filename_parts)
+            # Generate simplified filename
+            filename = f"{bridge_id}_Input_Files.zip"
 
             # Return File object directly as shown in VIKTOR documentation
             return DownloadResult(zip_file_obj, filename)
@@ -553,18 +554,9 @@ class BridgeController(ViktorController):
             if not esa_model_file:
                 self._raise_empty_esa_error()
 
-            # Generate filename
-            bridge_name = getattr(params.info, "bridge_name", "UnknownBridge") or "UnknownBridge"
-            bridge_id = getattr(params.info, "bridge_objectnumm", "") or ""
-
-            filename_parts = ["SCIA_Model"]
-            if bridge_name and bridge_name != "UnknownBridge":
-                filename_parts.append(bridge_name.replace(" ", "_"))
-            if bridge_id:
-                filename_parts.append(bridge_id)
-            filename_parts.append("Model.esa")
-
-            filename = "_".join(filename_parts)
+            # Generate simplified filename
+            bridge_id = getattr(params.info, "bridge_objectnumm", "") or "bridge"
+            filename = f"{bridge_id}_model.esa"
 
             return DownloadResult(esa_model_file, filename)
 
@@ -607,26 +599,6 @@ class BridgeController(ViktorController):
     def _raise_empty_idea_xml_error(self) -> None:
         """Raise UserError for empty IDEA XML file."""
         raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
-
-    # ============================================================================================================
-    # output - Rapport
-    # ============================================================================================================
-
-    @PDFView("Rapport", duration_guess=1)
-    def get_output_report(self, params: BridgeParametrization, **kwargs) -> PDFResult:  # noqa: ARG002
-        """
-        Generates a PDF report for the bridge design.
-
-        Args:
-            params (BridgeParametrization): Input parameters for the bridge dimensions.
-            **kwargs: Additional arguments.
-
-        Returns:
-            File: A PDF file containing the report.
-
-        """
-        # TEMPORARILY DISABLED - docxtpl network issue
-        raise UserError("Report generation is temporarily disabled due to network connectivity issues with required dependencies.")
 
     # ============================================================================================================
     # IDEA StatiCa Integration
@@ -769,3 +741,25 @@ class BridgeController(ViktorController):
                 "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
             )
             raise UserError(error_msg)
+
+    # ============================================================================================================
+    # output - Rapport
+    # ============================================================================================================
+
+    @PDFView("Rapport", duration_guess=1)
+    def get_output_report(self, params: BridgeParametrization, **kwargs) -> PDFResult:  # noqa: ARG002
+        """
+        Generates a PDF report for the bridge design.
+
+        Args:
+            params (BridgeParametrization): Input parameters for the bridge dimensions.
+            **kwargs: Additional arguments.
+
+        Returns:
+            File: A PDF file containing the report.
+
+        """
+        report_pdf = create_export_report(params)  # Call the report generation function
+        if not report_pdf:
+            raise UserError("Rapport kon niet worden gegenereerd. Controleer de parameters en probeer het opnieuw.")
+        return PDFResult(file=report_pdf)

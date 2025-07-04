@@ -59,6 +59,7 @@ README_CONTENT = """
 # Parametrization Constants
 # ===================================================================================================================
 
+MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
 MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Define how many D-fields (D1 to D15) we'll support for load zones
 LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
 
@@ -84,7 +85,9 @@ hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden.
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
 Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
-wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model."""
+wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
+
+De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
 
 # ===================================================================================================================
 # Tables from codes
@@ -100,309 +103,38 @@ PSI_FACTORS_NEN8701: dict[float, dict[int, float]] = {
     1 / 12: {20: 0.91, 50: 0.91, 100: 0.81, 200: 0.81},
 }
 
-# Combination table according to NEN-EN 1990 table NB.19
-#
-# Legend:
-# X = Leading action     x = Included in combination     0 = Not included in combination
-#
-COMBINATION_TABLE = {
-    "Perm": {
-        "Permanente belasting": "X",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "",
-        "UDL": "",
-        "Enkele as": "",
-        "Horizontale belasting": "",
-        "Fiets- en voetpaden": "",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Perm zet": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "X",
-        "TS": "",
-        "UDL": "",
-        "Enkele as": "",
-        "Horizontale belasting": "",
-        "Fiets- en voetpaden": "",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "gr1a": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "X",
-        "UDL": "X",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "x",
-        "Wind Fw*": "x",
-        "Temperatuur": "x",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "gr1b": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "",
-        "UDL": "",
-        "Enkele as": "X",
-        "Horizontale belasting": "",
-        "Fiets- en voetpaden": "",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "gr2": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "X",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "x",
-        "Wind Fw*": "x",
-        "Temperatuur": "x",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "gr3": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "",
-        "UDL": "",
-        "Enkele as": "",
-        "Horizontale belasting": "",
-        "Fiets- en voetpaden": "X",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "gr4": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "",
-        "UDL": "",
-        "Enkele as": "",
-        "Horizontale belasting": "",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "X",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "x",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "gr5": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "X",
-        "Wind Fwk": "x",
-        "Wind Fw*": "x",
-        "Temperatuur": "x",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Wind gr1a": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "X",
-        "Wind Fw*": "",
-        "Temperatuur": "x",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Wind gr2": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "X",
-        "Wind Fw*": "",
-        "Temperatuur": "x",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Temp gr1": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "x",
-        "Wind Fw*": "",
-        "Temperatuur": "X",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Temp gr2": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "x",
-        "Wind Fw*": "",
-        "Temperatuur": "X",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Sneeuw": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "",
-        "UDL": "",
-        "Enkele as": "",
-        "Horizontale belasting": "",
-        "Fiets- en voetpaden": "",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "X",
-        "Impact op of onder de brug": "",
-        "Aardbevingsbelasting": "",
-    },
-    "Aanrijding gr1a": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "X",
-        "Aardbevingsbelasting": "",
-    },
-    "Aanrijding gr2": {
-        "Permanente belasting": "x",
-        "Voorspaning": "x",
-        "Zetting": "",
-        "TS": "x",
-        "UDL": "x",
-        "Enkele as": "",
-        "Horizontale belasting": "x",
-        "Fiets- en voetpaden": "x",
-        "Mensenmenigte": "",
-        "Bijzonder voertuigen": "",
-        "Wind Fwk": "",
-        "Wind Fw*": "",
-        "Temperatuur": "",
-        "Sneeuw": "",
-        "Impact op of onder de brug": "X",
-        "Aardbevingsbelasting": "",
-    },
-}
-
 # ===================================================================================================================
 # SCIA zip readme content
 # ===================================================================================================================
 
-SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Files - Bridge Model
+SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Bestanden - Brugmodel
 
-This ZIP contains the generated SCIA model files:
+Deze ZIP bevat de gegenereerde SCIA model bestanden:
 
-1. bridge_model.xml - Main model definition with geometry, materials, and mesh
-2. bridge_model.def - Definition file with additional model parameters
+1. [BrugID].xml - Hoofdmodel definitie met geometrie, materialen en mesh
+2. viktor.xml.def - Definitie bestand met aanvullende model parameters
+3. model.esa - Leeg template bestand met juiste project instellingen
 
-To use these files:
-1. Open SCIA Engineer (version 24.0.3015.64 or compatible)
-2. Create a new project or open existing template
-3. Import the XML files: File > Import > XML files
-4. Review the imported model geometry and settings
-5. Define load cases and run analysis as needed
+BELANGRIJK - Hoe deze bestanden te gebruiken:
 
-Note: This is a simplified rectangular plate model. Future versions will support:
-- Complex bridge geometry matching actual shape
-- Variable thickness per zone
-- Load cases and combinations
-- Advanced material properties
+1. Pak ALLE 3 bestanden uit naar DEZELFDE MAP
+   (Het is cruciaal dat de XML, DEF en ESA bestanden op dezelfde locatie staan)
 
-Generated from VIKTOR Bridge Assessment Tool
+2. Open SCIA Engineer (versie 24.0.3015.64 of compatibel)
+
+3. Open het LEGE model.esa bestand uit de uitgepakte map
+   (Dit dient als template met de juiste instellingen)
+
+4. Klik in SCIA Engineer op "Bijwerken vanuit"
+
+5. Klik op "XML bestand"
+
+6. Selecteer het [BrugID].xml bestand uit dezelfde map
+
+Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebruikt.
+
+
+
 """
 
 # ===================================================================================================================
@@ -440,6 +172,21 @@ Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 - Belastinggevallen en combinaties
 - Geavanceerde materiaal eigenschappen
         """
+
+# ===================================================================================================================
+# Invoer Page dimensions segments explanation
+# ===================================================================================================================
+
+DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) van de brug.
+Elk item in de lijst hieronder representeert een dwarsdoorsnede.
+- Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
+- Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
+- Het veld '**Afstand tot vorige snede**' (`l`) geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
+  Dit veld is niet zichtbaar voor de eerste snede.
+- De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
+  beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
+Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
+Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen."""
 
 # ===================================================================================================================
 # IDEA StatiCa info text
