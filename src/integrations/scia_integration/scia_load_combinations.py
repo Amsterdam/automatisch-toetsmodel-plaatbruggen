@@ -1,5 +1,11 @@
-from src.integrations.scia_utils import create_load_combination_by_type
+"""
+SCIA load combinations utility module.
+
+This module provides utilities for creating and managing load combinations in SCIA Engineer.
+Function create_load_combination_by_type can be used to create load combinations in SCIA
+with specified combination type, name, load cases and optional description.
+"""
 
 
-def create_load_combination_by_type(model, combination_type, combination_name, load_cases, description=""):
-    return create_load_combination_by_type(model, combination_type, combination_name, load_cases, description)
+# Function create_load_combination_by_type can be used to create load combinations in SCIA
+# with specified combination type, name, load cases and optional description

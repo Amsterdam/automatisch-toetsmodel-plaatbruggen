@@ -1,5 +1,10 @@
-from src.integrations.scia_utils import create_load_group_by_type
+"""
+SCIA load group utility module.
 
+This module provides utilities for creating and managing load groups in SCIA Engineer.
+Function create_load_group_by_type can be used to create a load group in SCIA model
+with specified load option, group name and relation type.
+"""
 
-def create_load_group_by_type(model, load_option, group_name, relation="STANDARD"):
-    return create_load_group_by_type(model, load_option, group_name, relation)
+# Function create_load_group_by_type can be used to create a load group in SCIA model
+# with specified load option, group name and relation type
