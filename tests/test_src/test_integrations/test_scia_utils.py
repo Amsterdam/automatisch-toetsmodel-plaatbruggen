@@ -1,375 +1,487 @@
 """
-Tests for SCIA utils load framework.
+Tests for SCIA utilities module.
 
-These tests verify the load framework functions for creating load groups, cases,
-combinations, and surface loads using the SCIA SDK.
+Tests for utility functions that support SCIA integration including load creation,
+XML generation, analysis setup, and workflow orchestration.
 """
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
+from src.integrations.scia_integration.scia_load_cases import (
+    create_load_case_complete,
+)
+from src.integrations.scia_integration.scia_load_combinations import (
+    create_load_combination_by_type,
+)
+from src.integrations.scia_integration.scia_loads import (
+    create_patch_surface_load,
+)
+from src.integrations.scia_integration.scia_utils import (
+    create_load_group_by_type,
+    create_scia_analysis_from_template,
+    generate_bridge_xml_files,
+    generate_xml_from_model,
+    setup_bridge_analysis,
+)
 
-class TestSCIAAvailabilityCheck:
-    """Test SCIA availability checking."""
 
-    @patch("src.integrations.scia_utils.scia", None)
-    def test_check_scia_availability_unavailable(self) -> None:
-        """Test SCIA availability check when SCIA is not available."""
-        from src.integrations.scia_utils import _check_scia_availability
+class TestLoadCaseUtilities:
+    """Test load case creation utilities."""
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_create_load_case_complete_permanent_case(self, mock_scia: Mock) -> None:
+        """Test creating complete permanent load case."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+        mock_load_case = Mock()
+
+        mock_model.create_permanent_load_case.return_value = mock_load_case
+        mock_scia.LoadCase.PermanentLoadType.SELF_WEIGHT = "SELF_WEIGHT_ENUM"
+
+        result = create_load_case_complete(
+            model=mock_model,
+            load_group=mock_load_group,
+            case_name="BG01",
+            description="Test permanent case",
+            case_type="PERMANENT",
+            permanent_type="SELF_WEIGHT",
+        )
+
+        # Verify permanent load case creation
+        mock_model.create_permanent_load_case.assert_called_once_with(
+            "BG01",
+            "Test permanent case",
+            mock_load_group,
+            "SELF_WEIGHT_ENUM",
+        )
+        assert result is mock_load_case
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_create_load_case_complete_variable_case(self, mock_scia: Mock) -> None:
+        """Test creating complete variable load case."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+        mock_load_case = Mock()
+
+        mock_model.create_variable_load_case.return_value = mock_load_case
+        mock_scia.LoadCase.VariableLoadType.STATIC = "STATIC_ENUM"
+        mock_scia.LoadCase.VariableLoadSpecification.STANDARD = "STANDARD_ENUM"
+        mock_scia.LoadCase.VariableLoadDuration.SHORT = "SHORT_ENUM"
+
+        result = create_load_case_complete(
+            model=mock_model,
+            load_group=mock_load_group,
+            case_name="Q1",
+            description="Test variable case",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+
+        # Verify variable load case creation
+        mock_model.create_variable_load_case.assert_called_once_with(
+            "Q1",
+            "Test variable case",
+            mock_load_group,
+            "STATIC_ENUM",
+            "STANDARD_ENUM",
+            "SHORT_ENUM",
+        )
+        assert result is mock_load_case
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_create_load_case_complete_invalid_case_type(self) -> None:
+        """Test error handling for invalid case type."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+
+        with pytest.raises(ValueError, match="Unsupported case_type: INVALID"):
+            create_load_case_complete(
+                model=mock_model,
+                load_group=mock_load_group,
+                case_name="TEST",
+                description="Test case",
+                case_type="INVALID",
+            )
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_create_load_case_complete_missing_permanent_type(self) -> None:
+        """Test error handling for missing permanent type."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+
+        with pytest.raises(ValueError, match="permanent_type is required"):
+            create_load_case_complete(
+                model=mock_model,
+                load_group=mock_load_group,
+                case_name="BG01",
+                description="Test case",
+                case_type="PERMANENT",
+            )
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_create_load_case_complete_missing_variable_params(self) -> None:
+        """Test error handling for missing variable parameters."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+
+        with pytest.raises(ValueError, match="variable_type, specification, and duration are required"):
+            create_load_case_complete(
+                model=mock_model,
+                load_group=mock_load_group,
+                case_name="Q1",
+                description="Test case",
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                # Missing specification and duration
+            )
+
+    def test_create_load_case_complete_no_viktor(self) -> None:
+        """Test load case creation without VIKTOR SDK."""
+        mock_model = Mock()
+        mock_load_group = Mock()
 
         with pytest.raises(ImportError, match="VIKTOR SCIA module not available"):
-            _check_scia_availability()
-
-    @patch("src.integrations.scia_utils.scia")
-    @pytest.mark.usefixtures("_mock_scia")
-    def test_check_scia_availability_available(self) -> None:
-        """Test SCIA availability check when SCIA is available."""
-        from src.integrations.scia_utils import _check_scia_availability
-
-        # Should not raise exception
-        _check_scia_availability()
+            create_load_case_complete(
+                model=mock_model,
+                load_group=mock_load_group,
+                case_name="BG01",
+                description="Test case",
+                case_type="PERMANENT",
+                permanent_type="SELF_WEIGHT",
+            )
 
 
-class TestLoadGroupCreation:
-    """Test load group creation functions."""
+class TestLoadGroupUtilities:
+    """Test load group creation utilities."""
 
-    @patch("src.integrations.scia_utils.scia")
+    @patch("src.integrations.scia_integration.scia_utils.scia")
     def test_create_load_group_by_type_permanent(self, mock_scia: Mock) -> None:
-        """Test creating permanent load group."""
-        from src.integrations.scia_utils import create_load_group_by_type
-
-        # Setup mocks
+        """Test creating permanent load group by type."""
         mock_model = Mock()
         mock_load_group = Mock()
-        mock_model.create_load_group.return_value = mock_load_group
 
-        # Mock SCIA enums
+        mock_model.create_load_group.return_value = mock_load_group
         mock_scia.LoadGroup.LoadOption.PERMANENT = "PERMANENT_ENUM"
         mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
-        mock_scia.LoadGroup.LoadTypeOption.CAT_A = "CAT_A_ENUM"
+        mock_scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS = "CONSTRUCTION_LOADS_ENUM"
 
-        result = create_load_group_by_type(mock_model, "PERMANENT", "LG_Dead")
+        result = create_load_group_by_type(mock_model, "PERMANENT", "LG_Test")
 
-        # Verify calls
-        mock_model.create_load_group.assert_called_once_with("LG_Dead", "PERMANENT_ENUM", "STANDARD_ENUM", "CAT_A_ENUM")
+        # Verify permanent load group creation
+        mock_model.create_load_group.assert_called_once_with(
+            "LG_Test",
+            "PERMANENT_ENUM",
+            "STANDARD_ENUM",
+            "CONSTRUCTION_LOADS_ENUM",
+        )
         assert result is mock_load_group
 
-    @patch("src.integrations.scia_utils.scia")
+    @patch("src.integrations.scia_integration.scia_utils.scia")
     def test_create_load_group_by_type_variable(self, mock_scia: Mock) -> None:
-        """Test creating variable load group."""
-        from src.integrations.scia_utils import create_load_group_by_type
-
-        # Setup mocks
+        """Test creating variable load group by type."""
         mock_model = Mock()
         mock_load_group = Mock()
+
         mock_model.create_load_group.return_value = mock_load_group
-
-        # Mock SCIA enums
         mock_scia.LoadGroup.LoadOption.VARIABLE = "VARIABLE_ENUM"
-        mock_scia.LoadGroup.RelationOption.EXCLUSIVE = "EXCLUSIVE_ENUM"
-        mock_scia.LoadGroup.LoadTypeOption.CAT_A = "CAT_A_ENUM"
+        mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
+        mock_scia.LoadGroup.LoadTypeOption.LIVE_LOADS = "LIVE_LOADS_ENUM"
 
-        result = create_load_group_by_type(mock_model, "VARIABLE", "LG_Traffic", "EXCLUSIVE")
+        result = create_load_group_by_type(mock_model, "VARIABLE", "LG_Test")
 
-        # Verify calls
-        mock_model.create_load_group.assert_called_once_with("LG_Traffic", "VARIABLE_ENUM", "EXCLUSIVE_ENUM", "CAT_A_ENUM")
+        # Verify variable load group creation
+        mock_model.create_load_group.assert_called_once_with(
+            "LG_Test",
+            "VARIABLE_ENUM",
+            "STANDARD_ENUM",
+            "LIVE_LOADS_ENUM",
+        )
         assert result is mock_load_group
 
-    @patch("src.integrations.scia_utils.scia")
-    @pytest.mark.usefixtures("_mock_scia")
-    def test_create_load_group_by_type_invalid_option(self) -> None:
-        """Test error handling for invalid load option."""
-        from src.integrations.scia_utils import create_load_group_by_type
-
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_create_load_group_by_type_invalid_type(self) -> None:
+        """Test error handling for invalid load group type."""
         mock_model = Mock()
 
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError, match="Unsupported load_type: INVALID"):
             create_load_group_by_type(mock_model, "INVALID", "LG_Test")
 
-    @patch("src.integrations.scia_utils.scia", None)
-    def test_create_load_group_by_type_no_scia(self) -> None:
-        """Test load group creation without SCIA SDK."""
-        from src.integrations.scia_utils import create_load_group_by_type
-
+    def test_create_load_group_by_type_no_viktor(self) -> None:
+        """Test load group creation without VIKTOR SDK."""
         mock_model = Mock()
 
         with pytest.raises(ImportError, match="VIKTOR SCIA module not available"):
             create_load_group_by_type(mock_model, "PERMANENT", "LG_Test")
 
 
-class TestLoadCaseCreation:
-    """Test load case creation functions."""
-
-    @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_permanent(self, mock_scia: Mock) -> None:
-        """Test creating permanent load case."""
-        from src.integrations.scia_utils import create_load_case_complete
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case = Mock()
-        mock_model.create_permanent_load_case.return_value = mock_load_case
-
-        # Mock SCIA enums
-        mock_scia.LoadCase.PermanentLoadType.STANDARD = "STANDARD_ENUM"
-
-        result = create_load_case_complete(mock_model, mock_load_group, "G1", "Dead load", "PERMANENT")
-
-        # Verify calls
-        mock_model.create_permanent_load_case.assert_called_once_with("G1", "Dead load", mock_load_group, "STANDARD_ENUM")
-        assert result is mock_load_case
-
-    @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_variable(self, mock_scia: Mock) -> None:
-        """Test creating variable load case."""
-        from src.integrations.scia_utils import create_load_case_complete
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case = Mock()
-        mock_model.create_variable_load_case.return_value = mock_load_case
-
-        # Mock SCIA enums
-        mock_scia.LoadCase.VariableLoadType.STATIC = "STATIC_ENUM"
-        mock_scia.LoadCase.Specification.STATIC_WIND = "WIND_ENUM"
-        mock_scia.LoadCase.Duration.MEDIUM = "MEDIUM_ENUM"
-
-        result = create_load_case_complete(
-            mock_model, mock_load_group, "Q1", "Wind load", "VARIABLE", variable_type="STATIC", specification="STATIC_WIND", duration="MEDIUM"
-        )
-
-        # Verify calls
-        mock_model.create_variable_load_case.assert_called_once_with("Q1", "Wind load", mock_load_group, "STATIC_ENUM", "WIND_ENUM", "MEDIUM_ENUM")
-        assert result is mock_load_case
-
-    @patch("src.integrations.scia_utils.scia")
-    @pytest.mark.usefixtures("_mock_scia")
-    def test_create_load_case_complete_invalid_type(self) -> None:
-        """Test error handling for invalid case type."""
-        from src.integrations.scia_utils import create_load_case_complete
-
-        mock_model = Mock()
-        mock_load_group = Mock()
-
-        with pytest.raises(ValueError, match="Invalid case_type 'INVALID'"):
-            create_load_case_complete(mock_model, mock_load_group, "X1", "Invalid", "INVALID")
-
-    @patch("src.integrations.scia_utils.scia")
-    def test_create_load_case_complete_default_parameters(self, mock_scia: Mock) -> None:
-        """Test load case creation with default parameters."""
-        from src.integrations.scia_utils import create_load_case_complete
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case = Mock()
-        mock_model.create_variable_load_case.return_value = mock_load_case
-
-        # Mock SCIA enums with defaults
-        mock_scia.LoadCase.VariableLoadType.STATIC = "STATIC_ENUM"
-        mock_scia.LoadCase.Specification.STANDARD = "STANDARD_ENUM"
-        mock_scia.LoadCase.Duration.SHORT = "SHORT_ENUM"
-
-        result = create_load_case_complete(mock_model, mock_load_group, "Q1", "Variable load", "VARIABLE")
-
-        # Verify defaults are used
-        mock_model.create_variable_load_case.assert_called_once_with(
-            "Q1", "Variable load", mock_load_group, "STATIC_ENUM", "STANDARD_ENUM", "SHORT_ENUM"
-        )
-        assert result is mock_load_case
-
-
-class TestLoadCombinationCreation:
+class TestLoadCombinationUtilities:
     """Test load combination creation functions."""
 
-    @patch("src.integrations.scia_utils.scia")
+    @patch("src.integrations.scia_integration.scia_load_combinations.scia")
     def test_create_load_combination_by_type_uls(self, mock_scia: Mock) -> None:
-        """Test creating ULS load combination."""
-        from src.integrations.scia_utils import create_load_combination_by_type
-
-        # Setup mocks
+        """Test successful load combination creation."""
         mock_model = Mock()
-        mock_load_case_1 = Mock()
-        mock_load_case_2 = Mock()
         mock_combination = Mock()
-        mock_model.create_load_combination.return_value = mock_combination
+        mock_load_case = Mock()
 
-        # Mock SCIA enums
+        mock_model.create_load_combination.return_value = mock_combination
         mock_scia.LoadCombination.Type.EN_ULS_SET_B = "ULS_ENUM"
 
-        load_cases = {mock_load_case_1: 1.35, mock_load_case_2: 1.5}
-        result = create_load_combination_by_type(mock_model, "ULS", "ULS_Combo", load_cases, "Test combination")
+        # Test with load case dictionary
+        load_cases = {mock_load_case: 1.35}
 
-        # Verify calls
-        mock_model.create_load_combination.assert_called_once_with("ULS_Combo", "ULS_ENUM", load_cases, description="Test combination")
+        result = create_load_combination_by_type(
+            model=mock_model,
+            combination_type="ULS",
+            combination_name="ULS01",
+            load_cases=load_cases,
+            description="Test combination",
+        )
+
+        # Verify combination creation
+        mock_model.create_load_combination.assert_called_once_with(
+            "ULS01",
+            "ULS_ENUM",
+            load_cases,
+            description="Test combination",
+        )
         assert result is mock_combination
 
-    @patch("src.integrations.scia_utils.scia")
-    def test_create_load_combination_by_type_sls(self, mock_scia: Mock) -> None:
-        """Test creating SLS load combination."""
-        from src.integrations.scia_utils import create_load_combination_by_type
-
-        # Setup mocks
+    @patch("src.integrations.scia_integration.scia_load_combinations.scia")
+    def test_create_load_combination_with_cases_multiple_cases(self, mock_scia: Mock) -> None:
+        """Test load combination creation with multiple cases."""
         mock_model = Mock()
-        mock_load_case = Mock()
         mock_combination = Mock()
+        mock_load_case_1 = Mock()
+        mock_load_case_2 = Mock()
+
         mock_model.create_load_combination.return_value = mock_combination
+        mock_model.load_cases = {"BG01": mock_load_case_1, "Q1": mock_load_case_2}
+        mock_scia.LoadCombination.CombiType.ULS_PERMANENT_VARIABLE = "ULS_PERMANENT_VARIABLE_ENUM"
 
-        # Mock SCIA enums
-        mock_scia.LoadCombination.Type.EN_SLS_CHAR = "SLS_ENUM"
+        create_load_combination_by_type(
+            model=mock_model,
+            combination_name="ULS02",
+            description="Test combination",
+            combination_type="ULS_PERMANENT_VARIABLE",
+            load_cases={"BG01": 1.35, "Q1": 1.5},
+        )
 
-        load_cases = {mock_load_case: 1.0}
-        result = create_load_combination_by_type(mock_model, "SLS_CHAR", "SLS_Combo", load_cases)
+        # Verify combination creation
+        mock_model.create_load_combination.assert_called_once_with(
+            "ULS02",
+            "Test combination",
+            "ULS_PERMANENT_VARIABLE_ENUM",
+        )
 
-        # Verify default description is generated
-        mock_model.create_load_combination.assert_called_once_with("SLS_Combo", "SLS_ENUM", load_cases, description="Load combination: SLS_Combo")
-        assert result is mock_combination
-
-    @patch("src.integrations.scia_utils.scia")
-    @pytest.mark.usefixtures("_mock_scia")
-    def test_create_load_combination_by_type_invalid(self) -> None:
-        """Test error handling for invalid combination type."""
-        from src.integrations.scia_utils import create_load_combination_by_type
-
-        mock_model = Mock()
-        mock_load_case = Mock()
-
-        with pytest.raises(ValueError, match="Invalid combination_type 'INVALID'"):
-            create_load_combination_by_type(mock_model, "INVALID", "Test", {mock_load_case: 1.0})
-
-    @patch("src.integrations.scia_utils.scia")
-    def test_create_load_combination_by_type_all_types(self, mock_scia: Mock) -> None:
-        """Test that all combination types are supported."""
-        from src.integrations.scia_utils import create_load_combination_by_type
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_load_case = Mock()
-        mock_combination = Mock()
-        mock_model.create_load_combination.return_value = mock_combination
-
-        # Mock all SCIA enums
-        combination_types = [
-            "ULS",
-            "ULS_SET_B",
-            "ULS_SET_C",
-            "ENVELOPE_ULS",
-            "LINEAR_ULS",
-            "SLS",
-            "SLS_CHAR",
-            "SLS_FREQ",
-            "SLS_QUASI",
-            "ENVELOPE_SLS",
-            "LINEAR_SLS",
-            "ACCIDENTAL",
-            "ACCIDENTAL_1",
-            "ACCIDENTAL_2",
-            "SEISMIC",
+        # Verify load case additions
+        expected_calls = [
+            ((mock_load_case_1, 1.35),),
+            ((mock_load_case_2, 1.5),),
         ]
+        actual_calls = mock_combination.add_load_case.call_args_list
+        assert len(actual_calls) == 2
+        for expected, actual in zip(expected_calls, actual_calls):
+            assert actual[0] == expected
 
-        for combo_type in combination_types:
-            mock_scia.LoadCombination.Type.__dict__[combo_type.replace("_", "_")] = f"{combo_type}_ENUM"
+    @patch("src.integrations.scia_integration.scia_load_combinations.scia")
+    def test_create_load_combination_with_cases_mismatched_lengths(self) -> None:
+        """Test error handling for mismatched case names and factors."""
+        mock_model = Mock()
 
-        # Test each combination type
-        for combo_type in combination_types:
-            result = create_load_combination_by_type(mock_model, combo_type, f"Combo_{combo_type}", {mock_load_case: 1.0})
-            assert result is mock_combination
+        with pytest.raises(ValueError, match="load_case_names and load_case_factors must have the same length"):
+            create_load_combination_by_type(
+                model=mock_model,
+                combination_name="ULS01",
+                description="Test combination",
+                combination_type="ULS_PERMANENT",
+                load_cases={"BG01": 1.35},  # Missing Q1 case
+            )
+
+    @patch("src.integrations.scia_integration.scia_load_combinations.scia")
+    def test_create_load_combination_with_cases_missing_case(self, mock_scia: Mock) -> None:
+        """Test error handling for missing load case."""
+        mock_model = Mock()
+        mock_combination = Mock()
+
+        mock_model.create_load_combination.return_value = mock_combination
+        mock_model.load_cases = {"BG01": Mock()}  # Missing Q1
+        mock_scia.LoadCombination.CombiType.ULS_PERMANENT = "ULS_PERMANENT_ENUM"
+
+        with pytest.raises(ValueError, match="Load case 'Q1' not found in model"):
+            create_load_combination_by_type(
+                model=mock_model,
+                combination_name="ULS01",
+                description="Test combination",
+                combination_type="ULS_PERMANENT",
+                load_cases={"BG01": 1.35, "Q1": 1.5},
+            )
+
+    @patch("src.integrations.scia_integration.scia_load_combinations.scia")
+    def test_create_load_combination_with_cases_empty_cases(self, mock_scia: Mock) -> None:
+        """Test load combination creation with empty case list."""
+        mock_model = Mock()
+        mock_combination = Mock()
+
+        mock_model.create_load_combination.return_value = mock_combination
+        mock_model.load_cases = {}
+        mock_scia.LoadCombination.CombiType.ULS_PERMANENT = "ULS_PERMANENT_ENUM"
+
+        result = create_load_combination_by_type(
+            model=mock_model,
+            combination_name="ULS01",
+            description="Test combination",
+            combination_type="ULS_PERMANENT",
+            load_cases={},
+        )
+
+        # Should create combination but not add any cases
+        mock_model.create_load_combination.assert_called_once()
+        mock_combination.add_load_case.assert_not_called()
+        assert result is mock_combination
+
+    def test_create_load_combination_with_cases_no_viktor(self) -> None:
+        """Test load combination creation without VIKTOR SDK."""
+        mock_model = Mock()
+
+        with pytest.raises(ImportError, match="VIKTOR SCIA module not available"):
+            create_load_combination_by_type(
+                model=mock_model,
+                combination_name="ULS01",
+                description="Test combination",
+                combination_type="ULS_PERMANENT",
+                load_cases={"BG01": 1.35},
+            )
 
 
-class TestPatchSurfaceLoadCreation:
-    """Test patch surface load creation functions."""
+class TestUtilityErrorHandling:
+    """Test error handling across utility functions."""
 
-    @patch("src.integrations.scia_utils.scia")
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_scia_api_error_propagation(self, mock_scia: Mock) -> None:
+        """Test that SCIA API errors are properly propagated."""
+        mock_model = Mock()
+        mock_model.create_load_group.side_effect = Exception("SCIA API error")
+
+        mock_scia.LoadGroup.LoadOption.PERMANENT = "PERMANENT_ENUM"
+        mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
+        mock_scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS = "CONSTRUCTION_LOADS_ENUM"
+
+        with pytest.raises(Exception, match="SCIA API error"):
+            create_load_group_by_type(mock_model, "PERMANENT", "LG_Test")
+
+    def test_none_model_handling(self) -> None:
+        """Test error handling when model is None."""
+        with pytest.raises(AttributeError):
+            create_load_group_by_type(None, "PERMANENT", "LG_Test")  # type: ignore[arg-type]
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_empty_string_parameters(self, mock_scia: Mock) -> None:
+        """Test handling of empty string parameters."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+        mock_model.create_load_group.return_value = mock_load_group
+
+        mock_scia.LoadGroup.LoadOption.PERMANENT = "PERMANENT_ENUM"
+        mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
+        mock_scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS = "CONSTRUCTION_LOADS_ENUM"
+
+        # Should still work with empty string (SCIA API will handle validation)
+        result = create_load_group_by_type(mock_model, "PERMANENT", "")
+        assert result is mock_load_group
+
+
+class TestUtilityIntegration:
+    """Test integration between utility functions."""
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_load_group_to_load_case_workflow(self, mock_scia: Mock) -> None:
+        """Test typical workflow from load group to load case creation."""
+        mock_model = Mock()
+        mock_load_group = Mock()
+        mock_load_case = Mock()
+
+        # Setup mocks
+        mock_model.create_load_group.return_value = mock_load_group
+        mock_model.create_permanent_load_case.return_value = mock_load_case
+
+        mock_scia.LoadGroup.LoadOption.PERMANENT = "PERMANENT_ENUM"
+        mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
+        mock_scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS = "CONSTRUCTION_LOADS_ENUM"
+        mock_scia.LoadCase.PermanentLoadType.SELF_WEIGHT = "SELF_WEIGHT_ENUM"
+
+        # Create load group
+        load_group = create_load_group_by_type(mock_model, "PERMANENT", "LG1")
+
+        # Create load case using the group
+        load_case = create_load_case_complete(
+            model=mock_model,
+            load_group=load_group,
+            case_name="BG01",
+            description="Self weight",
+            case_type="PERMANENT",
+            permanent_type="SELF_WEIGHT",
+        )
+
+        # Verify workflow
+        assert load_group is mock_load_group
+        assert load_case is mock_load_case
+        mock_model.create_permanent_load_case.assert_called_once_with(
+            "BG01",
+            "Self weight",
+            mock_load_group,
+            "SELF_WEIGHT_ENUM",
+        )
+
+
+class TestPatchSurfaceLoad:
+    """Test patch surface load creation."""
+
+    @patch("src.integrations.scia_integration.scia_loads.scia")
     def test_create_patch_surface_load_success(self, mock_scia: Mock) -> None:
         """Test successful patch surface load creation."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
-        # Setup mocks
         mock_model = Mock()
         mock_load_case = Mock()
         mock_surface_load = Mock()
+
         mock_model.create_free_surface_load.return_value = mock_surface_load
+        mock_scia.FreeSurfaceLoad.Direction.Z = "Z_DIRECTION"
+        mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_DIST"
 
-        # Mock SCIA enums
-        mock_scia.FreeSurfaceLoad.Direction.Z = "Z_ENUM"
-        mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_ENUM"
-
-        # Test data: 2x2 meter square
-        corner_points = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 2.0, 0.0), (0.0, 2.0, 0.0)]
-        load_value = 1000.0  # N/m²
+        corner_points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0)]
+        load_value = 1000.0
 
         result = create_patch_surface_load(mock_model, mock_load_case, corner_points, load_value, "TestLoad")
 
-        # Verify calls
-        expected_xy_points = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)]
-        expected_total_load = 1000.0 * 4.0  # 4 m² * 1000 N/m² = 4000 N
-
+        # Verify surface load creation
         mock_model.create_free_surface_load.assert_called_once_with(
             name="TestLoad",
             load_case=mock_load_case,
-            direction="Z_ENUM",
-            q1=expected_total_load,
-            points=expected_xy_points,
-            distribution="UNIFORM_ENUM",
+            direction="Z_DIRECTION",
+            q1=1000.0,  # Total load = load_value * area (1.0 for 1x1 square)
+            points=[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            distribution="UNIFORM_DIST",
         )
         assert result is mock_surface_load
 
-    @patch("src.integrations.scia_utils.scia")
-    @pytest.mark.usefixtures("_mock_scia")
-    def test_create_patch_surface_load_invalid_points(self) -> None:
-        """Test error handling for invalid number of points."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
+    def test_create_patch_surface_load_invalid_corners(self) -> None:
+        """Test error handling for invalid corner count."""
         mock_model = Mock()
         mock_load_case = Mock()
 
-        # Test with 3 points (should be 4)
+        # Only 3 corners instead of 4
         corner_points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0)]
 
-        with pytest.raises(ValueError, match="Exactly 4 corner points required, got 3"):
+        with pytest.raises(ValueError, match="Exactly 4 corner points required"):
             create_patch_surface_load(mock_model, mock_load_case, corner_points, 1000.0)
 
-    @patch("src.integrations.scia_utils.scia")
-    def test_create_patch_surface_load_area_calculation(self, mock_scia: Mock) -> None:
-        """Test area calculation for different polygon shapes."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_load_case = Mock()
-        mock_surface_load = Mock()
-        mock_model.create_free_surface_load.return_value = mock_surface_load
-
-        # Mock SCIA enums
-        mock_scia.FreeSurfaceLoad.Direction.Z = "Z_ENUM"
-        mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_ENUM"
-
-        # Test with triangle-like shape (but still 4 points)
-        # Points forming a trapezoid: base 4m, top 2m, height 3m
-        corner_points = [(0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (3.0, 3.0, 0.0), (1.0, 3.0, 0.0)]
-        load_value = 500.0  # N/m²
-
-        create_patch_surface_load(mock_model, mock_load_case, corner_points, load_value)
-
-        # Calculate expected area using shoelace formula
-        # Area = 0.5 * |sum of (x_i * y_i+1 - x_i+1 * y_i)|
-        # For trapezoid: (0,0), (4,0), (3,3), (1,3)
-        # Area = 0.5 * |0*0 - 4*0 + 4*3 - 3*0 + 3*3 - 1*3 + 1*0 - 0*3|
-        # Area = 0.5 * |0 + 12 + 9 - 3 + 0| = 0.5 * 18 = 9 m²
-        expected_total_load = 500.0 * 9.0  # 9 m² * 500 N/m² = 4500 N
-
-        # Verify the total load calculation
-        call_args = mock_model.create_free_surface_load.call_args
-        assert call_args[1]["q1"] == expected_total_load
-
-    @patch("src.integrations.scia_utils.scia", None)
-    def test_create_patch_surface_load_no_scia(self) -> None:
-        """Test patch surface load creation without SCIA SDK."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
+    def test_create_patch_surface_load_no_viktor(self) -> None:
+        """Test patch surface load creation without VIKTOR SDK."""
         mock_model = Mock()
         mock_load_case = Mock()
         corner_points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0)]
@@ -378,230 +490,211 @@ class TestPatchSurfaceLoadCreation:
             create_patch_surface_load(mock_model, mock_load_case, corner_points, 1000.0)
 
 
-class TestLegacyFunction:
-    """Test legacy function for backwards compatibility."""
+# =============================================================================
+# XML GENERATION AND ANALYSIS SETUP TESTS
+# =============================================================================
 
-    @patch("src.integrations.scia_utils.create_load_group_by_type")
-    @patch("src.integrations.scia_utils.create_load_case_complete")
-    def test_create_load_case_with_name_default(self, mock_create_case: Mock, mock_create_group: Mock) -> None:
-        """Test legacy function with default parameters."""
-        from src.integrations.scia_utils import create_load_case_with_name
 
-        # Setup mocks
+class TestXMLGeneration:
+    """Test XML and definition file generation."""
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    def test_generate_xml_from_model_success(self) -> None:
+        """Test successful XML generation from SCIA model."""
+        # Setup mock model
         mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case = Mock()
-        mock_create_group.return_value = mock_load_group
-        mock_create_case.return_value = mock_load_case
+        mock_xml = Mock()
+        mock_def = Mock()
+        mock_model.generate_xml_input.return_value = (mock_xml, mock_def)
 
-        result = create_load_case_with_name(mock_model, "TestCase")
+        result = generate_xml_from_model(mock_model)
 
         # Verify calls
-        mock_create_group.assert_called_once_with(mock_model, "VARIABLE", "LG_TestCase")
-        mock_create_case.assert_called_once_with(mock_model, mock_load_group, "TestCase", "VARIABLE load case: TestCase", "VARIABLE")
-        assert result is mock_load_case
+        mock_model.generate_xml_input.assert_called_once()
+        assert result == (mock_xml, mock_def)
 
-    @patch("src.integrations.scia_utils.create_load_group_by_type")
-    @patch("src.integrations.scia_utils.create_load_case_complete")
-    def test_create_load_case_with_name_permanent(self, mock_create_case: Mock, mock_create_group: Mock) -> None:
-        """Test legacy function with permanent load type."""
-        from src.integrations.scia_utils import create_load_case_with_name
+    def test_generate_xml_from_model_no_viktor(self) -> None:
+        """Test XML generation without VIKTOR SDK."""
+        mock_model = Mock()
 
+        with pytest.raises(ImportError, match="VIKTOR SCIA module not available"):
+            generate_xml_from_model(mock_model)
+
+
+class TestTemplateHandling:
+    """Test SCIA template handling."""
+
+    def test_create_scia_analysis_missing_template(self) -> None:
+        """Test that FileNotFoundError is raised for missing template."""
+        mock_xml_file = Mock()
+        mock_def_file = Mock()
+        missing_template_path = Path("/nonexistent/template.esa")
+
+        with pytest.raises(FileNotFoundError, match="SCIA template file not found"):
+            create_scia_analysis_from_template(mock_xml_file, mock_def_file, missing_template_path)
+
+    def test_create_scia_analysis_no_viktor(self) -> None:
+        """Test SCIA analysis creation without VIKTOR SDK."""
+        mock_xml_file = Mock()
+        mock_def_file = Mock()
+        template_path = Path("dummy.esa")
+
+        with pytest.raises(ImportError, match="VIKTOR SCIA module not available"):
+            create_scia_analysis_from_template(mock_xml_file, mock_def_file, template_path)
+
+    @patch("src.integrations.scia_integration.scia_utils.scia")
+    @patch("src.integrations.scia_integration.scia_utils.File")
+    def test_create_scia_analysis_success(self, mock_file_class: Mock, mock_scia: Mock) -> None:
+        """Test successful SCIA analysis creation."""
+        mock_xml_file = Mock()
+        mock_def_file = Mock()
+        mock_template_file = Mock()
+        mock_analysis = Mock()
+
+        mock_file_class.from_path.return_value = mock_template_file
+        mock_scia.SciaAnalysis.return_value = mock_analysis
+
+        # Create existing template path
+        template_path = Path(__file__).parent / "test_template.esa"
+        template_path.touch()  # Create empty file
+
+        try:
+            result = create_scia_analysis_from_template(mock_xml_file, mock_def_file, template_path)
+
+            # Verify calls
+            mock_file_class.from_path.assert_called_once_with(template_path)
+            mock_scia.SciaAnalysis.assert_called_once_with(mock_xml_file, mock_def_file, mock_template_file)
+            assert result is mock_analysis
+
+        finally:
+            # Cleanup
+            if template_path.exists():
+                template_path.unlink()
+
+
+class TestBridgeXMLWorkflow:
+    """Test bridge XML generation workflow functions."""
+
+    @patch("src.integrations.scia_integration.scia_utils.create_complete_bridge_model")
+    @patch("src.integrations.scia_integration.scia_utils.generate_xml_from_model")
+    def test_generate_bridge_xml_files_success(self, mock_generate_xml: Mock, mock_create_model: Mock) -> None:
+        """Test successful bridge XML file generation."""
         # Setup mocks
         mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case = Mock()
-        mock_create_group.return_value = mock_load_group
-        mock_create_case.return_value = mock_load_case
+        mock_xml = Mock()
+        mock_def = Mock()
+        mock_params = Mock()
 
-        result = create_load_case_with_name(mock_model, "DeadLoad", "PERMANENT")
+        mock_create_model.return_value = mock_model
+        mock_generate_xml.return_value = (mock_xml, mock_def)
 
-        # Verify calls
-        mock_create_group.assert_called_once_with(mock_model, "PERMANENT", "LG_DeadLoad")
-        mock_create_case.assert_called_once_with(mock_model, mock_load_group, "DeadLoad", "PERMANENT load case: DeadLoad", "PERMANENT")
-        assert result is mock_load_case
+        result = generate_bridge_xml_files(mock_params)
 
+        # Verify workflow
+        mock_create_model.assert_called_once_with(mock_params)
+        mock_generate_xml.assert_called_once_with(mock_model)
 
-class TestPolygonAreaCalculation:
-    """Test polygon area calculation using shoelace formula."""
+        assert result == (mock_xml, mock_def)
 
-    def test_polygon_area_rectangle(self) -> None:
-        """Test area calculation for rectangle."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
-        # Extract the polygon_area function from the module
-        # We'll test it indirectly through the patch surface load function
-        # by checking the total load calculation
-
-        # Mock everything except the area calculation
-        with patch("src.integrations.scia_utils.scia") as mock_scia:
-            mock_model = Mock()
-            mock_load_case = Mock()
-            mock_surface_load = Mock()
-            mock_model.create_free_surface_load.return_value = mock_surface_load
-
-            # Mock SCIA enums
-            mock_scia.FreeSurfaceLoad.Direction.Z = "Z_ENUM"
-            mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_ENUM"
-
-            # 3x4 rectangle
-            corner_points = [(0.0, 0.0, 0.0), (3.0, 0.0, 0.0), (3.0, 4.0, 0.0), (0.0, 4.0, 0.0)]
-            load_value = 100.0  # N/m²
-
-            create_patch_surface_load(mock_model, mock_load_case, corner_points, load_value)
-
-            # Expected area = 3 * 4 = 12 m²
-            # Expected total load = 100 * 12 = 1200 N
-            call_args = mock_model.create_free_surface_load.call_args
-            assert call_args[1]["q1"] == 1200.0
-
-    def test_polygon_area_triangle_approximation(self) -> None:
-        """Test area calculation for triangle-like shape."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
-        with patch("src.integrations.scia_utils.scia") as mock_scia:
-            mock_model = Mock()
-            mock_load_case = Mock()
-            mock_surface_load = Mock()
-            mock_model.create_free_surface_load.return_value = mock_surface_load
-
-            # Mock SCIA enums
-            mock_scia.FreeSurfaceLoad.Direction.Z = "Z_ENUM"
-            mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_ENUM"
-
-            # Triangle with one very small side (approximating triangle)
-            corner_points = [(0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (2.0, 3.0, 0.0), (2.0, 3.0, 0.0)]
-            load_value = 200.0  # N/m²
-
-            create_patch_surface_load(mock_model, mock_load_case, corner_points, load_value)
-
-            # This is a degenerate quadrilateral (triangle with doubled point)
-            # Area calculation should still work
-            call_args = mock_model.create_free_surface_load.call_args
-            total_load = call_args[1]["q1"]
-            assert total_load > 0  # Should have positive area
-
-    def test_polygon_area_zero_area(self) -> None:
-        """Test area calculation for degenerate polygon."""
-        from src.integrations.scia_utils import create_patch_surface_load
-
-        with patch("src.integrations.scia_utils.scia") as mock_scia:
-            mock_model = Mock()
-            mock_load_case = Mock()
-            mock_surface_load = Mock()
-            mock_model.create_free_surface_load.return_value = mock_surface_load
-
-            # Mock SCIA enums
-            mock_scia.FreeSurfaceLoad.Direction.Z = "Z_ENUM"
-            mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_ENUM"
-
-            # All points on same line (zero area)
-            corner_points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0), (3.0, 0.0, 0.0)]
-            load_value = 1000.0  # N/m²
-
-            create_patch_surface_load(mock_model, mock_load_case, corner_points, load_value)
-
-            # Expected area = 0, so total load = 0
-            call_args = mock_model.create_free_surface_load.call_args
-            assert call_args[1]["q1"] == 0.0
-
-
-class TestIntegrationScenarios:
-    """Test integration scenarios combining multiple functions."""
-
-    @patch("src.integrations.scia_utils.scia")
-    def test_complete_load_workflow(self, mock_scia: Mock) -> None:
-        """Test complete workflow: group -> case -> combination -> load."""
-        from src.integrations.scia_utils import (
-            create_load_case_complete,
-            create_load_combination_by_type,
-            create_load_group_by_type,
-            create_patch_surface_load,
-        )
-
+    @patch("src.integrations.scia_integration.scia_utils.generate_bridge_xml_files")
+    @patch("src.integrations.scia_integration.scia_utils.create_scia_analysis_from_template")
+    def test_setup_bridge_analysis_success(self, mock_create_analysis: Mock, mock_generate_xml: Mock) -> None:
+        """Test complete bridge analysis setup."""
         # Setup mocks
+        mock_params = Mock()
+        mock_template_path = Path("template.esa")
+        mock_xml = Mock()
+        mock_def = Mock()
+        mock_analysis = Mock()
+
+        mock_generate_xml.return_value = (mock_xml, mock_def)
+        mock_create_analysis.return_value = mock_analysis
+
+        result = setup_bridge_analysis(mock_params, mock_template_path)
+
+        # Verify workflow
+        mock_generate_xml.assert_called_once_with(mock_params)
+        mock_create_analysis.assert_called_once_with(mock_xml, mock_def, mock_template_path)
+
+        xml_file, def_file, scia_analysis = result
+        assert xml_file is mock_xml
+        assert def_file is mock_def
+        assert scia_analysis is mock_analysis
+
+
+class TestBackwardsCompatibility:
+    """Test backwards compatibility aliases."""
+
+    @patch("src.integrations.scia_integration.scia_utils.setup_bridge_analysis")
+    def test_create_bridge_scia_analysis_alias(self, mock_setup: Mock) -> None:
+        """Test that create_bridge_scia_analysis is an alias for setup_bridge_analysis."""
+        from src.integrations.scia_integration.scia_utils import create_bridge_scia_analysis
+
+        mock_params = Mock()
+        mock_template = Path("test.esa")
+        mock_result = Mock()
+        mock_setup.return_value = mock_result
+
+        result = create_bridge_scia_analysis(mock_params, mock_template)
+
+        mock_setup.assert_called_once_with(mock_params, mock_template)
+        assert result is mock_result
+
+    @patch("src.integrations.scia_integration.scia_utils.generate_bridge_xml_files")
+    def test_create_simple_bridge_analysis_alias(self, mock_generate: Mock) -> None:
+        """Test that create_simple_bridge_analysis is an alias for generate_bridge_xml_files."""
+        from src.integrations.scia_integration.scia_utils import create_simple_bridge_analysis
+
+        mock_params = Mock()
+        mock_result = Mock()
+        mock_generate.return_value = mock_result
+
+        result = create_simple_bridge_analysis(mock_params)
+
+        mock_generate.assert_called_once_with(mock_params)
+        assert result is mock_result
+
+
+class TestAnalysisWorkflowIntegration:
+    """Test complete analysis workflow integration."""
+
+    @patch("src.integrations.scia_integration.scia_utils.create_complete_bridge_model")
+    @patch("src.integrations.scia_integration.scia_utils.generate_xml_from_model")
+    @patch("src.integrations.scia_integration.scia_utils.create_scia_analysis_from_template")
+    def test_complete_workflow_integration(self, mock_create_analysis: Mock, mock_generate_xml: Mock, mock_create_model: Mock) -> None:
+        """Test complete workflow from parameters to analysis object."""
+        # Setup mocks
+        mock_params = Mock()
+        mock_template_path = Path("template.esa")
         mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case = Mock()
-        mock_combination = Mock()
-        mock_surface_load = Mock()
+        mock_xml = Mock()
+        mock_def = Mock()
+        mock_analysis = Mock()
 
-        mock_model.create_load_group.return_value = mock_load_group
-        mock_model.create_permanent_load_case.return_value = mock_load_case
-        mock_model.create_load_combination.return_value = mock_combination
-        mock_model.create_free_surface_load.return_value = mock_surface_load
-
-        # Mock all required SCIA enums
-        mock_scia.LoadGroup.LoadOption.PERMANENT = "PERMANENT_ENUM"
-        mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
-        mock_scia.LoadGroup.LoadTypeOption.CAT_A = "CAT_A_ENUM"
-        mock_scia.LoadCase.PermanentLoadType.STANDARD = "STANDARD_ENUM"
-        mock_scia.LoadCombination.Type.EN_ULS_SET_B = "ULS_ENUM"
-        mock_scia.FreeSurfaceLoad.Direction.Z = "Z_ENUM"
-        mock_scia.FreeSurfaceLoad.Distribution.UNIFORM = "UNIFORM_ENUM"
+        mock_create_model.return_value = mock_model
+        mock_generate_xml.return_value = (mock_xml, mock_def)
+        mock_create_analysis.return_value = mock_analysis
 
         # Execute complete workflow
-        # Step 1: Create load group
-        load_group = create_load_group_by_type(mock_model, "PERMANENT", "LG_Dead")
-        assert load_group is mock_load_group
+        xml_file, def_file, scia_analysis = setup_bridge_analysis(mock_params, mock_template_path)
 
-        # Step 2: Create load case
-        load_case = create_load_case_complete(mock_model, load_group, "G1", "Dead load", "PERMANENT")
-        assert load_case is mock_load_case
+        # Verify complete workflow chain
+        mock_create_model.assert_called_once_with(mock_params)
+        mock_generate_xml.assert_called_once_with(mock_model)
+        mock_create_analysis.assert_called_once_with(mock_xml, mock_def, mock_template_path)
 
-        # Step 3: Create load combination
-        combination = create_load_combination_by_type(mock_model, "ULS", "ULS_Dead", {load_case: 1.35})
-        assert combination is mock_combination
+        assert xml_file is mock_xml
+        assert def_file is mock_def
+        assert scia_analysis is mock_analysis
 
-        # Step 4: Apply load
-        corner_points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0)]
-        surface_load = create_patch_surface_load(mock_model, load_case, corner_points, 5000.0, "DeadLoad")
-        assert surface_load is mock_surface_load
+    @patch("src.integrations.scia_integration.scia_utils.create_complete_bridge_model")
+    def test_workflow_error_propagation(self, mock_create_model: Mock) -> None:
+        """Test that errors in workflow are properly propagated."""
+        mock_params = Mock()
+        mock_create_model.side_effect = Exception("Model creation failed")
 
-        # Verify all functions were called
-        mock_model.create_load_group.assert_called_once()
-        mock_model.create_permanent_load_case.assert_called_once()
-        mock_model.create_load_combination.assert_called_once()
-        mock_model.create_free_surface_load.assert_called_once()
-
-    @patch("src.integrations.scia_utils.scia")
-    def test_multiple_load_cases_same_group(self, mock_scia: Mock) -> None:
-        """Test creating multiple load cases in same group."""
-        from src.integrations.scia_utils import create_load_case_complete, create_load_group_by_type
-
-        # Setup mocks
-        mock_model = Mock()
-        mock_load_group = Mock()
-        mock_load_case_1 = Mock()
-        mock_load_case_2 = Mock()
-
-        mock_model.create_load_group.return_value = mock_load_group
-        mock_model.create_variable_load_case.side_effect = [mock_load_case_1, mock_load_case_2]
-
-        # Mock required SCIA enums
-        mock_scia.LoadGroup.LoadOption.VARIABLE = "VARIABLE_ENUM"
-        mock_scia.LoadGroup.RelationOption.STANDARD = "STANDARD_ENUM"
-        mock_scia.LoadGroup.LoadTypeOption.CAT_A = "CAT_A_ENUM"
-        mock_scia.LoadCase.VariableLoadType.STATIC = "STATIC_ENUM"
-        mock_scia.LoadCase.Specification.STANDARD = "STANDARD_ENUM"
-        mock_scia.LoadCase.Duration.SHORT = "SHORT_ENUM"
-
-        # Create one load group
-        load_group = create_load_group_by_type(mock_model, "VARIABLE", "LG_Traffic")
-
-        # Create multiple load cases in same group
-        create_load_case_complete(mock_model, load_group, "Q1_LM1", "Load Model 1", "VARIABLE")
-        create_load_case_complete(mock_model, load_group, "Q2_LM2", "Load Model 2", "VARIABLE")
-
-        # Verify both cases use same group
-        assert mock_model.create_variable_load_case.call_count == 2
-        call_args_1 = mock_model.create_variable_load_case.call_args_list[0]
-        call_args_2 = mock_model.create_variable_load_case.call_args_list[1]
-
-        assert call_args_1[0][2] is mock_load_group  # Same group
-        assert call_args_2[0][2] is mock_load_group  # Same group
-        assert call_args_1[0][0] == "Q1_LM1"  # Different names
-        assert call_args_2[0][0] == "Q2_LM2"  # Different names
+        with pytest.raises(Exception, match="Model creation failed"):
+            generate_bridge_xml_files(mock_params)
 
 
 if __name__ == "__main__":

@@ -240,14 +240,3 @@ def create_patch_surface_load(
         points=xy_points,
         distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
     )
-
-
-# Legacy function for backwards compatibility
-def create_load_case_with_name(model: SciaModel, load_case_name: str, load_case_type: str = "VARIABLE") -> SciaLoadCase:
-    """
-    DEPRECATED: Use create_load_case_complete() instead.
-    Helper function to create a SCIA load case with basic settings.
-    """
-    group_name = f"LG_{load_case_name}"
-    load_group = create_load_group_by_type(model, load_case_type, group_name)
-    return create_load_case_complete(model, load_group, load_case_name, f"{load_case_type} load case: {load_case_name}", load_case_type)
