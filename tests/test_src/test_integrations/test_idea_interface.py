@@ -6,10 +6,10 @@ including model creation, parameter extraction, and analysis functionality.
 """
 
 from unittest.mock import Mock, patch
-import pytest
-from munch import Munch
 
-import src.integrations.idea_interface as idea_interface
+import pytest
+
+from src.integrations import idea_interface
 from tests.test_data.seed_loader import load_bridge_default_params
 
 
