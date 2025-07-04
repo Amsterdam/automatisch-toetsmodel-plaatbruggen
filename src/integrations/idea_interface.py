@@ -54,12 +54,11 @@ def _get_unique_matching_zone_keys(params: BridgeParametrization) -> list[tuple[
     for thickness, thickness_zones in grouped_thickness.items():
         for thickness_zone in thickness_zones:
             for config, rebar_zones in grouped_rebar_configs.items():
-                for rebar_zone in rebar_zones:
+                for rebar_zone in rebar_zones:  # ignore PERF401
                     if thickness_zone == rebar_zone:
-                        matching_zone_keys.append((thickness, config))
+                        matching_zone_keys.append((thickness, config))  # noqa: PERF401
     # Filter matching_zone_keys to only unique (thickness, config) pairs
     unique_matching_zone_keys = list({(thickness, config) for thickness, config in matching_zone_keys})
-    print(f"Unique matching zone keys: {unique_matching_zone_keys}")
     return unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs
 
 
@@ -98,7 +97,6 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
     :raises ImportError: If VIKTOR IDEA module is not available
     """
     # Create the IDEA model
-    # model = idea_rcs.OpenModel()
     model = idea_rcs.Model()
 
     # Create concrete material TODO link to centralized material system
@@ -117,7 +115,6 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
 
     # Loop through unique thickness and reinforcement configurations
     for thickness, config in unique_matching_zone_keys:
-        print(f"Creating slab for thickness {thickness} and reinforcement config {config}")
 
         # Add reinforcement bars based on the configuration
         rebar_config = params.reinforcement_zones_array[config - 1]
@@ -138,7 +135,8 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
             "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart"),
         }
 
-        # This part deals with the reinforcement heights based on half slab thickness reduced by the concrete cover and diameter of the reinforcement bars.
+        # This part deals with the reinforcement bar heights based on half slab thickness reduced by the concrete cover and
+        # the diameter of the reinforcement bars.
         # It also takes into account the langswapening_buiten parameter to determine the order of reinforcement layers.
         reinf_heights = {}
         thickness_mm = thickness * 1000  # Convert thickness from m to mm
@@ -155,7 +153,8 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
             reinf_heights["bottom_langs"] = -thickness_mm / 2 + bottom_reinf_cover + diameters["bottom_dwars"] + diameters["bottom_langs"] / 2
             reinf_heights["bottom_dwars"] = -thickness_mm / 2 + bottom_reinf_cover + diameters["bottom_dwars"] / 2
 
-        # Create slab for each unique thickness and reinforcement configuration for both directions since we cant create separate sections for each direction
+        # Create slab for each unique thickness and reinforcement configuration for both directions since
+        #  we cant create separate sections for each direction
         for direction in ["langs", "dwars"]:
             # Create rectangular cross-section for the slab
             cs = idea_rcs.RectSection(1.0, thickness)

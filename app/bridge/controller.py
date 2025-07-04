@@ -614,9 +614,8 @@ class BridgeController(ViktorController):
         """
         unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
 
-        data = []
-        for value in unique_matching_zone_keys:
-            data.append([value[0], value[1]])
+        # If no unique keys found, return empty table
+        data = [[value[0], value[1]] for value in unique_matching_zone_keys]
 
         columns = ["Zone_dikte", "Wapeningsconfiguratie"]
 
