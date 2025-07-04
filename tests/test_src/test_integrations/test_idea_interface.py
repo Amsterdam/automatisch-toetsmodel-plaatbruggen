@@ -5,12 +5,9 @@ This module provides comprehensive testing for the IDEA StatiCa integration,
 including model creation, parameter extraction, and analysis functionality.
 """
 
-from unittest.mock import Mock, patch
-
 import pytest
 
 from src.integrations import idea_interface
-from tests.test_data.seed_loader import load_bridge_default_params
 
 
 def test_calculate_rebar_positions_even():
