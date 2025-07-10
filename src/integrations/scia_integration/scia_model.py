@@ -22,7 +22,7 @@ except ImportError:
 from .scia_bridge_geometry import create_node_and_thickness_dict
 
 # Import load application functions from dedicated module
-from .scia_loads import add_theoretical_tandem_loads, create_load_infrastructure
+from .scia_loads import create_load_infrastructure
 from .scia_supports import create_scia_line_supports
 
 # Type aliases
@@ -182,10 +182,10 @@ def create_complete_bridge_model(params: Any) -> Any:  # noqa: ANN401
 
     # Step 2: Create load infrastructure (groups and basic load cases)
     infrastructure = create_load_infrastructure(scia_model)
-    load_groups = infrastructure["load_groups"]
+    load_groups = infrastructure["load_groups"]  # noqa: F841
 
     # Step 3: Add theoretical tandem loads
-    #add_theoretical_tandem_loads(scia_model, params, load_groups["traffic"])
+    # add_theoretical_tandem_loads(scia_model, params, load_groups["traffic"]) #noqa: ERA001
 
     return scia_model
 
