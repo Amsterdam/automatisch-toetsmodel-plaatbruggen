@@ -5,6 +5,7 @@ This module acts as a bridge between the pure Python definitions from the src la
 and the VIKTOR SDK's SCIA integration. It translates the definition objects into
 actual scia.Model components.
 """
+
 import io
 from io import BytesIO
 from pathlib import Path
@@ -194,9 +195,7 @@ def create_patch_surface_load(
     )
 
 
-def create_load_combination(
-    model: SciaModel, combo_def: LoadCombinationDefinition, load_cases: dict[str, SciaLoadCase]
-) -> SciaLoadCombination:
+def create_load_combination(model: SciaModel, combo_def: LoadCombinationDefinition, load_cases: dict[str, SciaLoadCase]) -> SciaLoadCombination:
     """
     Create a SCIA load combination from a LoadCombinationDefinition.
 

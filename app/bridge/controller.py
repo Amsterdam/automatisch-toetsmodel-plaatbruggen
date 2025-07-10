@@ -8,6 +8,7 @@ import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
+from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -65,8 +66,6 @@ from .parametrization import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
     BridgeParametrization,
 )
-
-from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
 
 
 # Define TypedDict for a row from params.bridge_segments_array
