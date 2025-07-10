@@ -463,33 +463,6 @@ class BridgeController(ViktorController):
 
         return template_path
 
-    def download_scia_model_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
-        """
-        Generate and download the SCIA model files (XML and DEF).
-
-        :param params: VIKTOR parameters for the bridge.
-        :return: A DownloadResult containing the SCIA model files.
-        :rtype: DownloadResult
-        """
-        try:
-            # 1. Get model definitions from the src layer
-            model_definitions = create_complete_bridge_model(params)
-            # 2. Build the SCIA model using the app-layer builder
-            scia_model = build_scia_model_from_definitions(model_definitions)
-            # 3. Generate the XML and DEF files
-            xml_file, def_file = generate_scia_files(scia_model)
-
-            # 4. Package files into a ZIP for download
-            zip_file = File()
-            with zipfile.ZipFile(zip_file.source, "w", zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr("model.xml", xml_file.getvalue())
-                zf.writestr("model.def", def_file.getvalue())
-
-            return DownloadResult(zip_file, "scia_model_files.zip")
-
-        except Exception as e:
-            raise UserError(f"Failed to download SCIA model files: {e!s}") from e
-
     def _raise_no_bridge_segments_error(self) -> None:
         """Raise UserError for missing bridge segments."""
         raise UserError("Geen brugsegmenten gedefinieerd. Ga naar de 'Invoer' pagina om de brug dimensies in te stellen.")
