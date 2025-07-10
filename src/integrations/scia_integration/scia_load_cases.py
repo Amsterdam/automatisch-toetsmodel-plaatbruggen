@@ -227,4 +227,3 @@ def create_basic_permanent_load_cases(
 # - create_settlement_load_case() - for settlement effects
 # - create_seismic_load_case() - for seismic loads
 # - create_construction_stage_load_case() - for construction stages
-

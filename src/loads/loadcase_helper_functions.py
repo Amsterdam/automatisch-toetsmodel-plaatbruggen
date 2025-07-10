@@ -490,6 +490,7 @@ def tandem_systems_axes_more_lanes(length_bridgedeck: float, width_bridgedeck: f
             load_case_number += 1
     return results
 
+
 def calculate_pavement_load_from_dynamic_array(
     load_zones_array: list[dict[str, Any]],
     thickness_field: str = "pavement_thickness",
