@@ -57,16 +57,31 @@ def create_load_group_from_definition(model: SciaModel, definition: LoadGroupDef
         "EXCLUSIVE": scia.LoadGroup.RelationOption.EXCLUSIVE,
     }
     load_type_map = {
+        "CAT_A": scia.LoadGroup.LoadTypeOption.CAT_A,
+        "CAT_B": scia.LoadGroup.LoadTypeOption.CAT_B,
+        "CAT_C": scia.LoadGroup.LoadTypeOption.CAT_C,
+        "CAT_D": scia.LoadGroup.LoadTypeOption.CAT_D,
+        "CAT_E": scia.LoadGroup.LoadTypeOption.CAT_E,
+        "CAT_F": scia.LoadGroup.LoadTypeOption.CAT_F,
         "CAT_G": scia.LoadGroup.LoadTypeOption.CAT_G,
         "CAT_H": scia.LoadGroup.LoadTypeOption.CAT_H,
-        "VARIABLE_LOADS": scia.LoadGroup.LoadTypeOption.VARIABLE_LOADS,
+        "WIND": scia.LoadGroup.LoadTypeOption.WIND,
+        "SNOW": scia.LoadGroup.LoadTypeOption.SNOW,
+        "TEMPERATURE": scia.LoadGroup.LoadTypeOption.TEMPERATURE,
+        "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
     }
+
+    load_type_value = None
+    if definition.load_type is not None:
+        if definition.load_type not in load_type_map:
+            raise ValueError(f"Unsupported load type: {definition.load_type}")
+        load_type_value = load_type_map[definition.load_type]
 
     return model.create_load_group(
         definition.name,
-        load_option_map[definition.load_option],
-        relation_map[definition.relation],
-        load_type_map[definition.load_type],
+        load_option=load_option_map[definition.load_option],
+        relation=relation_map[definition.relation],
+        load_type=load_type_value,
     )
 
 
