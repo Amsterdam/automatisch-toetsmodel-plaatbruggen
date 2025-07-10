@@ -10,13 +10,8 @@ from typing import Any
 # Import geometry extraction functions from dedicated module
 from .scia_bridge_geometry import create_node_and_thickness_dict
 from .scia_definitions import MaterialDefinition, NodeDefinition, PlateDefinition
-from .scia_load_combinations import create_standard_load_combinations
 
 # Import load application functions from dedicated module
-from .scia_loads import (
-    add_theoretical_tandem_loads,
-    create_load_infrastructure,
-)
 
 
 def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
@@ -99,55 +94,3 @@ def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN
         "materials": [material_def],
         "plates": plate_defs,
     }
-
-
-def create_complete_bridge_model(params: Any) -> dict[str, Any]:  # noqa: ANN401
-    """
-    Create a complete set of definitions for a SCIA bridge model.
-
-    This function orchestrates the creation of all necessary definitions for
-    a bridge model, including geometry, load infrastructure, and applied loads,
-    all as pure Python objects.
-
-    :param params: Bridge parameters.
-    :return: A dictionary containing all model definitions.
-    :rtype: dict[str, Any]
-    """
-    # 1. Create geometry definitions
-    geometry_definitions = create_multi_zone_bridge_model(params)
-
-    # 2. Create load infrastructure definitions
-    load_infra_definitions = create_load_infrastructure()
-    load_group_definitions = load_infra_definitions["load_group_definitions"]
-    basic_load_case_definitions = load_infra_definitions["basic_load_case_definitions"]
-
-    # 3. Create tandem load definitions
-    traffic_group_name = load_group_definitions["traffic"].name
-    tandem_definitions = add_theoretical_tandem_loads(params, traffic_group_name)
-    tandem_load_case_definitions = tandem_definitions["load_case_definitions"]
-    tandem_surface_load_definitions = tandem_definitions["surface_load_definitions"]
-
-    # 4. Create load combination definitions
-    tandem_case_names = [case.name for case in tandem_load_case_definitions]
-    load_combination_definitions = create_standard_load_combinations(
-        basic_load_case_definitions["self_weight"].name,
-        basic_load_case_definitions["wind"].name,
-        tandem_case_names,
-    )
-
-    # 5. Combine all definitions into a single blueprint
-    all_load_case_defs = list(basic_load_case_definitions.values()) + tandem_load_case_definitions
-
-    return {
-        "nodes": geometry_definitions["nodes"],
-        "materials": geometry_definitions["materials"],
-        "plates": geometry_definitions["plates"],
-        "load_groups": list(load_group_definitions.values()),
-        "load_cases": all_load_case_defs,
-        "surface_loads": tandem_surface_load_definitions,
-        "load_combinations": load_combination_definitions,
-    }
-
-
-# Backwards compatibility alias
-create_simple_scia_plate_model = create_multi_zone_bridge_model
