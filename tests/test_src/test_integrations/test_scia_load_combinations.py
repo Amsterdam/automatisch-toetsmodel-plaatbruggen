@@ -111,7 +111,7 @@ class TestStandardLoadCombinations:
     def test_create_standard_load_combinations(self, mock_wind_uls: Mock, mock_sls: Mock, mock_uls: Mock) -> None:
         """Test that combination helpers are called for each tandem case."""
         tandem_cases = ["TS1", "TS2"]
-        definitions = create_standard_load_combinations("SelfWeight", "Wind", tandem_cases)
+        definitions = create_standard_load_combinations("SelfWeight", tandem_cases, "Wind")
 
         # Should be 3 combinations per tandem case (ULS, SLS, Wind ULS)
         assert mock_uls.call_count == 2

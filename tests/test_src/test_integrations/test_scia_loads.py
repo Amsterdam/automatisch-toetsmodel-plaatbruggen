@@ -148,7 +148,7 @@ class TestStandardLoadCombinations:
         mock_sls_combo.return_value = mock_sls_result
         mock_wind_combo.return_value = mock_wind_result
 
-        result = create_standard_load_combinations(mock_self_weight_case, mock_wind_case, mock_tandem_cases)
+        result = create_standard_load_combinations(mock_self_weight_case, mock_tandem_cases, mock_wind_case)
 
         # Verify calls for each tandem case
         assert mock_uls_combo.call_count == 2

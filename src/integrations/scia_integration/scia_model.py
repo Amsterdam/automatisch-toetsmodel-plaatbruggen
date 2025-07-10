@@ -10,13 +10,17 @@ from typing import Any
 # Import geometry extraction functions from dedicated module
 from .scia_bridge_geometry import create_node_and_thickness_dict
 from .scia_definitions import MaterialDefinition, NodeDefinition, PlateDefinition
+from .scia_load_cases import create_basic_permanent_load_cases
+from .scia_load_combinations import create_standard_load_combinations
+from .scia_load_group import create_all_load_groups
+from .scia_loads import add_theoretical_tandem_loads
 
 # Import load application functions from dedicated module
 
 
-def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
+def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
     """
-    Create definitions for a SCIA bridge model with multi-zone plates.
+    Define the geometry for a SCIA bridge model (nodes, materials, plates).
 
     :param params: Bridge parameters.
     :return: A dictionary containing lists of node, material, and plate definitions.
@@ -94,3 +98,47 @@ def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN
         "materials": [material_def],
         "plates": plate_defs,
     }
+
+
+def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
+    """
+    Define a complete SCIA bridge model, including geometry, loads, etc.
+
+    This function aggregates definitions for geometry, loads, and combinations.
+    Currently, it only generates the geometry.
+
+    :param params: Bridge parameters.
+    :return: A dictionary containing all model part definitions.
+    :rtype: dict[str, list]
+    """
+    definitions = _define_bridge_geometry(params)
+    # Placeholder for future additions
+    definitions["load_groups"] = []
+    definitions["load_cases"] = []
+    definitions["surface_loads"] = []
+    definitions["load_combinations"] = []
+
+    # 1. Define Load Groups
+    load_group_defs = create_all_load_groups()
+    definitions["load_groups"] = list(load_group_defs.values())
+
+    # 2. Define basic Load Cases
+    # Permanent loads
+    permanent_group_name = load_group_defs["permanent"].name
+    permanent_case_defs = create_basic_permanent_load_cases(permanent_group_name)
+    definitions["load_cases"].extend(permanent_case_defs.values())
+
+    # 3. Define Tandem Loads and their Load Cases
+    traffic_group_name = load_group_defs["ts_lane_1"].name  # Use TS Lane 1 group for now
+    tandem_load_defs = add_theoretical_tandem_loads(params, traffic_group_name)
+    definitions["load_cases"].extend(tandem_load_defs["load_case_definitions"])
+    definitions["surface_loads"].extend(tandem_load_defs["surface_load_definitions"])
+
+    # 4. Define Load Combinations
+    self_weight_case_name = permanent_case_defs["self_weight"].name
+    tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
+
+    combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
+    definitions["load_combinations"].extend(combination_defs)
+
+    return definitions
