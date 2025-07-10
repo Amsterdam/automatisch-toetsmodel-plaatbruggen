@@ -1,7 +1,8 @@
 """
-This module provides functions for creating definitions of SCIA loads,
-load cases, and load combinations. These definitions are pure Python objects
-that can be used by the app layer to construct the actual SCIA model.
+Module for creating SCIA load definitions.
+
+This module provides functions for creating definitions of SCIA loads, load cases, and load combinations.
+These definitions are pure Python objects that can be used by the app layer to construct the actual SCIA model.
 """
 
 from typing import Any
@@ -109,14 +110,13 @@ def add_theoretical_tandem_loads(
     return {"load_case_definitions": load_case_definitions, "surface_load_definitions": surface_load_definitions}
 
 
+"""Add actual tandem loads based on user-defined lanes."""
 def add_actual_tandem_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401
     _traffic_group: Any,  # noqa: ANN401
 ) -> list[Any]:
-    """
-    PLACEHOLDER: Add actual tandem loads based on user-defined lanes.
-    """
+    """PLACEHOLDER: Add actual tandem loads based on user-defined lanes."""
     # TODO: Implement logic for actual tandem loads
     # - Extract actual lane positions from params
     # - Generate tandem loads for those lanes
@@ -124,28 +124,26 @@ def add_actual_tandem_loads(
     return []
 
 
+"""Add railing loads to the SCIA model."""
 def add_railing_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401
     _permanent_group: Any,  # noqa: ANN401
 ) -> list[Any]:
-    """
-    PLACEHOLDER: Add railing loads to the SCIA model.
-    """
+    """PLACEHOLDER: Add railing loads to the SCIA model."""
     # TODO: Implement railing load application
     # - Get railing positions from geometry
     # - Apply line loads along railing paths
     return []
 
 
+"""Add pedestrian loads to the SCIA model."""
 def add_pedestrian_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401
     _traffic_group: Any,  # noqa: ANN401
 ) -> list[Any]:
-    """
-    PLACEHOLDER: Add pedestrian loads to the SCIA model.
-    """
+    """PLACEHOLDER: Add pedestrian loads to the SCIA model."""
     # TODO: Implement pedestrian load application
     # - Get pedestrian zone polygons
     # - Apply surface loads to pedestrian areas

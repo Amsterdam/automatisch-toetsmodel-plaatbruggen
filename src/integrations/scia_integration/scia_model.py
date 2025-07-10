@@ -1,8 +1,8 @@
 """
 SCIA model definition utilities.
 
-This module handles the creation of definitions for complete SCIA bridge models,
-including geometry, nodes, and plates. It is independent of the VIKTOR SDK.
+This module handles the creation of definitions for complete SCIA bridge models, including geometry, nodes, and plates.
+It is independent of the VIKTOR SDK.
 """
 
 from typing import Any

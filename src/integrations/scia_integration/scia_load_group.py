@@ -1,9 +1,8 @@
 """
-This module defines functions to create definitions for standard SCIA load groups.
+Module for creating SCIA load group definitions.
 
-These functions generate LoadGroupDefinition objects, which serve as pure Python
-blueprints for creating actual SCIA load groups in the app layer. This keeps this
-module independent of the VIKTOR SDK.
+These functions generate LoadGroupDefinition objects, which serve as pure Python blueprints for creating actual SCIA load groups in the app layer.
+This keeps this module independent of the VIKTOR SDK.
 """
 
 from typing import Any, TypeAlias

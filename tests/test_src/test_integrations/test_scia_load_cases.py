@@ -64,7 +64,7 @@ class TestTandemLoadCase:
     """Tests for creating tandem load case definitions."""
 
     @pytest.mark.parametrize(
-        "mode, expected_desc_part",
+        ("mode", "expected_desc_part"),
         [
             ("theoretical", "Tandem System - Theoretical Lane"),
             ("eurocode", "Load Model 1 - Tandem System"),

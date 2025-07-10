@@ -1,16 +1,12 @@
 """
 SCIA load combinations utility module.
 
-This module provides utilities for creating and managing definitions for
-load combinations in SCIA Engineer.
+This module provides utilities for creating and managing definitions for load combinations in SCIA Engineer.
 
 .. warning::
-    The load combination factors and logic implemented in this module are simplified
-    placeholders for architectural and demonstration purposes. They are **not** based
-    on official Eurocode or NEN standards. A future task is to implement correct,
-    configurable load combination logic based on relevant engineering codes
-    (e.g., NEN 8700/8701).
-
+    The load combination factors and logic implemented in this module are simplified placeholders for architectural and demonstration purposes.
+    They are **not** based on official Eurocode or NEN standards.
+    A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
 from typing import Any
