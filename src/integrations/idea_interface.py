@@ -106,7 +106,9 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
     return [pos + y_offset for pos in bijleg_positions]
 
 
-def _get_rebar_config(rebar_config: dict, params: BridgeParametrization, slab_thickness: float):
+def _get_rebar_config(
+    rebar_config: dict, params: BridgeParametrization, slab_thickness: float
+) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
     """Get reinforcement configuration based on the provided viktor parameters."""
     # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
     top_reinf_cover = params.input.geometrie_wapening.dekking_boven
@@ -307,7 +309,6 @@ def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
     :raises ImportError: If VIKTOR IDEA module is not available
     :raises RuntimeError: If analysis execution fails
     """
-    # try:
     # Generate XML input for analysis
     xml_input = model.generate_xml_input()
 
