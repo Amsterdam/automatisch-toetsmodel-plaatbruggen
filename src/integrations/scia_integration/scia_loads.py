@@ -10,7 +10,6 @@ from typing import Any
 from .scia_definitions import SurfaceLoadDefinition
 
 # Import definition-based creators
-from .scia_load_group import create_all_load_groups
 
 
 def create_patch_surface_load(
