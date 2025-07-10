@@ -66,7 +66,7 @@ def create_traffic_load_group(model: SciaModel) -> SciaLoadGroup:
         "LG2",
         scia.LoadGroup.LoadOption.VARIABLE,
         scia.LoadGroup.RelationOption.STANDARD,
-        scia.LoadGroup.LoadTypeOption.VARIABLE_LOADS,
+        scia.LoadGroup.LoadTypeOption.CAT_A,
     )
 
 
@@ -89,7 +89,7 @@ def create_wind_load_group(model: SciaModel) -> SciaLoadGroup:
         "LG3",
         scia.LoadGroup.LoadOption.VARIABLE,
         scia.LoadGroup.RelationOption.STANDARD,
-        scia.LoadGroup.LoadTypeOption.VARIABLE_LOADS,
+        scia.LoadGroup.LoadTypeOption.CAT_A,
     )
 
 

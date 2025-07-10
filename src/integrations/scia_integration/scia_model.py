@@ -23,6 +23,7 @@ from .scia_bridge_geometry import create_node_and_thickness_dict
 
 # Import load application functions from dedicated module
 from .scia_loads import add_theoretical_tandem_loads, create_load_infrastructure
+from .scia_supports import create_scia_line_supports
 
 # Type aliases
 SciaNode: TypeAlias = object
@@ -96,6 +97,7 @@ def create_multi_zone_bridge_model(params: Any) -> Any:  # noqa: ANN401
     nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
     dynamic_arrays = len(params.bridge_segments_array)
     scia_nodes = {}
+    scia_planes = []
 
     # Create initial cross section nodes
     for node_suffix in range(1, 5):
@@ -118,7 +120,8 @@ def create_multi_zone_bridge_model(params: Any) -> Any:  # noqa: ANN401
                     raise ValueError(f"Coordinates for node '{node_name}' not found.")
                 scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
 
-        # Create zone plates
+        # Create zone plates and collect them in a list with their numbering for sorting
+        # Each entry: (zone_number, span_number, plane_object)
         # Zone 1 plate
         corner_nodes_z1 = [
             scia_nodes[f"K_dek:{span}_1"],
@@ -126,7 +129,8 @@ def create_multi_zone_bridge_model(params: Any) -> Any:  # noqa: ANN401
             scia_nodes[f"K_dek:{next_span}_2"],
             scia_nodes[f"K_dek:{span}_2"],
         ]
-        model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
+        plane_z1 = model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
+        scia_planes.append((1, span, plane_z1))
 
         # Zone 3 plate
         corner_nodes_z3 = [
@@ -135,7 +139,8 @@ def create_multi_zone_bridge_model(params: Any) -> Any:  # noqa: ANN401
             scia_nodes[f"K_dek:{next_span}_4"],
             scia_nodes[f"K_dek:{span}_4"],
         ]
-        model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
+        plane_z3 = model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
+        scia_planes.append((3, span, plane_z3))
 
         # Zone 2 plate
         corner_nodes_z2 = [
@@ -144,7 +149,13 @@ def create_multi_zone_bridge_model(params: Any) -> Any:  # noqa: ANN401
             scia_nodes[f"K_dek:{next_span}_3"],
             scia_nodes[f"K_dek:{span}_3"],
         ]
-        model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
+        plane_z2 = model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
+        scia_planes.append((2, span, plane_z2))
+
+    # Sort planes by (span, zone) for consistent ordering: all Z1, Z2, Z3 per span
+    scia_planes_sorted = [plane for _, _, plane in sorted(scia_planes, key=lambda x: (x[1], x[0]))]
+    # Create line supports on the first and last three edges of the bridge plates
+    create_scia_line_supports(model, scia_planes_sorted)
 
     return model
 
@@ -174,7 +185,7 @@ def create_complete_bridge_model(params: Any) -> Any:  # noqa: ANN401
     load_groups = infrastructure["load_groups"]
 
     # Step 3: Add theoretical tandem loads
-    add_theoretical_tandem_loads(scia_model, params, load_groups["traffic"])
+    #add_theoretical_tandem_loads(scia_model, params, load_groups["traffic"])
 
     return scia_model
 
