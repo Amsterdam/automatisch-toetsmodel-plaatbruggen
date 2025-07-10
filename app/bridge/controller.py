@@ -670,7 +670,6 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-
         # Create IDEA RCS cross-section model with materials from params.info
         from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
 

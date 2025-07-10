@@ -90,6 +90,7 @@ def calculate_rebar_positions(width: float, hoh: float, y_offset: float = 0) -> 
     positions.sort()
     return [pos + y_offset for pos in positions]
 
+
 def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> list[float]:
     """Calculate positions for bijlegwapening (additional reinforcement) by finding midpoints between main reinforcement."""
     if len(positions) < 2:
@@ -104,9 +105,9 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
     # Add y_offset to all positions
     return [pos + y_offset for pos in bijleg_positions]
 
+
 def _get_rebar_config(rebar_config: dict, params: BridgeParametrization, slab_thickness: float):
     """Get reinforcement configuration based on the provided viktor parameters."""
-    
     # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
     top_reinf_cover = params.input.geometrie_wapening.dekking_boven
     bottom_reinf_cover = params.input.geometrie_wapening.dekking_onder
@@ -160,10 +161,18 @@ def _get_rebar_config(rebar_config: dict, params: BridgeParametrization, slab_th
     # create new dict with max diameters to calculate reinforcement heights
     # This is needed to ensure that we use the maximum diameter for each direction to calculate cover and reinforcement heights
     max_reinf_diameters = {
-        "top_langs": max(main_reinf_diameters["top_langs"], extra_reinf_diameter["top_langs"]) if rebar_config.get("heeft_bijlegwapening") else main_reinf_diameters["top_langs"],
-        "top_dwars": max(main_reinf_diameters["top_dwars"], extra_reinf_diameter["top_dwars"]) if rebar_config.get("heeft_bijlegwapening") else main_reinf_diameters["top_dwars"],
-        "bottom_langs": max(main_reinf_diameters["bottom_langs"], extra_reinf_diameter["bottom_langs"]) if rebar_config.get("heeft_bijlegwapening") else main_reinf_diameters["bottom_langs"],
-        "bottom_dwars": max(main_reinf_diameters["bottom_dwars"], extra_reinf_diameter["bottom_dwars"]) if rebar_config.get("heeft_bijlegwapening") else main_reinf_diameters["bottom_dwars"],
+        "top_langs": max(main_reinf_diameters["top_langs"], extra_reinf_diameter["top_langs"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["top_langs"],
+        "top_dwars": max(main_reinf_diameters["top_dwars"], extra_reinf_diameter["top_dwars"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["top_dwars"],
+        "bottom_langs": max(main_reinf_diameters["bottom_langs"], extra_reinf_diameter["bottom_langs"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["bottom_langs"],
+        "bottom_dwars": max(main_reinf_diameters["bottom_dwars"], extra_reinf_diameter["bottom_dwars"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["bottom_dwars"],
     }
 
     # This part deals with the reinforcement bar heights based on half slab thickness reduced by the concrete cover and
@@ -178,15 +187,20 @@ def _get_rebar_config(rebar_config: dict, params: BridgeParametrization, slab_th
         reinf_heights["top_langs"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] / 2
         reinf_heights["top_dwars"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] - max_reinf_diameters["top_dwars"] / 2
         reinf_heights["bottom_langs"] = -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_langs"] / 2
-        reinf_heights["bottom_dwars"] = -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_langs"] + max_reinf_diameters["bottom_dwars"] / 2
+        reinf_heights["bottom_dwars"] = (
+            -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_langs"] + max_reinf_diameters["bottom_dwars"] / 2
+        )
     else:
         # If langswapening_buiten is False, we assume the reinforcement in "langswapening" is placed as second layer
         reinf_heights["top_langs"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_dwars"] - max_reinf_diameters["top_langs"] / 2
         reinf_heights["top_dwars"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_dwars"] / 2
-        reinf_heights["bottom_langs"] = -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_dwars"] + max_reinf_diameters["bottom_langs"] / 2
+        reinf_heights["bottom_langs"] = (
+            -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_dwars"] + max_reinf_diameters["bottom_langs"] / 2
+        )
         reinf_heights["bottom_dwars"] = -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_dwars"] / 2
 
     return main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances
+
 
 def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN401
     """
@@ -221,7 +235,9 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
 
         # Get reinforcement configuration based on the provided parameters for idea model
         # This function gets the main reinforcement diameters, center-to-center distances, and reinforcement heights
-        main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances = _get_rebar_config(rebar_config, params, slab_thickness)
+        main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances = _get_rebar_config(
+            rebar_config, params, slab_thickness
+        )
 
         # Create slab for each unique thickness and reinforcement configuration for both directions since
         #  we cant create separate sections for each direction
@@ -232,7 +248,9 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
 
             # Create reinforcement bars for the top and bottom of the slab
             for location in ["top", "bottom"]:
-                bar_locations_x = [x / 1000 for x in calculate_rebar_positions(1000, main_reinf_ctc_distances[f"{location}_{direction}"])]  # Convert mm to m
+                bar_locations_x = [
+                    x / 1000 for x in calculate_rebar_positions(1000, main_reinf_ctc_distances[f"{location}_{direction}"])
+                ]  # Convert mm to m
                 bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert height from mm to m
                 bar_diameters = [main_reinf_diameters[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert diameter from mm to m
                 bar_locations = list(zip(bar_locations_x, bar_locations_y))
@@ -248,16 +266,20 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
                     # check if extra bar can fit at the beginning and end of the slab
                     loc_max_main_bar = float(max(bar_locations_x)) or 0.0  # Handle empty list case
                     loc_min_main_bar = float(min(bar_locations_x)) or 0.0  # Handle empty list case
-                    ctc_dist_main_bar = float(main_reinf_ctc_distances[f"{location}_{direction}"]) / 1000  or 0.0  # Convert mm to m
+                    ctc_dist_main_bar = float(main_reinf_ctc_distances[f"{location}_{direction}"]) / 1000 or 0.0  # Convert mm to m
                     remaining_space = 0.5 - loc_max_main_bar  # Remaining space at the end of the slab
 
                     # add extra bars at the beginning and end of the slab if there is enough space
                     if remaining_space >= ctc_dist_main_bar:
-                        extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar/2)  # Insert at end
-                        extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar/2)  # Insert at beginning
+                        extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar / 2)  # Insert at end
+                        extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar / 2)  # Insert at beginning
 
-                    extra_bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(extra_bar_locations_x)  # Convert height from mm to m
-                    extra_bar_diameters = [extra_reinf_diameter[f"{location}_{direction}"] / 1000] * len(extra_bar_locations_x)  # Convert diameter from mm to m
+                    extra_bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(
+                        extra_bar_locations_x
+                    )  # Convert height from mm to m
+                    extra_bar_diameters = [extra_reinf_diameter[f"{location}_{direction}"] / 1000] * len(
+                        extra_bar_locations_x
+                    )  # Convert diameter from mm to m
                     extra_bar_locations = list(zip(extra_bar_locations_x, extra_bar_locations_y))
 
                     for coords, diameter in zip(extra_bar_locations, extra_bar_diameters):
@@ -285,7 +307,6 @@ def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
     :raises ImportError: If VIKTOR IDEA module is not available
     :raises RuntimeError: If analysis execution fails
     """
-
     # try:
     # Generate XML input for analysis
     xml_input = model.generate_xml_input()
