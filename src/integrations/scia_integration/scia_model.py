@@ -10,12 +10,8 @@ from typing import Any
 # Import geometry extraction functions from dedicated module
 from .scia_bridge_geometry import create_node_and_thickness_dict
 from .scia_definitions import MaterialDefinition, NodeDefinition, PlateDefinition
-from .scia_load_combinations import create_standard_load_combinations
 
 # Import load application functions from dedicated module
-from .scia_loads import (
-    add_theoretical_tandem_loads,
-)
 
 
 def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
