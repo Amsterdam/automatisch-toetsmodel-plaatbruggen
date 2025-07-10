@@ -670,72 +670,39 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-        try:
-            # Create IDEA RCS cross-section model with materials from params.info
-            from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
 
-            try:
-                # Generate XML input file
-                model = create_bridge_idea_model(params)
-                xml_file = model.generate_xml_input()
+        # Create IDEA RCS cross-section model with materials from params.info
+        from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
 
-                # Validate content
-                xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+        # Generate XML input file
+        model = create_bridge_idea_model(params)
+        xml_file = model.generate_xml_input()
 
-                if not xml_content:
-                    self._raise_empty_idea_xml_error()
+        # Validate content
+        xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
 
-                # Run cross-section analysis
-                output_file = run_idea_analysis(model, timeout=120)
+        if not xml_content:
+            self._raise_empty_idea_xml_error()
 
-                # Create ZIP with XML input and analysis results
-                zip_file_obj = File()
-                with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                    # Add input XML model
-                    z.writestr("rcs_input_model.xml", xml_content)
+        # Run cross-section analysis
+        output_file = run_idea_analysis(model, timeout=240)
 
-                    # Add analysis output results
-                    if hasattr(output_file, "getvalue"):
-                        output_content = output_file.getvalue()
-                        z.writestr("rcs_analysis_results.ideaRcs", output_content)
-                    elif hasattr(output_file, "source"):
-                        # If it's a File object
-                        with output_file.open_binary() as f:
-                            z.writestr("rcs_analysis_results.ideaRcs", f.read())
+        # Create ZIP with XML input and analysis results
+        zip_file_obj = File()
+        with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+            # Add input XML model
+            z.writestr("rcs_input_model.xml", xml_content)
 
-                return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
+            # Add analysis output results
+            if hasattr(output_file, "getvalue"):
+                output_content = output_file.getvalue()
+                z.writestr("rcs_analysis_results.ideaRcs", output_content)
+            elif hasattr(output_file, "source"):
+                # If it's a File object
+                with output_file.open_binary() as f:
+                    z.writestr("rcs_analysis_results.ideaRcs", f.read())
 
-            except Exception as e:
-                error_msg = (
-                    f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n"
-                    "Mogelijke oorzaken:\n"
-                    "- IDEA RCS worker niet beschikbaar of niet correct geïnstalleerd\n"
-                    "- IDEA StatiCa licentie problemen of expired\n"
-                    "- Cross-section model configuratie ongeldig\n"
-                    "- Timeout tijdens capaciteitsberekeningen\n\n"
-                    "💡 Suggesties:\n"
-                    "- Controleer IDEA StatiCa installatie en licentie\n"
-                    "- Probeer in plaats daarvan alleen de XML input te downloaden\n"
-                    "- Verhoog timeout voor complexe doorsneden\n"
-                    "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
-                )
-                raise UserError(error_msg)
-
-        except Exception as e:
-            error_msg = (
-                f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n"
-                "Mogelijke oorzaken:\n"
-                "- IDEA RCS worker niet beschikbaar of niet correct geïnstalleerd\n"
-                "- IDEA StatiCa licentie problemen of expired\n"
-                "- Cross-section model configuratie ongeldig\n"
-                "- Timeout tijdens capaciteitsberekeningen\n\n"
-                "💡 Suggesties:\n"
-                "- Controleer IDEA StatiCa installatie en licentie\n"
-                "- Probeer in plaats daarvan alleen de XML input te downloaden\n"
-                "- Verhoog timeout voor complexe doorsneden\n"
-                "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
-            )
-            raise UserError(error_msg)
+        return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
 
     # ============================================================================================================
     # output - Rapport
