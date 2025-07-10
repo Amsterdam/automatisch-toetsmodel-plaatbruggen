@@ -9,9 +9,6 @@ from typing import Any
 from .scia_bridge_geometry import create_bridge_geometry_definitions
 from .scia_definitions import (
     LoadCombinationDefinition,
-    MaterialDefinition,
-    NodeDefinition,
-    PlateDefinition,
     SurfaceLoadDefinition,
 )
 
