@@ -171,9 +171,7 @@ def create_patch_surface_load(
 
 
 def create_load_combination_from_definition(
-    model: SciaModel,
-    combo_def: LoadCombinationDefinition,
-    load_cases: dict[str, SciaLoadCase]
+    model: SciaModel, combo_def: LoadCombinationDefinition, load_cases: dict[str, SciaLoadCase]
 ) -> SciaLoadCombination:
     """
     Create a SCIA load combination from a LoadCombinationDefinition.

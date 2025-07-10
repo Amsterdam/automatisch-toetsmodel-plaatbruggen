@@ -111,6 +111,8 @@ def add_theoretical_tandem_loads(
 
 
 """Add actual tandem loads based on user-defined lanes."""
+
+
 def add_actual_tandem_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401
@@ -125,6 +127,8 @@ def add_actual_tandem_loads(
 
 
 """Add railing loads to the SCIA model."""
+
+
 def add_railing_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401
@@ -138,6 +142,8 @@ def add_railing_loads(
 
 
 """Add pedestrian loads to the SCIA model."""
+
+
 def add_pedestrian_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401
