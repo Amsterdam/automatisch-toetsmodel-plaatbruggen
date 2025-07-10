@@ -1,182 +1,152 @@
 """
-SCIA model creation utilities.
+SCIA model definition utilities.
 
-This module handles the creation of complete SCIA bridge models including
-geometry, nodes, plates, and loads. Requires VIKTOR SCIA SDK.
-Does NOT handle XML generation or analysis execution.
+This module handles the creation of definitions for complete SCIA bridge models,
+including geometry, nodes, and plates. It is independent of the VIKTOR SDK.
 """
 
-from typing import Any, TypeAlias
-
-# Global VIKTOR imports with error handling for CI/testing environments
-try:
-    from viktor.external import scia
-
-    VIKTOR_AVAILABLE = True
-except ImportError:
-    # Mock objects for environments without VIKTOR SDK
-    scia = None  # type: ignore[misc,assignment]
-    VIKTOR_AVAILABLE = False
+from typing import Any
 
 # Import geometry extraction functions from dedicated module
 from .scia_bridge_geometry import create_node_and_thickness_dict
+from .scia_definitions import MaterialDefinition, NodeDefinition, PlateDefinition
+from .scia_load_combinations import create_standard_load_combinations
 
 # Import load application functions from dedicated module
-from .scia_loads import add_theoretical_tandem_loads, create_load_infrastructure
-
-# Type aliases
-SciaNode: TypeAlias = object
-SciaModel: TypeAlias = "SciaModelProtocol"
-
-
-class SciaModelProtocol:
-    """Protocol for SCIA model objects."""
-
-    def create_node(self, name: str, x: float, y: float, z: float) -> "SciaNode":
-        """Create a node in the SCIA model."""
+from .scia_loads import (
+    add_theoretical_tandem_loads,
+    create_load_infrastructure,
+)
 
 
-class NodeTracker:
-    """Helper to track and reuse nodes in SCIA model."""
-
-    def __init__(self, scia_model: SciaModel) -> None:
-        """Initialize the node tracker."""
-        self.model = scia_model
-        self._nodes_by_coords: dict[tuple[float, float, float], SciaNode] = {}
-        self._nodes_by_name: dict[str, SciaNode] = {}
-
-    def get_or_create_node(self, name: str, x: float, y: float, z: float) -> SciaNode:
-        """Get existing node at coordinates or create new one."""
-        coords = (x, y, z)
-
-        if coords in self._nodes_by_coords:
-            return self._nodes_by_coords[coords]
-
-        node = self.model.create_node(name, x, y, z)
-        self._nodes_by_coords[coords] = node
-        self._nodes_by_name[name] = node
-        return node
-
-    def get_node_by_name(self, name: str) -> SciaNode:
-        """Get node by name."""
-        return self._nodes_by_name[name]
-
-
-def create_multi_zone_bridge_model(params: Any) -> Any:  # noqa: ANN401
+def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
     """
-    Create SCIA bridge model with multi-zone plates and variable thickness.
+    Create definitions for a SCIA bridge model with multi-zone plates.
 
-    Creates a sophisticated bridge model with:
-    - Cross-sections at each bridge segment
-    - Three zone plates (Zone 1, 2, 3) with variable thickness
-    - Proper coordinate system and node management
-    - NO LOADS (geometry only - use create_complete_bridge_model for loads)
-
-    Coordinate system:
-    - X: Longitudinal (cumulative segment lengths)
-    - Y: Transverse (zone boundaries from bz1, bz2, bz3)
-    - Z: Vertical (0 at top surface)
-
-    Zone layout: Zone 3 | Zone 2 | Zone 1
-                |--bz3--|--bz2--|--bz1--|
-
-    :param params: Bridge parameters
-    :returns: SCIA model object with bridge geometry only
-    :rtype: Any
+    :param params: Bridge parameters.
+    :return: A dictionary containing lists of node, material, and plate definitions.
+    :rtype: dict[str, list]
     """
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+    # Define the material
+    material_def = MaterialDefinition(name="C30/37")
 
-    # Create model and material
-    model = scia.Model()
-    node_tracker = NodeTracker(model)
-    material = scia.Material(0, "C30/37")
-
-    # Get geometry data
+    # Get geometry data (node coordinates and plate thicknesses)
     nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
-    dynamic_arrays = len(params.bridge_segments_array)
-    scia_nodes = {}
 
-    # Create initial cross section nodes
-    for node_suffix in range(1, 5):
-        node_name = f"K_dek:1_{node_suffix}"
-        coords = nodes_dict.get(node_name)
-        if coords is None:
-            raise ValueError(f"Coordinates for node '{node_name}' not found.")
-        scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
+    node_defs = [NodeDefinition(name=name, x=coords[0], y=coords[1], z=coords[2]) for name, coords in nodes_dict.items()]
+
+    plate_defs = []
+    dynamic_arrays = len(params.bridge_segments_array)
 
     # Create plates between cross sections
     for span in range(1, dynamic_arrays):
         next_span = span + 1
 
-        # Create next cross section nodes
-        for node_suffix in range(1, 5):
-            node_name = f"K_dek:{next_span}_{node_suffix}"
-            if node_name not in scia_nodes:
-                coords = nodes_dict.get(node_name)
-                if coords is None:
-                    raise ValueError(f"Coordinates for node '{node_name}' not found.")
-                scia_nodes[node_name] = node_tracker.get_or_create_node(node_name, coords[0], coords[1], coords[2])
-
-        # Create zone plates
         # Zone 1 plate
-        corner_nodes_z1 = [
-            scia_nodes[f"K_dek:{span}_1"],
-            scia_nodes[f"K_dek:{next_span}_1"],
-            scia_nodes[f"K_dek:{next_span}_2"],
-            scia_nodes[f"K_dek:{span}_2"],
-        ]
-        model.create_plane(corner_nodes_z1, thickness_dict.get(f"Z1_{span}"), name=f"Z1_{span}", material=material)
-
+        z1_thickness = thickness_dict.get(f"Z1_{span}")
+        if z1_thickness is None:
+            raise ValueError(f"Thickness for plate Z1_{span} not found.")
+        plate_defs.append(
+            PlateDefinition(
+                name=f"Z1_{span}",
+                corner_node_names=[
+                    f"K_dek:{span}_1",
+                    f"K_dek:{next_span}_1",
+                    f"K_dek:{next_span}_2",
+                    f"K_dek:{span}_2",
+                ],
+                thickness=z1_thickness,
+                material_name=material_def.name,
+            )
+        )
         # Zone 3 plate
-        corner_nodes_z3 = [
-            scia_nodes[f"K_dek:{span}_3"],
-            scia_nodes[f"K_dek:{next_span}_3"],
-            scia_nodes[f"K_dek:{next_span}_4"],
-            scia_nodes[f"K_dek:{span}_4"],
-        ]
-        model.create_plane(corner_nodes_z3, thickness_dict.get(f"Z3_{span}"), name=f"Z3_{span}", material=material)
-
+        z3_thickness = thickness_dict.get(f"Z3_{span}")
+        if z3_thickness is None:
+            raise ValueError(f"Thickness for plate Z3_{span} not found.")
+        plate_defs.append(
+            PlateDefinition(
+                name=f"Z3_{span}",
+                corner_node_names=[
+                    f"K_dek:{span}_3",
+                    f"K_dek:{next_span}_3",
+                    f"K_dek:{next_span}_4",
+                    f"K_dek:{span}_4",
+                ],
+                thickness=z3_thickness,
+                material_name=material_def.name,
+            )
+        )
         # Zone 2 plate
-        corner_nodes_z2 = [
-            scia_nodes[f"K_dek:{span}_2"],
-            scia_nodes[f"K_dek:{next_span}_2"],
-            scia_nodes[f"K_dek:{next_span}_3"],
-            scia_nodes[f"K_dek:{span}_3"],
-        ]
-        model.create_plane(corner_nodes_z2, thickness_dict.get(f"Z2_{span}"), name=f"Z2_{span}", material=material)
+        z2_thickness = thickness_dict.get(f"Z2_{span}")
+        if z2_thickness is None:
+            raise ValueError(f"Thickness for plate Z2_{span} not found.")
+        plate_defs.append(
+            PlateDefinition(
+                name=f"Z2_{span}",
+                corner_node_names=[
+                    f"K_dek:{span}_2",
+                    f"K_dek:{next_span}_2",
+                    f"K_dek:{next_span}_3",
+                    f"K_dek:{span}_3",
+                ],
+                thickness=z2_thickness,
+                material_name=material_def.name,
+            )
+        )
 
-    return model
+    return {
+        "nodes": node_defs,
+        "materials": [material_def],
+        "plates": plate_defs,
+    }
 
 
-def create_complete_bridge_model(params: Any) -> Any:  # noqa: ANN401
+def create_complete_bridge_model(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
-    Create complete SCIA bridge model with geometry and loads.
+    Create a complete set of definitions for a SCIA bridge model.
 
-    This is the main function for creating a fully functional bridge model that includes:
-    - Multi-zone bridge geometry (via create_multi_zone_bridge_model)
-    - Load infrastructure (groups, basic load cases)
-    - Applied theoretical tandem loads
-    - Load combinations
+    This function orchestrates the creation of all necessary definitions for
+    a bridge model, including geometry, load infrastructure, and applied loads,
+    all as pure Python objects.
 
-    Use this function when you need a complete, analysis-ready bridge model.
-    Use create_multi_zone_bridge_model() only when you need geometry without loads.
-
-    :param params: Bridge parameters
-    :returns: Complete SCIA model object with geometry and loads
-    :rtype: Any
+    :param params: Bridge parameters.
+    :return: A dictionary containing all model definitions.
+    :rtype: dict[str, Any]
     """
-    # Step 1: Create bridge geometry
-    scia_model = create_multi_zone_bridge_model(params)
+    # 1. Create geometry definitions
+    geometry_definitions = create_multi_zone_bridge_model(params)
 
-    # Step 2: Create load infrastructure (groups and basic load cases)
-    infrastructure = create_load_infrastructure(scia_model)
-    load_groups = infrastructure["load_groups"]
+    # 2. Create load infrastructure definitions
+    load_infra_definitions = create_load_infrastructure()
+    load_group_definitions = load_infra_definitions["load_group_definitions"]
+    basic_load_case_definitions = load_infra_definitions["basic_load_case_definitions"]
 
-    # Step 3: Add theoretical tandem loads
-    add_theoretical_tandem_loads(scia_model, params, load_groups["traffic"])
+    # 3. Create tandem load definitions
+    traffic_group_name = load_group_definitions["traffic"].name
+    tandem_definitions = add_theoretical_tandem_loads(params, traffic_group_name)
+    tandem_load_case_definitions = tandem_definitions["load_case_definitions"]
+    tandem_surface_load_definitions = tandem_definitions["surface_load_definitions"]
 
-    return scia_model
+    # 4. Create load combination definitions
+    tandem_case_names = [case.name for case in tandem_load_case_definitions]
+    load_combination_definitions = create_standard_load_combinations(
+        basic_load_case_definitions["self_weight"].name,
+        basic_load_case_definitions["wind"].name,
+        tandem_case_names,
+    )
+
+    # 5. Combine all definitions into a single blueprint
+    all_load_case_defs = list(basic_load_case_definitions.values()) + tandem_load_case_definitions
+
+    return {
+        "nodes": geometry_definitions["nodes"],
+        "materials": geometry_definitions["materials"],
+        "plates": geometry_definitions["plates"],
+        "load_groups": list(load_group_definitions.values()),
+        "load_cases": all_load_case_defs,
+        "surface_loads": tandem_surface_load_definitions,
+        "load_combinations": load_combination_definitions,
+    }
 
 
 # Backwards compatibility alias
