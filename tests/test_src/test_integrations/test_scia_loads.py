@@ -14,45 +14,7 @@ from src.integrations.scia_integration.scia_load_combinations import (
 from src.integrations.scia_integration.scia_loads import (
     add_actual_tandem_loads,
     add_theoretical_tandem_loads,
-    create_load_infrastructure,
 )
-
-
-class TestLoadInfrastructure:
-    """Test load infrastructure creation."""
-
-    @patch("src.integrations.scia_integration.scia_loads.create_basic_load_groups")
-    @patch("src.integrations.scia_integration.scia_loads.create_basic_permanent_load_cases")
-    @patch("src.integrations.scia_integration.scia_loads.create_wind_load_case")
-    def test_create_load_infrastructure_success(self, mock_wind_case: Mock, mock_permanent_cases: Mock, mock_load_groups: Mock) -> None:
-        """Test successful load infrastructure creation."""
-        mock_permanent_group = Mock()
-        mock_wind_group = Mock()
-        mock_self_weight_case = Mock()
-        mock_wind_case_obj = Mock()
-
-        # Setup mocks
-        mock_load_groups.return_value = {
-            "permanent": mock_permanent_group,
-            "wind": mock_wind_group,
-            "traffic": Mock(),
-        }
-        mock_permanent_cases.return_value = {"self_weight": mock_self_weight_case}
-        mock_wind_case.return_value = mock_wind_case_obj
-
-        result = create_load_infrastructure()
-
-        # Verify calls
-        mock_load_groups.assert_called_once()
-        mock_permanent_cases.assert_called_once_with(mock_permanent_group.name)
-        mock_wind_case.assert_called_once_with(mock_wind_group.name)
-
-        # Verify result structure
-        assert "load_groups" in result
-        assert "basic_load_cases" in result
-        assert result["load_groups"]["permanent"] is mock_permanent_group
-        assert result["basic_load_cases"]["self_weight"] is mock_self_weight_case
-        assert result["basic_load_cases"]["wind"] is mock_wind_case_obj
 
 
 class TestTheoreticalTandemLoads:
@@ -240,14 +202,6 @@ class TestLoadErrorHandling:
 
         with pytest.raises(Exception, match="Parameter extraction failed"):
             add_theoretical_tandem_loads(mock_params, mock_traffic_group)
-
-    @patch("src.integrations.scia_integration.scia_loads.create_basic_load_groups")
-    def test_load_infrastructure_error_handling(self, mock_load_groups: Mock) -> None:
-        """Test error handling in load infrastructure creation."""
-        mock_load_groups.side_effect = Exception("Load group creation failed")
-
-        with pytest.raises(Exception, match="Load group creation failed"):
-            create_load_infrastructure()
 
 
 if __name__ == "__main__":
