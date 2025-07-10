@@ -12,37 +12,40 @@ class TestTandemFunctionIntegration:
     """Test integration with src.loads.loadcase_helper_functions tandem systems."""
 
     def test_determine_lane_configuration_from_bridge_width(self) -> None:
-        """Test lane count determination using amount_of_notional_lanes."""
+        """Test lane count determination for a wide bridge."""
         from src.integrations.scia_integration.scia_bridge_geometry import determine_tandem_function_for_bridge
 
-        # Test with default bridge data (30m width)
+        # Test with a wide bridge (30m width)
         bridge_dims = {"width_bridgedeck": 30.0}
 
+        # Using default 'theoretical' mode
         result = determine_tandem_function_for_bridge(bridge_dims)
 
-        # 30m width should result in 10 lanes (30/3), so use more_lanes function
-        assert result["function_name"] == "tandem_systems_axes_more_lanes"
+        # 30m width should result in 10 lanes (30/3)
+        assert result["function_name"] == "tandem_systems_theoretical_lanes"
         assert result["lane_count"] == 10
+        assert result["mode"] == "theoretical"
 
-    def test_determine_lane_configuration_single_lane(self) -> None:
-        """Test single lane configuration."""
+    def test_determine_lane_configuration_narrow_bridge(self) -> None:
+        """Test lane count for a narrow bridge."""
         from src.integrations.scia_integration.scia_bridge_geometry import determine_tandem_function_for_bridge
 
-        bridge_dims = {"width_bridgedeck": 5.0}  # Less than 5.4m
+        bridge_dims = {"width_bridgedeck": 5.0}  # Less than 2 lanes wide
         result = determine_tandem_function_for_bridge(bridge_dims)
 
-        assert result["function_name"] == "tandem_systems_axes_single_lane"
-        assert result["lane_count"] == 1
+        assert result["function_name"] == "tandem_systems_theoretical_lanes"
+        assert result["lane_count"] == 1  # 5.0 // 3.0 = 1
+        assert result["mode"] == "theoretical"
 
-    def test_determine_lane_configuration_double_lane(self) -> None:
-        """Test double lane configuration."""
+    def test_determine_tandem_function_actual_mode(self) -> None:
+        """Test tandem function determination in actual mode."""
         from src.integrations.scia_integration.scia_bridge_geometry import determine_tandem_function_for_bridge
 
-        bridge_dims = {"width_bridgedeck": 5.8}  # Between 5.4 and 6.0
-        result = determine_tandem_function_for_bridge(bridge_dims)
+        bridge_dims = {"width_bridgedeck": 24.0}
+        result = determine_tandem_function_for_bridge(bridge_dims, mode="actual")
 
-        assert result["function_name"] == "tandem_systems_axes_double_lane"
-        assert result["lane_count"] == 2
+        assert result["function_name"] == "tandem_systems_actual_lanes"
+        assert result["mode"] == "actual"
 
     def test_generate_tandem_loads_single_lane(self) -> None:
         """Test tandem load generation for single lane bridge."""
