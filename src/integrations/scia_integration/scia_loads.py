@@ -8,13 +8,9 @@ These definitions are pure Python objects that can be used by the app layer to c
 from typing import Any
 
 from .scia_definitions import SurfaceLoadDefinition
-from .scia_load_cases import (
-    create_basic_permanent_load_cases,
-    create_wind_load_case,
-)
 
 # Import definition-based creators
-from .scia_load_group import create_basic_load_groups
+from .scia_load_group import create_all_load_groups
 
 
 def create_patch_surface_load(
@@ -42,24 +38,6 @@ def create_patch_surface_load(
         corner_points=corner_points,
         load_value=load_value,
     )
-
-
-def create_load_infrastructure() -> dict[str, Any]:
-    """Create definitions for basic load infrastructure (groups, cases)."""
-    # Create basic load group definitions
-    load_group_definitions = create_basic_load_groups()
-
-    # Create basic load case definitions, linking them to group definitions by name
-    permanent_group_name = load_group_definitions["permanent"].name
-    wind_group_name = load_group_definitions["wind"].name
-
-    basic_load_case_defs = create_basic_permanent_load_cases(permanent_group_name)
-    basic_load_case_defs["wind"] = create_wind_load_case(wind_group_name)
-
-    return {
-        "load_group_definitions": load_group_definitions,
-        "basic_load_case_definitions": basic_load_case_defs,
-    }
 
 
 def add_theoretical_tandem_loads(
