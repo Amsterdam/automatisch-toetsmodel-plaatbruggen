@@ -46,21 +46,24 @@ class LoadGroupDefinition:
     name: str
     load_option: Literal["PERMANENT", "VARIABLE", "ACCIDENTAL", "SEISMIC"]
     relation: Literal["STANDARD", "EXCLUSIVE", "TOGETHER"]
-    load_type: Literal[
-        "CAT_A",
-        "CAT_B",
-        "CAT_C",
-        "CAT_D",
-        "CAT_E",
-        "CAT_F",
-        "CAT_G",
-        "CAT_H",
-        "WIND",
-        "SNOW",
-        "TEMPERATURE",
-        "RAIN_WATER",
-        "CONSTRUCTION_LOADS",
-    ] | None
+    load_type: (
+        Literal[
+            "CAT_A",
+            "CAT_B",
+            "CAT_C",
+            "CAT_D",
+            "CAT_E",
+            "CAT_F",
+            "CAT_G",
+            "CAT_H",
+            "WIND",
+            "SNOW",
+            "TEMPERATURE",
+            "RAIN_WATER",
+            "CONSTRUCTION_LOADS",
+        ]
+        | None
+    )
 
 
 @dataclass
