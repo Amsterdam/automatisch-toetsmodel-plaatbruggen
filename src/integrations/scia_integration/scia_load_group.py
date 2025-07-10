@@ -1,127 +1,179 @@
 """
-SCIA load group utility module.
+Module for creating SCIA load group definitions.
 
-This module provides utilities for creating and managing load groups in SCIA Engineer.
-Direct functions create specific load groups with predefined parameters.
-
-Currently contains placeholder implementations for basic bridge analysis.
+These functions generate LoadGroupDefinition objects, which serve as pure Python blueprints for creating actual SCIA load groups in the app layer.
+This keeps this module independent of the VIKTOR SDK.
 """
 
-from typing import Any
-
-# Global VIKTOR imports with error handling for CI/testing environments
-try:
-    from viktor.external import scia
-
-    VIKTOR_AVAILABLE = True
-except ImportError:
-    # Mock scia module for environments without VIKTOR SDK
-    scia = None  # type: ignore[misc,assignment]
-    VIKTOR_AVAILABLE = False
-
-# Type aliases for SCIA objects
-SciaModel = Any
-SciaLoadGroup = Any
+from .scia_definitions import LoadGroupDefinition
 
 
-def create_permanent_load_group(model: SciaModel) -> SciaLoadGroup:
+def create_permanent_group() -> LoadGroupDefinition:
     """
-    Create permanent load group LG1 matching SCIA interface.
+    Create definition for permanent load group LG1000.
 
-    Creates load group "LG1" for permanent loads (self-weight, superimposed dead loads)
-    using direct SCIA API to match SCIA Engineer interface exactly.
-
-    :param model: SCIA model instance
-    :returns: Created SCIA permanent load group LG1
-    :rtype: SciaLoadGroup
-    :raises ImportError: When VIKTOR SCIA module is not available
+    :returns: Definition for the permanent load group.
+    :rtype: LoadGroupDefinition
     """
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-    return model.create_load_group(
-        "LG1",
-        scia.LoadGroup.LoadOption.PERMANENT,
-        scia.LoadGroup.RelationOption.STANDARD,
-        scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
+    return LoadGroupDefinition(
+        name="LG1000",
+        load_option="PERMANENT",
+        relation="STANDARD",
+        load_type=None,
     )
 
 
-def create_traffic_load_group(model: SciaModel) -> SciaLoadGroup:
+def create_dead_load_group() -> LoadGroupDefinition:
     """
-    Create traffic load group LG2 matching SCIA interface.
+    Create definition for dead load group LG2000.
 
-    Creates load group "LG2" for traffic loads (tandem, UDL, pedestrian)
-    using direct SCIA API to match SCIA Engineer interface exactly.
-
-    :param model: SCIA model instance
-    :returns: Created SCIA traffic load group LG2
-    :rtype: SciaLoadGroup
-    :raises ImportError: When VIKTOR SCIA module is not available
+    :returns: Definition for the dead load group.
+    :rtype: LoadGroupDefinition
     """
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-    return model.create_load_group(
-        "LG2",
-        scia.LoadGroup.LoadOption.VARIABLE,
-        scia.LoadGroup.RelationOption.STANDARD,
-        scia.LoadGroup.LoadTypeOption.CAT_A,
+    return LoadGroupDefinition(
+        name="LG2000",
+        load_option="PERMANENT",
+        relation="STANDARD",
+        load_type=None,
     )
 
 
-def create_wind_load_group(model: SciaModel) -> SciaLoadGroup:
+def create_temperature_group() -> LoadGroupDefinition:
     """
-    Create wind load group LG3 matching SCIA interface.
+    Create definition for temperature load group LG3000.
 
-    Creates load group "LG3" for wind loads and other environmental loads
-    using direct SCIA API to match SCIA Engineer interface exactly.
-
-    :param model: SCIA model instance
-    :returns: Created SCIA wind load group LG3
-    :rtype: SciaLoadGroup
-    :raises ImportError: When VIKTOR SCIA module is not available
+    :returns: Definition for the temperature load group.
+    :rtype: LoadGroupDefinition
     """
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-    return model.create_load_group(
-        "LG3",
-        scia.LoadGroup.LoadOption.VARIABLE,
-        scia.LoadGroup.RelationOption.STANDARD,
-        scia.LoadGroup.LoadTypeOption.CAT_A,
+    return LoadGroupDefinition(
+        name="LG3000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="TEMPERATURE",
     )
 
 
-def create_basic_load_groups(model: SciaModel) -> dict[str, SciaLoadGroup]:
+def create_udl_group() -> LoadGroupDefinition:
     """
-    Create all basic load groups for bridge analysis.
+    Create definition for UDL load group LG4000.
 
-    Creates permanent, traffic, and wind load groups that are typically
-    needed for bridge structural analysis.
-
-    PLACEHOLDER: Currently creates basic groups. Will be expanded to include
-    additional load groups for complete bridge analysis (seismic, construction, etc.).
-
-    :param model: SCIA model instance
-    :returns: Dictionary with created load groups
-    :rtype: dict[str, SciaLoadGroup]
+    :returns: Definition for the UDL load group.
+    :rtype: LoadGroupDefinition
     """
-    permanent_group = create_permanent_load_group(model)
-    traffic_group = create_traffic_load_group(model)
-    wind_group = create_wind_load_group(model)
+    return LoadGroupDefinition(
+        name="LG4000",
+        load_option="VARIABLE",
+        relation="STANDARD",
+        load_type="CONSTRUCTION_LOADS",
+    )
 
+
+def create_crowd_load_group() -> LoadGroupDefinition:
+    """
+    Create definition for crowd load group LG5000.
+
+    :returns: Definition for the crowd load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG5000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_service_vehicle_group() -> LoadGroupDefinition:
+    """
+    Create definition for service vehicle load group LG6000.
+
+    :returns: Definition for the service vehicle load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG6000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_accidental_vehicle_group() -> LoadGroupDefinition:
+    """
+    Create definition for accidental vehicle load group LG7000.
+
+    :returns: Definition for the accidental vehicle load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG7000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_ts_lane_1_group() -> LoadGroupDefinition:
+    """
+    Create definition for Tandem System lane 1 load group LG8000.
+
+    :returns: Definition for the TS lane 1 load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG8000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_ts_lane_2_group() -> LoadGroupDefinition:
+    """
+    Create definition for Tandem System lane 2 load group LG9000.
+
+    :returns: Definition for the TS lane 2 load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG9000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_ts_lane_3_group() -> LoadGroupDefinition:
+    """
+    Create definition for Tandem System lane 3 load group LG10000.
+
+    :returns: Definition for the TS lane 3 load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG10000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_all_load_groups() -> dict[str, LoadGroupDefinition]:
+    """
+    Create all basic load group definitions for bridge analysis.
+
+    :returns: Dictionary of all load group definitions.
+    :rtype: dict[str, LoadGroupDefinition]
+    """
     return {
-        "permanent": permanent_group,
-        "traffic": traffic_group,
-        "wind": wind_group,
+        "permanent": create_permanent_group(),
+        "dead_load": create_dead_load_group(),
+        "temperature": create_temperature_group(),
+        "udl": create_udl_group(),
+        "crowd": create_crowd_load_group(),
+        "service_vehicle": create_service_vehicle_group(),
+        "accidental_vehicle": create_accidental_vehicle_group(),
+        "ts_lane_1": create_ts_lane_1_group(),
+        "ts_lane_2": create_ts_lane_2_group(),
+        "ts_lane_3": create_ts_lane_3_group(),
     }
-
-
-# TODO: Additional load group creation functions to be added for complete bridge analysis
-# - create_seismic_load_group() - for seismic loads
-# - create_construction_load_group() - for construction stage loads
-# - create_temperature_load_group() - for temperature effects
-# - create_settlement_load_group() - for settlement effects
-# - create_prestress_load_group() - for prestressing loads
-# - create_special_vehicle_load_group() - for special vehicle loads

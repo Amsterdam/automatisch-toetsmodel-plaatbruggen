@@ -4,6 +4,16 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -23,17 +33,6 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
-)
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -496,7 +495,6 @@ Below you will find important information about this bridge structure."""
     input.belastingcombinaties.cc_class = OptionField(
         "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
     )
-    input.belastingcombinaties.comb_types = MultiSelectField("Belastingscombinaties", options=["ULS", "SLS", "FAT"])
     input.belastingcombinaties.lb = LineBreak()
     input.belastingcombinaties.design_code = OptionField(
         "Norm", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
