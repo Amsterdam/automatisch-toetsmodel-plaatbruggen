@@ -14,9 +14,9 @@ from .scia_definitions import MaterialDefinition, NodeDefinition, PlateDefinitio
 # Import load application functions from dedicated module
 
 
-def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
+def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
     """
-    Create definitions for a SCIA bridge model with multi-zone plates.
+    Define the geometry for a SCIA bridge model (nodes, materials, plates).
 
     :param params: Bridge parameters.
     :return: A dictionary containing lists of node, material, and plate definitions.
@@ -94,3 +94,23 @@ def create_multi_zone_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN
         "materials": [material_def],
         "plates": plate_defs,
     }
+
+
+def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
+    """
+    Define a complete SCIA bridge model, including geometry, loads, etc.
+
+    This function aggregates definitions for geometry, loads, and combinations.
+    Currently, it only generates the geometry.
+
+    :param params: Bridge parameters.
+    :return: A dictionary containing all model part definitions.
+    :rtype: dict[str, list]
+    """
+    definitions = _define_bridge_geometry(params)
+    # Placeholder for future additions
+    definitions["load_groups"] = []
+    definitions["load_cases"] = []
+    definitions["surface_loads"] = []
+    definitions["load_combinations"] = []
+    return definitions

@@ -5,7 +5,9 @@ This module acts as a bridge between the pure Python definitions from the src la
 and the VIKTOR SDK's SCIA integration. It translates the definition objects into
 actual scia.Model components.
 """
-
+import io
+from io import BytesIO
+from pathlib import Path
 from typing import Any, TypeAlias
 
 from src.integrations.scia_integration.scia_definitions import (
@@ -15,15 +17,18 @@ from src.integrations.scia_integration.scia_definitions import (
     SurfaceLoadDefinition,
 )
 from src.integrations.scia_integration.scia_load_combinations import SciaLoadCombination
+from src.integrations.scia_integration.scia_model import define_complete_bridge_model
 
 # Global VIKTOR imports with error handling for CI/testing environments
 try:
+    from viktor.core import File
     from viktor.external import scia
 
     VIKTOR_AVAILABLE = True
 except ImportError:
     # Mock scia module for environments without VIKTOR SDK
     scia = None  # type: ignore[misc,assignment]
+    File = None  # type: ignore[misc,assignment]
     VIKTOR_AVAILABLE = False
 
 # Type aliases for SCIA objects
@@ -38,7 +43,7 @@ def _check_scia_availability() -> None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
 
-def create_load_group_from_definition(model: SciaModel, definition: LoadGroupDefinition) -> SciaLoadGroup:
+def create_load_group(model: SciaModel, definition: LoadGroupDefinition) -> SciaLoadGroup:
     """
     Create a SCIA load group from a LoadGroupDefinition.
 
@@ -89,7 +94,7 @@ def create_load_group_from_definition(model: SciaModel, definition: LoadGroupDef
     )
 
 
-def create_load_case_from_definition(model: SciaModel, definition: LoadCaseDefinition, load_groups: dict[str, SciaLoadGroup]) -> SciaLoadCase:
+def create_load_case(model: SciaModel, definition: LoadCaseDefinition, load_groups: dict[str, SciaLoadGroup]) -> SciaLoadCase:
     """
     Create a SCIA load case from a LoadCaseDefinition.
 
@@ -189,7 +194,7 @@ def create_patch_surface_load(
     )
 
 
-def create_load_combination_from_definition(
+def create_load_combination(
     model: SciaModel, combo_def: LoadCombinationDefinition, load_cases: dict[str, SciaLoadCase]
 ) -> SciaLoadCombination:
     """
@@ -239,18 +244,18 @@ def build_load_infrastructure(model: SciaModel, definitions: dict[str, Any]) -> 
     # 1. Build Load Groups
     created_load_groups = {}
     for name, group_def in definitions["load_group_definitions"].items():
-        created_load_groups[name] = create_load_group_from_definition(model, group_def)
+        created_load_groups[name] = create_load_group(model, group_def)
 
     # 2. Build Load Cases
     created_load_cases = {}
     for name, case_def in definitions["basic_load_case_definitions"].items():
         # The builder function will find the correct group object from the created_load_groups dict
-        created_load_cases[name] = create_load_case_from_definition(model, case_def, created_load_groups)
+        created_load_cases[name] = create_load_case(model, case_def, created_load_groups)
 
     return {"load_groups": created_load_groups, "load_cases": created_load_cases}
 
 
-def build_geometry_from_definitions(model: SciaModel, definitions: dict[str, list]) -> dict[str, dict]:
+def build_geometry(model: SciaModel, definitions: dict[str, list]) -> dict[str, dict]:
     """
     Build the geometry (nodes, materials, plates) from definitions.
 
@@ -261,7 +266,7 @@ def build_geometry_from_definitions(model: SciaModel, definitions: dict[str, lis
     _check_scia_availability()
 
     # 1. Build Materials
-    created_materials = {mat_def.name: model.create_material(mat_def.material_id, mat_def.name) for mat_def in definitions["materials"]}
+    created_materials = {mat_def.name: scia.Material(mat_def.material_id, mat_def.name) for mat_def in definitions["materials"]}
 
     # 2. Build Nodes
     created_nodes = {node_def.name: model.create_node(node_def.name, node_def.x, node_def.y, node_def.z) for node_def in definitions["nodes"]}
@@ -281,7 +286,7 @@ def build_geometry_from_definitions(model: SciaModel, definitions: dict[str, lis
     return {"nodes": created_nodes, "materials": created_materials, "plates": created_plates}
 
 
-def build_surface_loads_from_definitions(
+def build_surface_loads(
     model: SciaModel,
     definitions: list[SurfaceLoadDefinition],
     load_cases: dict[str, SciaLoadCase],
@@ -328,7 +333,7 @@ def build_surface_loads_from_definitions(
     return created_loads
 
 
-def build_load_combinations_from_definitions(
+def build_load_combinations(
     model: SciaModel,
     definitions: list[LoadCombinationDefinition],
     load_cases: dict[str, SciaLoadCase],
@@ -376,7 +381,7 @@ def build_load_combinations_from_definitions(
     return created_combinations
 
 
-def build_scia_model_from_definitions(definitions: dict[str, list]) -> SciaModel:
+def build_scia_model(definitions: dict[str, list]) -> SciaModel:
     """
     Build a complete SCIA model from a set of definitions.
 
@@ -390,7 +395,7 @@ def build_scia_model_from_definitions(definitions: dict[str, list]) -> SciaModel
     model = scia.Model()
 
     # 1. Build Geometry
-    build_geometry_from_definitions(model, definitions)
+    build_geometry(model, definitions)
 
     # 2. Build Load Infrastructure (Groups and Cases)
     # Re-structure definitions for the builder
@@ -402,9 +407,84 @@ def build_scia_model_from_definitions(definitions: dict[str, list]) -> SciaModel
     all_load_cases = load_infra_parts["load_cases"]
 
     # 3. Build Surface Loads
-    build_surface_loads_from_definitions(model, definitions["surface_loads"], all_load_cases)
+    if definitions["surface_loads"]:
+        build_surface_loads(model, definitions["surface_loads"], all_load_cases)
 
     # 4. Build Load Combinations
-    build_load_combinations_from_definitions(model, definitions["load_combinations"], all_load_cases)
+    if definitions["load_combinations"]:
+        build_load_combinations(model, definitions["load_combinations"], all_load_cases)
 
     return model
+
+
+# =============================================================================
+# XML GENERATION AND ANALYSIS SETUP
+# =============================================================================
+
+
+def generate_xml_from_model(scia_model: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
+    """
+    Generate XML and definition files from SCIA model.
+
+    :param scia_model: SCIA model object
+    :returns: (xml_file, def_file) for SCIA analysis
+    :rtype: tuple[BytesIO, BytesIO]
+    :raises ImportError: When VIKTOR SCIA module is not available
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    return scia_model.generate_xml_input()
+
+
+def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401
+    """
+    Create SCIA analysis using template file.
+
+    :param xml_file: Generated XML input file
+    :param def_file: Generated definition file
+    :param template_path: Path to ESA template
+    :returns: SCIA analysis object
+    :rtype: Any
+    :raises ImportError: When VIKTOR SCIA module is not available
+    :raises FileNotFoundError: When template file is not found
+    """
+    if not VIKTOR_AVAILABLE or scia is None or File is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    if not template_path.exists():
+        raise FileNotFoundError(f"SCIA template file not found: {template_path}")
+
+    esa_template = File.from_path(template_path)
+    return scia.SciaAnalysis(xml_file, def_file, esa_template)
+
+
+def generate_bridge_xml_files(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
+    """
+    Generate XML and definition files for SCIA bridge analysis.
+
+    :param params: Bridge parameters
+    :returns: (xml_file, def_file) for SCIA analysis
+    :rtype: tuple[BytesIO, BytesIO]
+    """
+    definitions = define_complete_bridge_model(params)
+    scia_model = build_scia_model(definitions)
+    return generate_xml_from_model(scia_model)
+
+
+def setup_bridge_analysis(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401
+    """
+    Complete bridge analysis setup: model creation → XML generation → analysis setup.
+
+    :param params: Bridge parameters
+    :param template_path: Path to ESA template file
+    :returns: (xml_file, def_file, scia_analysis)
+    :rtype: tuple[Any, Any, Any]
+    """
+    # Generate XML files from complete bridge model
+    xml_file, def_file = generate_bridge_xml_files(params)
+
+    # Setup analysis with template
+    scia_analysis = create_scia_analysis_from_template(xml_file, def_file, template_path)
+
+    return xml_file, def_file, scia_analysis

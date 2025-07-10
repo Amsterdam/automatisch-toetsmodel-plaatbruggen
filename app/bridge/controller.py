@@ -66,6 +66,8 @@ from .parametrization import (
     BridgeParametrization,
 )
 
+from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
+
 
 # Define TypedDict for a row from params.bridge_segments_array
 class BridgeSegmentParamRow(TypedDict):
@@ -490,6 +492,67 @@ class BridgeController(ViktorController):
     def _raise_empty_idea_xml_error(self) -> None:
         """Raise UserError for empty IDEA XML file."""
         raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
+
+    def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Download SCIA XML and definition files as a ZIP archive."""
+        if not params.bridge_segments_array:
+            self._raise_no_bridge_segments_error()
+
+        try:
+            xml_file, def_file = generate_bridge_xml_files(params)
+
+            xml_content = xml_file.getvalue()
+            if not xml_content:
+                self._raise_empty_xml_error()
+
+            def_content = def_file.getvalue()
+            if not def_content:
+                self._raise_empty_def_error()
+
+            zip_file_obj = File()
+            with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+                z.writestr("model.xml", xml_content)
+                z.writestr("model.def", def_content)
+
+            return DownloadResult(zip_file_obj, "scia_model_files.zip")
+
+        except Exception as e:
+            raise UserError(f"SCIA XML generatie gefaald: {e!s}")
+
+    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Generate and download a complete SCIA ESA model file."""
+        if not params.bridge_segments_array:
+            self._raise_no_bridge_segments_error()
+
+        try:
+            template_path = self._get_scia_template_path()
+            xml_file, def_file, scia_analysis = setup_bridge_analysis(params, template_path)
+
+            # Validate generated files before analysis
+            if not xml_file.getvalue():
+                self._raise_empty_xml_error()
+            if not def_file.getvalue():
+                self._raise_empty_def_error()
+
+            # Execute analysis and get the ESA file
+            scia_analysis.execute(timeout=120)  # 2-minute timeout
+            esa_file = scia_analysis.get_updated_esa_model(as_file=True)
+
+            if not esa_file:
+                self._raise_empty_esa_error()
+
+            return DownloadResult(esa_file, "model.esa")
+
+        except Exception as e:
+            error_msg = (
+                f"SCIA ESA model generatie gefaald: {e!s}\n\n"
+                "Mogelijke oorzaken:\n"
+                "- SCIA worker niet beschikbaar of niet correct geïnstalleerd.\n"
+                "- SCIA Engineer licentieproblemen.\n"
+                "- Template-bestand is ongeldig of niet compatibel.\n\n"
+                "Probeer in plaats daarvan de XML-bestanden te downloaden."
+            )
+            raise UserError(error_msg)
 
     # ============================================================================================================
     # IDEA StatiCa Integration
