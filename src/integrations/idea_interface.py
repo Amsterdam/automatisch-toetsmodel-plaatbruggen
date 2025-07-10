@@ -116,48 +116,48 @@ def _get_rebar_config(
 
     # Get needed reinforcement data in mm
     main_reinf_diameters = {
-        "top_langs": rebar_config.get("hoofdwapening_langs_boven_diameter"),
-        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_diameter"),
-        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_diameter"),
-        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_diameter"),
+        "top_langs": rebar_config.get("hoofdwapening_langs_boven_diameter", 0.0),
+        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_diameter", 0.0),
+        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_diameter", 0.0),
+        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_diameter", 0.0),
     }
 
     # Get center to center distances in mm
     main_reinf_ctc_distances = {
-        "top_langs": rebar_config.get("hoofdwapening_langs_boven_hart_op_hart"),
-        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_hart_op_hart"),
-        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_hart_op_hart"),
-        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart"),
+        "top_langs": rebar_config.get("hoofdwapening_langs_boven_hart_op_hart", 0.0),
+        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_hart_op_hart", 0.0),
+        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_hart_op_hart", 0.0),
+        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart", 0.0),
     }
 
     # check if additional reinforcement is used and set the diameters and distances accordingly
     # those values are mm!
     if rebar_config.get("heeft_bijlegwapening"):
         extra_reinf_diameter = {
-            "top_langs": rebar_config.get("bijlegwapening_langs_boven_diameter"),
-            "top_dwars": rebar_config.get("bijlegwapening_dwars_boven_diameter"),
-            "bottom_langs": rebar_config.get("bijlegwapening_langs_onder_diameter"),
-            "bottom_dwars": rebar_config.get("bijlegwapening_dwars_onder_diameter"),
+            "top_langs": rebar_config.get("bijlegwapening_langs_boven_diameter", 0.0),
+            "top_dwars": rebar_config.get("bijlegwapening_dwars_boven_diameter", 0.0),
+            "bottom_langs": rebar_config.get("bijlegwapening_langs_onder_diameter", 0.0),
+            "bottom_dwars": rebar_config.get("bijlegwapening_dwars_onder_diameter", 0.0),
         }
         extra_reinf_ctc_distances = {
-            "top_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart"),
-            "top_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart"),
-            "bottom_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart"),
-            "bottom_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart"),
+            "top_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "top_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "bottom_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "bottom_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
         }
     else:
         # If no additional reinforcement is used, set diameters and distances to zero
         extra_reinf_diameter = {
-            "top_langs": 0,
-            "top_dwars": 0,
-            "bottom_langs": 0,
-            "bottom_dwars": 0,
+            "top_langs": 0.0,
+            "top_dwars": 0.0,
+            "bottom_langs": 0.0,
+            "bottom_dwars": 0.0,
         }
         extra_reinf_ctc_distances = {
-            "top_langs": 0,
-            "top_dwars": 0,
-            "bottom_langs": 0,
-            "bottom_dwars": 0,
+            "top_langs": 0.0,
+            "top_dwars": 0.0,
+            "bottom_langs": 0.0,
+            "bottom_dwars": 0.0,
         }
 
     # create new dict with max diameters to calculate reinforcement heights
