@@ -116,14 +116,14 @@ def create_wind_uls_combination(
 
 def create_standard_load_combinations(
     self_weight_case_name: str,
-    wind_case_name: str,
     tandem_load_case_names: list[str],
+    wind_case_name: str | None = None,
 ) -> list[LoadCombinationDefinition]:
     """
     Create a list of standard ULS and SLS load combination definitions.
 
     :param self_weight_case_name: Name of the self-weight load case.
-    :param wind_case_name: Name of the wind load case.
+    :param wind_case_name: Optional name of the wind load case.
     :param tandem_load_case_names: List of tandem load case names.
     :return: A list of LoadCombinationDefinition objects.
     :rtype: list[LoadCombinationDefinition]
@@ -133,7 +133,10 @@ def create_standard_load_combinations(
         combo_id = f"T{i + 1}"
         definitions.append(create_basic_uls_combination(self_weight_case_name, tandem_case_name, f"ULS_{combo_id}"))
         definitions.append(create_basic_sls_combination(self_weight_case_name, tandem_case_name, f"SLS_{combo_id}"))
-        definitions.append(create_wind_uls_combination(self_weight_case_name, tandem_case_name, wind_case_name, f"ULS_WIND_{combo_id}"))
+        if wind_case_name:
+            definitions.append(
+                create_wind_uls_combination(self_weight_case_name, tandem_case_name, wind_case_name, f"ULS_WIND_{combo_id}")
+            )
     return definitions
 
 

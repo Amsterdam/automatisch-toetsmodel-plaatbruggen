@@ -307,24 +307,12 @@ def build_surface_loads(
 
         xy_points = [(x, y) for x, y, z in load_def.corner_points]
 
-        def polygon_area(points: list[tuple[float, float]]) -> float:
-            n = len(points)
-            area = 0.0
-            for i in range(n):
-                j = (i + 1) % n
-                area += points[i][0] * points[j][1]
-                area -= points[j][0] * points[i][1]
-            return abs(area) / 2.0
-
-        patch_area = polygon_area(xy_points)
-        total_load = load_def.load_value * patch_area
-
         created_loads.append(
             model.create_free_surface_load(
                 name=load_def.name,
                 load_case=load_case,
                 direction=scia.FreeSurfaceLoad.Direction.Z,
-                q1=total_load,
+                q1=load_def.load_value,  # Pass the distributed load value directly
                 points=xy_points,
                 distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
             )
@@ -397,21 +385,21 @@ def build_scia_model(definitions: dict[str, list]) -> SciaModel:
     build_geometry(model, definitions)
 
     # 2. Build Load Infrastructure (Groups and Cases)
-    # Re-structure definitions for the builder
-    load_infra_defs = {
-        "load_group_definitions": {group.name: group for group in definitions["load_groups"]},
-        "basic_load_case_definitions": {case.name: case for case in definitions["load_cases"]},
-    }
-    load_infra_parts = build_load_infrastructure(model, load_infra_defs)
-    all_load_cases = load_infra_parts["load_cases"]
+    if definitions.get("load_groups") and definitions.get("load_cases"):
+        load_infra_defs = {
+            "load_group_definitions": {group.name: group for group in definitions["load_groups"]},
+            "basic_load_case_definitions": {case.name: case for case in definitions["load_cases"]},
+        }
+        load_infra_parts = build_load_infrastructure(model, load_infra_defs)
+        all_load_cases = load_infra_parts["load_cases"]
 
-    # 3. Build Surface Loads
-    if definitions["surface_loads"]:
-        build_surface_loads(model, definitions["surface_loads"], all_load_cases)
+        # 3. Build Surface Loads
+        if definitions.get("surface_loads"):
+            build_surface_loads(model, definitions["surface_loads"], all_load_cases)
 
-    # 4. Build Load Combinations
-    if definitions["load_combinations"]:
-        build_load_combinations(model, definitions["load_combinations"], all_load_cases)
+        # 4. Build Load Combinations
+        if definitions.get("load_combinations"):
+            build_load_combinations(model, definitions["load_combinations"], all_load_cases)
 
     return model
 
