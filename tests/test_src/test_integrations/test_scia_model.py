@@ -135,10 +135,14 @@ class TestDefineCompleteBridgeModel:
         assert isinstance(result, dict)
         assert "nodes" in result
         # Check for placeholder keys
-        assert "load_groups" in result and result["load_groups"] == []
-        assert "load_cases" in result and result["load_cases"] == []
-        assert "surface_loads" in result and result["surface_loads"] == []
-        assert "load_combinations" in result and result["load_combinations"] == []
+        assert "load_groups" in result
+        assert result["load_groups"] == []
+        assert "load_cases" in result
+        assert result["load_cases"] == []
+        assert "surface_loads" in result
+        assert result["surface_loads"] == []
+        assert "load_combinations" in result
+        assert result["load_combinations"] == []
         mock_define_geometry.assert_called_once_with(mock_params)
 
 
