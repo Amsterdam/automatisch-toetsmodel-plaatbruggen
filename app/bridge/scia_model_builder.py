@@ -345,7 +345,7 @@ def build_load_combinations_from_definitions(
     created_combinations = []
     for combo_def in definitions:
         scia_case_factors = {load_cases[name]: factor for name, factor in combo_def.load_case_factors.items()}
-        combo_type = combination_type_map[combo_def.combination_type]
+        combo_type = combination_type_map[combo_def.combination_type.value]
         created_combinations.append(
             model.create_load_combination(
                 combo_def.name,
