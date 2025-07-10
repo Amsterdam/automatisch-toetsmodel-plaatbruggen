@@ -57,13 +57,10 @@ class LoadGroupDefinition:
         "CAT_H",
         "WIND",
         "SNOW",
-        "TEMPERATURE_T",
-        "TEMPERATURE_T_SUP",
-        "TEMPERATURE_T_INF",
-        "ACCIDENTAL",
-        "SEISMIC",
-        "VARIABLE_LOADS",
-    ]
+        "TEMPERATURE",
+        "RAIN_WATER",
+        "CONSTRUCTION_LOADS",
+    ] | None
 
 
 @dataclass

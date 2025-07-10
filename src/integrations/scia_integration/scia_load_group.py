@@ -5,68 +5,175 @@ These functions generate LoadGroupDefinition objects, which serve as pure Python
 This keeps this module independent of the VIKTOR SDK.
 """
 
-from typing import Any, TypeAlias
-
 from .scia_definitions import LoadGroupDefinition
 
-# Type alias for SCIA model object (kept for type hinting consistency in higher-level functions)
-SciaModel: TypeAlias = Any
 
-
-def create_permanent_load_group() -> LoadGroupDefinition:
+def create_permanent_group() -> LoadGroupDefinition:
     """
-    Create definition for permanent load group LG1.
+    Create definition for permanent load group LG1000.
 
     :returns: Definition for the permanent load group.
     :rtype: LoadGroupDefinition
     """
     return LoadGroupDefinition(
-        name="LG1",
+        name="LG1000",
         load_option="PERMANENT",
         relation="STANDARD",
-        load_type="CAT_G",  # Category G: Storage and industrial areas
+        load_type=None,
     )
 
 
-def create_traffic_load_group() -> LoadGroupDefinition:
+def create_dead_load_group() -> LoadGroupDefinition:
     """
-    Create definition for traffic load group LG2.
+    Create definition for dead load group LG2000.
 
-    :returns: Definition for the traffic load group.
+    :returns: Definition for the dead load group.
     :rtype: LoadGroupDefinition
     """
     return LoadGroupDefinition(
-        name="LG2",
-        load_option="VARIABLE",
+        name="LG2000",
+        load_option="PERMANENT",
         relation="STANDARD",
-        load_type="VARIABLE_LOADS",
+        load_type=None,
     )
 
 
-def create_wind_load_group() -> LoadGroupDefinition:
+def create_temperature_group() -> LoadGroupDefinition:
     """
-    Create definition for wind load group LG3.
+    Create definition for temperature load group LG3000.
 
-    :returns: Definition for the wind load group.
+    :returns: Definition for the temperature load group.
     :rtype: LoadGroupDefinition
     """
     return LoadGroupDefinition(
-        name="LG3",
+        name="LG3000",
         load_option="VARIABLE",
-        relation="STANDARD",
-        load_type="VARIABLE_LOADS",
+        relation="EXCLUSIVE",
+        load_type="TEMPERATURE",
     )
 
 
-def create_basic_load_groups() -> dict[str, LoadGroupDefinition]:
+def create_udl_group() -> LoadGroupDefinition:
+    """
+    Create definition for UDL load group LG4000.
+
+    :returns: Definition for the UDL load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG4000",
+        load_option="VARIABLE",
+        relation="STANDARD",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_crowd_load_group() -> LoadGroupDefinition:
+    """
+    Create definition for crowd load group LG5000.
+
+    :returns: Definition for the crowd load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG5000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_service_vehicle_group() -> LoadGroupDefinition:
+    """
+    Create definition for service vehicle load group LG6000.
+
+    :returns: Definition for the service vehicle load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG6000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_accidental_vehicle_group() -> LoadGroupDefinition:
+    """
+    Create definition for accidental vehicle load group LG7000.
+
+    :returns: Definition for the accidental vehicle load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG7000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_ts_lane_1_group() -> LoadGroupDefinition:
+    """
+    Create definition for Tandem System lane 1 load group LG8000.
+
+    :returns: Definition for the TS lane 1 load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG8000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_ts_lane_2_group() -> LoadGroupDefinition:
+    """
+    Create definition for Tandem System lane 2 load group LG9000.
+
+    :returns: Definition for the TS lane 2 load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG9000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_ts_lane_3_group() -> LoadGroupDefinition:
+    """
+    Create definition for Tandem System lane 3 load group LG10000.
+
+    :returns: Definition for the TS lane 3 load group.
+    :rtype: LoadGroupDefinition
+    """
+    return LoadGroupDefinition(
+        name="LG10000",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_all_load_groups() -> dict[str, LoadGroupDefinition]:
     """
     Create all basic load group definitions for bridge analysis.
 
-    :returns: Dictionary of basic load group definitions.
+    :returns: Dictionary of all load group definitions.
     :rtype: dict[str, LoadGroupDefinition]
     """
     return {
-        "permanent": create_permanent_load_group(),
-        "traffic": create_traffic_load_group(),
-        "wind": create_wind_load_group(),
+        "permanent": create_permanent_group(),
+        "dead_load": create_dead_load_group(),
+        "temperature": create_temperature_group(),
+        "udl": create_udl_group(),
+        "crowd": create_crowd_load_group(),
+        "service_vehicle": create_service_vehicle_group(),
+        "accidental_vehicle": create_accidental_vehicle_group(),
+        "ts_lane_1": create_ts_lane_1_group(),
+        "ts_lane_2": create_ts_lane_2_group(),
+        "ts_lane_3": create_ts_lane_3_group(),
     }
