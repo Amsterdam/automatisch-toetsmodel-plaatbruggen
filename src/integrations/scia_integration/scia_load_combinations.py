@@ -134,9 +134,7 @@ def create_standard_load_combinations(
         definitions.append(create_basic_uls_combination(self_weight_case_name, tandem_case_name, f"ULS_{combo_id}"))
         definitions.append(create_basic_sls_combination(self_weight_case_name, tandem_case_name, f"SLS_{combo_id}"))
         if wind_case_name:
-            definitions.append(
-                create_wind_uls_combination(self_weight_case_name, tandem_case_name, wind_case_name, f"ULS_WIND_{combo_id}")
-            )
+            definitions.append(create_wind_uls_combination(self_weight_case_name, tandem_case_name, wind_case_name, f"ULS_WIND_{combo_id}"))
     return definitions
 
 
