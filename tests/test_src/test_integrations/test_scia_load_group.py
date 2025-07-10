@@ -119,51 +119,34 @@ class TestLoadGroupCreation:
 class TestAllLoadGroups:
     """Tests for the helper function that creates all load groups."""
 
-    @patch("src.integrations.scia_integration.scia_load_group.create_permanent_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_dead_load_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_temperature_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_udl_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_crowd_load_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_service_vehicle_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_accidental_vehicle_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_ts_lane_1_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_ts_lane_2_group")
-    @patch("src.integrations.scia_integration.scia_load_group.create_ts_lane_3_group")
-    def test_create_all_load_groups_calls(
-        self,
-        mock_ts3: Mock,
-        mock_ts2: Mock,
-        mock_ts1: Mock,
-        mock_accidental: Mock,
-        mock_service: Mock,
-        mock_crowd: Mock,
-        mock_udl: Mock,
-        mock_temp: Mock,
-        mock_dead: Mock,
-        mock_perm: Mock,
-    ) -> None:
+    def test_create_all_load_groups_calls(self) -> None:
         """Test that all individual creation functions are called."""
-        mocks = {
-            "permanent": mock_perm,
-            "dead_load": mock_dead,
-            "temperature": mock_temp,
-            "udl": mock_udl,
-            "crowd": mock_crowd,
-            "service_vehicle": mock_service,
-            "accidental_vehicle": mock_accidental,
-            "ts_lane_1": mock_ts1,
-            "ts_lane_2": mock_ts2,
-            "ts_lane_3": mock_ts3,
+        import src.integrations.scia_integration.scia_load_group as load_group_module
+
+        group_creators = {
+            "permanent": "create_permanent_group",
+            "dead_load": "create_dead_load_group",
+            "temperature": "create_temperature_group",
+            "udl": "create_udl_group",
+            "crowd": "create_crowd_load_group",
+            "service_vehicle": "create_service_vehicle_group",
+            "accidental_vehicle": "create_accidental_vehicle_group",
+            "ts_lane_1": "create_ts_lane_1_group",
+            "ts_lane_2": "create_ts_lane_2_group",
+            "ts_lane_3": "create_ts_lane_3_group",
         }
-        for mock_func in mocks.values():
-            mock_func.return_value = Mock()
 
-        definitions = create_all_load_groups()
+        with patch.multiple(load_group_module, **{name: Mock() for name in group_creators.values()}) as mocks:
+            for mock_func in mocks.values():
+                mock_func.return_value = Mock(spec=LoadGroupDefinition)
 
-        for key, mock_func in mocks.items():
-            mock_func.assert_called_once()
-            assert definitions[key] is mock_func.return_value
-        assert len(definitions) == len(mocks)
+            definitions = create_all_load_groups()
+
+            for key, creator_name in group_creators.items():
+                assert key in definitions
+                mocks[creator_name].assert_called_once()
+                assert definitions[key] is mocks[creator_name].return_value
+            assert len(definitions) == len(group_creators)
 
     def test_create_all_load_groups_return_structure(self) -> None:
         """Test that the function returns the expected dictionary structure."""
