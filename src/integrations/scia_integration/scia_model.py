@@ -124,7 +124,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     :rtype: dict[str, list]
     """
     definitions = _define_bridge_geometry(params)
-    bridge_dims = extract_bridge_dimensions(params)
+    # bridge_dims = extract_bridge_dimensions(params)
     definitions["line_supports"] = define_line_supports(definitions["plates"])
 
     # 1. Define Load Groups
