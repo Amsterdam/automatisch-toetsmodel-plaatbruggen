@@ -146,6 +146,10 @@ def add_asfalt_loads(
     bridge_geom_data = get_bridge_geom_data(_params)
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return []
+
     # Iterate through load zones and apply asphalt loads
     for load_zone in load_zones_data_params:
         if load_zone["type"] == "Asfalt":
@@ -154,16 +158,16 @@ def add_asfalt_loads(
                 # Create individual surface load for each span in the asphalt zone
                 y_coord_top_left = load_zone["y_coords_top_current_zone"][span - 1]
                 y_coord_top_right = load_zone["y_coords_top_current_zone"][span]
-                x_coord_left = bridge_geom_data["x_coords_d_points="][span - 1]
-                x_coord_right = bridge_geom_data["x_coords_d_points="][span]
+                x_coord_left = bridge_geom_data.x_coords_d_points[span - 1]
+                x_coord_right = bridge_geom_data.x_coords_d_points[span]
                 corners = [
-                    (x_coord_left, y_coord_top_left, 0),
-                    (x_coord_right, y_coord_top_right, 0),
-                    (x_coord_right, y_coord_top_left, 0),
-                    (x_coord_left, y_coord_top_right, 0),
+                    (x_coord_left, y_coord_top_left, 0.0),
+                    (x_coord_right, y_coord_top_right, 0.0),
+                    (x_coord_right, y_coord_top_left, 0.0),
+                    (x_coord_left, y_coord_top_right, 0.0),
                 ]
                 create_patch_surface_load(
-                    load_case_name=load_zone["name"],  # TODO geen idee wat dit meot zijn
+                    load_case_name=f"{load_zone['zone_type']}_Asfalt", # TODO is dit correct?
                     corner_points=corners,
                     load_value=23,  # TODO: Example load value, replace with actual
                     load_name=f"{load_zone['zone_type']}_Asfalt_d{load_zone['pavement_thickness']}",
