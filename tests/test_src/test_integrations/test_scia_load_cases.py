@@ -74,6 +74,7 @@ class TestUdlTrafficLoadCases:
     """Tests for creating UDL traffic load case definitions."""
 
     def test_create_udl_traffic_load_cases(self) -> None:
+        """Test creation of UDL traffic load case definitions."""
         definitions = create_udl_traffic_load_cases()
         assert len(definitions) == 4
         assert definitions[0].name == "BG4001"
@@ -86,6 +87,7 @@ class TestPedestrianLoadCase:
     """Tests for creating pedestrian load case definition."""
 
     def test_create_pedestrian_load_case(self) -> None:
+        """Test creation of pedestrian load case definition."""
         definition = create_pedestrian_load_case()
         assert definition.name == "BG5001"
         assert definition.group_name == "LG5000"
@@ -97,6 +99,7 @@ class TestServiceVehicleLoadCases:
     """Tests for creating service vehicle load case definitions."""
 
     def test_create_service_vehicle_load_cases(self) -> None:
+        """Test creation of service vehicle load case definitions."""
         definitions = create_service_vehicle_load_cases()
         assert len(definitions) == 3
         assert definitions[0].name == "BG6001"
@@ -107,6 +110,7 @@ class TestUnintendedVehicleLoadCases:
     """Tests for creating unintended vehicle load case definitions."""
 
     def test_create_unintended_vehicle_load_cases(self) -> None:
+        """Test creation of unintended vehicle load case definitions."""
         definitions = create_unintended_vehicle_load_cases()
         assert len(definitions) == 3
         assert definitions[0].name == "BG7001"
