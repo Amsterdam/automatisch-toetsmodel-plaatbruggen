@@ -263,3 +263,22 @@ def create_tandem_rs_load_cases(rs: int, length_bridgedeck: float, thickness_bri
             )
         )
     return cases
+
+
+def create_all_standard_load_cases() -> list[LoadCaseDefinition]:
+    """
+    Create a list of all standard load case definitions for the bridge model.
+
+    This function aggregates all individual load case creation helpers into a single list.
+
+    :return: A list containing all standard LoadCaseDefinition objects.
+    :rtype: list[LoadCaseDefinition]
+    """
+    load_cases = [create_self_weight_load_case()]
+    load_cases.extend(create_resting_load_cases())
+    load_cases.extend(create_temperature_load_cases())
+    load_cases.extend(create_udl_traffic_load_cases())
+    load_cases.append(create_pedestrian_load_case())
+    load_cases.extend(create_service_vehicle_load_cases())
+    load_cases.extend(create_unintended_vehicle_load_cases())
+    return load_cases

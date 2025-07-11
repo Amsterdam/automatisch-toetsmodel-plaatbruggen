@@ -16,13 +16,8 @@ from .scia_definitions import (
     PlateDefinition,
 )
 from .scia_load_cases import (
-    create_pedestrian_load_case,
-    create_resting_load_cases,
+    create_all_standard_load_cases,
     create_self_weight_load_case,
-    create_service_vehicle_load_cases,
-    create_temperature_load_cases,
-    create_udl_traffic_load_cases,
-    create_unintended_vehicle_load_cases,
 )
 from .scia_load_combinations import create_standard_load_combinations
 from .scia_load_group import create_all_load_groups
@@ -130,14 +125,8 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     definitions["load_groups"] = list(load_group_defs.values())
 
     # 2. Define Load Cases
-    self_weight_case = create_self_weight_load_case()
-    load_cases = [self_weight_case]
-    load_cases.extend(create_resting_load_cases())
-    load_cases.extend(create_temperature_load_cases())
-    load_cases.extend(create_udl_traffic_load_cases())
-    load_cases.append(create_pedestrian_load_case())
-    load_cases.extend(create_service_vehicle_load_cases())
-    load_cases.extend(create_unintended_vehicle_load_cases())
+    load_cases = create_all_standard_load_cases()
+    self_weight_case_name = create_self_weight_load_case().name
 
     # 3. Define Tandem Loads and their Load Cases
     # The traffic group name is passed for signature consistency but is not used in the function
@@ -147,7 +136,6 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     definitions["load_cases"] = load_cases
 
     # 4. Define Load Combinations
-    self_weight_case_name = self_weight_case.name
     tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
 
     combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
