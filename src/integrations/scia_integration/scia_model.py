@@ -9,7 +9,6 @@ from typing import Any
 
 from .scia_bridge_geometry import (
     create_node_and_thickness_dict,
-    extract_bridge_dimensions,
 )
 from .scia_definitions import (
     MaterialDefinition,
