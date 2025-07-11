@@ -19,6 +19,7 @@ from viktor.external import idea_rcs
 from app.bridge.parametrization import (
     BridgeParametrization,
 )
+from src.integrations.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
 from src.integrations.scia_integration.scia_bridge_geometry import create_node_and_thickness_dict
 
 
@@ -215,14 +216,25 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
     :raises ValueError: If parameters are invalid
     :raises ImportError: If VIKTOR IDEA module is not available
     """
-    # Create the IDEA model
-    model = idea_rcs.Model()
+    # Prepare the IDEA model with project information
+    project_data = idea_rcs.ProjectData(
+        name=f"IDEA Model for {params.info.bridge_objectnumm or 'Unnamed Project'}",
+        description="Generated model from VIKTOR",
+        author="Ctrl+b"
+    )
 
-    # Create concrete material TODO link to centralized material system
-    cs_mat = model.create_concrete_material(idea_rcs.ConcreteMaterial.C30_37)
+    # Create the IDEA model with project information
+    model = idea_rcs.Model(project_data=project_data)
 
-    # Create reinforcement material TODO link to centralized material system
-    mat_reinf = model.create_reinforcement_material(idea_rcs.ReinforcementMaterial.B_500B)
+    # Create concrete material using parameter from user input
+    concrete_quality = params.info.concrete_strength_class or "C30/37"  # Default fallback
+    concrete_material_enum = get_idea_concrete_material(concrete_quality)
+    cs_mat = model.create_concrete_material(concrete_material_enum)
+
+    # Create reinforcement material using parameter from user input
+    steel_quality = params.input.geometrie_wapening.staalsoort or "B500B"  # Default fallback
+    reinforcement_material_enum = get_idea_reinforcement_material(steel_quality)
+    mat_reinf = model.create_reinforcement_material(reinforcement_material_enum)
 
     # Get unique matching zone keys based on thickness and reinforcement configuration
     # We want to create a slab for each unique thickness and reinforcement configuration

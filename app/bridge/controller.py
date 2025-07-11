@@ -1,5 +1,6 @@
 """Module for the Bridge entity controller."""
 
+from html import parser
 import zipfile
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
@@ -10,6 +11,7 @@ import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.external import idea_rcs
 from viktor.views import (
     GeometryResult,
     GeometryView,
@@ -58,7 +60,7 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-from src.integrations.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.idea_interface import _get_unique_matching_zone_keys, create_bridge_idea_model, run_idea_analysis
 from src.integrations.scia_interface import create_bridge_scia_model
 from src.report.report_functions import create_export_report  # Import the report creation function
 
@@ -620,6 +622,53 @@ class BridgeController(ViktorController):
         columns = ["Zone_dikte", "Wapeningsconfiguratie"]
 
         return TableResult(data, column_headers=columns)
+    
+    @TableView("IDEA RCS resultaten", duration_guess=4)
+    def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Toon een tabel met resultaten van de IDEA RCS analyse.
+
+        :param params: Bridge parametrization
+        :type params: BridgeParametrization
+        :returns: TableResult met unieke zone keys
+        :rtype: TableResult
+        """
+        # Generate XML input file
+        model = create_bridge_idea_model(params)
+        xml_input = model.generate_xml_input()
+
+        analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
+        analysis.execute(120)
+
+        idea_output_xml_bytes = analysis.get_output_file(as_file=True)
+
+        # Obtain the results for specific or all section(s).
+        with idea_output_xml_bytes.open_binary() as f:
+            parser = idea_rcs.RcsOutputFileParser(f)
+        
+            # Prepare data for the table
+            data = []
+            columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
+
+            for section in parser.section_results():
+                capacity_results = section.capacity()[0] 
+                shear_results = section.shear()[0]
+                torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
+                interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
+                crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
+                detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
+                stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
+
+                data.append([section.id_,
+                            capacity_results.get("Result"),
+                            shear_results.get("Result"),
+                            torsion_results.get("Result"),
+                            interaction_results.get("Result"),
+                            crack_width_results.get("Result"),
+                            detailing_results.get("Result"),
+                            stress_limitations_results.get("Result")])
+
+        return TableResult(data, column_headers=columns)
 
     def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
@@ -634,24 +683,17 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Create IDEA RCS cross-section model with materials from params.info
-            from src.integrations.idea_interface import create_bridge_idea_model
+            # Generate XML input file
+            model = create_bridge_idea_model(params)
+            xml_file = model.generate_xml_input()
 
-            try:
-                # Generate XML input file
-                model = create_bridge_idea_model(params)
-                xml_file = model.generate_xml_input()
+            # Validate content
+            xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
 
-                # Validate content
-                xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+            if not xml_content:
+                self._raise_empty_idea_xml_error()
 
-                if not xml_content:
-                    self._raise_empty_idea_xml_error()
-
-                return DownloadResult(xml_content, "idea_rcs_cross_section.xml")
-
-            except Exception as e:
-                raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
+            return DownloadResult(xml_content, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
@@ -670,9 +712,7 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-        # Create IDEA RCS cross-section model with materials from params.info
-        from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
-
+        
         # Generate XML input file
         model = create_bridge_idea_model(params)
         xml_file = model.generate_xml_input()
@@ -690,18 +730,18 @@ class BridgeController(ViktorController):
         zip_file_obj = File()
         with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
             # Add input XML model
-            z.writestr("rcs_input_model.xml", xml_content)
+            z.writestr(f"IDEA_rcs_input_model_{params.info.bridge_objectnumm}.xml", xml_content)
 
             # Add analysis output results
             if hasattr(output_file, "getvalue"):
                 output_content = output_file.getvalue()
-                z.writestr("rcs_analysis_results.ideaRcs", output_content)
+                z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
             elif hasattr(output_file, "source"):
                 # If it's a File object
                 with output_file.open_binary() as f:
-                    z.writestr("rcs_analysis_results.ideaRcs", f.read())
+                    z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", f.read())
 
-        return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
+        return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
 
     # ============================================================================================================
     # output - Rapport
