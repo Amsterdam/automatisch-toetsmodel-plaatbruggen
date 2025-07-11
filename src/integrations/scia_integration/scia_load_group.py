@@ -8,9 +8,9 @@ This keeps this module independent of the VIKTOR SDK.
 from .scia_definitions import LoadGroupDefinition
 
 
-def create_permanent_group() -> LoadGroupDefinition:
+def create_permanent_load_group() -> LoadGroupDefinition:
     """
-    Create definition for permanent load group LG1000.
+    Create definition for permanent load group LG1000 (Self-weight).
 
     :returns: Definition for the permanent load group.
     :rtype: LoadGroupDefinition
@@ -19,13 +19,13 @@ def create_permanent_group() -> LoadGroupDefinition:
         name="LG1000",
         load_option="PERMANENT",
         relation="STANDARD",
-        load_type=None,
+        load_type="PERMANENT_SELF_WEIGHT",
     )
 
 
 def create_dead_load_group() -> LoadGroupDefinition:
     """
-    Create definition for dead load group LG2000.
+    Create definition for dead load group LG2000 (Resting loads).
 
     :returns: Definition for the dead load group.
     :rtype: LoadGroupDefinition
@@ -34,7 +34,7 @@ def create_dead_load_group() -> LoadGroupDefinition:
         name="LG2000",
         load_option="PERMANENT",
         relation="STANDARD",
-        load_type=None,
+        load_type="PERMANENT_OTHER",
     )
 
 
@@ -48,29 +48,29 @@ def create_temperature_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG3000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="TEMPERATURE",
+        relation="STANDARD",
+        load_type="TEMPERATURE_UNIFORM",
     )
 
 
 def create_udl_group() -> LoadGroupDefinition:
     """
-    Create definition for UDL load group LG4000.
+    Create definition for UDL traffic load group LG4000.
 
-    :returns: Definition for the UDL load group.
+    :returns: Definition for the UDL traffic group.
     :rtype: LoadGroupDefinition
     """
     return LoadGroupDefinition(
         name="LG4000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="CONSTRUCTION_LOADS",
+        load_type="TRAFFIC_NEN8702_LM1_UDL",
     )
 
 
 def create_crowd_load_group() -> LoadGroupDefinition:
     """
-    Create definition for crowd load group LG5000.
+    Create definition for crowd load group LG5000 (LM4).
 
     :returns: Definition for the crowd load group.
     :rtype: LoadGroupDefinition
@@ -78,8 +78,8 @@ def create_crowd_load_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG5000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        relation="STANDARD",
+        load_type="TRAFFIC_NEN8702_LM4_CROWD",
     )
 
 
@@ -93,8 +93,8 @@ def create_service_vehicle_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG6000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        relation="STANDARD",
+        load_type="TRAFFIC_NEN8702_SERVICE",
     )
 
 
@@ -108,8 +108,8 @@ def create_accidental_vehicle_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG7000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        relation="STANDARD",
+        load_type="TRAFFIC_NEN8702_ACCIDENTAL",
     )
 
 
@@ -123,8 +123,8 @@ def create_ts_lane_1_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG8000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        relation="STANDARD",
+        load_type="TRAFFIC_NEN8702_LM1_TS",
     )
 
 
@@ -138,8 +138,8 @@ def create_ts_lane_2_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG9000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        relation="STANDARD",
+        load_type="TRAFFIC_NEN8702_LM1_TS",
     )
 
 
@@ -153,8 +153,8 @@ def create_ts_lane_3_group() -> LoadGroupDefinition:
     return LoadGroupDefinition(
         name="LG10000",
         load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        relation="STANDARD",
+        load_type="TRAFFIC_NEN8702_LM1_TS",
     )
 
 
@@ -166,8 +166,8 @@ def create_all_load_groups() -> dict[str, LoadGroupDefinition]:
     :rtype: dict[str, LoadGroupDefinition]
     """
     return {
-        "permanent": create_permanent_group(),
-        "dead_load": create_dead_load_group(),
+        "permanent_self_weight": create_permanent_load_group(),
+        "permanent_other": create_dead_load_group(),
         "temperature": create_temperature_group(),
         "udl": create_udl_group(),
         "crowd": create_crowd_load_group(),

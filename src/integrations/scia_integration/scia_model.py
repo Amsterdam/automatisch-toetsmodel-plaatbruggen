@@ -7,14 +7,24 @@ It is independent of the VIKTOR SDK.
 
 from typing import Any
 
-# Import geometry extraction functions from dedicated module
-from .scia_bridge_geometry import create_node_and_thickness_dict
+from .scia_bridge_geometry import (
+    create_node_and_thickness_dict,
+    extract_bridge_geometry_params,
+)
 from .scia_definitions import (
     MaterialDefinition,
     NodeDefinition,
     PlateDefinition,
 )
-from .scia_load_cases import create_self_weight_load_case
+from .scia_load_cases import (
+    create_pedestrian_load_case,
+    create_resting_load_cases,
+    create_self_weight_load_case,
+    create_service_vehicle_load_cases,
+    create_temperature_load_cases,
+    create_udl_traffic_load_cases,
+    create_unintended_vehicle_load_cases,
+)
 from .scia_load_combinations import create_standard_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import add_theoretical_tandem_loads
@@ -108,32 +118,38 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     Define a complete SCIA bridge model, including geometry, loads, etc.
 
     This function aggregates definitions for geometry, loads, and combinations.
-    Currently, it only generates the geometry.
 
     :param params: Bridge parameters.
     :return: A dictionary containing all model part definitions.
     :rtype: dict[str, list]
     """
     definitions = _define_bridge_geometry(params)
+    bridge_geometry = extract_bridge_geometry_params(params)
     definitions["line_supports"] = define_line_supports(definitions["plates"])
 
     # 1. Define Load Groups
     load_group_defs = create_all_load_groups()
     definitions["load_groups"] = list(load_group_defs.values())
 
-    # 2. Define basic Load Cases
-    # Permanent loads
-    permanent_case_defs = {"self_weight": create_self_weight_load_case()}
-    definitions["load_cases"] = list(permanent_case_defs.values())
+    # 2. Define Load Cases
+    load_cases = [create_self_weight_load_case()]
+    load_cases.extend(create_resting_load_cases())
+    load_cases.extend(create_temperature_load_cases())
+    load_cases.extend(create_udl_traffic_load_cases())
+    load_cases.append(create_pedestrian_load_case())
+    load_cases.extend(create_service_vehicle_load_cases())
+    load_cases.extend(create_unintended_vehicle_load_cases())
 
     # 3. Define Tandem Loads and their Load Cases
-    traffic_group_name = load_group_defs["ts_lane_1"].name  # Use TS Lane 1 group for now
-    tandem_load_defs = add_theoretical_tandem_loads(params, traffic_group_name)
-    definitions["load_cases"].extend(tandem_load_defs["load_case_definitions"])
+    # The traffic group name is passed for signature consistency but is not used in the function
+    tandem_load_defs = add_theoretical_tandem_loads(params, "traffic")
+    load_cases.extend(tandem_load_defs["load_case_definitions"])
     definitions["surface_loads"] = tandem_load_defs["surface_load_definitions"]
+    definitions["load_cases"] = load_cases
 
     # 4. Define Load Combinations
-    self_weight_case_name = permanent_case_defs["self_weight"].name
+    # TODO: Update create_standard_load_combinations to accept all new load cases
+    self_weight_case_name = "BG1001"
     tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
 
     combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
