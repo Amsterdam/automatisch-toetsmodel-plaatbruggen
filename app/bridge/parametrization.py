@@ -1,11 +1,13 @@
 """Module for the Bridge entity parametrization."""
 
+import csv
 import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    CONCRETEQUALITY_CSV_PATH,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
@@ -14,6 +16,7 @@ from app.constants import (
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
 )
+
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -34,6 +37,7 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
+
 
 from .geometry_functions import get_steel_qualities
 
@@ -373,7 +377,26 @@ Below you will find important information about this bridge structure."""
         description="Primaire functie van de brug (bijv. wegverkeer, voetgangers)",
     )
 
-    info.concrete_strength_class = TextField("Betonsterkteklasse", default="", description="Beton sterkte classificatie (bijv. B25, B45)")
+    @staticmethod
+    def _get_concrete_quality_options() -> list[str]:
+        """
+        Load concrete quality options from resources/data/materials/betonkwaliteit.csv.
+
+        :returns: List of concrete quality keys (e.g., ["K150", "K160", ...])
+        :rtype: list[str]
+        """
+        csv_path = CONCRETEQUALITY_CSV_PATH
+        with csv_path.open(encoding="utf-8") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            return [row["Betonkwaliteit"].strip('"') for row in reader]
+
+    info.concrete_strength_class = OptionField(
+        "Betonsterkteklasse",
+        options=_get_concrete_quality_options(),
+        default="",
+        description="Beton sterkte classificatie (bijv. B25, B45)",
+    )
+
     info.steel_quality_reinforcement = TextField("Staalkwaliteit (Wapening)", default="", description="Kwaliteitsklasse van betonstaal (bijv. B500)")
     info.deck_layer = TextField("Deklaag", default="", description="Type van het dekoppervlak (bijv. Asfalt, Beton)")
 
@@ -839,7 +862,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- IDEA StatiCa Page ---
     # ----------------------------------
 
-    idea = Page("IDEA StatiCa", views=["get_idea_model_preview"])
+    idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections"])
 
     idea.explanation = Text(IDEA_INFO_TEXT)
 

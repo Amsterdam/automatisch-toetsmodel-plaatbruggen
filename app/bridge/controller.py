@@ -43,6 +43,8 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
+from src.integrations.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.scia_interface import create_bridge_scia_model
 from src.report.report_functions import create_export_report  # Import the report creation function
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
@@ -557,130 +559,24 @@ class BridgeController(ViktorController):
     # IDEA StatiCa Integration
     # ============================================================================================================
 
-    @GeometryView("IDEA RCS Dwarsdoorsnede", duration_guess=3, x_axis_to_right=True)
-    def get_idea_model_preview(self, params: BridgeParametrization, **kwargs) -> GeometryResult:  # noqa: ARG002
+    @TableView("Unieke dwarsprofielen voor IDEA RCS", duration_guess=2)
+    def get_view_unique_idea_cross_sections(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
         """
-        Generate 3D preview of IDEA StatiCa RCS cross-section model.
-
-        Shows the cross-section as viewed from the front, with:
-        - Concrete section as gray rectangular block
-        - Reinforcement bars as detailed cylinders
-        - Proper proportions for cross-section analysis
+        Toon een tabel met unieke matching zone keys voor IDEA RCS.
 
         :param params: Bridge parametrization
         :type params: BridgeParametrization
-        :returns: 3D visualization of the cross-section for RCS analysis
-        :rtype: GeometryResult
+        :returns: TableResult met unieke zone keys
+        :rtype: TableResult
         """
-        try:
-            # Extract bridge segments for cross-section analysis
-            bridge_segments_list = []
-            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
-                for segment in params.bridge_segments_array:
-                    segment_dict = {
-                        "bz1": getattr(segment, "bz1", 0),
-                        "bz2": getattr(segment, "bz2", 0),
-                        "bz3": getattr(segment, "bz3", 0),
-                        "dz": getattr(segment, "dz", 0.5),
-                        "dz_2": getattr(segment, "dz_2", 0.5),
-                        "l": getattr(segment, "l", 0),
-                    }
-                    bridge_segments_list.append(segment_dict)
+        unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
 
-            if not bridge_segments_list:
-                self._raise_no_idea_segments_error()
+        # If no unique keys found, return empty table
+        data = [[value[0], value[1]] for value in unique_matching_zone_keys]
 
-            # Extract cross-section from first segment
-            from src.integrations.idea_interface import extract_cross_section_from_params
+        columns = ["Zone_dikte", "Wapeningsconfiguratie"]
 
-            # Use materials from params.info when available
-            concrete_material = getattr(params.info, "concrete_strength_class", None) or "C30/37"
-            reinforcement_material = getattr(params.info, "steel_quality_reinforcement", None) or "B500B"
-
-            cross_section_data = extract_cross_section_from_params(bridge_segments_list, concrete_material, reinforcement_material)
-
-            # Create scene
-            scene = trimesh.Scene()
-
-            # Create concrete plate - horizontal orientation for bridge deck cross-section
-            # For a bridge plate, thickness is the height, width is the width
-            plate_thickness = cross_section_data.height
-            plate_width = cross_section_data.width
-            plate_length = max(2.0, plate_width * 0.3)  # Show some depth for 3D visualization
-
-            concrete_plate = trimesh.creation.box(extents=[plate_width, plate_length, plate_thickness])
-            # Light concrete gray
-            concrete_plate.visual.face_colors = [180, 180, 180, 255]
-            scene.add_geometry(concrete_plate, node_name="ConcretePlate")
-
-            # Create reinforcement visualization
-            from src.integrations.idea_interface import create_reinforcement_layout
-
-            reinforcement = create_reinforcement_layout(cross_section_data)
-
-            # Add reinforcement bars as cylinders running in length direction (Y-axis)
-            bar_length = plate_length * 1.1  # Slightly longer than plate for visibility
-
-            # Top reinforcement bars (near top surface of plate)
-            top_z_position = plate_thickness / 2 - 0.055  # 55mm from top
-            for i, (x, y, diameter) in enumerate(reinforcement.main_bars_top):
-                # Create cylinder for reinforcement bar running in Y direction
-                bar_cylinder = trimesh.creation.cylinder(
-                    radius=diameter / 2000,  # Convert mm to m
-                    height=bar_length,
-                    sections=8,
-                )
-                # Rotate to align with Y-axis (length direction)
-                bar_cylinder.apply_transform(trimesh.transformations.rotation_matrix(angle=3.14159 / 2, direction=[1, 0, 0]))
-                # Position the bar (x from reinforcement, y=0 center, z=top layer)
-                bar_cylinder.apply_translation([x - plate_width / 2, 0, top_z_position])
-                # Dark steel color
-                bar_cylinder.visual.face_colors = [101, 67, 33, 255]  # Dark brown steel
-                scene.add_geometry(bar_cylinder, node_name=f"TopReinforcement_{i}")
-
-            # Bottom reinforcement bars (near bottom surface of plate)
-            bottom_z_position = -plate_thickness / 2 + 0.055  # 55mm from bottom
-            for i, (x, y, diameter) in enumerate(reinforcement.main_bars_bottom):
-                # Create cylinder for reinforcement bar running in Y direction
-                bar_cylinder = trimesh.creation.cylinder(
-                    radius=diameter / 2000,  # Convert mm to m
-                    height=bar_length,
-                    sections=8,
-                )
-                # Rotate to align with Y-axis (length direction)
-                bar_cylinder.apply_transform(trimesh.transformations.rotation_matrix(angle=3.14159 / 2, direction=[1, 0, 0]))
-                # Position the bar (x from reinforcement, y=0 center, z=bottom layer)
-                bar_cylinder.apply_translation([x - plate_width / 2, 0, bottom_z_position])
-                # Dark steel color
-                bar_cylinder.visual.face_colors = [101, 67, 33, 255]  # Dark brown steel
-                scene.add_geometry(bar_cylinder, node_name=f"BottomReinforcement_{i}")
-
-            # Add coordinate system indicator for orientation
-            # Small coordinate arrows to show orientation
-            arrow_scale = min(plate_width, plate_thickness) * 0.1
-
-            # X-axis arrow (red) - width direction
-            x_arrow = trimesh.creation.cylinder(radius=0.01, height=arrow_scale)
-            x_arrow.apply_transform(trimesh.transformations.rotation_matrix(angle=3.14159 / 2, direction=[0, 0, 1]))
-            x_arrow.apply_translation([plate_width / 2 + arrow_scale / 2, -plate_length / 2 - 0.1, -plate_thickness / 2 - 0.1])
-            x_arrow.visual.face_colors = [255, 0, 0, 255]  # Red for X
-            scene.add_geometry(x_arrow, node_name="X_Axis")
-
-            # Z-axis arrow (blue) - thickness/height direction
-            z_arrow = trimesh.creation.cylinder(radius=0.01, height=arrow_scale)
-            z_arrow.apply_translation([plate_width / 2 + 0.1, -plate_length / 2 - 0.1, -plate_thickness / 2 + arrow_scale / 2])
-            z_arrow.visual.face_colors = [0, 0, 255, 255]  # Blue for Z
-            scene.add_geometry(z_arrow, node_name="Z_Axis")
-
-            # Export as GLTF
-            geometry_file = File()
-            with geometry_file.open_binary() as w:
-                w.write(trimesh.exchange.gltf.export_glb(scene))
-
-            return GeometryResult(geometry_file, geometry_type="gltf")
-
-        except Exception as e:
-            raise UserError(f"IDEA RCS dwarsdoorsnede preview gefaald: {e!s}")
+        return TableResult(data, column_headers=columns)
 
     def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
@@ -695,29 +591,12 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Extract bridge segments for cross-section analysis
-            bridge_segments_list = []
-            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
-                for segment in params.bridge_segments_array:
-                    segment_dict = {
-                        "bz1": getattr(segment, "bz1", 0),
-                        "bz2": getattr(segment, "bz2", 0),
-                        "bz3": getattr(segment, "bz3", 0),
-                        "dz": getattr(segment, "dz", 0.5),
-                        "dz_2": getattr(segment, "dz_2", 0.5),
-                        "l": getattr(segment, "l", 0),
-                    }
-                    bridge_segments_list.append(segment_dict)
-
-            if not bridge_segments_list:
-                self._raise_no_idea_analysis_segments_error()
-
             # Create IDEA RCS cross-section model with materials from params.info
             from src.integrations.idea_interface import create_bridge_idea_model
 
             try:
                 # Generate XML input file
-                model = create_bridge_idea_model(bridge_segments_list)
+                model = create_bridge_idea_model(params)
                 xml_file = model.generate_xml_input()
 
                 # Validate content
@@ -749,29 +628,12 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Extract bridge segments for cross-section analysis
-            bridge_segments_list = []
-            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
-                for segment in params.bridge_segments_array:
-                    segment_dict = {
-                        "bz1": getattr(segment, "bz1", 0),
-                        "bz2": getattr(segment, "bz2", 0),
-                        "bz3": getattr(segment, "bz3", 0),
-                        "dz": getattr(segment, "dz", 0.5),
-                        "dz_2": getattr(segment, "dz_2", 0.5),
-                        "l": getattr(segment, "l", 0),
-                    }
-                    bridge_segments_list.append(segment_dict)
-
-            if not bridge_segments_list:
-                self._raise_no_idea_analysis_segments_error()
-
             # Create IDEA RCS cross-section model with materials from params.info
             from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
 
             try:
                 # Generate XML input file
-                model = create_bridge_idea_model(bridge_segments_list)
+                model = create_bridge_idea_model(params)
                 xml_file = model.generate_xml_input()
 
                 # Validate content
@@ -792,11 +654,11 @@ class BridgeController(ViktorController):
                     # Add analysis output results
                     if hasattr(output_file, "getvalue"):
                         output_content = output_file.getvalue()
-                        z.writestr("rcs_analysis_results.xml", output_content)
+                        z.writestr("rcs_analysis_results.ideaRcs", output_content)
                     elif hasattr(output_file, "source"):
                         # If it's a File object
                         with output_file.open_binary() as f:
-                            z.writestr("rcs_analysis_results.xml", f.read())
+                            z.writestr("rcs_analysis_results.ideaRcs", f.read())
 
                 return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
 
