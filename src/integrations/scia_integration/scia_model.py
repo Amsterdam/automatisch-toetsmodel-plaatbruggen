@@ -10,135 +10,70 @@ from typing import Any
 from .scia_bridge_geometry import (
     create_node_and_thickness_dict,
 )
-from .scia_definitions import (
-    MaterialDefinition,
-    NodeDefinition,
-    PlateDefinition,
-)
 from .scia_load_cases import (
     create_all_standard_load_cases,
-    create_self_weight_load_case,
 )
 from .scia_load_combinations import create_standard_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import add_theoretical_tandem_loads
+from .scia_model_builder import SciaModelBuilder
 from .scia_supports import define_line_supports
 
 
-def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
+def _define_bridge_geometry(params: Any, builder: SciaModelBuilder) -> list[str]:
     """
-    Define the geometry for a SCIA bridge model (nodes, materials, plates).
+    Define the complete bridge geometry in the SCIA model.
 
-    :param params: Bridge parameters.
-    :return: A dictionary containing lists of node, material, and plate definitions.
-    :rtype: dict[str, list]
+    :param params: The VIKTOR parametrization object.
+    :param builder: The SCIA model builder.
+    :return: A list of the created plate names.
     """
-    # Define the material
-    material_def = MaterialDefinition(name="C30/37")
+    node_and_thickness_dict = create_node_and_thickness_dict(params)
 
-    # Get geometry data (node coordinates and plate thicknesses)
-    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
+    # Add default material
+    builder.add_material("C30/37")
 
-    node_defs = [NodeDefinition(name=name, x=coords[0], y=coords[1], z=coords[2]) for name, coords in nodes_dict.items()]
+    # Add all nodes to the model
+    for node_name, node_data in node_and_thickness_dict["nodes"].items():
+        builder.add_node(name=node_name, x=node_data["x"], y=node_data["y"], z=node_data["z"])
 
-    plate_defs = []
-    dynamic_arrays = len(params.bridge_segments_array)
-
-    # Create plates between cross sections
-    for span in range(1, dynamic_arrays):
-        next_span = span + 1
-
-        # Zone 1 plate
-        z1_thickness = thickness_dict.get(f"Z1_{span}")
-        if z1_thickness is None:
-            raise ValueError(f"Thickness for plate Z1_{span} not found.")
-        plate_defs.append(
-            PlateDefinition(
-                name=f"Z1_{span}",
-                corner_node_names=[
-                    f"K_dek:{span}_1",
-                    f"K_dek:{next_span}_1",
-                    f"K_dek:{next_span}_2",
-                    f"K_dek:{span}_2",
-                ],
-                thickness=z1_thickness,
-                material_name=material_def.name,
-            )
+    # Add all plates to the model
+    plate_names = []
+    for plate_name, plate_data in node_and_thickness_dict["plates"].items():
+        builder.add_plate(
+            name=plate_name,
+            corner_node_names=plate_data["node_names"],
+            thickness=plate_data["thickness"],
+            material_name="C30/37",
         )
-        # Zone 2 plate
-        z2_thickness = thickness_dict.get(f"Z2_{span}")
-        if z2_thickness is None:
-            raise ValueError(f"Thickness for plate Z2_{span} not found.")
-        plate_defs.append(
-            PlateDefinition(
-                name=f"Z2_{span}",
-                corner_node_names=[
-                    f"K_dek:{span}_2",
-                    f"K_dek:{next_span}_2",
-                    f"K_dek:{next_span}_3",
-                    f"K_dek:{span}_3",
-                ],
-                thickness=z2_thickness,
-                material_name=material_def.name,
-            )
-        )
-        # Zone 3 plate
-        z3_thickness = thickness_dict.get(f"Z3_{span}")
-        if z3_thickness is None:
-            raise ValueError(f"Thickness for plate Z3_{span} not found.")
-        plate_defs.append(
-            PlateDefinition(
-                name=f"Z3_{span}",
-                corner_node_names=[
-                    f"K_dek:{span}_3",
-                    f"K_dek:{next_span}_3",
-                    f"K_dek:{next_span}_4",
-                    f"K_dek:{span}_4",
-                ],
-                thickness=z3_thickness,
-                material_name=material_def.name,
-            )
-        )
+        plate_names.append(plate_name)
 
-    return {
-        "nodes": node_defs,
-        "materials": [material_def],
-        "plates": plate_defs,
-    }
+    return plate_names
 
 
-def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
+def build_complete_bridge_model(params: Any, builder: SciaModelBuilder) -> None:
     """
-    Define a complete SCIA bridge model, including geometry, loads, etc.
+    Build a complete SCIA bridge model, including geometry, loads, and combinations.
 
-    This function aggregates definitions for geometry, loads, and combinations.
+    This function orchestrates the entire model creation process by calling the relevant
+    functions for each part of the model.
 
-    :param params: Bridge parameters.
-    :return: A dictionary containing all model part definitions.
-    :rtype: dict[str, list]
+    :param params: The VIKTOR parametrization object.
+    :param builder: The SCIA model builder.
     """
-    definitions = _define_bridge_geometry(params)
-    definitions["line_supports"] = define_line_supports(definitions["plates"])
+    # Step 1: Create geometry (nodes and plates)
+    plate_names = _define_bridge_geometry(params, builder)
 
-    # 1. Define Load Groups
-    load_group_defs = create_all_load_groups()
-    definitions["load_groups"] = list(load_group_defs.values())
+    # Step 2: Define line supports on the bridge edges
+    define_line_supports(builder, plate_names)
 
-    # 2. Define Load Cases
-    load_cases = create_all_standard_load_cases()
-    self_weight_case_name = create_self_weight_load_case().name
+    # Step 3: Create load groups and standard load cases
+    create_all_load_groups(builder)
+    create_all_standard_load_cases(builder)
 
-    # 3. Define Tandem Loads and their Load Cases
-    # The traffic group name is passed for signature consistency but is not used in the function
-    tandem_load_defs = add_theoretical_tandem_loads(params, "traffic")
-    load_cases.extend(tandem_load_defs["load_case_definitions"])
-    definitions["surface_loads"] = tandem_load_defs["surface_load_definitions"]
-    definitions["load_cases"] = load_cases
+    # Step 4: Add tandem loads and get their case names
+    tandem_case_names = add_theoretical_tandem_loads(params, builder, plate_names)
 
-    # 4. Define Load Combinations
-    tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
-
-    combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
-    definitions["load_combinations"] = combination_defs
-
-    return definitions
+    # Step 5: Create load combinations
+    # We assume BG1001 is always the self-weight case
+    create_standard_load_combinations(builder, self_weight_case="BG1001", tandem_cases=tandem_case_names)

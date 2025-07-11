@@ -6,92 +6,68 @@ These definitions are pure Python objects that can be used by the app layer to c
 """
 
 from typing import Any
-from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-from .scia_definitions import SurfaceLoadDefinition
-from .scia_load_cases import create_tandem_rs_load_cases
+
+from src.integrations.scia_integration.scia_model_builder import SciaModelBuilder
+
 from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
-    extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-
-# Import definition-based creators
+from .scia_load_cases import create_tandem_system_load_cases
 
 
 def create_patch_surface_load(
-    load_case_name: str,
-    corner_points: list[tuple[float, float, float]],
+    builder: SciaModelBuilder,
+    case_name: str,
+    plate_name: str,
     load_value: float,
-    load_name: str = "PatchLoad",
-) -> SurfaceLoadDefinition:
+) -> None:
     """
-    Create a definition for a free surface load on a 4-point patch.
+    Create a definition for a patch surface load on a plate.
 
-    :param load_case_name: Name of the load case for the load application.
-    :param corner_points: List of 4 corner coordinates [(x1,y1,z1), ...].
-    :param load_value: Load magnitude in [N/m²] (positive = downward).
-    :param load_name: Name identifier for the load.
-    :return: A SurfaceLoadDefinition object.
-    :rtype: SurfaceLoadDefinition
+    :param builder: The SCIA model builder.
+    :param case_name: The name of the load case for this load.
+    :param plate_name: The name of the plate to apply the load to.
+    :param load_value: The value of the surface load.
     """
-    if len(corner_points) != 4:
-        raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
-
-    return SurfaceLoadDefinition(
-        name=load_name,
-        load_case_name=load_case_name,
-        corner_points=corner_points,
-        load_value=load_value,
+    builder.add_surface_load(
+        name=f"Load_{case_name}_{plate_name}",
+        case_name=case_name,
+        plate_name=plate_name,
+        value=load_value,
+        direction="Z",
     )
 
 
-def add_theoretical_tandem_loads(
-    params: Any,  # noqa: ANN401
-    _traffic_group_name: str,
-) -> dict[str, list]:
+def add_theoretical_tandem_loads(params: Any, builder: SciaModelBuilder, plate_names: list[str]) -> list[str]:
     """
-    Create definitions for theoretical tandem loads and their load cases.
+    Generate and add theoretical tandem loads to the SCIA model.
 
-    :param params: VIKTOR parameters for the bridge.
-    :param _traffic_group_name: The name of the traffic load group (unused, maintained for signature consistency).
-    :return: A dict with "load_case_definitions" and "surface_load_definitions".
-    :rtype: dict[str, list]
+    This function calculates tandem system loads based on bridge geometry,
+    creates the necessary load cases, and applies the loads as surface loads
+    to the corresponding plates.
+
+    :param params: The VIKTOR parametrization object.
+    :param builder: The SCIA model builder.
+    :param plate_names: A list of all plate names in the model.
+    :return: A list of the created tandem load case names.
     """
-    # 1. Extract bridge parameters for tandem loads
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
-    width = bridge_params["width_bridgedeck"]
+    tandem_cases = create_tandem_system_load_cases(builder)
+    tandem_data = generate_tandem_loads_for_bridge(params)
+    scia_tandem_data = convert_tandem_data_to_scia_format(tandem_data)
 
-    # 2. Determine number of lanes and create load case definitions
-    num_lanes = len(generate_theoretical_lane_positions(width))
-    num_lanes = min(num_lanes, 3)
+    for tandem_load in scia_tandem_data:
+        case_name = tandem_load["load_case"]
+        plate_name = tandem_load["plate_name"]
 
-    load_case_definitions = []
-    for rs in range(1, num_lanes + 1):
-        load_case_definitions.extend(create_tandem_rs_load_cases(rs, length, thickness))
-
-    # 3. Generate tandem loads based on theoretical lanes
-    raw_tandem_data = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
-
-    # 4. Convert tandem data to SCIA format for surface loads
-    scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
-
-    # 5. Create surface load definitions from scia_tandem_data
-    surface_load_definitions = []
-    for tandem in scia_tandem_data:
-        load_case_name = tandem["load_case"]
-        for i, patch_load in enumerate(tandem["patch_loads"]):
-            surface_load_definitions.append(
-                create_patch_surface_load(
-                    load_case_name,
-                    patch_load["corners"],
-                    -patch_load["load_value"],
-                    f"{load_case_name}_Wheel_{i + 1}",
-                )
+        if plate_name in plate_names:
+            create_patch_surface_load(
+                builder=builder,
+                case_name=case_name,
+                plate_name=plate_name,
+                load_value=tandem_load["load_value"],
             )
-
-    return {"load_case_definitions": load_case_definitions, "surface_load_definitions": surface_load_definitions}
+    return tandem_cases
 
 
 """Add actual tandem loads based on user-defined lanes."""
