@@ -11,6 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from app.bridge.scia_supports import create_line_support_from_definition
 from src.integrations.scia_integration.scia_definitions import (
     LoadCaseDefinition,
     LoadCombinationDefinition,
@@ -115,7 +116,7 @@ def create_load_case(model: SciaModel, definition: LoadCaseDefinition, load_grou
         permanent_type_map = {
             "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT,
             "STANDARD": scia.LoadCase.PermanentLoadType.STANDARD,
-            "PRIMARY_EFFECT": scia.LoadCase.PermanentLoadType.PRIMARY_EFFECTS_OF_PRESTRESSING,
+            "PRIMARY_EFFECT": scia.LoadCase.PermanentLoadType.PRIMARY_EFFECT,
         }
         if definition.permanent_type is None:
             raise ValueError("Permanent load case type must be specified.")
@@ -129,7 +130,7 @@ def create_load_case(model: SciaModel, definition: LoadCaseDefinition, load_grou
     if definition.case_type == "VARIABLE":
         variable_type_map = {
             "STATIC": scia.LoadCase.VariableLoadType.STATIC,
-            "PRIMARY_EFFECT": scia.LoadCase.VariableLoadType.PRIMARY_EFFECTS_OF_PRESTRESSING,
+            "PRIMARY_EFFECT": scia.LoadCase.VariableLoadType.PRIMARY_EFFECT,
         }
         specification_map = {
             "STANDARD": scia.LoadCase.Specification.STANDARD,
@@ -207,9 +208,9 @@ def create_load_combination(model: SciaModel, combo_def: LoadCombinationDefiniti
     _check_scia_availability()
     combination_type_map = {
         "ULS": scia.LoadCombination.Type.EN_ULS_SET_B,
-        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHARACTERISTIC,
-        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQUENT,
-        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI_PERMANENT,
+        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
+        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
+        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
     }
 
     case_factors = {}
@@ -342,9 +343,9 @@ def build_load_combinations(
         "ENVELOPE_ULS": scia.LoadCombination.Type.ENVELOPE_ULTIMATE,
         "LINEAR_ULS": scia.LoadCombination.Type.LINEAR_ULTIMATE,
         "SLS": scia.LoadCombination.Type.EN_SLS_CHAR,
-        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHARACTERISTIC,
-        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQUENT,
-        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI_PERMANENT,
+        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
+        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
+        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
         "ENVELOPE_SLS": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY,
         "LINEAR_SLS": scia.LoadCombination.Type.LINEAR_SERVICEABILITY,
         "ACCIDENTAL": scia.LoadCombination.Type.EN_ACC_ONE,
@@ -382,9 +383,15 @@ def build_scia_model(definitions: dict[str, list]) -> SciaModel:
     model = scia.Model()
 
     # 1. Build Geometry
-    build_geometry(model, definitions)
+    geometry_parts = build_geometry(model, definitions)
+    all_plates = geometry_parts["plates"]
 
-    # 2. Build Load Infrastructure (Groups and Cases)
+    # 2. Build Line Supports (if defined)
+    if definitions.get("line_supports"):
+        for support_def in definitions["line_supports"]:
+            create_line_support_from_definition(model, support_def, all_plates)
+
+    # 3. Build Load Infrastructure (Groups and Cases)
     if definitions.get("load_groups") and definitions.get("load_cases"):
         load_infra_defs = {
             "load_group_definitions": {group.name: group for group in definitions["load_groups"]},
@@ -393,11 +400,11 @@ def build_scia_model(definitions: dict[str, list]) -> SciaModel:
         load_infra_parts = build_load_infrastructure(model, load_infra_defs)
         all_load_cases = load_infra_parts["load_cases"]
 
-        # 3. Build Surface Loads
+        # 4. Build Surface Loads
         if definitions.get("surface_loads"):
             build_surface_loads(model, definitions["surface_loads"], all_load_cases)
 
-        # 4. Build Load Combinations
+        # 5. Build Load Combinations
         if definitions.get("load_combinations"):
             build_load_combinations(model, definitions["load_combinations"], all_load_cases)
 

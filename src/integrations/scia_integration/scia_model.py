@@ -9,13 +9,16 @@ from typing import Any
 
 # Import geometry extraction functions from dedicated module
 from .scia_bridge_geometry import create_node_and_thickness_dict
-from .scia_definitions import MaterialDefinition, NodeDefinition, PlateDefinition
+from .scia_definitions import (
+    MaterialDefinition,
+    NodeDefinition,
+    PlateDefinition,
+)
 from .scia_load_cases import create_basic_permanent_load_cases
 from .scia_load_combinations import create_standard_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import add_theoretical_tandem_loads
-
-# Import load application functions from dedicated module
+from .scia_supports import define_line_supports
 
 
 def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
@@ -58,23 +61,6 @@ def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
                 material_name=material_def.name,
             )
         )
-        # Zone 3 plate
-        z3_thickness = thickness_dict.get(f"Z3_{span}")
-        if z3_thickness is None:
-            raise ValueError(f"Thickness for plate Z3_{span} not found.")
-        plate_defs.append(
-            PlateDefinition(
-                name=f"Z3_{span}",
-                corner_node_names=[
-                    f"K_dek:{span}_3",
-                    f"K_dek:{next_span}_3",
-                    f"K_dek:{next_span}_4",
-                    f"K_dek:{span}_4",
-                ],
-                thickness=z3_thickness,
-                material_name=material_def.name,
-            )
-        )
         # Zone 2 plate
         z2_thickness = thickness_dict.get(f"Z2_{span}")
         if z2_thickness is None:
@@ -89,6 +75,23 @@ def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
                     f"K_dek:{span}_3",
                 ],
                 thickness=z2_thickness,
+                material_name=material_def.name,
+            )
+        )
+        # Zone 3 plate
+        z3_thickness = thickness_dict.get(f"Z3_{span}")
+        if z3_thickness is None:
+            raise ValueError(f"Thickness for plate Z3_{span} not found.")
+        plate_defs.append(
+            PlateDefinition(
+                name=f"Z3_{span}",
+                corner_node_names=[
+                    f"K_dek:{span}_3",
+                    f"K_dek:{next_span}_3",
+                    f"K_dek:{next_span}_4",
+                    f"K_dek:{span}_4",
+                ],
+                thickness=z3_thickness,
                 material_name=material_def.name,
             )
         )
@@ -112,11 +115,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     :rtype: dict[str, list]
     """
     definitions = _define_bridge_geometry(params)
-    # Placeholder for future additions
-    definitions["load_groups"] = []
-    definitions["load_cases"] = []
-    definitions["surface_loads"] = []
-    definitions["load_combinations"] = []
+    definitions["line_supports"] = define_line_supports(definitions["plates"])
 
     # 1. Define Load Groups
     load_group_defs = create_all_load_groups()
@@ -126,19 +125,19 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     # Permanent loads
     permanent_group_name = load_group_defs["permanent"].name
     permanent_case_defs = create_basic_permanent_load_cases(permanent_group_name)
-    definitions["load_cases"].extend(permanent_case_defs.values())
+    definitions["load_cases"] = list(permanent_case_defs.values())
 
     # 3. Define Tandem Loads and their Load Cases
     traffic_group_name = load_group_defs["ts_lane_1"].name  # Use TS Lane 1 group for now
     tandem_load_defs = add_theoretical_tandem_loads(params, traffic_group_name)
     definitions["load_cases"].extend(tandem_load_defs["load_case_definitions"])
-    definitions["surface_loads"].extend(tandem_load_defs["surface_load_definitions"])
+    definitions["surface_loads"] = tandem_load_defs["surface_load_definitions"]
 
     # 4. Define Load Combinations
     self_weight_case_name = permanent_case_defs["self_weight"].name
     tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
 
     combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
-    definitions["load_combinations"].extend(combination_defs)
+    definitions["load_combinations"] = combination_defs
 
     return definitions

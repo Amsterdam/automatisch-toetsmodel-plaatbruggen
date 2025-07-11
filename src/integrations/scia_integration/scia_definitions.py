@@ -145,16 +145,20 @@ class SurfaceLoadDefinition:
 
 @dataclass
 class LoadCombinationDefinition:
-    """
-    Defines the properties for a SCIA Load Combination.
-
-    :param name: Name of the load combination.
-    :param combination_type: Type of combination (e.g., "ULS", "SLS_CHAR").
-    :param load_case_factors: Dictionary mapping load case names to their factors.
-    :param description: Optional description for the combination.
-    """
+    """Definition for a SCIA load combination."""
 
     name: str
     combination_type: SciaCombinationType
     load_case_factors: dict[str, float]
-    description: str = ""
+    description: str
+
+
+@dataclass
+class LineSupportDefinition:
+    """Definition for a SCIA line support."""
+
+    name: str
+    plane_name: str
+    edge_index: int
+    freedom: dict[str, str]
+    stiffness: dict[str, float]
