@@ -2,6 +2,7 @@
 ## [`v0.0.7`] - 2025-07-03
 ### Added
 - Added the option to add supports in Input -> Dimensions
+- Added line supports to the SCIA model
 - Added csv file for material densities
 - Inputfield for line load parapet
 - **SCIA Load Framework**: Standardized load cases and combinations
