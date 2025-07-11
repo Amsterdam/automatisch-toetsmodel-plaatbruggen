@@ -130,7 +130,8 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     definitions["load_groups"] = list(load_group_defs.values())
 
     # 2. Define Load Cases
-    load_cases = [create_self_weight_load_case()]
+    self_weight_case = create_self_weight_load_case()
+    load_cases = [self_weight_case]
     load_cases.extend(create_resting_load_cases())
     load_cases.extend(create_temperature_load_cases())
     load_cases.extend(create_udl_traffic_load_cases())
@@ -146,7 +147,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     definitions["load_cases"] = load_cases
 
     # 4. Define Load Combinations
-    self_weight_case_name = "BG1001"
+    self_weight_case_name = self_weight_case.name
     tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
 
     combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
