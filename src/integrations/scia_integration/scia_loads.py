@@ -7,9 +7,9 @@ These definitions are pure Python objects that can be used by the app layer to c
 
 from typing import Any
 
-from .scia_definitions import SurfaceLoadDefinition
-
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
+
+from .scia_definitions import SurfaceLoadDefinition
 
 # Import definition-based creators
 
@@ -145,16 +145,16 @@ def add_asfalt_loads(
     load_zones_data_params = get_load_zones_data_from_params(_params)
     bridge_geom_data = get_bridge_geom_data(_params)
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
-    
+
     # Iterate through load zones and apply asphalt loads
     for load_zone in load_zones_data_params:
         if load_zone["type"] == "Asfalt":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
                 # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = load_zone["y_coords_top_current_zone"][span-1]
+                y_coord_top_left = load_zone["y_coords_top_current_zone"][span - 1]
                 y_coord_top_right = load_zone["y_coords_top_current_zone"][span]
-                x_coord_left = bridge_geom_data["x_coords_d_points="][span-1]
+                x_coord_left = bridge_geom_data["x_coords_d_points="][span - 1]
                 x_coord_right = bridge_geom_data["x_coords_d_points="][span]
                 corners = [
                     (x_coord_left, y_coord_top_left, 0),
@@ -163,9 +163,9 @@ def add_asfalt_loads(
                     (x_coord_left, y_coord_top_right, 0),
                 ]
                 create_patch_surface_load(
-                    load_case_name=load_zone["name"], #TODO geen idee wat dit meot zijn
+                    load_case_name=load_zone["name"],  # TODO geen idee wat dit meot zijn
                     corner_points=corners,
-                    load_value=23,          # TODO: Example load value, replace with actual
+                    load_value=23,  # TODO: Example load value, replace with actual
                     load_name=f"{load_zone['zone_type']}_Asfalt_d{load_zone['pavement_thickness']}",
                 )
 
