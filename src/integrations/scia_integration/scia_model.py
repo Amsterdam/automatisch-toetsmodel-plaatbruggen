@@ -130,7 +130,6 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     # 3. Define Tandem Loads and their Load Cases
     traffic_group_name = load_group_defs["ts_lane_1"].name  # Use TS Lane 1 group for now
     tandem_load_defs = add_theoretical_tandem_loads(params, traffic_group_name)
-    print(tandem_load_defs)
     definitions["load_cases"].extend(tandem_load_defs["load_case_definitions"])
     definitions["surface_loads"] = tandem_load_defs["surface_load_definitions"]
 
