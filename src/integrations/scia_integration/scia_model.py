@@ -146,11 +146,16 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     definitions["load_cases"] = load_cases
 
     # 4. Define Load Combinations
-    # TODO: Update create_standard_load_combinations to accept all new load cases
-    self_weight_case_name = "BG1001"
-    tandem_case_names = [case.name for case in tandem_load_defs["load_case_definitions"]]
+    self_weight_case = "BG1001"
+    resting_cases = [case.name for case in create_resting_load_cases()]
+    udl_cases = [case.name for case in create_udl_traffic_load_cases()]
+    ts_cases_rs1 = [case.name for case in create_tandem_rs_load_cases(1, bridge_dims["total_length"], bridge_dims["first_segment_thickness"])]
+    ts_cases_rs2 = [case.name for case in create_tandem_rs_load_cases(2, bridge_dims["total_length"], bridge_dims["first_segment_thickness"])]
+    ts_cases_rs3 = [case.name for case in create_tandem_rs_load_cases(3, bridge_dims["total_length"], bridge_dims["first_segment_thickness"])]
 
-    combination_defs = create_standard_load_combinations(self_weight_case_name, tandem_case_names)
+    combination_defs = create_standard_load_combinations(
+        self_weight_case, resting_cases, udl_cases, ts_cases_rs1, ts_cases_rs2, ts_cases_rs3
+    )
     definitions["load_combinations"] = combination_defs
 
     return definitions
