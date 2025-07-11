@@ -474,12 +474,13 @@ def calculate_zone_geometry_properties(
 def get_load_zones_data_from_params(params: BridgeParametrization) -> list[LoadZoneDataRow]:
     """
     Extract load zone data from bridge parametrization and convert to LoadZoneDataRow format.
-    
+
     Args:
         params: Bridge parametrization containing load zone data array
-        
+
     Returns:
         List of load zone data rows with proper typing
+
     """
     load_zones_data_params: list[LoadZoneDataRow] = []
     if params.load_zones_data_array:
