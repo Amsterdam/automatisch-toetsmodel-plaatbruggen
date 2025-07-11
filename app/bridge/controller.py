@@ -6,23 +6,9 @@ from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
+
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
+from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -33,7 +19,6 @@ from app.common.map_utils import (
 )
 
 # Params for load combinations are in app.constants
-from app.constants import SCIA_ZIP_README_CONTENT  # Import the SCIA ZIP readme content
 from src.combinations.load_factors import create_load_combination_table
 from src.common.plot_utils import (
     create_bridge_outline_traces,
@@ -61,6 +46,22 @@ from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.idea_interface import _get_unique_matching_zone_keys
 from src.integrations.scia_interface import create_bridge_scia_model
 from src.report.report_functions import create_export_report  # Import the report creation function
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # Import parametrization from the separate file
 from .parametrization import (
@@ -465,111 +466,6 @@ class BridgeController(ViktorController):
 
         return template_path
 
-    def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
-        """
-        Generate and download SCIA XML input files.
-
-        Creates the SCIA model XML and definition files that can be imported into SCIA Engineer.
-
-        :param params: Bridge parametrization object
-        :type params: BridgeParametrization
-        :returns: ZIP file containing XML and definition files
-        :rtype: DownloadResult
-        """
-        try:
-            # Get template path
-            template_path = self._get_scia_template_path()
-
-            # Create SCIA model
-            xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
-
-            # Debug: Check if files have content
-            xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else b""
-            def_content = def_file.getvalue() if hasattr(def_file, "getvalue") else b""
-
-            if not xml_content:
-                self._raise_empty_xml_error()
-            if not def_content:
-                self._raise_empty_def_error()
-
-            # Get bridge ID for file naming
-            bridge_id = getattr(params.info, "bridge_objectnumm", "") or "bridge_model"
-
-            # Create ZIP file using VIKTOR's recommended approach from documentation
-            import zipfile
-
-            # Use File object and write directly to it
-            zip_file_obj = File()
-            with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                # Add XML file with bridge ID as filename
-                z.writestr(f"{bridge_id}.xml", xml_content)
-                # Add definition file with standard name (referenced in XML)
-                z.writestr("viktor.xml.def", def_content)
-
-                # Add template file
-                with template_path.open("rb") as template_file:
-                    z.writestr("model.esa", template_file.read())
-
-                # Add a readme file with instructions
-                readme_content = SCIA_ZIP_README_CONTENT
-                z.writestr("README.txt", readme_content)
-
-            # Generate simplified filename
-            filename = f"{bridge_id}_Input_Files.zip"
-
-            # Return File object directly as shown in VIKTOR documentation
-            return DownloadResult(zip_file_obj, filename)
-
-        except Exception as e:
-            raise UserError(f"Fout bij genereren SCIA XML bestanden: {e!s}")
-
-    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
-        """
-        Generate and download complete SCIA model as ESA file.
-
-        Creates a complete SCIA model file that can be directly opened in SCIA Engineer.
-
-        :param params: Bridge parametrization object
-        :type params: BridgeParametrization
-        :returns: ESA model file for download
-        :rtype: DownloadResult
-        """
-        # Get template path
-        template_path = self._get_scia_template_path()
-
-        # Create SCIA model and analysis
-        xml_file, def_file, scia_analysis = create_bridge_scia_model(params, template_path)
-
-        # Execute the analysis to generate the ESA model
-        # Note: This requires SCIA worker to be available
-        try:
-            scia_analysis.execute(timeout=300)  # 5 minute timeout
-
-            # Get the updated ESA model with our geometry
-            esa_model_file = scia_analysis.get_updated_esa_model()
-
-            # Debug: Check if ESA model file has content
-            if not esa_model_file:
-                self._raise_empty_esa_error()
-
-            # Generate simplified filename
-            bridge_id = getattr(params.info, "bridge_objectnumm", "") or "bridge"
-            filename = f"{bridge_id}_model.esa"
-
-            return DownloadResult(esa_model_file, filename)
-
-        except Exception as worker_error:
-            # If SCIA worker fails, provide helpful error message
-            error_msg = (
-                f"SCIA worker uitvoering gefaald: {worker_error!s}\n\n"
-                "Mogelijke oorzaken:\n"
-                "- SCIA worker niet beschikbaar of niet correct geïnstalleerd\n"
-                "- SCIA Engineer licentie problemen\n"
-                "- Template bestand incompatibel met huidige SCIA versie\n\n"
-                "Probeer in plaats daarvan de XML bestanden te downloaden."
-            )
-            raise UserError(error_msg)
-
     def _raise_no_bridge_segments_error(self) -> None:
         """Raise UserError for missing bridge segments."""
         raise UserError("Geen brugsegmenten gedefinieerd. Ga naar de 'Invoer' pagina om de brug dimensies in te stellen.")
@@ -597,6 +493,67 @@ class BridgeController(ViktorController):
     def _raise_empty_idea_xml_error(self) -> None:
         """Raise UserError for empty IDEA XML file."""
         raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
+
+    def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Download SCIA XML and definition files as a ZIP archive."""
+        if not params.bridge_segments_array:
+            self._raise_no_bridge_segments_error()
+
+        try:
+            xml_file, def_file = generate_bridge_xml_files(params)
+
+            xml_content = xml_file.getvalue()
+            if not xml_content:
+                self._raise_empty_xml_error()
+
+            def_content = def_file.getvalue()
+            if not def_content:
+                self._raise_empty_def_error()
+
+            zip_file_obj = File()
+            with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+                z.writestr("model.xml", xml_content)
+                z.writestr("model.def", def_content)
+
+            return DownloadResult(zip_file_obj, "scia_model_files.zip")
+
+        except Exception as e:
+            raise UserError(f"SCIA XML generatie gefaald: {e!s}")
+
+    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Generate and download a complete SCIA ESA model file."""
+        if not params.bridge_segments_array:
+            self._raise_no_bridge_segments_error()
+
+        try:
+            template_path = self._get_scia_template_path()
+            xml_file, def_file, scia_analysis = setup_bridge_analysis(params, template_path)
+
+            # Validate generated files before analysis
+            if not xml_file.getvalue():
+                self._raise_empty_xml_error()
+            if not def_file.getvalue():
+                self._raise_empty_def_error()
+
+            # Execute analysis and get the ESA file
+            scia_analysis.execute(timeout=120)  # 2-minute timeout
+            esa_file = scia_analysis.get_updated_esa_model(as_file=True)
+
+            if not esa_file:
+                self._raise_empty_esa_error()
+
+            return DownloadResult(esa_file, "model.esa")
+
+        except Exception as e:
+            error_msg = (
+                f"SCIA ESA model generatie gefaald: {e!s}\n\n"
+                "Mogelijke oorzaken:\n"
+                "- SCIA worker niet beschikbaar of niet correct geïnstalleerd.\n"
+                "- SCIA Engineer licentieproblemen.\n"
+                "- Template-bestand is ongeldig of niet compatibel.\n\n"
+                "Probeer in plaats daarvan de XML-bestanden te downloaden."
+            )
+            raise UserError(error_msg)
 
     # ============================================================================================================
     # IDEA StatiCa Integration
