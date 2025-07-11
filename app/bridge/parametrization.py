@@ -861,7 +861,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- IDEA StatiCa Page ---
     # ----------------------------------
 
-    idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections"])
+    idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections", "get_view_idea_rcs_results"])
 
     idea.explanation = Text(IDEA_INFO_TEXT)
 
