@@ -128,21 +128,6 @@ def create_all_load_combinations(builder: SciaModelBuilder, all_load_cases: dict
 
     # --- BGT Combinaties ---
     # TODO: Collega's moeten logica implementeren voor het maken van BGT combinaties (Karakteristiek, Frequent, Quasi-Permanent).
-    #
-    # # De logica voor BGT is vergelijkbaar.
-    # standard_cases = all_load_cases.get("standard_cases", {})  # noqa: ERA001
-    # tandem_cases_dict = all_load_cases.get("tandem_cases", {})  # noqa: ERA001
-
-    # if standard_cases and tandem_cases_dict:
-    #     self_weight_case = standard_cases.get("self_weight")  # noqa: ERA001
-    #     if self_weight_case:
-    #         bgt_combinaties = []  # noqa: ERA001
-    #         for i, tandem_belastinggeval in enumerate(tandem_cases_dict.values()):
-    #             combo_id = f"T{i + 1}"  # noqa: ERA001
-    #             bgt_combinaties.append(
-    #                 create_basic_sls_combination(builder, self_weight_case, tandem_belastinggeval, f"BGT_{combo_id}")  # noqa: ERA001
-    #             )
-    #         all_combinations.extend(bgt_combinaties)  # noqa: ERA001
 
     return all_combinations
 
