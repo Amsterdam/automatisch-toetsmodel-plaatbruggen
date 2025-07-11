@@ -182,10 +182,10 @@ class TestCreateAllLoadCases:
         builder = Mock()
         params = Mock()
         # We patch here because we don't care about the return values, just the structure
-        with patch(
-            "src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case"
-        ), patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases"), patch(
-            "src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases"
+        with (
+            patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases"),
         ):
             all_cases = create_all_load_cases(builder, params)
 
