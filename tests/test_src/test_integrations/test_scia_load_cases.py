@@ -113,26 +113,34 @@ class TestUnintendedVehicleLoadCases:
         assert definitions[0].group_name == "LG7000"
 
 
-class TestTandemRsLoadCases:
+class TestTandemRSLoadCases:
     """Tests for creating tandem RS load case definitions."""
 
-    @pytest.mark.parametrize(
-        ("rs", "group", "prefix", "expected_len"), [(1, "LG8000", "BG80", 13), (2, "LG9000", "BG90", 13), (3, "LG10000", "BG100", 13)]
-    )
-    def test_create_tandem_rs_load_cases(self, rs: int, group: str, prefix: str, expected_len: int) -> None:
+    @pytest.mark.parametrize(("rs", "group", "prefix"), [(1, "LG8000", "BG80"), (2, "LG9000", "BG90"), (3, "LG10000", "BG100")])
+    def test_create_tandem_rs_load_cases(self, rs: int, group: str, prefix: str) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
-        definitions = create_tandem_rs_load_cases(rs)
-        assert len(definitions) == expected_len
-        assert definitions[0].name == f"{prefix}01"
+        from src.loads.loadcase_helper_functions import tandem_system_sequencer
+
+        length_bridgedeck = 50.0
+        thickness_bridgedeck = 0.5
+
+        definitions = create_tandem_rs_load_cases(rs, length_bridgedeck, thickness_bridgedeck)
+        expected_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
+        assert len(definitions) == len(expected_positions)
+
         assert definitions[0].group_name == group
-        assert "x = 0 m" in definitions[0].description
-        assert definitions[-1].name == f"{prefix}13"
-        assert "x = 6 m" in definitions[-1].description
+        assert definitions[0].name.startswith(prefix)
+
+        # Check the description of the first and last load case
+        first_pos_str = f"{expected_positions[0]:g}"
+        assert f"x = {first_pos_str} m" in definitions[0].description
+        last_pos_str = f"{expected_positions[-1]:g}"
+        assert f"x = {last_pos_str} m" in definitions[-1].description
 
     def test_invalid_rs_raises_value_error(self) -> None:
         """Test that invalid RS value raises ValueError."""
         with pytest.raises(ValueError):
-            create_tandem_rs_load_cases(4)
+            create_tandem_rs_load_cases(4, 50.0, 0.5)
 
 
 if __name__ == "__main__":

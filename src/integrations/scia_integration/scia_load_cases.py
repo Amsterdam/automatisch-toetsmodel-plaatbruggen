@@ -8,6 +8,8 @@ construct the actual SCIA model.
 
 from typing import Any, Literal, TypeAlias
 
+from src.loads.loadcase_helper_functions import tandem_system_sequencer
+
 from .scia_definitions import LoadCaseDefinition
 
 # Type alias for SCIA model object (kept for type hinting consistency in higher-level functions)
@@ -216,12 +218,18 @@ def create_unintended_vehicle_load_cases() -> list[LoadCaseDefinition]:
     ]
 
 
-def create_tandem_rs_load_cases(rs: int) -> list[LoadCaseDefinition]:
+def create_tandem_rs_load_cases(rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> list[LoadCaseDefinition]:
     """
     Create definitions for tandem system load cases for a given RS (1,2,3).
 
+    Positions are determined dynamically based on the bridge geometry.
+
     :param rs: Road system number (1, 2, or 3).
     :type rs: int
+    :param length_bridgedeck: The length of the bridge deck in meters.
+    :type length_bridgedeck: float
+    :param thickness_bridgedeck: The thickness of the bridge deck in meters.
+    :type thickness_bridgedeck: float
     :returns: List of tandem load case definitions for the specified RS.
     :rtype: list[LoadCaseDefinition]
     :raises ValueError: If rs is not 1, 2, or 3.
@@ -238,11 +246,11 @@ def create_tandem_rs_load_cases(rs: int) -> list[LoadCaseDefinition]:
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
-    positions = [i * 0.5 for i in range(13)]
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
     cases = []
     for i, pos in enumerate(positions, 1):
         case_name = f"{prefix}{i:02d}"
-        description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos} m"
+        description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
         cases.append(
             create_load_case(
                 group_name=group_name,
