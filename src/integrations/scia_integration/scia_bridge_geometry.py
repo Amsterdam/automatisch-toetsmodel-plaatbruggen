@@ -239,8 +239,7 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
         for wheel_coords_2d in tandem["wheels"]:
             # Convert 2D wheel coordinates to 3D and align to SCIA's system
             wheel_coords_3d = convert_wheel_coordinates_to_3d(wheel_coords_2d)
-        aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
-
+            aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
             patch_loads.append(
                 {
                     "corners": aligned_coords,

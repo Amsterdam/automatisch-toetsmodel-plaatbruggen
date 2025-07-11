@@ -11,6 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from app.bridge.scia_supports import create_line_support_from_definition
 from src.integrations.scia_integration.scia_definitions import (
     LoadCaseDefinition,
     LoadCombinationDefinition,
@@ -19,7 +20,6 @@ from src.integrations.scia_integration.scia_definitions import (
 )
 from src.integrations.scia_integration.scia_load_combinations import SciaLoadCombination
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
-from app.bridge.scia_supports import create_line_support_from_definition
 
 # Global VIKTOR imports with error handling for CI/testing environments
 try:

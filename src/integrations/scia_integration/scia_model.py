@@ -10,7 +10,6 @@ from typing import Any
 # Import geometry extraction functions from dedicated module
 from .scia_bridge_geometry import create_node_and_thickness_dict
 from .scia_definitions import (
-    LineSupportDefinition,
     MaterialDefinition,
     NodeDefinition,
     PlateDefinition,
@@ -19,6 +18,7 @@ from .scia_load_cases import create_basic_permanent_load_cases
 from .scia_load_combinations import create_standard_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import add_theoretical_tandem_loads
+from .scia_supports import define_line_supports
 
 
 def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
@@ -103,61 +103,6 @@ def _define_bridge_geometry(params: Any) -> dict[str, list]:  # noqa: ANN401
     }
 
 
-def _define_line_supports(plate_definitions: list[PlateDefinition]) -> list[LineSupportDefinition]:
-    """
-    Define line supports on the first and last edges of the bridge deck.
-
-    :param plate_definitions: A list of PlateDefinition objects.
-    :return: A list of LineSupportDefinition objects.
-    """
-    if not plate_definitions:
-        return []
-
-    # Determine the last section number. It is max_span_number + 1.
-    max_span_number = 0
-    for plate_def in plate_definitions:
-        try:
-            span_num = int(plate_def.name.split("_")[1])
-            if span_num > max_span_number:
-                max_span_number = span_num
-        except (IndexError, ValueError):
-            continue  # Should not happen with current naming convention
-    last_section_number = max_span_number + 1
-
-    # The logic from `get_line_support_edges_for_bridge` assumes an ordered list of planes.
-    # The plate definitions are created span-by-span, zone-by-zone (Z1, Z2, Z3).
-    # This order is consistent and can be used directly.
-    support_defs = []
-
-    # Supports at the start of the bridge (cross section 1)
-    for plate_def in plate_definitions[:3]:
-        zone_number = int(plate_def.name.split("_")[0][1:])
-        support_defs.append(
-            LineSupportDefinition(
-                name=f"SLB_opleg_as_1:{zone_number}",
-                plane_name=plate_def.name,
-                edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
-            )
-        )
-
-    # Supports at the end of the bridge (last 3 plates, edge index 2)
-    for plate_def in plate_definitions[-3:]:
-        zone_number = int(plate_def.name.split("_")[0][1:])
-        support_defs.append(
-            LineSupportDefinition(
-                name=f"SLB_opleg_as_{last_section_number}:{zone_number}",
-                plane_name=plate_def.name,
-                edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
-            )
-        )
-
-    return support_defs
-
-
 def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN401
     """
     Define a complete SCIA bridge model, including geometry, loads, etc.
@@ -170,7 +115,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     :rtype: dict[str, list]
     """
     definitions = _define_bridge_geometry(params)
-    definitions["line_supports"] = _define_line_supports(definitions["plates"])
+    definitions["line_supports"] = define_line_supports(definitions["plates"])
 
     # 1. Define Load Groups
     load_group_defs = create_all_load_groups()

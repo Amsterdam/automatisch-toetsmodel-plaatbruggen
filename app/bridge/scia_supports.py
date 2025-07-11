@@ -5,6 +5,7 @@ This module contains functions for creating SCIA support objects (e.g., Line Sup
 from their corresponding pure Python definitions. This isolates the VIKTOR SDK-
 dependent "build" logic from the "definition" logic.
 """
+
 from typing import Any
 
 from src.integrations.scia_integration.scia_definitions import LineSupportDefinition
@@ -19,9 +20,7 @@ except ImportError:
     scia = None
 
 
-def create_line_support_from_definition(
-    model: SciaModel, definition: LineSupportDefinition, plates: dict[str, Any]
-) -> SciaLoadCombination:
+def create_line_support_from_definition(model: SciaModel, definition: LineSupportDefinition, plates: dict[str, Any]) -> SciaLoadCombination:
     """
     Create a SCIA Line Support from a LineSupportDefinition.
 
@@ -30,7 +29,6 @@ def create_line_support_from_definition(
     :param plates: A dictionary of existing SCIA plate objects, keyed by name.
     :return: The created SCIA LineSupport object.
     """
-
     if definition.plane_name not in plates:
         raise ValueError(f"Plate '{definition.plane_name}' not found for line support '{definition.name}'.")
 
@@ -54,4 +52,4 @@ def create_line_support_from_definition(
         rz=freedom_map[definition.freedom["rz"]],
         stiffness_x=definition.stiffness.get("stiffness_x"),
         stiffness_y=definition.stiffness.get("stiffness_y"),
-    ) 
+    )
