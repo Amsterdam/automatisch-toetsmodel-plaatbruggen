@@ -7,8 +7,8 @@ the SciaModelBuilder interface.
 
 from typing import Any, Literal
 
-from .scia_loads_helper import tandem_system_sequencer, generate_theoretical_lane_positions
 from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
+from .scia_loads_helper import generate_theoretical_lane_positions, tandem_system_sequencer
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
@@ -265,9 +265,7 @@ def create_dynamic_tandem_load_cases(
     return load_cases
 
 
-def create_tandem_rs_load_cases(
-    builder: SciaModelBuilder, rs: int, length_bridgedeck: float, thickness_bridgedeck: float
-) -> dict[str, SciaLoadCase]:
+def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, SciaLoadCase]:
     """
     Create tandem system load cases for a given RS (1,2,3).
 

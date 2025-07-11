@@ -141,7 +141,7 @@ def create_all_load_combinations(builder: SciaModelBuilder, all_load_cases: dict
     #             combo_id = f"T{i + 1}"  # noqa: ERA001
     #             bgt_combinaties.append(
     #                 create_basic_sls_combination(builder, self_weight_case, tandem_belastinggeval, f"BGT_{combo_id}")  # noqa: ERA001
-    #             )  # noqa: ERA001
+    #             )
     #         all_combinations.extend(bgt_combinaties)  # noqa: ERA001
 
     return all_combinations

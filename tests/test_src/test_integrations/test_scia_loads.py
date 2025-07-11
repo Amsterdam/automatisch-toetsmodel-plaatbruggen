@@ -108,9 +108,7 @@ class TestLoadErrorHandling:
     """Test error handling in load application."""
 
     @patch("src.integrations.scia_integration.scia_loads.extract_tandem_parameters_from_bridge")
-    def test_tandem_load_error_propagation(
-        self, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
-    ) -> None:
+    def test_tandem_load_error_propagation(self, mock_extract: Mock, mock_builder: Mock, mock_params: Mock) -> None:
         """Test error propagation in tandem load application."""
         from src.integrations.scia_integration.scia_loads import add_theoretical_tandem_loads
 

@@ -30,9 +30,7 @@ class TestCreateBridgeGeometry:
     """Test cases for the create_bridge_geometry function."""
 
     @patch("src.integrations.scia_integration.scia_model.create_node_and_thickness_dict")
-    def test_create_bridge_geometry_logic(
-        self, mock_create_node_dict: MagicMock, mock_builder: Mock, mock_params: MagicMock
-    ) -> None:
+    def test_create_bridge_geometry_logic(self, mock_create_node_dict: MagicMock, mock_builder: Mock, mock_params: MagicMock) -> None:
         """Test the logic for creating materials, nodes, and plates."""
         # Arrange
         nodes_data = {

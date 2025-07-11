@@ -118,4 +118,4 @@ class TestCreateAllSupports:
 
         mock_create_line.assert_called_once_with(mock_builder, plate_names)
         assert all_supports == [mock_line_support]
-        # Add asserts for other support types when they are added 
+        # Add asserts for other support types when they are added
