@@ -184,8 +184,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 description,
                 group,
                 variable_type_map[variable_type],  # type: ignore[index]
-                spec_map[specification],  # type: ignore[index]
-                dur_map[duration],  # type: ignore[index]
+                specification=spec_map[specification],  # type: ignore[index]
+                duration=dur_map[duration],  # type: ignore[index]
             )
         else:
             raise ValueError(f"Unsupported load case type: {case_type}")
@@ -276,19 +276,31 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         description: str,
     ) -> SciaLoadCombination:
         """Creates a load combination and stores it."""
-        if combination_type.value == scia.Combination.Type.ENVELOPE_SERVICEABILITY.value:
-            combo_class = scia.Combination.Type.ENVELOPE_SERVICEABILITY
-        elif combination_type.value == scia.Combination.Type.ENVELOPE_ULTIMATE.value:
-            combo_class = scia.Combination.Type.ENVELOPE_ULTIMATE
-        else:
+        combo_type_map = {
+            "ENVELOPE_ULTIMATE": scia.LoadCombination.Type.ENVELOPE_ULTIMATE,
+            "ENVELOPE_SERVICEABILITY": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY,
+            "LINEAR_ULTIMATE": scia.LoadCombination.Type.LINEAR_ULTIMATE,
+            "LINEAR_SERVICEABILITY": scia.LoadCombination.Type.LINEAR_SERVICEABILITY,
+            "EN_ULS_SET_B": scia.LoadCombination.Type.EN_ULS_SET_B,
+            "EN_ULS_SET_C": scia.LoadCombination.Type.EN_ULS_SET_C,
+            "EN_SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
+            "EN_SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
+            "EN_SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
+            "EN_ACC_ONE": scia.LoadCombination.Type.EN_ACC_ONE,
+            "EN_ACC_TWO": scia.LoadCombination.Type.EN_ACC_TWO,
+            "EN_SEISMIC": scia.LoadCombination.Type.EN_SEISMIC,
+        }
+        combo_class = combo_type_map.get(combination_type.value)
+
+        if combo_class is None:
             raise ValueError(f"Unsupported combination type: {combination_type}")
 
-        combination = self.model.create_combination(name, combo_class, description)
+        combination = self.model.create_load_combination(name, combo_class, description)
         for load_case, factor in load_case_factors.items():
             combination.add_load_case(load_case, factor)
         return combination
 
-    def create_line_support(
+    def create_line_support_on_plane(
         self,
         name: str,
         plane_name: str,
@@ -307,21 +319,17 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "FLEXIBLE": scia.LineSupport.Freedom.FLEXIBLE,
         }
 
-        return self.model.create_line_support(
+        return self.model.create_line_support_on_plane(
             name=name,
             edge=(plane, edge_index),
-            ux=freedom_map[freedom.get("ux", "FREE")],
-            uy=freedom_map[freedom.get("uy", "FREE")],
-            uz=freedom_map[freedom.get("uz", "FREE")],
-            fix=freedom_map[freedom.get("fix", "FREE")],
-            fiy=freedom_map[freedom.get("fiy", "FREE")],
-            fiz=freedom_map[freedom.get("fiz", "FREE")],
-            stiffness_x=stiffness.get("stiffness_x", 0.0),
-            stiffness_y=stiffness.get("stiffness_y", 0.0),
-            stiffness_z=stiffness.get("stiffness_z", 0.0),
-            stiffness_fix=stiffness.get("stiffness_fix", 0.0),
-            stiffness_fiy=stiffness.get("stiffness_fiy", 0.0),
-            stiffness_fiz=stiffness.get("stiffness_fiz", 0.0),
+            x=freedom_map[freedom["x"]],
+            y=freedom_map[freedom["y"]],
+            z=freedom_map[freedom["z"]],
+            rx=freedom_map[freedom["rx"]],
+            ry=freedom_map[freedom["ry"]],
+            rz=freedom_map[freedom["rz"]],
+            stiffness_x=stiffness.get("stiffness_x"),
+            stiffness_y=stiffness.get("stiffness_y"),
         )
 
     def get_model(self) -> scia.Model:
@@ -377,6 +385,6 @@ def run_scia_analysis(params: Any, template_path: Path) -> scia.SciaAnalysis:  #
     if not VIKTOR_AVAILABLE or scia is None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
     xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
-    scia_analysis = scia.SciaAnalysis(xml_input_file=xml_file, xml_def_file=def_file, esa_template_file=esa_template)
+    scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
     scia_analysis.execute(timeout=600)
     return scia_analysis

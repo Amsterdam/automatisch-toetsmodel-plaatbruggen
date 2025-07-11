@@ -27,23 +27,20 @@ SciaFreeLineLoad = Any
 
 
 class SciaCombinationType(Enum):
-    """Enumeration for SCIA Load Combination types, independent of the SDK."""
+    """Enumeration for SCIA Load Combination types, aligned with the VIKTOR SDK."""
 
-    ULS = "ULS"
-    ULS_SET_B = "ULS_SET_B"
-    ULS_SET_C = "ULS_SET_C"
-    ENVELOPE_ULS = "ENVELOPE_ULS"
-    LINEAR_ULS = "LINEAR_ULS"
-    SLS = "SLS"
-    SLS_CHAR = "SLS_CHAR"
-    SLS_FREQ = "SLS_FREQ"
-    SLS_QUASI = "SLS_QUASI"
-    ENVELOPE_SLS = "ENVELOPE_SLS"
-    LINEAR_SLS = "LINEAR_SLS"
-    ACCIDENTAL = "ACCIDENTAL"
-    ACCIDENTAL_1 = "ACCIDENTAL_1"
-    ACCIDENTAL_2 = "ACCIDENTAL_2"
-    SEISMIC = "SEISMIC"
+    ENVELOPE_ULTIMATE = "ENVELOPE_ULTIMATE"
+    ENVELOPE_SERVICEABILITY = "ENVELOPE_SERVICEABILITY"
+    LINEAR_ULTIMATE = "LINEAR_ULTIMATE"
+    LINEAR_SERVICEABILITY = "LINEAR_SERVICEABILITY"
+    EN_ULS_SET_B = "EN_ULS_SET_B"
+    EN_ULS_SET_C = "EN_ULS_SET_C"
+    EN_SLS_CHAR = "EN_SLS_CHAR"
+    EN_SLS_FREQ = "EN_SLS_FREQ"
+    EN_SLS_QUASI = "EN_SLS_QUASI"
+    EN_ACC_ONE = "EN_ACC_ONE"
+    EN_ACC_TWO = "EN_ACC_TWO"
+    EN_SEISMIC = "EN_SEISMIC"
 
 
 class SciaModelBuilder(Protocol):
@@ -157,7 +154,7 @@ class SciaModelBuilder(Protocol):
         """Creates a load combination in the SCIA model."""
         ...
 
-    def create_line_support(
+    def create_line_support_on_plane(
         self,
         name: str,
         plane_name: str,

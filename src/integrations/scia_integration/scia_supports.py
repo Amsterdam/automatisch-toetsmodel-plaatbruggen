@@ -27,7 +27,7 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str]) -> l
     for plate_name in plate_names[:3]:
         zone_number = int(plate_name.split("_")[0][1:])
         support_objects.append(
-            builder.create_line_support(
+            builder.create_line_support_on_plane(
                 name=f"SLB_opleg_as_1:{zone_number}",
                 plane_name=plate_name,
                 edge_index=4,
@@ -40,7 +40,7 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str]) -> l
     for plate_name in plate_names[-3:]:
         zone_number = int(plate_name.split("_")[0][1:])
         support_objects.append(
-            builder.create_line_support(
+            builder.create_line_support_on_plane(
                 name=f"SLB_opleg_as_{last_section_number}:{zone_number}",
                 plane_name=plate_name,
                 edge_index=2,
