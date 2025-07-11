@@ -14,7 +14,7 @@ from .scia_definitions import (
     NodeDefinition,
     PlateDefinition,
 )
-from .scia_load_cases import create_basic_permanent_load_cases
+from .scia_load_cases import create_self_weight_load_case
 from .scia_load_combinations import create_standard_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import add_theoretical_tandem_loads
@@ -124,7 +124,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     # 2. Define basic Load Cases
     # Permanent loads
     permanent_group_name = load_group_defs["permanent"].name
-    permanent_case_defs = create_basic_permanent_load_cases(permanent_group_name)
+    permanent_case_defs = {"self_weight": create_self_weight_load_case()}
     definitions["load_cases"] = list(permanent_case_defs.values())
 
     # 3. Define Tandem Loads and their Load Cases
