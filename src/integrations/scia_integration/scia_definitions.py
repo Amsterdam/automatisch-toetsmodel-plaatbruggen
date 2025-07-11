@@ -162,3 +162,36 @@ class LineSupportDefinition:
     edge_index: int
     freedom: dict[str, str]
     stiffness: dict[str, float]
+
+@dataclass
+class LineLoadOnEdgeDefinition:
+    """
+    Defines the properties for a SCIA Line Load.
+
+    :param name: Name of the line load.
+    :param load_case_name: Name of the load case this load belongs to.
+    :param edge_points: List of two coordinates for the line load [(x1, y1, z1), (x2, y2, z2)].
+    :param load_value: Load magnitude in [N/m] (positive = downward).
+    """
+    name: str
+    load_case_name: str
+    plane_name: str
+    edge_index: int
+    load_value: float
+
+@dataclass
+class FreeLineLoadDefinition:
+    """
+    Defines the properties for a SCIA Free Line Load.
+
+    :param name: Name of the free line load.
+    :param load_case_name: Name of the load case this load belongs to.
+    :param start_point: Start coordinate of the line load (x, y, z).
+    :param end_point: End coordinate of the line load (x, y, z).
+    :param load_value: Load magnitude in [N/m] (positive = downward).
+    """
+    name: str
+    load_case_name: str
+    start_point: tuple[float, float, float]
+    end_point: tuple[float, float, float]
+    load_value: float

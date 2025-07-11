@@ -7,10 +7,11 @@ These definitions are pure Python objects that can be used by the app layer to c
 
 from typing import Any
 
-from .scia_definitions import SurfaceLoadDefinition
+from .scia_definitions import SurfaceLoadDefinition, LineLoadOnEdgeDefinition, PlateDefinition
 
 # Import definition-based creators
-
+#def create_free_line_load()
+#def create_line_load_on_edge()
 
 def create_patch_surface_load(
     load_case_name: str,
@@ -106,20 +107,57 @@ def add_actual_tandem_loads(
 """Add railing loads to the SCIA model."""
 
 
-def add_railing_loads(
-    _model: Any,  # noqa: ANN401
-    _params: Any,  # noqa: ANN401
-    _permanent_group: Any,  # noqa: ANN401
-) -> list[Any]:
-    """PLACEHOLDER: Add railing loads to the SCIA model."""
-    # TODO: Implement railing load application
-    # - Get railing positions from geometry
-    # - Apply line loads along railing paths
-    return []
+def define_railing_loads(
+    plate_definitions: list[PlateDefinition],
+    params: Any, #noqa: ANN401 
+    load_case_name: str,
+) -> LineLoadOnEdgeDefinition:
+    """
+    Add permanent line loads for parapets (railing) to the SCIA model.
+
+    Places line loads:
+    - On edge 1 of all zone 3 plates (Z3)
+    - On edge 3 of all zone 1 plates (Z1)
+
+    :param _model: SCIA model instance (not used in definition phase)
+    :param _params: Bridge parameters (not used in definition phase)
+    :param _permanent_group: Permanent load group (not used in definition phase)
+    :returns: List of line load definitions (dicts)
+    :rtype: list[dict]
+    """
+    # Get load value from params
+    try:
+        load_value = params.input.belastingzones.lijnlast_leuning
+    except AttributeError:
+        load_value = 1.0  # Fallback default if not present
+
+    line_loads = []
+    for plate_def in plate_definitions:
+        zone_str = plate_def.name.split('_')[0]
+        if zone_str.startswith('Z') and zone_str[1:].isdigit():
+            zone_number = int(zone_str[1:])
+            if zone_number == 3:
+                # Zone 3: edge 3
+                line_loads.append({
+                    "name": f"railing_load_zone3_{plate_def.name}",
+                    "load_case_name": load_case_name,
+                    "plane_name": plate_def.name,
+                    "edge_index": 3,
+                    "load_value": load_value,
+                })
+            elif zone_number == 1:
+                # Zone 1: edge 1
+                line_loads.append({
+                    "name": f"railing_load_zone1_{plate_def.name}",
+                    "load_case_name": load_case_name,
+                    "plane_name": plate_def.name,
+                    "edge_index": 1,
+                    "load_value": load_value,
+                })
+    return line_loads
 
 
 """Add pedestrian loads to the SCIA model."""
-
 
 def add_pedestrian_loads(
     _model: Any,  # noqa: ANN401
