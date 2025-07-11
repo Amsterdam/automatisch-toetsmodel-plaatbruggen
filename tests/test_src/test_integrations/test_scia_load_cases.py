@@ -112,7 +112,11 @@ class TestTandemLoadCases:
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
     @pytest.mark.parametrize(
         ("rs", "group", "prefix"),
-        [(1, "LG8000 - TS rijstrook 1", "BG800"), (2, "LG9000 - TS rijstrook 2", "BG900"), (3, "LG10000 - TS rijstrook 3", "BG1000")],
+        [
+            (1, "LG8000 - TS rijstrook 1", "BG800"),
+            (2, "LG9000 - TS rijstrook 2", "BG900"),
+            (3, "LG10000 - TS rijstrook 3", "BG1000"),
+        ],
     )
     def test_create_tandem_rs_load_cases(self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
