@@ -9,8 +9,8 @@ This module provides utilities for creating and managing definitions for load co
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
-from typing import Any
 from itertools import product
+from typing import Any
 
 from .scia_definitions import LoadCombinationDefinition, SciaCombinationType
 
@@ -138,7 +138,7 @@ def create_standard_load_combinations(
     combo_id = 1
 
     # Base factors for permanent loads
-    permanent_factors = {case: 1.35 for case in [self_weight_case] + resting_load_cases}
+    permanent_factors = dict.fromkeys([self_weight_case] + resting_load_cases, 1.35)
 
     # ULS Combinations
     # Scenario 1: UDL (variable) + TS RS1 (exclusive)

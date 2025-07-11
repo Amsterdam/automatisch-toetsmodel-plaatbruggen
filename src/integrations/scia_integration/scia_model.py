@@ -153,9 +153,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     ts_cases_rs2 = [case.name for case in create_tandem_rs_load_cases(2, bridge_dims["total_length"], bridge_dims["first_segment_thickness"])]
     ts_cases_rs3 = [case.name for case in create_tandem_rs_load_cases(3, bridge_dims["total_length"], bridge_dims["first_segment_thickness"])]
 
-    combination_defs = create_standard_load_combinations(
-        self_weight_case, resting_cases, udl_cases, ts_cases_rs1, ts_cases_rs2, ts_cases_rs3
-    )
+    combination_defs = create_standard_load_combinations(self_weight_case, resting_cases, udl_cases, ts_cases_rs1, ts_cases_rs2, ts_cases_rs3)
     definitions["load_combinations"] = combination_defs
 
     return definitions
