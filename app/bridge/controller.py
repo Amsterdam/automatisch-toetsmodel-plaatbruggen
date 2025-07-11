@@ -44,7 +44,6 @@ from src.geometry.model_creator import (
 )
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.idea_interface import _get_unique_matching_zone_keys
-from src.integrations.scia_interface import create_bridge_scia_model
 from src.report.report_functions import create_export_report  # Import the report creation function
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
