@@ -6,9 +6,14 @@ These definitions are pure Python objects that can be used by the app layer to c
 """
 
 from typing import Any
-
+from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
 from .scia_definitions import SurfaceLoadDefinition
 from .scia_load_cases import create_tandem_rs_load_cases
+from .scia_bridge_geometry import (
+    convert_tandem_data_to_scia_format,
+    extract_tandem_parameters_from_bridge,
+    generate_tandem_loads_for_bridge,
+)
 
 # Import definition-based creators
 
@@ -52,19 +57,11 @@ def add_theoretical_tandem_loads(
     :return: A dict with "load_case_definitions" and "surface_load_definitions".
     :rtype: dict[str, list]
     """
-    from src.loads.loadcase_helper_functions import generate_theoretical_lane_positions
-
-    from .scia_bridge_geometry import (
-        convert_tandem_data_to_scia_format,
-        extract_tandem_parameters_from_bridge,
-        generate_tandem_loads_for_bridge,
-    )
-
     # 1. Extract bridge parameters for tandem loads
     bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length"]
-    thickness = bridge_params["thickness"]
-    width = bridge_params["width"]
+    length = bridge_params["length_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
+    width = bridge_params["width_bridgedeck"]
 
     # 2. Determine number of lanes and create load case definitions
     num_lanes = len(generate_theoretical_lane_positions(width))
