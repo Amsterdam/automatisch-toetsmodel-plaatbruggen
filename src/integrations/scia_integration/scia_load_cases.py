@@ -1,150 +1,86 @@
 """
 SCIA load cases utility module.
 
-This module provides direct load case creation functions using create_load_case_complete()
-with predefined parameters. The calling code just needs to provide the model and load group.
-
-Currently contains placeholder implementations for basic bridge analysis.
+This module provides functions for creating definitions of standard SCIA load cases.
+These definitions are pure Python objects that can be used by the app layer to
+construct the actual SCIA model.
 """
 
-from typing import Any, TypeAlias
+from typing import Any, Literal, TypeAlias
 
-# Global VIKTOR imports with error handling for CI/testing environments
-try:
-    from viktor.external import scia
+from .scia_definitions import LoadCaseDefinition
 
-    VIKTOR_AVAILABLE = True
-except ImportError:
-    # Mock objects for environments without VIKTOR SDK
-    scia = None  # type: ignore[misc,assignment]
-    VIKTOR_AVAILABLE = False
-
-# Type aliases for SCIA objects
+# Type alias for SCIA model object (kept for type hinting consistency in higher-level functions)
 SciaModel: TypeAlias = Any
 SciaLoadGroup: TypeAlias = Any
 SciaLoadCase: TypeAlias = Any
 
 
-def _check_scia_availability() -> None:
-    """Check if SCIA module is available and raise ImportError if not."""
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-
-def create_load_case_complete(
-    model: Any,  # noqa: ANN401
-    load_group: Any,  # noqa: ANN401
+def create_load_case(
+    group_name: str,
     case_name: str,
     description: str,
-    case_type: str,
+    case_type: Literal["PERMANENT", "VARIABLE"],
     **kwargs: str,
-) -> Any:  # noqa: ANN401
+) -> LoadCaseDefinition:
     """
-    Create SCIA load case with all parameters.
+    Create a definition for a SCIA load case.
 
-    :param model: SCIA model instance
-    :param load_group: Load group that this case belongs to
-    :param case_name: Name for the load case
-    :param description: Description of the load case
-    :param case_type: "PERMANENT" or "VARIABLE"
+    :param group_name: Name of the load group this case belongs to.
+    :param case_name: Name for the load case.
+    :param description: Description of the load case.
+    :param case_type: "PERMANENT" or "VARIABLE".
     :param kwargs: Optional parameters:
-        - permanent_type: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT" (default: "STANDARD")
-        - variable_type: "STATIC", "PRIMARY_EFFECT" (default: "STATIC")
-        - specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE" (default: "STANDARD")
-        - duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG" (default: "SHORT")
-    :returns: SCIA load case object
-    :rtype: Any
-    :raises ImportError: When VIKTOR SCIA module is not available
-    :raises ValueError: When invalid case_type is provided
-
-    See: https://docs.viktor.ai/sdk/api/external/scia/#_LoadCase
+        - permanent_type: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"
+        - variable_type: "STATIC", "PRIMARY_EFFECT"
+        - specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"
+        - duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"
+    :returns: A LoadCaseDefinition object.
+    :rtype: LoadCaseDefinition
     """
-    _check_scia_availability()
-
-    # Extract kwargs with defaults
-    permanent_type = kwargs.get("permanent_type", "STANDARD")
-    variable_type = kwargs.get("variable_type", "STATIC")
-    specification = kwargs.get("specification", "STANDARD")
-    duration = kwargs.get("duration", "SHORT")
-
-    permanent_type_map = {
-        "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT,
-        "STANDARD": scia.LoadCase.PermanentLoadType.STANDARD,
-        "PRIMARY_EFFECT": scia.LoadCase.PermanentLoadType.PRIMARY_EFFECT,
-    }
-
-    variable_type_map = {
-        "STATIC": scia.LoadCase.VariableLoadType.STATIC,
-        "PRIMARY_EFFECT": scia.LoadCase.VariableLoadType.PRIMARY_EFFECT,
-    }
-
-    specification_map = {
-        "STANDARD": scia.LoadCase.Specification.STANDARD,
-        "TEMPERATURE": scia.LoadCase.Specification.TEMPERATURE,
-        "STATIC_WIND": scia.LoadCase.Specification.STATIC_WIND,
-        "EARTHQUAKE": scia.LoadCase.Specification.EARTHQUAKE,
-        "SNOW": scia.LoadCase.Specification.SNOW,
-    }
-
-    duration_map = {
-        "LONG": scia.LoadCase.Duration.LONG,
-        "MEDIUM": scia.LoadCase.Duration.MEDIUM,
-        "SHORT": scia.LoadCase.Duration.SHORT,
-        "INSTANTANEOUS": scia.LoadCase.Duration.INSTANTANEOUS,
-    }
-
-    if case_type.upper() == "PERMANENT":
-        return model.create_permanent_load_case(case_name, description, load_group, permanent_type_map[permanent_type])
-    if case_type.upper() == "VARIABLE":
-        return model.create_variable_load_case(
-            case_name, description, load_group, variable_type_map[variable_type], specification_map[specification], duration_map[duration]
-        )
-    raise ValueError(f"Invalid case_type '{case_type}'. Use 'PERMANENT' or 'VARIABLE'")
+    return LoadCaseDefinition(
+        name=case_name,
+        description=description,
+        group_name=group_name,
+        case_type=case_type,
+        permanent_type=kwargs.get("permanent_type"),  # type: ignore[arg-type]
+        variable_type=kwargs.get("variable_type"),  # type: ignore[arg-type]
+        specification=kwargs.get("specification"),  # type: ignore[arg-type]
+        duration=kwargs.get("duration"),  # type: ignore[arg-type]
+    )
 
 
 def create_self_weight_load_case(
-    model: SciaModel,
-    load_group: SciaLoadGroup,
-) -> SciaLoadCase:
+    permanent_group_name: str,
+) -> LoadCaseDefinition:
     """
-    Create self-weight load case BG01 matching SCIA interface.
+    Create definition for self-weight load case BG01.
 
-    Creates "BG01" self-weight load case with description "Eigen gewicht"
-    using direct SCIA API to match SCIA Engineer interface exactly.
-
-    :param model: SCIA model instance
-    :param load_group: SCIA load group for permanent loads (should be LG1)
-    :returns: Created SCIA self-weight load case BG01
-    :rtype: SciaLoadCase
-    :raises ImportError: When VIKTOR SCIA module is not available
+    :param permanent_group_name: Name of the permanent load group (e.g., "LG1").
+    :returns: Definition for the self-weight load case.
+    :rtype: LoadCaseDefinition
     """
-    return model.create_permanent_load_case(
-        "BG01",
-        "Eigen gewicht",
-        load_group,
-        scia.LoadCase.PermanentLoadType.SELF_WEIGHT,
+    return create_load_case(
+        group_name=permanent_group_name,
+        case_name="BG01",
+        description="Eigen gewicht",
+        case_type="PERMANENT",
+        permanent_type="SELF_WEIGHT",
     )
 
 
 def create_wind_load_case(
-    model: SciaModel,
-    load_group: SciaLoadGroup,
-) -> SciaLoadCase:
+    wind_group_name: str,
+) -> LoadCaseDefinition:
     """
-    Create wind load case with predefined parameters.
+    Create definition for wind load case.
 
-    Creates a variable load case for wind loads on the bridge structure.
-
-    PLACEHOLDER: Currently uses basic implementation for demonstration.
-
-    :param model: SCIA model instance
-    :param load_group: SCIA load group for variable loads
-    :returns: Created SCIA wind load case
-    :rtype: SciaLoadCase
+    :param wind_group_name: Name of the wind load group (e.g., "LG3").
+    :returns: Definition for the wind load case.
+    :rtype: LoadCaseDefinition
     """
-    return create_load_case_complete(
-        model=model,
-        load_group=load_group,
+    return create_load_case(
+        group_name=wind_group_name,
         case_name="Q2_Wind",
         description="Wind Load",
         case_type="VARIABLE",
@@ -155,25 +91,18 @@ def create_wind_load_case(
 
 
 def create_tandem_load_case(
-    model: SciaModel,
-    load_group: SciaLoadGroup,
+    traffic_group_name: str,
     case_name: str,
     mode: str = "theoretical",
-) -> SciaLoadCase:
+) -> LoadCaseDefinition:
     """
-    Create tandem load case with predefined parameters.
+    Create definition for a tandem load case.
 
-    Creates a variable load case for traffic tandem loads.
-
-    PLACEHOLDER: Currently uses basic implementation. Used by apply_tandem_loads_to_scia_model.
-    Will be expanded for proper tandem load case configuration.
-
-    :param model: SCIA model instance
-    :param load_group: SCIA load group for variable loads
-    :param case_name: Name for the tandem load case (e.g., "TH6001", "BG6001")
-    :param mode: Load case mode ("theoretical", "actual", "shiftable")
-    :returns: Created SCIA tandem load case
-    :rtype: SciaLoadCase
+    :param traffic_group_name: Name of the traffic load group (e.g., "LG2").
+    :param case_name: Name for the tandem load case (e.g., "TH6001").
+    :param mode: Load case mode ("theoretical", "actual", "shiftable").
+    :returns: Definition for the tandem load case.
+    :rtype: LoadCaseDefinition
     """
     mode_descriptions = {
         "theoretical": "Tandem System - Theoretical Lane",
@@ -183,9 +112,8 @@ def create_tandem_load_case(
     }
     description = f"{mode_descriptions.get(mode, 'Tandem System')} {case_name}"
 
-    return create_load_case_complete(
-        model=model,
-        load_group=load_group,
+    return create_load_case(
+        group_name=traffic_group_name,
         case_name=case_name,
         description=description,
         case_type="VARIABLE",
@@ -196,25 +124,19 @@ def create_tandem_load_case(
 
 
 def create_basic_permanent_load_cases(
-    model: SciaModel,
-    permanent_group: SciaLoadGroup,
-) -> dict[str, SciaLoadCase]:
+    permanent_group_name: str,
+) -> dict[str, LoadCaseDefinition]:
     """
-    Create basic permanent load cases for bridge analysis.
+    Create definitions for basic permanent load cases.
 
-    Creates self-weight load case for bridge structural analysis.
-
-    PLACEHOLDER: Currently only creates self-weight. Will be expanded.
-
-    :param model: SCIA model instance
-    :param permanent_group: SCIA load group for permanent loads
-    :returns: Dictionary with created permanent load cases
-    :rtype: dict[str, SciaLoadCase]
+    :param permanent_group_name: Name of the permanent load group.
+    :returns: Dictionary with created permanent load case definitions.
+    :rtype: dict[str, LoadCaseDefinition]
     """
-    self_weight_case = create_self_weight_load_case(model, permanent_group)
+    self_weight_case_def = create_self_weight_load_case(permanent_group_name)
 
     return {
-        "self_weight": self_weight_case,
+        "self_weight": self_weight_case_def,
     }
 
 

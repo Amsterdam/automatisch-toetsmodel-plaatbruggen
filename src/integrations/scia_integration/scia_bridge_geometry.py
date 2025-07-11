@@ -221,33 +221,40 @@ def align_bridge_coordinates_to_scia(coords: list[tuple[float, float, float]], b
 
 def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Convert tandem load data to SCIA-compatible format.
+    Convert tandem load data to a SCIA-compatible definition format.
 
-    :param tandem_data: List of tandem load dictionaries
-    :returns: List of SCIA-compatible load dictionaries
+    This function transforms the output of `tandem_systems_theoretical_lanes`
+    into a structure suitable for creating SCIA load definitions.
+
+    :param tandem_data: List of tandem load dictionaries from the helper function.
+    :returns: A list of dictionaries, where each represents a load case
+              with its associated patch load definitions.
     :rtype: list[dict[str, Any]]
     """
-    scia_loads = []
+    scia_load_cases = []
 
     for tandem in tandem_data:
-        # Convert wheel coordinates to 3D
-        wheel_coords_3d = convert_wheel_coordinates_to_3d(tandem["wheel_coordinates"])
+        patch_loads = []
+        # The 'wheels' key contains a list of 4-point coordinate lists for each wheel
+        for wheel_coords_2d in tandem["wheels"]:
+            # Convert 2D wheel coordinates to 3D and align to SCIA's system
+            wheel_coords_3d = convert_wheel_coordinates_to_3d(wheel_coords_2d)
+            aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
+            patch_loads.append(
+                {
+                    "corners": aligned_coords,
+                    "load_value": tandem["load"],
+                }
+            )
 
-        # Align to SCIA coordinate system
-        aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
+        scia_load_cases.append(
+            {
+                "load_case": tandem["load_case"],
+                "patch_loads": patch_loads,
+            }
+        )
 
-        # Create SCIA-compatible load dictionary
-        scia_load = {
-            "load_name": tandem.get("load_name", "Tandem_Load"),
-            "load_value": tandem.get("load_value", 150000.0),  # Default 150kN per wheel
-            "wheel_coordinates": aligned_coords,
-            "load_type": tandem.get("load_type", "point_load"),
-            "load_direction": tandem.get("load_direction", "Z"),  # Vertical load
-        }
-
-        scia_loads.append(scia_load)
-
-    return scia_loads
+    return scia_load_cases
 
 
 def create_node_and_thickness_dict(params: Any) -> tuple[dict[str, list[float]], dict[str, float]]:  # noqa: ANN401

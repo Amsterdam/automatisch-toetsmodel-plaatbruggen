@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
-from viktor.errors import UserError
-from viktor.result import DownloadResult
 
 from app.bridge.controller import BridgeController
+from viktor.errors import UserError
+from viktor.result import DownloadResult
 
 
 class TestGetSciaTemplatePath:
@@ -46,7 +46,7 @@ class TestGetSciaTemplatePath:
 class TestDownloadSciaXmlFiles:
     """Test cases for download_scia_xml_files method."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.controller = BridgeController()
         self.mock_params = Munch(
@@ -211,7 +211,7 @@ class TestDownloadSciaXmlFiles:
 class TestDownloadSciaEsaModel:
     """Test cases for download_scia_esa_model method."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.controller = BridgeController()
         self.mock_params = Munch(
@@ -393,7 +393,7 @@ class TestSciaErrorHelperMethods:
 class TestSciaIntegrationEdgeCases:
     """Test cases for SCIA integration edge cases and error scenarios."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.controller = BridgeController()
         self.mock_params = Munch(
