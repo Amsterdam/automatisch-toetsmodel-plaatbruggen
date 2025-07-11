@@ -278,6 +278,8 @@ class BridgeController(ViktorController):
 
         # 2a. Calculate zone geometric properties using bridge geometry
         load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
+        print(f"Load zones data after geometry properties calculation: {load_zones_data_params}")  # noqa: T201
+        print(f"Bridge geometry data: {bridge_geom_data}")  # noqa: T201
 
         if not load_zones_data_params:  # No load zones defined
             fig = go.Figure()
