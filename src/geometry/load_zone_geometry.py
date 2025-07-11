@@ -440,7 +440,7 @@ def get_bridge_geom_data(params: BridgeParametrization) -> LoadZoneGeometryData 
 
 
 def calculate_zone_geometry_properties(
-    load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData
+    load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData | None
 ) -> list[LoadZoneDataRow]:
     """
     Calculate geometric properties for each load zone based on bridge geometry.
