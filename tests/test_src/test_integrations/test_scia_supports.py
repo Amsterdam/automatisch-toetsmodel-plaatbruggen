@@ -25,7 +25,7 @@ class TestCreateLineSupports:
         plate_names = ["Z1_1", "Z2_1", "Z3_1", "Z1_2", "Z2_2", "Z3_2"]
         create_line_supports(mock_builder, plate_names)
 
-        assert mock_builder.create_line_support.call_count == 6
+        assert mock_builder.create_line_support_on_plane.call_count == 6
 
         # Check calls for start supports (edge 4 on first 3 plates)
         # last_section_number will be 3 (max span number is 2, so 2+1)
@@ -78,14 +78,14 @@ class TestCreateLineSupports:
             ),
         ]
 
-        mock_builder.create_line_support.assert_has_calls(expected_calls_start, any_order=False)
-        mock_builder.create_line_support.assert_has_calls(expected_calls_end, any_order=False)
+        mock_builder.create_line_support_on_plane.assert_has_calls(expected_calls_start, any_order=False)
+        mock_builder.create_line_support_on_plane.assert_has_calls(expected_calls_end, any_order=False)
 
     def test_no_plates_returns_empty_list(self, mock_builder: Mock) -> None:
         """Test that an empty list is returned and no supports are created if no plates are provided."""
         result = create_line_supports(mock_builder, [])
         assert result == []
-        mock_builder.create_line_support.assert_not_called()
+        mock_builder.create_line_support_on_plane.assert_not_called()
 
     def test_single_span_bridge(self, mock_builder: Mock) -> None:
         """Test with a single span bridge (less than 6 plates)."""
@@ -93,10 +93,10 @@ class TestCreateLineSupports:
         create_line_supports(mock_builder, plate_names)
 
         # Should still create start and end supports on the same plates
-        assert mock_builder.create_line_support.call_count == 6
-        mock_builder.create_line_support.assert_any_call(name="SLB_opleg_as_1:1", plane_name="Z1_1", edge_index=4)
+        assert mock_builder.create_line_support_on_plane.call_count == 6
+        mock_builder.create_line_support_on_plane.assert_any_call(name="SLB_opleg_as_1:1", plane_name="Z1_1", edge_index=4)
         # last_section_number will be 2
-        mock_builder.create_line_support.assert_any_call(name="SLB_opleg_as_2:1", plane_name="Z1_1", edge_index=2)
+        mock_builder.create_line_support_on_plane.assert_any_call(name="SLB_opleg_as_2:1", plane_name="Z1_1", edge_index=2)
 
 
 class TestCreateAllSupports:

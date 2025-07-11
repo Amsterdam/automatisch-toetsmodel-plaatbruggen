@@ -37,7 +37,7 @@ class TestStandardLoadCases:
         mock_builder.create_load_case.assert_called_once_with(
             name="BG1001",
             description="Eigen gewicht",
-            group_name="LG1000",
+            group_name="LG1000 - Permanent",
             case_type="PERMANENT",
             permanent_type="SELF_WEIGHT",
             variable_type=None,
@@ -52,7 +52,7 @@ class TestStandardLoadCases:
         mock_builder.create_load_case.assert_any_call(
             name="BG2001",
             description="Permanente belasting - Asfalt",
-            group_name="LG2000",
+            group_name="LG2000 - Rustende belasting",
             case_type="PERMANENT",
             permanent_type="STANDARD",
             variable_type=None,
@@ -67,7 +67,7 @@ class TestStandardLoadCases:
         mock_builder.create_load_case.assert_any_call(
             name="BG3001",
             description="Temperatuur, dek - Temp combi 1",
-            group_name="LG3000",
+            group_name="LG3000 - Temperatuur",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="TEMPERATURE",
@@ -82,7 +82,7 @@ class TestStandardLoadCases:
         mock_builder.create_load_case.assert_any_call(
             name="BG4001",
             description="Verkeer, dek - LM1 UDL RS 1",
-            group_name="LG4000",
+            group_name="LG4000 - UDL",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -110,7 +110,10 @@ class TestTandemLoadCases:
     """Tests for creating tandem RS load case definitions."""
 
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    @pytest.mark.parametrize(("rs", "group", "prefix"), [(1, "LG8000", "BG8000"), (2, "LG9000", "BG9000"), (3, "LG10000", "BG10000")])
+    @pytest.mark.parametrize(
+        ("rs", "group", "prefix"),
+        [(1, "LG8000 - TS rijstrook 1", "BG800"), (2, "LG9000 - TS rijstrook 2", "BG900"), (3, "LG10000 - TS rijstrook 3", "BG1000")],
+    )
     def test_create_tandem_rs_load_cases(self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
         mock_sequencer.return_value = [10.0, 25.0, 49.5]
@@ -124,7 +127,7 @@ class TestTandemLoadCases:
 
         # Check the call for the first load case
         mock_builder.create_load_case.assert_any_call(
-            name=f"{prefix}001",
+            name=f"{prefix}01",
             description=f"Verkeer, dek - LM1 TS RS {rs} - x = 10 m",
             group_name=group,
             case_type="VARIABLE",

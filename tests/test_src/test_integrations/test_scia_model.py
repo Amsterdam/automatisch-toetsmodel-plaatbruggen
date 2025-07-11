@@ -63,8 +63,9 @@ class TestCreateBridgeGeometry:
     def test_create_bridge_geometry_no_segments_raises_error(self, mock_builder: Mock) -> None:
         """Test that an error is raised if no segments are provided."""
         params_no_segments = Munch({"bridge_segments_array": []})
-        with pytest.raises(IndexError):  # Or whatever error `create_node_and_thickness_dict` raises
-            create_bridge_geometry(mock_builder, params_no_segments)
+        # The function should return empty plate names when no segments are provided
+        plate_names = create_bridge_geometry(mock_builder, params_no_segments)
+        assert plate_names == []  # Should return empty list instead of raising error
 
 
 class TestDefineCompleteBridgeModel:
