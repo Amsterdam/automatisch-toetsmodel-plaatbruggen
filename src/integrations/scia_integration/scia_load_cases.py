@@ -238,7 +238,7 @@ def create_tandem_rs_load_cases(rs: int) -> list[LoadCaseDefinition]:
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
-    positions = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
+    positions = [i * 0.5 for i in range(13)]
     cases = []
     for i, pos in enumerate(positions, 1):
         case_name = f"{prefix}{i:02d}"

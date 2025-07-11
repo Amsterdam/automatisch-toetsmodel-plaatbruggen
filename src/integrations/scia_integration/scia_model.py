@@ -123,7 +123,6 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
 
     # 2. Define basic Load Cases
     # Permanent loads
-    permanent_group_name = load_group_defs["permanent"].name
     permanent_case_defs = {"self_weight": create_self_weight_load_case()}
     definitions["load_cases"] = list(permanent_case_defs.values())
 

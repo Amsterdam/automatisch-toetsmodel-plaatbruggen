@@ -7,7 +7,7 @@ These definitions are pure Python objects that can be used by the app layer to c
 
 from typing import Any
 
-from .scia_definitions import SurfaceLoadDefinition, LoadCaseDefinition
+from .scia_definitions import LoadCaseDefinition, SurfaceLoadDefinition
 
 # Import definition-based creators
 
@@ -72,15 +72,17 @@ def add_theoretical_tandem_loads(
     for tandem in scia_tandem_data:
         load_case_name = tandem["load_case"]
         description = f"Tandem System - Theoretical Lane {load_case_name}"
-        load_case_definitions.append(LoadCaseDefinition(
-            name=load_case_name,
-            description=description,
-            group_name=traffic_group_name,
-            case_type="VARIABLE",
-            variable_type="STATIC",
-            specification="STANDARD",
-            duration="SHORT",
-        ))
+        load_case_definitions.append(
+            LoadCaseDefinition(
+                name=load_case_name,
+                description=description,
+                group_name=traffic_group_name,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
+        )
         for i, patch_load in enumerate(tandem["patch_loads"]):
             surface_load_definitions.append(
                 create_patch_surface_load(

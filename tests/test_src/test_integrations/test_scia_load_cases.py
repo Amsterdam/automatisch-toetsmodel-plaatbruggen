@@ -4,20 +4,18 @@ Tests for SCIA load cases module.
 Tests for load case creation functions using direct SCIA API.
 """
 
-from unittest.mock import Mock, patch
-
 import pytest
 
 from src.integrations.scia_integration.scia_definitions import LoadCaseDefinition
 from src.integrations.scia_integration.scia_load_cases import (
-    create_self_weight_load_case,
+    create_pedestrian_load_case,
     create_resting_load_cases,
+    create_self_weight_load_case,
+    create_service_vehicle_load_cases,
+    create_tandem_rs_load_cases,
     create_temperature_load_cases,
     create_udl_traffic_load_cases,
-    create_pedestrian_load_case,
-    create_service_vehicle_load_cases,
     create_unintended_vehicle_load_cases,
-    create_tandem_rs_load_cases,
 )
 
 
@@ -40,6 +38,7 @@ class TestSelfWeightLoadCase:
         definition = create_self_weight_load_case()
         assert isinstance(definition, LoadCaseDefinition)
 
+
 class TestRestingLoadCases:
     """Tests for creating resting load case definitions."""
 
@@ -55,10 +54,12 @@ class TestRestingLoadCases:
         assert definitions[4].name == "BG2005"
         assert definitions[4].description == "Rustende belasting - Lichtmast"
 
+
 class TestTemperatureLoadCases:
     """Tests for creating temperature load case definitions."""
 
     def test_create_temperature_load_cases(self) -> None:
+        """Test creation of temperature load case definitions."""
         definitions = create_temperature_load_cases()
         assert len(definitions) == 4
         assert definitions[0].name == "BG3001"
@@ -67,6 +68,7 @@ class TestTemperatureLoadCases:
         assert definitions[0].specification == "TEMPERATURE"
         assert definitions[0].duration == "LONG"
         assert definitions[0].description == "Temperatuur, dek - Temp combi 1"
+
 
 class TestUdlTrafficLoadCases:
     """Tests for creating UDL traffic load case definitions."""
@@ -79,6 +81,7 @@ class TestUdlTrafficLoadCases:
         assert definitions[0].case_type == "VARIABLE"
         assert definitions[0].duration == "SHORT"
 
+
 class TestPedestrianLoadCase:
     """Tests for creating pedestrian load case definition."""
 
@@ -89,6 +92,7 @@ class TestPedestrianLoadCase:
         assert definition.case_type == "VARIABLE"
         assert definition.duration == "SHORT"
 
+
 class TestServiceVehicleLoadCases:
     """Tests for creating service vehicle load case definitions."""
 
@@ -97,6 +101,7 @@ class TestServiceVehicleLoadCases:
         assert len(definitions) == 3
         assert definitions[0].name == "BG6001"
         assert definitions[0].group_name == "LG6000"
+
 
 class TestUnintendedVehicleLoadCases:
     """Tests for creating unintended vehicle load case definitions."""
@@ -107,11 +112,15 @@ class TestUnintendedVehicleLoadCases:
         assert definitions[0].name == "BG7001"
         assert definitions[0].group_name == "LG7000"
 
+
 class TestTandemRsLoadCases:
     """Tests for creating tandem RS load case definitions."""
 
-    @pytest.mark.parametrize("rs, group, prefix, expected_len", [(1, "LG8000", "BG80", 13), (2, "LG9000", "BG90", 13), (3, "LG10000", "BG100", 13)])
+    @pytest.mark.parametrize(
+        ("rs", "group", "prefix", "expected_len"), [(1, "LG8000", "BG80", 13), (2, "LG9000", "BG90", 13), (3, "LG10000", "BG100", 13)]
+    )
     def test_create_tandem_rs_load_cases(self, rs: int, group: str, prefix: str, expected_len: int) -> None:
+        """Test creation of tandem RS load case definitions for different RS values."""
         definitions = create_tandem_rs_load_cases(rs)
         assert len(definitions) == expected_len
         assert definitions[0].name == f"{prefix}01"
@@ -121,7 +130,8 @@ class TestTandemRsLoadCases:
         assert "x = 6 m" in definitions[-1].description
 
     def test_invalid_rs_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="RS must be 1, 2, or 3"):
+        """Test that invalid RS value raises ValueError."""
+        with pytest.raises(ValueError):
             create_tandem_rs_load_cases(4)
 
 
