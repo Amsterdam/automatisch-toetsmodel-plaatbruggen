@@ -302,6 +302,8 @@
 ## [Unreleased]
 
 ### Added
+- **Comprehensive Load Cases**: Implemented the full set of required load cases for bridge analysis, including self-weight, resting loads, temperature, UDL, pedestrian, service vehicle, unintended vehicle, and tandem systems.
+- **Comprehensive Load Groups**: Defined all required SCIA load groups (Permanent, Resting, Temperature, UDL, Crowd, Service Vehicle, Accidental Vehicle, and Tandem Systems) with correct types and relations.
 - **Theoretical Traffic Lane Integration (Phase 1)**: Connected tandem loads to theoretical traffic lanes from `load_zone_geometry` system
   - New `tandem_systems_theoretical_lanes()` function generates tandems positioned at theoretical lane centers
   - Enhanced `determine_tandem_function_for_bridge()` with mode selection: "theoretical" vs "eurocode"

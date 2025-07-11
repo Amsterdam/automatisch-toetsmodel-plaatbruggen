@@ -8,6 +8,8 @@ construct the actual SCIA model.
 
 from typing import Any, Literal, TypeAlias
 
+from src.loads.loadcase_helper_functions import tandem_system_sequencer
+
 from .scia_definitions import LoadCaseDefinition
 
 # Type alias for SCIA model object (kept for type hinting consistency in higher-level functions)
@@ -50,72 +52,113 @@ def create_load_case(
     )
 
 
-def create_self_weight_load_case(
-    permanent_group_name: str,
-) -> LoadCaseDefinition:
+def create_self_weight_load_case() -> LoadCaseDefinition:
     """
-    Create definition for self-weight load case BG01.
+    Create definition for self-weight load case BG1001.
 
-    :param permanent_group_name: Name of the permanent load group (e.g., "LG1").
     :returns: Definition for the self-weight load case.
     :rtype: LoadCaseDefinition
     """
     return create_load_case(
-        group_name=permanent_group_name,
-        case_name="BG01",
+        group_name="LG1000",
+        case_name="BG1001",
         description="Eigen gewicht",
         case_type="PERMANENT",
         permanent_type="SELF_WEIGHT",
     )
 
 
-def create_wind_load_case(
-    wind_group_name: str,
-) -> LoadCaseDefinition:
+def create_resting_load_cases() -> list[LoadCaseDefinition]:
     """
-    Create definition for wind load case.
+    Create definitions for resting permanent load cases BG2001 to BG2005.
 
-    :param wind_group_name: Name of the wind load group (e.g., "LG3").
-    :returns: Definition for the wind load case.
+    :returns: List of resting load case definitions.
+    :rtype: list[LoadCaseDefinition]
+    """
+    data = [
+        ("BG2001", "Rustende belasting - Asfalt"),
+        ("BG2002", "Rustende belasting - Uitvulling"),
+        ("BG2003", "Rustende belasting - Ophogingen, schampkanten, trottoir"),
+        ("BG2004", "Rustende belasting - Leuning"),
+        ("BG2005", "Rustende belasting - Lichtmast"),
+    ]
+    return [
+        create_load_case(
+            group_name="LG2000",
+            case_name=name,
+            description=desc,
+            case_type="PERMANENT",
+            permanent_type="STANDARD",
+        )
+        for name, desc in data
+    ]
+
+
+def create_temperature_load_cases() -> list[LoadCaseDefinition]:
+    """
+    Create definitions for temperature load cases BG3001 to BG3004.
+
+    :returns: List of temperature load case definitions.
+    :rtype: list[LoadCaseDefinition]
+    """
+    data = [
+        ("BG3001", "Temperatuur, dek - Temp combi 1"),
+        ("BG3002", "Temperatuur, dek - Temp combi 2"),
+        ("BG3003", "Temperatuur, dek - Temp combi 3"),
+        ("BG3004", "Temperatuur, dek - Temp combi 4"),
+    ]
+    return [
+        create_load_case(
+            group_name="LG3000",
+            case_name=name,
+            description=desc,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="TEMPERATURE",
+            duration="LONG",
+        )
+        for name, desc in data
+    ]
+
+
+def create_udl_traffic_load_cases() -> list[LoadCaseDefinition]:
+    """
+    Create definitions for UDL traffic load cases BG4001 to BG4004.
+
+    :returns: List of UDL traffic load case definitions.
+    :rtype: list[LoadCaseDefinition]
+    """
+    data = [
+        ("BG4001", "Verkeer, dek - LM1 UDL RS 1"),
+        ("BG4002", "Verkeer, dek - LM1 UDL RS 2"),
+        ("BG4003", "Verkeer, dek - LM1 UDL RS 3"),
+        ("BG4004", "Verkeer, dek - LM1 UDL rest"),
+    ]
+    return [
+        create_load_case(
+            group_name="LG4000",
+            case_name=name,
+            description=desc,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        for name, desc in data
+    ]
+
+
+def create_pedestrian_load_case() -> LoadCaseDefinition:
+    """
+    Create definition for pedestrian load case BG5001.
+
+    :returns: Pedestrian load case definition.
     :rtype: LoadCaseDefinition
     """
     return create_load_case(
-        group_name=wind_group_name,
-        case_name="Q2_Wind",
-        description="Wind Load",
-        case_type="VARIABLE",
-        variable_type="STATIC",
-        specification="STATIC_WIND",
-        duration="SHORT",
-    )
-
-
-def create_tandem_load_case(
-    traffic_group_name: str,
-    case_name: str,
-    mode: str = "theoretical",
-) -> LoadCaseDefinition:
-    """
-    Create definition for a tandem load case.
-
-    :param traffic_group_name: Name of the traffic load group (e.g., "LG2").
-    :param case_name: Name for the tandem load case (e.g., "TH6001").
-    :param mode: Load case mode ("theoretical", "actual", "shiftable").
-    :returns: Definition for the tandem load case.
-    :rtype: LoadCaseDefinition
-    """
-    mode_descriptions = {
-        "theoretical": "Tandem System - Theoretical Lane",
-        "eurocode": "Load Model 1 - Tandem System",
-        "shiftable": "Tandem System - Shiftable Position",
-        "actual": "Tandem System - Actual Lane",
-    }
-    description = f"{mode_descriptions.get(mode, 'Tandem System')} {case_name}"
-
-    return create_load_case(
-        group_name=traffic_group_name,
-        case_name=case_name,
-        description=description,
+        group_name="LG5000",
+        case_name="BG5001",
+        description="Verkeer, mensenmenigte - LM4",
         case_type="VARIABLE",
         variable_type="STATIC",
         specification="STANDARD",
@@ -123,29 +166,119 @@ def create_tandem_load_case(
     )
 
 
-def create_basic_permanent_load_cases(
-    permanent_group_name: str,
-) -> dict[str, LoadCaseDefinition]:
+def create_service_vehicle_load_cases() -> list[LoadCaseDefinition]:
     """
-    Create definitions for basic permanent load cases.
+    Create definitions for service vehicle load cases BG6001 to BG6003.
 
-    :param permanent_group_name: Name of the permanent load group.
-    :returns: Dictionary with created permanent load case definitions.
-    :rtype: dict[str, LoadCaseDefinition]
+    :returns: List of service vehicle load case definitions.
+    :rtype: list[LoadCaseDefinition]
     """
-    self_weight_case_def = create_self_weight_load_case(permanent_group_name)
+    data = [
+        ("BG6001", "Verkeer, dienstvoertuig - RS 1"),
+        ("BG6002", "Verkeer, dienstvoertuig - RS 2"),
+        ("BG6003", "Verkeer, dienstvoertuig - RS 3"),
+    ]
+    return [
+        create_load_case(
+            group_name="LG6000",
+            case_name=name,
+            description=desc,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        for name, desc in data
+    ]
 
-    return {
-        "self_weight": self_weight_case_def,
-    }
+
+def create_unintended_vehicle_load_cases() -> list[LoadCaseDefinition]:
+    """
+    Create definitions for unintended vehicle load cases BG7001 to BG7003.
+
+    :returns: List of unintended vehicle load case definitions.
+    :rtype: list[LoadCaseDefinition]
+    """
+    data = [
+        ("BG7001", "Verkeer, onbedoeld voertuig - RS 1"),
+        ("BG7002", "Verkeer, onbedoeld voertuig - RS 2"),
+        ("BG7003", "Verkeer, onbedoeld voertuig - RS 3"),
+    ]
+    return [
+        create_load_case(
+            group_name="LG7000",
+            case_name=name,
+            description=desc,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        for name, desc in data
+    ]
 
 
-# TODO: Additional load case creation functions to be added for complete bridge analysis
-# - create_udl_load_case() - for uniformly distributed loads
-# - create_pedestrian_load_case() - for pedestrian loads
-# - create_temperature_load_case() - for temperature effects
-# - create_multiple_tandem_load_cases() - for multiple tandem positions
-# - create_special_vehicle_load_case() - for special vehicle loads
-# - create_settlement_load_case() - for settlement effects
-# - create_seismic_load_case() - for seismic loads
-# - create_construction_stage_load_case() - for construction stages
+def create_tandem_rs_load_cases(rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> list[LoadCaseDefinition]:
+    """
+    Create definitions for tandem system load cases for a given RS (1,2,3).
+
+    Positions are determined dynamically based on the bridge geometry.
+
+    :param rs: Road system number (1, 2, or 3).
+    :type rs: int
+    :param length_bridgedeck: The length of the bridge deck in meters.
+    :type length_bridgedeck: float
+    :param thickness_bridgedeck: The thickness of the bridge deck in meters.
+    :type thickness_bridgedeck: float
+    :returns: List of tandem load case definitions for the specified RS.
+    :rtype: list[LoadCaseDefinition]
+    :raises ValueError: If rs is not 1, 2, or 3.
+    """
+    if rs == 1:
+        group_name = "LG8000"
+        prefix = "BG80"
+    elif rs == 2:
+        group_name = "LG9000"
+        prefix = "BG90"
+    elif rs == 3:
+        group_name = "LG10000"
+        prefix = "BG100"
+    else:
+        raise ValueError("RS must be 1, 2, or 3")
+
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
+    cases = []
+    for i, pos in enumerate(positions, 1):
+        case_name = f"{prefix}{i:02d}"
+        description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
+        cases.append(
+            create_load_case(
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
+        )
+    return cases
+
+
+def create_all_standard_load_cases() -> list[LoadCaseDefinition]:
+    """
+    Create a list of all standard load case definitions for the bridge model.
+
+    This function aggregates all individual load case creation helpers into a single list.
+
+    :return: A list containing all standard LoadCaseDefinition objects.
+    :rtype: list[LoadCaseDefinition]
+    """
+    load_cases = [create_self_weight_load_case()]
+    load_cases.extend(create_resting_load_cases())
+    load_cases.extend(create_temperature_load_cases())
+    load_cases.extend(create_udl_traffic_load_cases())
+    load_cases.append(create_pedestrian_load_case())
+    load_cases.extend(create_service_vehicle_load_cases())
+    load_cases.extend(create_unintended_vehicle_load_cases())
+    return load_cases

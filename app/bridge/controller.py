@@ -536,7 +536,7 @@ class BridgeController(ViktorController):
                 self._raise_empty_def_error()
 
             # Execute analysis and get the ESA file
-            scia_analysis.execute(timeout=120)  # 2-minute timeout
+            scia_analysis.execute(timeout=600)  # 10-minute timeout
             esa_file = scia_analysis.get_updated_esa_model(as_file=True)
 
             if not esa_file:
