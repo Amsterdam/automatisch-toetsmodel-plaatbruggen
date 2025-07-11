@@ -15,7 +15,6 @@ from src.integrations.scia_integration.scia_model_interface import (
     SciaLoadCombination,
     SciaLoadGroup,
     SciaModelBuilder,
-    SciaLineSupport,
 )
 
 # Global VIKTOR imports with error handling for CI/testing environments
