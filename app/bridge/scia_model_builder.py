@@ -15,6 +15,7 @@ from src.integrations.scia_integration.scia_model_interface import (
     SciaLoadCombination,
     SciaLoadGroup,
     SciaModelBuilder,
+    SciaLineSupport,
 )
 
 # Global VIKTOR imports with error handling for CI/testing environments
@@ -308,7 +309,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "FLEXIBLE": scia.LineSupport.Freedom.FLEXIBLE,
         }
 
-        return self.model.create_line_support(
+        return scia.LineSupport(
             name=name,
             edge=(plane, edge_index),
             ux=freedom_map[freedom.get("ux", "FREE")],
