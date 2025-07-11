@@ -7,6 +7,7 @@ import pytest
 from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
+from src.geometry.load_zone_geometry import _create_bridge_segment_dimensions_from_params, _prepare_bridge_geometry_for_plotting
 from src.geometry.model_creator import BridgeSegmentDimensions
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import controller_test_wrapper
@@ -39,7 +40,7 @@ class TestBridgeController(unittest.TestCase):
     def test_create_bridge_segment_dimensions_from_params_valid_segment(self) -> None:
         """Test creating bridge segment dimensions from a valid individual segment."""
         # Act
-        result = self.controller._create_bridge_segment_dimensions_from_params(self.sample_segment_row)  # type: ignore[arg-type]  # noqa: SLF001
+        result = _create_bridge_segment_dimensions_from_params(self.sample_segment_row)  # type: ignore[arg-type]
 
         # Assert
         assert isinstance(result, BridgeSegmentDimensions)
@@ -57,11 +58,11 @@ class TestBridgeController(unittest.TestCase):
 
         # Act & Assert
         with pytest.raises(UserError) as context:
-            self.controller._create_bridge_segment_dimensions_from_params(incomplete_segment)  # type: ignore[arg-type]  # noqa: SLF001
+            _create_bridge_segment_dimensions_from_params(incomplete_segment)  # type: ignore[arg-type]
 
         assert "brugsegmenten missen benodigde data" in str(context.value)
 
-    @patch("app.bridge.controller.prepare_load_zone_geometry_data")
+    @patch("src.geometry.load_zone_geometry.prepare_load_zone_geometry_data")
     @controller_test_wrapper("BridgeController", "_prepare_bridge_geometry_for_plotting")
     def test_prepare_bridge_geometry_for_plotting_with_valid_segments(self, mock_prepare_geometry: MagicMock) -> None:
         """Test preparing bridge geometry with valid segment data."""
@@ -71,7 +72,7 @@ class TestBridgeController(unittest.TestCase):
         mock_prepare_geometry.return_value = mock_geometry_data
 
         # Act
-        result = self.controller._prepare_bridge_geometry_for_plotting(segments_list)  # noqa: SLF001
+        result = _prepare_bridge_geometry_for_plotting(segments_list)
 
         # Assert
         assert result == mock_geometry_data
@@ -88,7 +89,7 @@ class TestBridgeController(unittest.TestCase):
     def test_prepare_bridge_geometry_for_plotting_empty_segments(self) -> None:
         """Test preparing bridge geometry with empty segment list."""
         # Act
-        result = self.controller._prepare_bridge_geometry_for_plotting([])  # noqa: SLF001
+        result = _prepare_bridge_geometry_for_plotting([])
 
         # Assert
         assert result is None
@@ -99,7 +100,7 @@ class TestBridgeController(unittest.TestCase):
         bridge_segments_params = self.complex_params.bridge_segments_array
 
         # Act
-        result = self.controller._prepare_bridge_geometry_for_plotting(bridge_segments_params)  # noqa: SLF001
+        result = _prepare_bridge_geometry_for_plotting(bridge_segments_params)
 
         # Assert
         assert result is not None
@@ -115,7 +116,7 @@ class TestBridgeController(unittest.TestCase):
 
         # Act & Assert
         with pytest.raises(UserError):
-            self.controller._prepare_bridge_geometry_for_plotting(invalid_segments)  # noqa: SLF001
+            _prepare_bridge_geometry_for_plotting(invalid_segments)
 
     def test_get_bridge_entity_data_invalid_entity_id(self) -> None:
         """Test fetching bridge entity data with invalid entity ID."""
