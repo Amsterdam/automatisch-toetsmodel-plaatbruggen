@@ -167,7 +167,7 @@ def add_asfalt_loads(
                     (x_coord_left, y_coord_top_right, 0.0),
                 ]
                 create_patch_surface_load(
-                    load_case_name=f"{load_zone['zone_type']}_Asfalt", # TODO is dit correct?
+                    load_case_name=f"{load_zone['zone_type']}_Asfalt",  # TODO is dit correct?
                     corner_points=corners,
                     load_value=23,  # TODO: Example load value, replace with actual
                     load_name=f"{load_zone['zone_type']}_Asfalt_d{load_zone['pavement_thickness']}",
