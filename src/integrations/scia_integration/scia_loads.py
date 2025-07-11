@@ -131,3 +131,14 @@ def add_pedestrian_loads(
     # - Get pedestrian zone polygons
     # - Apply surface loads to pedestrian areas
     return []
+
+def add_asfalt_loads(
+    _model: Any,  # noqa: ANN401
+    _params: Any,  # noqa: ANN401
+    _traffic_group: Any,  # noqa: ANN401
+) -> list[Any]:
+    """PLACEHOLDER: Add asphalt loads to the SCIA model."""
+    # TODO: Implement asphalt load application
+    # - Get asphalt zone polygons
+    # - Apply surface loads to asphalt areas
+    return []
