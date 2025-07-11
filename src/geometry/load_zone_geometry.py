@@ -424,12 +424,13 @@ def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZ
 def get_bridge_geom_data(params: BridgeParametrization) -> LoadZoneGeometryData | None:
     """
     Extract and prepare bridge geometry data from bridge parametrization.
-    
+
     Args:
         params: Bridge parametrization containing bridge segments array
-        
+
     Returns:
         LoadZoneGeometryData object with processed bridge geometry, or None if no segments
+
     """
     return _prepare_bridge_geometry_for_plotting(params.bridge_segments_array)
 
