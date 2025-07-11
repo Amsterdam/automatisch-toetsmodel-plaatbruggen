@@ -167,7 +167,8 @@ class TestTandemLoadCases:
 class TestCreateAllLoadCases:
     """Tests for the main function creating all load cases."""
 
-    def test_create_all_load_cases_structure(self, _mock_tandem: Mock, _mock_dead: Mock, _mock_sw: Mock) -> None:
+    @pytest.mark.usefixtures("mock_tandem", "mock_dead", "mock_sw")
+    def test_create_all_load_cases_structure(self) -> None:
         """Test that the function returns the expected dictionary structure."""
         builder = Mock()
         params = Mock()

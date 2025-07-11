@@ -4,7 +4,7 @@ Tests for SCIA support creation functions.
 This module tests the creation of SCIA support elements by mocking the SciaModelBuilder.
 """
 
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 
