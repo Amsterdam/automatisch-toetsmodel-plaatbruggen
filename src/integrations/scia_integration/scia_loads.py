@@ -1,116 +1,97 @@
 """
-Module for creating SCIA load definitions.
+Module for creating SCIA loads.
 
-This module provides functions for creating definitions of SCIA loads, load cases, and load combinations.
-These definitions are pure Python objects that can be used by the app layer to construct the actual SCIA model.
+This module provides functions for creating SCIA loads by calling the SciaModelBuilder.
+These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
 from typing import Any
 
-from src.integrations.scia_integration.scia_model_builder import SciaModelBuilder
-
 from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
+    extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_load_cases import create_tandem_system_load_cases
+from .scia_model_interface import SciaModelBuilder
 
 
-def create_patch_surface_load(
+def add_theoretical_tandem_loads(
     builder: SciaModelBuilder,
-    case_name: str,
-    plate_name: str,
-    load_value: float,
+    params: Any,  # noqa: ANN401
 ) -> None:
     """
-    Create a definition for a patch surface load on a plate.
+    Create theoretical tandem loads and apply them to their existing load cases.
 
-    :param builder: The SCIA model builder.
-    :param case_name: The name of the load case for this load.
-    :param plate_name: The name of the plate to apply the load to.
-    :param load_value: The value of the surface load.
+    This function assumes that the required load cases have already been created
+    by `create_all_load_cases`.
+
+    :param builder: The SCIA model builder instance.
+    :param params: VIKTOR parameters for the bridge.
     """
-    builder.add_surface_load(
-        name=f"Load_{case_name}_{plate_name}",
-        case_name=case_name,
-        plate_name=plate_name,
-        value=load_value,
-        direction="Z",
-    )
+    # 1. Extract bridge parameters needed for load geometry calculation
+    bridge_params = extract_tandem_parameters_from_bridge(params)
 
+    # 2. Generate tandem loads based on theoretical lanes
+    raw_tandem_data = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
 
-def add_theoretical_tandem_loads(params: Any, builder: SciaModelBuilder, plate_names: list[str]) -> list[str]:
-    """
-    Generate and add theoretical tandem loads to the SCIA model.
+    # 3. Convert tandem data to SCIA format for surface loads
+    scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
 
-    This function calculates tandem system loads based on bridge geometry,
-    creates the necessary load cases, and applies the loads as surface loads
-    to the corresponding plates.
-
-    :param params: The VIKTOR parametrization object.
-    :param builder: The SCIA model builder.
-    :param plate_names: A list of all plate names in the model.
-    :return: A list of the created tandem load case names.
-    """
-    tandem_cases = create_tandem_system_load_cases(builder)
-    tandem_data = generate_tandem_loads_for_bridge(params)
-    scia_tandem_data = convert_tandem_data_to_scia_format(tandem_data)
-
-    for tandem_load in scia_tandem_data:
-        case_name = tandem_load["load_case"]
-        plate_name = tandem_load["plate_name"]
-
-        if plate_name in plate_names:
-            create_patch_surface_load(
-                builder=builder,
-                case_name=case_name,
-                plate_name=plate_name,
-                load_value=tandem_load["load_value"],
+    # 4. Create surface loads using the builder, applying them to the correct load case
+    for tandem in scia_tandem_data:
+        load_case_name = tandem["load_case"]
+        for i, patch_load in enumerate(tandem["patch_loads"]):
+            builder.create_surface_load(
+                name=f"{load_case_name}_Wheel_{i + 1}",
+                load_case_name=load_case_name,
+                corner_points=patch_load["corners"],
+                load_value=-patch_load["load_value"],  # Negative for downward load
             )
-    return tandem_cases
-
-
-"""Add actual tandem loads based on user-defined lanes."""
 
 
 def add_actual_tandem_loads(
-    _model: Any,  # noqa: ANN401
+    _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
-    _traffic_group: Any,  # noqa: ANN401
 ) -> list[Any]:
     """PLACEHOLDER: Add actual tandem loads based on user-defined lanes."""
-    # TODO: Implement logic for actual tandem loads
-    # - Extract actual lane positions from params
-    # - Generate tandem loads for those lanes
-    # - Apply to model
+    # This will be implemented when user-defined lanes are supported.
     return []
-
-
-"""Add railing loads to the SCIA model."""
 
 
 def add_railing_loads(
-    _model: Any,  # noqa: ANN401
+    _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
-    _permanent_group: Any,  # noqa: ANN401
 ) -> list[Any]:
     """PLACEHOLDER: Add railing loads to the SCIA model."""
-    # TODO: Implement railing load application
-    # - Get railing positions from geometry
-    # - Apply line loads along railing paths
+    # This will be implemented based on railing parameters.
     return []
-
-
-"""Add pedestrian loads to the SCIA model."""
 
 
 def add_pedestrian_loads(
-    _model: Any,  # noqa: ANN401
+    _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
-    _traffic_group: Any,  # noqa: ANN401
 ) -> list[Any]:
     """PLACEHOLDER: Add pedestrian loads to the SCIA model."""
-    # TODO: Implement pedestrian load application
-    # - Get pedestrian zone polygons
-    # - Apply surface loads to pedestrian areas
+    # This will be implemented based on pedestrian area parameters.
     return []
+
+
+def create_all_loads(builder: SciaModelBuilder, params: Any) -> None:  # noqa: ANN401
+    """
+    Create and apply all load types to the bridge model.
+
+    This function orchestrates the application of all loads, including:
+    - Tandem system loads
+    - Railing loads (placeholder)
+    - Pedestrian loads (placeholder)
+
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters.
+    """
+    # Apply theoretical tandem loads
+    add_theoretical_tandem_loads(builder, params)
+
+    # TODO: Add calls to other load functions when they are implemented
+    # add_actual_tandem_loads(builder, params)  # noqa: ERA001
+    # add_railing_loads(builder, params)  # noqa: ERA001
+    # add_pedestrian_loads(builder, params)  # noqa: ERA001

@@ -103,7 +103,7 @@ def tandem_systems_theoretical_lanes(
     lane_y_positions = generate_theoretical_lane_positions(width_bridgedeck, lane_width)
 
     results = []
-    rs_prefixes = ["BG80", "BG90", "BG100"]
+    rs_prefixes = ["BG8000", "BG9000", "BG10000"]
 
     # Generate load cases for each lane position
     for lane_idx, y_lane_center in enumerate(lane_y_positions):

@@ -1,79 +1,132 @@
 """
 SCIA model definition utilities.
 
-This module handles the creation of definitions for complete SCIA bridge models, including geometry, nodes, and plates.
-It is independent of the VIKTOR SDK.
+This module handles the creation of complete SCIA bridge models by driving the
+SciaModelBuilder interface. It is independent of the VIKTOR SDK.
 """
 
 from typing import Any
 
-from .scia_bridge_geometry import (
-    create_node_and_thickness_dict,
-)
+from .scia_bridge_geometry import create_node_and_thickness_dict
 from .scia_load_cases import (
-    create_all_standard_load_cases,
+    create_all_load_cases,
 )
-from .scia_load_combinations import create_standard_load_combinations
+from .scia_load_combinations import create_all_load_combinations
 from .scia_load_group import create_all_load_groups
-from .scia_loads import add_theoretical_tandem_loads
-from .scia_model_builder import SciaModelBuilder
-from .scia_supports import define_line_supports
+from .scia_loads import create_all_loads
+from .scia_model_interface import SciaModelBuilder
+from .scia_supports import create_all_supports
 
 
-def _define_bridge_geometry(params: Any, builder: SciaModelBuilder) -> list[str]:
+def create_bridge_geometry(builder: SciaModelBuilder, params: Any) -> list[str]:  # noqa: ANN401
     """
-    Define the complete bridge geometry in the SCIA model.
+    Define and create the geometry for a SCIA bridge model using the builder.
 
-    :param params: The VIKTOR parametrization object.
-    :param builder: The SCIA model builder.
-    :return: A list of the created plate names.
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters.
+    :return: An ordered list of the created plate names.
+    :rtype: list[str]
     """
-    node_and_thickness_dict = create_node_and_thickness_dict(params)
+    # Define and create the material
+    material_name = "C30/37"
+    builder.create_material(name=material_name)
 
-    # Add default material
-    builder.add_material("C30/37")
+    # Get geometry data (node coordinates and plate thicknesses)
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
 
-    # Add all nodes to the model
-    for node_name, node_data in node_and_thickness_dict["nodes"].items():
-        builder.add_node(name=node_name, x=node_data["x"], y=node_data["y"], z=node_data["z"])
+    # Create nodes
+    for name, coords in nodes_dict.items():
+        builder.create_node(name=name, x=coords[0], y=coords[1], z=coords[2])
 
-    # Add all plates to the model
+    # Create plates and collect their names
     plate_names = []
-    for plate_name, plate_data in node_and_thickness_dict["plates"].items():
-        builder.add_plate(
-            name=plate_name,
-            corner_node_names=plate_data["node_names"],
-            thickness=plate_data["thickness"],
-            material_name="C30/37",
+    dynamic_arrays = len(params.bridge_segments_array)
+
+    # Create plates between cross sections
+    for span in range(1, dynamic_arrays):
+        next_span = span + 1
+
+        # Zone 1 plate
+        z1_thickness = thickness_dict.get(f"Z1_{span}")
+        if z1_thickness is None:
+            raise ValueError(f"Thickness for plate Z1_{span} not found.")
+        plate_name_z1 = f"Z1_{span}"
+        builder.create_plate(
+            name=plate_name_z1,
+            corner_node_names=[
+                f"K_dek:{span}_1",
+                f"K_dek:{next_span}_1",
+                f"K_dek:{next_span}_2",
+                f"K_dek:{span}_2",
+            ],
+            thickness=z1_thickness,
+            material_name=material_name,
         )
-        plate_names.append(plate_name)
+        plate_names.append(plate_name_z1)
+
+        # Zone 2 plate
+        z2_thickness = thickness_dict.get(f"Z2_{span}")
+        if z2_thickness is None:
+            raise ValueError(f"Thickness for plate Z2_{span} not found.")
+        plate_name_z2 = f"Z2_{span}"
+        builder.create_plate(
+            name=plate_name_z2,
+            corner_node_names=[
+                f"K_dek:{span}_2",
+                f"K_dek:{next_span}_2",
+                f"K_dek:{next_span}_3",
+                f"K_dek:{span}_3",
+            ],
+            thickness=z2_thickness,
+            material_name=material_name,
+        )
+        plate_names.append(plate_name_z2)
+
+        # Zone 3 plate
+        z3_thickness = thickness_dict.get(f"Z3_{span}")
+        if z3_thickness is None:
+            raise ValueError(f"Thickness for plate Z3_{span} not found.")
+        plate_name_z3 = f"Z3_{span}"
+        builder.create_plate(
+            name=plate_name_z3,
+            corner_node_names=[
+                f"K_dek:{span}_3",
+                f"K_dek:{next_span}_3",
+                f"K_dek:{next_span}_4",
+                f"K_dek:{span}_4",
+            ],
+            thickness=z3_thickness,
+            material_name=material_name,
+        )
+        plate_names.append(plate_name_z3)
 
     return plate_names
 
 
-def build_complete_bridge_model(params: Any, builder: SciaModelBuilder) -> None:
+def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None:  # noqa: ANN401
     """
-    Build a complete SCIA bridge model, including geometry, loads, and combinations.
+    Define and build a complete SCIA bridge model using the provided builder.
 
-    This function orchestrates the entire model creation process by calling the relevant
-    functions for each part of the model.
+    This function orchestrates the entire model creation process, including
+    geometry, loads, and combinations, by calling the builder's methods.
 
-    :param params: The VIKTOR parametrization object.
-    :param builder: The SCIA model builder.
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters.
     """
-    # Step 1: Create geometry (nodes and plates)
-    plate_names = _define_bridge_geometry(params, builder)
+    # 1. Build Geometry and get back the ordered list of plate names
+    plate_names = create_bridge_geometry(builder, params)
 
-    # Step 2: Define line supports on the bridge edges
-    define_line_supports(builder, plate_names)
+    # 2. Build Line Supports
+    create_all_supports(builder, plate_names)
 
-    # Step 3: Create load groups and standard load cases
+    # 3. Build Load Groups
     create_all_load_groups(builder)
-    create_all_standard_load_cases(builder)
 
-    # Step 4: Add tandem loads and get their case names
-    tandem_case_names = add_theoretical_tandem_loads(params, builder, plate_names)
+    # 4. Build ALL Load Cases (standard and dynamic)
+    all_load_cases = create_all_load_cases(builder, params)
 
-    # Step 5: Create load combinations
-    # We assume BG1001 is always the self-weight case
-    create_standard_load_combinations(builder, self_weight_case="BG1001", tandem_cases=tandem_case_names)
+    # 5. Apply all loads to the now-existing cases
+    create_all_loads(builder, params)
+
+    # 6. Build Load Combinations (PLACEHOLDER FOR NOW)
+    create_all_load_combinations(builder, all_load_cases)

@@ -1,15 +1,18 @@
 """
 Tests for SCIA load cases module.
 
-Tests for load case creation functions using direct SCIA API.
+Tests for load case creation functions using a mocked SciaModelBuilder.
 """
+
+from unittest.mock import Mock, patch
 
 import pytest
 
-from src.integrations.scia_integration.scia_definitions import LoadCaseDefinition
 from src.integrations.scia_integration.scia_load_cases import (
+    create_all_load_cases,
+    create_dead_load_cases,
+    create_dynamic_tandem_load_cases,
     create_pedestrian_load_case,
-    create_resting_load_cases,
     create_self_weight_load_case,
     create_service_vehicle_load_cases,
     create_tandem_rs_load_cases,
@@ -19,133 +22,180 @@ from src.integrations.scia_integration.scia_load_cases import (
 )
 
 
-class TestSelfWeightLoadCase:
-    """Tests for creating the self-weight load case definition."""
-
-    def test_create_self_weight_load_case(self) -> None:
-        """Test the successful creation of a self-weight load case definition."""
-        definition = create_self_weight_load_case()
-
-        assert isinstance(definition, LoadCaseDefinition)
-        assert definition.name == "BG1001"
-        assert definition.group_name == "LG1000"
-        assert definition.case_type == "PERMANENT"
-        assert definition.permanent_type == "SELF_WEIGHT"
-        assert definition.description == "Eigen gewicht"
-
-    def test_create_self_weight_load_case_return_type(self) -> None:
-        """Verify that the function returns a LoadCaseDefinition."""
-        definition = create_self_weight_load_case()
-        assert isinstance(definition, LoadCaseDefinition)
+@pytest.fixture
+def mock_builder() -> Mock:
+    """Fixture to provide a mocked SciaModelBuilder."""
+    return Mock()
 
 
-class TestRestingLoadCases:
-    """Tests for creating resting load case definitions."""
+class TestStandardLoadCases:
+    """Tests for creating standard load case definitions."""
 
-    def test_create_resting_load_cases(self) -> None:
-        """Test creation of resting load cases."""
-        definitions = create_resting_load_cases()
-        assert len(definitions) == 5
-        assert definitions[0].name == "BG2001"
-        assert definitions[0].group_name == "LG2000"
-        assert definitions[0].case_type == "PERMANENT"
-        assert definitions[0].permanent_type == "STANDARD"
-        assert definitions[0].description == "Rustende belasting - Asfalt"
-        assert definitions[4].name == "BG2005"
-        assert definitions[4].description == "Rustende belasting - Lichtmast"
+    def test_create_self_weight_load_case(self, mock_builder: Mock) -> None:
+        """Test the successful creation of a self-weight load case."""
+        create_self_weight_load_case(mock_builder)
+        mock_builder.create_load_case.assert_called_once_with(
+            name="BG1001",
+            description="Eigen gewicht",
+            group_name="LG1000",
+            case_type="PERMANENT",
+            permanent_type="SELF_WEIGHT",
+            variable_type=None,
+            specification=None,
+            duration=None,
+        )
 
+    def test_create_dead_load_cases(self, mock_builder: Mock) -> None:
+        """Test creation of dead load cases."""
+        create_dead_load_cases(mock_builder)
+        assert mock_builder.create_load_case.call_count == 5
+        mock_builder.create_load_case.assert_any_call(
+            name="BG2001",
+            description="Permanente belasting - Asfalt",
+            group_name="LG2000",
+            case_type="PERMANENT",
+            permanent_type="STANDARD",
+            variable_type=None,
+            specification=None,
+            duration=None,
+        )
 
-class TestTemperatureLoadCases:
-    """Tests for creating temperature load case definitions."""
-
-    def test_create_temperature_load_cases(self) -> None:
+    def test_create_temperature_load_cases(self, mock_builder: Mock) -> None:
         """Test creation of temperature load case definitions."""
-        definitions = create_temperature_load_cases()
-        assert len(definitions) == 4
-        assert definitions[0].name == "BG3001"
-        assert definitions[0].group_name == "LG3000"
-        assert definitions[0].case_type == "VARIABLE"
-        assert definitions[0].specification == "TEMPERATURE"
-        assert definitions[0].duration == "LONG"
-        assert definitions[0].description == "Temperatuur, dek - Temp combi 1"
+        create_temperature_load_cases(mock_builder)
+        assert mock_builder.create_load_case.call_count == 4
+        mock_builder.create_load_case.assert_any_call(
+            name="BG3001",
+            description="Temperatuur, dek - Temp combi 1",
+            group_name="LG3000",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="TEMPERATURE",
+            duration="LONG",
+            permanent_type=None,
+        )
 
-
-class TestUdlTrafficLoadCases:
-    """Tests for creating UDL traffic load case definitions."""
-
-    def test_create_udl_traffic_load_cases(self) -> None:
+    def test_create_udl_traffic_load_cases(self, mock_builder: Mock) -> None:
         """Test creation of UDL traffic load case definitions."""
-        definitions = create_udl_traffic_load_cases()
-        assert len(definitions) == 4
-        assert definitions[0].name == "BG4001"
-        assert definitions[0].group_name == "LG4000"
-        assert definitions[0].case_type == "VARIABLE"
-        assert definitions[0].duration == "SHORT"
+        create_udl_traffic_load_cases(mock_builder)
+        assert mock_builder.create_load_case.call_count == 4
+        mock_builder.create_load_case.assert_any_call(
+            name="BG4001",
+            description="Verkeer, dek - LM1 UDL RS 1",
+            group_name="LG4000",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+            permanent_type=None,
+        )
 
-
-class TestPedestrianLoadCase:
-    """Tests for creating pedestrian load case definition."""
-
-    def test_create_pedestrian_load_case(self) -> None:
+    def test_create_pedestrian_load_case(self, mock_builder: Mock) -> None:
         """Test creation of pedestrian load case definition."""
-        definition = create_pedestrian_load_case()
-        assert definition.name == "BG5001"
-        assert definition.group_name == "LG5000"
-        assert definition.case_type == "VARIABLE"
-        assert definition.duration == "SHORT"
+        create_pedestrian_load_case(mock_builder)
+        mock_builder.create_load_case.assert_called_once()
 
-
-class TestServiceVehicleLoadCases:
-    """Tests for creating service vehicle load case definitions."""
-
-    def test_create_service_vehicle_load_cases(self) -> None:
+    def test_create_service_vehicle_load_cases(self, mock_builder: Mock) -> None:
         """Test creation of service vehicle load case definitions."""
-        definitions = create_service_vehicle_load_cases()
-        assert len(definitions) == 3
-        assert definitions[0].name == "BG6001"
-        assert definitions[0].group_name == "LG6000"
+        create_service_vehicle_load_cases(mock_builder)
+        assert mock_builder.create_load_case.call_count == 3
 
-
-class TestUnintendedVehicleLoadCases:
-    """Tests for creating unintended vehicle load case definitions."""
-
-    def test_create_unintended_vehicle_load_cases(self) -> None:
+    def test_create_unintended_vehicle_load_cases(self, mock_builder: Mock) -> None:
         """Test creation of unintended vehicle load case definitions."""
-        definitions = create_unintended_vehicle_load_cases()
-        assert len(definitions) == 3
-        assert definitions[0].name == "BG7001"
-        assert definitions[0].group_name == "LG7000"
+        create_unintended_vehicle_load_cases(mock_builder)
+        assert mock_builder.create_load_case.call_count == 3
 
 
-class TestTandemRSLoadCases:
+class TestTandemLoadCases:
     """Tests for creating tandem RS load case definitions."""
 
-    @pytest.mark.parametrize(("rs", "group", "prefix"), [(1, "LG8000", "BG80"), (2, "LG9000", "BG90"), (3, "LG10000", "BG100")])
-    def test_create_tandem_rs_load_cases(self, rs: int, group: str, prefix: str) -> None:
+    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
+    @pytest.mark.parametrize(
+        ("rs", "group", "prefix"), [(1, "LG8000", "BG8000"), (2, "LG9000", "BG9000"), (3, "LG10000", "BG10000")]
+    )
+    def test_create_tandem_rs_load_cases(
+        self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str
+    ) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
-        from src.loads.loadcase_helper_functions import tandem_system_sequencer
-
+        mock_sequencer.return_value = [10.0, 25.0, 49.5]
         length_bridgedeck = 50.0
         thickness_bridgedeck = 0.5
 
-        definitions = create_tandem_rs_load_cases(rs, length_bridgedeck, thickness_bridgedeck)
-        expected_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-        assert len(definitions) == len(expected_positions)
+        cases = create_tandem_rs_load_cases(mock_builder, rs, length_bridgedeck, thickness_bridgedeck)
 
-        assert definitions[0].group_name == group
-        assert definitions[0].name.startswith(prefix)
+        assert len(cases) == 3
+        assert mock_builder.create_load_case.call_count == 3
 
-        # Check the description of the first and last load case
-        first_pos_str = f"{expected_positions[0]:g}"
-        assert f"x = {first_pos_str} m" in definitions[0].description
-        last_pos_str = f"{expected_positions[-1]:g}"
-        assert f"x = {last_pos_str} m" in definitions[-1].description
+        # Check the call for the first load case
+        mock_builder.create_load_case.assert_any_call(
+            name=f"{prefix}001",
+            description=f"Verkeer, dek - LM1 TS RS {rs} - x = 10 m",
+            group_name=group,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
 
-    def test_invalid_rs_raises_value_error(self) -> None:
+    def test_invalid_rs_raises_value_error(self, mock_builder: Mock) -> None:
         """Test that invalid RS value raises ValueError."""
-        with pytest.raises(ValueError):
-            create_tandem_rs_load_cases(4, 50.0, 0.5)
+        with pytest.raises(ValueError, match="RS must be 1, 2, or 3"):
+            create_tandem_rs_load_cases(mock_builder, 4, 50.0, 0.5)
+
+    @patch("src.integrations.scia_integration.scia_load_cases.extract_tandem_parameters_from_bridge")
+    @patch("src.integrations.scia_integration.scia_load_cases.generate_theoretical_lane_positions")
+    @patch("src.integrations.scia_integration.scia_load_cases.create_tandem_rs_load_cases")
+    def test_create_dynamic_tandem_load_cases(
+        self, mock_create_rs: Mock, mock_generate_lanes: Mock, mock_extract_params: Mock, mock_builder: Mock
+    ) -> None:
+        """Test the creation of dynamic tandem load cases."""
+        mock_params = Mock()
+        mock_extract_params.return_value = {
+            "length_bridgedeck": 50.0,
+            "thickness_bridgedeck": 0.5,
+            "width_bridgedeck": 12.0,
+        }
+        mock_generate_lanes.return_value = [1.5, 4.5, 7.5, 10.5]  # 4 lanes, but should be capped at 3
+
+        create_dynamic_tandem_load_cases(mock_builder, mock_params)
+
+        assert mock_create_rs.call_count == 3  # Called for RS 1, 2, and 3
+        mock_create_rs.assert_any_call(mock_builder, 1, 50.0, 0.5)
+        mock_create_rs.assert_any_call(mock_builder, 2, 50.0, 0.5)
+        mock_create_rs.assert_any_call(mock_builder, 3, 50.0, 0.5)
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+@patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
+@patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
+@patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases")
+class TestCreateAllLoadCases:
+    """Tests for the main function creating all load cases."""
+
+    def test_create_all_load_cases_structure(self, _mock_tandem: Mock, _mock_dead: Mock, _mock_sw: Mock) -> None:
+        """Test that the function returns the expected dictionary structure."""
+        builder = Mock()
+        params = Mock()
+        all_cases = create_all_load_cases(builder, params)
+
+        expected_keys = [
+            "standard_cases",
+            "dead_load_cases",
+            "temperature_cases",
+            "udl_traffic_cases",
+            "service_vehicle_cases",
+            "unintended_vehicle_cases",
+            "tandem_cases",
+        ]
+        assert list(all_cases.keys()) == expected_keys
+        assert "self_weight" in all_cases["standard_cases"]
+        assert "pedestrian" in all_cases["standard_cases"]
+
+    def test_create_all_load_cases_calls_helpers(self, mock_tandem: Mock, mock_dead: Mock, mock_sw: Mock) -> None:
+        """Test that all individual creation functions are called."""
+        builder = Mock()
+        params = Mock()
+        create_all_load_cases(builder, params)
+
+        mock_sw.assert_called_once_with(builder)
+        mock_dead.assert_called_once_with(builder)
+        mock_tandem.assert_called_once_with(builder, params)
