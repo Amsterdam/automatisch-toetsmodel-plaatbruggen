@@ -421,7 +421,7 @@ def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZ
         raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
 
 
-def get_bridge_geom_data(params: BridgeParametrization):
+def get_bridge_geom_data(params: BridgeParametrization) -> LoadZoneGeometryData | None:
     return _prepare_bridge_geometry_for_plotting(params.bridge_segments_array)
 
 
@@ -471,7 +471,16 @@ def calculate_zone_geometry_properties(
     return updated_zones
 
 
-def get_load_zones_data_from_params(params: BridgeParametrization):
+def get_load_zones_data_from_params(params: BridgeParametrization) -> list[LoadZoneDataRow]:
+    """
+    Extract load zone data from bridge parametrization and convert to LoadZoneDataRow format.
+    
+    Args:
+        params: Bridge parametrization containing load zone data array
+        
+    Returns:
+        List of load zone data rows with proper typing
+    """
     load_zones_data_params: list[LoadZoneDataRow] = []
     if params.load_zones_data_array:
         for row_param in params.load_zones_data_array:
