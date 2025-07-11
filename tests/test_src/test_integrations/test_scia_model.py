@@ -76,15 +76,29 @@ class TestDefineCompleteBridgeModel:
     @patch("src.integrations.scia_integration.scia_model.create_all_load_cases")
     @patch("src.integrations.scia_integration.scia_model.create_all_loads")
     @patch("src.integrations.scia_integration.scia_model.create_all_load_combinations")
-    @pytest.mark.usefixtures("mock_combinations", "mock_loads", "mock_cases", "mock_groups", "mock_supports", "mock_geometry")
-    def test_define_complete_model_orchestration(
+    def test_define_complete_model_orchestration(  # noqa: PLR0913
         self,
+        mock_combinations: Mock,
+        mock_loads: Mock,
+        mock_cases: Mock,
+        mock_groups: Mock,
+        mock_supports: Mock,
+        mock_geometry: Mock,
         mock_builder: Mock,
         mock_params: MagicMock,
     ) -> None:
         """Test that the main model definition function calls all helpers in order."""
+        # Arrange
+        mock_geometry.return_value = ["plate1", "plate2"]
+        mock_cases.return_value = {"standard_cases": {}, "tandem_cases": {}}
+
         # Act
         define_complete_bridge_model(mock_builder, mock_params)
 
         # Assert
-        # Verification is handled by the mock decorators
+        mock_geometry.assert_called_once_with(mock_builder, mock_params)
+        mock_supports.assert_called_once_with(mock_builder, ["plate1", "plate2"])
+        mock_groups.assert_called_once_with(mock_builder)
+        mock_cases.assert_called_once_with(mock_builder, mock_params)
+        mock_loads.assert_called_once_with(mock_builder, mock_params)
+        mock_combinations.assert_called_once_with(mock_builder, mock_cases.return_value)

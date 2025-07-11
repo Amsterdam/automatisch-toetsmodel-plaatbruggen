@@ -100,8 +100,7 @@ class SciaModelBuilder(Protocol):
         """Creates a load group in the SCIA model."""
         ...
 
-    # ruff: noqa: PLR0913
-    def create_load_case(
+    def create_load_case(  # noqa: PLR0913
         self,
         name: str,
         description: str,
@@ -136,8 +135,7 @@ class SciaModelBuilder(Protocol):
         """Creates a uniform line load on a plane edge."""
         ...
 
-    # ruff: noqa: PLR0913
-    def create_free_line_load(
+    def create_free_line_load(  # noqa: PLR0913
         self,
         name: str,
         load_case_name: str,

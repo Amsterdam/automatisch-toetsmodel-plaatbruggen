@@ -161,18 +161,33 @@ class TestTandemLoadCases:
         mock_create_rs.assert_any_call(mock_builder, 3, 50.0, 0.5)
 
 
-@patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
-@patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
-@patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases")
 class TestCreateAllLoadCases:
     """Tests for the main function creating all load cases."""
 
-    @pytest.mark.usefixtures("mock_tandem", "mock_dead", "mock_sw")
+    @patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases")
+    @patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
+    @patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
+    def test_create_all_load_cases_calls_helpers(self, mock_sw: Mock, mock_dead: Mock, mock_tandem: Mock) -> None:
+        """Test that all individual creation functions are called."""
+        builder = Mock()
+        params = Mock()
+        create_all_load_cases(builder, params)
+
+        mock_sw.assert_called_once_with(builder)
+        mock_dead.assert_called_once_with(builder)
+        mock_tandem.assert_called_once_with(builder, params)
+
     def test_create_all_load_cases_structure(self) -> None:
         """Test that the function returns the expected dictionary structure."""
         builder = Mock()
         params = Mock()
-        all_cases = create_all_load_cases(builder, params)
+        # We patch here because we don't care about the return values, just the structure
+        with patch(
+            "src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case"
+        ), patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases"), patch(
+            "src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases"
+        ):
+            all_cases = create_all_load_cases(builder, params)
 
         expected_keys = [
             "standard_cases",
@@ -186,13 +201,3 @@ class TestCreateAllLoadCases:
         assert list(all_cases.keys()) == expected_keys
         assert "self_weight" in all_cases["standard_cases"]
         assert "pedestrian" in all_cases["standard_cases"]
-
-    def test_create_all_load_cases_calls_helpers(self, mock_tandem: Mock, mock_dead: Mock, mock_sw: Mock) -> None:
-        """Test that all individual creation functions are called."""
-        builder = Mock()
-        params = Mock()
-        create_all_load_cases(builder, params)
-
-        mock_sw.assert_called_once_with(builder)
-        mock_dead.assert_called_once_with(builder)
-        mock_tandem.assert_called_once_with(builder, params)

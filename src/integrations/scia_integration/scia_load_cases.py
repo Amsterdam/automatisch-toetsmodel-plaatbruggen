@@ -12,17 +12,16 @@ from .scia_loads_helper import generate_theoretical_lane_positions, tandem_syste
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
-# ruff: noqa: PLR0913
-def create_load_case(
+def create_load_case(  # noqa: PLR0913
     builder: SciaModelBuilder,
     group_name: str,
     case_name: str,
     description: str,
     case_type: Literal["PERMANENT", "VARIABLE"],
-    permanent_type: Literal["SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"] | None = None,
-    variable_type: Literal["STATIC", "PRIMARY_EFFECT"] | None = None,
-    specification: Literal["STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"] | None = None,
-    duration: Literal["INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"] | None = None,
+    permanent_type: str | None = None,
+    variable_type: str | None = None,
+    specification: str | None = None,
+    duration: str | None = None,
 ) -> SciaLoadCase:
     """
     Create a SCIA load case using the provided builder.

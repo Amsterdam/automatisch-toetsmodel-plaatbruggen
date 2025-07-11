@@ -102,11 +102,6 @@ class TestCreateLineSupports:
 class TestCreateAllSupports:
     """Tests for the create_all_supports function."""
 
-    @pytest.fixture
-    def mock_create_line(self) -> Mock:
-        """Fixture to provide a mocked create_line_supports function."""
-        return Mock()
-
     @patch("src.integrations.scia_integration.scia_supports.create_line_supports")
     def test_create_all_supports_orchestration(self, mock_create_line: Mock, mock_builder: Mock) -> None:
         """Test that the main support function calls the line support helper."""

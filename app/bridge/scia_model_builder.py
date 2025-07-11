@@ -136,8 +136,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.load_groups[name] = group
         return group
 
-    # ruff: noqa: PLR0913
-    def create_load_case(
+    def create_load_case(  # ruff: noqa: PLR0913
         self,
         name: str,
         description: str,
@@ -253,12 +252,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         load_value: float,
         direction: Literal["X", "Y", "Z"] = "Z",
     ) -> scia.FreeLineLoad:
-        """Creates a uniform free line load between two XY points."""
+        """Creates a uniform free line load."""
         if load_case_name not in self.load_cases:
             raise ValueError(f"Load case '{load_case_name}' not found for line load '{name}'.")
         load_case = self.load_cases[load_case_name]
 
-        dir_map = {"X": scia.FreeLineForce.Direction.X, "Y": scia.FreeLineForce.Direction.Y, "Z": scia.FreeLineForce.Direction.Z}
+        dir_map = {"X": scia.FreeLineLoad.Direction.X, "Y": scia.FreeLineLoad.Direction.Y, "Z": scia.FreeLineLoad.Direction.Z}
 
         return self.model.create_free_line_load(
             name=name,
@@ -308,7 +307,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "FLEXIBLE": scia.LineSupport.Freedom.FLEXIBLE,
         }
 
-        return scia.LineSupport(
+        return self.model.create_line_support(
             name=name,
             edge=(plane, edge_index),
             ux=freedom_map[freedom.get("ux", "FREE")],
