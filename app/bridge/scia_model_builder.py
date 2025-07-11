@@ -136,7 +136,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.load_groups[name] = group
         return group
 
-    def create_load_case(  # ruff: noqa: PLR0913
+    def create_load_case(  # noqa: PLR0913
         self,
         name: str,
         description: str,
@@ -243,7 +243,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             direction=scia.LineForceSurface.Direction.Z,
         )
 
-    def create_free_line_load(  # ruff: noqa: PLR0913
+    def create_free_line_load(  # noqa: PLR0913
         self,
         name: str,
         load_case_name: str,
