@@ -218,9 +218,7 @@ def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN
     """
     # Prepare the IDEA model with project information
     project_data = idea_rcs.ProjectData(
-        name=f"IDEA Model for {params.info.bridge_objectnumm or 'Unnamed Project'}",
-        description="Generated model from VIKTOR",
-        author="Ctrl+b"
+        name=f"IDEA Model for {params.info.bridge_objectnumm or 'Unnamed Project'}", description="Generated model from VIKTOR", author="Ctrl+b"
     )
 
     # Create the IDEA model with project information

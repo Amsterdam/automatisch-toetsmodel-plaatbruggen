@@ -1,4 +1,3 @@
-
 """
 Mapping module for IDEA RCS concrete materials.
 
@@ -35,11 +34,12 @@ def get_idea_concrete_material(concrete_quality: str) -> idea_rcs.ConcreteMateri
         "C80/95": idea_rcs.ConcreteMaterial.C80_95,
         "C90/105": idea_rcs.ConcreteMaterial.C90_105,
     }
-    
+
     if concrete_quality not in concrete_material_mapping:
         raise ValueError(f"Concrete quality '{concrete_quality}' is not supported. Available options: {list(concrete_material_mapping.keys())}")
-    
+
     return concrete_material_mapping[concrete_quality]
+
 
 def get_idea_reinforcement_material(reinforcement_type: str = "B500B") -> idea_rcs.ReinforcementMaterial:
     """
@@ -64,8 +64,10 @@ def get_idea_reinforcement_material(reinforcement_type: str = "B500B") -> idea_r
         "B600B": idea_rcs.ReinforcementMaterial.B_600B,
         "B600C": idea_rcs.ReinforcementMaterial.B_600C,
     }
-    
+
     if reinforcement_type not in reinforcement_material_mapping:
-        raise ValueError(f"Reinforcement type '{reinforcement_type}' is not supported. Available options: {list(reinforcement_material_mapping.keys())}")
-    
+        raise ValueError(
+            f"Reinforcement type '{reinforcement_type}' is not supported. Available options: {list(reinforcement_material_mapping.keys())}"
+        )
+
     return reinforcement_material_mapping[reinforcement_type]

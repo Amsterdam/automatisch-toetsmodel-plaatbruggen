@@ -1,6 +1,5 @@
 """Module for the Bridge entity controller."""
 
-from html import parser
 import zipfile
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
@@ -10,8 +9,8 @@ import trimesh
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.external import idea_rcs
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
     GeometryResult,
     GeometryView,
@@ -622,7 +621,7 @@ class BridgeController(ViktorController):
         columns = ["Zone_dikte", "Wapeningsconfiguratie"]
 
         return TableResult(data, column_headers=columns)
-    
+
     @TableView("IDEA RCS resultaten", duration_guess=4)
     def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
         """
@@ -645,13 +644,13 @@ class BridgeController(ViktorController):
         # Obtain the results for specific or all section(s).
         with idea_output_xml_bytes.open_binary() as f:
             parser = idea_rcs.RcsOutputFileParser(f)
-        
+
             # Prepare data for the table
             data = []
             columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
 
             for section in parser.section_results():
-                capacity_results = section.capacity()[0] 
+                capacity_results = section.capacity()[0]
                 shear_results = section.shear()[0]
                 torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
                 interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
@@ -659,14 +658,18 @@ class BridgeController(ViktorController):
                 detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
                 stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
 
-                data.append([section.id_,
-                            capacity_results.get("Result"),
-                            shear_results.get("Result"),
-                            torsion_results.get("Result"),
-                            interaction_results.get("Result"),
-                            crack_width_results.get("Result"),
-                            detailing_results.get("Result"),
-                            stress_limitations_results.get("Result")])
+                data.append(
+                    [
+                        section.id_,
+                        capacity_results.get("Result"),
+                        shear_results.get("Result"),
+                        torsion_results.get("Result"),
+                        interaction_results.get("Result"),
+                        crack_width_results.get("Result"),
+                        detailing_results.get("Result"),
+                        stress_limitations_results.get("Result"),
+                    ]
+                )
 
         return TableResult(data, column_headers=columns)
 
@@ -712,7 +715,6 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-        
         # Generate XML input file
         model = create_bridge_idea_model(params)
         xml_file = model.generate_xml_input()
