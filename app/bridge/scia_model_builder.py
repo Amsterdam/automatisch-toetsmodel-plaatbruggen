@@ -142,10 +142,10 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         description: str,
         group_name: str,
         case_type: Literal["PERMANENT", "VARIABLE"],
-        permanent_type: str | None = None,
-        variable_type: str | None = None,
-        specification: str | None = None,
-        duration: str | None = None,
+        permanent_type: Literal["SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"] | None = None,
+        variable_type: Literal["STATIC", "PRIMARY_EFFECT"] | None = None,
+        specification: Literal["STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"] | None = None,
+        duration: Literal["INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"] | None = None,
     ) -> SciaLoadCase:
         """Creates a load case and stores it."""
         if group_name not in self.load_groups:
