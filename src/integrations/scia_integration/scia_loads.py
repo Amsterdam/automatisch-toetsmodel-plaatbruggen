@@ -132,6 +132,7 @@ def add_pedestrian_loads(
     # - Apply surface loads to pedestrian areas
     return []
 
+
 def add_asfalt_loads(
     _model: Any,  # noqa: ANN401
     _params: Any,  # noqa: ANN401

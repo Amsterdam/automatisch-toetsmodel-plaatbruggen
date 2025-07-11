@@ -2,7 +2,6 @@
 
 import zipfile
 from pathlib import Path  # Add Path import for SCIA template
-from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
@@ -42,7 +41,7 @@ from src.common.plot_utils import (
 )
 from src.geometry.cross_section import create_cross_section_view
 from src.geometry.horizontal_section import create_horizontal_section_view
-from src.geometry.load_zone_geometry import LoadZoneDataRow, get_bridge_geom_data, get_load_zones_data_from_params, calculate_zone_geometry_properties
+from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.load_zone_plot import (
     DEFAULT_PLOTLY_COLORS,  # Import for styling defaults
     DEFAULT_ZONE_APPEARANCE_MAP,  # Import for styling defaults
@@ -66,10 +65,10 @@ from src.report.report_functions import create_export_report  # Import the repor
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
 
-
 # ============================================================================================================
 # Main Controller
 # ============================================================================================================
+
 
 class BridgeController(ViktorController):
     """Controller for the individual Bridge entity."""
@@ -277,14 +276,14 @@ class BridgeController(ViktorController):
         # 2. Prepare bridge geometric data
         bridge_geom_data = get_bridge_geom_data(params)
 
-        # 2a. Calculate zone geometric properties using bridge geometry   
+        # 2a. Calculate zone geometric properties using bridge geometry
         load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
         if not load_zones_data_params:  # No load zones defined
             fig = go.Figure()
             fig.update_layout(title_text="Belastingzones - Geen zones gedefinieerd", xaxis_visible=False, yaxis_visible=False)
             return PlotlyResult(fig.to_json())
-        
+
         if not bridge_geom_data:  # If preparation failed or returned None (e.g. no segments)
             fig = go.Figure()
             fig.update_layout(title_text="Belastingzones - Brugsegmenten ongeldig", xaxis_visible=False, yaxis_visible=False)

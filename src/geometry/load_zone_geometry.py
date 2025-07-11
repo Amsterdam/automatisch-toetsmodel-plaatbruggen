@@ -1,18 +1,19 @@
 """Module for geometric calculations related to load zones."""
 
-from typing import TypedDict, Any, cast
+from typing import Any, TypedDict, cast
 
 from viktor.errors import UserError
+
+from app.bridge.parametrization import (
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
+    BridgeParametrization,
+)
 from src.geometry.model_creator import (
     BridgeSegmentDimensions,  # Import the dataclass
     LoadZoneGeometryData,  # Import the dataclass
     prepare_load_zone_geometry_data,
 )
 
-from app.bridge.parametrization import (
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
-    BridgeParametrization,
-)
 
 # Define a protocol for the expected structure of zone_param_data
 class LoadZoneDataRow(TypedDict, total=False):
@@ -369,6 +370,7 @@ def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane
 # ========================================================================
 # Functions for bridge geometry
 
+
 # Define TypedDict for a row from params.bridge_segments_array
 class BridgeSegmentParamRow(TypedDict):
     """
@@ -382,19 +384,21 @@ class BridgeSegmentParamRow(TypedDict):
     l: float  # noqa: E741 # 'l' matches the field name in BridgeParametrization (input.dimensions.array.l)
     # Add other fields like dz, dz_2, col_6, is_first_segment if accessed, with appropriate types
 
+
 def _create_bridge_segment_dimensions_from_params(segment_param_row: BridgeSegmentParamRow) -> BridgeSegmentDimensions:
-        """Validates a segment param row and returns BridgeSegmentDimensions or raises UserError."""
-        # The attribute check `hasattr` is still useful as a runtime check before typed access,
-        # though MyPy will now also check based on BridgeSegmentParamRow.
-        required_attrs = ["bz1", "bz2", "bz3", "l"]
-        # For TypedDict, we'd ideally check presence of keys.
-        # However, VIKTOR param objects are often Munch-like, so hasattr can work at runtime.
-        # For Mypy, the key is using dictionary access below.
-        if not all(key in segment_param_row for key in required_attrs):
-            raise UserError("Een of meer brugsegmenten missen benodigde data (bz1, bz2, bz3, l) in Dimensies.")
-        return BridgeSegmentDimensions(
-            bz1=segment_param_row["bz1"], bz2=segment_param_row["bz2"], bz3=segment_param_row["bz3"], segment_length=segment_param_row["l"]
-        )
+    """Validates a segment param row and returns BridgeSegmentDimensions or raises UserError."""
+    # The attribute check `hasattr` is still useful as a runtime check before typed access,
+    # though MyPy will now also check based on BridgeSegmentParamRow.
+    required_attrs = ["bz1", "bz2", "bz3", "l"]
+    # For TypedDict, we'd ideally check presence of keys.
+    # However, VIKTOR param objects are often Munch-like, so hasattr can work at runtime.
+    # For Mypy, the key is using dictionary access below.
+    if not all(key in segment_param_row for key in required_attrs):
+        raise UserError("Een of meer brugsegmenten missen benodigde data (bz1, bz2, bz3, l) in Dimensies.")
+    return BridgeSegmentDimensions(
+        bz1=segment_param_row["bz1"], bz2=segment_param_row["bz2"], bz3=segment_param_row["bz3"], segment_length=segment_param_row["l"]
+    )
+
 
 def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZoneGeometryData | None:
     """Helper to prepare BridgeSegmentDimensions and LoadZoneGeometryData from params."""
@@ -420,48 +424,52 @@ def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZ
 def get_bridge_geom_data(params: BridgeParametrization):
     return _prepare_bridge_geometry_for_plotting(params.bridge_segments_array)
 
+
 # ========================================================================
 # Functions for load zones - load_zone_data from params
 
-def calculate_zone_geometry_properties(load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData
-    ) -> list[LoadZoneDataRow]:
-        """
-        Calculate geometric properties for each load zone based on bridge geometry.
-        This adds the missing zone_widths_per_d and y_coords_top_current_zone fields.
-        """
-        if not load_zones_data_params or not bridge_geom_data:
-            return load_zones_data_params
 
-        updated_zones = []
-        current_y_top = bridge_geom_data.y_top_structural_edge_at_d_points.copy()
+def calculate_zone_geometry_properties(
+    load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData
+) -> list[LoadZoneDataRow]:
+    """
+    Calculate geometric properties for each load zone based on bridge geometry.
+    This adds the missing zone_widths_per_d and y_coords_top_current_zone fields.
+    """
+    if not load_zones_data_params or not bridge_geom_data:
+        return load_zones_data_params
 
-        for zone_idx, zone_data in enumerate(load_zones_data_params):
-            # Create a copy of the zone data
-            updated_zone = dict(zone_data)
+    updated_zones = []
+    current_y_top = bridge_geom_data.y_top_structural_edge_at_d_points.copy()
 
-            # Calculate zone widths for each D-point
-            zone_widths = []
+    for zone_idx, zone_data in enumerate(load_zones_data_params):
+        # Create a copy of the zone data
+        updated_zone = dict(zone_data)
+
+        # Calculate zone widths for each D-point
+        zone_widths = []
+        for d_idx in range(bridge_geom_data.num_defined_d_points):
+            d_width_field = f"d{d_idx + 1}_width"
+            width_value = zone_data.get(d_width_field)
+            if isinstance(width_value, (int, float)):
+                zone_widths.append(float(width_value))
+            else:
+                zone_widths.append(0.0)
+
+        # Add calculated geometric properties
+        updated_zone["zone_widths_per_d"] = zone_widths
+        updated_zone["y_coords_top_current_zone"] = current_y_top.copy()
+
+        # Update current_y_top for next zone (unless it's the last zone)
+        if zone_idx < len(load_zones_data_params) - 1:
+            # Move the top position down by the zone width for each D-point
             for d_idx in range(bridge_geom_data.num_defined_d_points):
-                d_width_field = f"d{d_idx + 1}_width"
-                width_value = zone_data.get(d_width_field)
-                if isinstance(width_value, (int, float)):
-                    zone_widths.append(float(width_value))
-                else:
-                    zone_widths.append(0.0)
+                current_y_top[d_idx] -= zone_widths[d_idx]
 
-            # Add calculated geometric properties
-            updated_zone["zone_widths_per_d"] = zone_widths
-            updated_zone["y_coords_top_current_zone"] = current_y_top.copy()
+        updated_zones.append(cast(LoadZoneDataRow, updated_zone))
 
-            # Update current_y_top for next zone (unless it's the last zone)
-            if zone_idx < len(load_zones_data_params) - 1:
-                # Move the top position down by the zone width for each D-point
-                for d_idx in range(bridge_geom_data.num_defined_d_points):
-                    current_y_top[d_idx] -= zone_widths[d_idx]
+    return updated_zones
 
-            updated_zones.append(cast(LoadZoneDataRow, updated_zone))
-
-        return updated_zones
 
 def get_load_zones_data_from_params(params: BridgeParametrization):
     load_zones_data_params: list[LoadZoneDataRow] = []
