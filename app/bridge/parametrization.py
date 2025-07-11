@@ -16,7 +16,6 @@ from app.constants import (
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
 )
-
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -37,7 +36,6 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
-
 
 from .geometry_functions import get_steel_qualities
 
