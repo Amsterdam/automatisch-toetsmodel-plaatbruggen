@@ -152,7 +152,7 @@ def add_asfalt_loads(
 
     # Iterate through load zones and apply asphalt loads
     for load_zone in load_zones_data_params:
-        if load_zone["type"] == "Asfalt":
+        if load_zone.get("type", None) == "Asfalt":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
                 # Create individual surface load for each span in the asphalt zone
