@@ -103,11 +103,16 @@ def tandem_systems_theoretical_lanes(
     lane_y_positions = generate_theoretical_lane_positions(width_bridgedeck, lane_width)
 
     results = []
-    load_case_number = 1
+    rs_prefixes = ["BG80", "BG90", "BG100"]
 
     # Generate load cases for each lane position
-    for y_lane_center in lane_y_positions:
-        for x in tandem_x_positions:
+    for lane_idx, y_lane_center in enumerate(lane_y_positions):
+        if lane_idx >= len(rs_prefixes):
+            break  # Do not generate for more than 3 lanes
+
+        prefix = rs_prefixes[lane_idx]
+
+        for tandem_idx, x in enumerate(tandem_x_positions, 1):
             wheels = []
 
             # Position tandem system at lane center
@@ -128,14 +133,14 @@ def tandem_systems_theoretical_lanes(
                 ]
                 wheels.append(wheel_coords)
 
+            load_case_name = f"{prefix}{tandem_idx:02d}"
             results.append(
                 {
-                    "load_case": f"TH{6000 + load_case_number:04d}",  # TH = Theoretical
+                    "load_case": load_case_name,
                     "wheels": wheels,
                     "load": load,
                 }
             )
-            load_case_number += 1
 
     return results
 
