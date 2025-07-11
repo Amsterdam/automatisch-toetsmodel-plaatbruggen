@@ -9,7 +9,6 @@ This module provides utilities for creating and managing definitions for load co
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
-from itertools import product
 from typing import Any
 
 from .scia_definitions import LoadCombinationDefinition, SciaCombinationType
@@ -116,77 +115,27 @@ def create_wind_uls_combination(
 
 
 def create_standard_load_combinations(
-    self_weight_case: str,
-    resting_load_cases: list[str],
-    udl_cases: list[str],
-    ts_cases_rs1: list[str],
-    ts_cases_rs2: list[str],
-    ts_cases_rs3: list[str],
+    self_weight_case_name: str,
+    tandem_load_case_names: list[str],
+    wind_case_name: str | None = None,
 ) -> list[LoadCombinationDefinition]:
     """
-    Create a list of standard ULS and SLS load combinations.
+    Create a list of standard ULS and SLS load combination definitions.
 
-    :param self_weight_case: Name of the self-weight load case.
-    :param resting_load_cases: List of names for resting (dead) load cases.
-    :param udl_cases: List of names for UDL traffic load cases.
-    :param ts_cases_rs1: List of Tandem System load cases for road system 1.
-    :param ts_cases_rs2: List of Tandem System load cases for road system 2.
-    :param ts_cases_rs3: List of Tandem System load cases for road system 3.
+    :param self_weight_case_name: Name of the self-weight load case.
+    :param wind_case_name: Optional name of the wind load case.
+    :param tandem_load_case_names: List of tandem load case names.
     :return: A list of LoadCombinationDefinition objects.
+    :rtype: list[LoadCombinationDefinition]
     """
-    combinations = []
-    combo_id = 1
-
-    # Base factors for permanent loads
-    permanent_factors = dict.fromkeys([self_weight_case] + resting_load_cases, 1.35)
-
-    # ULS Combinations
-    # Scenario 1: UDL (variable) + TS RS1 (exclusive)
-    for udl_case, ts_case in product(udl_cases, ts_cases_rs1):
-        factors = permanent_factors.copy()
-        factors.update({udl_case: 1.35, ts_case: 1.35})
-        combinations.append(
-            LoadCombinationDefinition(
-                name=f"ULS_{combo_id}",
-                combination_type=SciaCombinationType.ULS_SET_B,
-                load_case_factors=factors,
-                description=f"ULS combination with {udl_case} and {ts_case}",
-            )
-        )
-        combo_id += 1
-
-    # Scenario 2: UDL (variable) + TS RS2 (exclusive)
-    for udl_case, ts_case in product(udl_cases, ts_cases_rs2):
-        factors = permanent_factors.copy()
-        factors.update({udl_case: 1.35, ts_case: 1.35})
-        combinations.append(
-            LoadCombinationDefinition(
-                name=f"ULS_{combo_id}",
-                combination_type=SciaCombinationType.ULS_SET_B,
-                load_case_factors=factors,
-                description=f"ULS combination with {udl_case} and {ts_case}",
-            )
-        )
-        combo_id += 1
-
-    # Scenario 3: UDL (variable) + TS RS3 (exclusive)
-    for udl_case, ts_case in product(udl_cases, ts_cases_rs3):
-        factors = permanent_factors.copy()
-        factors.update({udl_case: 1.35, ts_case: 1.35})
-        combinations.append(
-            LoadCombinationDefinition(
-                name=f"ULS_{combo_id}",
-                combination_type=SciaCombinationType.ULS_SET_B,
-                load_case_factors=factors,
-                description=f"ULS combination with {udl_case} and {ts_case}",
-            )
-        )
-        combo_id += 1
-
-    # SLS Combinations would be added here with factors of 1.0
-    # For simplicity, only ULS is shown.
-
-    return combinations
+    definitions = []
+    for i, tandem_case_name in enumerate(tandem_load_case_names):
+        combo_id = f"T{i + 1}"
+        definitions.append(create_basic_uls_combination(self_weight_case_name, tandem_case_name, f"ULS_{combo_id}"))
+        definitions.append(create_basic_sls_combination(self_weight_case_name, tandem_case_name, f"SLS_{combo_id}"))
+        if wind_case_name:
+            definitions.append(create_wind_uls_combination(self_weight_case_name, tandem_case_name, wind_case_name, f"ULS_WIND_{combo_id}"))
+    return definitions
 
 
 # TODO: Additional load combination creation functions to be added for complete bridge analysis
