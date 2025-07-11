@@ -48,6 +48,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.plates: dict[str, scia.Plane] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
+        self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
 
     def create_material(self, name: str, material_id: int = 0) -> scia.Material:
         """Creates a material and stores it."""
@@ -209,7 +210,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             raise ValueError(f"Exactly 4 corner points required for patch load, got {len(corner_points)}")
         points_2d = [(p[0], p[1]) for p in corner_points]
 
-        return self.model.create_free_surface_load(
+        surface_load = self.model.create_free_surface_load(
             name=name,
             load_case=load_case,
             direction=scia.FreeSurfaceLoad.Direction.Z,
@@ -217,6 +218,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             points=points_2d,
             distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
         )
+        self.surface_loads[name] = surface_load
+        return surface_load
 
     def create_line_load_on_plane(
         self,

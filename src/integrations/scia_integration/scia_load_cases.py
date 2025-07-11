@@ -284,13 +284,13 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     """
     if rs == 1:
         group_name = "LG8000 - TS rijstrook 1"
-        prefix = "BG800"
+        prefix = "BG80"
     elif rs == 2:
         group_name = "LG9000 - TS rijstrook 2"
-        prefix = "BG900"
+        prefix = "BG90"
     elif rs == 3:
         group_name = "LG10000 - TS rijstrook 3"
-        prefix = "BG1000"
+        prefix = "BG100"
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
