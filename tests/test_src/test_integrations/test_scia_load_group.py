@@ -12,7 +12,7 @@ from src.integrations.scia_integration.scia_load_group import (
     create_all_load_groups,
     create_crowd_load_group,
     create_dead_load_group,
-    create_permanent_group,
+    create_permanent_load_group,
     create_service_vehicle_group,
     create_temperature_group,
     create_ts_lane_1_group,
@@ -25,9 +25,9 @@ from src.integrations.scia_integration.scia_load_group import (
 class TestLoadGroupCreation:
     """Tests for creating individual load group definitions."""
 
-    def test_create_permanent_group(self) -> None:
+    def test_create_permanent_load_group(self) -> None:
         """Test the permanent load group definition."""
-        definition = create_permanent_group()
+        definition = create_permanent_load_group()
         assert isinstance(definition, LoadGroupDefinition)
         assert definition.name == "LG1000"
         assert definition.load_option == "PERMANENT"
@@ -124,8 +124,8 @@ class TestAllLoadGroups:
         import src.integrations.scia_integration.scia_load_group as load_group_module
 
         group_creators = {
-            "permanent": "create_permanent_group",
-            "dead_load": "create_dead_load_group",
+            "permanent_self_weight": "create_permanent_load_group",
+            "permanent_other": "create_dead_load_group",
             "temperature": "create_temperature_group",
             "udl": "create_udl_group",
             "crowd": "create_crowd_load_group",
@@ -152,8 +152,8 @@ class TestAllLoadGroups:
         """Test that the function returns the expected dictionary structure."""
         definitions = create_all_load_groups()
         expected_keys = [
-            "permanent",
-            "dead_load",
+            "permanent_self_weight",
+            "permanent_other",
             "temperature",
             "udl",
             "crowd",

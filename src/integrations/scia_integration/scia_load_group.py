@@ -19,7 +19,7 @@ def create_permanent_load_group() -> LoadGroupDefinition:
         name="LG1000",
         load_option="PERMANENT",
         relation="STANDARD",
-        load_type="PERMANENT_SELF_WEIGHT",
+        load_type=None,
     )
 
 
@@ -34,7 +34,7 @@ def create_dead_load_group() -> LoadGroupDefinition:
         name="LG2000",
         load_option="PERMANENT",
         relation="STANDARD",
-        load_type="PERMANENT_OTHER",
+        load_type=None,
     )
 
 
@@ -49,7 +49,7 @@ def create_temperature_group() -> LoadGroupDefinition:
         name="LG3000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TEMPERATURE_UNIFORM",
+        load_type="TEMPERATURE",
     )
 
 
@@ -64,7 +64,7 @@ def create_udl_group() -> LoadGroupDefinition:
         name="LG4000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_LM1_UDL",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 
@@ -79,7 +79,7 @@ def create_crowd_load_group() -> LoadGroupDefinition:
         name="LG5000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_LM4_CROWD",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 
@@ -94,7 +94,7 @@ def create_service_vehicle_group() -> LoadGroupDefinition:
         name="LG6000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_SERVICE",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 
@@ -109,7 +109,7 @@ def create_accidental_vehicle_group() -> LoadGroupDefinition:
         name="LG7000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_ACCIDENTAL",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 
@@ -124,7 +124,7 @@ def create_ts_lane_1_group() -> LoadGroupDefinition:
         name="LG8000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_LM1_TS",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 
@@ -139,7 +139,7 @@ def create_ts_lane_2_group() -> LoadGroupDefinition:
         name="LG9000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_LM1_TS",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 
@@ -154,7 +154,7 @@ def create_ts_lane_3_group() -> LoadGroupDefinition:
         name="LG10000",
         load_option="VARIABLE",
         relation="STANDARD",
-        load_type="TRAFFIC_NEN8702_LM1_TS",
+        load_type="CONSTRUCTION_LOADS",
     )
 
 

@@ -9,7 +9,7 @@ from typing import Any
 
 from .scia_bridge_geometry import (
     create_node_and_thickness_dict,
-    extract_bridge_geometry_params,
+    extract_bridge_dimensions,
 )
 from .scia_definitions import (
     MaterialDefinition,
@@ -124,7 +124,7 @@ def define_complete_bridge_model(params: Any) -> dict[str, list]:  # noqa: ANN40
     :rtype: dict[str, list]
     """
     definitions = _define_bridge_geometry(params)
-    bridge_geometry = extract_bridge_geometry_params(params)
+    bridge_dims = extract_bridge_dimensions(params)
     definitions["line_supports"] = define_line_supports(definitions["plates"])
 
     # 1. Define Load Groups
