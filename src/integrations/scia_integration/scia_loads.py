@@ -589,7 +589,6 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -
     add_parapet_loads(builder, params)
     add_crowd_loads(builder, params)
     add_theoretical_tandem_loads(builder, params)
-    
 
     # TODO: Add calls to other load functions when they are implemented
     # add_actual_tandem_loads(builder, params)  # noqa: ERA001
