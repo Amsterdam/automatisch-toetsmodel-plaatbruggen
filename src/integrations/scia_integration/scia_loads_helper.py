@@ -526,3 +526,27 @@ def calculate_pavement_load_from_dynamic_array(
         load = thickness * density if density > 0 and thickness > 0 else 0.0
         result.append(load)
     return result
+
+
+def calculate_pavement_load_from_material(
+    thickness: float,
+    material: str,
+) -> float:
+    """
+    Calculate the pavement load (kN/m²) from the material properties.
+
+    :param thickness: Pavement thickness in meters
+    :type thickness: float
+    :param material: Pavement material name
+    :type material: str
+    :returns: Calculated load (kN/m²) (0.0 if missing or unknown material)
+    :rtype: float
+    """
+    # Build a lookup for material densities (case-insensitive)
+    density_lookup = {name.lower(): density for name, density in get_material_densities()}
+
+    if not material or not isinstance(thickness, (int, float)):
+        return 0.0
+
+    density = density_lookup.get(str(material).lower(), 0.0)
+    return thickness * density if density > 0 and thickness > 0 else 0.0

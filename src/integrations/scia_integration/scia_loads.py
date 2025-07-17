@@ -7,11 +7,15 @@ These functions are pure Python and can be used by the app layer to construct th
 
 from typing import Any
 
+from app.bridge.parametrization import BridgeParametrization
+from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
+
 from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
+from .scia_loads_helper import calculate_pavement_load_from_material
 from .scia_model_interface import SciaModelBuilder
 
 
@@ -76,7 +80,53 @@ def add_pedestrian_loads(
     return []
 
 
-def create_all_loads(builder: SciaModelBuilder, params: Any) -> None:  # noqa: ANN401
+def add_asfalt_loads(
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+) -> list[Any]:
+    """PLACEHOLDER: Add asphalt loads to the SCIA model."""
+    # Get unit weight for asphalt loads
+
+    # Get load zone information from params using the utility functions
+    load_zones_data_params = get_load_zones_data_from_params(params)
+    bridge_geom_data = get_bridge_geom_data(params)
+
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return []
+
+    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
+
+    # Iterate through load zones and apply asphalt loads
+    for i, load_zone in enumerate(load_zones_data_params):
+        if load_zone.get("pavement_material", BridgeParametrization) == "Asfalt":
+            # Iterate through spans
+            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
+                # Create individual surface load for each span in the asphalt zone
+                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
+                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
+                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
+                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
+                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
+                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
+                corners = [
+                    (x_coord_left, y_coord_top_left, 0.0),
+                    (x_coord_right, y_coord_top_right, 0.0),
+                    (x_coord_right, y_coord_bottom_right, 0.0),
+                    (x_coord_left, y_coord_bottom_left, 0.0),
+                ]
+
+                builder.create_surface_load(
+                    name=f"{load_zone['zone_type']}_{i}_Asfalt_{span}_d{load_zone['pavement_thickness']}",
+                    load_case_name="BG2001",  # TODO is dit correct?
+                    corner_points=corners,
+                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
+                    * 1000,  # Convert to kN/m²
+                )
+    return []  # Placeholder return to match function signature
+
+
+def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
     """
     Create and apply all load types to the bridge model.
 
@@ -90,6 +140,7 @@ def create_all_loads(builder: SciaModelBuilder, params: Any) -> None:  # noqa: A
     """
     # Apply theoretical tandem loads
     add_theoretical_tandem_loads(builder, params)
+    add_asfalt_loads(builder, params)
 
     # TODO: Add calls to other load functions when they are implemented
     # add_actual_tandem_loads(builder, params)  # noqa: ERA001
