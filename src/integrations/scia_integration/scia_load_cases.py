@@ -284,20 +284,20 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     """
     if rs == 1:
         group_name = "LG8000 - TS rijstrook 1"
-        prefix = "BG80"
+        prefix = "BG8"
     elif rs == 2:
         group_name = "LG9000 - TS rijstrook 2"
-        prefix = "BG90"
+        prefix = "BG9"
     elif rs == 3:
         group_name = "LG10000 - TS rijstrook 3"
-        prefix = "BG100"
+        prefix = "BG10"
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
     positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
     cases = {}
     for i, pos in enumerate(positions, 1):
-        case_name = f"{prefix}{i:02d}"
+        case_name = f"{prefix}{i:03d}"
         description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
         cases[f"tandem_rs{rs}_x{pos}"] = create_load_case(
             builder,
@@ -326,13 +326,11 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     """
     # Create a structured dictionary of all load cases
     return {
-        "standard_cases": {
-            "self_weight": create_self_weight_load_case(builder),
-            "pedestrian": create_pedestrian_load_case(builder),
-        },
+        "self_weight": create_self_weight_load_case(builder),
         "dead_load_cases": create_dead_load_cases(builder),
         "temperature_cases": create_temperature_load_cases(builder),
         "udl_traffic_cases": create_udl_traffic_load_cases(builder),
+        "pedestrian": create_pedestrian_load_case(builder),
         "service_vehicle_cases": create_service_vehicle_load_cases(builder),
         "unintended_vehicle_cases": create_unintended_vehicle_load_cases(builder),
         "tandem_cases": create_dynamic_tandem_load_cases(builder, params),

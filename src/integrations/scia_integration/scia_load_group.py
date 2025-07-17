@@ -48,7 +48,7 @@ def create_temperature_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG3000 - Temperatuur",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="TEMPERATURE",
     )
 
@@ -78,7 +78,7 @@ def create_crowd_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG5000 - Mensenmenigte",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
@@ -93,7 +93,7 @@ def create_service_vehicle_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG6000 - Dienstvoertuig",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
@@ -108,7 +108,7 @@ def create_accidental_vehicle_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG7000 - Onbedoeld voertuig",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
@@ -123,7 +123,7 @@ def create_ts_lane_1_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG8000 - TS rijstrook 1",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
@@ -138,7 +138,7 @@ def create_ts_lane_2_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG9000 - TS rijstrook 2",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
@@ -153,7 +153,7 @@ def create_ts_lane_3_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG10000 - TS rijstrook 3",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
