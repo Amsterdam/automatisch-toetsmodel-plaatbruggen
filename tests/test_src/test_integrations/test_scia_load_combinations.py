@@ -1,134 +1,103 @@
 """
 Tests for SCIA load combinations module.
 
-Tests for load combination creation functions using SCIA API.
+Tests for load combination creation functions using a mocked SciaModelBuilder.
 """
 
 from unittest.mock import Mock, patch
 
 import pytest
 
-from src.integrations.scia_integration.scia_definitions import (
-    LoadCombinationDefinition,
-    SciaCombinationType,
-)
 from src.integrations.scia_integration.scia_load_combinations import (
-    create_basic_sls_combination,
-    create_basic_uls_combination,
+    create_all_load_combinations,
     create_load_combination,
-    create_standard_load_combinations,
-    create_wind_uls_combination,
 )
+from src.integrations.scia_integration.scia_model_interface import SciaCombinationType
+
+
+@pytest.fixture
+def mock_builder() -> Mock:
+    """Fixture to provide a mocked SciaModelBuilder."""
+    return Mock()
 
 
 class TestCreateLoadCombination:
     """Tests for the base load combination creation function."""
 
-    def test_create_load_combination(self) -> None:
-        """Test the successful creation of a load combination definition."""
-        factors = {"LC1": 1.5, "LC2": 1.0}
-        definition = create_load_combination(SciaCombinationType.ULS, "TestCombo", factors, "A test combo")
+    def test_create_load_combination(self, mock_builder: Mock) -> None:
+        """Test the successful creation of a load combination."""
+        mock_lc1 = Mock()
+        mock_lc2 = Mock()
+        factors = {mock_lc1: 1.5, mock_lc2: 1.0}
+        create_load_combination(mock_builder, SciaCombinationType.EN_ULS_SET_B, "TestCombo", factors, "A test combo")
 
-        assert isinstance(definition, LoadCombinationDefinition)
-        assert definition.name == "TestCombo"
-        assert definition.combination_type == SciaCombinationType.ULS
-        assert definition.load_case_factors == factors
-        assert definition.description == "A test combo"
+        mock_builder.create_load_combination.assert_called_once_with(
+            name="TestCombo",
+            combination_type=SciaCombinationType.EN_ULS_SET_B,
+            load_case_factors=factors,
+            description="A test combo",
+        )
 
-    def test_create_load_combination_default_description(self) -> None:
+    def test_create_load_combination_default_description(self, mock_builder: Mock) -> None:
         """Test that a default description is created if none is provided."""
-        definition = create_load_combination(SciaCombinationType.SLS_CHAR, "DefaultDescCombo", {})
-        assert definition.description == "Load combination: DefaultDescCombo"
+        create_load_combination(mock_builder, SciaCombinationType.EN_SLS_CHAR, "DefaultDescCombo", {})
+        mock_builder.create_load_combination.assert_called_once()
+        assert mock_builder.create_load_combination.call_args[1]["description"] == "Load combination: DefaultDescCombo"
 
 
-class TestBasicUlsCombination:
-    """Tests for the basic ULS combination helper function."""
-
-    @patch("src.integrations.scia_integration.scia_load_combinations.create_load_combination")
-    def test_create_basic_uls_combination(self, mock_create: Mock) -> None:
-        """Test that the base creator is called with correct ULS parameters."""
-        mock_create.return_value = Mock()
-        result = create_basic_uls_combination("SW_Case", "TS_Case", "MyULS")
-
-        expected_factors = {"SW_Case": 1.25, "TS_Case": 1.25}
-        mock_create.assert_called_once_with(
-            SciaCombinationType.ULS,
-            "MyULS",
-            expected_factors,
-            "Basic ULS: 1.25*G0 + 1.25*TS (Self-weight + Traffic)",
-        )
-        assert result is mock_create.return_value
-
-
-class TestBasicSlsCombination:
-    """Tests for the basic SLS combination helper function."""
-
-    @patch("src.integrations.scia_integration.scia_load_combinations.create_load_combination")
-    def test_create_basic_sls_combination(self, mock_create: Mock) -> None:
-        """Test that the base creator is called with correct SLS parameters."""
-        mock_create.return_value = Mock()
-        result = create_basic_sls_combination("SW_Case", "TS_Case", "MySLS")
-
-        expected_factors = {"SW_Case": 1.0, "TS_Case": 1.0}
-        mock_create.assert_called_once_with(
-            SciaCombinationType.SLS_CHAR,
-            "MySLS",
-            expected_factors,
-            "Basic SLS: 1.0*G0 + 1.0*TS (Self-weight + Traffic)",
-        )
-        assert result is mock_create.return_value
-
-
-class TestWindUlsCombination:
-    """Tests for the ULS combination with wind helper function."""
-
-    @patch("src.integrations.scia_integration.scia_load_combinations.create_load_combination")
-    def test_create_wind_uls_combination(self, mock_create: Mock) -> None:
-        """Test that the base creator is called with correct wind ULS parameters."""
-        mock_create.return_value = Mock()
-        result = create_wind_uls_combination("SW_Case", "TS_Case", "Wind_Case", "MyWindULS")
-
-        expected_factors = {
-            "SW_Case": 1.35,
-            "TS_Case": 1.5,
-            "Wind_Case": 1.5 * 0.6,
-        }
-        mock_create.assert_called_once_with(
-            SciaCombinationType.ULS,
-            "MyWindULS",
-            expected_factors,
-            "ULS with Wind: 1.35*G0 + 1.5*TS + 0.9*W (Self-weight + Traffic + Wind)",
-        )
-        assert result is mock_create.return_value
-
-
-class TestStandardLoadCombinations:
+class TestCreateAllLoadCombinations:
     """Tests for the main function that creates a list of standard combinations."""
 
-    @patch("src.integrations.scia_integration.scia_load_combinations.create_basic_uls_combination")
-    @patch("src.integrations.scia_integration.scia_load_combinations.create_basic_sls_combination")
-    @patch("src.integrations.scia_integration.scia_load_combinations.create_wind_uls_combination")
-    def test_create_standard_load_combinations(self, mock_wind_uls: Mock, mock_sls: Mock, mock_uls: Mock) -> None:
-        """Test that combination helpers are called for each tandem case."""
-        tandem_cases = ["TS1", "TS2"]
-        definitions = create_standard_load_combinations("SelfWeight", tandem_cases, "Wind")
+    @patch("src.integrations.scia_integration.scia_load_combinations.create_load_combination")
+    def test_create_all_load_combinations_with_pedestrian(self, mock_create: Mock, mock_builder: Mock) -> None:
+        """Test that combination is created when pedestrian load case is available."""
+        mock_sw_case = Mock()
+        mock_pedestrian_case = Mock()
 
-        # Should be 3 combinations per tandem case (ULS, SLS, Wind ULS)
-        assert mock_uls.call_count == 2
-        assert mock_sls.call_count == 2
-        assert mock_wind_uls.call_count == 2
-        assert len(definitions) == 6
+        all_load_cases = {
+            "standard_cases": {"self_weight": mock_sw_case, "pedestrian": mock_pedestrian_case},
+        }
 
-        # Check call arguments for the first tandem case
-        mock_uls.assert_any_call("SelfWeight", "TS1", "ULS_T1")
-        mock_sls.assert_any_call("SelfWeight", "TS1", "SLS_T1")
-        mock_wind_uls.assert_any_call("SelfWeight", "TS1", "Wind", "ULS_WIND_T1")
+        combinations = create_all_load_combinations(mock_builder, all_load_cases)
 
-        # Check call arguments for the second tandem case
-        mock_uls.assert_any_call("SelfWeight", "TS2", "ULS_T2")
-        mock_sls.assert_any_call("SelfWeight", "TS2", "SLS_T2")
-        mock_wind_uls.assert_any_call("SelfWeight", "TS2", "Wind", "ULS_WIND_T2")
+        assert len(combinations) == 1
+        mock_create.assert_called_once_with(
+            builder=mock_builder,
+            combination_type=SciaCombinationType.EN_ULS_SET_B,
+            combination_name="ULS_Example_SW_Pedestrian",
+            load_case_factors={mock_sw_case: 1.35, mock_pedestrian_case: 1.50},
+            description="Example ULS: 1.35*G + 1.50*Q (Self-weight + Pedestrian)",
+        )
+        assert combinations[0] == mock_create.return_value
 
+    def test_create_all_load_combinations_no_self_weight(self, mock_builder: Mock) -> None:
+        """Test behavior when self-weight load case is missing."""
+        combinations = create_all_load_combinations(mock_builder, {})
+        assert combinations == []
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+        combinations = create_all_load_combinations(mock_builder, {"standard_cases": {}})
+        assert combinations == []
+
+    def test_create_all_load_combinations_no_pedestrian(self, mock_builder: Mock) -> None:
+        """Test behavior when pedestrian load case is missing."""
+        mock_sw_case = Mock()
+        all_load_cases = {
+            "standard_cases": {"self_weight": mock_sw_case},
+        }
+
+        combinations = create_all_load_combinations(mock_builder, all_load_cases)
+        assert combinations == []  # No combinations created without pedestrian case
+
+    @patch("src.integrations.scia_integration.scia_load_combinations.create_load_combination")
+    def test_create_all_load_combinations_exception_handling(self, mock_create: Mock, mock_builder: Mock) -> None:
+        """Test that exceptions in combination creation are handled gracefully."""
+        mock_create.side_effect = Exception("Test exception")
+
+        mock_sw_case = Mock()
+        mock_pedestrian_case = Mock()
+        all_load_cases = {
+            "standard_cases": {"self_weight": mock_sw_case, "pedestrian": mock_pedestrian_case},
+        }
+
+        combinations = create_all_load_combinations(mock_builder, all_load_cases)
+        assert combinations == []  # Should return empty list if combination creation fails
