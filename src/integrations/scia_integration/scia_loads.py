@@ -17,6 +17,7 @@ from .scia_bridge_geometry import (
     generate_tandem_loads_for_bridge,
 )
 from .scia_model_interface import SciaModelBuilder
+from app.bridge.parametrization import BridgeParametrization
 
 
 def add_theoretical_tandem_loads(
@@ -81,14 +82,13 @@ def add_pedestrian_loads(
 
 
 def add_asfalt_loads(
-    _model: Any,  # noqa: ANN401
-    _params: Any,  # noqa: ANN401
-    _traffic_group: Any,  # noqa: ANN401
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
 ) -> list[Any]:
     """PLACEHOLDER: Add asphalt loads to the SCIA model."""
     # Get load zone information from params using the utility functions
-    load_zones_data_params = get_load_zones_data_from_params(_params)
-    bridge_geom_data = get_bridge_geom_data(_params)
+    load_zones_data_params = get_load_zones_data_from_params(params)
+    bridge_geom_data = get_bridge_geom_data(params)
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
     # Check if bridge geometry data is available
@@ -97,7 +97,7 @@ def add_asfalt_loads(
 
     # Iterate through load zones and apply asphalt loads
     for load_zone in load_zones_data_params:
-        if load_zone.get("type", None) == "Asfalt":
+        if load_zone.get("type", BridgeParametrization) == "Asfalt":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
                 # Create individual surface load for each span in the asphalt zone
@@ -111,17 +111,16 @@ def add_asfalt_loads(
                     (x_coord_right, y_coord_top_left, 0.0),
                     (x_coord_left, y_coord_top_right, 0.0),
                 ]
-                create_patch_surface_load(
+                builder.create_surface_load(
+                    name=f"{load_zone['zone_type']}_Asfalt_d{load_zone['pavement_thickness']}",
                     load_case_name=f"{load_zone['zone_type']}_Asfalt",  # TODO is dit correct?
                     corner_points=corners,
                     load_value=23,  # TODO: Example load value, replace with actual
-                    load_name=f"{load_zone['zone_type']}_Asfalt_d{load_zone['pavement_thickness']}",
                 )
-
     return []
 
 
-def create_all_loads(builder: SciaModelBuilder, params: Any) -> None:  # noqa: ANN401
+def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
     """
     Create and apply all load types to the bridge model.
 
@@ -135,6 +134,7 @@ def create_all_loads(builder: SciaModelBuilder, params: Any) -> None:  # noqa: A
     """
     # Apply theoretical tandem loads
     add_theoretical_tandem_loads(builder, params)
+    add_asfalt_loads(builder, params)
 
     # TODO: Add calls to other load functions when they are implemented
     # add_actual_tandem_loads(builder, params)  # noqa: ERA001
