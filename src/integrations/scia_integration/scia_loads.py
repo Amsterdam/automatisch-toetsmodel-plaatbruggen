@@ -7,8 +7,7 @@ These functions are pure Python and can be used by the app layer to construct th
 
 from typing import Any
 
-from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
-
+from app.bridge.parametrization import BridgeParametrization
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 
 from .scia_bridge_geometry import (
@@ -16,9 +15,8 @@ from .scia_bridge_geometry import (
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_model_interface import SciaModelBuilder
 from .scia_loads_helper import calculate_pavement_load_from_material
-from app.bridge.parametrization import BridgeParametrization
+from .scia_model_interface import SciaModelBuilder
 
 
 def add_theoretical_tandem_loads(
@@ -89,8 +87,6 @@ def add_asfalt_loads(
     """PLACEHOLDER: Add asphalt loads to the SCIA model."""
     # Get unit weight for asphalt loads
 
-
-
     # Get load zone information from params using the utility functions
     load_zones_data_params = get_load_zones_data_from_params(params)
     bridge_geom_data = get_bridge_geom_data(params)
@@ -124,7 +120,8 @@ def add_asfalt_loads(
                     name=f"{load_zone['zone_type']}_{i}_Asfalt_{span}_d{load_zone['pavement_thickness']}",
                     load_case_name="BG2001",  # TODO is dit correct?
                     corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone['pavement_thickness'], load_zone['pavement_material'])*1000, # Convert to kN/m²
+                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
+                    * 1000,  # Convert to kN/m²
                 )
         i += 1
 

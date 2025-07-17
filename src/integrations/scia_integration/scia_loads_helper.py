@@ -527,6 +527,7 @@ def calculate_pavement_load_from_dynamic_array(
         result.append(load)
     return result
 
+
 def calculate_pavement_load_from_material(
     thickness_field: str = "pavement_thickness",
     material_field: str = "pavement_material",
