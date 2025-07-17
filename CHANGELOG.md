@@ -1,4 +1,21 @@
 # Changelog
+## [`v0.0.8`] - 2025-07-17
+### Added
+- IDEA model builder
+- IDEA export + viewer
+- SCIA load cases BG 1001, 2001, 2002, 2003
+
+### Changed
+- SCIA model builder logic
+- Refactored code
+
+### Removed
+- Removed old Steel and Concrete classes
+
+### Fixed
+- Report generator
+
+
 ## [`v0.0.7`] - 2025-07-03
 ### Added
 - Added the option to add supports in Input -> Dimensions
