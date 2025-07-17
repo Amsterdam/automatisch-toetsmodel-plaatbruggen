@@ -110,6 +110,7 @@ def add_parapet_loads(
             )
     return []
 
+
 def add_pedestrian_loads(
     _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
