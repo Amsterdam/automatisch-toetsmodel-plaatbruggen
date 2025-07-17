@@ -62,12 +62,52 @@ def add_actual_tandem_loads(
     return []
 
 
-def add_railing_loads(
-    _builder: SciaModelBuilder,
-    _params: Any,  # noqa: ANN401
+def add_parapet_loads(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
 ) -> list[Any]:
-    """PLACEHOLDER: Add railing loads to the SCIA model."""
-    # This will be implemented based on railing parameters.
+    """
+    Add permanent line loads for parapets (railing) to the SCIA model.
+
+    Places line loads:
+    - On edge 1 of all zone 3 plates (Z3)
+    - On edge 3 of all zone 1 plates (Z1)
+
+    :param builder: SCIA model builder instance
+    :param params: Bridge parameters (should provide plate_definitions)
+    """
+    try:
+        load_value = params.input.belastingzones.lijnlast_leuning * 1000  # Convert to kN/m
+    except AttributeError:
+        load_value = 1000  # Fallback default if not present
+
+    load_case_name = "BG2004"
+
+    # builder.plates is now a dict: {plate_name: Plane}
+    plates = getattr(builder, "plates", {})
+    for plate_name, _plane in plates.items():  # noqa: PERF102
+        # Expect plate_name like 'Z1_1', 'Z3_2', etc.
+        try:
+            zone_part = plate_name.split("_")[0]  # e.g., 'Z1'
+            zone_number = int(zone_part[1:])
+        except (IndexError, ValueError):
+            continue
+        if zone_number == 3:
+            builder.create_line_load_on_plane(
+                name=f"parapet_load_zone3_{plate_name}",
+                load_case_name=load_case_name,
+                plane_name=plate_name,
+                edge_index=3,
+                load_value=-load_value,
+            )
+        elif zone_number == 1:
+            builder.create_line_load_on_plane(
+                name=f"parapet_load_zone1_{plate_name}",
+                load_case_name=load_case_name,
+                plane_name=plate_name,
+                edge_index=1,
+                load_value=-load_value,
+            )
     return []
 
 
@@ -344,6 +384,7 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -
     add_asfalt_loads(builder, params)
     add_concrete_fill_loads(builder, params)
     add_pavement_loads(builder, params)
+    add_parapet_loads(builder, params)
     add_crowd_loads(builder, params)
     add_theoretical_tandem_loads(builder, params)
 
