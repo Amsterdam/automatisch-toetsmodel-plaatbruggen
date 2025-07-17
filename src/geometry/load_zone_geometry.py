@@ -473,10 +473,7 @@ def calculate_zone_geometry_properties(
         if zone_idx == len(load_zones_data_params) - 1:
             # Last zone: set zone_widths_per_d as the vertical distance to the bridge bottom at each D-point
             y_bridge_bottom_at_d_points = bridge_geom_data.y_bridge_bottom_at_d_points
-            updated_zone["zone_widths_per_d"] = [
-            current_y_top[d_idx] - y_bridge_bottom_at_d_points[d_idx]
-            for d_idx in range(len(current_y_top))
-            ]
+            updated_zone["zone_widths_per_d"] = [current_y_top[d_idx] - y_bridge_bottom_at_d_points[d_idx] for d_idx in range(len(current_y_top))]
 
         # Update current_y_top for next zone (unless it's the last zone)
         if zone_idx < len(load_zones_data_params) - 1:

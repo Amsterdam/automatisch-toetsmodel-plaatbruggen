@@ -125,6 +125,7 @@ def add_asfalt_loads(
                 )
     return []  # Placeholder return to match function signature
 
+
 def add_concrete_fill_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
@@ -168,7 +169,7 @@ def add_concrete_fill_loads(
                     load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
                     * 1000,  # Convert to kN/m²
                 )
-        
+
         elif load_zone.get("pavement_material", BridgeParametrization) == "Beton (gewapend)":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
@@ -194,6 +195,7 @@ def add_concrete_fill_loads(
                     * 1000,  # Convert to kN/m²
                 )
     return []  # Placeholder return to match function signature
+
 
 def add_pavement_loads(
     builder: SciaModelBuilder,
@@ -238,7 +240,7 @@ def add_pavement_loads(
                     load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
                     * 1000,  # Convert to kN/m²
                 )
-        
+
         elif load_zone.get("pavement_material", BridgeParametrization) == "Grind":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
@@ -263,7 +265,7 @@ def add_pavement_loads(
                     load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
                     * 1000,  # Convert to kN/m²
                 )
-        
+
         elif load_zone.get("pavement_material", BridgeParametrization) == "Tegels":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
