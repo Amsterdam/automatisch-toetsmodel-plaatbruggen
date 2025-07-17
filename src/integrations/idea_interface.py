@@ -12,374 +12,298 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
-from dataclasses import dataclass
 from typing import Any
 
-from src.common.materials import get_default_materials
+from viktor.external import idea_rcs
+
+from app.bridge.parametrization import (
+    BridgeParametrization,
+)
+from src.integrations.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
+from src.integrations.scia_integration.scia_bridge_geometry import create_node_and_thickness_dict
 
 
-@dataclass
-class BridgeCrossSectionData:
+def _get_unique_matching_zone_keys(
+    params: BridgeParametrization,
+) -> tuple[
+    list[tuple[float, str]],
+    dict[float, list[str]],
+    dict[float, list[str]],
+]:
     """
-    Data structure for bridge cross-section information extracted from bridge parameters.
+    Extract unique matching zone keys from bridge parameters.
 
-    :param width: Width of the cross-section in meters
-    :type width: float
-    :param height: Height of the cross-section in meters
-    :type height: float
-    :param concrete_material: Concrete material grade
-    :type concrete_material: str
-    :param reinforcement_material: Reinforcement material grade
-    :type reinforcement_material: str
-    :param reinforcement_config: Dictionary containing reinforcement configuration
-    :type reinforcement_config: dict[str, Any]
+    This function groups reinforcement zones by their zone number and matches them with
+    the corresponding thickness zones extracted from the bridge parameters.
+
+    :param params: BridgeParametrization object containing all bridge input parameters
+    :type params: BridgeParametrization
+    :returns: List of unique (thickness, config) tuples for matching zones
+    :rtype: list[tuple[float, str]]
     """
+    # Extract zone thickness data from bridge parameters
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
 
-    width: float
-    height: float
-    concrete_material: str
-    reinforcement_material: str
-    reinforcement_config: dict[str, Any]
+    # Group thickness_dict keys [zones] by their value [thickness] -> dict[thickness, list[zones]]
+    grouped_thickness: dict[float, list[str]] = {}
+    for key, value in thickness_dict.items():
+        grouped_thickness.setdefault(value, []).append(key[1:].replace("_", "-"))  # to get zone format from Z1_1 to 1-1
 
+    # Group reinforcement zones by their zone number
+    grouped_rebar_configs: dict[float, list[str]] = {}
+    i = 1
+    for rebar_config in params.reinforcement_zones_array:
+        grouped_rebar_configs[i] = rebar_config.get("zone_number")
+        i += 1
 
-@dataclass
-class ReinforcementConfig:
-    """
-    Data structure for reinforcement configuration.
-
-    :param main_bars_top: Top main reinforcement bars [(x, y, diameter), ...]
-    :type main_bars_top: list[tuple[float, float, float]]
-    :param main_bars_bottom: Bottom main reinforcement bars [(x, y, diameter), ...]
-    :type main_bars_bottom: list[tuple[float, float, float]]
-    :param concrete_cover: Concrete cover in meters
-    :type concrete_cover: float
-    """
-
-    main_bars_top: list[tuple[float, float, float]]
-    main_bars_bottom: list[tuple[float, float, float]]
-    concrete_cover: float
-
-
-def extract_cross_section_from_params(
-    bridge_segments_params: list[dict[str, Any]], concrete_material: str | None = None, reinforcement_material: str | None = None
-) -> BridgeCrossSectionData:
-    """
-    Extract bridge cross-section data from bridge segment parameters.
-
-    Currently creates a simple rectangular cross-section:
-    - Width: Uses width of first segment (bz1 + bz2 + bz3)
-    - Height: Uses thickness of first segment (dz or dz_2)
-    - Materials: Hardcoded defaults
-
-    TODO: Future improvements:
-    - Support multiple cross-sections along bridge length
-    - Support for T-beam and box girder sections
-    - Extract actual material grades from params.info
-    - Handle different zone thicknesses properly
-
-    :param bridge_segments_params: List of bridge segment parameter dictionaries
-    :type bridge_segments_params: list[dict[str, Any]]
-    :returns: Bridge cross-section data for IDEA model creation
-    :rtype: BridgeCrossSectionData
-    :raises ValueError: If bridge_segments_params is empty or invalid
-    """
-    if not bridge_segments_params:
-        raise ValueError("No bridge segments provided")
-
-    # Use first segment for cross-section definition
-    first_segment = bridge_segments_params[0]
-    bz1 = float(first_segment.get("bz1", 0))
-    bz2 = float(first_segment.get("bz2", 0))
-    bz3 = float(first_segment.get("bz3", 0))
-    width = bz1 + bz2 + bz3
-
-    if width <= 0:
-        raise ValueError("Cross-section width must be positive")
-
-    # Bridge deck thickness should be much smaller than structural height
-    # For IDEA RCS analysis, we need the actual concrete deck thickness, not the full structural height
-    # Extract actual deck thickness from construction height or use segment dimensions
-    dz = float(first_segment.get("dz", 0.5))
-    dz_2 = float(first_segment.get("dz_2", 0.5))
-
-    # Use the maximum thickness from zones 1-3 vs zone 2
-    # Limit to reasonable deck thickness (max 0.8m for slab analysis)
-    thickness = min(max(dz, dz_2), 0.8)
-
-    # Use provided materials or defaults from the centralized material system
-    if concrete_material is None or reinforcement_material is None:
-        defaults = get_default_materials()
-        concrete_material = concrete_material or defaults["concrete"]
-        reinforcement_material = reinforcement_material or defaults["reinforcement"]
-
-    # Basic reinforcement configuration
-    # Extract from actual reinforcement parameters from wapening zones
-    # Use hoofdwapening_langs_boven/onder_diameter and hart_op_hart fields
-    # For now using defaults: 12mm diameter with 150mm spacing
-    bar_diameter_mm = 12.0
-    spacing_mm = 150.0
-    cover_mm = 55.0
-
-    return BridgeCrossSectionData(
-        width=width,
-        height=thickness,
-        concrete_material=concrete_material,
-        reinforcement_material=reinforcement_material,
-        reinforcement_config={
-            "main_diameter_top": bar_diameter_mm,
-            "main_spacing_top": spacing_mm,
-            "main_diameter_bottom": bar_diameter_mm,
-            "main_spacing_bottom": spacing_mm,
-            "concrete_cover": cover_mm / 1000,
-        },
-    )
+    # Find matching thickness and reinforcement zone numbers
+    matching_zone_keys: list[tuple[float, str]] = []
+    for thickness, thickness_zones in grouped_thickness.items():
+        for thickness_zone in thickness_zones:
+            for config, rebar_zones in grouped_rebar_configs.items():
+                for rebar_zone in rebar_zones:  # ignore PERF401
+                    if thickness_zone == rebar_zone:
+                        matching_zone_keys.append((thickness, str(config)))  # noqa: PERF401
+    # Filter matching_zone_keys to only unique (thickness, config) pairs
+    unique_matching_zone_keys = list({(thickness, config) for thickness, config in matching_zone_keys})
+    return unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs
 
 
-def create_reinforcement_layout(cross_section: BridgeCrossSectionData) -> ReinforcementConfig:
-    """
-    Create reinforcement layout from cross-section data.
+def calculate_rebar_positions(width: float, hoh: float, y_offset: float = 0) -> list[float]:
+    """Calculate positions for longitudinal reinforcement."""
+    n_rebars = int(width / hoh)  # Round down to ensure minimum hoh is maintained
+    if n_rebars < 1:
+        return []
 
-    :param cross_section: Bridge cross-section data
-    :type cross_section: BridgeCrossSectionData
-    :returns: Reinforcement configuration
-    :rtype: ReinforcementConfig
-    """
-    config = cross_section.reinforcement_config
-    cover = config["concrete_cover"]
+    actual_hoh = width / n_rebars
+    positions = []
 
-    # Calculate bar positions for top reinforcement
-    main_bars_top = []
-    spacing_top = config["main_spacing_top"]
-    diameter_top = config["main_diameter_top"]
+    if n_rebars % 2 == 0:  # Even number of rebars
+        for i in range(n_rebars // 2):
+            offset = (i + 0.5) * actual_hoh
+            positions.extend([-offset, offset])
+    else:  # Odd number of rebars
+        positions = [0]  # Center rebar
+        for i in range(1, (n_rebars + 1) // 2):
+            offset = i * actual_hoh
+            positions.extend([-offset, offset])
 
-    # Position bars across the width with specified spacing
-    y_top = cross_section.height / 2 - cover - diameter_top / 2
-    num_bars_top = max(2, int(cross_section.width / spacing_top) + 1)
-
-    for i in range(num_bars_top):
-        x_pos = -cross_section.width / 2 + cover + i * spacing_top
-        if x_pos <= cross_section.width / 2 - cover:
-            main_bars_top.append((x_pos, y_top, diameter_top))
-
-    # Calculate bar positions for bottom reinforcement
-    main_bars_bottom = []
-    spacing_bottom = config["main_spacing_bottom"]
-    diameter_bottom = config["main_diameter_bottom"]
-
-    y_bottom = -cross_section.height / 2 + cover + diameter_bottom / 2
-    num_bars_bottom = max(2, int(cross_section.width / spacing_bottom) + 1)
-
-    for i in range(num_bars_bottom):
-        x_pos = -cross_section.width / 2 + cover + i * spacing_bottom
-        if x_pos <= cross_section.width / 2 - cover:
-            main_bars_bottom.append((x_pos, y_bottom, diameter_bottom))
-
-    return ReinforcementConfig(main_bars_top=main_bars_top, main_bars_bottom=main_bars_bottom, concrete_cover=cover)
+    positions.sort()
+    return [pos + y_offset for pos in positions]
 
 
-def create_simple_idea_slab_model(cross_section_data: BridgeCrossSectionData) -> Any:  # noqa: ANN401
-    """
-    Create a simple rectangular slab IDEA model from cross-section data.
+def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> list[float]:
+    """Calculate positions for bijlegwapening (additional reinforcement) by finding midpoints between main reinforcement."""
+    if len(positions) < 2:
+        return []
 
-    Creates a basic IDEA StatiCa model with:
-    - Rectangular slab cross-section
-    - Concrete and reinforcement materials
-    - Basic reinforcement layout
-    - Sample loading extremes
+    # Calculate midpoint between each pair of consecutive positions
+    bijleg_positions = []
+    for i in range(len(positions) - 1):
+        midpoint = (positions[i] + positions[i + 1]) / 2.0
+        bijleg_positions.append(midpoint)
 
-    TODO: Future enhancements for complete cross-section modeling:
-
-    1. SUPPORT FOR DIFFERENT SLAB SECTION TYPES:
-       - Variable thickness slab sections per zone
-       - Rectangular sections with zone-specific thickness (dz, dz_2)
-       - Extract geometry from params.input.dimensions.bridge_segments_array
-
-    2. ADVANCED REINFORCEMENT PATTERNS:
-       - Support for stirrups/shear reinforcement
-       - Variable reinforcement along length
-       - Prestressing tendons
-       - Extract from params.input.geometrie_wapening for realistic reinforcement layouts
-       - Use zone-specific reinforcement configurations from reinforcement_zones_array
-       - Support hoofdwapening (main) and bijlegwapening (additional) reinforcement
-
-        3. SLAB-FOCUSED ANALYSIS:
-       - One-way slab analysis (current implementation using create_one_way_slab)
-       - Focus on bridge deck analysis only (no girders/beams modeled)
-       - Extract slab properties from params.info.bridge_type and params.info.static_system
-
-    4. ENHANCED LOAD CASES:
-       - Dead load from bridge geometry
-       - Live load from traffic models (params.input.belastingzones.load_zones_array)
-       - Load combinations per Eurocode (params.input.belastingcombinaties)
-       - Extract material properties from params.info section
-
-    5. INTEGRATION WITH BRIDGE PARAMETRIZATION:
-       - Use params.info.construction_height for realistic deck thickness
-       - Use params.info.concrete_strength_class and steel_quality_reinforcement for materials
-       - Extract reinforcement from params.input.geometrie_wapening zones
-       - Map load zones from params.input.belastingzones for proper loading
-
-    :param cross_section_data: Bridge cross-section data
-    :type cross_section_data: BridgeCrossSectionData
-    :returns: IDEA StatiCa model object
-    :rtype: Any
-    :raises ImportError: When VIKTOR IDEA module is not available
-    """
-    try:
-        from viktor.external import idea_rcs
-    except ImportError as e:
-        raise ImportError("VIKTOR IDEA StatiCa module required for IDEA integration") from e
-
-    # Create the IDEA model
-    model = idea_rcs.Model()
-
-    # Create concrete material
-    # Convert material name to IDEA enum
-    concrete_material_enum = _get_concrete_material_enum(cross_section_data.concrete_material)
-    cs_mat = model.create_concrete_material(concrete_material_enum)
-
-    # Create reinforcement material
-    reinforcement_material_enum = _get_reinforcement_material_enum(cross_section_data.reinforcement_material)
-    mat_reinf = model.create_reinforcement_material(reinforcement_material_enum)
-
-    # Create rectangular cross-section
-    cross_section = idea_rcs.RectSection(cross_section_data.width, cross_section_data.height)
-
-    # Create one-way slab member (correct for bridge deck analysis)
-    slab = model.create_one_way_slab(cross_section, cs_mat)
-
-    # Add reinforcement bars
-    reinforcement = create_reinforcement_layout(cross_section_data)
-
-    # Add top reinforcement
-    for x, y, diameter in reinforcement.main_bars_top:
-        slab.create_bar((x, y), diameter, mat_reinf)
-
-    # Add bottom reinforcement
-    for x, y, diameter in reinforcement.main_bars_bottom:
-        slab.create_bar((x, y), diameter, mat_reinf)
-
-    # Add sample load extremes
-    # Calculate realistic loads from bridge geometry and traffic patterns
-    frequent = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(N=-100000, My=210000))
-    fundamental = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(N=-99999, My=200000))
-    slab.create_extreme(frequent=frequent, fundamental=fundamental)
-
-    return model
+    # Add y_offset to all positions
+    return [pos + y_offset for pos in bijleg_positions]
 
 
-def _get_concrete_material_enum(material_name: str) -> Any:  # noqa: ANN401
-    """
-    Convert concrete material name to IDEA enum using centralized material system.
+def _get_rebar_config(
+    rebar_config: dict, params: BridgeParametrization, slab_thickness: float
+) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
+    """Get reinforcement configuration based on the provided viktor parameters."""
+    # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
+    top_reinf_cover = params.input.geometrie_wapening.dekking_boven
+    bottom_reinf_cover = params.input.geometrie_wapening.dekking_onder
 
-    Validates against the project's material database (betonkwaliteit.csv) and maps
-    to IDEA StatiCa enums only for materials that exist in both systems.
-
-    :param material_name: Concrete material name (e.g., "C30/37")
-    :type material_name: str
-    :returns: IDEA concrete material enum
-    :rtype: Any
-    :raises ImportError: When VIKTOR IDEA module is not available
-    :raises ValueError: When material not found in project database
-    """
-    try:
-        from viktor.external import idea_rcs
-    except ImportError as e:
-        raise ImportError("VIKTOR IDEA StatiCa module required") from e
-
-    # Validate that material exists in our project database
-    from src.common.materials import get_supported_idea_materials, normalize_material_name, validate_material_exists
-
-    if not validate_material_exists(material_name, "concrete"):
-        available_materials = get_supported_idea_materials()["concrete"]
-        raise ValueError(f"Concrete material '{material_name}' not found in project database. IDEA-supported materials: {available_materials}")
-
-    # Normalize material name to handle decimal separator differences
-    normalized_material = normalize_material_name(material_name)
-
-    # Build mapping for materials supported by both our database and IDEA StatiCa
-    supported_materials = get_supported_idea_materials()["concrete"]
-    idea_mapping = {}
-
-    # Create enum mapping for supported materials
-    enum_name_mapping = {
-        "C12/15": "C12_15",
-        "C16/20": "C16_20",
-        "C20/25": "C20_25",
-        "C25/30": "C25_30",
-        "C30/37": "C30_37",
-        "C35/45": "C35_45",
-        "C40/50": "C40_50",
-        "C45/55": "C45_55",
-        "C50/60": "C50_60",
+    # Get needed reinforcement data in mm
+    main_reinf_diameters = {
+        "top_langs": rebar_config.get("hoofdwapening_langs_boven_diameter", 0.0),
+        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_diameter", 0.0),
+        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_diameter", 0.0),
+        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_diameter", 0.0),
     }
 
-    # Build mapping only for materials available in both systems
-    for csv_name in supported_materials:
-        if csv_name in enum_name_mapping and hasattr(idea_rcs.ConcreteMaterial, enum_name_mapping[csv_name]):
-            idea_mapping[csv_name] = getattr(idea_rcs.ConcreteMaterial, enum_name_mapping[csv_name])
-
-    # Return mapped material or fallback to default if not supported by IDEA
-    # Try normalized material name first, then original
-    if normalized_material in idea_mapping:
-        return idea_mapping[normalized_material]
-    if material_name in idea_mapping:
-        return idea_mapping[material_name]
-    # Material exists in our database but not supported by IDEA - use closest equivalent
-    default_material = "C30/37"
-    if default_material in idea_mapping:
-        return idea_mapping[default_material]
-    # Last resort fallback
-    return idea_rcs.ConcreteMaterial.C30_37
-
-
-def _get_reinforcement_material_enum(material_name: str) -> Any:  # noqa: ANN401
-    """
-    Convert reinforcement material name to IDEA enum using centralized material system.
-
-    :param material_name: Material name (e.g., "B500B", "QR40")
-    :type material_name: str
-    :returns: IDEA reinforcement material enum
-    :rtype: Any
-    :raises ImportError: If VIKTOR IDEA module not available
-    """
-    try:
-        from viktor.external import idea_rcs
-    except ImportError as e:
-        raise ImportError("VIKTOR IDEA StatiCa module required") from e
-
-    # Mapping of material names to IDEA enums
-    material_mapping = {
-        "B500A": idea_rcs.ReinforcementMaterial.B_500A,
-        "B500B": idea_rcs.ReinforcementMaterial.B_500B,
-        "B500C": idea_rcs.ReinforcementMaterial.B_500C,
-        "QR22": idea_rcs.ReinforcementMaterial.B_500A,  # Legacy mapping
-        "QR24": idea_rcs.ReinforcementMaterial.B_500A,
-        "QR30": idea_rcs.ReinforcementMaterial.B_500B,
-        "QR40": idea_rcs.ReinforcementMaterial.B_500B,
-        "FeB 400": idea_rcs.ReinforcementMaterial.B_500B,
-        "QR48": idea_rcs.ReinforcementMaterial.B_500C,
-        "FeB 500": idea_rcs.ReinforcementMaterial.B_500C,
+    # Get center to center distances in mm
+    main_reinf_ctc_distances = {
+        "top_langs": rebar_config.get("hoofdwapening_langs_boven_hart_op_hart", 0.0),
+        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_hart_op_hart", 0.0),
+        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_hart_op_hart", 0.0),
+        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart", 0.0),
     }
 
-    return material_mapping.get(material_name, idea_rcs.ReinforcementMaterial.B_500B)
+    # check if additional reinforcement is used and set the diameters and distances accordingly
+    # those values are mm!
+    if rebar_config.get("heeft_bijlegwapening"):
+        extra_reinf_diameter = {
+            "top_langs": rebar_config.get("bijlegwapening_langs_boven_diameter", 0.0),
+            "top_dwars": rebar_config.get("bijlegwapening_dwars_boven_diameter", 0.0),
+            "bottom_langs": rebar_config.get("bijlegwapening_langs_onder_diameter", 0.0),
+            "bottom_dwars": rebar_config.get("bijlegwapening_dwars_onder_diameter", 0.0),
+        }
+        extra_reinf_ctc_distances = {
+            "top_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "top_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "bottom_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "bottom_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+        }
+    else:
+        # If no additional reinforcement is used, set diameters and distances to zero
+        extra_reinf_diameter = {
+            "top_langs": 0.0,
+            "top_dwars": 0.0,
+            "bottom_langs": 0.0,
+            "bottom_dwars": 0.0,
+        }
+        extra_reinf_ctc_distances = {
+            "top_langs": 0.0,
+            "top_dwars": 0.0,
+            "bottom_langs": 0.0,
+            "bottom_dwars": 0.0,
+        }
+
+    # create new dict with max diameters to calculate reinforcement heights
+    # This is needed to ensure that we use the maximum diameter for each direction to calculate cover and reinforcement heights
+    max_reinf_diameters = {
+        "top_langs": max(main_reinf_diameters["top_langs"], extra_reinf_diameter["top_langs"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["top_langs"],
+        "top_dwars": max(main_reinf_diameters["top_dwars"], extra_reinf_diameter["top_dwars"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["top_dwars"],
+        "bottom_langs": max(main_reinf_diameters["bottom_langs"], extra_reinf_diameter["bottom_langs"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["bottom_langs"],
+        "bottom_dwars": max(main_reinf_diameters["bottom_dwars"], extra_reinf_diameter["bottom_dwars"])
+        if rebar_config.get("heeft_bijlegwapening")
+        else main_reinf_diameters["bottom_dwars"],
+    }
+
+    # This part deals with the reinforcement bar heights based on half slab thickness reduced by the concrete cover and
+    # the diameter of the reinforcement bars.
+    # It also takes into account the langswapening_buiten parameter to determine the order of reinforcement layers.
+    # It uses max_reinf_diameters to ensure that the cover and heights are calculated correctly if extra reinforcement is used.
+    reinf_heights = {}
+    thickness_mm = slab_thickness * 1000  # Convert thickness from m to mm
+    # check if diameter main > extra to determine cover and reinforcement heights
+    if params.input.geometrie_wapening.langswapening_buiten:
+        # If langswapening_buiten is True, we assume the reinforcement in "langswapening" is placed as first layer
+        reinf_heights["top_langs"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] / 2
+        reinf_heights["top_dwars"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] - max_reinf_diameters["top_dwars"] / 2
+        reinf_heights["bottom_langs"] = -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_langs"] / 2
+        reinf_heights["bottom_dwars"] = (
+            -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_langs"] + max_reinf_diameters["bottom_dwars"] / 2
+        )
+    else:
+        # If langswapening_buiten is False, we assume the reinforcement in "langswapening" is placed as second layer
+        reinf_heights["top_langs"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_dwars"] - max_reinf_diameters["top_langs"] / 2
+        reinf_heights["top_dwars"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_dwars"] / 2
+        reinf_heights["bottom_langs"] = (
+            -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_dwars"] + max_reinf_diameters["bottom_langs"] / 2
+        )
+        reinf_heights["bottom_dwars"] = -thickness_mm / 2 + bottom_reinf_cover + max_reinf_diameters["bottom_dwars"] / 2
+
+    return main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances
 
 
-def create_bridge_idea_model(bridge_segments_params: list[dict[str, Any]]) -> Any:  # noqa: ANN401
+def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN401
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 
-    :param bridge_segments_params: List of bridge segment parameters
-    :type bridge_segments_params: list[dict[str, Any]]
+    :param params: BridgeParametrization object containing all bridge input parameters
+    :type params: BridgeParametrization
     :returns: IDEA RCS model object
     :rtype: Any
     :raises ValueError: If parameters are invalid
     :raises ImportError: If VIKTOR IDEA module is not available
     """
-    # Extract cross-section geometry
-    cross_section_data = extract_cross_section_from_params(bridge_segments_params)
+    # Prepare the IDEA model with project information
+    project_data = idea_rcs.ProjectData(
+        name=f"IDEA Model for {params.info.bridge_objectnumm or 'Unnamed Project'}", description="Generated model from VIKTOR", author="Ctrl+b"
+    )
 
-    return create_simple_idea_slab_model(cross_section_data)
+    # Create the IDEA model with project information
+    model = idea_rcs.Model(project_data=project_data)
+
+    # Create concrete material using parameter from user input
+    concrete_quality = params.info.concrete_strength_class or "C30/37"  # Default fallback
+    concrete_material_enum = get_idea_concrete_material(concrete_quality)
+    cs_mat = model.create_concrete_material(concrete_material_enum)
+
+    # Create reinforcement material using parameter from user input
+    steel_quality = params.input.geometrie_wapening.staalsoort or "B500B"  # Default fallback
+    reinforcement_material_enum = get_idea_reinforcement_material(steel_quality)
+    mat_reinf = model.create_reinforcement_material(reinforcement_material_enum)
+
+    # Get unique matching zone keys based on thickness and reinforcement configuration
+    # We want to create a slab for each unique thickness and reinforcement configuration
+    unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
+
+    # Loop through unique thickness and reinforcement configurations
+    for slab_thickness, config in unique_matching_zone_keys:
+        # config is a string, but reinforcement_zones_array is indexed by int (1-based)
+        # Convert config to int for correct indexing
+        config_idx = int(config) - 1
+        rebar_config = params.reinforcement_zones_array[config_idx]
+
+        # Get reinforcement configuration based on the provided parameters for idea model
+        # This function gets the main reinforcement diameters, center-to-center distances, and reinforcement heights
+        main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances = _get_rebar_config(
+            rebar_config, params, slab_thickness
+        )
+
+        # Create slab for each unique thickness and reinforcement configuration for both directions since
+        #  we cant create separate sections for each direction
+        for direction in ["langs", "dwars"]:
+            # Create rectangular cross-section for the slab
+            cs = idea_rcs.RectSection(1.0, slab_thickness)
+            slab = model.create_one_way_slab(cs, cs_mat, name=f"CS_d{slab_thickness}_{direction}_{config}", rcs_name=f"rcs_{direction}_{config}")
+
+            # Create reinforcement bars for the top and bottom of the slab
+            for location in ["top", "bottom"]:
+                bar_locations_x = [
+                    x / 1000 for x in calculate_rebar_positions(1000, main_reinf_ctc_distances[f"{location}_{direction}"])
+                ]  # Convert mm to m
+                bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert height from mm to m
+                bar_diameters = [main_reinf_diameters[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert diameter from mm to m
+                bar_locations = list(zip(bar_locations_x, bar_locations_y))
+
+                for coords, diameter in zip(bar_locations, bar_diameters):
+                    slab.create_bar(coords, diameter, mat_reinf)
+
+                # If additional reinforcement is used, create it as well
+                if rebar_config.get("heeft_bijlegwapening"):
+                    # Create additional reinforcement bars
+                    extra_bar_locations_x = calculate_bijleg_positions(bar_locations_x)
+
+                    # check if extra bar can fit at the beginning and end of the slab
+                    loc_max_main_bar = float(max(bar_locations_x)) or 0.0  # Handle empty list case
+                    loc_min_main_bar = float(min(bar_locations_x)) or 0.0  # Handle empty list case
+                    ctc_dist_main_bar = float(main_reinf_ctc_distances[f"{location}_{direction}"]) / 1000 or 0.0  # Convert mm to m
+                    remaining_space = 0.5 - loc_max_main_bar  # Remaining space at the end of the slab
+
+                    # add extra bars at the beginning and end of the slab if there is enough space
+                    if remaining_space >= ctc_dist_main_bar:
+                        extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar / 2)  # Insert at end
+                        extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar / 2)  # Insert at beginning
+
+                    extra_bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(
+                        extra_bar_locations_x
+                    )  # Convert height from mm to m
+                    extra_bar_diameters = [extra_reinf_diameter[f"{location}_{direction}"] / 1000] * len(
+                        extra_bar_locations_x
+                    )  # Convert diameter from mm to m
+                    extra_bar_locations = list(zip(extra_bar_locations_x, extra_bar_locations_y))
+
+                    for coords, diameter in zip(extra_bar_locations, extra_bar_diameters):
+                        slab.create_bar(coords, diameter, mat_reinf)
+
+            # Add extreme(s) TODO for now we use hardcoded values
+            freq = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(N=-100000, My=210000))
+            fund = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(N=-99999, My=200000))
+            slab.create_extreme(frequent=freq, fundamental=fund)
+
+    # returns the IDEA model object
+    return model
 
 
 def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
@@ -395,20 +319,11 @@ def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
     :raises ImportError: If VIKTOR IDEA module is not available
     :raises RuntimeError: If analysis execution fails
     """
-    try:
-        from viktor.external import idea_rcs
-    except ImportError as e:
-        raise ImportError("VIKTOR IDEA StatiCa module required") from e
+    # Generate XML input for analysis
+    xml_input = model.generate_xml_input()
 
-    try:
-        # Generate XML input for analysis
-        xml_input = model.generate_xml_input()
+    # Create and execute analysis
+    analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
+    analysis.execute(timeout)
 
-        # Create and execute analysis
-        analysis = idea_rcs.IdeaRcsAnalysis(xml_input)
-        analysis.execute(timeout)
-
-        return analysis.get_output_file()
-
-    except Exception as e:
-        raise RuntimeError(f"IDEA analysis failed: {e}") from e
+    return analysis.get_idea_rcs_file()

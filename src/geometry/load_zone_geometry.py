@@ -1,6 +1,18 @@
 """Module for geometric calculations related to load zones."""
 
-from typing import TypedDict
+from typing import Any, TypedDict, cast
+
+from viktor.errors import UserError
+
+from app.bridge.parametrization import (
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
+    BridgeParametrization,
+)
+from src.geometry.model_creator import (
+    BridgeSegmentDimensions,  # Import the dataclass
+    LoadZoneGeometryData,  # Import the dataclass
+    prepare_load_zone_geometry_data,
+)
 
 
 # Define a protocol for the expected structure of zone_param_data
@@ -353,3 +365,154 @@ def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane
         zones.append(rest_zone)
 
     return zones
+
+
+# ========================================================================
+# Functions for bridge geometry
+
+
+# Define TypedDict for a row from params.bridge_segments_array
+class BridgeSegmentParamRow(TypedDict):
+    """
+    Represents the structure of a single row item from params.bridge_segments_array.
+    This TypedDict is used to provide type hinting for these row objects.
+    """
+
+    bz1: float
+    bz2: float
+    bz3: float
+    l: float  # noqa: E741 # 'l' matches the field name in BridgeParametrization (input.dimensions.array.l)
+    # Add other fields like dz, dz_2, col_6, is_first_segment if accessed, with appropriate types
+
+
+def _create_bridge_segment_dimensions_from_params(segment_param_row: BridgeSegmentParamRow) -> BridgeSegmentDimensions:
+    """Validates a segment param row and returns BridgeSegmentDimensions or raises UserError."""
+    # The attribute check `hasattr` is still useful as a runtime check before typed access,
+    # though MyPy will now also check based on BridgeSegmentParamRow.
+    required_attrs = ["bz1", "bz2", "bz3", "l"]
+    # For TypedDict, we'd ideally check presence of keys.
+    # However, VIKTOR param objects are often Munch-like, so hasattr can work at runtime.
+    # For Mypy, the key is using dictionary access below.
+    if not all(key in segment_param_row for key in required_attrs):
+        raise UserError("Een of meer brugsegmenten missen benodigde data (bz1, bz2, bz3, l) in Dimensies.")
+    return BridgeSegmentDimensions(
+        bz1=segment_param_row["bz1"], bz2=segment_param_row["bz2"], bz3=segment_param_row["bz3"], segment_length=segment_param_row["l"]
+    )
+
+
+def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZoneGeometryData | None:
+    """Helper to prepare BridgeSegmentDimensions and LoadZoneGeometryData from params."""
+    if not bridge_segments_params:
+        return None
+    try:
+        typed_bridge_dimensions = []
+        for segment_param_row in bridge_segments_params:
+            # Call the new helper method
+            segment_data = _create_bridge_segment_dimensions_from_params(segment_param_row)
+            typed_bridge_dimensions.append(segment_data)
+
+        if not typed_bridge_dimensions:
+            return None
+        return prepare_load_zone_geometry_data(typed_bridge_dimensions)
+    except UserError:
+        raise
+    except Exception as e:
+        print(f"Error preparing bridge geometry for load zones view: {e}")  # noqa: T201
+        raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
+
+
+def get_bridge_geom_data(params: BridgeParametrization) -> LoadZoneGeometryData | None:
+    """
+    Extract and prepare bridge geometry data from bridge parametrization.
+
+    Args:
+        params: Bridge parametrization containing bridge segments array
+
+    Returns:
+        LoadZoneGeometryData object with processed bridge geometry, or None if no segments
+
+    """
+    return _prepare_bridge_geometry_for_plotting(params.bridge_segments_array)
+
+
+# ========================================================================
+# Functions for load zones - load_zone_data from params
+
+
+def calculate_zone_geometry_properties(
+    load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData | None
+) -> list[LoadZoneDataRow]:
+    """
+    Calculate geometric properties for each load zone based on bridge geometry.
+    This adds the missing zone_widths_per_d and y_coords_top_current_zone fields.
+    """
+    if not load_zones_data_params or not bridge_geom_data:
+        return load_zones_data_params
+
+    updated_zones = []
+    current_y_top = bridge_geom_data.y_top_structural_edge_at_d_points.copy()
+
+    for zone_idx, zone_data in enumerate(load_zones_data_params):
+        # Create a copy of the zone data
+        updated_zone = dict(zone_data)
+
+        # Calculate zone widths for each D-point
+        zone_widths = []
+        for d_idx in range(bridge_geom_data.num_defined_d_points):
+            d_width_field = f"d{d_idx + 1}_width"
+            width_value = zone_data.get(d_width_field)
+            if isinstance(width_value, (int, float)):
+                zone_widths.append(float(width_value))
+            else:
+                zone_widths.append(0.0)
+
+        # Add calculated geometric properties
+        updated_zone["zone_widths_per_d"] = zone_widths
+        updated_zone["y_coords_top_current_zone"] = current_y_top.copy()
+        # update zone_widths_per_d if it is the last zonde
+        if zone_idx == len(load_zones_data_params) - 1:
+            # Last zone: set zone_widths_per_d as the vertical distance to the bridge bottom at each D-point
+            y_bridge_bottom_at_d_points = bridge_geom_data.y_bridge_bottom_at_d_points
+            updated_zone["zone_widths_per_d"] = [current_y_top[d_idx] - y_bridge_bottom_at_d_points[d_idx] for d_idx in range(len(current_y_top))]
+
+        # Update current_y_top for next zone (unless it's the last zone)
+        if zone_idx < len(load_zones_data_params) - 1:
+            # Move the top position down by the zone width for each D-point
+            for d_idx in range(bridge_geom_data.num_defined_d_points):
+                current_y_top[d_idx] -= zone_widths[d_idx]
+
+        updated_zones.append(cast(LoadZoneDataRow, updated_zone))
+
+    return updated_zones
+
+
+def get_load_zones_data_from_params(params: BridgeParametrization) -> list[LoadZoneDataRow]:
+    """
+    Extract load zone data from bridge parametrization and convert to LoadZoneDataRow format.
+
+    Args:
+        params: Bridge parametrization containing load zone data array
+
+    Returns:
+        List of load zone data rows with proper typing
+
+    """
+    load_zones_data_params: list[LoadZoneDataRow] = []
+    if params.load_zones_data_array:
+        for row_param in params.load_zones_data_array:
+            # Construct a dictionary that matches LoadZoneDataRow fields
+            temp_row_data: dict[str, Any] = {
+                "zone_type": row_param.zone_type,
+                "pavement_thickness": getattr(row_param, "pavement_thickness", 0.05),  # Default 5cm
+                "pavement_material": getattr(row_param, "pavement_material", "Asfalt"),  # Default Asfalt
+            }
+            for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
+                field_name = f"d{i}_width"
+                value = getattr(row_param, field_name, None)
+                # LoadZoneDataRow has dX_width as float | None, so store None if getattr returns None
+                temp_row_data[field_name] = value
+
+            row_data = cast(LoadZoneDataRow, temp_row_data)
+            load_zones_data_params.append(row_data)
+
+    return load_zones_data_params

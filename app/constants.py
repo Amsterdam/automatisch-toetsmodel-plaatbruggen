@@ -16,6 +16,7 @@ CSS_PATH = PROJECT_PATH / "resources" / "styles" / "style.css"
 OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindrapport.docx"
 REINFORCEMENT_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonstaalkwaliteit.csv"
 BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"
+CONCRETEQUALITY_CSV_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonkwaliteit.csv"
 
 # Note: Material paths are now managed by src.common.materials module
 
@@ -67,7 +68,8 @@ LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
 # TODO: Create materials.csv with specific masses for different pavement types
 PAVEMENT_MATERIAL_OPTIONS = [
     "Asfalt",  # TODO: Add density value (typical: ~23 kN/m³)
-    "Beton",  # TODO: Add density value (typical: ~24 kN/m³)
+    "Beton (normaal)",  # TODO: Add density value (typical: ~24 kN/m³)
+    "Beton (gewapend)",  # TODO: Add density value (typical: ~24 kN/m³)
     "Klinkers",  # TODO: Add density value (typical: ~22 kN/m³)
     "Grind",  # TODO: Add density value (typical: ~18 kN/m³)
     "Tegels",  # TODO: Add density value (typical: ~20 kN/m³)
@@ -87,20 +89,6 @@ Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * s
 wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
 
 De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
-
-# ===================================================================================================================
-# Tables from codes
-# ===================================================================================================================
-
-# Psi factors according to NEN 8701 table 1
-PSI_FACTORS_NEN8701: dict[float, dict[int, float]] = {
-    100: {20: 1.00, 50: 1.00, 100: 1.00, 200: 1.00},
-    50: {20: 0.99, 50: 0.99, 100: 0.99, 200: 0.99},
-    30: {20: 0.99, 50: 0.99, 100: 0.98, 200: 0.97},
-    15: {20: 0.98, 50: 0.98, 100: 0.96, 200: 0.96},
-    1: {20: 0.95, 50: 0.94, 100: 0.89, 200: 0.88},
-    1 / 12: {20: 0.91, 50: 0.91, 100: 0.81, 200: 0.81},
-}
 
 # ===================================================================================================================
 # SCIA zip readme content
