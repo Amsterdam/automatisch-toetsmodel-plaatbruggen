@@ -83,7 +83,7 @@ def add_pedestrian_loads(
 def add_asfalt_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
-):
+) -> None:
     """PLACEHOLDER: Add asphalt loads to the SCIA model."""
     # Get unit weight for asphalt loads
 
@@ -123,6 +123,7 @@ def add_asfalt_loads(
                     load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
                     * 1000,  # Convert to kN/m²
                 )
+    return []  # Placeholder return to match function signature
 
 
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
