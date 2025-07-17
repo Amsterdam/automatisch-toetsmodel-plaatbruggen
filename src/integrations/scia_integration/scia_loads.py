@@ -92,10 +92,6 @@ def add_asfalt_loads(
     bridge_geom_data = get_bridge_geom_data(params)
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
-    # Check if bridge geometry data is available
-    if bridge_geom_data is None:
-        return []
-
     # Iterate through load zones and apply asphalt loads
     for i, load_zone in enumerate(load_zones_data_params):
         if load_zone.get("pavement_material", BridgeParametrization) == "Asfalt":
