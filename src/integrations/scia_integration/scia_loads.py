@@ -83,13 +83,18 @@ def add_pedestrian_loads(
 def add_asfalt_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
-) -> list[Any]:
+):
     """PLACEHOLDER: Add asphalt loads to the SCIA model."""
     # Get unit weight for asphalt loads
 
     # Get load zone information from params using the utility functions
     load_zones_data_params = get_load_zones_data_from_params(params)
     bridge_geom_data = get_bridge_geom_data(params)
+    
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return []
+    
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
     # Iterate through load zones and apply asphalt loads
