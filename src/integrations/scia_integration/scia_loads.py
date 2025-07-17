@@ -292,6 +292,7 @@ def add_pavement_loads(
                 )
     return []  # Placeholder return to match function signature
 
+
 def add_crowd_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
@@ -308,11 +309,11 @@ def add_crowd_loads(
     x_right = bridge_geom_data.x_coords_d_points[-1]
 
     corners = [
-                    (x_left, y_top, 0.0),
-                    (x_right, y_top, 0.0),
-                    (x_right, y_bottom, 0.0),
-                    (x_left, y_bottom, 0.0),
-                ]
+        (x_left, y_top, 0.0),
+        (x_right, y_top, 0.0),
+        (x_right, y_bottom, 0.0),
+        (x_left, y_bottom, 0.0),
+    ]
 
     builder.create_surface_load(
         name="mensenmenigte_belasting",
@@ -320,6 +321,7 @@ def add_crowd_loads(
         corner_points=corners,
         load_value=-5 * 1000,  # Convert to kN/m²
     )
+
 
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
     """
