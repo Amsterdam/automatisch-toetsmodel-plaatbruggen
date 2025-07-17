@@ -321,6 +321,7 @@ def add_crowd_loads(
         corner_points=corners,
         load_value=-5 * 1000,  # Convert to kN/m²
     )
+    return []  # Placeholder return to match function signature
 
 
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
