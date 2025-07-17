@@ -293,6 +293,41 @@ def add_pavement_loads(
     return []  # Placeholder return to match function signature
 
 
+def add_crowd_loads(
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+) -> list[Any]:
+    """PLACEHOLDER: Add crowd loads to the SCIA model."""
+    # Get unit weight for crowd loads
+
+    # Get load zone information from params using the utility functions
+    bridge_geom_data = get_bridge_geom_data(params)
+
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return []
+
+    y_top = bridge_geom_data.y_top_structural_edge_at_d_points[0]
+    y_bottom = bridge_geom_data.y_bridge_bottom_at_d_points[0]
+    x_left = bridge_geom_data.x_coords_d_points[0]
+    x_right = bridge_geom_data.x_coords_d_points[-1]
+
+    corners = [
+        (x_left, y_top, 0.0),
+        (x_right, y_top, 0.0),
+        (x_right, y_bottom, 0.0),
+        (x_left, y_bottom, 0.0),
+    ]
+
+    builder.create_surface_load(
+        name="mensenmenigte_belasting",
+        load_case_name="BG5001",  # TODO is dit correct?
+        corner_points=corners,
+        load_value=-5 * 1000,  # Convert to kN/m²
+    )
+    return []  # Placeholder return to match function signature
+
+
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
     """
     Create and apply all load types to the bridge model.
@@ -309,6 +344,7 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -
     add_asfalt_loads(builder, params)
     add_concrete_fill_loads(builder, params)
     add_pavement_loads(builder, params)
+    add_crowd_loads(builder, params)
     add_theoretical_tandem_loads(builder, params)
 
     # TODO: Add calls to other load functions when they are implemented

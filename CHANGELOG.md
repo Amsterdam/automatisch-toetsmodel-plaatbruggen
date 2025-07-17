@@ -3,7 +3,7 @@
 ### Added
 - IDEA model builder
 - IDEA export + viewer
-- SCIA load cases BG 1001, 2001, 2002, 2003
+- SCIA load cases BG 1001, 2001, 2002, 2003, 5001
 
 ### Changed
 - SCIA model builder logic
