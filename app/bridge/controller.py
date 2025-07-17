@@ -9,7 +9,7 @@ import trimesh
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs
+from viktor.external import idea_rcs, scia
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
     GeometryResult,
@@ -527,13 +527,16 @@ class BridgeController(ViktorController):
 
         try:
             template_path = self._get_scia_template_path()
-            xml_file, def_file, scia_analysis = setup_bridge_analysis(params, template_path)
+            xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
 
             # Validate generated files before analysis
             if not xml_file.getvalue():
                 self._raise_empty_xml_error()
             if not def_file.getvalue():
                 self._raise_empty_def_error()
+
+            # Create SciaAnalysis object with positional arguments (correct VIKTOR SDK pattern)
+            scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
 
             # Execute analysis and get the ESA file
             scia_analysis.execute(timeout=600)  # 10-minute timeout

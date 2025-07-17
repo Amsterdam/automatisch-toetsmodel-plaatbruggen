@@ -1,179 +1,180 @@
 """
-Module for creating SCIA load group definitions.
+Module for creating SCIA load groups.
 
-These functions generate LoadGroupDefinition objects, which serve as pure Python blueprints for creating actual SCIA load groups in the app layer.
-This keeps this module independent of the VIKTOR SDK.
+These functions call the SciaModelBuilder to directly construct SCIA load groups.
+This keeps this module independent of the VIKTOR SDK by programming against an interface.
 """
 
-from .scia_definitions import LoadGroupDefinition
+from .scia_model_interface import SciaLoadGroup, SciaModelBuilder
 
 
-def create_permanent_load_group() -> LoadGroupDefinition:
+def create_permanent_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for permanent load group LG1000 (Self-weight).
+    Create the permanent load group LG1000 (Self-weight).
 
-    :returns: Definition for the permanent load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG1000",
+    return builder.create_load_group(
+        name="LG1000 - Permanent",
         load_option="PERMANENT",
         relation="STANDARD",
         load_type=None,
     )
 
 
-def create_dead_load_group() -> LoadGroupDefinition:
+def create_dead_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for dead load group LG2000 (Resting loads).
+    Create the dead load group LG2000 (Resting loads).
 
-    :returns: Definition for the dead load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG2000",
+    return builder.create_load_group(
+        name="LG2000 - Rustende belasting",
         load_option="PERMANENT",
         relation="STANDARD",
         load_type=None,
     )
 
 
-def create_temperature_group() -> LoadGroupDefinition:
+def create_temperature_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for temperature load group LG3000.
+    Create the temperature load group LG3000.
 
-    :returns: Definition for the temperature load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG3000",
+    return builder.create_load_group(
+        name="LG3000 - Temperatuur",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="TEMPERATURE",
     )
 
 
-def create_udl_group() -> LoadGroupDefinition:
+def create_udl_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for UDL traffic load group LG4000.
+    Create the UDL load group LG4000.
 
-    :returns: Definition for the UDL traffic group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG4000",
+    return builder.create_load_group(
+        name="LG4000 - UDL",
         load_option="VARIABLE",
         relation="STANDARD",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_crowd_load_group() -> LoadGroupDefinition:
+def create_crowd_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for crowd load group LG5000 (LM4).
+    Create the crowd load group LG5000.
 
-    :returns: Definition for the crowd load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG5000",
+    return builder.create_load_group(
+        name="LG5000 - Mensenmenigte",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_service_vehicle_group() -> LoadGroupDefinition:
+def create_service_vehicle_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for service vehicle load group LG6000.
+    Create the service vehicle load group LG6000.
 
-    :returns: Definition for the service vehicle load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG6000",
+    return builder.create_load_group(
+        name="LG6000 - Dienstvoertuig",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_accidental_vehicle_group() -> LoadGroupDefinition:
+def create_accidental_vehicle_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for accidental vehicle load group LG7000.
+    Create the accidental vehicle load group LG7000.
 
-    :returns: Definition for the accidental vehicle load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG7000",
+    return builder.create_load_group(
+        name="LG7000 - Onbedoeld voertuig",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_ts_lane_1_group() -> LoadGroupDefinition:
+def create_ts_lane_1_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for Tandem System lane 1 load group LG8000.
+    Create the Tandem System lane 1 load group LG8000.
 
-    :returns: Definition for the TS lane 1 load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG8000",
+    return builder.create_load_group(
+        name="LG8000 - TS rijstrook 1",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_ts_lane_2_group() -> LoadGroupDefinition:
+def create_ts_lane_2_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for Tandem System lane 2 load group LG9000.
+    Create the Tandem System lane 2 load group LG9000.
 
-    :returns: Definition for the TS lane 2 load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG9000",
+    return builder.create_load_group(
+        name="LG9000 - TS rijstrook 2",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_ts_lane_3_group() -> LoadGroupDefinition:
+def create_ts_lane_3_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create definition for Tandem System lane 3 load group LG10000.
+    Create the Tandem System lane 3 load group LG10000.
 
-    :returns: Definition for the TS lane 3 load group.
-    :rtype: LoadGroupDefinition
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
     """
-    return LoadGroupDefinition(
-        name="LG10000",
+    return builder.create_load_group(
+        name="LG10000 - TS rijstrook 3",
         load_option="VARIABLE",
-        relation="STANDARD",
+        relation="EXCLUSIVE",
         load_type="CONSTRUCTION_LOADS",
     )
 
 
-def create_all_load_groups() -> dict[str, LoadGroupDefinition]:
+def create_all_load_groups(builder: SciaModelBuilder) -> dict[str, SciaLoadGroup]:
     """
-    Create all basic load group definitions for bridge analysis.
+    Create all basic load groups for bridge analysis using the builder.
 
-    :returns: Dictionary of all load group definitions.
-    :rtype: dict[str, LoadGroupDefinition]
+    :param builder: The SCIA model builder instance.
+    :returns: Dictionary of all created load group objects.
+    :rtype: dict[str, SciaLoadGroup]
     """
     return {
-        "permanent_self_weight": create_permanent_load_group(),
-        "permanent_other": create_dead_load_group(),
-        "temperature": create_temperature_group(),
-        "udl": create_udl_group(),
-        "crowd": create_crowd_load_group(),
-        "service_vehicle": create_service_vehicle_group(),
-        "accidental_vehicle": create_accidental_vehicle_group(),
-        "ts_lane_1": create_ts_lane_1_group(),
-        "ts_lane_2": create_ts_lane_2_group(),
-        "ts_lane_3": create_ts_lane_3_group(),
+        "permanent_self_weight": create_permanent_load_group(builder),
+        "dead_load": create_dead_load_group(builder),
+        "temperature": create_temperature_group(builder),
+        "udl": create_udl_group(builder),
+        "crowd": create_crowd_load_group(builder),
+        "service_vehicle": create_service_vehicle_group(builder),
+        "accidental_vehicle": create_accidental_vehicle_group(builder),
+        "ts_lane_1": create_ts_lane_1_group(builder),
+        "ts_lane_2": create_ts_lane_2_group(builder),
+        "ts_lane_3": create_ts_lane_3_group(builder),
     }

@@ -1,66 +1,66 @@
 """
 SCIA load cases utility module.
 
-This module provides functions for creating definitions of standard SCIA load cases.
-These definitions are pure Python objects that can be used by the app layer to
-construct the actual SCIA model.
+This module provides functions for creating standard SCIA load cases by calling
+the SciaModelBuilder interface.
 """
 
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
-from src.loads.loadcase_helper_functions import tandem_system_sequencer
-
-from .scia_definitions import LoadCaseDefinition
-
-# Type alias for SCIA model object (kept for type hinting consistency in higher-level functions)
-SciaModel: TypeAlias = Any
-SciaLoadGroup: TypeAlias = Any
-SciaLoadCase: TypeAlias = Any
+from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
+from .scia_loads_helper import generate_theoretical_lane_positions, tandem_system_sequencer
+from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
-def create_load_case(
+def create_load_case(  # noqa: PLR0913
+    builder: SciaModelBuilder,
     group_name: str,
     case_name: str,
     description: str,
     case_type: Literal["PERMANENT", "VARIABLE"],
-    **kwargs: str,
-) -> LoadCaseDefinition:
+    permanent_type: Literal["SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"] | None = None,
+    variable_type: Literal["STATIC", "PRIMARY_EFFECT"] | None = None,
+    specification: Literal["STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"] | None = None,
+    duration: Literal["INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"] | None = None,
+) -> SciaLoadCase:
     """
-    Create a definition for a SCIA load case.
+    Create a SCIA load case using the provided builder.
 
+    :param builder: The SCIA model builder instance.
     :param group_name: Name of the load group this case belongs to.
     :param case_name: Name for the load case.
     :param description: Description of the load case.
     :param case_type: "PERMANENT" or "VARIABLE".
-    :param kwargs: Optional parameters:
-        - permanent_type: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"
-        - variable_type: "STATIC", "PRIMARY_EFFECT"
-        - specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"
-        - duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"
-    :returns: A LoadCaseDefinition object.
-    :rtype: LoadCaseDefinition
+    :param permanent_type: "SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"
+    :param variable_type: "STATIC", "PRIMARY_EFFECT"
+    :param specification: "STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"
+    :param duration: "INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"
+    :returns: The created SCIA Load Case object.
+    :rtype: SciaLoadCase
     """
-    return LoadCaseDefinition(
+    return builder.create_load_case(
         name=case_name,
         description=description,
         group_name=group_name,
         case_type=case_type,
-        permanent_type=kwargs.get("permanent_type"),  # type: ignore[arg-type]
-        variable_type=kwargs.get("variable_type"),  # type: ignore[arg-type]
-        specification=kwargs.get("specification"),  # type: ignore[arg-type]
-        duration=kwargs.get("duration"),  # type: ignore[arg-type]
+        permanent_type=permanent_type,
+        variable_type=variable_type,
+        specification=specification,
+        duration=duration,
     )
 
 
-def create_self_weight_load_case() -> LoadCaseDefinition:
+def create_self_weight_load_case(builder: SciaModelBuilder) -> SciaLoadCase:
     """
-    Create definition for self-weight load case BG1001.
+    Create the self-weight load case BG1001.
 
-    :returns: Definition for the self-weight load case.
-    :rtype: LoadCaseDefinition
+    :param builder: The SCIA model builder instance.
+    :returns: The created self-weight load case.
+    :rtype: SciaLoadCase
     """
     return create_load_case(
-        group_name="LG1000",
+        builder,
+        group_name="LG1000 - Permanent",
         case_name="BG1001",
         description="Eigen gewicht",
         case_type="PERMANENT",
@@ -68,48 +68,53 @@ def create_self_weight_load_case() -> LoadCaseDefinition:
     )
 
 
-def create_resting_load_cases() -> list[LoadCaseDefinition]:
+def create_dead_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
     """
-    Create definitions for resting permanent load cases BG2001 to BG2005.
+    Create dead load cases BG2001 to BG2005.
 
-    :returns: List of resting load case definitions.
-    :rtype: list[LoadCaseDefinition]
+    :param builder: The SCIA model builder instance.
+    :returns: Dictionary of created dead load cases.
+    :rtype: dict[str, SciaLoadCase]
     """
     data = [
-        ("BG2001", "Rustende belasting - Asfalt"),
-        ("BG2002", "Rustende belasting - Uitvulling"),
-        ("BG2003", "Rustende belasting - Ophogingen, schampkanten, trottoir"),
-        ("BG2004", "Rustende belasting - Leuning"),
-        ("BG2005", "Rustende belasting - Lichtmast"),
+        ("asfalt", "BG2001", "Permanente belasting - Asfalt"),
+        ("uitvulling", "BG2002", "Permanente belasting - Uitvulling"),
+        ("ophogingen", "BG2003", "Permanente belasting - Ophogingen, schampkanten, trottoir"),
+        ("leuning", "BG2004", "Permanente belasting - Leuning"),
+        ("lichtmast", "BG2005", "Permanente belasting - Lichtmast"),
     ]
-    return [
-        create_load_case(
-            group_name="LG2000",
+    cases = {}
+    for key, name, desc in data:
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG2000 - Rustende belasting",
             case_name=name,
             description=desc,
             case_type="PERMANENT",
             permanent_type="STANDARD",
         )
-        for name, desc in data
-    ]
+    return cases
 
 
-def create_temperature_load_cases() -> list[LoadCaseDefinition]:
+def create_temperature_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
     """
-    Create definitions for temperature load cases BG3001 to BG3004.
+    Create temperature load cases BG3001 to BG3004.
 
-    :returns: List of temperature load case definitions.
-    :rtype: list[LoadCaseDefinition]
+    :param builder: The SCIA model builder instance.
+    :returns: Dictionary of created temperature load cases.
+    :rtype: dict[str, SciaLoadCase]
     """
     data = [
-        ("BG3001", "Temperatuur, dek - Temp combi 1"),
-        ("BG3002", "Temperatuur, dek - Temp combi 2"),
-        ("BG3003", "Temperatuur, dek - Temp combi 3"),
-        ("BG3004", "Temperatuur, dek - Temp combi 4"),
+        ("combi_1", "BG3001", "Temperatuur, dek - Temp combi 1"),
+        ("combi_2", "BG3002", "Temperatuur, dek - Temp combi 2"),
+        ("combi_3", "BG3003", "Temperatuur, dek - Temp combi 3"),
+        ("combi_4", "BG3004", "Temperatuur, dek - Temp combi 4"),
     ]
-    return [
-        create_load_case(
-            group_name="LG3000",
+    cases = {}
+    for key, name, desc in data:
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG3000 - Temperatuur",
             case_name=name,
             description=desc,
             case_type="VARIABLE",
@@ -117,26 +122,28 @@ def create_temperature_load_cases() -> list[LoadCaseDefinition]:
             specification="TEMPERATURE",
             duration="LONG",
         )
-        for name, desc in data
-    ]
+    return cases
 
 
-def create_udl_traffic_load_cases() -> list[LoadCaseDefinition]:
+def create_udl_traffic_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
     """
-    Create definitions for UDL traffic load cases BG4001 to BG4004.
+    Create UDL traffic load cases BG4001 to BG4004.
 
-    :returns: List of UDL traffic load case definitions.
-    :rtype: list[LoadCaseDefinition]
+    :param builder: The SCIA model builder instance.
+    :returns: Dictionary of created UDL traffic load cases.
+    :rtype: dict[str, SciaLoadCase]
     """
     data = [
-        ("BG4001", "Verkeer, dek - LM1 UDL RS 1"),
-        ("BG4002", "Verkeer, dek - LM1 UDL RS 2"),
-        ("BG4003", "Verkeer, dek - LM1 UDL RS 3"),
-        ("BG4004", "Verkeer, dek - LM1 UDL rest"),
+        ("rs_1", "BG4001", "Verkeer, dek - LM1 UDL RS 1"),
+        ("rs_2", "BG4002", "Verkeer, dek - LM1 UDL RS 2"),
+        ("rs_3", "BG4003", "Verkeer, dek - LM1 UDL RS 3"),
+        ("rest", "BG4004", "Verkeer, dek - LM1 UDL rest"),
     ]
-    return [
-        create_load_case(
-            group_name="LG4000",
+    cases = {}
+    for key, name, desc in data:
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG4000 - UDL",
             case_name=name,
             description=desc,
             case_type="VARIABLE",
@@ -144,19 +151,20 @@ def create_udl_traffic_load_cases() -> list[LoadCaseDefinition]:
             specification="STANDARD",
             duration="SHORT",
         )
-        for name, desc in data
-    ]
+    return cases
 
 
-def create_pedestrian_load_case() -> LoadCaseDefinition:
+def create_pedestrian_load_case(builder: SciaModelBuilder) -> SciaLoadCase:
     """
-    Create definition for pedestrian load case BG5001.
+    Create pedestrian load case BG5001.
 
-    :returns: Pedestrian load case definition.
-    :rtype: LoadCaseDefinition
+    :param builder: The SCIA model builder instance.
+    :returns: The created pedestrian load case.
+    :rtype: SciaLoadCase
     """
     return create_load_case(
-        group_name="LG5000",
+        builder,
+        group_name="LG5000 - Mensenmenigte",
         case_name="BG5001",
         description="Verkeer, mensenmenigte - LM4",
         case_type="VARIABLE",
@@ -166,21 +174,24 @@ def create_pedestrian_load_case() -> LoadCaseDefinition:
     )
 
 
-def create_service_vehicle_load_cases() -> list[LoadCaseDefinition]:
+def create_service_vehicle_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
     """
-    Create definitions for service vehicle load cases BG6001 to BG6003.
+    Create service vehicle load cases BG6001 to BG6003.
 
-    :returns: List of service vehicle load case definitions.
-    :rtype: list[LoadCaseDefinition]
+    :param builder: The SCIA model builder instance.
+    :returns: Dictionary of created service vehicle load cases.
+    :rtype: dict[str, SciaLoadCase]
     """
     data = [
-        ("BG6001", "Verkeer, dienstvoertuig - RS 1"),
-        ("BG6002", "Verkeer, dienstvoertuig - RS 2"),
-        ("BG6003", "Verkeer, dienstvoertuig - RS 3"),
+        ("rs_1", "BG6001", "Verkeer, dienstvoertuig - RS 1"),
+        ("rs_2", "BG6002", "Verkeer, dienstvoertuig - RS 2"),
+        ("rs_3", "BG6003", "Verkeer, dienstvoertuig - RS 3"),
     ]
-    return [
-        create_load_case(
-            group_name="LG6000",
+    cases = {}
+    for key, name, desc in data:
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG6000 - Dienstvoertuig",
             case_name=name,
             description=desc,
             case_type="VARIABLE",
@@ -188,25 +199,27 @@ def create_service_vehicle_load_cases() -> list[LoadCaseDefinition]:
             specification="STANDARD",
             duration="SHORT",
         )
-        for name, desc in data
-    ]
+    return cases
 
 
-def create_unintended_vehicle_load_cases() -> list[LoadCaseDefinition]:
+def create_unintended_vehicle_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
     """
-    Create definitions for unintended vehicle load cases BG7001 to BG7003.
+    Create unintended vehicle load cases BG7001 to BG7003.
 
-    :returns: List of unintended vehicle load case definitions.
-    :rtype: list[LoadCaseDefinition]
+    :param builder: The SCIA model builder instance.
+    :returns: Dictionary of created unintended vehicle load cases.
+    :rtype: dict[str, SciaLoadCase]
     """
     data = [
-        ("BG7001", "Verkeer, onbedoeld voertuig - RS 1"),
-        ("BG7002", "Verkeer, onbedoeld voertuig - RS 2"),
-        ("BG7003", "Verkeer, onbedoeld voertuig - RS 3"),
+        ("rs_1", "BG7001", "Verkeer, onbedoeld voertuig - RS 1"),
+        ("rs_2", "BG7002", "Verkeer, onbedoeld voertuig - RS 2"),
+        ("rs_3", "BG7003", "Verkeer, onbedoeld voertuig - RS 3"),
     ]
-    return [
-        create_load_case(
-            group_name="LG7000",
+    cases = {}
+    for key, name, desc in data:
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG7000 - Onbedoeld voertuig",
             case_name=name,
             description=desc,
             case_type="VARIABLE",
@@ -214,71 +227,111 @@ def create_unintended_vehicle_load_cases() -> list[LoadCaseDefinition]:
             specification="STANDARD",
             duration="SHORT",
         )
-        for name, desc in data
-    ]
+    return cases
 
 
-def create_tandem_rs_load_cases(rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> list[LoadCaseDefinition]:
+def create_dynamic_tandem_load_cases(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
+) -> dict[str, SciaLoadCase]:
     """
-    Create definitions for tandem system load cases for a given RS (1,2,3).
+    Create dynamic tandem load cases based on bridge geometry.
+
+    This function determines the number of theoretical lanes and creates
+    the corresponding tandem system (TS) load cases for each lane (RS).
+
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters.
+    :return: A dictionary of all created tandem system load cases.
+    :rtype: dict[str, SciaLoadCase]
+    """
+    load_cases = {}
+
+    # Extract bridge parameters needed for tandem load case generation
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+    length = bridge_params["length_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
+    width = bridge_params["width_bridgedeck"]
+
+    # Determine the number of theoretical lanes, with a maximum of 3
+    num_lanes = len(generate_theoretical_lane_positions(width))
+    num_lanes = min(num_lanes, 3)
+
+    # Create tandem load cases for each road system (RS)
+    for rs in range(1, num_lanes + 1):
+        tandem_cases_dict = create_tandem_rs_load_cases(builder, rs, length, thickness)
+        load_cases.update(tandem_cases_dict)
+
+    return load_cases
+
+
+def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, SciaLoadCase]:
+    """
+    Create tandem system load cases for a given RS (1,2,3).
 
     Positions are determined dynamically based on the bridge geometry.
 
+    :param builder: The SCIA model builder instance.
     :param rs: Road system number (1, 2, or 3).
     :type rs: int
     :param length_bridgedeck: The length of the bridge deck in meters.
     :type length_bridgedeck: float
     :param thickness_bridgedeck: The thickness of the bridge deck in meters.
     :type thickness_bridgedeck: float
-    :returns: List of tandem load case definitions for the specified RS.
-    :rtype: list[LoadCaseDefinition]
+    :returns: Dictionary of tandem load cases for the specified RS.
+    :rtype: dict[str, SciaLoadCase]
     :raises ValueError: If rs is not 1, 2, or 3.
     """
     if rs == 1:
-        group_name = "LG8000"
-        prefix = "BG80"
+        group_name = "LG8000 - TS rijstrook 1"
+        prefix = "BG8"
     elif rs == 2:
-        group_name = "LG9000"
-        prefix = "BG90"
+        group_name = "LG9000 - TS rijstrook 2"
+        prefix = "BG9"
     elif rs == 3:
-        group_name = "LG10000"
-        prefix = "BG100"
+        group_name = "LG10000 - TS rijstrook 3"
+        prefix = "BG10"
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
     positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    cases = []
+    cases = {}
     for i, pos in enumerate(positions, 1):
-        case_name = f"{prefix}{i:02d}"
+        case_name = f"{prefix}{i:03d}"
         description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
-        cases.append(
-            create_load_case(
-                group_name=group_name,
-                case_name=case_name,
-                description=description,
-                case_type="VARIABLE",
-                variable_type="STATIC",
-                specification="STANDARD",
-                duration="SHORT",
-            )
+        cases[f"tandem_rs{rs}_x{pos}"] = create_load_case(
+            builder,
+            group_name=group_name,
+            case_name=case_name,
+            description=description,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
         )
     return cases
 
 
-def create_all_standard_load_cases() -> list[LoadCaseDefinition]:
+def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
-    Create a list of all standard load case definitions for the bridge model.
+    Create a nested dictionary of all standard and dynamic load cases for the bridge model.
 
-    This function aggregates all individual load case creation helpers into a single list.
+    This function aggregates all individual load case creation helpers into a single,
+    structured dictionary where top-level keys represent load case categories.
 
-    :return: A list containing all standard LoadCaseDefinition objects.
-    :rtype: list[LoadCaseDefinition]
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters, used for dynamic load case generation.
+    :return: A nested dictionary containing all created SciaLoadCase objects.
+    :rtype: dict[str, dict]
     """
-    load_cases = [create_self_weight_load_case()]
-    load_cases.extend(create_resting_load_cases())
-    load_cases.extend(create_temperature_load_cases())
-    load_cases.extend(create_udl_traffic_load_cases())
-    load_cases.append(create_pedestrian_load_case())
-    load_cases.extend(create_service_vehicle_load_cases())
-    load_cases.extend(create_unintended_vehicle_load_cases())
-    return load_cases
+    # Create a structured dictionary of all load cases
+    return {
+        "self_weight": create_self_weight_load_case(builder),
+        "dead_load_cases": create_dead_load_cases(builder),
+        "temperature_cases": create_temperature_load_cases(builder),
+        "udl_traffic_cases": create_udl_traffic_load_cases(builder),
+        "pedestrian": create_pedestrian_load_case(builder),
+        "service_vehicle_cases": create_service_vehicle_load_cases(builder),
+        "unintended_vehicle_cases": create_unintended_vehicle_load_cases(builder),
+        "tandem_cases": create_dynamic_tandem_load_cases(builder, params),
+    }
