@@ -97,8 +97,7 @@ def add_asfalt_loads(
         return []
 
     # Iterate through load zones and apply asphalt loads
-    i = 0
-    for load_zone in load_zones_data_params:
+    for i, load_zone in enumerate(load_zones_data_params):
         if load_zone.get("pavement_material", BridgeParametrization) == "Asfalt":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
@@ -123,7 +122,6 @@ def add_asfalt_loads(
                     load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
                     * 1000,  # Convert to kN/m²
                 )
-        i += 1
 
 
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:

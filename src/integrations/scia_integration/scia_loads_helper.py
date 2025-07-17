@@ -547,5 +547,4 @@ def calculate_pavement_load_from_material(
     thickness = thickness_field
     material = material_field
     density = density_lookup.get(str(material).lower(), 0.0)
-    load = thickness * density if density > 0 and thickness > 0 else 0.0
-    return load
+    return thickness * density if density > 0 and thickness > 0 else 0.0
