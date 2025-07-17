@@ -2,12 +2,28 @@
 
 import zipfile
 from pathlib import Path  # Add Path import for SCIA template
-from typing import Any, TypedDict, cast  # Import cast, Any, and TypedDict
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.external import idea_rcs, scia
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
+
 from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -25,7 +41,7 @@ from src.common.plot_utils import (
 )
 from src.geometry.cross_section import create_cross_section_view
 from src.geometry.horizontal_section import create_horizontal_section_view
-from src.geometry.load_zone_geometry import LoadZoneDataRow
+from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.load_zone_plot import (
     DEFAULT_PLOTLY_COLORS,  # Import for styling defaults
     DEFAULT_ZONE_APPEARANCE_MAP,  # Import for styling defaults
@@ -43,44 +59,15 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-from src.integrations.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.idea_interface import _get_unique_matching_zone_keys, create_bridge_idea_model, run_idea_analysis
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
-from .parametrization import (
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
-    BridgeParametrization,
-)
+from .parametrization import BridgeParametrization
 
-
-# Define TypedDict for a row from params.bridge_segments_array
-class BridgeSegmentParamRow(TypedDict):
-    """
-    Represents the structure of a single row item from params.bridge_segments_array.
-    This TypedDict is used to provide type hinting for these row objects.
-    """
-
-    bz1: float
-    bz2: float
-    bz3: float
-    l: float  # noqa: E741 # 'l' matches the field name in BridgeParametrization (input.dimensions.array.l)
-    # Add other fields like dz, dz_2, col_6, is_first_segment if accessed, with appropriate types
+# ============================================================================================================
+# Main Controller
+# ============================================================================================================
 
 
 class BridgeController(ViktorController):
@@ -89,80 +76,9 @@ class BridgeController(ViktorController):
     label = "Brug"
     parametrization = BridgeParametrization  # type: ignore[assignment]
 
-    def _create_bridge_segment_dimensions_from_params(self, segment_param_row: BridgeSegmentParamRow) -> BridgeSegmentDimensions:
-        """Validates a segment param row and returns BridgeSegmentDimensions or raises UserError."""
-        # The attribute check `hasattr` is still useful as a runtime check before typed access,
-        # though MyPy will now also check based on BridgeSegmentParamRow.
-        required_attrs = ["bz1", "bz2", "bz3", "l"]
-        # For TypedDict, we'd ideally check presence of keys.
-        # However, VIKTOR param objects are often Munch-like, so hasattr can work at runtime.
-        # For Mypy, the key is using dictionary access below.
-        if not all(key in segment_param_row for key in required_attrs):
-            raise UserError("Een of meer brugsegmenten missen benodigde data (bz1, bz2, bz3, l) in Dimensies.")
-        return BridgeSegmentDimensions(
-            bz1=segment_param_row["bz1"], bz2=segment_param_row["bz2"], bz3=segment_param_row["bz3"], segment_length=segment_param_row["l"]
-        )
-
-    def _prepare_bridge_geometry_for_plotting(self, bridge_segments_params: list) -> LoadZoneGeometryData | None:
-        """Helper to prepare BridgeSegmentDimensions and LoadZoneGeometryData from params."""
-        if not bridge_segments_params:
-            return None
-        try:
-            typed_bridge_dimensions = []
-            for segment_param_row in bridge_segments_params:
-                # Call the new helper method
-                segment_data = self._create_bridge_segment_dimensions_from_params(segment_param_row)
-                typed_bridge_dimensions.append(segment_data)
-
-            if not typed_bridge_dimensions:
-                return None
-            return prepare_load_zone_geometry_data(typed_bridge_dimensions)
-        except UserError:
-            raise
-        except Exception as e:
-            print(f"Error preparing bridge geometry for load zones view: {e}")  # noqa: T201
-            raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
-
-    def _calculate_zone_geometry_properties(
-        self, load_zones_data_params: list[LoadZoneDataRow], bridge_geom_data: LoadZoneGeometryData
-    ) -> list[LoadZoneDataRow]:
-        """
-        Calculate geometric properties for each load zone based on bridge geometry.
-        This adds the missing zone_widths_per_d and y_coords_top_current_zone fields.
-        """
-        if not load_zones_data_params or not bridge_geom_data:
-            return load_zones_data_params
-
-        updated_zones = []
-        current_y_top = bridge_geom_data.y_top_structural_edge_at_d_points.copy()
-
-        for zone_idx, zone_data in enumerate(load_zones_data_params):
-            # Create a copy of the zone data
-            updated_zone = dict(zone_data)
-
-            # Calculate zone widths for each D-point
-            zone_widths = []
-            for d_idx in range(bridge_geom_data.num_defined_d_points):
-                d_width_field = f"d{d_idx + 1}_width"
-                width_value = zone_data.get(d_width_field)
-                if isinstance(width_value, (int, float)):
-                    zone_widths.append(float(width_value))
-                else:
-                    zone_widths.append(0.0)
-
-            # Add calculated geometric properties
-            updated_zone["zone_widths_per_d"] = zone_widths
-            updated_zone["y_coords_top_current_zone"] = current_y_top.copy()
-
-            # Update current_y_top for next zone (unless it's the last zone)
-            if zone_idx < len(load_zones_data_params) - 1:
-                # Move the top position down by the zone width for each D-point
-                for d_idx in range(bridge_geom_data.num_defined_d_points):
-                    current_y_top[d_idx] -= zone_widths[d_idx]
-
-            updated_zones.append(cast(LoadZoneDataRow, updated_zone))
-
-        return updated_zones
+    # ============================================================================================================
+    # Helper functions
+    # ============================================================================================================
 
     def _get_bridge_entity_data(self, entity_id: int) -> tuple[str | None, str | None, MapResult | None]:
         """Fetches bridge entity data (OBJECTNUMM and name) using the VIKTOR API."""
@@ -182,6 +98,10 @@ class BridgeController(ViktorController):
             return objectnumm, name, None  # noqa: TRY300
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
+
+    # ============================================================================================================
+    # Info
+    # ============================================================================================================
 
     @MapView("Locatie Brug", duration_guess=2)
     def get_bridge_map_view(self, params: BridgeParametrization, **kwargs) -> MapResult:  # noqa: ARG002
@@ -351,38 +271,23 @@ class BridgeController(ViktorController):
         Uses the new build_load_zones_figure from the src layer.
         """
         # 1. Prepare LoadZoneDataRow list from params
-        load_zones_data_params: list[LoadZoneDataRow] = []
-        if params.load_zones_data_array:
-            for row_param in params.load_zones_data_array:
-                # Construct a dictionary that matches LoadZoneDataRow fields
-                temp_row_data: dict[str, Any] = {
-                    "zone_type": row_param.zone_type,
-                    "pavement_thickness": getattr(row_param, "pavement_thickness", 0.05),  # Default 5cm
-                    "pavement_material": getattr(row_param, "pavement_material", "Asfalt"),  # Default Asfalt
-                }
-                for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
-                    field_name = f"d{i}_width"
-                    value = getattr(row_param, field_name, None)
-                    # LoadZoneDataRow has dX_width as float | None, so store None if getattr returns None
-                    temp_row_data[field_name] = value
+        load_zones_data_params = get_load_zones_data_from_params(params)
 
-                row_data = cast(LoadZoneDataRow, temp_row_data)
-                load_zones_data_params.append(row_data)
+        # 2. Prepare bridge geometric data
+        bridge_geom_data = get_bridge_geom_data(params)
+
+        # 2a. Calculate zone geometric properties using bridge geometry
+        load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
         if not load_zones_data_params:  # No load zones defined
             fig = go.Figure()
             fig.update_layout(title_text="Belastingzones - Geen zones gedefinieerd", xaxis_visible=False, yaxis_visible=False)
             return PlotlyResult(fig.to_json())
 
-        # 2. Prepare bridge geometric data
-        bridge_geom_data = self._prepare_bridge_geometry_for_plotting(params.bridge_segments_array)
         if not bridge_geom_data:  # If preparation failed or returned None (e.g. no segments)
             fig = go.Figure()
             fig.update_layout(title_text="Belastingzones - Brugsegmenten ongeldig", xaxis_visible=False, yaxis_visible=False)
             return PlotlyResult(fig.to_json())
-
-        # 2a. Calculate zone geometric properties using bridge geometry
-        load_zones_data_params = self._calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
         # 3. Get validation messages
         validation_messages: list[str] = []
@@ -511,10 +416,10 @@ class BridgeController(ViktorController):
 
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                z.writestr("model.xml", xml_content)
-                z.writestr("model.def", def_content)
+                z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
+                z.writestr("viktor.xml.def", def_content)
 
-            return DownloadResult(zip_file_obj, "scia_model_files.zip")
+            return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
 
         except Exception as e:
             raise UserError(f"SCIA XML generatie gefaald: {e!s}")
@@ -526,7 +431,7 @@ class BridgeController(ViktorController):
 
         try:
             template_path = self._get_scia_template_path()
-            xml_file, def_file, scia_analysis = setup_bridge_analysis(params, template_path)
+            xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
 
             # Validate generated files before analysis
             if not xml_file.getvalue():
@@ -534,14 +439,17 @@ class BridgeController(ViktorController):
             if not def_file.getvalue():
                 self._raise_empty_def_error()
 
+            # Create SciaAnalysis object with positional arguments (correct VIKTOR SDK pattern)
+            scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+
             # Execute analysis and get the ESA file
-            scia_analysis.execute(timeout=120)  # 2-minute timeout
+            scia_analysis.execute(timeout=600)  # 10-minute timeout
             esa_file = scia_analysis.get_updated_esa_model(as_file=True)
 
             if not esa_file:
                 self._raise_empty_esa_error()
 
-            return DownloadResult(esa_file, "model.esa")
+            return DownloadResult(esa_file, f"SCIA_model_{params.info.bridge_objectnumm}.esa")
 
         except Exception as e:
             error_msg = (
@@ -577,6 +485,57 @@ class BridgeController(ViktorController):
 
         return TableResult(data, column_headers=columns)
 
+    @TableView("IDEA RCS resultaten", duration_guess=4)
+    def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Toon een tabel met resultaten van de IDEA RCS analyse.
+
+        :param params: Bridge parametrization
+        :type params: BridgeParametrization
+        :returns: TableResult met unieke zone keys
+        :rtype: TableResult
+        """
+        # Generate XML input file
+        model = create_bridge_idea_model(params)
+        xml_input = model.generate_xml_input()
+
+        analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
+        analysis.execute(120)
+
+        idea_output_xml_bytes = analysis.get_output_file(as_file=True)
+
+        # Obtain the results for specific or all section(s).
+        with idea_output_xml_bytes.open_binary() as f:
+            parser = idea_rcs.RcsOutputFileParser(f)
+
+            # Prepare data for the table
+            data = []
+            columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
+
+            for section in parser.section_results():
+                capacity_results = section.capacity()[0]
+                shear_results = section.shear()[0]
+                torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
+                interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
+                crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
+                detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
+                stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
+
+                data.append(
+                    [
+                        section.id_,
+                        capacity_results.get("Result"),
+                        shear_results.get("Result"),
+                        torsion_results.get("Result"),
+                        interaction_results.get("Result"),
+                        crack_width_results.get("Result"),
+                        detailing_results.get("Result"),
+                        stress_limitations_results.get("Result"),
+                    ]
+                )
+
+        return TableResult(data, column_headers=columns)
+
     def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
         Download IDEA StatiCa RCS XML input file for cross-section analysis.
@@ -590,24 +549,17 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Create IDEA RCS cross-section model with materials from params.info
-            from src.integrations.idea_interface import create_bridge_idea_model
+            # Generate XML input file
+            model = create_bridge_idea_model(params)
+            xml_file = model.generate_xml_input()
 
-            try:
-                # Generate XML input file
-                model = create_bridge_idea_model(params)
-                xml_file = model.generate_xml_input()
+            # Validate content
+            xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
 
-                # Validate content
-                xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+            if not xml_content:
+                self._raise_empty_idea_xml_error()
 
-                if not xml_content:
-                    self._raise_empty_idea_xml_error()
-
-                return DownloadResult(xml_content, "idea_rcs_cross_section.xml")
-
-            except Exception as e:
-                raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
+            return DownloadResult(xml_content, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
@@ -626,72 +578,35 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-        try:
-            # Create IDEA RCS cross-section model with materials from params.info
-            from src.integrations.idea_interface import create_bridge_idea_model, run_idea_analysis
+        # Generate XML input file
+        model = create_bridge_idea_model(params)
+        xml_file = model.generate_xml_input()
 
-            try:
-                # Generate XML input file
-                model = create_bridge_idea_model(params)
-                xml_file = model.generate_xml_input()
+        # Validate content
+        xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
 
-                # Validate content
-                xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+        if not xml_content:
+            self._raise_empty_idea_xml_error()
 
-                if not xml_content:
-                    self._raise_empty_idea_xml_error()
+        # Run cross-section analysis
+        output_file = run_idea_analysis(model, timeout=240)
 
-                # Run cross-section analysis
-                output_file = run_idea_analysis(model, timeout=120)
+        # Create ZIP with XML input and analysis results
+        zip_file_obj = File()
+        with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+            # Add input XML model
+            z.writestr(f"IDEA_rcs_input_model_{params.info.bridge_objectnumm}.xml", xml_content)
 
-                # Create ZIP with XML input and analysis results
-                zip_file_obj = File()
-                with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                    # Add input XML model
-                    z.writestr("rcs_input_model.xml", xml_content)
+            # Add analysis output results
+            if hasattr(output_file, "getvalue"):
+                output_content = output_file.getvalue()
+                z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
+            elif hasattr(output_file, "source"):
+                # If it's a File object
+                with output_file.open_binary() as f:
+                    z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", f.read())
 
-                    # Add analysis output results
-                    if hasattr(output_file, "getvalue"):
-                        output_content = output_file.getvalue()
-                        z.writestr("rcs_analysis_results.ideaRcs", output_content)
-                    elif hasattr(output_file, "source"):
-                        # If it's a File object
-                        with output_file.open_binary() as f:
-                            z.writestr("rcs_analysis_results.ideaRcs", f.read())
-
-                return DownloadResult(zip_file_obj, "idea_rcs_analysis_complete.zip")
-
-            except Exception as e:
-                error_msg = (
-                    f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n"
-                    "Mogelijke oorzaken:\n"
-                    "- IDEA RCS worker niet beschikbaar of niet correct geïnstalleerd\n"
-                    "- IDEA StatiCa licentie problemen of expired\n"
-                    "- Cross-section model configuratie ongeldig\n"
-                    "- Timeout tijdens capaciteitsberekeningen\n\n"
-                    "💡 Suggesties:\n"
-                    "- Controleer IDEA StatiCa installatie en licentie\n"
-                    "- Probeer in plaats daarvan alleen de XML input te downloaden\n"
-                    "- Verhoog timeout voor complexe doorsneden\n"
-                    "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
-                )
-                raise UserError(error_msg)
-
-        except Exception as e:
-            error_msg = (
-                f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n"
-                "Mogelijke oorzaken:\n"
-                "- IDEA RCS worker niet beschikbaar of niet correct geïnstalleerd\n"
-                "- IDEA StatiCa licentie problemen of expired\n"
-                "- Cross-section model configuratie ongeldig\n"
-                "- Timeout tijdens capaciteitsberekeningen\n\n"
-                "💡 Suggesties:\n"
-                "- Controleer IDEA StatiCa installatie en licentie\n"
-                "- Probeer in plaats daarvan alleen de XML input te downloaden\n"
-                "- Verhoog timeout voor complexe doorsneden\n"
-                "- Verificeer brugsegment dimensies (bz1, bz2, bz3, dz, dz_2)"
-            )
-            raise UserError(error_msg)
+        return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
 
     # ============================================================================================================
     # output - Rapport

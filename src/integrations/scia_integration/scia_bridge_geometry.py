@@ -11,6 +11,8 @@ Functions moved from:
 
 from typing import Any
 
+from .scia_loads_helper import tandem_systems_actual_lanes, tandem_systems_theoretical_lanes
+
 
 def extract_bridge_dimensions(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
@@ -83,7 +85,7 @@ def extract_zone_boundaries(params: Any) -> dict[str, dict[str, float]]:  # noqa
 
 def extract_tandem_parameters_from_bridge(params: Any) -> dict[str, float]:  # noqa: ANN401
     """
-    Extract parameters needed for src.loads.loadcase_helper_functions from bridge data.
+    Extract parameters needed for scia_loads_helper from bridge data.
 
     :param params: Bridge parameters
     :returns: Dictionary with length_bridgedeck, width_bridgedeck, thickness_bridgedeck
@@ -122,15 +124,6 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
     """
     if mode not in ["theoretical", "actual"]:
         raise ValueError(f"Unsupported mode: {mode}. Use 'theoretical' or 'actual'")
-
-    # Import the tandem function determination logic
-    try:
-        from src.loads.loadcase_helper_functions import (
-            tandem_systems_actual_lanes,
-            tandem_systems_theoretical_lanes,
-        )
-    except ImportError as e:
-        raise ImportError("Required load calculation modules not available") from e
 
     if mode == "theoretical":
         # Theoretical mode uses theoretical lanes regardless of bridge width

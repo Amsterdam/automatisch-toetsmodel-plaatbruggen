@@ -5,18 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
-
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -38,6 +26,17 @@ from viktor.parametrization import (
     TextField,
 )
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 
 from .geometry_functions import get_steel_qualities
 
@@ -862,7 +861,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- IDEA StatiCa Page ---
     # ----------------------------------
 
-    idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections"])
+    idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections", "get_view_idea_rcs_results"])
 
     idea.explanation = Text(IDEA_INFO_TEXT)
 

@@ -1,117 +1,71 @@
 """
-Module for creating SCIA load definitions.
+Module for creating SCIA loads.
 
-This module provides functions for creating definitions of SCIA loads, load cases, and load combinations.
-These definitions are pure Python objects that can be used by the app layer to construct the actual SCIA model.
+This module provides functions for creating SCIA loads by calling the SciaModelBuilder.
+These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
 from typing import Any
 
-from .scia_definitions import SurfaceLoadDefinition, LineLoadOnEdgeDefinition, PlateDefinition
+from app.bridge.parametrization import BridgeParametrization
+from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 
-# Import definition-based creators
-#def create_free_line_load()
-#def create_line_load_on_edge()
-
-def create_patch_surface_load(
-    load_case_name: str,
-    corner_points: list[tuple[float, float, float]],
-    load_value: float,
-    load_name: str = "PatchLoad",
-) -> SurfaceLoadDefinition:
-    """
-    Create a definition for a free surface load on a 4-point patch.
-
-    :param load_case_name: Name of the load case for the load application.
-    :param corner_points: List of 4 corner coordinates [(x1,y1,z1), ...].
-    :param load_value: Load magnitude in [N/m²] (positive = downward).
-    :param load_name: Name identifier for the load.
-    :return: A SurfaceLoadDefinition object.
-    :rtype: SurfaceLoadDefinition
-    """
-    if len(corner_points) != 4:
-        raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
-
-    return SurfaceLoadDefinition(
-        name=load_name,
-        load_case_name=load_case_name,
-        corner_points=corner_points,
-        load_value=load_value,
-    )
+from .scia_bridge_geometry import (
+    convert_tandem_data_to_scia_format,
+    extract_tandem_parameters_from_bridge,
+    generate_tandem_loads_for_bridge,
+)
+from .scia_loads_helper import calculate_pavement_load_from_material
+from .scia_model_interface import SciaModelBuilder
 
 
 def add_theoretical_tandem_loads(
+    builder: SciaModelBuilder,
     params: Any,  # noqa: ANN401
-    traffic_group_name: str,
-) -> dict[str, list]:
+) -> None:
     """
-    Create definitions for theoretical tandem loads and their load cases.
+    Create theoretical tandem loads and apply them to their existing load cases.
 
+    This function assumes that the required load cases have already been created
+    by `create_all_load_cases`.
+
+    :param builder: The SCIA model builder instance.
     :param params: VIKTOR parameters for the bridge.
-    :param traffic_group_name: The name of the traffic load group.
-    :return: A dict with "load_case_definitions" and "surface_load_definitions".
-    :rtype: dict[str, list]
     """
-    from .scia_bridge_geometry import (
-        convert_tandem_data_to_scia_format,
-        extract_tandem_parameters_from_bridge,
-        generate_tandem_loads_for_bridge,
-    )
-    from .scia_load_cases import create_tandem_load_case
-
-    # 1. Extract bridge parameters for tandem loads
+    # 1. Extract bridge parameters needed for load geometry calculation
     bridge_params = extract_tandem_parameters_from_bridge(params)
 
     # 2. Generate tandem loads based on theoretical lanes
     raw_tandem_data = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
 
-    # 3. Convert tandem data to SCIA format (this step might be redundant later)
+    # 3. Convert tandem data to SCIA format for surface loads
     scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
 
-    # 4. Create definitions
-    load_case_definitions = []
-    surface_load_definitions = []
+    # 4. Create surface loads using the builder, applying them to the correct load case
     for tandem in scia_tandem_data:
         load_case_name = tandem["load_case"]
-        load_case_definitions.append(create_tandem_load_case(traffic_group_name, load_case_name, "theoretical"))
-
         for i, patch_load in enumerate(tandem["patch_loads"]):
-            surface_load_definitions.append(
-                create_patch_surface_load(
-                    load_case_name,
-                    patch_load["corners"],
-                    -patch_load["load_value"],  # Negative for downward Z-force
-                    f"{load_case_name}_Wheel_{i + 1}",
-                )
+            builder.create_surface_load(
+                name=f"{load_case_name}_Wheel_{i + 1}",
+                load_case_name=load_case_name,
+                corner_points=patch_load["corners"],
+                load_value=-patch_load["load_value"],  # Negative for downward load
             )
-
-    return {"load_case_definitions": load_case_definitions, "surface_load_definitions": surface_load_definitions}
-
-
-"""Add actual tandem loads based on user-defined lanes."""
 
 
 def add_actual_tandem_loads(
-    _model: Any,  # noqa: ANN401
+    _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
-    _traffic_group: Any,  # noqa: ANN401
 ) -> list[Any]:
     """PLACEHOLDER: Add actual tandem loads based on user-defined lanes."""
-    # TODO: Implement logic for actual tandem loads
-    # - Extract actual lane positions from params
-    # - Generate tandem loads for those lanes
-    # - Apply to model
+    # This will be implemented when user-defined lanes are supported.
     return []
 
 
-"""Add railing loads to the SCIA model."""
-
-
 def define_railing_loads(
-    plate_definitions: list[PlateDefinition],
-    params: Any, #noqa: ANN401 
-    load_case_name: str,
-) -> LineLoadOnEdgeDefinition:
+    _builder: SciaModelBuilder,
+    _params: Any,  # noqa: ANN401
+) -> list[Any]:
     """
     Add permanent line loads for parapets (railing) to the SCIA model.
 
@@ -157,15 +111,78 @@ def define_railing_loads(
     return line_loads
 
 
-"""Add pedestrian loads to the SCIA model."""
-
 def add_pedestrian_loads(
-    _model: Any,  # noqa: ANN401
+    _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
-    _traffic_group: Any,  # noqa: ANN401
 ) -> list[Any]:
     """PLACEHOLDER: Add pedestrian loads to the SCIA model."""
-    # TODO: Implement pedestrian load application
-    # - Get pedestrian zone polygons
-    # - Apply surface loads to pedestrian areas
+    # This will be implemented based on pedestrian area parameters.
     return []
+
+
+def add_asfalt_loads(
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+) -> list[Any]:
+    """PLACEHOLDER: Add asphalt loads to the SCIA model."""
+    # Get unit weight for asphalt loads
+
+    # Get load zone information from params using the utility functions
+    load_zones_data_params = get_load_zones_data_from_params(params)
+    bridge_geom_data = get_bridge_geom_data(params)
+
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return []
+
+    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
+
+    # Iterate through load zones and apply asphalt loads
+    for i, load_zone in enumerate(load_zones_data_params):
+        if load_zone.get("pavement_material", BridgeParametrization) == "Asfalt":
+            # Iterate through spans
+            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
+                # Create individual surface load for each span in the asphalt zone
+                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
+                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
+                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
+                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
+                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
+                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
+                corners = [
+                    (x_coord_left, y_coord_top_left, 0.0),
+                    (x_coord_right, y_coord_top_right, 0.0),
+                    (x_coord_right, y_coord_bottom_right, 0.0),
+                    (x_coord_left, y_coord_bottom_left, 0.0),
+                ]
+
+                builder.create_surface_load(
+                    name=f"{load_zone['zone_type']}_{i}_Asfalt_{span}_d{load_zone['pavement_thickness']}",
+                    load_case_name="BG2001",  # TODO is dit correct?
+                    corner_points=corners,
+                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
+                    * 1000,  # Convert to kN/m²
+                )
+    return []  # Placeholder return to match function signature
+
+
+def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
+    """
+    Create and apply all load types to the bridge model.
+
+    This function orchestrates the application of all loads, including:
+    - Tandem system loads
+    - Railing loads (placeholder)
+    - Pedestrian loads (placeholder)
+
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters.
+    """
+    # Apply theoretical tandem loads
+    add_theoretical_tandem_loads(builder, params)
+    add_asfalt_loads(builder, params)
+
+    # TODO: Add calls to other load functions when they are implemented
+    # add_actual_tandem_loads(builder, params)  # noqa: ERA001
+    # add_railing_loads(builder, params)  # noqa: ERA001
+    # add_pedestrian_loads(builder, params)  # noqa: ERA001

@@ -1,25 +1,21 @@
 """
-Module for constructing SCIA models from definitions.
+Module for constructing SCIA models using a concrete implementation of the SciaModelBuilder interface.
 
-This module acts as a bridge between the pure Python definitions from the src layer
-and the VIKTOR SDK's SCIA integration. It translates the definition objects into
-actual scia.Model components.
+This module acts as the bridge between the VIKTOR SDK and the core logic from the src layer.
 """
 
-import io
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any, Literal
 
-from app.bridge.scia_supports import create_line_support_from_definition
-from src.integrations.scia_integration.scia_definitions import (
-    LoadCaseDefinition,
-    LoadCombinationDefinition,
-    LoadGroupDefinition,
-    SurfaceLoadDefinition,
-)
-from src.integrations.scia_integration.scia_load_combinations import SciaLoadCombination
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
+from src.integrations.scia_integration.scia_model_interface import (
+    SciaCombinationType,
+    SciaLoadCase,
+    SciaLoadCombination,
+    SciaLoadGroup,
+    SciaModelBuilder,
+)
 
 # Global VIKTOR imports with error handling for CI/testing environments
 try:
@@ -33,452 +29,365 @@ except ImportError:
     File = None  # type: ignore[misc,assignment]
     VIKTOR_AVAILABLE = False
 
-# Type aliases for SCIA objects
-SciaModel: TypeAlias = Any
-SciaLoadGroup: TypeAlias = Any
-SciaLoadCase: TypeAlias = Any
 
-
-def _check_scia_availability() -> None:
-    """Check if VIKTOR SCIA module is available."""
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-
-def create_load_group(model: SciaModel, definition: LoadGroupDefinition) -> SciaLoadGroup:
+class ViktorSciaModelBuilder(SciaModelBuilder):
     """
-    Create a SCIA load group from a LoadGroupDefinition.
+    A concrete implementation of the SciaModelBuilder protocol using the VIKTOR SDK.
 
-    :param model: The SCIA model object.
-    :param definition: The LoadGroupDefinition object.
-    :return: The created SCIA load group object.
-    :rtype: scia.LoadGroup
+    This class maintains the state of the SCIA model being built, including created
+    nodes, materials, plates, and load infrastructure.
     """
-    _check_scia_availability()
-    load_option_map = {
-        "PERMANENT": scia.LoadGroup.LoadOption.PERMANENT,
-        "VARIABLE": scia.LoadGroup.LoadOption.VARIABLE,
-        "ACCIDENTAL": scia.LoadGroup.LoadOption.ACCIDENTAL,
-        "SEISMIC": scia.LoadGroup.LoadOption.SEISMIC,
-    }
-    relation_map = {
-        "STANDARD": scia.LoadGroup.RelationOption.STANDARD,
-        "EXCLUSIVE": scia.LoadGroup.RelationOption.EXCLUSIVE,
-        "TOGETHER": scia.LoadGroup.RelationOption.TOGETHER,
-    }
-    load_type_map = {
-        "CAT_A": scia.LoadGroup.LoadTypeOption.CAT_A,
-        "CAT_B": scia.LoadGroup.LoadTypeOption.CAT_B,
-        "CAT_C": scia.LoadGroup.LoadTypeOption.CAT_C,
-        "CAT_D": scia.LoadGroup.LoadTypeOption.CAT_D,
-        "CAT_E": scia.LoadGroup.LoadTypeOption.CAT_E,
-        "CAT_F": scia.LoadGroup.LoadTypeOption.CAT_F,
-        "CAT_G": scia.LoadGroup.LoadTypeOption.CAT_G,
-        "CAT_H": scia.LoadGroup.LoadTypeOption.CAT_H,
-        "WIND": scia.LoadGroup.LoadTypeOption.WIND,
-        "SNOW": scia.LoadGroup.LoadTypeOption.SNOW,
-        "TEMPERATURE": scia.LoadGroup.LoadTypeOption.TEMPERATURE,
-        "RAIN_WATER": scia.LoadGroup.LoadTypeOption.RAIN_WATER,
-        "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
-    }
 
-    load_type = None
-    if definition.load_type is not None:
-        if definition.load_type not in load_type_map:
-            raise ValueError(f"Unsupported SCIA load type: '{definition.load_type}'")
-        load_type = load_type_map[definition.load_type]
+    def __init__(self) -> None:
+        """Initializes the ViktorSciaModelBuilder."""
+        if not VIKTOR_AVAILABLE or scia is None:
+            raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+        self.model: scia.Model = scia.Model()
+        self.materials: dict[str, scia.Material] = {}
+        self.nodes: dict[str, scia.Node] = {}
+        self.plates: dict[str, scia.Plane] = {}
+        self.load_groups: dict[str, scia.LoadGroup] = {}
+        self.load_cases: dict[str, scia.LoadCase] = {}
+        self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
 
-    return model.create_load_group(
-        definition.name,
-        load_option_map[definition.load_option],
-        relation_map[definition.relation],
-        load_type,
-    )
+    def create_material(self, name: str, material_id: int = 0) -> scia.Material:
+        """Creates a material and stores it."""
+        material = scia.Material(material_id, name)
+        self.materials[name] = material
+        return material
 
+    def create_node(self, name: str, x: float, y: float, z: float) -> scia.Node:
+        """Creates a node and stores it."""
+        node = self.model.create_node(name, x, y, z)
+        self.nodes[name] = node
+        return node
 
-def create_load_case(model: SciaModel, definition: LoadCaseDefinition, load_groups: dict[str, SciaLoadGroup]) -> SciaLoadCase:
-    """
-    Create a SCIA load case from a LoadCaseDefinition.
+    def create_plate(
+        self,
+        name: str,
+        corner_node_names: list[str],
+        thickness: float,
+        material_name: str,
+    ) -> scia.Plane:
+        """Creates a plate (plane) and stores it."""
+        if material_name not in self.materials:
+            raise ValueError(f"Material '{material_name}' not found.")
+        material = self.materials[material_name]
 
-    :param model: The SCIA model object.
-    :param definition: The LoadCaseDefinition object.
-    :param load_groups: A dictionary of existing SCIA load groups.
-    :return: The created SCIA load case object.
-    :rtype: scia.LoadCase
-    """
-    _check_scia_availability()
-    if definition.group_name not in load_groups:
-        raise ValueError(f"Load group '{definition.group_name}' not found in the provided load groups.")
+        corner_nodes = []
+        for node_name in corner_node_names:
+            if node_name not in self.nodes:
+                raise ValueError(f"Node '{node_name}' not found.")
+            corner_nodes.append(self.nodes[node_name])
 
-    group = load_groups[definition.group_name]
-
-    if definition.case_type == "PERMANENT":
-        permanent_type_map = {
-            "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT,
-            "STANDARD": scia.LoadCase.PermanentLoadType.STANDARD,
-            "PRIMARY_EFFECT": scia.LoadCase.PermanentLoadType.PRIMARY_EFFECT,
-        }
-        if definition.permanent_type is None:
-            raise ValueError("Permanent load case type must be specified.")
-        return model.create_permanent_load_case(
-            definition.name,
-            definition.description,
-            group,
-            permanent_type_map[definition.permanent_type],
-        )
-
-    if definition.case_type == "VARIABLE":
-        variable_type_map = {
-            "STATIC": scia.LoadCase.VariableLoadType.STATIC,
-            "PRIMARY_EFFECT": scia.LoadCase.VariableLoadType.PRIMARY_EFFECT,
-        }
-        specification_map = {
-            "STANDARD": scia.LoadCase.Specification.STANDARD,
-            "STATIC_WIND": scia.LoadCase.Specification.STATIC_WIND,
-            "SNOW": scia.LoadCase.Specification.SNOW,
-            "TEMPERATURE": scia.LoadCase.Specification.TEMPERATURE,
-            "EARTHQUAKE": scia.LoadCase.Specification.EARTHQUAKE,
-        }
-        duration_map = {
-            "INSTANTANEOUS": scia.LoadCase.Duration.INSTANTANEOUS,
-            "SHORT": scia.LoadCase.Duration.SHORT,
-            "MEDIUM": scia.LoadCase.Duration.MEDIUM,
-            "LONG": scia.LoadCase.Duration.LONG,
-        }
-        if definition.variable_type is None:
-            raise ValueError("Variable load case type must be specified.")
-        if definition.specification is None:
-            raise ValueError("Variable load case specification must be specified.")
-        if definition.duration is None:
-            raise ValueError("Variable load case duration must be specified.")
-        return model.create_variable_load_case(
-            definition.name,
-            definition.description,
-            group,
-            variable_type_map[definition.variable_type],
-            specification_map[definition.specification],
-            duration_map[definition.duration],
-        )
-
-    raise ValueError(f"Unsupported load case type: {definition.case_type}")
-
-
-def create_patch_surface_load(
-    model: SciaModel,
-    load_case: SciaLoadCase,
-    corner_points: list[tuple[float, float, float]],
-    load_value: float,
-    load_name: str = "PatchLoad",
-) -> None:
-    """
-    Create a free surface load on a 4-point patch in the SCIA model.
-
-    :param model: The SCIA model object.
-    :param load_case: The SCIA load case object for the load application.
-    :param corner_points: List of 4 corner coordinates [(x1,y1,z1), ...].
-    :param load_value: Load magnitude in [N/m²] (positive = downward).
-    :param load_name: Name identifier for the load.
-    """
-    _check_scia_availability()
-    if len(corner_points) != 4:
-        raise ValueError(f"Exactly 4 corner points required, got {len(corner_points)}")
-
-    # Convert 3D corner points to 2D for free surface load
-    points_2d = [(p[0], p[1]) for p in corner_points]
-
-    model.create_free_surface_load(
-        name=load_name,
-        load_case=load_case,
-        direction=scia.FreeSurfaceLoad.Direction.Z,
-        q1=load_value,
-        points=points_2d,
-        distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
-    )
-
-
-def create_load_combination(model: SciaModel, combo_def: LoadCombinationDefinition, load_cases: dict[str, SciaLoadCase]) -> SciaLoadCombination:
-    """
-    Create a SCIA load combination from a LoadCombinationDefinition.
-
-    :param model: The SCIA model object.
-    :param combo_def: The LoadCombinationDefinition object.
-    :param load_cases: A dictionary of existing SCIA load cases.
-    :return: The created SCIA load combination object.
-    """
-    _check_scia_availability()
-    combination_type_map = {
-        "ULS": scia.LoadCombination.Type.EN_ULS_SET_B,
-        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
-        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
-        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
-    }
-
-    case_factors = {}
-    for case_name, factor in combo_def.load_case_factors.items():
-        if case_name not in load_cases:
-            raise ValueError(f"Load case '{case_name}' not found in the provided load cases.")
-        case_factors[load_cases[case_name]] = factor
-
-    combo_type = combination_type_map[combo_def.combination_type.value]
-
-    return model.create_load_combination(
-        name=combo_def.name,
-        combination_type=combo_type,
-        case_factors=case_factors,
-        description=combo_def.description,
-    )
-
-
-def build_load_infrastructure(model: SciaModel, definitions: dict[str, Any]) -> dict[str, dict]:
-    """
-    Build the entire load infrastructure (groups, cases) from definitions.
-
-    This function orchestrates the creation of SCIA objects from their pure
-    Python definitions.
-
-    :param model: The scia.Model object to build upon.
-    :param definitions: A dictionary containing 'load_group_definitions' and
-                        'basic_load_case_definitions'.
-    :return: A dictionary containing the created 'load_groups' and 'load_cases'.
-    """
-    # 1. Build Load Groups
-    created_load_groups = {}
-    for name, group_def in definitions["load_group_definitions"].items():
-        created_load_groups[name] = create_load_group(model, group_def)
-
-    # 2. Build Load Cases
-    created_load_cases = {}
-    for name, case_def in definitions["basic_load_case_definitions"].items():
-        # The builder function will find the correct group object from the created_load_groups dict
-        created_load_cases[name] = create_load_case(model, case_def, created_load_groups)
-
-    return {"load_groups": created_load_groups, "load_cases": created_load_cases}
-
-
-def build_geometry(model: SciaModel, definitions: dict[str, list]) -> dict[str, dict]:
-    """
-    Build the geometry (nodes, materials, plates) from definitions.
-
-    :param model: The scia.Model object to build upon.
-    :param definitions: A dictionary containing 'nodes', 'materials', and 'plates' definitions.
-    :return: A dictionary containing the created 'nodes', 'materials', and 'plates'.
-    """
-    _check_scia_availability()
-
-    # 1. Build Materials
-    created_materials = {mat_def.name: scia.Material(mat_def.material_id, mat_def.name) for mat_def in definitions["materials"]}
-
-    # 2. Build Nodes
-    created_nodes = {node_def.name: model.create_node(node_def.name, node_def.x, node_def.y, node_def.z) for node_def in definitions["nodes"]}
-
-    # 3. Build Plates
-    created_plates = {}
-    for plate_def in definitions["plates"]:
-        corner_nodes = [created_nodes[name] for name in plate_def.corner_node_names]
-        material = created_materials[plate_def.material_name]
-        created_plates[plate_def.name] = model.create_plane(
+        plate = self.model.create_plane(
             corner_nodes,
-            plate_def.thickness,
-            name=plate_def.name,
+            thickness,
+            name=name,
             material=material,
         )
+        self.plates[name] = plate
+        return plate
 
-    return {"nodes": created_nodes, "materials": created_materials, "plates": created_plates}
-
-
-def build_surface_loads(
-    model: SciaModel,
-    definitions: list[SurfaceLoadDefinition],
-    load_cases: dict[str, SciaLoadCase],
-) -> list:
-    """
-    Build surface loads from their definitions.
-
-    :param model: The scia.Model object to build upon.
-    :param definitions: A list of SurfaceLoadDefinition objects.
-    :param load_cases: A dictionary of already created scia.LoadCase objects.
-    :return: A list of the created scia.FreeSurfaceLoad objects.
-    """
-    _check_scia_availability()
-    created_loads = []
-    for load_def in definitions:
-        load_case = load_cases.get(load_def.load_case_name)
-        if not load_case:
-            raise ValueError(f"Load case '{load_def.load_case_name}' not found for surface load '{load_def.name}'.")
-
-        xy_points = [(x, y) for x, y, z in load_def.corner_points]
-
-        created_loads.append(
-            model.create_free_surface_load(
-                name=load_def.name,
-                load_case=load_case,
-                direction=scia.FreeSurfaceLoad.Direction.Z,
-                q1=load_def.load_value,  # Pass the distributed load value directly
-                points=xy_points,
-                distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
-            )
-        )
-    return created_loads
-
-
-def build_load_combinations(
-    model: SciaModel,
-    definitions: list[LoadCombinationDefinition],
-    load_cases: dict[str, SciaLoadCase],
-) -> list:
-    """
-    Build load combinations from their definitions.
-
-    :param model: The scia.Model object to build upon.
-    :param definitions: A list of LoadCombinationDefinition objects.
-    :param load_cases: A dictionary of already created scia.LoadCase objects.
-    :return: A list of the created scia.LoadCombination objects.
-    """
-    _check_scia_availability()
-
-    combination_type_map = {
-        "ULS": scia.LoadCombination.Type.EN_ULS_SET_B,
-        "ULS_SET_B": scia.LoadCombination.Type.EN_ULS_SET_B,
-        "ULS_SET_C": scia.LoadCombination.Type.EN_ULS_SET_C,
-        "ENVELOPE_ULS": scia.LoadCombination.Type.ENVELOPE_ULTIMATE,
-        "LINEAR_ULS": scia.LoadCombination.Type.LINEAR_ULTIMATE,
-        "SLS": scia.LoadCombination.Type.EN_SLS_CHAR,
-        "SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
-        "SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
-        "SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
-        "ENVELOPE_SLS": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY,
-        "LINEAR_SLS": scia.LoadCombination.Type.LINEAR_SERVICEABILITY,
-        "ACCIDENTAL": scia.LoadCombination.Type.EN_ACC_ONE,
-        "ACCIDENTAL_1": scia.LoadCombination.Type.EN_ACC_ONE,
-        "ACCIDENTAL_2": scia.LoadCombination.Type.EN_ACC_TWO,
-        "SEISMIC": scia.LoadCombination.Type.EN_SEISMIC,
-    }
-
-    created_combinations = []
-    for combo_def in definitions:
-        scia_case_factors = {load_cases[name]: factor for name, factor in combo_def.load_case_factors.items()}
-        combo_type = combination_type_map[combo_def.combination_type.value]
-        created_combinations.append(
-            model.create_load_combination(
-                combo_def.name,
-                combo_type,
-                scia_case_factors,
-                description=combo_def.description,
-            )
-        )
-    return created_combinations
-
-
-def build_scia_model(definitions: dict[str, list]) -> SciaModel:
-    """
-    Build a complete SCIA model from a set of definitions.
-
-    This is the master builder function that orchestrates the entire model
-    construction process.
-
-    :param definitions: A dictionary containing all model part definitions.
-    :return: A fully constructed scia.Model object.
-    """
-    _check_scia_availability()
-    model = scia.Model()
-
-    # 1. Build Geometry
-    geometry_parts = build_geometry(model, definitions)
-    all_plates = geometry_parts["plates"]
-
-    # 2. Build Line Supports (if defined)
-    if definitions.get("line_supports"):
-        for support_def in definitions["line_supports"]:
-            create_line_support_from_definition(model, support_def, all_plates)
-
-    # 3. Build Load Infrastructure (Groups and Cases)
-    if definitions.get("load_groups") and definitions.get("load_cases"):
-        load_infra_defs = {
-            "load_group_definitions": {group.name: group for group in definitions["load_groups"]},
-            "basic_load_case_definitions": {case.name: case for case in definitions["load_cases"]},
+    def create_load_group(
+        self,
+        name: str,
+        load_option: Literal["PERMANENT", "VARIABLE", "ACCIDENTAL", "SEISMIC"],
+        relation: Literal["STANDARD", "EXCLUSIVE", "TOGETHER"],
+        load_type: str | None,
+    ) -> SciaLoadGroup:
+        """Creates a load group and stores it."""
+        load_option_map = {
+            "PERMANENT": scia.LoadGroup.LoadOption.PERMANENT,
+            "VARIABLE": scia.LoadGroup.LoadOption.VARIABLE,
+            "ACCIDENTAL": scia.LoadGroup.LoadOption.ACCIDENTAL,
+            "SEISMIC": scia.LoadGroup.LoadOption.SEISMIC,
         }
-        load_infra_parts = build_load_infrastructure(model, load_infra_defs)
-        all_load_cases = load_infra_parts["load_cases"]
+        relation_map = {
+            "STANDARD": scia.LoadGroup.RelationOption.STANDARD,
+            "EXCLUSIVE": scia.LoadGroup.RelationOption.EXCLUSIVE,
+            "TOGETHER": scia.LoadGroup.RelationOption.TOGETHER,
+        }
+        load_type_map = {
+            "CAT_A": scia.LoadGroup.LoadTypeOption.CAT_A,
+            "CAT_B": scia.LoadGroup.LoadTypeOption.CAT_B,
+            "CAT_C": scia.LoadGroup.LoadTypeOption.CAT_C,
+            "CAT_D": scia.LoadGroup.LoadTypeOption.CAT_D,
+            "CAT_E": scia.LoadGroup.LoadTypeOption.CAT_E,
+            "CAT_F": scia.LoadGroup.LoadTypeOption.CAT_F,
+            "CAT_G": scia.LoadGroup.LoadTypeOption.CAT_G,
+            "CAT_H": scia.LoadGroup.LoadTypeOption.CAT_H,
+            "WIND": scia.LoadGroup.LoadTypeOption.WIND,
+            "SNOW": scia.LoadGroup.LoadTypeOption.SNOW,
+            "TEMPERATURE": scia.LoadGroup.LoadTypeOption.TEMPERATURE,
+            "RAIN_WATER": scia.LoadGroup.LoadTypeOption.RAIN_WATER,
+            "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS,
+        }
 
-        # 4. Build Surface Loads
-        if definitions.get("surface_loads"):
-            build_surface_loads(model, definitions["surface_loads"], all_load_cases)
+        scia_load_type = None
+        if load_type:
+            scia_load_type = load_type_map[load_type]
 
-        # 5. Build Load Combinations
-        if definitions.get("load_combinations"):
-            build_load_combinations(model, definitions["load_combinations"], all_load_cases)
+        group = self.model.create_load_group(
+            name,
+            load_option_map[load_option],
+            relation_map[relation],
+            scia_load_type,
+        )
+        self.load_groups[name] = group
+        return group
 
-    return model
+    def create_load_case(  # noqa: PLR0913
+        self,
+        name: str,
+        description: str,
+        group_name: str,
+        case_type: Literal["PERMANENT", "VARIABLE"],
+        permanent_type: Literal["SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"] | None = None,
+        variable_type: Literal["STATIC", "PRIMARY_EFFECT"] | None = None,
+        specification: Literal["STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"] | None = None,
+        duration: Literal["INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"] | None = None,
+    ) -> SciaLoadCase:
+        """Creates a load case and stores it."""
+        if group_name not in self.load_groups:
+            raise ValueError(f"Load group '{group_name}' not found.")
+        group = self.load_groups[group_name]
+
+        load_case = None
+        if case_type == "PERMANENT":
+            if permanent_type is None:
+                raise ValueError("Permanent load case type must be specified.")
+            permanent_type_map = {
+                "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT,
+                "STANDARD": scia.LoadCase.PermanentLoadType.STANDARD,
+                "PRIMARY_EFFECT": scia.LoadCase.PermanentLoadType.PRIMARY_EFFECT,
+            }
+            load_case = self.model.create_permanent_load_case(name, description, group, permanent_type_map[permanent_type])
+        elif case_type == "VARIABLE":
+            if any(arg is None for arg in [variable_type, specification, duration]):
+                raise ValueError("Variable load case requires type, specification, and duration.")
+            variable_type_map = {"STATIC": scia.LoadCase.VariableLoadType.STATIC, "PRIMARY_EFFECT": scia.LoadCase.VariableLoadType.PRIMARY_EFFECT}
+            spec_map = {
+                "STANDARD": scia.LoadCase.Specification.STANDARD,
+                "STATIC_WIND": scia.LoadCase.Specification.STATIC_WIND,
+                "SNOW": scia.LoadCase.Specification.SNOW,
+                "TEMPERATURE": scia.LoadCase.Specification.TEMPERATURE,
+                "EARTHQUAKE": scia.LoadCase.Specification.EARTHQUAKE,
+            }
+            dur_map = {
+                "INSTANTANEOUS": scia.LoadCase.Duration.INSTANTANEOUS,
+                "SHORT": scia.LoadCase.Duration.SHORT,
+                "MEDIUM": scia.LoadCase.Duration.MEDIUM,
+                "LONG": scia.LoadCase.Duration.LONG,
+            }
+            load_case = self.model.create_variable_load_case(
+                name,
+                description,
+                group,
+                variable_type_map[variable_type],  # type: ignore[index]
+                specification=spec_map[specification],  # type: ignore[index]
+                duration=dur_map[duration],  # type: ignore[index]
+            )
+        else:
+            raise ValueError(f"Unsupported load case type: {case_type}")
+
+        self.load_cases[name] = load_case
+        return load_case
+
+    def create_surface_load(
+        self,
+        name: str,
+        load_case_name: str,
+        corner_points: list[tuple[float, float, float]],
+        load_value: float,
+    ) -> scia.FreeSurfaceLoad:
+        """Creates a free surface load."""
+        if load_case_name not in self.load_cases:
+            raise ValueError(f"Load case '{load_case_name}' not found.")
+        load_case = self.load_cases[load_case_name]
+
+        if len(corner_points) != 4:
+            raise ValueError(f"Exactly 4 corner points required for patch load, got {len(corner_points)}")
+        points_2d = [(p[0], p[1]) for p in corner_points]
+
+        surface_load = self.model.create_free_surface_load(
+            name=name,
+            load_case=load_case,
+            direction=scia.FreeSurfaceLoad.Direction.Z,
+            q1=load_value,
+            points=points_2d,
+            distribution=scia.FreeSurfaceLoad.Distribution.UNIFORM,
+        )
+        self.surface_loads[name] = surface_load
+        return surface_load
+
+    def create_line_load_on_plane(
+        self,
+        name: str,
+        load_case_name: str,
+        plane_name: str,
+        edge_index: int,
+        load_value: float,
+    ) -> scia.LineForceSurface:
+        """Creates a uniform line load on a plane edge."""
+        if load_case_name not in self.load_cases:
+            raise ValueError(f"Load case '{load_case_name}' not found for line load '{name}'.")
+        if plane_name not in self.plates:
+            raise ValueError(f"Plate '{plane_name}' not found for line load '{name}'.")
+
+        load_case = self.load_cases[load_case_name]
+        plane = self.plates[plane_name]
+
+        return self.model.create_line_load_on_plane(
+            name=name,
+            edge=(plane, edge_index),
+            p1=load_value,
+            load_case=load_case,
+            direction=scia.LineForceSurface.Direction.Z,
+        )
+
+    def create_free_line_load(  # noqa: PLR0913
+        self,
+        name: str,
+        load_case_name: str,
+        point_1: tuple[float, float],
+        point_2: tuple[float, float],
+        load_value: float,
+        direction: Literal["X", "Y", "Z"] = "Z",
+    ) -> scia.FreeLineLoad:
+        """Creates a uniform free line load."""
+        if load_case_name not in self.load_cases:
+            raise ValueError(f"Load case '{load_case_name}' not found for line load '{name}'.")
+        load_case = self.load_cases[load_case_name]
+
+        dir_map = {"X": scia.FreeLineLoad.Direction.X, "Y": scia.FreeLineLoad.Direction.Y, "Z": scia.FreeLineLoad.Direction.Z}
+
+        return self.model.create_free_line_load(
+            name=name,
+            p1=point_1,
+            p2=point_2,
+            q=load_value,
+            load_case=load_case,
+            direction=dir_map[direction],
+        )
+
+    def create_load_combination(
+        self,
+        name: str,
+        combination_type: SciaCombinationType,
+        load_case_factors: dict[SciaLoadCase, float],
+        description: str,
+    ) -> SciaLoadCombination:
+        """Creates a load combination and stores it."""
+        combo_type_map = {
+            "ENVELOPE_ULTIMATE": scia.LoadCombination.Type.ENVELOPE_ULTIMATE,
+            "ENVELOPE_SERVICEABILITY": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY,
+            "LINEAR_ULTIMATE": scia.LoadCombination.Type.LINEAR_ULTIMATE,
+            "LINEAR_SERVICEABILITY": scia.LoadCombination.Type.LINEAR_SERVICEABILITY,
+            "EN_ULS_SET_B": scia.LoadCombination.Type.EN_ULS_SET_B,
+            "EN_ULS_SET_C": scia.LoadCombination.Type.EN_ULS_SET_C,
+            "EN_SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR,
+            "EN_SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ,
+            "EN_SLS_QUASI": scia.LoadCombination.Type.EN_SLS_QUASI,
+            "EN_ACC_ONE": scia.LoadCombination.Type.EN_ACC_ONE,
+            "EN_ACC_TWO": scia.LoadCombination.Type.EN_ACC_TWO,
+            "EN_SEISMIC": scia.LoadCombination.Type.EN_SEISMIC,
+        }
+        combo_class = combo_type_map.get(combination_type.value)
+
+        if combo_class is None:
+            raise ValueError(f"Unsupported combination type: {combination_type}")
+
+        combination = self.model.create_load_combination(name, combo_class, description)
+        for load_case, factor in load_case_factors.items():
+            combination.add_load_case(load_case, factor)
+        return combination
+
+    def create_line_support_on_plane(
+        self,
+        name: str,
+        plane_name: str,
+        edge_index: int,
+        freedom: dict[str, str],
+        stiffness: dict[str, float],
+    ) -> scia.LineSupport:
+        """Creates a line support on a plane edge."""
+        if plane_name not in self.plates:
+            raise ValueError(f"Plate '{plane_name}' not found for line support '{name}'.")
+        plane = self.plates[plane_name]
+
+        freedom_map = {
+            "FREE": scia.LineSupport.Freedom.FREE,
+            "RIGID": scia.LineSupport.Freedom.RIGID,
+            "FLEXIBLE": scia.LineSupport.Freedom.FLEXIBLE,
+        }
+
+        return self.model.create_line_support_on_plane(
+            name=name,
+            edge=(plane, edge_index),
+            x=freedom_map[freedom["x"]],
+            y=freedom_map[freedom["y"]],
+            z=freedom_map[freedom["z"]],
+            rx=freedom_map[freedom["rx"]],
+            ry=freedom_map[freedom["ry"]],
+            rz=freedom_map[freedom["rz"]],
+            stiffness_x=stiffness.get("stiffness_x"),
+            stiffness_y=stiffness.get("stiffness_y"),
+        )
+
+    def get_model(self) -> scia.Model:
+        """Returns the constructed SCIA model."""
+        return self.model
+
+    def generate_xml_input(self) -> tuple[BytesIO, BytesIO]:
+        """Generates XML and DEF files from the SCIA model."""
+        xml_file, def_file = self.model.generate_xml_input()
+        return xml_file, def_file
 
 
 # =============================================================================
-# XML GENERATION AND ANALYSIS SETUP
+# TOP-LEVEL BUILDER FUNCTIONS
 # =============================================================================
-
-
-def generate_xml_from_model(scia_model: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
-    """
-    Generate XML and definition files from SCIA model.
-
-    :param scia_model: SCIA model object
-    :returns: (xml_file, def_file) for SCIA analysis
-    :rtype: tuple[BytesIO, BytesIO]
-    :raises ImportError: When VIKTOR SCIA module is not available
-    """
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-    return scia_model.generate_xml_input()
-
-
-def create_scia_analysis_from_template(xml_file: io.BytesIO, def_file: io.BytesIO, template_path: Path) -> Any:  # noqa: ANN401
-    """
-    Create SCIA analysis using template file.
-
-    :param xml_file: Generated XML input file
-    :param def_file: Generated definition file
-    :param template_path: Path to ESA template
-    :returns: SCIA analysis object
-    :rtype: Any
-    :raises ImportError: When VIKTOR SCIA module is not available
-    :raises FileNotFoundError: When template file is not found
-    """
-    if not VIKTOR_AVAILABLE or scia is None or File is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
-    if not template_path.exists():
-        raise FileNotFoundError(f"SCIA template file not found: {template_path}")
-
-    esa_template = File.from_path(template_path)
-    return scia.SciaAnalysis(xml_file, def_file, esa_template)
 
 
 def generate_bridge_xml_files(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
     """
-    Generate XML and definition files for SCIA bridge analysis.
+    Generate the XML and DEF files for a complete bridge model.
 
-    :param params: Bridge parameters
-    :returns: (xml_file, def_file) for SCIA analysis
-    :rtype: tuple[BytesIO, BytesIO]
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :return: A tuple containing the XML and DEF files as BytesIO objects.
     """
-    definitions = define_complete_bridge_model(params)
-    scia_model = build_scia_model(definitions)
-    return generate_xml_from_model(scia_model)
+    builder = ViktorSciaModelBuilder()
+    define_complete_bridge_model(builder, params)
+    return builder.generate_xml_input()
 
 
 def setup_bridge_analysis(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401
     """
-    Complete bridge analysis setup: model creation → XML generation → analysis setup.
+    Set up the SCIA analysis by generating input files and loading the template.
 
-    :param params: Bridge parameters
-    :param template_path: Path to ESA template file
-    :returns: (xml_file, def_file, scia_analysis)
-    :rtype: tuple[Any, Any, Any]
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :param template_path: The path to the ESA template file.
+    :return: A tuple containing the XML file, DEF file, and ESA template file.
     """
-    # Generate XML files from complete bridge model
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
     xml_file, def_file = generate_bridge_xml_files(params)
+    esa_template = File.from_path(template_path)
+    return xml_file, def_file, esa_template
 
-    # Setup analysis with template
-    scia_analysis = create_scia_analysis_from_template(xml_file, def_file, template_path)
 
-    return xml_file, def_file, scia_analysis
+def run_scia_analysis(params: Any, template_path: Path) -> scia.SciaAnalysis:  # noqa: ANN401
+    """
+    Run the complete SCIA analysis and return the analysis object.
+
+    :param params: The bridge parameters.
+    :param template_path: The path to the ESA template file.
+    :return: The executed SCIA analysis object.
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+    xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
+    scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+    scia_analysis.execute(timeout=600)
+    return scia_analysis

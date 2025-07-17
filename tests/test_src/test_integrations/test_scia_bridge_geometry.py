@@ -198,11 +198,9 @@ class TestCoordinateConversion:
         """Test tandem data format conversion."""
         tandem_data = [
             {
-                "load_name": "TestTandem",
-                "load_value": 150000.0,
-                "wheel_coordinates": [[10.0, 1.0], [10.4, 1.0], [10.4, 1.4], [10.0, 1.4]],
-                "load_type": "point_load",
-                "load_direction": "Z",
+                "load_case": "TestTandem",
+                "load": 150000.0,
+                "wheels": [[[10.0, 1.0], [10.4, 1.0], [10.4, 1.4], [10.0, 1.4]]],
             }
         ]
 
@@ -210,11 +208,13 @@ class TestCoordinateConversion:
 
         assert len(result) == 1
         scia_load = result[0]
-        assert scia_load["load_name"] == "TestTandem"
-        assert scia_load["load_value"] == 150000.0
-        assert len(scia_load["wheel_coordinates"]) == 4
+        assert scia_load["load_case"] == "TestTandem"
+        assert len(scia_load["patch_loads"]) == 1
+        patch_load = scia_load["patch_loads"][0]
+        assert patch_load["load_value"] == 150000.0
+        assert len(patch_load["corners"]) == 4
         # Check 3D conversion
-        assert scia_load["wheel_coordinates"][0] == (10.0, 1.0, 0.0)
+        assert patch_load["corners"][0] == (10.0, 1.0, 0.0)
 
 
 class TestNodeAndThicknessDictCreation:
@@ -290,8 +290,8 @@ class TestCoordinateCalculationAccuracy:
         """Test coordinate calculation accuracy with known bridge dimensions."""
         params = Mock()
         params.bridge_segments_array = [
-            Mock(l=0, bz1=10.0, bz2=5.0, bz3=15.0),
-            Mock(l=20, bz1=10.0, bz2=5.0, bz3=15.0),
+            Mock(l=0, bz1=10.0, bz2=5.0, bz3=15.0, dz=1.0, dz_2=1.0),
+            Mock(l=20, bz1=10.0, bz2=5.0, bz3=15.0, dz=1.0, dz_2=1.0),
         ]
 
         nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
