@@ -303,6 +303,10 @@ def add_crowd_loads(
     # Get load zone information from params using the utility functions
     bridge_geom_data = get_bridge_geom_data(params)
 
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return []
+
     y_top = bridge_geom_data.y_top_structural_edge_at_d_points[0]
     y_bottom = bridge_geom_data.y_bridge_bottom_at_d_points[0]
     x_left = bridge_geom_data.x_coords_d_points[0]
