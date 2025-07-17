@@ -17,6 +17,7 @@ from .scia_bridge_geometry import (
     generate_tandem_loads_for_bridge,
 )
 from .scia_model_interface import SciaModelBuilder
+from .scia_loads_helper import calculate_pavement_load_from_material
 from app.bridge.parametrization import BridgeParametrization
 
 
@@ -86,6 +87,10 @@ def add_asfalt_loads(
     params: BridgeParametrization,
 ) -> list[Any]:
     """PLACEHOLDER: Add asphalt loads to the SCIA model."""
+    # Get unit weight for asphalt loads
+
+
+
     # Get load zone information from params using the utility functions
     load_zones_data_params = get_load_zones_data_from_params(params)
     bridge_geom_data = get_bridge_geom_data(params)
@@ -96,28 +101,32 @@ def add_asfalt_loads(
         return []
 
     # Iterate through load zones and apply asphalt loads
+    i = 0
     for load_zone in load_zones_data_params:
-        if load_zone.get("type", BridgeParametrization) == "Asfalt":
+        if load_zone.get("pavement_material", BridgeParametrization) == "Asfalt":
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
                 # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = load_zone["y_coords_top_current_zone"][span - 1]
-                y_coord_top_right = load_zone["y_coords_top_current_zone"][span]
-                x_coord_left = bridge_geom_data.x_coords_d_points[span - 1]
-                x_coord_right = bridge_geom_data.x_coords_d_points[span]
+                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
+                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
+                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
+                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
+                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
+                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
                 corners = [
                     (x_coord_left, y_coord_top_left, 0.0),
                     (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_top_left, 0.0),
-                    (x_coord_left, y_coord_top_right, 0.0),
+                    (x_coord_right, y_coord_bottom_right, 0.0),
+                    (x_coord_left, y_coord_bottom_left, 0.0),
                 ]
+
                 builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_Asfalt_d{load_zone['pavement_thickness']}",
-                    load_case_name=f"{load_zone['zone_type']}_Asfalt",  # TODO is dit correct?
+                    name=f"{load_zone['zone_type']}_{i}_Asfalt_{span}_d{load_zone['pavement_thickness']}",
+                    load_case_name="BG2001",  # TODO is dit correct?
                     corner_points=corners,
-                    load_value=23,  # TODO: Example load value, replace with actual
+                    load_value=-calculate_pavement_load_from_material(load_zone['pavement_thickness'], load_zone['pavement_material'])*1000, # Convert to kN/m²
                 )
-    return []
+        i += 1
 
 
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:

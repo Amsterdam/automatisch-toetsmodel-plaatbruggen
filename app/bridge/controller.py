@@ -278,8 +278,6 @@ class BridgeController(ViktorController):
 
         # 2a. Calculate zone geometric properties using bridge geometry
         load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
-        print(f"Load zones data after geometry properties calculation: {load_zones_data_params}")  # noqa: T201
-        print(f"Bridge geometry data: {bridge_geom_data}")  # noqa: T201
 
         if not load_zones_data_params:  # No load zones defined
             fig = go.Figure()
@@ -418,10 +416,10 @@ class BridgeController(ViktorController):
 
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                z.writestr("model.xml", xml_content)
-                z.writestr("model.def", def_content)
+                z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
+                z.writestr("viktor.xml.def", def_content)
 
-            return DownloadResult(zip_file_obj, "scia_model_files.zip")
+            return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
 
         except Exception as e:
             raise UserError(f"SCIA XML generatie gefaald: {e!s}")
@@ -451,7 +449,7 @@ class BridgeController(ViktorController):
             if not esa_file:
                 self._raise_empty_esa_error()
 
-            return DownloadResult(esa_file, "model.esa")
+            return DownloadResult(esa_file, f"SCIA_model_{params.info.bridge_objectnumm}.esa")
 
         except Exception as e:
             error_msg = (
