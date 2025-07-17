@@ -85,7 +85,7 @@ def add_parapet_loads(
 
     # builder.plates is now a dict: {plate_name: Plane}
     plates = getattr(builder, "plates", {})
-    for plate_name, _plane in plates.items():   # noqa: PERF102
+    for plate_name, _plane in plates.items():  # noqa: PERF102
         # Expect plate_name like 'Z1_1', 'Z3_2', etc.
         try:
             zone_part = plate_name.split("_")[0]  # e.g., 'Z1'
