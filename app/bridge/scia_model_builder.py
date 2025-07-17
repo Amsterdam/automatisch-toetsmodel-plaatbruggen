@@ -73,7 +73,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if material_name not in self.materials:
             raise ValueError(f"Material '{material_name}' not found.")
         material = self.materials[material_name]
-
+        
         corner_nodes = []
         for node_name in corner_node_names:
             if node_name not in self.nodes:

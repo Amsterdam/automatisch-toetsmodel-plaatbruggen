@@ -62,9 +62,9 @@ def add_actual_tandem_loads(
     return []
 
 
-def define_railing_loads(
-    _builder: SciaModelBuilder,
-    _params: Any,  # noqa: ANN401
+def add_parapet_loads(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
 ) -> list[Any]:
     """
     Add permanent line loads for parapets (railing) to the SCIA model.
@@ -73,43 +73,42 @@ def define_railing_loads(
     - On edge 1 of all zone 3 plates (Z3)
     - On edge 3 of all zone 1 plates (Z1)
 
-    :param _model: SCIA model instance (not used in definition phase)
-    :param _params: Bridge parameters (not used in definition phase)
-    :param _permanent_group: Permanent load group (not used in definition phase)
-    :returns: List of line load definitions (dicts)
-    :rtype: list[dict]
+    :param builder: SCIA model builder instance
+    :param params: Bridge parameters (should provide plate_definitions)
     """
-    # Get load value from params
     try:
-        load_value = params.input.belastingzones.lijnlast_leuning
+        load_value = params.input.belastingzones.lijnlast_leuning * 1000  # Convert to kN/m
     except AttributeError:
-        load_value = 1.0  # Fallback default if not present
+        load_value = 1000  # Fallback default if not present
 
-    line_loads = []
-    for plate_def in plate_definitions:
-        zone_str = plate_def.name.split('_')[0]
-        if zone_str.startswith('Z') and zone_str[1:].isdigit():
-            zone_number = int(zone_str[1:])
-            if zone_number == 3:
-                # Zone 3: edge 3
-                line_loads.append({
-                    "name": f"railing_load_zone3_{plate_def.name}",
-                    "load_case_name": load_case_name,
-                    "plane_name": plate_def.name,
-                    "edge_index": 3,
-                    "load_value": load_value,
-                })
-            elif zone_number == 1:
-                # Zone 1: edge 1
-                line_loads.append({
-                    "name": f"railing_load_zone1_{plate_def.name}",
-                    "load_case_name": load_case_name,
-                    "plane_name": plate_def.name,
-                    "edge_index": 1,
-                    "load_value": load_value,
-                })
-    return line_loads
+    load_case_name = "BG2004"
 
+    # builder.plates is now a dict: {plate_name: Plane}
+    plates = getattr(builder, "plates", {})
+    for plate_name, _plane in plates.items():
+        # Expect plate_name like 'Z1_1', 'Z3_2', etc.
+        try:
+            zone_part = plate_name.split("_")[0]  # e.g., 'Z1'
+            zone_number = int(zone_part[1:])
+        except (IndexError, ValueError):
+            continue
+        if zone_number == 3:
+            builder.create_line_load_on_plane(
+                name=f"parapet_load_zone3_{plate_name}",
+                load_case_name=load_case_name,
+                plane_name=plate_name,
+                edge_index=3,
+                load_value=-load_value,
+            )
+        elif zone_number == 1:
+            builder.create_line_load_on_plane(
+                name=f"parapet_load_zone1_{plate_name}",
+                load_case_name=load_case_name,
+                plane_name=plate_name,
+                edge_index=1,
+                load_value=-load_value,
+            )
+    return []
 
 def add_pedestrian_loads(
     _builder: SciaModelBuilder,
@@ -181,6 +180,7 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -
     # Apply theoretical tandem loads
     add_theoretical_tandem_loads(builder, params)
     add_asfalt_loads(builder, params)
+    add_parapet_loads(builder, params)
 
     # TODO: Add calls to other load functions when they are implemented
     # add_actual_tandem_loads(builder, params)  # noqa: ERA001
