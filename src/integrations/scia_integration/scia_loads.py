@@ -83,7 +83,7 @@ def add_pedestrian_loads(
 def add_asfalt_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
-) -> None:
+) -> list[Any]:
     """PLACEHOLDER: Add asphalt loads to the SCIA model."""
     # Get unit weight for asphalt loads
 
