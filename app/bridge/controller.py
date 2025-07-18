@@ -400,29 +400,22 @@ class BridgeController(ViktorController):
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Download SCIA XML and definition files as a ZIP archive."""
-        if not params.bridge_segments_array:
-            self._raise_no_bridge_segments_error()
+        xml_file, def_file = generate_bridge_xml_files(params)
 
-        try:
-            xml_file, def_file = generate_bridge_xml_files(params)
+        xml_content = xml_file.getvalue()
+        if not xml_content:
+            self._raise_empty_xml_error()
 
-            xml_content = xml_file.getvalue()
-            if not xml_content:
-                self._raise_empty_xml_error()
+        def_content = def_file.getvalue()
+        if not def_content:
+            self._raise_empty_def_error()
 
-            def_content = def_file.getvalue()
-            if not def_content:
-                self._raise_empty_def_error()
+        zip_file_obj = File()
+        with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
+            z.writestr("viktor.xml.def", def_content)
 
-            zip_file_obj = File()
-            with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
-                z.writestr("viktor.xml.def", def_content)
-
-            return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
-
-        except Exception as e:
-            raise UserError(f"SCIA XML generatie gefaald: {e!s}")
+        return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
 
     def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Generate and download a complete SCIA ESA model file."""

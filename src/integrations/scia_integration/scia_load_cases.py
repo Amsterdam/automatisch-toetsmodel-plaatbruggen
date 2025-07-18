@@ -185,8 +185,8 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder) -> dict[str, Sc
     data = [
         ("rs_1", "BG6001", "Verkeer, dienstvoertuig - RS 1"),
         ("rs_2", "BG6002", "Verkeer, dienstvoertuig - RS 2"),
-        ("rs_3", "BG6003", "Verkeer, dienstvoertuig - RS 3"),
     ]
+
     cases = {}
     for key, name, desc in data:
         cases[key] = create_load_case(
