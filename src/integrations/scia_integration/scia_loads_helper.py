@@ -709,14 +709,12 @@ def calc_vehicle_load_locations(
     bottom_right_center = (x_coord + vehicle_length, y_coord - vehicle_width)
 
     # Calculate wheel footprint corners for each wheel
-    wheel_locations = {
+    return {
         "top_left_wheel_corners": _calculate_wheel_corners_vehicle(top_left_center[0], top_left_center[1], wheel_contact_area),
         "top_right_wheel_corners": _calculate_wheel_corners_vehicle(top_right_center[0], top_right_center[1], wheel_contact_area),
         "bottom_left_wheel_corners": _calculate_wheel_corners_vehicle(bottom_left_center[0], bottom_left_center[1], wheel_contact_area),
         "bottom_right_wheel_corners": _calculate_wheel_corners_vehicle(bottom_right_center[0], bottom_right_center[1], wheel_contact_area),
     }
-
-    return wheel_locations
 
 
 def interpolate_points_along_line(line_points: list[tuple[float, float, float]], interval: float) -> list[tuple[float, float, float]]:
@@ -754,6 +752,4 @@ def interpolate_points_along_line(line_points: list[tuple[float, float, float]],
     z_interp = np.interp(regular_distances, distances, points[:, 2])
 
     # Combine back into list of tuples, converting numpy types to regular Python floats
-    interpolated_points = [(float(x), float(y), float(z)) for x, y, z in zip(x_interp, y_interp, z_interp)]
-
-    return interpolated_points
+    return [(float(x), float(y), float(z)) for x, y, z in zip(x_interp, y_interp, z_interp)]
