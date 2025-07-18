@@ -566,7 +566,7 @@ def create_material_surface_load(
     :param load_config: Configuration containing all load parameters:
         - load_zone: Load zone data containing coordinates and properties
         - zone_index: Index of the load zone
-        - span: Span index within the load zone  
+        - span: Span index within the load zone
         - material_name: Name of the material for load naming
         - load_case_name: Name of the load case to apply the load to
     :param bridge_geom_data: Bridge geometry data
@@ -577,7 +577,7 @@ def create_material_surface_load(
     span = load_config["span"]
     material_name = load_config["material_name"]
     load_case_name = load_config["load_case_name"]
-    
+
     # Calculate coordinates for the surface load
     y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
     y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
