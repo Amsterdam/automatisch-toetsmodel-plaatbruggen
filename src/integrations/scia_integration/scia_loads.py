@@ -15,9 +15,8 @@ from .scia_bridge_geometry import (
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_loads_helper import add_material_loads, interpolate_points_along_line, calc_vehicle_load_locations
+from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, interpolate_points_along_line
 from .scia_model_interface import SciaModelBuilder
-from .scia_load_cases import create_service_vehicle_load_cases
 
 
 def add_theoretical_tandem_loads(
@@ -192,13 +191,13 @@ def add_crowd_loads(
     )
     return []  # Placeholder return to match function signature
 
+
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
     """Add service vehicle loads to the SCIA model."""
-
     # Vehicle information
-    vehicle_length=3.0
-    vehicle_width=1.75
-    wheel_contact_area=0.25
+    vehicle_length = 3.0
+    vehicle_width = 1.75
+    wheel_contact_area = 0.25
 
     # Get load zone information from params using the utility functions
     load_zones_data_params = get_load_zones_data_from_params(params)
@@ -214,46 +213,40 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     # TODO for now we only add the service vehicle loads on the edge of the bridge
     # in the future we can filter out a load zone based on name etc.
     # the input is basically a list of points that represent a line along the bridge
-    x_coords_d_points= bridge_geom_data.x_coords_d_points
-    y_top_structural_edge_at_d_points= bridge_geom_data.y_top_structural_edge_at_d_points
+    x_coords_d_points = bridge_geom_data.x_coords_d_points
+    y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
     y_bridge_bottom_at_d_points = bridge_geom_data.y_bridge_bottom_at_d_points
 
     # Create a line representing the top bridge edge using x and y coordinates
-    top_bridge_edge_line = [
-        (x, y, 0.0) for x, y in zip(x_coords_d_points, y_top_structural_edge_at_d_points)
-    ]
+    top_bridge_edge_line = [(x, y, 0.0) for x, y in zip(x_coords_d_points, y_top_structural_edge_at_d_points)]
 
     # Interpolate points every 0.5m along the top bridge edge and add offsets for wheel contact area
     top_edge_points_interpolated = interpolate_points_along_line(top_bridge_edge_line, 0.5)
-    y_offset_top = -wheel_contact_area/2  # Offset for the top edge points
-    x_offset_top = wheel_contact_area/2  # No offset for the top edge points
+    y_offset_top = -wheel_contact_area / 2  # Offset for the top edge points
+    x_offset_top = wheel_contact_area / 2  # No offset for the top edge points
     top_edge_points_interpolated = [(x + x_offset_top, y + y_offset_top, z) for x, y, z in top_edge_points_interpolated]
 
     # Create a line representing the bottom bridge edge using x and y coordinates
-    bottom_bridge_edge_line = [
-        (x, y, 0.0) for x, y in zip(x_coords_d_points, y_bridge_bottom_at_d_points)
-    ]
+    bottom_bridge_edge_line = [(x, y, 0.0) for x, y in zip(x_coords_d_points, y_bridge_bottom_at_d_points)]
 
     # Interpolate points every 0.5m along the bottom bridge edge and add offsets for wheel contact area
     bottom_edge_points_interpolated = interpolate_points_along_line(bottom_bridge_edge_line, 0.5)
-    y_offset_bottom = wheel_contact_area/2 + vehicle_width # Offset for the bottom edge points
-    x_offset_bottom = wheel_contact_area/2  # No offset for the bottom edge points
+    y_offset_bottom = wheel_contact_area / 2 + vehicle_width  # Offset for the bottom edge points
+    x_offset_bottom = wheel_contact_area / 2  # No offset for the bottom edge points
     bottom_edge_points_interpolated = [(x + x_offset_bottom, y + y_offset_bottom, z) for x, y, z in bottom_edge_points_interpolated]
 
     # Trim top_edge_points_interpolated so that the last x value is <= last x - vehicle_length - wheel_contact_area/
     # This ensures that the last wheel load does not extend beyond the bridge edge
     if top_edge_points_interpolated:
         last_x_top = top_edge_points_interpolated[-1][0]
-        top_edge_points_interpolated = [
-            pt for pt in top_edge_points_interpolated if pt[0] <= last_x_top - vehicle_length - wheel_contact_area/2
-        ]
+        top_edge_points_interpolated = [pt for pt in top_edge_points_interpolated if pt[0] <= last_x_top - vehicle_length - wheel_contact_area / 2]
 
     # Trim bottom_edge_points_interpolated so that the last x value is <= last x - vehicle_length - wheel_contact_area/2
     # This ensures that the last wheel load does not extend beyond the bridge edge
     if bottom_edge_points_interpolated:
         last_x_bottom = bottom_edge_points_interpolated[-1][0]
         bottom_edge_points_interpolated = [
-            pt for pt in bottom_edge_points_interpolated if pt[0] <= last_x_bottom - vehicle_length - wheel_contact_area/2
+            pt for pt in bottom_edge_points_interpolated if pt[0] <= last_x_bottom - vehicle_length - wheel_contact_area / 2
         ]
 
     # Create service vehicle load locations based on the interpolated points
@@ -268,14 +261,14 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
         )
-        
+
         # Create surface load cases for each wheel location
         for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-           # Create surface load for each wheel
+            # Create surface load for each wheel
             builder.create_surface_load(
                 name=f"service_vehicle_top_{i}_{j}",
                 # load_case_name=f"BG6001 - {i}", TODO zou dit moeten zijn
-                load_case_name=f"BG6001",
+                load_case_name="BG6001",
                 corner_points=wheel_corners,
                 load_value=-25 * 1000,  # Convert to kN
             )
@@ -296,10 +289,11 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             builder.create_surface_load(
                 name=f"service_vehicle_bottom_{i}_{j}",
                 # load_case_name=f"BG6002 - {i}", #TODO zou dit moeten zijn
-                load_case_name=f"BG6002",
+                load_case_name="BG6002",
                 corner_points=wheel_corners,
                 load_value=-25 * 1000,  # Convert to kN
             )
+
 
 def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
     """

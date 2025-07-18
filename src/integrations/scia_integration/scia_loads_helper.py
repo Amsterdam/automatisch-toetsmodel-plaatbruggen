@@ -557,6 +557,7 @@ def calculate_pavement_load_from_material(
     density = density_lookup.get(str(material).lower(), 0.0)
     return thickness * density if density > 0 and thickness > 0 else 0.0
 
+
 # This function is used to create the load cases 2001/2002/2003
 def create_material_surface_load(
     builder: "SciaModelBuilder",
@@ -603,6 +604,7 @@ def create_material_surface_load(
         corner_points=corners,
         load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"]) * 1000,  # Convert to kN/m²
     )
+
 
 # This function is used to create the load cases 2001/2002/2003
 def add_material_loads(
@@ -667,8 +669,11 @@ def _calculate_wheel_corners_vehicle(center_x: float, center_y: float, wheel_con
         (center_x - half_area, center_y - half_area),  # bottom_left
     ]
 
+
 # Helper function to calculate vehicle load locations
-def calc_vehicle_load_locations(x_coord: float, y_coord: float, vehicle_length: float, vehicle_width: float, wheel_contact_area: float) -> dict[str, list[tuple[float, float]]]:
+def calc_vehicle_load_locations(
+    x_coord: float, y_coord: float, vehicle_length: float, vehicle_width: float, wheel_contact_area: float
+) -> dict[str, list[tuple[float, float]]]:
     """
     Calculate vehicle load locations based on vehicle position.
 
@@ -694,7 +699,6 @@ def calc_vehicle_load_locations(x_coord: float, y_coord: float, vehicle_length: 
             └────────────────────┘
                 vehicle_length
     """
-
     # Calculate wheel center positions
     # Front wheels (left column)
     top_left_center = (x_coord, y_coord)
@@ -718,38 +722,38 @@ def calc_vehicle_load_locations(x_coord: float, y_coord: float, vehicle_length: 
 def interpolate_points_along_line(line_points: list[tuple[float, float, float]], interval: float) -> list[tuple[float, float, float]]:
     """
     Interpolate points along a line at regular intervals using NumPy.
-    
+
     :param line_points: List of (x, y, z) tuples representing the line
     :param interval: Distance between interpolated points in meters
     :return: List of interpolated points at regular intervals
     """
     import numpy as np
-    
+
     if len(line_points) < 2:
         return line_points
-    
+
     # Convert to numpy array for easier manipulation
     points = np.array(line_points)
-    
+
     # Calculate cumulative distances along the line
     distances = np.zeros(len(points))
     for i in range(1, len(points)):
-        segment_length = np.linalg.norm(points[i] - points[i-1])
-        distances[i] = distances[i-1] + segment_length
-    
+        segment_length = np.linalg.norm(points[i] - points[i - 1])
+        distances[i] = distances[i - 1] + segment_length
+
     # Total line length
     total_length = distances[-1]
-    
+
     # Create array of distances at regular intervals
     num_intervals = int(total_length / interval) + 1
     regular_distances = np.linspace(0, total_length, num_intervals)
-    
+
     # Interpolate x, y, z coordinates at regular intervals
     x_interp = np.interp(regular_distances, distances, points[:, 0])
     y_interp = np.interp(regular_distances, distances, points[:, 1])
     z_interp = np.interp(regular_distances, distances, points[:, 2])
-    
+
     # Combine back into list of tuples, converting numpy types to regular Python floats
     interpolated_points = [(float(x), float(y), float(z)) for x, y, z in zip(x_interp, y_interp, z_interp)]
-    
+
     return interpolated_points
