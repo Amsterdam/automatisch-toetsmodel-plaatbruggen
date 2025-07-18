@@ -630,7 +630,7 @@ def add_material_loads(
 
     # Iterate through load zones and apply loads for specified materials
     for i, load_zone in enumerate(load_zones_data_params):
-        pavement_material = load_zone.get("pavement_material", BridgeParametrization)
+        pavement_material = load_zone.get("pavement_material", "")
 
         if pavement_material in material_config:
             load_case_name = material_config[pavement_material]
