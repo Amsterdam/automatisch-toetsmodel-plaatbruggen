@@ -8,14 +8,14 @@ These functions are pure Python and can be used by the app layer to construct th
 from typing import Any
 
 from app.bridge.parametrization import BridgeParametrization
-from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
+from src.geometry.load_zone_geometry import get_bridge_geom_data
 
 from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_loads_helper import add_material_loads, calculate_pavement_load_from_material
+from .scia_loads_helper import add_material_loads
 from .scia_model_interface import SciaModelBuilder
 
 

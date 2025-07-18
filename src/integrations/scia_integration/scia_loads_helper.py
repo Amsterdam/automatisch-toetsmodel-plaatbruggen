@@ -565,7 +565,7 @@ def create_material_surface_load(
 ) -> None:
     """
     Create a surface load for a specific material in a load zone span.
-    
+
     :param builder: SCIA model builder instance
     :param load_zone: Load zone data containing coordinates and properties
     :param zone_index: Index of the load zone
@@ -581,22 +581,19 @@ def create_material_surface_load(
     y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
     x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
     x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-    
+
     corners = [
         (x_coord_left, y_coord_top_left, 0.0),
         (x_coord_right, y_coord_top_right, 0.0),
         (x_coord_right, y_coord_bottom_right, 0.0),
         (x_coord_left, y_coord_bottom_left, 0.0),
     ]
-    
+
     builder.create_surface_load(
         name=f"{load_zone['zone_type']}_{zone_index}_{material_name}_{span}_d{load_zone['pavement_thickness']}",
         load_case_name=load_case_name,
         corner_points=corners,
-        load_value=-calculate_pavement_load_from_material(
-            load_zone["pavement_thickness"], 
-            load_zone["pavement_material"]
-        ) * 1000,  # Convert to kN/m²
+        load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"]) * 1000,  # Convert to kN/m²
     )
 
 
@@ -607,7 +604,7 @@ def add_material_loads(
 ) -> None:
     """
     Add surface loads for specified materials to the SCIA model.
-    
+
     :param builder: SCIA model builder instance
     :param params: Bridge parameters
     :param material_config: Dictionary mapping material names to their load case names
@@ -626,15 +623,12 @@ def add_material_loads(
     # Iterate through load zones and apply loads for specified materials
     for i, load_zone in enumerate(load_zones_data_params):
         pavement_material = load_zone.get("pavement_material", BridgeParametrization)
-        
+
         if pavement_material in material_config:
             load_case_name = material_config[pavement_material]
             # Clean material name for use in load naming
             material_name = pavement_material.replace(" ", "_").replace("(", "").replace(")", "").lower()
-            
+
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                create_material_surface_load(
-                    builder, load_zone, i, span, bridge_geom_data, 
-                    material_name, load_case_name
-                )
+                create_material_surface_load(builder, load_zone, i, span, bridge_geom_data, material_name, load_case_name)
