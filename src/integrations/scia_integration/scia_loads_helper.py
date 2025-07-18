@@ -6,11 +6,15 @@ This module provides utility functions for working with load cases in the bridge
 All functions are independent of the VIKTOR SDK and suitable for use in the core logic layer.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.bridge.parametrization import BridgeParametrization
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
+from src.geometry.model_creator import LoadZoneGeometryData
+
+if TYPE_CHECKING:
+    from .scia_model_interface import SciaModelBuilder
 
 # ========================================================================
 # THEORETICAL TRAFFIC LANE INTEGRATION
@@ -555,9 +559,9 @@ def calculate_pavement_load_from_material(
 
 
 def create_material_surface_load(
-    builder: Any,  # SciaModelBuilder type (avoiding circular import)
+    builder: "SciaModelBuilder",
     load_config: dict[str, Any],
-    bridge_geom_data: Any,
+    bridge_geom_data: LoadZoneGeometryData,
 ) -> None:
     """
     Create a surface load for a specific material in a load zone span.
@@ -602,7 +606,7 @@ def create_material_surface_load(
 
 
 def add_material_loads(
-    builder: Any,  # SciaModelBuilder type (avoiding circular import)
+    builder: "SciaModelBuilder",
     params: BridgeParametrization,
     material_config: dict[str, str],
 ) -> None:
