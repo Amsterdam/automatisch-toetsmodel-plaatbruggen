@@ -17,7 +17,13 @@ from src.common.materials import get_material_densities
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
 
-def generate_theoretical_lane_positions(width_bridgedeck: float, lane_width: float = 3.0) -> list[float]:
+
+def generate_theoretical_lane_positions(
+    width_bridgedeck: float,
+    lane_width: float = 3.0,
+    zone3_width: float = 0.0,
+    zone2_width: float = 0.0,
+) -> list[float]:
     """
     Generate Y-positions for theoretical traffic lanes across bridge width.
 
@@ -28,16 +34,15 @@ def generate_theoretical_lane_positions(width_bridgedeck: float, lane_width: flo
     :type width_bridgedeck: float
     :param lane_width: Standard lane width in meters (default 3.0m)
     :type lane_width: float
-    :returns: List of Y-coordinates for lane centers
+    :param zone3_width: Width of zone 3 to shift all lane centers by (-zone3_width)
+    :type zone3_width: float
+    :returns: List of Y-coordinates for lane centers (shifted by -zone3_width)
     :rtype: list[float]
     :raises ValueError: If bridge_width or lane_width is not positive
 
     Examples:
-        >>> generate_theoretical_lane_positions(30.0, 3.0)
-        [1.5, 4.5, 7.5, 10.5, 13.5, 16.5, 19.5, 22.5, 25.5, 28.5]
-
-        >>> generate_theoretical_lane_positions(10.0, 3.0)
-        [1.5, 4.5, 7.5]  # 3 complete lanes, 1m rest ignored
+        >>> generate_theoretical_lane_positions(30.0, 3.0, 2.0)
+        [-0.5, 2.5, 5.5, 8.5, 11.5, 14.5, 17.5, 20.5, 23.5, 26.5]
 
     """
     if width_bridgedeck <= 0:
@@ -53,7 +58,7 @@ def generate_theoretical_lane_positions(width_bridgedeck: float, lane_width: flo
     for lane_idx in range(num_lanes):
         lane_start = lane_idx * lane_width
         lane_center = lane_start + (lane_width / 2)  # Center of each lane
-        lane_centers.append(lane_center)
+        lane_centers.append(lane_center - zone3_width- 0.5* zone2_width)
 
     return lane_centers
 
@@ -63,7 +68,7 @@ TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
 def tandem_systems_theoretical_lanes(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, lane_width: float = 3.0
+    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, width_firstsegment_zone3: float, width_firstsegment_zone2: float, lane_width: float = 3.0
 ) -> list[dict[str, Any]]:
     """
     Generate tandem loads positioned at theoretical traffic lane centers.
@@ -100,10 +105,11 @@ def tandem_systems_theoretical_lanes(
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
-    lane_y_positions = generate_theoretical_lane_positions(width_bridgedeck, lane_width)
+    lane_y_positions = generate_theoretical_lane_positions(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
-    rs_prefixes = ["BG80", "BG90", "BG100"]
+    rs_prefixes = ["BG8", "BG9", "BG10"]
+
 
     # Generate load cases for each lane position
     for lane_idx, y_lane_center in enumerate(lane_y_positions):
@@ -113,34 +119,61 @@ def tandem_systems_theoretical_lanes(
         prefix = rs_prefixes[lane_idx]
 
         for tandem_idx, x in enumerate(tandem_x_positions, 1):
-            wheels = []
-
-            # Position tandem system at lane center
-            # Tandem dimensions: 1.2m x 1.2m (2x2 wheels with 1.2m spacing)
-            tandem_start_y = y_lane_center - 0.6  # Center the 1.2m tandem in lane
-
-            # Four wheels per tandem system, spaced 1.2m apart in x, 1.2m apart in y
+            wheels_main = []
+            tandem_start_y_main = y_lane_center - 0.6
             for dx, dy in TANDEM_WHEEL_OFFSETS:
                 x0 = x + dx
-                y0 = tandem_start_y + dy
-
-                # Clockwise wheel coordinates: bottom right, top right, top left, bottom left
+                y0 = tandem_start_y_main + dy
                 wheel_coords = [
-                    [x0 + wheel_size, y0],  # bottom right
-                    [x0 + wheel_size, y0 + wheel_size],  # top right
-                    [x0, y0 + wheel_size],  # top left
-                    [x0, y0],  # bottom left
+                    [x0 + wheel_size, y0],
+                    [x0 + wheel_size, y0 + wheel_size],
+                    [x0, y0 + wheel_size],
+                    [x0, y0],
                 ]
-                wheels.append(wheel_coords)
+                wheels_main.append(wheel_coords)
 
-            load_case_name = f"{prefix}{tandem_idx:02d}"
-            results.append(
-                {
-                    "load_case": load_case_name,
-                    "wheels": wheels,
-                    "load": load,
-                }
-            )
+            # Add main 300 kN tandem
+            load_case = {
+                "load_case": f"{prefix}{tandem_idx:03d}",
+                "wheels": wheels_main,
+                "load": load,
+            }
+
+            # Add 200 kN tandem in next lane (if exists)
+            if lane_idx + 1 < len(lane_y_positions):
+                wheels_200 = []
+                tandem_start_y_200 = lane_y_positions[lane_idx + 1] - 0.6
+                for dx, dy in TANDEM_WHEEL_OFFSETS:
+                    x0 = x + dx
+                    y0 = tandem_start_y_200 + dy
+                    wheel_coords = [
+                        [x0 + wheel_size, y0],
+                        [x0 + wheel_size, y0 + wheel_size],
+                        [x0, y0 + wheel_size],
+                        [x0, y0],
+                    ]
+                    wheels_200.append(wheel_coords)
+                load_case.setdefault("wheels_200", wheels_200)
+                load_case.setdefault("load_200", 200 / (0.4 * 0.4))
+
+            # Add 100 kN tandem in next-next lane (if exists)
+            if lane_idx + 2 < len(lane_y_positions):
+                wheels_100 = []
+                tandem_start_y_100 = lane_y_positions[lane_idx + 2] - 0.6
+                for dx, dy in TANDEM_WHEEL_OFFSETS:
+                    x0 = x + dx
+                    y0 = tandem_start_y_100 + dy
+                    wheel_coords = [
+                        [x0 + wheel_size, y0],
+                        [x0 + wheel_size, y0 + wheel_size],
+                        [x0, y0 + wheel_size],
+                        [x0, y0],
+                    ]
+                    wheels_100.append(wheel_coords)
+                load_case.setdefault("wheels_100", wheels_100)
+                load_case.setdefault("load_100", 100 / (0.4 * 0.4))
+
+            results.append(load_case)
 
     return results
 
@@ -275,23 +308,22 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
     start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
     tandem_systems = []
     dx = 0.5  # Default spacing between tandem systems in meters
-    # Always include the mid-span position
-    mid_span_position_ = length_bridgedeck / 2
+    mid_span_position = length_bridgedeck / 2
     end_span_position = length_bridgedeck - start_of_lanes - 1.6
 
-    lane_length = length_bridgedeck - (2 * start_of_lanes)
+    # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
+    pos = start_of_lanes
+    while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
+        tandem_systems.append(round(pos, 6))
+        pos += dx
+    # Always include end_span_position exactly
+    tandem_systems.append(round(end_span_position, 6))
 
-    aantal_tandems = (lane_length - 1.6) // dx  # Calculate number of tandem systems based on spacing
-    for i in range(int(aantal_tandems)):
-        position = start_of_lanes + (i * dx)
-        if position <= (length_bridgedeck - start_of_lanes - 1.6):  # Ensure position does not exceed end span
-            tandem_systems.append(position)
-    # Ensure mid-span position is included
-    if mid_span_position_ not in tandem_systems:
-        tandem_systems.append(mid_span_position_)
-    # Ensure end-span position is included
-    if end_span_position not in tandem_systems:
-        tandem_systems.append(end_span_position)
+    # Ensure mid-span position is included (within tolerance)
+    if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
+        tandem_systems.append(round(mid_span_position, 6))
+
+    tandem_systems = sorted(set(tandem_systems))
     return tandem_systems
 
 

@@ -106,6 +106,8 @@ def extract_tandem_parameters_from_bridge(params: Any) -> dict[str, float]:  # n
     thickness_bridgedeck = first_segment.dz
 
     return {
+        "width_firstsegment_zone3": first_segment.bz3,
+        "width_firstsegment_zone2": first_segment.bz2,
         "length_bridgedeck": length_bridgedeck,
         "width_bridgedeck": width_bridgedeck,
         "thickness_bridgedeck": thickness_bridgedeck,
@@ -181,6 +183,8 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
+            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
+            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
         )
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
