@@ -652,28 +652,28 @@ def add_material_loads(
 
 
 # Helper function to calculate wheel corners for vehicle loads
-def _calculate_wheel_corners_vehicle(center_x: float, center_y: float, wheel_contact_area: float) -> list[tuple[float, float]]:
+def _calculate_wheel_corners_vehicle(center_x: float, center_y: float, wheel_contact_area: float) -> list[tuple[float, float, float]]:
     """
     Calculate the four corner coordinates of a wheel footprint.
 
     :param center_x: X-coordinate of wheel center
     :param center_y: Y-coordinate of wheel center
     :param wheel_contact_area: Size of the wheel contact area (assumed square)
-    :returns: List of corner coordinates as (x, y) tuples (clockwise from top_left)
+    :returns: List of corner coordinates as (x, y, z) tuples (clockwise from top_left)
     """
     half_area = wheel_contact_area / 2
     return [
-        (center_x - half_area, center_y + half_area),  # top_left
-        (center_x + half_area, center_y + half_area),  # top_right
-        (center_x + half_area, center_y - half_area),  # bottom_right
-        (center_x - half_area, center_y - half_area),  # bottom_left
+        (center_x - half_area, center_y + half_area, 0.0),  # top_left
+        (center_x + half_area, center_y + half_area, 0.0),  # top_right
+        (center_x + half_area, center_y - half_area, 0.0),  # bottom_right
+        (center_x - half_area, center_y - half_area, 0.0),  # bottom_left
     ]
 
 
 # Helper function to calculate vehicle load locations
 def calc_vehicle_load_locations(
     x_coord: float, y_coord: float, vehicle_length: float, vehicle_width: float, wheel_contact_area: float
-) -> dict[str, list[tuple[float, float]]]:
+) -> dict[str, list[tuple[float, float, float]]]:
     """
     Calculate vehicle load locations based on vehicle position.
 
@@ -687,7 +687,7 @@ def calc_vehicle_load_locations(
     :param vehicle_width: Width of the vehicle in meters
     :param wheel_contact_area: Size of the wheel contact area (assumed square)
     :returns: Dictionary containing wheel corner coordinates for each of the 4 wheels
-    :rtype: dict[str, list[tuple[float, float]]]
+    :rtype: dict[str, list[tuple[float, float, float]]]
 
     Vehicle Layout:
             ┌────────────────────┐
