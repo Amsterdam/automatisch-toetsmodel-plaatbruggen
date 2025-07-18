@@ -556,24 +556,28 @@ def calculate_pavement_load_from_material(
 
 def create_material_surface_load(
     builder: Any,  # SciaModelBuilder type (avoiding circular import)
-    load_zone: dict[str, Any],
-    zone_index: int,
-    span: int,
+    load_config: dict[str, Any],
     bridge_geom_data: Any,
-    material_name: str,
-    load_case_name: str,
 ) -> None:
     """
     Create a surface load for a specific material in a load zone span.
 
     :param builder: SCIA model builder instance
-    :param load_zone: Load zone data containing coordinates and properties
-    :param zone_index: Index of the load zone
-    :param span: Span index within the load zone
+    :param load_config: Configuration containing all load parameters:
+        - load_zone: Load zone data containing coordinates and properties
+        - zone_index: Index of the load zone
+        - span: Span index within the load zone  
+        - material_name: Name of the material for load naming
+        - load_case_name: Name of the load case to apply the load to
     :param bridge_geom_data: Bridge geometry data
-    :param material_name: Name of the material for load naming
-    :param load_case_name: Name of the load case to apply the load to
     """
+    # Extract parameters from load_config
+    load_zone = load_config["load_zone"]
+    zone_index = load_config["zone_index"]
+    span = load_config["span"]
+    material_name = load_config["material_name"]
+    load_case_name = load_config["load_case_name"]
+    
     # Calculate coordinates for the surface load
     y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
     y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
@@ -631,4 +635,11 @@ def add_material_loads(
 
             # Iterate through spans
             for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                create_material_surface_load(builder, load_zone, i, span, bridge_geom_data, material_name, load_case_name)
+                load_config = {
+                    "load_zone": load_zone,
+                    "zone_index": i,
+                    "span": span,
+                    "material_name": material_name,
+                    "load_case_name": load_case_name,
+                }
+                create_material_surface_load(builder, load_config, bridge_geom_data)
