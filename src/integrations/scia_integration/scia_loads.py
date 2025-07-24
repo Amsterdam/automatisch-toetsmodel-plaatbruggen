@@ -42,15 +42,18 @@ def add_theoretical_tandem_loads(
     scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
 
     # 4. Create surface loads using the builder, applying them to the correct load case
+    
     for tandem in scia_tandem_data:
-        load_case_name = tandem["load_case"]
-        for i, patch_load in enumerate(tandem["patch_loads"]):
-            builder.create_surface_load(
-                name=f"{load_case_name}_Wheel_{i + 1}",
-                load_case_name=load_case_name,
-                corner_points=patch_load["corners"],
-                load_value=-patch_load["load_value"],  # Negative for downward load
-            )
+        # Only process dicts that have both 'load_case' and 'patch_loads' keys
+        if "load_case" in tandem and "patch_loads" in tandem:
+            load_case_name = tandem["load_case"]
+            for i, patch_load in enumerate(tandem["patch_loads"]):
+                builder.create_surface_load(
+                    name=f"{load_case_name}_Wheel_{i + 1}",
+                    load_case_name=load_case_name,
+                    corner_points=patch_load["corners"],
+                    load_value=-patch_load["load_value"],  # Negative for downward load
+                )
 
 
 def add_actual_tandem_loads(
