@@ -7,7 +7,6 @@ These functions are pure Python and can be used by the app layer to construct th
 
 from typing import Any
 
-from app.bridge.parametrization import BridgeParametrization
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 
 from .scia_bridge_geometry import (
@@ -18,10 +17,14 @@ from .scia_bridge_geometry import (
 from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, interpolate_points_along_line
 from .scia_model_interface import SciaModelBuilder
 
+# Type alias to avoid importing from app layer
+BridgeParametrization = Any
+
 
 def add_theoretical_tandem_loads(
     builder: SciaModelBuilder,
     params: Any,  # noqa: ANN401
+    _load_cases: dict[str, Any],
 ) -> None:
     """
     Create theoretical tandem loads and apply them to their existing load cases.
@@ -31,6 +34,7 @@ def add_theoretical_tandem_loads(
 
     :param builder: The SCIA model builder instance.
     :param params: VIKTOR parameters for the bridge.
+    :param load_cases: Dictionary of created load cases.
     """
     # 1. Extract bridge parameters needed for load geometry calculation
     bridge_params = extract_tandem_parameters_from_bridge(params)
@@ -56,6 +60,7 @@ def add_theoretical_tandem_loads(
 def add_actual_tandem_loads(
     _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """PLACEHOLDER: Add actual tandem loads based on user-defined lanes."""
     # This will be implemented when user-defined lanes are supported.
@@ -65,6 +70,7 @@ def add_actual_tandem_loads(
 def add_parapet_loads(
     builder: SciaModelBuilder,
     params: Any,  # noqa: ANN401
+    load_cases: dict[str, Any],
 ) -> list[Any]:
     """
     Add permanent line loads for parapets (railing) to the SCIA model.
@@ -75,13 +81,16 @@ def add_parapet_loads(
 
     :param builder: SCIA model builder instance
     :param params: Bridge parameters (should provide plate_definitions)
+    :param load_cases: Dictionary of created load cases.
     """
     try:
         load_value = params.input.belastingzones.lijnlast_leuning * 1000  # Convert to kN/m
     except AttributeError:
         load_value = 1000  # Fallback default if not present
 
-    load_case_name = "BG2004"
+    # Get the parapet load case name from the load cases dictionary
+    parapet_load_case = load_cases["dead_load_cases"]["leuning"]
+    load_case_name = parapet_load_case.name
 
     # builder.plates is now a dict: {plate_name: Plane}
     plates = getattr(builder, "plates", {})
@@ -114,6 +123,7 @@ def add_parapet_loads(
 def add_pedestrian_loads(
     _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """PLACEHOLDER: Add pedestrian loads to the SCIA model."""
     # This will be implemented based on pedestrian area parameters.
@@ -123,6 +133,7 @@ def add_pedestrian_loads(
 def add_asfalt_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """Add asphalt loads to the SCIA model."""
     material_config = {"Asfalt": "BG2001"}  # TODO is dit correct?
@@ -133,6 +144,7 @@ def add_asfalt_loads(
 def add_concrete_fill_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """Add concrete fill loads to the SCIA model."""
     material_config = {
@@ -146,6 +158,7 @@ def add_concrete_fill_loads(
 def add_pavement_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """Add pavement loads (klinkers, grind, tegels) to the SCIA model."""
     material_config = {
@@ -160,6 +173,7 @@ def add_pavement_loads(
 def add_crowd_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    load_cases: dict[str, Any],
 ) -> list[Any]:
     """PLACEHOLDER: Add crowd loads to the SCIA model."""
     # Get unit weight for crowd loads
@@ -183,20 +197,25 @@ def add_crowd_loads(
         (x_left, y_bottom, 0.0),
     ]
 
+    # Get the pedestrian load case name from the load cases dictionary
+    pedestrian_load_case = load_cases["pedestrian"]
+    load_case_name = pedestrian_load_case.name
+
     builder.create_surface_load(
         name="mensenmenigte_belasting",
-        load_case_name="BG5001",  # TODO is dit correct?
+        load_case_name=load_case_name,
         corner_points=corners,
         load_value=-5 * 1000,  # Convert to kN/m²
     )
     return []  # Placeholder return to match function signature
 
 
-def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
+def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """Add service vehicle loads to the SCIA model."""
-    # Vehicle information
+    # Dienstvoertuig volgens NEN-EN 1991-2 art. 5.3.2.3
     vehicle_length = 3.0
     vehicle_width = 1.75
+    force_per_axle = 25 * 1000  # Convert to N
     wheel_contact_area = 0.25
 
     # Get load zone information from params using the utility functions
@@ -209,6 +228,13 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
     # Update load zones data with geometry properties
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
+
+    # Get the service vehicle load case names from the load cases dictionary
+    service_vehicle_cases = load_cases["service_vehicle_cases"]
+    y_plus_load_case = service_vehicle_cases["y_plus"]
+    y_minus_load_case = service_vehicle_cases["y_minus"]
+    y_plus_load_case_name = y_plus_load_case.name
+    y_minus_load_case_name = y_minus_load_case.name
 
     # TODO for now we only add the service vehicle loads on the edge of the bridge
     # in the future we can filter out a load zone based on name etc.
@@ -267,9 +293,9 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             # Create surface load for each wheel
             builder.create_surface_load(
                 name=f"service_vehicle_top_{i}_{j}",
-                load_case_name="BG6001",  # TODO load_case_name=f"BG6001 - {i}"
+                load_case_name=y_plus_load_case_name,
                 corner_points=wheel_corners,
-                load_value=-25 * 1000,  # Convert to kN
+                load_value=-force_per_axle,
             )
 
     # bottom edge
@@ -287,13 +313,13 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
             builder.create_surface_load(
                 name=f"service_vehicle_bottom_{i}_{j}",
-                load_case_name="BG6002",  # TODO load_case_name=f"BG6002 - {i}"
+                load_case_name=y_minus_load_case_name,
                 corner_points=wheel_corners,
-                load_value=-25 * 1000,  # Convert to kN
+                load_value=-force_per_axle,
             )
 
 
-def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
+def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """
     Create and apply all load types to the bridge model.
 
@@ -304,18 +330,19 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
+    :param load_cases: Dictionary of created load cases.
     """
     # Apply theoretical tandem loads
-    add_asfalt_loads(builder, params)
-    add_concrete_fill_loads(builder, params)
-    add_pavement_loads(builder, params)
-    add_parapet_loads(builder, params)
-    add_crowd_loads(builder, params)
-    add_theoretical_tandem_loads(builder, params)
+    add_asfalt_loads(builder, params, load_cases)
+    add_concrete_fill_loads(builder, params, load_cases)
+    add_pavement_loads(builder, params, load_cases)
+    add_parapet_loads(builder, params, load_cases)
+    add_crowd_loads(builder, params, load_cases)
+    add_theoretical_tandem_loads(builder, params, load_cases)
 
-    add_service_vehicle_loads(builder, params)
+    add_service_vehicle_loads(builder, params, load_cases)
 
     # TODO: Add calls to other load functions when they are implemented
-    # add_actual_tandem_loads(builder, params)  # noqa: ERA001
-    # add_railing_loads(builder, params)  # noqa: ERA001
-    # add_pedestrian_loads(builder, params)  # noqa: ERA001
+    # add_actual_tandem_loads(builder, params, load_cases)  # noqa: ERA001
+    # add_railing_loads(builder, params, load_cases)  # noqa: ERA001
+    # add_pedestrian_loads(builder, params, load_cases)  # noqa: ERA001

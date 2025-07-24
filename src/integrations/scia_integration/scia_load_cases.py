@@ -176,15 +176,15 @@ def create_pedestrian_load_case(builder: SciaModelBuilder) -> SciaLoadCase:
 
 def create_service_vehicle_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
     """
-    Create service vehicle load cases BG6001 to BG6003.
+    Create service vehicle load cases BG6001 to BG6002.
 
     :param builder: The SCIA model builder instance.
     :returns: Dictionary of created service vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
     data = [
-        ("rs_1", "BG6001", "Verkeer, dienstvoertuig - RS 1"),
-        ("rs_2", "BG6002", "Verkeer, dienstvoertuig - RS 2"),
+        ("y_plus", "BG6001", "Verkeer, dienstvoertuig - y+"),
+        ("y_minus", "BG6002", "Verkeer, dienstvoertuig - y-"),
     ]
 
     cases = {}

@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
-from viktor.errors import UserError
-from viktor.result import DownloadResult
 
 from app.bridge.controller import BridgeController
+from viktor.errors import UserError
+from viktor.result import DownloadResult
 
 
 class TestGetSciaTemplatePath:
