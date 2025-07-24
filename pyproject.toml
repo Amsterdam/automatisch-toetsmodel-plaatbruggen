@@ -31,6 +31,12 @@ include = ["../automatisch-toetsmodel-plaatbruggen"]
 python_version = "3.12"
 show_error_codes = true
 pretty = true
+exclude = [
+    "venv/",
+    ".venv/",
+    "env/",
+    ".env/",
+]
 
 [[tool.mypy.overrides]]
 module = ["viktor.*", "geopandas.*", "shapely.*", "plotly.*", "munch.*", "trimesh.*", "psutil.*"]
