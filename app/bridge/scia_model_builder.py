@@ -362,14 +362,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Get the XML output file containing results
             xml_output_file = analysis.get_xml_output_file()
 
-            # Debug: Print analysis object structure
-            print(f"[DEBUG] Analysis object type: {type(analysis)}")
-            print(f"[DEBUG] Analysis object attributes: {[attr for attr in dir(analysis) if not attr.startswith('_')]}")
-            print(f"[DEBUG] XML output file type: {type(xml_output_file)}")
-            print(f"[DEBUG] XML output file size: {getattr(xml_output_file, 'size', 'unknown')}")
-
             # Extract various result types
-            results = {
+            return {
                 "xml_output_file": xml_output_file,
                 "displacements": self.get_displacement_results(analysis),
                 "internal_forces": self.get_internal_force_results(analysis),
@@ -378,17 +372,11 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "analysis_status": self.get_analysis_status(analysis),
             }
 
-            return results
-
         except Exception as e:
             raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
 
     def get_displacement_results(self, analysis: Any) -> dict[str, Any]:
         """Extracts displacement results from SCIA analysis."""
-        # Debug: Explore analysis object for displacement data
-        print(f"[DEBUG] Exploring displacement results...")
-        print(f"[DEBUG] Analysis object: {analysis}")
-
         # TODO: Implement displacement extraction based on SCIA API
         # This will depend on the specific SCIA SDK methods available
         return {
@@ -433,12 +421,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Check if analysis has been executed
             has_results = hasattr(analysis, "get_xml_output_file")
 
-            # Debug: Print detailed analysis object info
-            print(f"[DEBUG] Analysis status check:")
-            print(f"[DEBUG] - Has get_xml_output_file: {has_results}")
-            print(f"[DEBUG] - Has status attr: {hasattr(analysis, 'status')}")
-            print(f"[DEBUG] - Has error attr: {hasattr(analysis, 'error')}")
-
             status = {
                 "executed": has_results,
                 "has_results": has_results,
@@ -448,15 +430,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Try to get more detailed status information if available
             if hasattr(analysis, "status"):
                 status["detailed_status"] = analysis.status
-                print(f"[DEBUG] - Status value: {analysis.status}")
             if hasattr(analysis, "error"):
                 status["error_message"] = analysis.error
-                print(f"[DEBUG] - Error value: {analysis.error}")
 
             return status
 
         except Exception as e:
-            print(f"[DEBUG] Exception in get_analysis_status: {e}")
             return {
                 "executed": False,
                 "has_results": False,
