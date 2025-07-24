@@ -17,7 +17,6 @@ from src.common.materials import get_material_densities
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
 
-
 def generate_theoretical_lane_positions(
     width_bridgedeck: float,
     lane_width: float = 3.0,
@@ -58,7 +57,7 @@ def generate_theoretical_lane_positions(
     for lane_idx in range(num_lanes):
         lane_start = lane_idx * lane_width
         lane_center = lane_start + (lane_width / 2)  # Center of each lane
-        lane_centers.append(lane_center - zone3_width- 0.5* zone2_width)
+        lane_centers.append(lane_center - zone3_width - 0.5 * zone2_width)
 
     return lane_centers
 
@@ -67,8 +66,13 @@ def generate_theoretical_lane_positions(
 TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
-def tandem_systems_theoretical_lanes(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, width_firstsegment_zone3: float, width_firstsegment_zone2: float, lane_width: float = 3.0
+def tandem_systems_theoretical_lanes(  # noqa: PLR0913
+    length_bridgedeck: float,
+    width_bridgedeck: float,
+    thickness_bridgedeck: float,
+    width_firstsegment_zone3: float,
+    width_firstsegment_zone2: float,
+    lane_width: float = 3.0,
 ) -> list[dict[str, Any]]:
     """
     Generate tandem loads positioned at theoretical traffic lane centers.
@@ -170,6 +174,7 @@ def tandem_systems_theoretical_lanes(
 
     return results
 
+
 # ========================================================================
 # PHASE 2: REVERSED NOTIONAL LANES (CRITICAL LOADING FROM OPPOSITE SIDE)
 # ========================================================================
@@ -208,8 +213,13 @@ def generate_theoretical_lane_positions_reversed(
     return lane_centers
 
 
-def tandem_systems_theoretical_lanes_reversed(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, width_firstsegment_zone3: float, width_firstsegment_zone2: float, lane_width: float = 3.0
+def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
+    length_bridgedeck: float,
+    width_bridgedeck: float,
+    thickness_bridgedeck: float,
+    width_firstsegment_zone3: float,
+    width_firstsegment_zone2: float,
+    lane_width: float = 3.0,
 ) -> list[dict[str, any]]:
     """
     Generate tandem loads positioned at theoretical traffic lane centers, starting from the right edge.
@@ -293,6 +303,7 @@ def tandem_systems_theoretical_lanes_reversed(
             results.append(load_case)
 
     return results
+
 
 # ========================================================================
 # FUTURE INTEGRATION ARCHITECTURE
@@ -439,8 +450,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
     if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
         tandem_systems.append(round(mid_span_position, 6))
 
-    tandem_systems = sorted(set(tandem_systems))
-    return tandem_systems
+    return sorted(set(tandem_systems))
 
 
 def tandem_systems_axes_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:

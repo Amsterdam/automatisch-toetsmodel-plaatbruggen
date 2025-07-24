@@ -11,7 +11,7 @@ Functions moved from:
 
 from typing import Any
 
-from .scia_loads_helper import tandem_systems_actual_lanes,  tandem_systems_theoretical_lanes, tandem_systems_theoretical_lanes_reversed
+from .scia_loads_helper import tandem_systems_actual_lanes, tandem_systems_theoretical_lanes, tandem_systems_theoretical_lanes_reversed
 
 
 def extract_bridge_dimensions(params: Any) -> dict[str, Any]:  # noqa: ANN401
@@ -132,7 +132,7 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
         # Theoretical mode uses theoretical lanes regardless of bridge width
         tandem_function = tandem_systems_theoretical_lanes
         function_name = "tandem_systems_theoretical_lanes"
-        tandem_function2= tandem_systems_theoretical_lanes_reversed
+        tandem_function2 = tandem_systems_theoretical_lanes_reversed
         function_name2 = "tandem_systems_theoretical_lanes_reversed"
         # Calculate theoretical lane count (bridge_width / 3.0m per lane)
         lane_count = int(bridge_dims["width_bridgedeck"] // 3.0)
