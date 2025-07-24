@@ -27,21 +27,23 @@ class TestGetGammaFactors(unittest.TestCase):
     def test_get_gamma_factors_valid_input(self, mock_read_csv: Mock) -> None:
         """Test get_gamma_factors with valid input parameters."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "gevolgklasse": ["CC1a", "CC1a", "CC2", "CC2"],
-            "toetsniveau": ["Verbouw", "Verbouw", "Gebruik", "Gebruik"],
-            "vergelijking": ["6.10a", "6.10b", "6.10a", "6.10b"],
-            "gamma_Gjsup": [1.2, 1.2, 1.3, 1.3],
-            "gamma_Gjsup_bb2003": [1.1, 1.1, 1.2, 1.2],
-            "gamma_Gjinf": [1.0, 1.0, 1.0, 1.0],
-            "gamma_Qverkeer": [1.35, 1.35, 1.4, 1.4],
-            "gamma_Qverkeer_bb2003": [1.25, 1.25, 1.3, 1.3],
-            "gamma_Qwind": [1.5, 1.5, 1.5, 1.5],
-            "gamma_Qoverig": [1.5, 1.5, 1.5, 1.5],
-            "gamma_Gset_lin": [1.2, 1.2, 1.2, 1.2],
-            "gamma_Gset_nonlin": [1.35, 1.35, 1.35, 1.35],
-            "gamma_P": [1.0, 1.0, 1.0, 1.0],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC1a", "CC1a", "CC2", "CC2"],
+                "toetsniveau": ["Verbouw", "Verbouw", "Gebruik", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b", "6.10a", "6.10b"],
+                "gamma_Gjsup": [1.2, 1.2, 1.3, 1.3],
+                "gamma_Gjsup_bb2003": [1.1, 1.1, 1.2, 1.2],
+                "gamma_Gjinf": [1.0, 1.0, 1.0, 1.0],
+                "gamma_Qverkeer": [1.35, 1.35, 1.4, 1.4],
+                "gamma_Qverkeer_bb2003": [1.25, 1.25, 1.3, 1.3],
+                "gamma_Qwind": [1.5, 1.5, 1.5, 1.5],
+                "gamma_Qoverig": [1.5, 1.5, 1.5, 1.5],
+                "gamma_Gset_lin": [1.2, 1.2, 1.2, 1.2],
+                "gamma_Gset_nonlin": [1.35, 1.35, 1.35, 1.35],
+                "gamma_P": [1.0, 1.0, 1.0, 1.0],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -58,21 +60,23 @@ class TestGetGammaFactors(unittest.TestCase):
     def test_get_gamma_factors_building_year_2003_or_before(self, mock_read_csv: Mock) -> None:
         """Test get_gamma_factors adjusts factors for buildings from 2003 or before."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "gevolgklasse": ["CC2", "CC2"],
-            "toetsniveau": ["Gebruik", "Gebruik"],
-            "vergelijking": ["6.10a", "6.10b"],
-            "gamma_Gjsup": [1.3, 1.3],
-            "gamma_Gjsup_bb2003": [1.2, 1.2],
-            "gamma_Gjinf": [1.0, 1.0],
-            "gamma_Qverkeer": [1.4, 1.4],
-            "gamma_Qverkeer_bb2003": [1.3, 1.3],
-            "gamma_Qwind": [1.5, 1.5],
-            "gamma_Qoverig": [1.5, 1.5],
-            "gamma_Gset_lin": [1.2, 1.2],
-            "gamma_Gset_nonlin": [1.35, 1.35],
-            "gamma_P": [1.0, 1.0],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC2", "CC2"],
+                "toetsniveau": ["Gebruik", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b"],
+                "gamma_Gjsup": [1.3, 1.3],
+                "gamma_Gjsup_bb2003": [1.2, 1.2],
+                "gamma_Gjinf": [1.0, 1.0],
+                "gamma_Qverkeer": [1.4, 1.4],
+                "gamma_Qverkeer_bb2003": [1.3, 1.3],
+                "gamma_Qwind": [1.5, 1.5],
+                "gamma_Qoverig": [1.5, 1.5],
+                "gamma_Gset_lin": [1.2, 1.2],
+                "gamma_Gset_nonlin": [1.35, 1.35],
+                "gamma_P": [1.0, 1.0],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -86,11 +90,13 @@ class TestGetGammaFactors(unittest.TestCase):
     def test_get_gamma_factors_invalid_cc_class(self, mock_read_csv: Mock) -> None:
         """Test get_gamma_factors raises ValueError for invalid CC class."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "gevolgklasse": ["CC1a", "CC2"],
-            "toetsniveau": ["Verbouw", "Gebruik"],
-            "vergelijking": ["6.10a", "6.10b"],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC1a", "CC2"],
+                "toetsniveau": ["Verbouw", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b"],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act & Assert
@@ -101,11 +107,13 @@ class TestGetGammaFactors(unittest.TestCase):
     def test_get_gamma_factors_invalid_safety_level(self, mock_read_csv: Mock) -> None:
         """Test get_gamma_factors raises ValueError for invalid safety level."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "gevolgklasse": ["CC1a", "CC2"],
-            "toetsniveau": ["Verbouw", "Gebruik"],
-            "vergelijking": ["6.10a", "6.10b"],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC1a", "CC2"],
+                "toetsniveau": ["Verbouw", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b"],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act & Assert
@@ -120,13 +128,15 @@ class TestGetPsiNen8701(unittest.TestCase):
     def test_get_psi_nen_8701_valid_input(self, mock_read_csv: Mock) -> None:
         """Test get_psi_nen_8701 with valid input parameters."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "ref_period": [0.083, 1.0, 15.0, 100.0],
-            "20": [0.5, 0.6, 0.7, 0.8],
-            "50": [0.6, 0.7, 0.8, 0.9],
-            "100": [0.7, 0.8, 0.9, 1.0],
-            "200": [0.8, 0.9, 1.0, 1.1],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "ref_period": [0.083, 1.0, 15.0, 100.0],
+                "20": [0.5, 0.6, 0.7, 0.8],
+                "50": [0.6, 0.7, 0.8, 0.9],
+                "100": [0.7, 0.8, 0.9, 1.0],
+                "200": [0.8, 0.9, 1.0, 1.1],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -140,11 +150,13 @@ class TestGetPsiNen8701(unittest.TestCase):
     def test_get_psi_nen_8701_span_clamping(self, mock_read_csv: Mock) -> None:
         """Test get_psi_nen_8701 clamps span values outside valid range."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "ref_period": [1.0],
-            "20": [0.6],
-            "200": [0.9],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "ref_period": [1.0],
+                "20": [0.6],
+                "200": [0.9],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -159,10 +171,12 @@ class TestGetPsiNen8701(unittest.TestCase):
     def test_get_psi_nen_8701_reference_period_clamping(self, mock_read_csv: Mock) -> None:
         """Test get_psi_nen_8701 clamps reference period values outside valid range."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "ref_period": [0.083, 100.0],
-            "50": [0.6, 0.9],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "ref_period": [0.083, 100.0],
+                "50": [0.6, 0.9],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -182,12 +196,14 @@ class TestGetAlphaTrendNen8701(unittest.TestCase):
     def test_get_alpha_trend_nen_8701_valid_input(self, mock_datetime: Mock, mock_read_csv: Mock) -> None:
         """Test get_alpha_trend_nen_8701 with valid input parameters."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "span": [0, 50, 100],
-            "2010": [1.0, 1.1, 1.2],
-            "2030": [1.1, 1.2, 1.3],
-            "2060": [1.2, 1.3, 1.4],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "span": [0, 50, 100],
+                "2010": [1.0, 1.1, 1.2],
+                "2030": [1.1, 1.2, 1.3],
+                "2060": [1.2, 1.3, 1.4],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Mock current year as 2025
@@ -206,10 +222,12 @@ class TestGetAlphaTrendNen8701(unittest.TestCase):
     def test_get_alpha_trend_nen_8701_span_clamping(self, mock_read_csv: Mock) -> None:
         """Test get_alpha_trend_nen_8701 clamps span values outside valid range."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "span": [0, 100],
-            "2030": [1.0, 1.2],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "span": [0, 100],
+                "2030": [1.0, 1.2],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -228,13 +246,15 @@ class TestGetAlphaQNenEn19912(unittest.TestCase):
     def test_get_alpha_q_nen_en_1991_2_valid_input(self, mock_read_csv: Mock) -> None:
         """Test get_alpha_q_nen_en_1991_2 with valid input parameters."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "nobs": [200, 1000, 2000000],
-            "20": [1.0, 1.1, 1.3],
-            "50": [1.05, 1.15, 1.35],
-            "200": [1.1, 1.2, 1.4],
-            "alpha_qr": [0.8, 0.9, 1.0],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "nobs": [200, 1000, 2000000],
+                "20": [1.0, 1.1, 1.3],
+                "50": [1.05, 1.15, 1.35],
+                "200": [1.1, 1.2, 1.4],
+                "alpha_qr": [0.8, 0.9, 1.0],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -250,12 +270,14 @@ class TestGetAlphaQNenEn19912(unittest.TestCase):
     def test_get_alpha_q_nen_en_1991_2_span_clamping(self, mock_read_csv: Mock) -> None:
         """Test get_alpha_q_nen_en_1991_2 clamps span values outside valid range."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "nobs": [1000],
-            "20": [1.1],
-            "200": [1.4],
-            "alpha_qr": [0.9],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "nobs": [1000],
+                "20": [1.1],
+                "200": [1.4],
+                "alpha_qr": [0.9],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -272,11 +294,13 @@ class TestGetAlphaQNenEn19912(unittest.TestCase):
     def test_get_alpha_q_nen_en_1991_2_nobs_clamping(self, mock_read_csv: Mock) -> None:
         """Test get_alpha_q_nen_en_1991_2 clamps Nobs values outside valid range."""
         # Arrange
-        mock_df = pd.DataFrame({
-            "nobs": [200, 2000000],
-            "50": [1.0, 1.4],
-            "alpha_qr": [0.8, 1.0],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "nobs": [200, 2000000],
+                "50": [1.0, 1.4],
+                "alpha_qr": [0.8, 1.0],
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         # Act
@@ -304,15 +328,17 @@ class TestCreateLoadCombinationTable(unittest.TestCase):
         }
         mock_get_gamma_factors.return_value = mock_gamma_factors
 
-        mock_df = pd.DataFrame({
-            "Combinatie": ["6.10a Perm", "6.10a gr1a", "6.10b Wind gr1a"],
-            "Permanent": [1.0, 0.0, 1.0],
-            "TS": [0.0, 1.0, 0.0],
-            "UDL": [0.0, 1.0, 0.0],
-            "Fiets- en voetpaden": [0.0, 0.3, 0.0],
-            "Mensenmenigte": [0.0, 0.0, 0.0],
-            "Temperatuur": [0.0, 0.6, 0.3],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Combinatie": ["6.10a Perm", "6.10a gr1a", "6.10b Wind gr1a"],
+                "Permanent": [1.0, 0.0, 1.0],
+                "TS": [0.0, 1.0, 0.0],
+                "UDL": [0.0, 1.0, 0.0],
+                "Fiets- en voetpaden": [0.0, 0.3, 0.0],
+                "Mensenmenigte": [0.0, 0.0, 0.0],
+                "Temperatuur": [0.0, 0.6, 0.3],
+            }
+        )
         mock_df = mock_df.set_index("Combinatie")
         mock_read_csv.return_value = mock_df
 
@@ -329,6 +355,7 @@ class TestCreateLoadCombinationTable(unittest.TestCase):
         assert result is not None
         # The function returns a Styler object, so we can check its type
         from pandas.io.formats.style import Styler
+
         assert isinstance(result, Styler)
 
     def test_create_load_combination_table_missing_cc_class(self) -> None:
