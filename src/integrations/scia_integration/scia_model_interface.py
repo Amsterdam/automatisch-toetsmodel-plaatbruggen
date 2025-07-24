@@ -24,6 +24,8 @@ SciaLineSupport = Any
 SciaFreeSurfaceLoad = Any
 SciaLineForceSurface = Any
 SciaFreeLineLoad = Any
+SciaAnalysis = Any
+SciaResults = Any
 
 
 class SciaCombinationType(Enum):
@@ -171,4 +173,36 @@ class SciaModelBuilder(Protocol):
 
     def generate_xml_input(self) -> tuple[Any, Any]:
         """Generates the XML and DEF file from the constructed model."""
+        ...
+
+    def run_analysis(self, xml_file: Any, def_file: Any, esa_template: Any) -> SciaAnalysis:
+        """Runs the SCIA analysis and returns the analysis object."""
+        ...
+
+    def extract_analysis_results(self, analysis: SciaAnalysis) -> SciaResults:
+        """Extracts results from a completed SCIA analysis."""
+        ...
+
+    def get_displacement_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts displacement results from SCIA analysis."""
+        ...
+
+    def get_internal_force_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts internal force results from SCIA analysis."""
+        ...
+
+    def get_reaction_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts reaction force results from SCIA analysis."""
+        ...
+
+    def get_stress_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts stress results from SCIA analysis."""
+        ...
+
+    def get_analysis_status(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Gets the status and metadata of the SCIA analysis."""
+        ...
+
+    def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
+        """Parses the XML output file to extract structured results."""
         ...

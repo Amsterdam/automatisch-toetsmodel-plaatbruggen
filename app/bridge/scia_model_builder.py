@@ -16,6 +16,7 @@ from src.integrations.scia_integration.scia_model_interface import (
     SciaLoadGroup,
     SciaModelBuilder,
 )
+from src.integrations.scia_integration.scia_results import get_result_summary, validate_analysis_results
 
 # Global VIKTOR imports with error handling for CI/testing environments
 try:
@@ -344,6 +345,134 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         xml_file, def_file = self.model.generate_xml_input()
         return xml_file, def_file
 
+    def run_analysis(self, xml_file: Any, def_file: Any, esa_template: Any) -> Any:
+        """Runs the SCIA analysis and returns the analysis object."""
+        if not VIKTOR_AVAILABLE or scia is None:
+            raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+        scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+        scia_analysis.execute(timeout=600)
+        return scia_analysis
+
+    def extract_analysis_results(self, analysis: Any) -> dict[str, Any]:
+        """Extracts results from a completed SCIA analysis."""
+        if not hasattr(analysis, "get_xml_output_file"):
+            raise ValueError("Invalid SCIA analysis object - missing get_xml_output_file method")
+
+        try:
+            # Get the XML output file containing results
+            xml_output_file = analysis.get_xml_output_file()
+
+            # Debug: Print analysis object structure
+            print(f"[DEBUG] Analysis object type: {type(analysis)}")
+            print(f"[DEBUG] Analysis object attributes: {[attr for attr in dir(analysis) if not attr.startswith('_')]}")
+            print(f"[DEBUG] XML output file type: {type(xml_output_file)}")
+            print(f"[DEBUG] XML output file size: {getattr(xml_output_file, 'size', 'unknown')}")
+
+            # Extract various result types
+            results = {
+                "xml_output_file": xml_output_file,
+                "displacements": self.get_displacement_results(analysis),
+                "internal_forces": self.get_internal_force_results(analysis),
+                "reactions": self.get_reaction_results(analysis),
+                "stresses": self.get_stress_results(analysis),
+                "analysis_status": self.get_analysis_status(analysis),
+            }
+
+            return results
+
+        except Exception as e:
+            raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
+
+    def get_displacement_results(self, analysis: Any) -> dict[str, Any]:
+        """Extracts displacement results from SCIA analysis."""
+        # Debug: Explore analysis object for displacement data
+        print(f"[DEBUG] Exploring displacement results...")
+        print(f"[DEBUG] Analysis object: {analysis}")
+
+        # TODO: Implement displacement extraction based on SCIA API
+        # This will depend on the specific SCIA SDK methods available
+        return {
+            "status": "not_implemented",
+            "message": "Displacement extraction to be implemented based on SCIA API",
+            "debug_info": {
+                "analysis_type": str(type(analysis)),
+                "available_attrs": [attr for attr in dir(analysis) if not attr.startswith("_")],
+            },
+        }
+
+    def get_internal_force_results(self, analysis: Any) -> dict[str, Any]:
+        """Extracts internal force results from SCIA analysis."""
+        # TODO: Implement internal force extraction based on SCIA API
+        # This will depend on the specific SCIA SDK methods available
+        return {
+            "status": "not_implemented",
+            "message": "Internal force extraction to be implemented based on SCIA API",
+        }
+
+    def get_reaction_results(self, analysis: Any) -> dict[str, Any]:
+        """Extracts reaction force results from SCIA analysis."""
+        # TODO: Implement reaction force extraction based on SCIA API
+        # This will depend on the specific SCIA SDK methods available
+        return {
+            "status": "not_implemented",
+            "message": "Reaction force extraction to be implemented based on SCIA API",
+        }
+
+    def get_stress_results(self, analysis: Any) -> dict[str, Any]:
+        """Extracts stress results from SCIA analysis."""
+        # TODO: Implement stress extraction based on SCIA API
+        # This will depend on the specific SCIA SDK methods available
+        return {
+            "status": "not_implemented",
+            "message": "Stress extraction to be implemented based on SCIA API",
+        }
+
+    def get_analysis_status(self, analysis: Any) -> dict[str, Any]:
+        """Gets the status and metadata of the SCIA analysis."""
+        try:
+            # Check if analysis has been executed
+            has_results = hasattr(analysis, "get_xml_output_file")
+
+            # Debug: Print detailed analysis object info
+            print(f"[DEBUG] Analysis status check:")
+            print(f"[DEBUG] - Has get_xml_output_file: {has_results}")
+            print(f"[DEBUG] - Has status attr: {hasattr(analysis, 'status')}")
+            print(f"[DEBUG] - Has error attr: {hasattr(analysis, 'error')}")
+
+            status = {
+                "executed": has_results,
+                "has_results": has_results,
+                "error_message": None,
+            }
+
+            # Try to get more detailed status information if available
+            if hasattr(analysis, "status"):
+                status["detailed_status"] = analysis.status
+                print(f"[DEBUG] - Status value: {analysis.status}")
+            if hasattr(analysis, "error"):
+                status["error_message"] = analysis.error
+                print(f"[DEBUG] - Error value: {analysis.error}")
+
+            return status
+
+        except Exception as e:
+            print(f"[DEBUG] Exception in get_analysis_status: {e}")
+            return {
+                "executed": False,
+                "has_results": False,
+                "error_message": str(e),
+            }
+
+    def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
+        """Parses the XML output file to extract structured results."""
+        # TODO: Implement XML parsing based on SCIA output format
+        # This will require understanding the SCIA XML output structure
+        return {
+            "status": "not_implemented",
+            "message": "XML parsing to be implemented based on SCIA output format",
+            "file_size": getattr(xml_output_file, "size", 0) if xml_output_file else 0,
+        }
+
 
 # =============================================================================
 # TOP-LEVEL BUILDER FUNCTIONS
@@ -391,3 +520,37 @@ def run_scia_analysis(params: Any, template_path: Path) -> scia.SciaAnalysis:  #
     scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
     scia_analysis.execute(timeout=600)
     return scia_analysis
+
+
+def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any]:  # noqa: ANN401
+    """
+    Run SCIA analysis and extract results.
+
+    :param params: The bridge parameters.
+    :param template_path: The path to the ESA template file.
+    :return: Dictionary containing extracted analysis results.
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    # Create builder and generate input files
+    builder = ViktorSciaModelBuilder()
+    define_complete_bridge_model(builder, params)
+    xml_file, def_file = builder.generate_xml_input()
+    esa_template = File.from_path(template_path)
+
+    # Run the analysis using the builder interface
+    analysis = builder.run_analysis(xml_file, def_file, esa_template)
+
+    # Extract results using the builder interface
+    results = builder.extract_analysis_results(analysis)
+
+    # Validate results
+    is_valid, validation_messages = validate_analysis_results(results)
+    if not is_valid:
+        results["validation_errors"] = validation_messages
+
+    # Add summary
+    results["summary"] = get_result_summary(results)
+
+    return results

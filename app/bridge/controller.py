@@ -455,6 +455,56 @@ class BridgeController(ViktorController):
             )
             raise UserError(error_msg)
 
+    def run_scia_analysis(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Run SCIA analysis and return results."""
+        if not params.bridge_segments_array:
+            self._raise_no_bridge_segments_error()
+
+        try:
+            # Get the template path
+            template_path = self._get_scia_template_path()
+
+            # Import the analysis function
+            from app.bridge.scia_model_builder import get_scia_analysis_results
+
+            # Run the analysis
+            results = get_scia_analysis_results(params, template_path)
+
+            # Create a simple text file with the results summary
+            results_text = f"""SCIA Analysis Results
+====================
+
+Analysis Status: {results.get("analysis_status", {}).get("executed", "Unknown")}
+Has Results: {results.get("analysis_status", {}).get("has_results", "Unknown")}
+
+Results Summary:
+{results.get("result_summary", "No summary available")}
+
+Validation:
+{results.get("validation", "No validation available")}
+
+Debug Information:
+- Displacements: {results.get("displacements", {}).get("status", "Unknown")}
+- Internal Forces: {results.get("internal_forces", {}).get("status", "Unknown")}
+- Reactions: {results.get("reactions", {}).get("status", "Unknown")}
+- Stresses: {results.get("stresses", {}).get("status", "Unknown")}
+"""
+
+            return DownloadResult(
+                file=File.from_string(results_text, "scia_analysis_results.txt"),
+                filename="scia_analysis_results.txt",
+            )
+
+        except Exception as e:
+            error_msg = (
+                f"SCIA analysis failed: {e!s}\n\n"
+                "Possible causes:\n"
+                "- SCIA worker not available or not properly installed.\n"
+                "- SCIA Engineer license issues.\n"
+                "- Template file is invalid or incompatible.\n"
+            )
+            raise UserError(error_msg)
+
     # ============================================================================================================
     # IDEA StatiCa Integration
     # ============================================================================================================
