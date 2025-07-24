@@ -126,7 +126,7 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     all_load_cases = create_all_load_cases(builder, params)
 
     # 5. Apply all loads to the now-existing cases
-    create_all_loads(builder, params)
+    create_all_loads(builder, params, all_load_cases)
 
     # 6. Build Load Combinations (PLACEHOLDER FOR NOW)
     create_all_load_combinations(builder, all_load_cases)

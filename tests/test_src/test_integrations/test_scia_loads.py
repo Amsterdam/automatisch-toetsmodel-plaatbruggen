@@ -4,6 +4,7 @@ Tests for SCIA loads module.
 Tests for load application functions and tandem load integration using a mocked builder.
 """
 
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -44,7 +45,9 @@ class TestTheoreticalTandemLoads:
         ]
         mock_convert.return_value = mock_scia_data
 
-        add_theoretical_tandem_loads(mock_builder, mock_params)
+        # Create a mock load_cases dictionary
+        mock_load_cases: dict[str, Any] = {}
+        add_theoretical_tandem_loads(mock_builder, mock_params, mock_load_cases)
 
         # Verify workflow
         mock_extract.assert_called_once_with(mock_params)
@@ -82,7 +85,9 @@ class TestTheoreticalTandemLoads:
         ]
         mock_convert.return_value = mock_scia_data
 
-        add_theoretical_tandem_loads(mock_builder, mock_params)
+        # Create a mock load_cases dictionary
+        mock_load_cases: dict[str, Any] = {}
+        add_theoretical_tandem_loads(mock_builder, mock_params, mock_load_cases)
 
         # Verify both wheels were processed
         assert mock_builder.create_surface_load.call_count == 2
@@ -99,8 +104,18 @@ class TestAllLoads:
         """Test that `create_all_loads` calls the tandem load function."""
         from src.integrations.scia_integration.scia_loads import create_all_loads
 
-        create_all_loads(mock_builder, mock_params)
-        mock_add_tandem.assert_called_once_with(mock_builder, mock_params)
+        # Create a mock load_cases dictionary
+        mock_load_cases = {
+            "dead_load_cases": {"leuning": Mock(name="BG2004")},
+            "pedestrian": Mock(name="BG5001"),
+            "service_vehicle_cases": {
+                "y_plus": Mock(name="BG6001"),
+                "y_minus": Mock(name="BG6002"),
+            },
+        }
+
+        create_all_loads(mock_builder, mock_params, mock_load_cases)
+        mock_add_tandem.assert_called_once_with(mock_builder, mock_params, mock_load_cases)
         # TODO: Add asserts for other load types when implemented
 
 
@@ -115,8 +130,10 @@ class TestLoadErrorHandling:
         # Simulate error in parameter extraction
         mock_extract.side_effect = ValueError("Parameter extraction failed")
 
+        # Create a mock load_cases dictionary
+        mock_load_cases: dict[str, Any] = {}
         with pytest.raises(ValueError, match="Parameter extraction failed"):
-            add_theoretical_tandem_loads(mock_builder, mock_params)
+            add_theoretical_tandem_loads(mock_builder, mock_params, mock_load_cases)
 
 
 if __name__ == "__main__":

@@ -5,25 +5,8 @@ from pathlib import Path  # Add Path import for SCIA template
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs, scia
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
+import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -61,6 +44,23 @@ from src.geometry.model_creator import (
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.idea_interface import _get_unique_matching_zone_keys, create_bridge_idea_model, run_idea_analysis
 from src.report.report_functions import create_export_report  # Import the report creation function
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.external import idea_rcs, scia
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -400,29 +400,22 @@ class BridgeController(ViktorController):
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Download SCIA XML and definition files as a ZIP archive."""
-        if not params.bridge_segments_array:
-            self._raise_no_bridge_segments_error()
+        xml_file, def_file = generate_bridge_xml_files(params)
 
-        try:
-            xml_file, def_file = generate_bridge_xml_files(params)
+        xml_content = xml_file.getvalue()
+        if not xml_content:
+            self._raise_empty_xml_error()
 
-            xml_content = xml_file.getvalue()
-            if not xml_content:
-                self._raise_empty_xml_error()
+        def_content = def_file.getvalue()
+        if not def_content:
+            self._raise_empty_def_error()
 
-            def_content = def_file.getvalue()
-            if not def_content:
-                self._raise_empty_def_error()
+        zip_file_obj = File()
+        with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
+            z.writestr("viktor.xml.def", def_content)
 
-            zip_file_obj = File()
-            with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
-                z.writestr("viktor.xml.def", def_content)
-
-            return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
-
-        except Exception as e:
-            raise UserError(f"SCIA XML generatie gefaald: {e!s}")
+        return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
 
     def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Generate and download a complete SCIA ESA model file."""
