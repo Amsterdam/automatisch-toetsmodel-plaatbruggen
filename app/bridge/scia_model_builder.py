@@ -370,6 +370,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "reactions": self.get_reaction_results(analysis),
                 "stresses": self.get_stress_results(analysis),
                 "analysis_status": self.get_analysis_status(analysis),
+                "xml_parsing": self.parse_xml_results(xml_output_file),
             }
 
         except Exception as e:
@@ -377,43 +378,119 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def get_displacement_results(self, analysis: Any) -> dict[str, Any]:
         """Extracts displacement results from SCIA analysis."""
-        # TODO: Implement displacement extraction based on SCIA API
-        # This will depend on the specific SCIA SDK methods available
-        return {
-            "status": "not_implemented",
-            "message": "Displacement extraction to be implemented based on SCIA API",
-            "debug_info": {
-                "analysis_type": str(type(analysis)),
-                "available_attrs": [attr for attr in dir(analysis) if not attr.startswith("_")],
-            },
-        }
+        try:
+            xml_output_file = analysis.get_xml_output_file()
 
-    def get_internal_force_results(self, analysis: Any) -> dict[str, Any]:
+            # Try to extract displacement results using OutputFileParser
+            try:
+                from viktor.external.scia import OutputFileParser
+
+                displacement_table = OutputFileParser.get_result(xml_output_file, "Displacements")
+                return {
+                    "status": "success",
+                    "data": displacement_table,
+                    "message": "Displacement results extracted successfully",
+                }
+            except Exception as parse_error:
+                return {
+                    "status": "parse_error",
+                    "message": f"Failed to parse displacement results: {parse_error}",
+                    "error": str(parse_error),
+                }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to extract displacement results: {e}",
+                "error": str(e),
+            }
+
+    def get_internal_force_results(self, _analysis: Any) -> dict[str, Any]:
         """Extracts internal force results from SCIA analysis."""
-        # TODO: Implement internal force extraction based on SCIA API
-        # This will depend on the specific SCIA SDK methods available
-        return {
-            "status": "not_implemented",
-            "message": "Internal force extraction to be implemented based on SCIA API",
-        }
+        try:
+            xml_output_file = _analysis.get_xml_output_file()
 
-    def get_reaction_results(self, analysis: Any) -> dict[str, Any]:
+            # Try to extract internal force results using OutputFileParser
+            try:
+                from viktor.external.scia import OutputFileParser
+
+                internal_forces_table = OutputFileParser.get_result(xml_output_file, "2D internal forces")
+                return {
+                    "status": "success",
+                    "data": internal_forces_table,
+                    "message": "Internal force results extracted successfully",
+                }
+            except Exception as parse_error:
+                return {
+                    "status": "parse_error",
+                    "message": f"Failed to parse internal force results: {parse_error}",
+                    "error": str(parse_error),
+                }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to extract internal force results: {e}",
+                "error": str(e),
+            }
+
+    def get_reaction_results(self, _analysis: Any) -> dict[str, Any]:
         """Extracts reaction force results from SCIA analysis."""
-        # TODO: Implement reaction force extraction based on SCIA API
-        # This will depend on the specific SCIA SDK methods available
-        return {
-            "status": "not_implemented",
-            "message": "Reaction force extraction to be implemented based on SCIA API",
-        }
+        try:
+            xml_output_file = _analysis.get_xml_output_file()
 
-    def get_stress_results(self, analysis: Any) -> dict[str, Any]:
+            # Try to extract reaction results using OutputFileParser
+            try:
+                from viktor.external.scia import OutputFileParser
+
+                reaction_table = OutputFileParser.get_result(xml_output_file, "Reactions")
+                return {
+                    "status": "success",
+                    "data": reaction_table,
+                    "message": "Reaction results extracted successfully",
+                }
+            except Exception as parse_error:
+                return {
+                    "status": "parse_error",
+                    "message": f"Failed to parse reaction results: {parse_error}",
+                    "error": str(parse_error),
+                }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to extract reaction results: {e}",
+                "error": str(e),
+            }
+
+    def get_stress_results(self, _analysis: Any) -> dict[str, Any]:
         """Extracts stress results from SCIA analysis."""
-        # TODO: Implement stress extraction based on SCIA API
-        # This will depend on the specific SCIA SDK methods available
-        return {
-            "status": "not_implemented",
-            "message": "Stress extraction to be implemented based on SCIA API",
-        }
+        try:
+            xml_output_file = _analysis.get_xml_output_file()
+
+            # Try to extract stress results using OutputFileParser
+            try:
+                from viktor.external.scia import OutputFileParser
+
+                stress_table = OutputFileParser.get_result(xml_output_file, "Stresses")
+                return {
+                    "status": "success",
+                    "data": stress_table,
+                    "message": "Stress results extracted successfully",
+                }
+            except Exception as parse_error:
+                return {
+                    "status": "parse_error",
+                    "message": f"Failed to parse stress results: {parse_error}",
+                    "error": str(parse_error),
+                }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to extract stress results: {e}",
+                "error": str(e),
+            }
 
     def get_analysis_status(self, analysis: Any) -> dict[str, Any]:
         """Gets the status and metadata of the SCIA analysis."""
@@ -444,13 +521,50 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
-        # TODO: Implement XML parsing based on SCIA output format
-        # This will require understanding the SCIA XML output structure
-        return {
-            "status": "not_implemented",
-            "message": "XML parsing to be implemented based on SCIA output format",
-            "file_size": getattr(xml_output_file, "size", 0) if xml_output_file else 0,
-        }
+        try:
+            from viktor.external.scia import OutputFileParser
+
+            # List of common result tables to try to extract
+            result_tables = [
+                "Displacements",
+                "2D internal forces",
+                "Reactions",
+                "Stresses",
+                "Result classes - UGT",
+                "Result classes - ULS",
+                "Result classes - SLS",
+            ]
+
+            parsed_results = {}
+
+            for table_name in result_tables:
+                try:
+                    table_data = OutputFileParser.get_result(xml_output_file, table_name)
+                    parsed_results[table_name] = {
+                        "status": "success",
+                        "data": table_data,
+                        "message": f"Successfully extracted {table_name}",
+                    }
+                except Exception as e:
+                    parsed_results[table_name] = {
+                        "status": "not_found",
+                        "message": f"Table '{table_name}' not found in XML output",
+                        "error": str(e),
+                    }
+
+            return {
+                "status": "success",
+                "parsed_tables": parsed_results,
+                "total_tables_found": sum(1 for r in parsed_results.values() if r["status"] == "success"),
+                "total_tables_attempted": len(result_tables),
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to parse XML results: {e}",
+                "error": str(e),
+            }
 
 
 # =============================================================================

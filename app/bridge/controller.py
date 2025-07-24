@@ -455,8 +455,8 @@ class BridgeController(ViktorController):
             )
             raise UserError(error_msg)
 
-    def run_scia_analysis(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
-        """Run SCIA analysis and return results."""
+    def run_scia_analysis(self, params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG002
+        """Run SCIA analysis and display results."""
         if not params.bridge_segments_array:
             self._raise_no_bridge_segments_error()
 
@@ -483,17 +483,21 @@ Results Summary:
 Validation:
 {results.get("validation", "No validation available")}
 
-Debug Information:
-- Displacements: {results.get("displacements", {}).get("status", "Unknown")}
-- Internal Forces: {results.get("internal_forces", {}).get("status", "Unknown")}
-- Reactions: {results.get("reactions", {}).get("status", "Unknown")}
-- Stresses: {results.get("stresses", {}).get("status", "Unknown")}
+Detailed Results:
+- Displacements: {results.get("displacements", {}).get("status", "Unknown")} - {results.get("displacements", {}).get("message", "No message")}
+- Internal Forces: {results.get("internal_forces", {}).get("status", "Unknown")} - {results.get("internal_forces", {}).get("message", "No message")}
+- Reactions: {results.get("reactions", {}).get("status", "Unknown")} - {results.get("reactions", {}).get("message", "No message")}
+- Stresses: {results.get("stresses", {}).get("status", "Unknown")} - {results.get("stresses", {}).get("message", "No message")}
+
+XML Parsing Results:
+{results.get("xml_parsing", {}).get("status", "Unknown")} - {results.get("xml_parsing", {}).get("message", "No message")}
+Tables Found: {results.get("xml_parsing", {}).get("total_tables_found", "Unknown")} / {results.get("xml_parsing", {}).get("total_tables_attempted", "Unknown")}
 """
 
-            return DownloadResult(
-                file=File.from_string(results_text, "scia_analysis_results.txt"),
-                filename="scia_analysis_results.txt",
-            )
+            # For now, just print the results to the console/logs
+            # In the future, this could be displayed in a view or stored for later access
+            print("SCIA Analysis completed successfully!")
+            print(results_text)
 
         except Exception as e:
             error_msg = (
