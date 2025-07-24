@@ -18,7 +18,6 @@ from app.constants import (
 )
 from viktor import DynamicArray
 from viktor.parametrization import (
-    ActionButton,
     BooleanField,
     DownloadButton,
     DynamicArrayConstraint,
@@ -848,7 +847,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- SCIA Page ---
     # ----------------------------------
 
-    scia = Page("SCIA", views=["get_3d_view"])
+    scia = Page("SCIA", views=["get_3d_view", "get_scia_results_table"])
 
     scia.info_text = Text(SCIA_INFO_TEXT)
 
@@ -858,7 +857,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     scia.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
 
     # Analysis button
-    scia.run_analysis_button = ActionButton("Run SCIA Analysis", method="run_scia_analysis")
+    scia.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
 
     # ----------------------------------
     # --- IDEA StatiCa Page ---

@@ -206,3 +206,12 @@ class SciaModelBuilder(Protocol):
     def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
         ...
+
+    def create_result_class(
+        self,
+        name: str,
+        combinations: list[SciaLoadCombination] | None = None,
+        nonlinear_combinations: list[Any] | None = None,
+    ) -> Any:
+        """Creates a result class in the SCIA model."""
+        ...

@@ -63,11 +63,14 @@ def _create_example_combination(
     :rtype: list[SciaLoadCombination]
     """
     combinations = []
-
+    
+    print(f"Creating example combinations. Available load case categories: {list(all_load_cases.keys())}")
+    
     # Example: Get pedestrian load case from the nested dictionary
     pedestrian_case = all_load_cases.get("standard_cases", {}).get("pedestrian")
-
+    
     if pedestrian_case:
+        print("Found pedestrian load case, creating ULS combination")
         # Example: Define load factors for ULS combination
         # These are placeholder values - colleagues should replace with proper NEN/Eurocode factors
         load_factors = {
@@ -85,8 +88,26 @@ def _create_example_combination(
                 description="Example ULS: 1.35*G + 1.50*Q (Self-weight + Pedestrian)",
             )
             combinations.append(uls_combo)
-        except Exception:
-            pass  # Continue if combination creation fails
+            print(f"Successfully created combination: ULS_Example_SW_Pedestrian")
+        except Exception as e:
+            print(f"Failed to create ULS combination: {e}")
+    else:
+        print("Pedestrian load case not found. Available standard cases:", list(all_load_cases.get("standard_cases", {}).keys()))
+        
+        # Try to create a simple self-weight only combination as fallback
+        try:
+            load_factors = {self_weight_case: 1.0}
+            simple_combo = create_load_combination(
+                builder=builder,
+                combination_type=SciaCombinationType.EN_ULS_SET_B,
+                combination_name="ULS_Self_Weight_Only",
+                load_case_factors=load_factors,
+                description="Simple ULS: 1.0*G (Self-weight only)",
+            )
+            combinations.append(simple_combo)
+            print(f"Created fallback combination: ULS_Self_Weight_Only")
+        except Exception as e:
+            print(f"Failed to create fallback combination: {e}")
 
     return combinations
 

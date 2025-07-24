@@ -50,6 +50,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
+        self.load_combinations: dict[str, scia.LoadCombination] = {}  # Track load combinations
+        self.result_classes: dict[str, scia.ResultClass] = {}  # Track result classes
 
     def create_material(self, name: str, material_id: int = 0) -> scia.Material:
         """Creates a material and stores it."""
@@ -302,7 +304,31 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         combination = self.model.create_load_combination(name, combo_class, description)
         for load_case, factor in load_case_factors.items():
             combination.add_load_case(load_case, factor)
+        self.load_combinations[name] = combination
         return combination
+
+    def create_result_class(
+        self,
+        name: str,
+        combinations: list[scia.LoadCombination] | None = None,
+        nonlinear_combinations: list[Any] | None = None,
+    ) -> scia.ResultClass:
+        """Creates a result class in the SCIA model."""
+        # Create the result class
+        result_class = self.model.create_result_class(name)
+        
+        # Add load combinations if provided
+        if combinations:
+            for combination in combinations:
+                result_class.add_combination(combination)
+        
+        # Add nonlinear combinations if provided (future implementation)
+        if nonlinear_combinations:
+            # TODO: Implement nonlinear combination support when needed
+            pass
+        
+        self.result_classes[name] = result_class
+        return result_class
 
     def create_line_support_on_plane(
         self,
@@ -381,8 +407,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = analysis.get_xml_output_file()
 
-            # Try multiple possible table names for displacements
-            displacement_table_names = ["Displacements", "Displacement", "Deformation", "Deformations"]
+            # Actual table names from SCIA output
+            displacement_table_names = ["2D-verplaatsing", "1D-vervormingen", "Displacements", "Displacement"]
 
             for table_name in displacement_table_names:
                 try:
@@ -396,7 +422,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                         "table_name": table_name,
                     }
                 except Exception:
-                    continue  # Try next table name
+                    continue
 
             return {
                 "status": "not_found",
@@ -415,8 +441,14 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = _analysis.get_xml_output_file()
 
-            # Try multiple possible table names for internal forces
-            internal_force_table_names = ["2D internal forces", "Internal forces", "Internal Forces", "Forces", "Internal force"]
+            # Actual table names from SCIA output
+            internal_force_table_names = [
+                "Interne 2D-krachten basis",
+                "Interne 2D-krachten elementair",
+                "Interne 1D-krachten",
+                "2D internal forces",
+                "Internal forces",
+            ]
 
             for table_name in internal_force_table_names:
                 try:
@@ -430,7 +462,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                         "table_name": table_name,
                     }
                 except Exception:
-                    continue  # Try next table name
+                    continue
 
             return {
                 "status": "not_found",
@@ -449,7 +481,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = _analysis.get_xml_output_file()
 
-            # Try multiple possible table names for reactions
+            # Common reaction table names (may not be present in this analysis)
             reaction_table_names = ["Reactions", "Reaction", "Support reactions", "Support reaction"]
 
             for table_name in reaction_table_names:
@@ -464,7 +496,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                         "table_name": table_name,
                     }
                 except Exception:
-                    continue  # Try next table name
+                    continue
 
             return {
                 "status": "not_found",
@@ -483,7 +515,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = _analysis.get_xml_output_file()
 
-            # Try multiple possible table names for stresses
+            # Common stress table names (may not be present in this analysis)
             stress_table_names = ["Stresses", "Stress", "Stress results", "Stress analysis"]
 
             for table_name in stress_table_names:
@@ -498,7 +530,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                         "table_name": table_name,
                     }
                 except Exception:
-                    continue  # Try next table name
+                    continue
 
             return {
                 "status": "not_found",
@@ -548,6 +580,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # First, let's try to discover what tables are actually available
             available_tables = []
+            table_details = []  # Store more details about each table
             try:
                 # Try to read the XML content to discover table names
                 if hasattr(xml_output_file, "getvalue"):
@@ -560,18 +593,100 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     xml_content = None
 
                 if xml_content:
-                    # Parse XML to find table names
+                    # Debug: Check XML content
+                    print(f"XML content length: {len(xml_content)} bytes")
+                    print(f"XML content starts with: {xml_content[:200]}...")
+
+                    # Parse XML to find table names and check if they have data
                     root = ET.fromstring(xml_content)
-                    for table in root.findall(".//table"):
+                    print(f"Root element tag: {root.tag}")
+                    print(f"Root element attributes: {root.attrib}")
+
+                    # Handle XML namespace - SCIA uses xmlns="http://www.scia.cz"
+                    namespace = {"scia": "http://www.scia.cz"}
+
+                    # Try with namespace first
+                    tables = root.findall(".//scia:table", namespace)
+                    if not tables:
+                        # Fallback to no namespace
+                        tables = root.findall(".//table")
+
+                    for table in tables:
                         table_name = table.get("name")
                         if table_name:
                             available_tables.append(table_name)
-            except Exception:
+
+                            # Check if table has actual data (rows with results)
+                            has_data = False
+                            has_objects = False
+
+                            # Check for data rows (with namespace handling)
+                            data_rows = table.findall(".//scia:row", namespace)
+                            if not data_rows:
+                                data_rows = table.findall(".//row")
+                            if data_rows:
+                                has_data = True
+
+                            # Check for object elements (metadata) (with namespace handling)
+                            objects = table.findall(".//scia:obj", namespace)
+                            if not objects:
+                                objects = table.findall(".//obj")
+                            if objects:
+                                has_objects = True
+
+                            table_details.append(
+                                {
+                                    "name": table_name,
+                                    "has_data": has_data,
+                                    "has_objects": has_objects,
+                                    "data_rows": len(data_rows),
+                                    "objects": len(objects),
+                                }
+                            )
+
+                            # Debug: Show sample data for tables that have rows
+                            if len(data_rows) > 0:
+                                print(f"Sample data from {table_name}:")
+                                for i, row in enumerate(data_rows[:3]):  # Show first 3 rows
+                                    row_data = {}
+                                    # Try different ways to extract data from the row
+                                    for j, p in enumerate(row.findall(".//p")):
+                                        row_data[f"p{j}"] = p.get("v", "")
+                                    
+                                    # Also try to get all attributes from the row
+                                    row_attrs = dict(row.attrib)
+                                    if row_attrs:
+                                        row_data["attributes"] = row_attrs
+                                    
+                                    # Try to get text content
+                                    row_text = row.text.strip() if row.text else ""
+                                    if row_text:
+                                        row_data["text"] = row_text
+                                    
+                                    print(f"  Row {i}: {row_data}")
+                                    
+                                    # Show the raw XML for the first row to understand structure
+                                    if i == 0:
+                                        import xml.etree.ElementTree as ET
+                                        print(f"  Raw XML for first row: {ET.tostring(row, encoding='unicode')}")
+            except Exception as e:
                 # If XML parsing fails, continue with default tables
-                pass
+                print(f"XML parsing error: {e}")  # Debug info
+            else:
+                # Debug: Show what we found
+                print(f"Found {len(available_tables)} tables in XML: {available_tables}")
+                for detail in table_details:
+                    print(f"  - {detail['name']}: {detail['data_rows']} data rows, {detail['objects']} objects")
 
             # List of common result tables to try to extract (with variations)
             result_tables = [
+                # Actual table names from SCIA output
+                "2D-verplaatsing",
+                "1D-vervormingen",
+                "Interne 2D-krachten basis",
+                "Interne 2D-krachten elementair",
+                "Interne 1D-krachten",
+                # Fallback names
                 "Displacements",
                 "Displacement",
                 "2D internal forces",
@@ -597,9 +712,23 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             parsed_results = {}
 
+            # Create a fresh BytesIO object for OutputFileParser
+            from io import BytesIO
+
+            fresh_xml_content = None
+
+            if hasattr(xml_output_file, "getvalue"):
+                fresh_xml_content = BytesIO(xml_output_file.getvalue())
+            elif hasattr(xml_output_file, "read"):
+                xml_output_file.seek(0)
+                fresh_xml_content = BytesIO(xml_output_file.read())
+                xml_output_file.seek(0)  # Reset position
+            else:
+                fresh_xml_content = xml_output_file
+
             for table_name in result_tables:
                 try:
-                    table_data = OutputFileParser.get_result(xml_output_file, table_name)
+                    table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
                     parsed_results[table_name] = {
                         "status": "success",
                         "data": table_data,
@@ -616,6 +745,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "status": "success",
                 "parsed_tables": parsed_results,
                 "available_tables": available_tables,
+                "table_details": table_details,  # Add detailed table information
                 "total_tables_found": sum(1 for r in parsed_results.values() if r["status"] == "success"),
                 "total_tables_attempted": len(result_tables),
             }

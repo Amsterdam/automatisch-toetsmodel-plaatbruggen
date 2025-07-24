@@ -7,6 +7,7 @@ import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
+import viktor.errors  # Import for specific error types
 from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -354,6 +355,192 @@ class BridgeController(ViktorController):
     # SCIA Integration
     # ============================================================================================================
 
+    @TableView("SCIA Analyse Resultaten", duration_guess=3)
+    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Display SCIA analysis results in a table format.
+
+        This is a proof of concept showing how SCIA results can be presented
+        in a structured table view for colleagues.
+
+        :param params: Bridge parametrization object
+        :returns: TableResult containing SCIA analysis results
+        """
+        if not params.bridge_segments_array:
+            return TableResult(
+                [["Geen brugsegmenten gedefinieerd", "N/A", "N/A", "N/A"]], column_headers=["Status", "Displacements", "Internal Forces", "Reactions"]
+            )
+
+        try:
+            # Get the template path
+            template_path = self._get_scia_template_path()
+
+            # Import the analysis function
+            from app.bridge.scia_model_builder import run_scia_analysis
+
+            # Run SCIA analysis to get results
+            analysis = run_scia_analysis(params, template_path)
+
+            # Extract results using the builder
+            from app.bridge.scia_model_builder import ViktorSciaModelBuilder
+
+            builder = ViktorSciaModelBuilder()
+            results = builder.extract_analysis_results(analysis)
+
+            # Debug: Check if we have XML output
+            xml_output_file = analysis.get_xml_output_file()
+            xml_content_size = 0
+            if xml_output_file:
+                if hasattr(xml_output_file, "getvalue"):
+                    xml_content_size = len(xml_output_file.getvalue())
+                elif hasattr(xml_output_file, "read"):
+                    xml_output_file.seek(0)
+                    xml_content_size = len(xml_output_file.read())
+                    xml_output_file.seek(0)
+
+            # Prepare table data
+            table_data = []
+
+            # Analysis status
+            analysis_status = results.get("analysis_status", {})
+            status = analysis_status.get("status", "Unknown")
+            has_results = analysis_status.get("has_results", False)
+
+            # Add debug information
+            table_data.append(["🔍 Debug Info", f"XML Size: {xml_content_size} bytes", f"Analysis Status: {status}", f"Has Results: {has_results}"])
+
+            # Add explanation for colleagues
+            table_data.append(
+                ["💡 Explanation", "Tables found but may be empty", "Check if SCIA analysis produced results", "Verify load cases and combinations"]
+            )
+            
+            # Add SCIA model structure information from XML
+            xml_parsing = results.get("xml_parsing", {})
+            if xml_parsing:
+                # Show result classes found in XML
+                result_class_tables = []
+                for table_name in xml_parsing.get("available_tables", []):
+                    if "Resultaatklasses" in table_name:
+                        result_class_tables.append(table_name)
+                
+                if result_class_tables:
+                    table_data.append(["🎯 Result Classes (XML)", f"Found: {len(result_class_tables)}", "Available", "Created"])
+                    for i, class_name in enumerate(result_class_tables):
+                        table_data.append([f"  Class {i+1}", class_name, "Active", "Ready"])
+                else:
+                    table_data.append(["🎯 Result Classes", "None found in XML", "Check SCIA template", "N/A"])
+                
+                # Show load combinations found in XML
+                load_combo_tables = []
+                for table_name in xml_parsing.get("available_tables", []):
+                    if "Combinatie" in table_name or "combination" in table_name.lower():
+                        load_combo_tables.append(table_name)
+                
+                if load_combo_tables:
+                    table_data.append(["🔗 Load Combinations (XML)", f"Found: {len(load_combo_tables)}", "Available", "Created"])
+                    for i, combo_name in enumerate(load_combo_tables):
+                        table_data.append([f"  Combo {i+1}", combo_name, "Active", "Ready"])
+                else:
+                    table_data.append(["🔗 Load Combinations", "None found in XML", "Check SCIA template", "N/A"])
+                
+                # Show specific combinations from result classes
+                table_data.append(["📊 SCIA Template Combos", "From Result Classes", "Status", "Type"])
+                table_data.append(["  Ultimate combination", "ULS", "Active", "Default"])
+                table_data.append(["  Serviceability combination", "SLS", "Active", "Default"])
+                table_data.append(["  UGT Combinatie", "ULS", "Active", "Default"])
+                table_data.append(["  BGT-combinatie", "SLS", "Active", "Default"])
+                table_data.append(["  Nonlinear combinations", "Nonlinear", "Active", "Default"])
+
+            # Get individual result types
+            displacements = results.get("displacements", {})
+            internal_forces = results.get("internal_forces", {})
+            reactions = results.get("reactions", {})
+
+            # Create status row
+            table_data.append(
+                [
+                    f"Analysis: {status}",
+                    f"Displacements: {displacements.get('status', 'N/A')}",
+                    f"Forces: {internal_forces.get('status', 'N/A')}",
+                    f"Reactions: {reactions.get('status', 'N/A')}",
+                ]
+            )
+
+            # Add result details if available
+            if has_results:
+                # Add displacement details
+                if displacements.get("status") == "success":
+                    table_data.append(
+                        [
+                            "✅ Success",
+                            f"Table: {displacements.get('table_name', 'Unknown')}",
+                            f"Data points: {len(displacements.get('data', {}))}",
+                            "Available",
+                        ]
+                    )
+                else:
+                    table_data.append(["❌ Failed", f"Error: {displacements.get('message', 'Unknown error')}", "N/A", "N/A"])
+
+                # Add internal forces details
+                if internal_forces.get("status") == "success":
+                    table_data.append(
+                        [
+                            "✅ Success",
+                            "Available",
+                            f"Table: {internal_forces.get('table_name', 'Unknown')}",
+                            f"Data points: {len(internal_forces.get('data', {}))}",
+                        ]
+                    )
+                else:
+                    table_data.append(["❌ Failed", "N/A", f"Error: {internal_forces.get('message', 'Unknown error')}", "N/A"])
+
+                # Add reaction details
+                if reactions.get("status") == "success":
+                    table_data.append(["✅ Success", "Available", "Available", f"Table: {reactions.get('table_name', 'Unknown')}"])
+                else:
+                    table_data.append(["❌ Failed", "N/A", "N/A", f"Error: {reactions.get('message', 'Unknown error')}"])
+
+                # Add XML parsing summary
+                xml_parsing = results.get("xml_parsing", {})
+                if xml_parsing:
+                    available_tables = xml_parsing.get("available_tables", [])
+                    table_details = xml_parsing.get("table_details", [])
+                    total_found = xml_parsing.get("total_tables_found", 0)
+                    total_attempted = xml_parsing.get("total_tables_attempted", 0)
+
+                    table_data.append(
+                        ["📊 XML Summary", f"Found: {total_found}", f"Attempted: {total_attempted}", f"Tables: {len(available_tables)}"]
+                    )
+
+                    # Show detailed table information
+                    if table_details:
+                        for i, detail in enumerate(table_details):
+                            status_icon = "✅" if detail.get("has_data") else "⚠️"
+                            data_info = f"Data: {detail.get('data_rows', 0)} rows"
+                            object_info = f"Objects: {detail.get('objects', 0)}"
+
+                            table_data.append([f"{status_icon} Table {i + 1}", detail.get("name", "Unknown"), data_info, object_info])
+                    elif available_tables:
+                        # Fallback to simple table names if details not available
+                        for i, table_name in enumerate(available_tables):
+                            table_data.append([f"📋 Table {i + 1}", table_name, "Available", "Parsed"])
+                    else:
+                        table_data.append(["⚠️ No Tables Found", "XML parsing failed", "Check XML structure", "Verify SCIA output"])
+            else:
+                table_data.append(["⚠️ No Results", "Analysis completed but no results available", "Check SCIA output format", "Verify table names"])
+
+            return TableResult(table_data, column_headers=["Status", "Displacements", "Internal Forces", "Reactions"])
+
+        except Exception as e:
+            # Return error information in table format
+            error_data = [
+                ["❌ Analysis Failed", f"Error: {e!s}", "N/A", "N/A"],
+                ["💡 Suggestion", "Check bridge parameters", "Verify SCIA template", "Review error logs"],
+            ]
+            return TableResult(error_data, column_headers=["Status", "Displacements", "Internal Forces", "Reactions"])
+
+
+
     def _get_scia_template_path(self) -> Path:
         """
         Get the path to the SCIA template file.
@@ -444,19 +631,41 @@ class BridgeController(ViktorController):
 
             return DownloadResult(esa_file, f"SCIA_model_{params.info.bridge_objectnumm}.esa")
 
-        except Exception as e:
-            error_msg = (
-                f"SCIA ESA model generatie gefaald: {e!s}\n\n"
-                "Mogelijke oorzaken:\n"
-                "- SCIA worker niet beschikbaar of niet correct geïnstalleerd.\n"
-                "- SCIA Engineer licentieproblemen.\n"
-                "- Template-bestand is ongeldig of niet compatibel.\n\n"
-                "Probeer in plaats daarvan de XML-bestanden te downloaden."
+        except ImportError as e:
+            raise UserError(f"VIKTOR SCIA module niet beschikbaar: {e!s}\n\nDeze functie vereist de VIKTOR SDK met SCIA integratie.")
+        except viktor.errors.LicenseError as e:
+            raise UserError(
+                f"SCIA Engineer licentie fout: {e!s}\n\nControleer uw SCIA Engineer licentie en zorg ervoor dat deze correct is geconfigureerd."
             )
-            raise UserError(error_msg)
+        except viktor.errors.ExecutionError as e:
+            raise UserError(
+                f"SCIA analyse uitvoering gefaald: {e!s}\n\n"
+                "De externe SCIA analyse is niet succesvol voltooid. "
+                "Controleer of SCIA Engineer correct is geïnstalleerd en toegankelijk is."
+            )
+        except viktor.errors.ModelError as e:
+            raise UserError(
+                f"SCIA model fout: {e!s}\n\n"
+                "Er was een probleem met de SCIA model generatie of analyse. "
+                "Controleer uw brug parameters en probeer opnieuw."
+            )
+        except FileNotFoundError as e:
+            raise UserError(
+                f"Template bestand niet gevonden: {e!s}\n\n"
+                "Het SCIA template bestand ontbreekt of is niet toegankelijk. "
+                "Controleer de template configuratie."
+            )
+        except PermissionError as e:
+            raise UserError(
+                f"Toestemmings fout: {e!s}\n\n"
+                "Onvoldoende toestemmingen om SCIA bestanden te openen of de analyse uit te voeren. "
+                "Controleer bestandsrechten en gebruikers toegangsrechten."
+            )
+        except Exception as e:
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
-    def run_scia_analysis(self, params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG002
-        """Run SCIA analysis and display results."""
+    def download_scia_output_xml(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Download the SCIA output XML file for investigation."""
         if not params.bridge_segments_array:
             self._raise_no_bridge_segments_error()
 
@@ -465,52 +674,86 @@ class BridgeController(ViktorController):
             template_path = self._get_scia_template_path()
 
             # Import the analysis function
-            from app.bridge.scia_model_builder import get_scia_analysis_results
+            from app.bridge.scia_model_builder import run_scia_analysis
 
-            # Run the analysis
-            results = get_scia_analysis_results(params, template_path)
+            # Get a fresh copy of the XML output file directly from the analysis
+            # The one in results might have been consumed by parsing functions
 
-            # Create a simple text file with the results summary
-            results_text = f"""SCIA Analysis Results
-====================
+            # Run the analysis again to get a fresh XML output file
+            template_path = self._get_scia_template_path()
+            analysis = run_scia_analysis(params, template_path)
+            fresh_xml_output_file = analysis.get_xml_output_file()
 
-Analysis Status: {results.get("analysis_status", {}).get("executed", "Unknown")}
-Has Results: {results.get("analysis_status", {}).get("has_results", "Unknown")}
+            if not fresh_xml_output_file:
+                raise UserError("No XML output file available from SCIA analysis")
 
-Results Summary:
-{results.get("result_summary", "No summary available")}
+            # Create a filename with bridge identifier
+            bridge_id = params.info.bridge_objectnumm or "unknown_bridge"
+            filename = f"scia_output_{bridge_id}.xml"
 
-Validation:
-{results.get("validation", "No validation available")}
+            # Create a File object and write the XML content to it
+            xml_file = File()
 
-Detailed Results:
-- Displacements: {results.get("displacements", {}).get("status", "Unknown")} - {results.get("displacements", {}).get("message", "No message")}
-- Internal Forces: {results.get("internal_forces", {}).get("status", "Unknown")} - {results.get("internal_forces", {}).get("message", "No message")}
-- Reactions: {results.get("reactions", {}).get("status", "Unknown")} - {results.get("reactions", {}).get("message", "No message")}
-- Stresses: {results.get("stresses", {}).get("status", "Unknown")} - {results.get("stresses", {}).get("message", "No message")}
+            # Get the XML content as bytes
+            if hasattr(fresh_xml_output_file, "read"):
+                # It's a BytesIO-like object
+                xml_content = fresh_xml_output_file.read()
+            elif hasattr(fresh_xml_output_file, "getvalue"):
+                # It's a BytesIO object
+                xml_content = fresh_xml_output_file.getvalue()
+            elif isinstance(fresh_xml_output_file, str):
+                # It's a string, encode it to bytes
+                xml_content = fresh_xml_output_file.encode("utf-8")
+            elif isinstance(fresh_xml_output_file, bytes):
+                # It's already bytes
+                xml_content = fresh_xml_output_file
+            else:
+                raise UserError(f"Unexpected type for fresh_xml_output_file: {type(fresh_xml_output_file)}")
 
-XML Parsing Results:
-{results.get("xml_parsing", {}).get("status", "Unknown")} - {results.get("xml_parsing", {}).get("message", "No message")}
-Tables Found: {results.get("xml_parsing", {}).get("total_tables_found", "Unknown")} / {results.get("xml_parsing", {}).get("total_tables_attempted", "Unknown")}
+            # Write the content to the File object using the correct method
+            with xml_file.open_binary() as f:
+                f.write(xml_content)
 
-Available Tables in XML:
-{", ".join(results.get("xml_parsing", {}).get("available_tables", []))}
-"""
+            return DownloadResult(xml_file, filename)
 
-            # For now, just print the results to the console/logs
-            # In the future, this could be displayed in a view or stored for later access
-            print("SCIA Analysis completed successfully!")
-            print(results_text)
-
-        except Exception as e:
-            error_msg = (
-                f"SCIA analysis failed: {e!s}\n\n"
-                "Possible causes:\n"
-                "- SCIA worker not available or not properly installed.\n"
-                "- SCIA Engineer license issues.\n"
-                "- Template file is invalid or incompatible.\n"
+        except ImportError as e:
+            raise UserError(f"VIKTOR SCIA module not available: {e!s}\n\nThis function requires the VIKTOR SDK with SCIA integration.")
+        except viktor.errors.LicenseError as e:
+            raise UserError(f"SCIA Engineer license error: {e!s}\n\nPlease check your SCIA Engineer license and ensure it's properly configured.")
+        except viktor.errors.ExecutionError as e:
+            raise UserError(
+                f"SCIA analysis execution failed: {e!s}\n\n"
+                "The external SCIA analysis did not complete successfully. "
+                "Check if SCIA Engineer is properly installed and accessible."
             )
-            raise UserError(error_msg)
+        except viktor.errors.ModelError as e:
+            raise UserError(
+                f"SCIA model error: {e!s}\n\n"
+                "There was an issue with the SCIA model generation or analysis. "
+                "Check your bridge parameters and try again."
+            )
+        except viktor.errors.SciaParsingError as e:
+            raise UserError(
+                f"SCIA output parsing error: {e!s}\n\n"
+                "The SCIA analysis completed but the output could not be parsed. "
+                "This might indicate an issue with the SCIA output format."
+            )
+        except FileNotFoundError as e:
+            raise UserError(
+                f"Template file not found: {e!s}\n\nThe SCIA template file is missing or not accessible. Please check the template configuration."
+            )
+        except PermissionError as e:
+            raise UserError(
+                f"Permission error: {e!s}\n\n"
+                "Insufficient permissions to access SCIA files or execute the analysis. "
+                "Check file permissions and user access rights."
+            )
+        except Exception as e:
+            # Catch any other unexpected errors
+            raise UserError(
+                f"Unexpected error during SCIA analysis: {e!s}\n\n"
+                "An unexpected error occurred. Please try again or contact support if the issue persists."
+            )
 
     # ============================================================================================================
     # IDEA StatiCa Integration
