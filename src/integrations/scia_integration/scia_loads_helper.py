@@ -220,7 +220,7 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
     lane_width: float = 3.0,
-) -> list[dict[str, any]]:
+) -> list[dict[str, Any]]:
     """
     Generate tandem loads positioned at theoretical traffic lane centers, starting from the right edge.
 
