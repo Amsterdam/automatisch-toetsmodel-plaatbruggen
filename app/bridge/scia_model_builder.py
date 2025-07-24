@@ -381,22 +381,27 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = analysis.get_xml_output_file()
 
-            # Try to extract displacement results using OutputFileParser
-            try:
-                from viktor.external.scia import OutputFileParser
+            # Try multiple possible table names for displacements
+            displacement_table_names = ["Displacements", "Displacement", "Deformation", "Deformations"]
 
-                displacement_table = OutputFileParser.get_result(xml_output_file, "Displacements")
-                return {
-                    "status": "success",
-                    "data": displacement_table,
-                    "message": "Displacement results extracted successfully",
-                }
-            except Exception as parse_error:
-                return {
-                    "status": "parse_error",
-                    "message": f"Failed to parse displacement results: {parse_error}",
-                    "error": str(parse_error),
-                }
+            for table_name in displacement_table_names:
+                try:
+                    from viktor.external.scia import OutputFileParser
+
+                    displacement_table = OutputFileParser.get_result(xml_output_file, table_name)
+                    return {
+                        "status": "success",
+                        "data": displacement_table,
+                        "message": f"Displacement results extracted successfully from '{table_name}'",
+                        "table_name": table_name,
+                    }
+                except Exception:
+                    continue  # Try next table name
+
+            return {
+                "status": "not_found",
+                "message": f"Displacement results not found. Tried: {', '.join(displacement_table_names)}",
+            }
 
         except Exception as e:
             return {
@@ -410,22 +415,27 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = _analysis.get_xml_output_file()
 
-            # Try to extract internal force results using OutputFileParser
-            try:
-                from viktor.external.scia import OutputFileParser
+            # Try multiple possible table names for internal forces
+            internal_force_table_names = ["2D internal forces", "Internal forces", "Internal Forces", "Forces", "Internal force"]
 
-                internal_forces_table = OutputFileParser.get_result(xml_output_file, "2D internal forces")
-                return {
-                    "status": "success",
-                    "data": internal_forces_table,
-                    "message": "Internal force results extracted successfully",
-                }
-            except Exception as parse_error:
-                return {
-                    "status": "parse_error",
-                    "message": f"Failed to parse internal force results: {parse_error}",
-                    "error": str(parse_error),
-                }
+            for table_name in internal_force_table_names:
+                try:
+                    from viktor.external.scia import OutputFileParser
+
+                    internal_forces_table = OutputFileParser.get_result(xml_output_file, table_name)
+                    return {
+                        "status": "success",
+                        "data": internal_forces_table,
+                        "message": f"Internal force results extracted successfully from '{table_name}'",
+                        "table_name": table_name,
+                    }
+                except Exception:
+                    continue  # Try next table name
+
+            return {
+                "status": "not_found",
+                "message": f"Internal force results not found. Tried: {', '.join(internal_force_table_names)}",
+            }
 
         except Exception as e:
             return {
@@ -439,22 +449,27 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = _analysis.get_xml_output_file()
 
-            # Try to extract reaction results using OutputFileParser
-            try:
-                from viktor.external.scia import OutputFileParser
+            # Try multiple possible table names for reactions
+            reaction_table_names = ["Reactions", "Reaction", "Support reactions", "Support reaction"]
 
-                reaction_table = OutputFileParser.get_result(xml_output_file, "Reactions")
-                return {
-                    "status": "success",
-                    "data": reaction_table,
-                    "message": "Reaction results extracted successfully",
-                }
-            except Exception as parse_error:
-                return {
-                    "status": "parse_error",
-                    "message": f"Failed to parse reaction results: {parse_error}",
-                    "error": str(parse_error),
-                }
+            for table_name in reaction_table_names:
+                try:
+                    from viktor.external.scia import OutputFileParser
+
+                    reaction_table = OutputFileParser.get_result(xml_output_file, table_name)
+                    return {
+                        "status": "success",
+                        "data": reaction_table,
+                        "message": f"Reaction results extracted successfully from '{table_name}'",
+                        "table_name": table_name,
+                    }
+                except Exception:
+                    continue  # Try next table name
+
+            return {
+                "status": "not_found",
+                "message": f"Reaction results not found. Tried: {', '.join(reaction_table_names)}",
+            }
 
         except Exception as e:
             return {
@@ -468,22 +483,27 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             xml_output_file = _analysis.get_xml_output_file()
 
-            # Try to extract stress results using OutputFileParser
-            try:
-                from viktor.external.scia import OutputFileParser
+            # Try multiple possible table names for stresses
+            stress_table_names = ["Stresses", "Stress", "Stress results", "Stress analysis"]
 
-                stress_table = OutputFileParser.get_result(xml_output_file, "Stresses")
-                return {
-                    "status": "success",
-                    "data": stress_table,
-                    "message": "Stress results extracted successfully",
-                }
-            except Exception as parse_error:
-                return {
-                    "status": "parse_error",
-                    "message": f"Failed to parse stress results: {parse_error}",
-                    "error": str(parse_error),
-                }
+            for table_name in stress_table_names:
+                try:
+                    from viktor.external.scia import OutputFileParser
+
+                    stress_table = OutputFileParser.get_result(xml_output_file, table_name)
+                    return {
+                        "status": "success",
+                        "data": stress_table,
+                        "message": f"Stress results extracted successfully from '{table_name}'",
+                        "table_name": table_name,
+                    }
+                except Exception:
+                    continue  # Try next table name
+
+            return {
+                "status": "not_found",
+                "message": f"Stress results not found. Tried: {', '.join(stress_table_names)}",
+            }
 
         except Exception as e:
             return {
@@ -522,18 +542,58 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
         try:
+            import xml.etree.ElementTree as ET
+
             from viktor.external.scia import OutputFileParser
 
-            # List of common result tables to try to extract
+            # First, let's try to discover what tables are actually available
+            available_tables = []
+            try:
+                # Try to read the XML content to discover table names
+                if hasattr(xml_output_file, "getvalue"):
+                    xml_content = xml_output_file.getvalue()
+                elif hasattr(xml_output_file, "read"):
+                    xml_output_file.seek(0)
+                    xml_content = xml_output_file.read()
+                    xml_output_file.seek(0)  # Reset position
+                else:
+                    xml_content = None
+
+                if xml_content:
+                    # Parse XML to find table names
+                    root = ET.fromstring(xml_content)
+                    for table in root.findall(".//table"):
+                        table_name = table.get("name")
+                        if table_name:
+                            available_tables.append(table_name)
+            except Exception:
+                # If XML parsing fails, continue with default tables
+                pass
+
+            # List of common result tables to try to extract (with variations)
             result_tables = [
                 "Displacements",
+                "Displacement",
                 "2D internal forces",
+                "Internal forces",
+                "Internal Forces",
                 "Reactions",
+                "Reaction",
                 "Stresses",
+                "Stress",
                 "Result classes - UGT",
                 "Result classes - ULS",
                 "Result classes - SLS",
+                "Result classes",
+                "UGT",
+                "ULS",
+                "SLS",
             ]
+
+            # Add discovered tables to the list
+            for table_name in available_tables:
+                if table_name not in result_tables:
+                    result_tables.append(table_name)
 
             parsed_results = {}
 
@@ -555,6 +615,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             return {
                 "status": "success",
                 "parsed_tables": parsed_results,
+                "available_tables": available_tables,
                 "total_tables_found": sum(1 for r in parsed_results.values() if r["status"] == "success"),
                 "total_tables_attempted": len(result_tables),
             }

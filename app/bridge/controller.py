@@ -492,6 +492,9 @@ Detailed Results:
 XML Parsing Results:
 {results.get("xml_parsing", {}).get("status", "Unknown")} - {results.get("xml_parsing", {}).get("message", "No message")}
 Tables Found: {results.get("xml_parsing", {}).get("total_tables_found", "Unknown")} / {results.get("xml_parsing", {}).get("total_tables_attempted", "Unknown")}
+
+Available Tables in XML:
+{", ".join(results.get("xml_parsing", {}).get("available_tables", []))}
 """
 
             # For now, just print the results to the console/logs
