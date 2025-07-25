@@ -403,17 +403,17 @@ class BridgeController(ViktorController):
         # Process all values and collect valid results
         valid_results = []
         for i in range(len(m_x_values)):
+            # Check if all values can be converted to float before processing
             try:
-                # Convert string values to float
                 m_x = float(m_x_values[i])
                 m_y = float(m_y_values[i])
                 v_x = float(v_x_values[i])
                 v_y = float(v_y_values[i])
-
-                plate_name = plate_names[i] if i < len(plate_names) else f"Plate_{i + 1}"
-                valid_results.append((m_x, m_y, v_x, v_y, plate_name))
             except (ValueError, TypeError, IndexError):
                 continue
+
+            plate_name = plate_names[i] if i < len(plate_names) else f"Plate_{i + 1}"
+            valid_results.append((m_x, m_y, v_x, v_y, plate_name))
 
         # Find maximum values from valid results
         for m_x, m_y, v_x, v_y, plate_name in valid_results:
@@ -430,7 +430,7 @@ class BridgeController(ViktorController):
 
         return max_moment, max_shear, max_normal, plate_with_max_moment
 
-    def _find_displacement_columns(self, data: Any) -> tuple[str | None, str | None]:
+    def _find_displacement_columns(self, data: object) -> tuple[str | None, str | None]:
         """Find displacement and rotation columns in the data."""
         if not hasattr(data, "columns"):
             return None, None
@@ -473,12 +473,14 @@ class BridgeController(ViktorController):
 
         valid_results = []
         for i in range(len(disp_values)):
+            # Check if values can be converted to float before processing
             try:
                 displacement = float(disp_values[i])
                 rotation = float(rot_values[i])
-                valid_results.append((displacement, rotation))
             except (ValueError, TypeError):
                 continue
+
+            valid_results.append((displacement, rotation))
 
         # Find maximum values from valid results
         for displacement, rotation in valid_results:
@@ -523,7 +525,7 @@ class BridgeController(ViktorController):
 
     def _build_results_table_data(self, results: dict[str, Any]) -> list[list[str]]:
         """Build the table data from SCIA analysis results."""
-        table_data = []
+        table_data: list[list[str]] = []
         parsed_tables = results.get("xml_parsing", {}).get("parsed_tables", {})
 
         # Extract data from parsed tables
