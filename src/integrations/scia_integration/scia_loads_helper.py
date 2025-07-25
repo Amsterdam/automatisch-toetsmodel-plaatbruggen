@@ -6,9 +6,17 @@ This module provides utility functions for working with load cases in the bridge
 All functions are independent of the VIKTOR SDK and suitable for use in the core logic layer.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.common.materials import get_material_densities
+from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
+from src.geometry.model_creator import LoadZoneGeometryData
+
+# Type alias to avoid importing from app layer
+BridgeParametrization = Any
+
+if TYPE_CHECKING:
+    from .scia_model_interface import SciaModelBuilder
 
 # ========================================================================
 # THEORETICAL TRAFFIC LANE INTEGRATION
@@ -654,3 +662,200 @@ def calculate_pavement_load_from_material(
 
     density = density_lookup.get(str(material).lower(), 0.0)
     return thickness * density if density > 0 and thickness > 0 else 0.0
+
+
+# This function is used to create the load cases 2001/2002/2003
+def create_material_surface_load(
+    builder: "SciaModelBuilder",
+    load_config: dict[str, Any],
+    bridge_geom_data: LoadZoneGeometryData,
+) -> None:
+    """
+    Create a surface load for a specific material in a load zone span.
+
+    :param builder: SCIA model builder instance
+    :param load_config: Configuration containing all load parameters:
+        - load_zone: Load zone data containing coordinates and properties
+        - zone_index: Index of the load zone
+        - span: Span index within the load zone
+        - material_name: Name of the material for load naming
+        - load_case_name: Name of the load case to apply the load to
+    :param bridge_geom_data: Bridge geometry data
+    """
+    # Extract parameters from load_config
+    load_zone = load_config["load_zone"]
+    zone_index = load_config["zone_index"]
+    span = load_config["span"]
+    material_name = load_config["material_name"]
+    load_case_name = load_config["load_case_name"]
+
+    # Calculate coordinates for the surface load
+    y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
+    y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
+    y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
+    y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
+    x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
+    x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
+
+    corners = [
+        (x_coord_left, y_coord_top_left, 0.0),
+        (x_coord_right, y_coord_top_right, 0.0),
+        (x_coord_right, y_coord_bottom_right, 0.0),
+        (x_coord_left, y_coord_bottom_left, 0.0),
+    ]
+
+    builder.create_surface_load(
+        name=f"{load_zone['zone_type']}_{zone_index}_{material_name}_{span}_d{load_zone['pavement_thickness']}",
+        load_case_name=load_case_name,
+        corner_points=corners,
+        load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"]) * 1000,  # Convert to kN/m²
+    )
+
+
+# This function is used to create the load cases 2001/2002/2003
+def add_material_loads(
+    builder: "SciaModelBuilder",
+    params: BridgeParametrization,
+    material_config: dict[str, str],
+) -> None:
+    """
+    Add surface loads for specified materials to the SCIA model.
+
+    :param builder: SCIA model builder instance
+    :param params: Bridge parameters
+    :param material_config: Dictionary mapping material names to their load case names
+    """
+    # Get load zone information from params using the utility functions
+    load_zones_data_params = get_load_zones_data_from_params(params)
+    bridge_geom_data = get_bridge_geom_data(params)
+
+    # Check if bridge geometry data is available
+    if bridge_geom_data is None:
+        return
+
+    # Update load zones data with geometry properties
+    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
+
+    # Iterate through load zones and apply loads for specified materials
+    for i, load_zone in enumerate(load_zones_data_params):
+        pavement_material = load_zone.get("pavement_material", "")
+
+        if pavement_material in material_config:
+            load_case_name = material_config[pavement_material]
+            # Clean material name for use in load naming
+            material_name = pavement_material.replace(" ", "_").replace("(", "").replace(")", "").lower()
+
+            # Iterate through spans
+            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
+                load_config = {
+                    "load_zone": load_zone,
+                    "zone_index": i,
+                    "span": span,
+                    "material_name": material_name,
+                    "load_case_name": load_case_name,
+                }
+                create_material_surface_load(builder, load_config, bridge_geom_data)
+
+
+# Helper function to calculate wheel corners for vehicle loads
+def _calculate_wheel_corners_vehicle(center_x: float, center_y: float, wheel_contact_area: float) -> list[tuple[float, float, float]]:
+    """
+    Calculate the four corner coordinates of a wheel footprint.
+
+    :param center_x: X-coordinate of wheel center
+    :param center_y: Y-coordinate of wheel center
+    :param wheel_contact_area: Size of the wheel contact area (assumed square)
+    :returns: List of corner coordinates as (x, y, z) tuples (clockwise from top_left)
+    """
+    half_area = wheel_contact_area / 2
+    return [
+        (center_x - half_area, center_y + half_area, 0.0),  # top_left
+        (center_x + half_area, center_y + half_area, 0.0),  # top_right
+        (center_x + half_area, center_y - half_area, 0.0),  # bottom_right
+        (center_x - half_area, center_y - half_area, 0.0),  # bottom_left
+    ]
+
+
+# Helper function to calculate vehicle load locations
+def calc_vehicle_load_locations(
+    x_coord: float, y_coord: float, vehicle_length: float, vehicle_width: float, wheel_contact_area: float
+) -> dict[str, list[tuple[float, float, float]]]:
+    """
+    Calculate vehicle load locations based on vehicle position.
+
+    Creates a 4-wheel vehicle footprint positioned at the given coordinates.
+    Vehicle dimensions: vehicle_length x vehicle_width with wheels at each corner.
+    Each wheel has a wheel_contact_area x wheel_contact_area footprint.
+
+    :param x_coord: X-coordinate of vehicle's front-left corner
+    :param y_coord: Y-coordinate of vehicle's front-left corner (top edge)
+    :param vehicle_length: Length of the vehicle in meters
+    :param vehicle_width: Width of the vehicle in meters
+    :param wheel_contact_area: Size of the wheel contact area (assumed square)
+    :returns: Dictionary containing wheel corner coordinates for each of the 4 wheels
+    :rtype: dict[str, list[tuple[float, float, float]]]
+
+    Vehicle Layout:
+            ┌────────────────────┐
+            │ TL             TR  │
+            │                    │ vehicle_width
+    front   │                    │ rear
+            │                    │
+            │ BL             BR  │
+            └────────────────────┘
+                vehicle_length
+    """
+    # Calculate wheel center positions
+    # Front wheels (left column)
+    top_left_center = (x_coord, y_coord)
+    bottom_left_center = (x_coord, y_coord - vehicle_width)
+
+    # Rear wheels (right column)
+    top_right_center = (x_coord + vehicle_length, y_coord)
+    bottom_right_center = (x_coord + vehicle_length, y_coord - vehicle_width)
+
+    # Calculate wheel footprint corners for each wheel
+    return {
+        "top_left_wheel_corners": _calculate_wheel_corners_vehicle(top_left_center[0], top_left_center[1], wheel_contact_area),
+        "top_right_wheel_corners": _calculate_wheel_corners_vehicle(top_right_center[0], top_right_center[1], wheel_contact_area),
+        "bottom_left_wheel_corners": _calculate_wheel_corners_vehicle(bottom_left_center[0], bottom_left_center[1], wheel_contact_area),
+        "bottom_right_wheel_corners": _calculate_wheel_corners_vehicle(bottom_right_center[0], bottom_right_center[1], wheel_contact_area),
+    }
+
+
+def interpolate_points_along_line(line_points: list[tuple[float, float, float]], interval: float) -> list[tuple[float, float, float]]:
+    """
+    Interpolate points along a line at regular intervals using NumPy.
+
+    :param line_points: List of (x, y, z) tuples representing the line
+    :param interval: Distance between interpolated points in meters
+    :return: List of interpolated points at regular intervals
+    """
+    import numpy as np
+
+    if len(line_points) < 2:
+        return line_points
+
+    # Convert to numpy array for easier manipulation
+    points = np.array(line_points)
+
+    # Calculate cumulative distances along the line
+    distances = np.zeros(len(points))
+    for i in range(1, len(points)):
+        segment_length = np.linalg.norm(points[i] - points[i - 1])
+        distances[i] = distances[i - 1] + segment_length
+
+    # Total line length
+    total_length = distances[-1]
+
+    # Create array of distances at regular intervals
+    num_intervals = int(total_length / interval) + 1
+    regular_distances = np.linspace(0, total_length, num_intervals)
+
+    # Interpolate x, y, z coordinates at regular intervals
+    x_interp = np.interp(regular_distances, distances, points[:, 0])
+    y_interp = np.interp(regular_distances, distances, points[:, 1])
+    z_interp = np.interp(regular_distances, distances, points[:, 2])
+
+    # Combine back into list of tuples, converting numpy types to regular Python floats
+    return [(float(x), float(y), float(z)) for x, y, z in zip(x_interp, y_interp, z_interp)]

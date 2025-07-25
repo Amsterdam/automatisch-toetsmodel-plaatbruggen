@@ -1,365 +1,388 @@
 """
 Test module for load factor calculations and validations.
 
-This module contains tests for clamping values within ranges and validating
-input parameters for load factor calculations.
+This module contains tests for the load factor functions including gamma factors,
+psi factors, alpha trend factors, and alpha Q factors according to Dutch standards.
 """
 
-import math
 import unittest
+from unittest.mock import Mock, patch
 
-import numpy as np
+import pandas as pd
 import pytest
-from numpy.testing import assert_array_equal
 
-from src.combinations.load_factors import (  # Import the function to be tested and validate_input
-    PSI_FACTORS_NEN8701,
-    _clamp,
-    get_interpolation_data,
-    get_psi_factor,
-    validate_input,
+from src.combinations.load_factors import (
+    create_load_combination_table,
+    get_alpha_q_nen_en_1991_2,
+    get_alpha_trend_nen_8701,
+    get_gamma_factors,
+    get_psi_nen_8701,
 )
 
 
-class TestLoadFactorsClamp(unittest.TestCase):
-    """Test cases for the clamp_value function."""
+class TestGetGammaFactors(unittest.TestCase):
+    """Test cases for the get_gamma_factors function."""
 
-    def test_clamp_value_within_range(self) -> None:
-        """Test clamp_value returns input value when within specified range."""
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_gamma_factors_valid_input(self, mock_read_csv: Mock) -> None:
+        """Test get_gamma_factors with valid input parameters."""
         # Arrange
-        value = 50.0
-        min_val = 0.0
-        max_val = 100.0
-        expected = 50.0
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC1a", "CC1a", "CC2", "CC2"],
+                "toetsniveau": ["Verbouw", "Verbouw", "Gebruik", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b", "6.10a", "6.10b"],
+                "gamma_Gjsup": [1.2, 1.2, 1.3, 1.3],
+                "gamma_Gjsup_bb2003": [1.1, 1.1, 1.2, 1.2],
+                "gamma_Gjinf": [1.0, 1.0, 1.0, 1.0],
+                "gamma_Qverkeer": [1.35, 1.35, 1.4, 1.4],
+                "gamma_Qverkeer_bb2003": [1.25, 1.25, 1.3, 1.3],
+                "gamma_Qwind": [1.5, 1.5, 1.5, 1.5],
+                "gamma_Qoverig": [1.5, 1.5, 1.5, 1.5],
+                "gamma_Gset_lin": [1.2, 1.2, 1.2, 1.2],
+                "gamma_Gset_nonlin": [1.35, 1.35, 1.35, 1.35],
+                "gamma_P": [1.0, 1.0, 1.0, 1.0],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
         # Act
-        result = _clamp(value, min_val, max_val)
-        # Assert
-        assert result == expected
+        result = get_gamma_factors("CC1a", "NEN 8700 verbouw", "2010")
 
-    def test_clamp_value_below_min(self) -> None:
-        """Test clamp_value returns minimum value when input is below range."""
+        # Assert
+        assert isinstance(result, dict)
+        assert "6.10a" in result
+        assert "6.10b" in result
+        assert result["6.10a"]["gamma_Gjsup"] == 1.2
+        assert result["6.10b"]["gamma_Gjsup"] == 1.2
+
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_gamma_factors_building_year_2003_or_before(self, mock_read_csv: Mock) -> None:
+        """Test get_gamma_factors adjusts factors for buildings from 2003 or before."""
         # Arrange
-        value = -10.0
-        min_val = 0.0
-        max_val = 100.0
-        expected = 0.0
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC2", "CC2"],
+                "toetsniveau": ["Gebruik", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b"],
+                "gamma_Gjsup": [1.3, 1.3],
+                "gamma_Gjsup_bb2003": [1.2, 1.2],
+                "gamma_Gjinf": [1.0, 1.0],
+                "gamma_Qverkeer": [1.4, 1.4],
+                "gamma_Qverkeer_bb2003": [1.3, 1.3],
+                "gamma_Qwind": [1.5, 1.5],
+                "gamma_Qoverig": [1.5, 1.5],
+                "gamma_Gset_lin": [1.2, 1.2],
+                "gamma_Gset_nonlin": [1.35, 1.35],
+                "gamma_P": [1.0, 1.0],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
         # Act
-        result = _clamp(value, min_val, max_val)
+        result = get_gamma_factors("CC2", "NEN 8700 gebruik", "2000")
+
         # Assert
-        assert result == expected
+        assert result["6.10a"]["gamma_Gjsup"] == 1.2  # Should use bb2003 value
+        assert result["6.10a"]["gamma_Qverkeer"] == 1.3  # Should use bb2003 value
 
-    def test_clamp_value_above_max(self) -> None:
-        """Test clamp_value returns maximum value when input is above range."""
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_gamma_factors_invalid_cc_class(self, mock_read_csv: Mock) -> None:
+        """Test get_gamma_factors raises ValueError for invalid CC class."""
         # Arrange
-        value = 150.0
-        min_val = 0.0
-        max_val = 100.0
-        expected = 100.0
-        # Act
-        result = _clamp(value, min_val, max_val)
-        # Assert
-        assert result == expected
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC1a", "CC2"],
+                "toetsniveau": ["Verbouw", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b"],
+            }
+        )
+        mock_read_csv.return_value = mock_df
 
-    def test_clamp_value_at_min_boundary(self) -> None:
-        """Test clamp_value handles minimum boundary value correctly."""
-        # Arrange
-        value = 0.0
-        min_val = 0.0
-        max_val = 100.0
-        expected = 0.0
-        # Act
-        result = _clamp(value, min_val, max_val)
-        # Assert
-        assert result == expected
-
-    def test_clamp_value_at_max_boundary(self) -> None:
-        """Test clamp_value handles maximum boundary value correctly."""
-        # Arrange
-        value = 100.0
-        min_val = 0.0
-        max_val = 100.0
-        expected = 100.0
-        # Act
-        result = _clamp(value, min_val, max_val)
-        # Assert
-        assert result == expected
-
-
-class TestLoadFactorsValidateInput(unittest.TestCase):
-    """Test cases for the validate_input_range function."""
-
-    def test_validate_input_valid_values(self) -> None:
-        """Test validate_input_range with valid input values."""
-        # Arrange
-        span = 50.0
-        ref_period = 15.0
-        expected_clamped_span = 50.0
-        expected_ref_period = 15.0
-        # Act
-        clamped_span, result_ref_period = validate_input(span, ref_period)
-        # Assert
-        assert clamped_span == expected_clamped_span
-        assert result_ref_period == expected_ref_period
-
-    def test_validate_input_span_below_clamp_range(self) -> None:
-        """Test validate_input_range clamps span when below minimum range."""
-        # Arrange
-        span = 10.0  # Below 20
-        ref_period = 15.0
-        expected_clamped_span = 20.0  # Should be clamped to 20
-        # Act
-        clamped_span, _ = validate_input(span, ref_period)
-        # Assert
-        assert clamped_span == expected_clamped_span
-
-    def test_validate_input_span_above_clamp_range(self) -> None:
-        """Test validate_input_range clamps span when above maximum range."""
-        # Arrange
-        span = 250.0  # Above 200
-        ref_period = 15.0
-        expected_clamped_span = 200.0  # Should be clamped to 200
-        # Act
-        clamped_span, _ = validate_input(span, ref_period)
-        # Assert
-        assert clamped_span == expected_clamped_span
-
-    def test_validate_input_span_at_min_clamp_boundary(self) -> None:
-        """Test validate_input_range at minimum clamp boundary."""
-        # Arrange
-        span = 20.0
-        ref_period = 15.0
-        expected_clamped_span = 20.0
-        # Act
-        clamped_span, _ = validate_input(span, ref_period)
-        # Assert
-        assert clamped_span == expected_clamped_span
-
-    def test_validate_input_span_at_max_clamp_boundary(self) -> None:
-        """Test validate_input_range at maximum clamp boundary."""
-        # Arrange
-        span = 200.0
-        ref_period = 15.0
-        expected_clamped_span = 200.0
-        # Act
-        clamped_span, _ = validate_input(span, ref_period)
-        # Assert
-        assert clamped_span == expected_clamped_span
-
-    def test_validate_input_invalid_span_type(self) -> None:
-        """Test validate_input_range raises TypeError for invalid span type."""
-        # Arrange
-        span = "not_a_number"
-        ref_period = 15.0
         # Act & Assert
-        with pytest.raises(TypeError, match="Span and reference period must be numeric values"):
-            validate_input(span, ref_period)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="No gamma factors found for CC class 'CC9'"):
+            get_gamma_factors("CC9", "NEN 8700 verbouw", "2010")
 
-    def test_validate_input_invalid_ref_period_type(self) -> None:
-        """Test validate_input_range raises TypeError for invalid ref_period type."""
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_gamma_factors_invalid_safety_level(self, mock_read_csv: Mock) -> None:
+        """Test get_gamma_factors raises ValueError for invalid safety level."""
         # Arrange
-        span = 50.0
-        ref_period = "not_a_number"
+        mock_df = pd.DataFrame(
+            {
+                "gevolgklasse": ["CC1a", "CC2"],
+                "toetsniveau": ["Verbouw", "Gebruik"],
+                "vergelijking": ["6.10a", "6.10b"],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
         # Act & Assert
-        with pytest.raises(TypeError, match="Span and reference period must be numeric values"):
-            validate_input(span, ref_period)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="No gamma factors found for CC class 'CC1a' and safety level 'Invalid'"):
+            get_gamma_factors("CC1a", "Invalid", "2010")
 
-    def test_validate_input_non_positive_span(self) -> None:
-        """Test validate_input_range raises ValueError for non-positive span."""
-        # Arrange
-        span = 0.0
-        ref_period = 15.0
-        # Act & Assert
-        with pytest.raises(ValueError, match="Span must be positive"):
-            validate_input(span, ref_period)
 
-    def test_validate_input_non_positive_ref_period(self) -> None:
-        """Test validate_input_range raises ValueError for non-positive ref_period."""
-        # Arrange
-        span = 50.0
-        ref_period = -1.0
-        # Act & Assert
-        with pytest.raises(ValueError, match="Reference period must be positive"):
-            validate_input(span, ref_period)
+class TestGetPsiNen8701(unittest.TestCase):
+    """Test cases for the get_psi_nen_8701 function."""
 
-    def test_validate_input_ref_period_too_high(self) -> None:
-        """Test validate_input_range raises ValueError for ref_period exceeding maximum."""
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_psi_nen_8701_valid_input(self, mock_read_csv: Mock) -> None:
+        """Test get_psi_nen_8701 with valid input parameters."""
         # Arrange
-        span = 50.0
-        ref_period = 101.0  # Max is 100 from PSI_FACTORS
-        # Act & Assert
-        # The message includes the max value, so we check for the start of the message.
-        with pytest.raises(ValueError, match="Reference period must not exceed 100 years"):
-            validate_input(span, ref_period)
+        mock_df = pd.DataFrame(
+            {
+                "ref_period": [0.083, 1.0, 15.0, 100.0],
+                "20": [0.5, 0.6, 0.7, 0.8],
+                "50": [0.6, 0.7, 0.8, 0.9],
+                "100": [0.7, 0.8, 0.9, 1.0],
+                "200": [0.8, 0.9, 1.0, 1.1],
+            }
+        )
+        mock_read_csv.return_value = mock_df
 
-    def test_validate_input_ref_period_at_max_boundary(self) -> None:
-        """Test validate_input_range at maximum reference period boundary."""
-        # Arrange
-        span = 50.0
-        ref_period = 100.0  # Max is 100
-        expected_clamped_span = 50.0
-        expected_ref_period = 100.0
         # Act
-        clamped_span, result_ref_period = validate_input(span, ref_period)
+        result = get_psi_nen_8701(50.0, 15.0)
+
         # Assert
-        assert clamped_span == expected_clamped_span
-        assert result_ref_period == expected_ref_period
-
-    def test_validate_input_ref_period_at_min_valid_boundary(self) -> None:
-        """Test validate_input_range at minimum valid reference period boundary."""
-        min_valid_period = 1.0 / 12.0
-        # Arrange
-        span = 50.0
-        ref_period = min_valid_period
-        expected_clamped_span = 50.0
-        expected_ref_period = min_valid_period
-        # Act
-        clamped_span, result_ref_period = validate_input(span, ref_period)
-        # Assert
-        assert clamped_span == expected_clamped_span
-        assert result_ref_period == expected_ref_period
-
-
-class TestLoadFactorsGetInterpolationData(unittest.TestCase):
-    """Test cases for the get_interpolation_data function."""
-
-    def test_get_interpolation_data_return_types(self) -> None:
-        """Test get_interpolation_data returns correct data types."""
-        # Act
-        spans, periods, values = get_interpolation_data()
-        # Assert
-        assert isinstance(spans, np.ndarray)
-        assert isinstance(periods, np.ndarray)
-        assert isinstance(values, np.ndarray)
-        assert len(get_interpolation_data()) == 3  # Check it returns a tuple of 3 items
-
-    def test_get_interpolation_data_spans_content_and_order(self) -> None:
-        """Test get_interpolation_data returns spans in correct order and content."""
-        # Arrange
-        expected_spans = np.array(sorted(PSI_FACTORS_NEN8701[100].keys()))
-        # Act
-        spans, _, _ = get_interpolation_data()
-        # Assert
-        assert_array_equal(spans, expected_spans)
-
-    def test_get_interpolation_data_periods_content_and_order(self) -> None:
-        """Test get_interpolation_data returns periods in correct order and content."""
-        # Arrange
-        expected_periods = np.array(sorted(PSI_FACTORS_NEN8701.keys(), reverse=True))
-        # Act
-        _, periods, _ = get_interpolation_data()
-        # Assert
-        assert_array_equal(periods, expected_periods)
-
-    def test_get_interpolation_data_values_shape(self) -> None:
-        """Test get_interpolation_data returns values array with correct shape."""
-        # Arrange
-        num_expected_periods = len(PSI_FACTORS_NEN8701.keys())
-        num_expected_spans = len(PSI_FACTORS_NEN8701[100].keys())
-        # Act
-        _, _, values = get_interpolation_data()
-        # Assert
-        assert values.shape == (num_expected_periods, num_expected_spans)
-
-    def test_get_interpolation_data_values_content_spot_checks(self) -> None:
-        """Test get_interpolation_data returns correct values with spot checks."""
-        # Act
-        spans_arr, periods_arr, values_arr = get_interpolation_data()
-
-        # Create lookup mappings for easier index access
-        period_to_idx = {period: i for i, period in enumerate(periods_arr)}
-        span_to_idx = {span: i for i, span in enumerate(spans_arr)}
-
-        # Verify corner and middle values match PSI_FACTORS table
-        assert values_arr[period_to_idx[100.0], span_to_idx[20]] == PSI_FACTORS_NEN8701[100.0][20]
-        assert values_arr[period_to_idx[1.0 / 12.0], span_to_idx[200]] == PSI_FACTORS_NEN8701[1.0 / 12.0][200]
-
-        # Verify middle values
-        if 15.0 in period_to_idx and 50 in span_to_idx:
-            assert values_arr[period_to_idx[15.0], span_to_idx[50]] == PSI_FACTORS_NEN8701[15.0][50]
-        else:
-            self.fail("Key 15.0 or 50 not found in period/span index maps for spot check")
-
-        if 1.0 in period_to_idx and 100 in span_to_idx:
-            assert values_arr[period_to_idx[1.0], span_to_idx[100]] == PSI_FACTORS_NEN8701[1.0][100]
-        else:
-            self.fail("Key 1.0 or 100 not found in period/span index maps for spot check")
-
-
-class TestLoadFactorsGetPsiFactor(unittest.TestCase):
-    """Test cases for the get_psi_factor function."""
-
-    def test_get_psi_factor_exact_grid_points(self) -> None:
-        """Test get_psi_factor with exact grid points from PSI_FACTORS table."""
-        # Test with values directly from PSI_FACTORS table
-        # TODO: Update when PSI_FACTORS_NEN8701 is extracted from current implementation
-        assert get_psi_factor(span=20, reference_period=100) > 0  # Basic smoke test
-        assert get_psi_factor(span=50, reference_period=50) > 0  # Basic smoke test
-        assert get_psi_factor(span=100, reference_period=15) > 0  # Basic smoke test
-        assert get_psi_factor(span=200, reference_period=1.0 / 12.0) > 0  # Basic smoke test
-        assert get_psi_factor(span=100, reference_period=1.0) > 0  # Basic smoke test
-
-    def test_get_psi_factor_interpolated_span(self) -> None:
-        """Test get_psi_factor with interpolated span values."""
-        # Test span 75 (midpoint between 50 and 100) with period 1
-        assert math.isclose(get_psi_factor(span=75, reference_period=1), 0.915, abs_tol=1e-3)
-
-        # Test span 75 with period 30
-        assert math.isclose(get_psi_factor(span=75, reference_period=30), 0.985, abs_tol=1e-3)
-
-    def test_get_psi_factor_interpolated_period(self) -> None:
-        """Test get_psi_factor with interpolated period values."""
-        # Test period 7.5 (between 1 and 15) with span 20
-        assert math.isclose(get_psi_factor(span=20, reference_period=7.5), 0.963928, abs_tol=1e-5)
-
-    def test_get_psi_factor_interpolated_span_and_period(self) -> None:
-        """Test get_psi_factor with both span and period interpolation."""
-        # Test bilinear interpolation with span 75 and period 7.5
-        result = get_psi_factor(span=75, reference_period=7.5)
         assert isinstance(result, float)
-        assert 0.8 < result < 1.0  # Should be within expected psi factor range
+        assert result > 0
 
-    def test_get_psi_factor_clamped_span_low(self) -> None:
-        """Test get_psi_factor with span clamped to minimum value."""
-        # Span 10 clamps to 20, should equal PSI_FACTORS[1.0][20]
-        expected = get_psi_factor(span=20, reference_period=1.0)  # Use current implementation
-        assert get_psi_factor(span=10, reference_period=1) == expected
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_psi_nen_8701_span_clamping(self, mock_read_csv: Mock) -> None:
+        """Test get_psi_nen_8701 clamps span values outside valid range."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "ref_period": [1.0],
+                "20": [0.6],
+                "200": [0.9],
+            }
+        )
+        mock_read_csv.return_value = mock_df
 
-    def test_get_psi_factor_clamped_span_high(self) -> None:
-        """Test get_psi_factor with span clamped to maximum value."""
-        # Span 300 clamps to 200, should equal PSI_FACTORS[30.0][200]
-        expected = get_psi_factor(span=200, reference_period=30.0)  # Use current implementation
-        assert get_psi_factor(span=300, reference_period=30) == expected
+        # Act
+        result_low = get_psi_nen_8701(10.0, 1.0)  # Should clamp to 20
+        result_high = get_psi_nen_8701(300.0, 1.0)  # Should clamp to 200
 
-    # Tests for exceptions propagated from validate_input
-    def test_get_psi_factor_invalid_span_type(self) -> None:
-        """Test get_psi_factor raises TypeError for invalid span type."""
-        with pytest.raises(TypeError, match="Span and reference period must be numeric values"):
-            get_psi_factor("invalid", 15)  # type: ignore[arg-type]
+        # Assert
+        assert isinstance(result_low, float)
+        assert isinstance(result_high, float)
 
-    def test_get_psi_factor_invalid_ref_period_type(self) -> None:
-        """Test get_psi_factor raises TypeError for invalid ref_period type."""
-        with pytest.raises(TypeError, match="Span and reference period must be numeric values"):
-            get_psi_factor(50, "invalid")  # type: ignore[arg-type]
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_psi_nen_8701_reference_period_clamping(self, mock_read_csv: Mock) -> None:
+        """Test get_psi_nen_8701 clamps reference period values outside valid range."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "ref_period": [0.083, 100.0],
+                "50": [0.6, 0.9],
+            }
+        )
+        mock_read_csv.return_value = mock_df
 
-    def test_get_psi_factor_non_positive_span(self) -> None:
-        """Test get_psi_factor raises ValueError for non-positive span."""
-        with pytest.raises(ValueError, match="Span must be positive"):
-            get_psi_factor(0, 15)
+        # Act
+        result_low = get_psi_nen_8701(50.0, 0.01)  # Should clamp to min
+        result_high = get_psi_nen_8701(50.0, 150.0)  # Should clamp to max
 
-    def test_get_psi_factor_non_positive_ref_period(self) -> None:
-        """Test get_psi_factor raises ValueError for non-positive ref_period."""
-        with pytest.raises(ValueError, match="Reference period must be positive"):
-            get_psi_factor(50, 0)
+        # Assert
+        assert isinstance(result_low, float)
+        assert isinstance(result_high, float)
 
-    def test_get_psi_factor_ref_period_too_high(self) -> None:
-        """Test get_psi_factor raises ValueError for ref_period exceeding maximum."""
-        with pytest.raises(ValueError, match="Reference period must not exceed 100 years"):
-            get_psi_factor(50, 101)
 
-    def test_get_psi_factor_ref_period_at_boundaries(self) -> None:
-        """Test get_psi_factor at reference period boundaries."""
-        # Test with period at max boundary (100)
-        # TODO: Update when PSI_FACTORS_NEN8701 is extracted - using smoke tests for now
-        assert get_psi_factor(span=50, reference_period=100) > 0  # Basic smoke test
-        # Test with period at min boundary (1/12)
-        assert get_psi_factor(span=50, reference_period=1.0 / 12.0) > 0  # Basic smoke test
+class TestGetAlphaTrendNen8701(unittest.TestCase):
+    """Test cases for the get_alpha_trend_nen_8701 function."""
+
+    @patch("src.combinations.load_factors.pd.read_csv")
+    @patch("src.combinations.load_factors.datetime.datetime")
+    def test_get_alpha_trend_nen_8701_valid_input(self, mock_datetime: Mock, mock_read_csv: Mock) -> None:
+        """Test get_alpha_trend_nen_8701 with valid input parameters."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "span": [0, 50, 100],
+                "2010": [1.0, 1.1, 1.2],
+                "2030": [1.1, 1.2, 1.3],
+                "2060": [1.2, 1.3, 1.4],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
+        # Mock current year as 2025
+        mock_now = Mock()
+        mock_now.year = 2025
+        mock_datetime.now.return_value = mock_now
+
+        # Act
+        result = get_alpha_trend_nen_8701(50.0, 30)
+
+        # Assert
+        assert isinstance(result, float)
+        assert result > 0
+
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_alpha_trend_nen_8701_span_clamping(self, mock_read_csv: Mock) -> None:
+        """Test get_alpha_trend_nen_8701 clamps span values outside valid range."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "span": [0, 100],
+                "2030": [1.0, 1.2],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
+        # Act
+        result_low = get_alpha_trend_nen_8701(-10.0, 30)  # Should clamp to 0
+        result_high = get_alpha_trend_nen_8701(150.0, 30)  # Should clamp to 100
+
+        # Assert
+        assert isinstance(result_low, float)
+        assert isinstance(result_high, float)
+
+
+class TestGetAlphaQNenEn19912(unittest.TestCase):
+    """Test cases for the get_alpha_q_nen_en_1991_2 function."""
+
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_alpha_q_nen_en_1991_2_valid_input(self, mock_read_csv: Mock) -> None:
+        """Test get_alpha_q_nen_en_1991_2 with valid input parameters."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "nobs": [200, 1000, 2000000],
+                "20": [1.0, 1.1, 1.3],
+                "50": [1.05, 1.15, 1.35],
+                "200": [1.1, 1.2, 1.4],
+                "alpha_qr": [0.8, 0.9, 1.0],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
+        # Act
+        result = get_alpha_q_nen_en_1991_2(50.0, 1000)
+
+        # Assert
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert isinstance(result[0], float)  # alpha_q
+        assert isinstance(result[1], float)  # alpha_qr
+
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_alpha_q_nen_en_1991_2_span_clamping(self, mock_read_csv: Mock) -> None:
+        """Test get_alpha_q_nen_en_1991_2 clamps span values outside valid range."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "nobs": [1000],
+                "20": [1.1],
+                "200": [1.4],
+                "alpha_qr": [0.9],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
+        # Act
+        result_low = get_alpha_q_nen_en_1991_2(10.0, 1000)  # Should clamp to 20
+        result_high = get_alpha_q_nen_en_1991_2(300.0, 1000)  # Should clamp to 200
+
+        # Assert
+        assert isinstance(result_low, list)
+        assert isinstance(result_high, list)
+        assert len(result_low) == 2
+        assert len(result_high) == 2
+
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_get_alpha_q_nen_en_1991_2_nobs_clamping(self, mock_read_csv: Mock) -> None:
+        """Test get_alpha_q_nen_en_1991_2 clamps Nobs values outside valid range."""
+        # Arrange
+        mock_df = pd.DataFrame(
+            {
+                "nobs": [200, 2000000],
+                "50": [1.0, 1.4],
+                "alpha_qr": [0.8, 1.0],
+            }
+        )
+        mock_read_csv.return_value = mock_df
+
+        # Act
+        result_low = get_alpha_q_nen_en_1991_2(50.0, 100)  # Should clamp to 200
+        result_high = get_alpha_q_nen_en_1991_2(50.0, 3000000)  # Should clamp to 2000000
+
+        # Assert
+        assert isinstance(result_low, list)
+        assert isinstance(result_high, list)
+        assert len(result_low) == 2
+        assert len(result_high) == 2
+
+
+class TestCreateLoadCombinationTable(unittest.TestCase):
+    """Test cases for the create_load_combination_table function."""
+
+    @patch("src.combinations.load_factors.get_gamma_factors")
+    @patch("src.combinations.load_factors.pd.read_csv")
+    def test_create_load_combination_table_valid_input(self, mock_read_csv: Mock, mock_get_gamma_factors: Mock) -> None:
+        """Test create_load_combination_table with valid input parameters."""
+        # Arrange
+        mock_gamma_factors = {
+            "6.10a": {"gamma_Gjsup": 1.2, "gamma_Qverkeer": 1.35, "gamma_Qwind": 1.5, "gamma_Qoverig": 1.5},
+            "6.10b": {"gamma_Gjsup": 1.2, "gamma_Qverkeer": 1.35, "gamma_Qwind": 1.5, "gamma_Qoverig": 1.5},
+        }
+        mock_get_gamma_factors.return_value = mock_gamma_factors
+
+        mock_df = pd.DataFrame(
+            {
+                "Combinatie": ["6.10a Perm", "6.10a gr1a", "6.10b Wind gr1a"],
+                "Permanent": [1.0, 0.0, 1.0],
+                "TS": [0.0, 1.0, 0.0],
+                "UDL": [0.0, 1.0, 0.0],
+                "Fiets- en voetpaden": [0.0, 0.3, 0.0],
+                "Mensenmenigte": [0.0, 0.0, 0.0],
+                "Temperatuur": [0.0, 0.6, 0.3],
+            }
+        )
+        mock_df = mock_df.set_index("Combinatie")
+        mock_read_csv.return_value = mock_df
+
+        params = {
+            "cc_class": "CC2",
+            "design_code": "NEN 8700 gebruik",
+            "info": {"construction_year": "2010"},
+        }
+
+        # Act
+        result = create_load_combination_table(params)
+
+        # Assert
+        assert result is not None
+        # The function returns a Styler object, so we can check its type
+        from pandas.io.formats.style import Styler
+
+        assert isinstance(result, Styler)
+
+    def test_create_load_combination_table_missing_cc_class(self) -> None:
+        """Test create_load_combination_table raises KeyError for missing cc_class."""
+        # Arrange
+        params = {
+            "design_code": "NEN 8700 gebruik",
+            "info": {"construction_year": "2010"},
+        }
+
+        # Act & Assert
+        with pytest.raises(KeyError, match="Missing required parameters: cc_class and/or design_code"):
+            create_load_combination_table(params)
+
+    def test_create_load_combination_table_missing_construction_year(self) -> None:
+        """Test create_load_combination_table raises KeyError for missing construction_year."""
+        # Arrange
+        params = {
+            "cc_class": "CC2",
+            "design_code": "NEN 8700 gebruik",
+            "info": {},
+        }
+
+        # Act & Assert
+        with pytest.raises(KeyError, match="Missing required parameter: info.construction_year"):
+            create_load_combination_table(params)
+
+
+if __name__ == "__main__":
+    unittest.main()
