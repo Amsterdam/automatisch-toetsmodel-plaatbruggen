@@ -17,7 +17,7 @@ from src.common.materials import get_material_densities
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
 
-def generate_theoretical_lane_positions_BG8000(
+def generate_theoretical_lane_positions_bg8000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
     zone3_width: float = 0.0,
@@ -66,7 +66,7 @@ def generate_theoretical_lane_positions_BG8000(
 TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
-def tandem_systems_theoretical_lanes_BG8000(  # noqa: PLR0913
+def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -108,7 +108,7 @@ def tandem_systems_theoretical_lanes_BG8000(  # noqa: PLR0913
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
-    lane_y_positions = generate_theoretical_lane_positions_BG8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+    lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
     # Only generate for BG8 (first lane position)
@@ -178,7 +178,7 @@ def tandem_systems_theoretical_lanes_BG8000(  # noqa: PLR0913
 # ========================================================================
 # PHASE 2: REVERSED NOTIONAL LANES (CRITICAL LOADING FROM OPPOSITE SIDE) FOR BG9000
 # ========================================================================
-def generate_theoretical_lane_positions_BG9000(
+def generate_theoretical_lane_positions_bg9000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
     zone3_width: float = 0.0,
@@ -204,7 +204,6 @@ def generate_theoretical_lane_positions_BG9000(
         raise ValueError("Lane width must be positive")
 
     num_lanes = int(width_bridgedeck // lane_width)
-    tandem_lanes = min(3, num_lanes)  # Limit to 3 lanes for tandem systems
     lane_centers = []
     for lane_idx in range(num_lanes):
         # Start from the right edge
@@ -215,7 +214,7 @@ def generate_theoretical_lane_positions_BG9000(
     return lane_centers
 
 
-def tandem_systems_theoretical_lanes_BG9000(  # noqa: PLR0913
+def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -241,7 +240,7 @@ def tandem_systems_theoretical_lanes_BG9000(  # noqa: PLR0913
     """
     wheel_size = 0.4
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    lane_y_positions = generate_theoretical_lane_positions_BG9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+    lane_y_positions = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
     # Only generate for BG9 (first lane position, reversed)
@@ -307,7 +306,7 @@ def tandem_systems_theoretical_lanes_BG9000(  # noqa: PLR0913
     return results
 
 
-def generate_theoretical_lane_positions_BG10000(
+def generate_theoretical_lane_positions_bg10000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
     zone3_width: float = 0.0,
@@ -340,7 +339,7 @@ def generate_theoretical_lane_positions_BG10000(
     return [y_center, y_left, y_right]
 
 
-def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
+def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -364,7 +363,7 @@ def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
     """
     wheel_size = 0.4
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    lane_y_positions = generate_theoretical_lane_positions_BG10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+    lane_y_positions = generate_theoretical_lane_positions_bg10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     # Order: center (300 kN), left/right (200/100 kN)
     y_center, y_left, y_right = lane_y_positions
@@ -412,7 +411,7 @@ def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
             ]
             wheels_100_right.append(wheel_coords)
 
-        load_case_A = {
+        load_case_a = {
             "load_case": f"{prefix}{idx:03d}",
             "loads": [
                 {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
@@ -420,7 +419,7 @@ def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
                 {"wheels": wheels_100_right, "load": 100000 / (0.4 * 0.4)},
             ],
         }
-        results.append(load_case_A)
+        results.append(load_case_a)
         idx += 1
 
     # Then, configuration B: 100 kN left, 200 kN right
@@ -464,7 +463,7 @@ def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
             ]
             wheels_200_right.append(wheel_coords)
 
-        load_case_B = {
+        load_case_b = {
             "load_case": f"{prefix}{idx:03d}",
             "loads": [
                 {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
@@ -472,7 +471,7 @@ def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
                 {"wheels": wheels_200_right, "load": 200000 / (0.4 * 0.4)},
             ],
         }
-        results.append(load_case_B)
+        results.append(load_case_b)
         idx += 1
     return results
 

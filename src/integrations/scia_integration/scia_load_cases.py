@@ -8,7 +8,7 @@ the SciaModelBuilder interface.
 from typing import Any, Literal
 
 from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
-from .scia_loads_helper import generate_theoretical_lane_positions_BG8000, tandem_system_sequencer
+from .scia_loads_helper import generate_theoretical_lane_positions_bg8000, tandem_system_sequencer
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
@@ -254,7 +254,7 @@ def create_dynamic_tandem_load_cases(
     width = bridge_params["width_bridgedeck"]
 
     # Determine the number of theoretical lanes, with a maximum of 3
-    num_lanes = len(generate_theoretical_lane_positions_BG8000(width))
+    num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
     num_lanes = min(num_lanes, 3)
 
     # Create tandem load cases for each road system (RS)
@@ -298,7 +298,6 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     cases = {}
     if rs == 3:
         # BG10000 series: double amount for both configurations
-        total = len(positions) * 2
         idx = 1
         # First configuration (A): 200 kN left, 100 kN right
         for pos in positions:

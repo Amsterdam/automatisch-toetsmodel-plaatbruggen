@@ -13,9 +13,9 @@ from typing import Any
 
 from .scia_loads_helper import (
     tandem_systems_actual_lanes,
-    tandem_systems_theoretical_lanes_BG8000,
-    tandem_systems_theoretical_lanes_BG9000,
-    tandem_systems_theoretical_lanes_BG10000,
+    tandem_systems_theoretical_lanes_bg8000,
+    tandem_systems_theoretical_lanes_bg9000,
+    tandem_systems_theoretical_lanes_bg10000,
 )
 
 
@@ -135,11 +135,11 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
 
     if mode == "theoretical":
         # Theoretical mode uses theoretical lanes regardless of bridge width
-        tandem_function = tandem_systems_theoretical_lanes_BG8000
+        tandem_function = tandem_systems_theoretical_lanes_bg8000
         function_name = "tandem_systems_theoretical_lanes_BG8000"
-        tandem_function2 = tandem_systems_theoretical_lanes_BG9000
+        tandem_function2 = tandem_systems_theoretical_lanes_bg9000
         function_name2 = "tandem_systems_theoretical_lanes_BG9000"
-        tandem_function3 = tandem_systems_theoretical_lanes_BG10000
+        tandem_function3 = tandem_systems_theoretical_lanes_bg10000
         function_name3 = "tandem_systems_theoretical_lanes_BG10000"
         # Calculate theoretical lane count (bridge_width / 3.0m per lane)
         lane_count = int(bridge_dims["width_bridgedeck"] // 3.0)
@@ -194,7 +194,7 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
 
     # Generate tandem loads using the selected function
     try:
-        tandem_loads_BG8000 = tandem_function(
+        tandem_loads_bg8000 = tandem_function(
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
@@ -205,7 +205,7 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
     # Generate tandem loads for configuration with reversed lane order (9000 series)
     try:
-        tandem_loads_BG9000 = tandem_function2(
+        tandem_loads_bg9000 = tandem_function2(
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
@@ -214,10 +214,10 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
         )
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
-    tandem_loads_BG8000.extend(tandem_loads_BG9000)
+    tandem_loads_bg8000.extend(tandem_loads_bg9000)
     # Generate tandem loads for configuration with middle lane order (10000 series)
     try:
-        tandem_loads_BG10000 = tandem_function3(
+        tandem_loads_bg10000 = tandem_function3(
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
@@ -226,9 +226,9 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
         )
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
-    tandem_loads_BG8000.extend(tandem_loads_BG10000)
+    tandem_loads_bg8000.extend(tandem_loads_bg10000)
 
-    return tandem_loads_BG8000
+    return tandem_loads_bg8000
 
 
 def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[float, float, float]]:
