@@ -383,8 +383,7 @@ class BridgeController(ViktorController):
             try:
                 analysis = run_scia_analysis(params, template_path)
                 # print("SCIA analysis completed successfully")  # Debug: commented out
-            except Exception as e:
-                print(f"SCIA analysis failed: {e}")
+            except Exception:
                 import traceback
 
                 traceback.print_exc()
@@ -414,7 +413,6 @@ class BridgeController(ViktorController):
 
                 # Extract internal forces data
                 internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
-                internal_forces_elementair = parsed_tables.get("Interne 2D-krachten elementair", {})
 
                 # Extract displacement data
                 displacements_2d = parsed_tables.get("2D-verplaatsing", {})
@@ -478,8 +476,10 @@ class BridgeController(ViktorController):
                         # Add force results to table - concise format in Dutch
                         if max_moment is not None:
                             table_data.append(["Mmax", f"{max_moment / 1000:.1f} kNm", f"{plate_with_max_moment}", "UGT"])
-                            table_data.append(["Vmax", f"{max_shear / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
-                            table_data.append(["Nmax", f"{max_normal / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
+                            if max_shear is not None:
+                                table_data.append(["Vmax", f"{max_shear / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
+                            if max_normal is not None:
+                                table_data.append(["Nmax", f"{max_normal / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
                         else:
                             table_data.append(["Krachten", "Gegevens beschikbaar", "26 punten", "UGT"])
 
@@ -531,6 +531,7 @@ class BridgeController(ViktorController):
                         # Add displacement results - concise format in Dutch
                         if max_displacement is not None:
                             table_data.append(["δmax", f"{max_displacement * 1000:.2f} mm", "Max doorbuiging", "UGT"])
+                        if max_rotation is not None:
                             table_data.append(["θmax", f"{max_rotation * 1000:.3f} mrad", "Max rotatie", "UGT"])
 
                 # Show load combinations used - concise in Dutch
