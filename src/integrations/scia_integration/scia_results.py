@@ -89,50 +89,45 @@ def validate_analysis_results(results: dict[str, Any]) -> tuple[bool, list[str]]
 def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combinations: dict[str, Any]) -> None:
     """
     Create result classes for bridge analysis.
-    
+
     This function creates the necessary result classes that tell SCIA which
     load combinations to analyze and what results to output.
-    
+
     :param builder: The SCIA model builder instance
     :param load_combinations: Dictionary of created load combinations
     """
-    print(f"Creating result classes for {len(load_combinations)} load combinations:")
-    for combo_name in load_combinations.keys():
-        print(f"  - {combo_name}")
-    
-    # Create ULS (Ultimate Limit State) result class
+    if not load_combinations:
+        # print("No load combinations found")  # Debug: commented out
+        return
+
+    # print(f"Creating result classes with {len(load_combinations)} combinations")  # Debug: commented out
+
+    # Create ULS result class
     uls_combinations = []
     for combo_name, combo in load_combinations.items():
-        if "ULS" in combo_name or "UGT" in combo_name or "ultimate" in combo_name.lower():
+        if "ULS" in combo_name or "UGT" in combo_name:
             uls_combinations.append(combo)
-    
+
     if uls_combinations:
-        print(f"Creating ULS result class with {len(uls_combinations)} combinations")
-        builder.create_result_class(
-            name="Ultimate Limit State (ULS)",
-            combinations=uls_combinations
-        )
-    
+        # print(f"Creating result classes for {len(uls_combinations)} load combinations:")  # Debug: commented out
+        # for combo in uls_combinations:  # Debug: commented out
+        #     print(f"  - {combo.name}")  # Debug: commented out
+        
+        # print("Creating ULS result class with {len(uls_combinations)} combinations")  # Debug: commented out
+        builder.create_result_class(name="Ultimate Limit State (ULS)", combinations=uls_combinations)
+        # print("Result classes creation completed")  # Debug: commented out
+
     # Create SLS (Serviceability Limit State) result class
     sls_combinations = []
     for combo_name, combo in load_combinations.items():
         if "SLS" in combo_name or "BGT" in combo_name or "serviceability" in combo_name.lower():
             sls_combinations.append(combo)
-    
+
     if sls_combinations:
-        print(f"Creating SLS result class with {len(sls_combinations)} combinations")
-        builder.create_result_class(
-            name="Serviceability Limit State (SLS)",
-            combinations=sls_combinations
-        )
-    
+        builder.create_result_class(name="Serviceability Limit State (SLS)", combinations=sls_combinations)
+
     # Create a general result class with all combinations if no specific ones found
     if not uls_combinations and not sls_combinations and load_combinations:
         all_combinations = list(load_combinations.values())
-        print(f"Creating general result class with {len(all_combinations)} combinations")
-        builder.create_result_class(
-            name="All Load Combinations",
-            combinations=all_combinations
-        )
-    
-    print("Result classes creation completed")
+        builder.create_result_class(name="All Load Combinations", combinations=all_combinations)
+
