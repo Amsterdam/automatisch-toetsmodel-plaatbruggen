@@ -4,6 +4,7 @@ Module for constructing SCIA models using a concrete implementation of the SciaM
 This module acts as the bridge between the VIKTOR SDK and the core logic from the src layer.
 """
 
+import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
@@ -22,12 +23,14 @@ from src.integrations.scia_integration.scia_results import get_result_summary, v
 try:
     from viktor.core import File
     from viktor.external import scia
+    from viktor.external.scia import OutputFileParser
 
     VIKTOR_AVAILABLE = True
 except ImportError:
     # Mock scia module for environments without VIKTOR SDK
     scia = None  # type: ignore[misc,assignment]
     File = None  # type: ignore[misc,assignment]
+    OutputFileParser = None  # type: ignore[misc,assignment]
     VIKTOR_AVAILABLE = False
 
 
@@ -596,10 +599,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
         try:
-            import xml.etree.ElementTree as ET
-
-            from viktor.external.scia import OutputFileParser
-
             # First, let's try to discover what tables are actually available
             available_tables = []
             table_details = []  # Store more details about each table

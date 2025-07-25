@@ -10,6 +10,7 @@ by calling methods on the SciaModelBuilder interface.
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
+import traceback
 from typing import Any
 
 from .scia_model_interface import SciaCombinationType, SciaLoadCombination, SciaModelBuilder
@@ -125,8 +126,6 @@ def _create_example_combination(
             # print("Successfully created combination: ULS_Example_SW_Pedestrian")  # Debug: commented out
         except Exception as e:
             print(f"Failed to create ULS combination: {e}")
-            import traceback
-
             traceback.print_exc()
     else:
         # print("Pedestrian load case not found. Available cases:", list(all_load_cases.keys()))  # Debug: commented out

@@ -1,5 +1,6 @@
 """Module for the Bridge entity controller."""
 
+import traceback
 import zipfile
 from pathlib import Path  # Add Path import for SCIA template
 
@@ -8,7 +9,12 @@ import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
+from app.bridge.scia_model_builder import (
+    ViktorSciaModelBuilder,
+    generate_bridge_xml_files,
+    run_scia_analysis,
+    setup_bridge_analysis,
+)
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -376,21 +382,16 @@ class BridgeController(ViktorController):
             template_path = self._get_scia_template_path()
 
             # Import the analysis function
-            from app.bridge.scia_model_builder import run_scia_analysis
-
             # Run SCIA analysis to get results
             # print("Starting SCIA analysis with load combinations...")  # Debug: commented out
             try:
                 analysis = run_scia_analysis(params, template_path)
                 # print("SCIA analysis completed successfully")  # Debug: commented out
             except Exception:
-                import traceback
-
                 traceback.print_exc()
                 raise
 
             # Extract results using the builder
-            from app.bridge.scia_model_builder import ViktorSciaModelBuilder
 
             builder = ViktorSciaModelBuilder()
             results = builder.extract_analysis_results(analysis)
