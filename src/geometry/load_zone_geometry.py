@@ -13,10 +13,6 @@ from src.geometry.model_creator import (
 )
 from viktor.errors import UserError
 
-# Type aliases to avoid importing from app layer
-BridgeParametrization = Any
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Default value
-
 
 # Define a protocol for the expected structure of zone_param_data
 class LoadZoneDataRow(TypedDict, total=False):
