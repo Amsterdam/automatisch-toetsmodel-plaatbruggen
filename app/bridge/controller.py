@@ -367,10 +367,10 @@ class BridgeController(ViktorController):
         # Calculate resultant moment and shear
         moment = (m_x**2 + m_y**2) ** 0.5
         shear = (v_x**2 + v_y**2) ** 0.5
-        
+
         # For normal force, use the maximum of the individual components
         max_normal_comp = max(abs(m_x), abs(m_y))
-        
+
         return moment, shear, max_normal_comp, plate_name
 
     def _process_internal_forces_data(self, forces_data: dict[str, Any]) -> tuple[float | None, float | None, float | None, str]:
@@ -409,8 +409,8 @@ class BridgeController(ViktorController):
                 m_y = float(m_y_values[i])
                 v_x = float(v_x_values[i])
                 v_y = float(v_y_values[i])
-                
-                plate_name = plate_names[i] if i < len(plate_names) else f"Plate_{i+1}"
+
+                plate_name = plate_names[i] if i < len(plate_names) else f"Plate_{i + 1}"
                 valid_results.append((m_x, m_y, v_x, v_y, plate_name))
             except (ValueError, TypeError, IndexError):
                 continue
@@ -501,7 +501,9 @@ class BridgeController(ViktorController):
             return "⚠️ Gemiddeld"
         return "❌ Hoog"
 
-    def _add_force_results_to_table(self, table_data: list[list[str]], max_moment: float | None, max_shear: float | None, max_normal: float | None, plate_with_max_moment: str) -> None:
+    def _add_force_results_to_table(
+        self, table_data: list[list[str]], max_moment: float | None, max_shear: float | None, max_normal: float | None, plate_with_max_moment: str
+    ) -> None:
         """Add force results to the table data."""
         if max_moment is not None:
             table_data.append(["Mmax", f"{max_moment / 1000:.1f} kNm", f"{plate_with_max_moment}", "UGT"])
