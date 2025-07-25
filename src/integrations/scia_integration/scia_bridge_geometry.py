@@ -97,7 +97,7 @@ def extract_tandem_parameters_from_bridge(params: Any) -> dict[str, float]:  # n
 
     # Calculate total bridge length (cumulative sum of segment lengths)
     length_bridgedeck = sum(segment.l for segment in params.bridge_segments_array)
-
+    print(params.bridge_segments_array)
     # Calculate total bridge width from first segment (bz1 + bz2 + bz3)
     first_segment = params.bridge_segments_array[0]
     width_bridgedeck = first_segment.bz1 + first_segment.bz2 + first_segment.bz3
@@ -271,6 +271,70 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
     return scia_load_cases
 
 
+def get_bridge_deck_zone_coordinates(params: Any) -> dict[str, list[float]]:  # noqa: ANN401
+    """
+    Get coordinates of bridge deck zones for all segments.
+
+    This function loops through bridge_segments_array and calculates the X, Y, Z coordinates
+    for each zone (Z1, Z2, Z3) at each segment boundary (D-points).
+
+    :param params: Bridge parameters containing bridge_segments_array
+    :returns: Dictionary with zone names as keys and [x, y, z] coordinates as values
+    :rtype: dict[str, list[float]]
+    :raises IndexError: When no bridge segments are provided
+    """
+    if not params.bridge_segments_array:
+        raise IndexError("No bridge segments provided")
+
+    zone_coordinates = {}
+    cumulative_length = 0.0
+
+    # Process each segment in bridge_segments_array
+    for segment_idx, segment in enumerate(params.bridge_segments_array):
+        # Calculate X coordinate (cumulative length up to this point)
+        x_coord = cumulative_length
+        
+        # Calculate Y coordinates for each zone boundary
+        # Zone layout: Zone 3 | Zone 2 | Zone 1 (from negative Y to positive Y)
+        z1_left_y = segment.bz1 + segment.bz2 / 2     # Left boundary of zone 1
+        z1_right_y = segment.bz2 / 2                  # Right boundary of zone 1 (center)
+        z3_left_y = -segment.bz2 / 2                  # Left boundary of zone 3 (center)
+        z3_right_y = -segment.bz3 - segment.bz2 / 2  # Right boundary of zone 3
+        
+        # Z coordinate is always 0 (deck level)
+        z_coord = 0.0
+        
+        # Create zone coordinate entries
+        d_point = segment_idx + 1
+        zone_coordinates.update({
+            f"D{d_point}_Z1_left": [x_coord, z1_left_y, z_coord],
+            f"D{d_point}_Z1_right": [x_coord, z1_right_y, z_coord],
+            f"D{d_point}_Z2_left": [x_coord, z1_right_y, z_coord],    # Same as Z1_right
+            f"D{d_point}_Z2_right": [x_coord, z3_left_y, z_coord],    # Same as Z3_left
+            f"D{d_point}_Z3_left": [x_coord, z3_left_y, z_coord],
+            f"D{d_point}_Z3_right": [x_coord, z3_right_y, z_coord],
+        })
+        
+        # Add segment length to cumulative length for next iteration
+        cumulative_length += segment.l
+    
+    # Add final D-point at the end of the bridge
+    if params.bridge_segments_array:
+        final_segment = params.bridge_segments_array[-1]
+        final_d_point = len(params.bridge_segments_array) + 1
+        
+        zone_coordinates.update({
+            f"D{final_d_point}_Z1_left": [cumulative_length, final_segment.bz1 + final_segment.bz2 / 2, 0.0],
+            f"D{final_d_point}_Z1_right": [cumulative_length, final_segment.bz2 / 2, 0.0],
+            f"D{final_d_point}_Z2_left": [cumulative_length, final_segment.bz2 / 2, 0.0],
+            f"D{final_d_point}_Z2_right": [cumulative_length, -final_segment.bz2 / 2, 0.0],
+            f"D{final_d_point}_Z3_left": [cumulative_length, -final_segment.bz2 / 2, 0.0],
+            f"D{final_d_point}_Z3_right": [cumulative_length, -final_segment.bz3 - final_segment.bz2 / 2, 0.0],
+        })
+
+    return zone_coordinates
+
+
 def create_node_and_thickness_dict(params: Any) -> tuple[dict[str, list[float]], dict[str, float]]:  # noqa: ANN401
     """
     Create node positions and thickness data from bridge parameters.
@@ -334,3 +398,6 @@ def create_node_and_thickness_dict(params: Any) -> tuple[dict[str, list[float]],
         )
 
     return nodes_dict, thickness_dict
+
+
+

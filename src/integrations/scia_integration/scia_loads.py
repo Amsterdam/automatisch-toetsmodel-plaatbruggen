@@ -42,7 +42,6 @@ def add_theoretical_tandem_loads(
     scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
 
     # 4. Create surface loads using the builder, applying them to the correct load case
-
     for tandem in scia_tandem_data:
         load_case_name = tandem["load_case"]
         for i, patch_load in enumerate(tandem["patch_loads"]):
