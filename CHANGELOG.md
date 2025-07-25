@@ -4,6 +4,12 @@
 - IDEA model builder
 - IDEA export + viewer
 - SCIA load cases BG 1001, 2001, 2002, 2003, 5001
+- **SCIA Analysis Results Table**: Basic structural analysis results display
+  - Force results (Mmax, Vmax, Nmax) with location information
+  - Displacement results (δmax, θmax) for deformation analysis
+  - Load combination information showing active combinations
+  - Engineering assessment with moment magnitude evaluation
+  - Clean table format with Parameter, Value, Location, and Status columns
 
 ### Changed
 - SCIA model builder logic
