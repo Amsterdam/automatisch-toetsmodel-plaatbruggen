@@ -130,7 +130,7 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
                 wheels_main.append(wheel_coords)
 
             # Add load_case
-            load_case = {
+            load_case: dict[str, Any] = {
                 "load_case": f"{prefix}{tandem_idx:03d}",
             }
 
@@ -261,7 +261,7 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
                 ]
                 wheels_main.append(wheel_coords)
 
-            load_case = {
+            load_case: dict[str, Any] = {
                 "load_case": f"{prefix}{tandem_idx:03d}",
             }
 
