@@ -17,7 +17,7 @@ from src.common.materials import get_material_densities
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
 
-def generate_theoretical_lane_positions(
+def generate_theoretical_lane_positions_BG8000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
     zone3_width: float = 0.0,
@@ -66,7 +66,7 @@ def generate_theoretical_lane_positions(
 TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
-def tandem_systems_theoretical_lanes(  # noqa: PLR0913
+def tandem_systems_theoretical_lanes_BG8000(  # noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -108,7 +108,7 @@ def tandem_systems_theoretical_lanes(  # noqa: PLR0913
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
-    lane_y_positions = generate_theoretical_lane_positions(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+    lane_y_positions = generate_theoretical_lane_positions_BG8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
     # Only generate for BG8 (first lane position)
@@ -117,7 +117,7 @@ def tandem_systems_theoretical_lanes(  # noqa: PLR0913
         prefix = "BG8"
         for tandem_idx, x in enumerate(tandem_x_positions, 1):
             wheels_main = []
-            tandem_start_y_main = y_lane_center - 0.6
+            tandem_start_y_main = y_lane_center - 1.2
             for dx, dy in TANDEM_WHEEL_OFFSETS:
                 x0 = x + dx
                 y0 = tandem_start_y_main + dy
@@ -137,7 +137,7 @@ def tandem_systems_theoretical_lanes(  # noqa: PLR0913
             # Add 200 kN tandem in next lane (if exists)
             wheels_200 = []
             if len(lane_y_positions) > 1:
-                tandem_start_y_200 = lane_y_positions[1] - 0.6
+                tandem_start_y_200 = lane_y_positions[1] - 1.2
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_200 + dy
@@ -152,7 +152,7 @@ def tandem_systems_theoretical_lanes(  # noqa: PLR0913
             # Add 100 kN tandem in next-next lane (if exists)
             wheels_100 = []
             if len(lane_y_positions) > 2:
-                tandem_start_y_100 = lane_y_positions[2] - 0.6
+                tandem_start_y_100 = lane_y_positions[2] - 1.2
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_100 + dy
@@ -165,9 +165,9 @@ def tandem_systems_theoretical_lanes(  # noqa: PLR0913
                     wheels_100.append(wheel_coords)
 
             load_case["loads"] = [
-                {"wheels": wheels_main, "load": 300 / (0.4 * 0.4)},
-                {"wheels": wheels_200, "load": 200 / (0.4 * 0.4)},
-                {"wheels": wheels_100, "load": 100 / (0.4 * 0.4)},
+                {"wheels": wheels_main, "load": 300000 / (0.4 * 0.4)},
+                {"wheels": wheels_200, "load": 200000 / (0.4 * 0.4)},
+                {"wheels": wheels_100, "load": 100000 / (0.4 * 0.4)},
             ]
 
             results.append(load_case)
@@ -176,9 +176,9 @@ def tandem_systems_theoretical_lanes(  # noqa: PLR0913
 
 
 # ========================================================================
-# PHASE 2: REVERSED NOTIONAL LANES (CRITICAL LOADING FROM OPPOSITE SIDE)
+# PHASE 2: REVERSED NOTIONAL LANES (CRITICAL LOADING FROM OPPOSITE SIDE) FOR BG9000
 # ========================================================================
-def generate_theoretical_lane_positions_reversed(
+def generate_theoretical_lane_positions_BG9000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
     zone3_width: float = 0.0,
@@ -204,16 +204,18 @@ def generate_theoretical_lane_positions_reversed(
         raise ValueError("Lane width must be positive")
 
     num_lanes = int(width_bridgedeck // lane_width)
+    tandem_lanes = min(3, num_lanes)  # Limit to 3 lanes for tandem systems
     lane_centers = []
     for lane_idx in range(num_lanes):
         # Start from the right edge
         lane_start = width_bridgedeck - lane_idx * lane_width
         lane_center = lane_start - (lane_width / 2)
         lane_centers.append(lane_center - zone3_width - 0.5 * zone2_width)
+
     return lane_centers
 
 
-def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
+def tandem_systems_theoretical_lanes_BG9000(  # noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -239,7 +241,7 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
     """
     wheel_size = 0.4
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    lane_y_positions = generate_theoretical_lane_positions_reversed(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+    lane_y_positions = generate_theoretical_lane_positions_BG9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
     # Only generate for BG9 (first lane position, reversed)
@@ -248,7 +250,7 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
         prefix = "BG9"
         for tandem_idx, x in enumerate(tandem_x_positions, 1):
             wheels_main = []
-            tandem_start_y_main = y_lane_center - 0.6
+            tandem_start_y_main = y_lane_center - 1.2
             for dx, dy in TANDEM_WHEEL_OFFSETS:
                 x0 = x + dx
                 y0 = tandem_start_y_main + dy
@@ -267,7 +269,7 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
             # 200 kN tandem in next lane (if exists)
             wheels_200 = []
             if len(lane_y_positions) > 1:
-                tandem_start_y_200 = lane_y_positions[1] - 0.6
+                tandem_start_y_200 = lane_y_positions[1] - 1.2
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_200 + dy
@@ -282,7 +284,7 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
             # 100 kN tandem in next-next lane (if exists)
             wheels_100 = []
             if len(lane_y_positions) > 2:
-                tandem_start_y_100 = lane_y_positions[2] - 0.6
+                tandem_start_y_100 = lane_y_positions[2] - 1.2
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_100 + dy
@@ -295,9 +297,9 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
                     wheels_100.append(wheel_coords)
 
             load_case["loads"] = [
-                {"wheels": wheels_main, "load": 300 / (0.4 * 0.4)},
-                {"wheels": wheels_200, "load": 200 / (0.4 * 0.4)},
-                {"wheels": wheels_100, "load": 100 / (0.4 * 0.4)},
+                {"wheels": wheels_main, "load": 300000 / (0.4 * 0.4)},
+                {"wheels": wheels_200, "load": 200000 / (0.4 * 0.4)},
+                {"wheels": wheels_100, "load": 100000 / (0.4 * 0.4)},
             ]
 
             results.append(load_case)
@@ -305,34 +307,180 @@ def tandem_systems_theoretical_lanes_reversed(  # noqa: PLR0913
     return results
 
 
+def generate_theoretical_lane_positions_BG10000(
+    width_bridgedeck: float,
+    lane_width: float = 3.0,
+    zone3_width: float = 0.0,
+    zone2_width: float = 0.0,
+) -> list[float]:
+    """
+    Generate Y-positions for BG10000 load case: 3 lanes, 300 kN in center, 200/100 kN adjacent.
+
+    :param width_bridgedeck: Total bridge width in meters
+    :type width_bridgedeck: float
+    :param lane_width: Standard lane width in meters (default 3.0m)
+    :type lane_width: float
+    :param zone3_width: Width of zone 3 to shift all lane centers by (-zone3_width)
+    :type zone3_width: float
+    :returns: List of Y-coordinates for lane centers (center, left, right)
+    :rtype: list[float]
+    """
+    if width_bridgedeck <= 0:
+        raise ValueError("Bridge width must be positive")
+    if lane_width <= 0:
+        raise ValueError("Lane width must be positive")
+
+    # Center lane
+    y_center = width_bridgedeck / 2 - zone3_width - 0.5 * zone2_width
+    # Left lane (adjacent to center)
+    y_left = y_center - lane_width
+    # Right lane (adjacent to center)
+    y_right = y_center + lane_width
+
+    return [y_center, y_left, y_right]
+
+
+def tandem_systems_theoretical_lanes_BG10000(  # noqa: PLR0913
+    length_bridgedeck: float,
+    width_bridgedeck: float,
+    thickness_bridgedeck: float,
+    width_firstsegment_zone3: float,
+    width_firstsegment_zone2: float,
+    lane_width: float = 3.0,
+) -> list[dict[str, Any]]:
+    """
+    Generate BG10000 load cases: 300 kN tandem in center, 200/100 kN adjacent.
+
+    :param length_bridgedeck: Bridge length in meters
+    :type length_bridgedeck: float
+    :param width_bridgedeck: Bridge width in meters
+    :type width_bridgedeck: float
+    :param thickness_bridgedeck: Bridge thickness in meters
+    :type thickness_bridgedeck: float
+    :param lane_width: Standard lane width in meters (default 3.0m)
+    :type lane_width: float
+    :returns: List of BG10000 load cases
+    :rtype: list[dict[str, Any]]
+    """
+    wheel_size = 0.4
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
+    lane_y_positions = generate_theoretical_lane_positions_BG10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+
+    # Order: center (300 kN), left/right (200/100 kN)
+    y_center, y_left, y_right = lane_y_positions
+    prefix = "BG10"
+    results = []
+    idx = 1
+    # First, configuration A: 200 kN left, 100 kN right
+    for x in tandem_x_positions:
+        wheels_300 = []
+        tandem_start_y_300 = y_center - 1.2
+        for dx, dy in TANDEM_WHEEL_OFFSETS:
+            x0 = x + dx
+            y0 = tandem_start_y_300 + dy
+            wheel_coords = [
+                [x0 + wheel_size, y0],
+                [x0 + wheel_size, y0 + wheel_size],
+                [x0, y0 + wheel_size],
+                [x0, y0],
+            ]
+            wheels_300.append(wheel_coords)
+
+        wheels_200_left = []
+        tandem_start_y_200_left = y_left - 1.2
+        for dx, dy in TANDEM_WHEEL_OFFSETS:
+            x0 = x + dx
+            y0 = tandem_start_y_200_left + dy
+            wheel_coords = [
+                [x0 + wheel_size, y0],
+                [x0 + wheel_size, y0 + wheel_size],
+                [x0, y0 + wheel_size],
+                [x0, y0],
+            ]
+            wheels_200_left.append(wheel_coords)
+
+        wheels_100_right = []
+        tandem_start_y_100_right = y_right - 1.2
+        for dx, dy in TANDEM_WHEEL_OFFSETS:
+            x0 = x + dx
+            y0 = tandem_start_y_100_right + dy
+            wheel_coords = [
+                [x0 + wheel_size, y0],
+                [x0 + wheel_size, y0 + wheel_size],
+                [x0, y0 + wheel_size],
+                [x0, y0],
+            ]
+            wheels_100_right.append(wheel_coords)
+
+        load_case_A = {
+            "load_case": f"{prefix}{idx:03d}",
+            "loads": [
+                {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
+                {"wheels": wheels_200_left, "load": 200000 / (0.4 * 0.4)},
+                {"wheels": wheels_100_right, "load": 100000 / (0.4 * 0.4)},
+            ],
+        }
+        results.append(load_case_A)
+        idx += 1
+
+    # Then, configuration B: 100 kN left, 200 kN right
+    for x in tandem_x_positions:
+        wheels_300 = []
+        tandem_start_y_300 = y_center - 1.2
+        for dx, dy in TANDEM_WHEEL_OFFSETS:
+            x0 = x + dx
+            y0 = tandem_start_y_300 + dy
+            wheel_coords = [
+                [x0 + wheel_size, y0],
+                [x0 + wheel_size, y0 + wheel_size],
+                [x0, y0 + wheel_size],
+                [x0, y0],
+            ]
+            wheels_300.append(wheel_coords)
+
+        wheels_100_left = []
+        tandem_start_y_100_left = y_left - 1.2
+        for dx, dy in TANDEM_WHEEL_OFFSETS:
+            x0 = x + dx
+            y0 = tandem_start_y_100_left + dy
+            wheel_coords = [
+                [x0 + wheel_size, y0],
+                [x0 + wheel_size, y0 + wheel_size],
+                [x0, y0 + wheel_size],
+                [x0, y0],
+            ]
+            wheels_100_left.append(wheel_coords)
+
+        wheels_200_right = []
+        tandem_start_y_200_right = y_right - 1.2
+        for dx, dy in TANDEM_WHEEL_OFFSETS:
+            x0 = x + dx
+            y0 = tandem_start_y_200_right + dy
+            wheel_coords = [
+                [x0 + wheel_size, y0],
+                [x0 + wheel_size, y0 + wheel_size],
+                [x0, y0 + wheel_size],
+                [x0, y0],
+            ]
+            wheels_200_right.append(wheel_coords)
+
+        load_case_B = {
+            "load_case": f"{prefix}{idx:03d}",
+            "loads": [
+                {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
+                {"wheels": wheels_100_left, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_200_right, "load": 200000 / (0.4 * 0.4)},
+            ],
+        }
+        results.append(load_case_B)
+        idx += 1
+    return results
+
+
 # ========================================================================
 # FUTURE INTEGRATION ARCHITECTURE
 # ========================================================================
 # The following function signatures are planned for future implementation:
-
-
-def tandem_systems_shiftable_lanes(
-    length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float, num_shift_positions: int = 5
-) -> list[dict[str, Any]]:
-    """
-    FUTURE IMPLEMENTATION: Generate tandem loads with freely shiftable lane positions.
-
-    This will enable testing all possible transverse positions to find critical
-    loading scenarios for maximum structural effects.
-
-    :param num_shift_positions: Number of transverse positions to test
-    :returns: Load cases with shifting tandem positions for optimization
-
-    Planned Features:
-        - Multiple transverse positions per longitudinal location
-        - Load case naming: "SH6001", "SH6002", etc. (SH = Shiftable)
-        - Integration with influence line analysis
-        - Automatic critical position detection
-    """
-    # TODO: Implement in Phase 2
-    # This will generate tandems at multiple Y positions per X position
-    # for comprehensive coverage and critical loading analysis
-    raise NotImplementedError("Shiftable lanes implementation planned for Phase 2")
 
 
 def tandem_systems_actual_lanes(length_bridgedeck: float, actual_lane_positions: list[float], thickness_bridgedeck: float) -> list[dict[str, Any]]:
@@ -451,207 +599,6 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
         tandem_systems.append(round(mid_span_position, 6))
 
     return sorted(set(tandem_systems))
-
-
-def tandem_systems_axes_single_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
-    """
-    Calculate the wheel print coordinates and loads for each tandem system in a single notional lane.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        width_bridgedeck (float): The width of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-
-    Returns:
-        list[dict[str, Any]]: List of dicts, each with keys: 'load_case', 'wheels', 'load'.
-            'wheels' is a list of four lists [[x1, y1], [x2, y2], [x3, y3], [x4, y4]] for each wheel (clockwise).
-
-    """
-    load = 300 / (0.4 * 0.4)
-    wheel_size = 0.4
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    y_base = calculate_start_of_lanes(thickness_bridgedeck)
-    y_second = y_base + (width_bridgedeck - 2 * y_base - 2.4)
-    y_positions = [y_base, y_second]
-    results = []
-    load_case_number = 1
-    for y in y_positions:
-        for x in tandem_x_positions:
-            wheels = []
-            # Four wheels per tandem system, spaced 1.2 m apart in x, 1.2 m apart in y
-            for dx, dy in TANDEM_WHEEL_OFFSETS:
-                x0 = x + dx
-                y0 = y + dy
-                # Clockwise: bottom right, top right, top left, bottom left
-                wheel_coords = [
-                    [x0 + wheel_size, y0],  # bottom right
-                    [x0 + wheel_size, y0 + wheel_size],  # top right
-                    [x0, y0 + wheel_size],  # top left
-                    [x0, y0],  # bottom left
-                ]
-                wheels.append(wheel_coords)
-            results.append(
-                {
-                    "load_case": f"BG{6000 + load_case_number:04d}",
-                    "wheels": wheels,
-                    "load": load,
-                }
-            )
-            load_case_number += 1
-    return results
-
-
-def tandem_systems_axes_double_lane(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
-    """
-    Calculate the wheel print coordinates and loads for each load case in a double notional lane case.
-
-    Each load case consists of two tandem systems at the same x-position: one on each lane.
-    For each configuration, the exterior lane receives 300 kN and the interior 200 kN, then the lanes are swapped.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        width_bridgedeck (float): The width of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-
-    Returns:
-        results(list[dict[str, object]]): List of dicts, each with keys: 'load_case', 'tandems', where 'tandems' is a list of two dicts
-        (one per lane), each with keys 'wheels', 'load', 'lane'.
-
-    """
-    wheel_size = 0.4
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    _, lane_width = amount_of_notional_lanes(width_bridgedeck)
-    y_base = calculate_start_of_lanes(thickness_bridgedeck)
-    y_second = y_base + lane_width
-    y_positions = [y_base, y_second]  # [left lane, right lane]
-    results = []
-    load_case_number = 1
-    # First configuration: 300 kN on left (exterior), 200 kN on right (interior)
-    for x in tandem_x_positions:
-        tandems = []
-        for lane_idx, (y, load) in enumerate(zip(y_positions, [300, 200])):
-            wheels = []
-            for dx, dy in TANDEM_WHEEL_OFFSETS:
-                x0 = x + dx
-                y0 = y + dy
-                wheel_coords = [
-                    [x0 + wheel_size, y0],
-                    [x0 + wheel_size, y0 + wheel_size],
-                    [x0, y0 + wheel_size],
-                    [x0, y0],
-                ]
-                wheels.append(wheel_coords)
-            tandems.append(
-                {
-                    "wheels": wheels,
-                    "load": load / (0.4 * 0.4),
-                    "lane": lane_idx + 1,
-                }
-            )
-        results.append(
-            {
-                "load_case": f"BG{6000 + load_case_number:04d}",
-                "tandems": tandems,
-            }
-        )
-        load_case_number += 1
-    # Second configuration: 300 kN on right (exterior), 200 kN on left (interior)
-    for x in tandem_x_positions:
-        tandems = []
-        for lane_idx, (y, load) in enumerate(zip(y_positions, [200, 300])):
-            wheels = []
-            for dx, dy in TANDEM_WHEEL_OFFSETS:
-                x0 = x + dx
-                y0 = y + dy
-                wheel_coords = [
-                    [x0 + wheel_size, y0],
-                    [x0 + wheel_size, y0 + wheel_size],
-                    [x0, y0 + wheel_size],
-                    [x0, y0],
-                ]
-                wheels.append(wheel_coords)
-            tandems.append(
-                {
-                    "wheels": wheels,
-                    "load": load / (0.4 * 0.4),
-                    "lane": lane_idx + 1,
-                }
-            )
-        results.append(
-            {
-                "load_case": f"BG{6000 + load_case_number:04d}",
-                "tandems": tandems,
-            }
-        )
-        load_case_number += 1
-    return results
-
-
-def tandem_systems_axes_more_lanes(length_bridgedeck: float, width_bridgedeck: float, thickness_bridgedeck: float) -> list[dict[str, Any]]:
-    """
-    Calculate the wheel print coordinates and loads for each load case in a three notional lane case (wide bridge).
-
-    Each load case consists of three tandem systems at the same x-position: one on each lane.
-    Four configurations:
-    1. 300 kN on left, 200 kN center, 100 kN right
-    2. 100 kN on left, 200 kN center, 300 kN right
-    3. 200 kN on left, 300 kN center, 100 kN right
-    4. 100 kN on left, 300 kN center, 200 kN right
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        width_bridgedeck (float): The width of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-
-    Returns:
-        list[dict[str, object]]: List of dicts, each with keys: 'load_case', 'tandems', where 'tandems' is a list of three dicts (one per lane),
-            each with keys 'wheels', 'load', 'lane'.
-
-    """
-    wheel_size = 0.4
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
-    _, lane_width = amount_of_notional_lanes(width_bridgedeck)
-    y_base = calculate_start_of_lanes(thickness_bridgedeck)
-    y_positions = [y_base + i * lane_width for i in range(3)]
-    results = []
-    load_case_number = 1
-    # Define the four configurations
-    configurations = [
-        [300, 200, 100],  # 300 kN on left
-        [100, 200, 300],  # 300 kN on right
-        [200, 300, 100],  # 300 kN in center, 200 left, 100 right
-        [100, 300, 200],  # 300 kN in center, 100 left, 200 right
-    ]
-    for config in configurations:
-        for x in tandem_x_positions:
-            tandems = []
-            for lane_idx, (y, load) in enumerate(zip(y_positions, config)):
-                wheels = []
-                for dx, dy in TANDEM_WHEEL_OFFSETS:
-                    x0 = x + dx
-                    y0 = y + dy
-                    wheel_coords = [
-                        [x0 + wheel_size, y0],
-                        [x0 + wheel_size, y0 + wheel_size],
-                        [x0, y0 + wheel_size],
-                        [x0, y0],
-                    ]
-                    wheels.append(wheel_coords)
-                tandems.append(
-                    {
-                        "wheels": wheels,
-                        "load": load / (0.4 * 0.4),
-                        "lane": lane_idx + 1,
-                    }
-                )
-            results.append(
-                {
-                    "load_case": f"BG{8}{load_case_number:03d}",
-                    "tandems": tandems,
-                }
-            )
-            load_case_number += 1
-    return results
 
 
 def calculate_pavement_load_from_dynamic_array(
