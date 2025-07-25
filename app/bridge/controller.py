@@ -428,10 +428,7 @@ class BridgeController(ViktorController):
                 if moment_data:
                     try:
                         # Get all moment values and find the maximum
-                        moment_values = []
-                        for key, value in moment_data.items():
-                            if isinstance(value, (int, float)):
-                                moment_values.append(abs(value))
+                        moment_values = [abs(value) for value in moment_data.values() if isinstance(value, (int, float))]
 
                         if moment_values:
                             max_moment_comp = max(moment_values)
@@ -444,10 +441,7 @@ class BridgeController(ViktorController):
                 # Find maximum shear force
                 if shear_data:
                     try:
-                        shear_values = []
-                        for key, value in shear_data.items():
-                            if isinstance(value, (int, float)):
-                                shear_values.append(abs(value))
+                        shear_values = [abs(value) for value in shear_data.values() if isinstance(value, (int, float))]
 
                         if shear_values:
                             max_shear_comp = max(shear_values)
@@ -459,10 +453,7 @@ class BridgeController(ViktorController):
                 # Find maximum normal force
                 if normal_data:
                     try:
-                        normal_values = []
-                        for key, value in normal_data.items():
-                            if isinstance(value, (int, float)):
-                                normal_values.append(abs(value))
+                        normal_values = [abs(value) for value in normal_data.values() if isinstance(value, (int, float))]
 
                         if normal_values:
                             max_normal_comp = max(normal_values)
@@ -501,10 +492,7 @@ class BridgeController(ViktorController):
                 # Find maximum displacement
                 if disp_data:
                     try:
-                        disp_values = []
-                        for key, value in disp_data.items():
-                            if isinstance(value, (int, float)):
-                                disp_values.append(abs(value))
+                        disp_values = [abs(value) for value in disp_data.values() if isinstance(value, (int, float))]
 
                         if disp_values:
                             max_disp_comp = max(disp_values)
@@ -516,10 +504,7 @@ class BridgeController(ViktorController):
                 # Find maximum rotation
                 if rotation_data:
                     try:
-                        rotation_values = []
-                        for key, value in rotation_data.items():
-                            if isinstance(value, (int, float)):
-                                rotation_values.append(abs(value))
+                        rotation_values = [abs(value) for value in rotation_data.values() if isinstance(value, (int, float))]
 
                         if rotation_values:
                             max_rot_comp = max(rotation_values)
@@ -685,96 +670,52 @@ class BridgeController(ViktorController):
         except Exception as e:
             raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
+    def _raise_no_xml_output_error(self) -> None:
+        """Raise error when no XML output file is available."""
+        raise UserError("No XML output file available from SCIA analysis")
+
+    def _raise_unexpected_type_error(self, fresh_xml_output_file: object) -> None:
+        """Raise error for unexpected type of fresh_xml_output_file."""
+        raise UserError(f"Unexpected type for fresh_xml_output_file: {type(fresh_xml_output_file)}")
+
     def download_scia_output_xml(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Download the SCIA output XML file for investigation."""
         if not params.bridge_segments_array:
             self._raise_no_bridge_segments_error()
 
         try:
-            # Get the template path
+            # Get the ESA template path
             template_path = self._get_scia_template_path()
 
-            # Import the analysis function
-            from app.bridge.scia_model_builder import run_scia_analysis
-
-            # Get a fresh copy of the XML output file directly from the analysis
-            # The one in results might have been consumed by parsing functions
-
-            # Run the analysis again to get a fresh XML output file
-            template_path = self._get_scia_template_path()
+            # Run SCIA analysis to get the output XML
             analysis = run_scia_analysis(params, template_path)
+
+            # Get the XML output file
             fresh_xml_output_file = analysis.get_xml_output_file()
 
             if not fresh_xml_output_file:
-                raise UserError("No XML output file available from SCIA analysis")
+                self._raise_no_xml_output_error()
 
             # Create a filename with bridge identifier
-            bridge_id = params.info.bridge_objectnumm or "unknown_bridge"
-            filename = f"scia_output_{bridge_id}.xml"
+            filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
 
-            # Create a File object and write the XML content to it
-            xml_file = File()
-
-            # Get the XML content as bytes
-            if hasattr(fresh_xml_output_file, "read"):
-                # It's a BytesIO-like object
-                xml_content = fresh_xml_output_file.read()
-            elif hasattr(fresh_xml_output_file, "getvalue"):
-                # It's a BytesIO object
+            # Extract content from the XML output file
+            if hasattr(fresh_xml_output_file, "getvalue"):
                 xml_content = fresh_xml_output_file.getvalue()
-            elif isinstance(fresh_xml_output_file, str):
-                # It's a string, encode it to bytes
-                xml_content = fresh_xml_output_file.encode("utf-8")
-            elif isinstance(fresh_xml_output_file, bytes):
-                # It's already bytes
-                xml_content = fresh_xml_output_file
+            elif hasattr(fresh_xml_output_file, "read"):
+                fresh_xml_output_file.seek(0)
+                xml_content = fresh_xml_output_file.read()
+                fresh_xml_output_file.seek(0)  # Reset position
             else:
-                raise UserError(f"Unexpected type for fresh_xml_output_file: {type(fresh_xml_output_file)}")
+                xml_content = fresh_xml_output_file
 
             # Write the content to the File object using the correct method
-            with xml_file.open_binary() as f:
-                f.write(xml_content)
+            file_obj = File.from_bytes(xml_content, filename)
 
-            return DownloadResult(xml_file, filename)
+            return DownloadResult(file_obj, filename)
 
-        except ImportError as e:
-            raise UserError(f"VIKTOR SCIA module not available: {e!s}\n\nThis function requires the VIKTOR SDK with SCIA integration.")
-        except viktor.errors.LicenseError as e:
-            raise UserError(f"SCIA Engineer license error: {e!s}\n\nPlease check your SCIA Engineer license and ensure it's properly configured.")
-        except viktor.errors.ExecutionError as e:
-            raise UserError(
-                f"SCIA analysis execution failed: {e!s}\n\n"
-                "The external SCIA analysis did not complete successfully. "
-                "Check if SCIA Engineer is properly installed and accessible."
-            )
-        except viktor.errors.ModelError as e:
-            raise UserError(
-                f"SCIA model error: {e!s}\n\n"
-                "There was an issue with the SCIA model generation or analysis. "
-                "Check your bridge parameters and try again."
-            )
-        except viktor.errors.SciaParsingError as e:
-            raise UserError(
-                f"SCIA output parsing error: {e!s}\n\n"
-                "The SCIA analysis completed but the output could not be parsed. "
-                "This might indicate an issue with the SCIA output format."
-            )
-        except FileNotFoundError as e:
-            raise UserError(
-                f"Template file not found: {e!s}\n\nThe SCIA template file is missing or not accessible. Please check the template configuration."
-            )
-        except PermissionError as e:
-            raise UserError(
-                f"Permission error: {e!s}\n\n"
-                "Insufficient permissions to access SCIA files or execute the analysis. "
-                "Check file permissions and user access rights."
-            )
         except Exception as e:
-            # Catch any other unexpected errors
-            raise UserError(
-                f"Unexpected error during SCIA analysis: {e!s}\n\n"
-                "An unexpected error occurred. Please try again or contact support if the issue persists."
-            )
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
     # ============================================================================================================
     # IDEA StatiCa Integration

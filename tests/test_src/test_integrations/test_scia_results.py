@@ -54,7 +54,7 @@ class TestSciaResults(unittest.TestCase):
         with pytest.raises(ValueError) as context:
             extract_analysis_results(self.mock_builder, self.mock_analysis)
 
-        assert "Failed to extract SCIA analysis results" in str(context.exception)
+        assert "Failed to extract SCIA analysis results" in str(context.value)
 
     def test_get_result_summary_success(self) -> None:
         """Test result summary generation for successful analysis."""

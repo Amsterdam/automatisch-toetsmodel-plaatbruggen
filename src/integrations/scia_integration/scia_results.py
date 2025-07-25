@@ -7,34 +7,36 @@ These functions are pure Python and can be used by the app layer to retrieve ana
 
 from typing import Any
 
-from .scia_model_interface import SciaModelBuilder
+from .scia_model_interface import SciaAnalysis, SciaModelBuilder
 
 
-def extract_analysis_results(builder: SciaModelBuilder, analysis: Any) -> dict[str, Any]:
+def extract_analysis_results(builder: SciaModelBuilder, analysis: SciaAnalysis) -> dict[str, object]:
     """
     Extract results from a completed SCIA analysis using the builder interface.
 
-    :param builder: The SCIA model builder instance implementing the SciaModelBuilder protocol.
-    :param analysis: The completed SCIA analysis object.
-    :return: Dictionary containing extracted analysis results.
+    :param builder: The SCIA model builder instance
+    :param analysis: The completed SCIA analysis object
+    :returns: Dictionary containing extracted analysis results
+    :rtype: dict[str, Any]
     """
     try:
-        # Use the builder to extract results
+        # Extract results using the builder interface
         results = builder.extract_analysis_results(analysis)
 
-        # Add validation and summary
-        validation_result, validation_messages = validate_analysis_results(results)
+        # Validate results
+        is_valid, validation_messages = validate_analysis_results(results)
         results["validation"] = {
-            "is_valid": validation_result,
+            "is_valid": is_valid,
             "messages": validation_messages,
         }
 
+        # Add summary
         results["result_summary"] = get_result_summary(results)
-
-        return results
 
     except Exception as e:
         raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
+    else:
+        return results
 
 
 def get_result_summary(results: dict[str, Any]) -> dict[str, Any]:

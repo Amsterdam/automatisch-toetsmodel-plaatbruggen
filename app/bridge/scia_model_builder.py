@@ -11,7 +11,9 @@ from typing import Any, Literal
 
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.scia_model_interface import (
+    SciaAnalysis,
     SciaCombinationType,
+    SciaFile,
     SciaLoadCase,
     SciaLoadCombination,
     SciaLoadGroup,
@@ -304,10 +306,10 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if combo_class is None:
             raise ValueError(f"Unsupported combination type: {combination_type}")
 
-        for load_case, factor in load_case_factors.items():
+        for load_case in load_case_factors:
             # Check if this load case is in our stored load cases
             found_in_stored = False
-            for stored_name, stored_case in self.load_cases.items():
+            for stored_case in self.load_cases.values():
                 if stored_case == load_case:
                     found_in_stored = True
                     break
@@ -315,7 +317,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 pass
 
         # Convert load_case_factors to the format expected by SCIA
-        scia_load_cases = {load_case: factor for load_case, factor in load_case_factors.items()}
+        scia_load_cases = dict(load_case_factors)
 
         # Create the combination with load cases included
         combination = self.model.create_load_combination(name, combo_class, scia_load_cases, description=description)
@@ -384,7 +386,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         xml_file, def_file = self.model.generate_xml_input()
         return xml_file, def_file
 
-    def run_analysis(self, xml_file: Any, def_file: Any, esa_template: Any) -> Any:
+    def run_analysis(self, xml_file: SciaFile, def_file: SciaFile, esa_template: SciaFile) -> SciaAnalysis:
         """Runs the SCIA analysis and returns the analysis object."""
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
@@ -392,7 +394,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         scia_analysis.execute(timeout=600)
         return scia_analysis
 
-    def extract_analysis_results(self, analysis: Any) -> dict[str, Any]:
+    def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
         """Extracts results from a completed SCIA analysis."""
         if not hasattr(analysis, "get_xml_output_file"):
             raise ValueError("Invalid SCIA analysis object - missing get_xml_output_file method")
@@ -415,7 +417,38 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         except Exception as e:
             raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
 
-    def get_displacement_results(self, analysis: Any) -> dict[str, Any]:
+    def _try_get_table_result(self, xml_output_file: SciaFile, table_name: str) -> dict[str, object] | None:
+        """Try to get a table result from the XML output file."""
+        try:
+            table_data = OutputFileParser.get_result(xml_output_file, table_name)
+        except Exception:
+            return None
+        else:
+            return {
+                "status": "success",
+                "data": table_data,
+                "message": f"Results extracted successfully from '{table_name}'",
+                "table_name": table_name,
+            }
+
+    def _try_parse_table(self, fresh_xml_content: SciaFile, table_name: str) -> dict[str, object]:
+        """Try to parse a specific table from the XML content."""
+        try:
+            table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
+        except Exception as e:
+            return {
+                "status": "not_found",
+                "message": f"Table '{table_name}' not found in XML output",
+                "error": str(e),
+            }
+        else:
+            return {
+                "status": "success",
+                "data": table_data,
+                "message": f"Successfully extracted {table_name}",
+            }
+
+    def get_displacement_results(self, analysis: SciaAnalysis) -> dict[str, object]:
         """Extracts displacement results from SCIA analysis."""
         try:
             xml_output_file = analysis.get_xml_output_file()
@@ -424,18 +457,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             displacement_table_names = ["2D-verplaatsing", "1D-vervormingen", "Displacements", "Displacement"]
 
             for table_name in displacement_table_names:
-                try:
-                    from viktor.external.scia import OutputFileParser
-
-                    displacement_table = OutputFileParser.get_result(xml_output_file, table_name)
-                    return {
-                        "status": "success",
-                        "data": displacement_table,
-                        "message": f"Displacement results extracted successfully from '{table_name}'",
-                        "table_name": table_name,
-                    }
-                except Exception:
-                    continue
+                result = self._try_get_table_result(xml_output_file, table_name)
+                if result:
+                    return result
 
             return {
                 "status": "not_found",
@@ -449,7 +473,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def get_internal_force_results(self, _analysis: Any) -> dict[str, Any]:
+    def get_internal_force_results(self, _analysis: SciaAnalysis) -> dict[str, object]:
         """Extracts internal force results from SCIA analysis."""
         try:
             xml_output_file = _analysis.get_xml_output_file()
@@ -464,18 +488,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             ]
 
             for table_name in internal_force_table_names:
-                try:
-                    from viktor.external.scia import OutputFileParser
-
-                    internal_forces_table = OutputFileParser.get_result(xml_output_file, table_name)
-                    return {
-                        "status": "success",
-                        "data": internal_forces_table,
-                        "message": f"Internal force results extracted successfully from '{table_name}'",
-                        "table_name": table_name,
-                    }
-                except Exception:
-                    continue
+                result = self._try_get_table_result(xml_output_file, table_name)
+                if result:
+                    return result
 
             return {
                 "status": "not_found",
@@ -489,7 +504,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def get_reaction_results(self, _analysis: Any) -> dict[str, Any]:
+    def get_reaction_results(self, _analysis: SciaAnalysis) -> dict[str, object]:
         """Extracts reaction force results from SCIA analysis."""
         try:
             xml_output_file = _analysis.get_xml_output_file()
@@ -498,18 +513,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             reaction_table_names = ["Reactions", "Reaction", "Support reactions", "Support reaction"]
 
             for table_name in reaction_table_names:
-                try:
-                    from viktor.external.scia import OutputFileParser
-
-                    reaction_table = OutputFileParser.get_result(xml_output_file, table_name)
-                    return {
-                        "status": "success",
-                        "data": reaction_table,
-                        "message": f"Reaction results extracted successfully from '{table_name}'",
-                        "table_name": table_name,
-                    }
-                except Exception:
-                    continue
+                result = self._try_get_table_result(xml_output_file, table_name)
+                if result:
+                    return result
 
             return {
                 "status": "not_found",
@@ -523,7 +529,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def get_stress_results(self, _analysis: Any) -> dict[str, Any]:
+    def get_stress_results(self, _analysis: SciaAnalysis) -> dict[str, object]:
         """Extracts stress results from SCIA analysis."""
         try:
             xml_output_file = _analysis.get_xml_output_file()
@@ -532,18 +538,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             stress_table_names = ["Stresses", "Stress", "Stress results", "Stress analysis"]
 
             for table_name in stress_table_names:
-                try:
-                    from viktor.external.scia import OutputFileParser
-
-                    stress_table = OutputFileParser.get_result(xml_output_file, table_name)
-                    return {
-                        "status": "success",
-                        "data": stress_table,
-                        "message": f"Stress results extracted successfully from '{table_name}'",
-                        "table_name": table_name,
-                    }
-                except Exception:
-                    continue
+                result = self._try_get_table_result(xml_output_file, table_name)
+                if result:
+                    return result
 
             return {
                 "status": "not_found",
@@ -557,7 +554,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def get_analysis_status(self, analysis: Any) -> dict[str, Any]:
+    def get_analysis_status(self, analysis: SciaAnalysis) -> dict[str, object]:
         """Gets the status and metadata of the SCIA analysis."""
         try:
             # Check if analysis has been executed
@@ -575,16 +572,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             if hasattr(analysis, "error"):
                 status["error_message"] = analysis.error
 
-            return status
-
         except Exception as e:
-            return {
+            status = {
                 "executed": False,
                 "has_results": False,
                 "error_message": str(e),
             }
+        else:
+            return status
 
-    def parse_xml_results(self, xml_output_file: Any) -> dict[str, Any]:
+    def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, object]:
         """Parses the XML output file to extract structured results."""
         try:
             # First, let's try to discover what tables are actually available
@@ -692,19 +689,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 fresh_xml_content = xml_output_file
 
             for table_name in result_tables:
-                try:
-                    table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
-                    parsed_results[table_name] = {
-                        "status": "success",
-                        "data": table_data,
-                        "message": f"Successfully extracted {table_name}",
-                    }
-                except Exception as e:
-                    parsed_results[table_name] = {
-                        "status": "not_found",
-                        "message": f"Table '{table_name}' not found in XML output",
-                        "error": str(e),
-                    }
+                parsed_results[table_name] = self._try_parse_table(fresh_xml_content, table_name)
 
             return {
                 "status": "success",
