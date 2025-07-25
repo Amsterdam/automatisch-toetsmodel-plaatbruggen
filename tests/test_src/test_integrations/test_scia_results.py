@@ -7,6 +7,8 @@ This module tests the functions in src.integrations.scia_integration.scia_result
 import unittest
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.integrations.scia_integration.scia_results import (
     extract_analysis_results,
     get_result_summary,
@@ -49,7 +51,7 @@ class TestSciaResults(unittest.TestCase):
         """Test extraction when an exception occurs."""
         self.mock_builder.extract_analysis_results.side_effect = Exception("Test error")
 
-        with self.assertRaises(ValueError) as context:
+        with pytest.raises(ValueError) as context:
             extract_analysis_results(self.mock_builder, self.mock_analysis)
 
         assert "Failed to extract SCIA analysis results" in str(context.exception)

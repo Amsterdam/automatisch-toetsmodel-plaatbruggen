@@ -65,13 +65,10 @@ def _create_example_combination(
     """
     combinations = []
 
-    # print(f"Creating example combinations. Available load case categories: {list(all_load_cases.keys())}")  # Debug: commented out
-
     # Example: Get pedestrian load case from the nested dictionary
     pedestrian_case = all_load_cases.get("pedestrian")
 
     if pedestrian_case:
-        # print("Found pedestrian load case, creating ULS combination")  # Debug: commented out
         # Example: Define load factors for ULS combination
         # These are placeholder values - colleagues should replace with proper NEN/Eurocode factors
         load_factors = {
@@ -80,13 +77,7 @@ def _create_example_combination(
         }
 
         try:
-            # Debug: Check if load cases are properly stored in builder
-            # print(f"Builder load_cases keys: {list(builder.load_cases.keys())}")  # Debug: commented out
-            # print(f"Self-weight case type: {type(self_weight_case)}")  # Debug: commented out
-            # print(f"Pedestrian case type: {type(pedestrian_case)}")  # Debug: commented out
-
             # Try creating a simple self-weight only combination first
-            # print("Trying simple self-weight only combination...")  # Debug: commented out
             simple_factors = {self_weight_case: 1.0}
 
             # Try different combination types
@@ -98,7 +89,6 @@ def _create_example_combination(
 
             for combo_type in combo_types_to_try:
                 try:
-                    # print(f"Trying combination type: {combo_type.value}")  # Debug: commented out
                     simple_combo = create_load_combination(
                         builder=builder,
                         combination_type=combo_type,
@@ -107,14 +97,11 @@ def _create_example_combination(
                         description=f"Test: 1.0*G (Self-weight only) - {combo_type.value}",
                     )
                     combinations.append(simple_combo)
-                    # print(f"Successfully created combination with type {combo_type.value}")  # Debug: commented out
                     break  # Stop if one works
                 except Exception:
-                    # print(f"Failed with combination type {combo_type.value}: {e}")  # Debug: commented out
                     continue
 
             # Now try the full combination
-            # print("Trying full combination with pedestrian load...")  # Debug: commented out
             uls_combo = create_load_combination(
                 builder=builder,
                 combination_type=SciaCombinationType.EN_ULS_SET_B,
@@ -123,13 +110,9 @@ def _create_example_combination(
                 description="Example ULS: 1.35*G + 1.50*Q (Self-weight + Pedestrian)",
             )
             combinations.append(uls_combo)
-            # print("Successfully created combination: ULS_Example_SW_Pedestrian")  # Debug: commented out
-        except Exception as e:
-            print(f"Failed to create ULS combination: {e}")
+        except Exception:
             traceback.print_exc()
     else:
-        # print("Pedestrian load case not found. Available cases:", list(all_load_cases.keys()))  # Debug: commented out
-
         # Try to create a simple self-weight only combination as fallback
         try:
             load_factors = {self_weight_case: 1.0}
@@ -141,9 +124,8 @@ def _create_example_combination(
                 description="Simple ULS: 1.0*G (Self-weight only)",
             )
             combinations.append(simple_combo)
-            # print("Created fallback combination: ULS_Self_Weight_Only")  # Debug: commented out
-        except Exception as e:
-            print(f"Failed to create fallback combination: {e}")
+        except Exception:
+            pass
 
     return combinations
 
@@ -176,7 +158,6 @@ def create_all_load_combinations(builder: SciaModelBuilder, all_load_cases: dict
     self_weight_case = all_load_cases.get("self_weight")
 
     if not self_weight_case:
-        print(f"Self-weight load case not found. Available keys: {list(all_load_cases.keys())}")
         return []  # Cannot create combinations without self-weight
 
     # Create example combinations using the helper function

@@ -304,31 +304,22 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if combo_class is None:
             raise ValueError(f"Unsupported combination type: {combination_type}")
 
-        # Debug: Check if load cases are in our dictionary
-        # print(f"Creating combination '{name}' with {len(load_case_factors)} load cases")  # Debug: commented out
         for load_case, factor in load_case_factors.items():
-            # print(f"  Load case: {load_case}, factor: {factor}")  # Debug: commented out
             # Check if this load case is in our stored load cases
             found_in_stored = False
             for stored_name, stored_case in self.load_cases.items():
                 if stored_case == load_case:
                     found_in_stored = True
-                    # print(f"    Found in stored cases as '{stored_name}'")  # Debug: commented out
                     break
             if not found_in_stored:
-                # print(f"    WARNING: Load case not found in stored cases!")  # Debug: commented out
                 pass
 
         # Convert load_case_factors to the format expected by SCIA
-        scia_load_cases = {}
-        for load_case, factor in load_case_factors.items():
-            scia_load_cases[load_case] = factor
-            # print(f"    Adding load case with factor {factor}")  # Debug: commented out
+        scia_load_cases = {load_case: factor for load_case, factor in load_case_factors.items()}
 
         # Create the combination with load cases included
         combination = self.model.create_load_combination(name, combo_class, scia_load_cases, description=description)
         self.load_combinations[name] = combination
-        # print(f"    Successfully created combination '{name}'")  # Debug: commented out
         return combination
 
     def create_result_class(
@@ -397,11 +388,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         """Runs the SCIA analysis and returns the analysis object."""
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-        print("Creating SCIA analysis object...")
         scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-        print("Executing SCIA analysis (this may take a while)...")
         scia_analysis.execute(timeout=600)
-        print("SCIA analysis execution completed")
         return scia_analysis
 
     def extract_analysis_results(self, analysis: Any) -> dict[str, Any]:
@@ -649,40 +637,10 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                                 }
                             )
 
-                            # # Debug: Show sample data for tables that have rows
-                            # if len(data_rows) > 0:
-                            #     print(f"Sample data from {table_name}:")
-                            #     for i, row in enumerate(data_rows[:3]):  # Show first 3 rows
-                            #         row_data = {}
-                            #         # Try different ways to extract data from the row
-                            #         for j, p in enumerate(row.findall(".//p")):
-                            #             row_data[f"p{j}"] = p.get("v", "")
-
-                            #         # Also try to get all attributes from the row
-                            #         row_attrs = dict(row.attrib)
-                            #         if row_attrs:
-                            #             row_data["attributes"] = row_attrs
-
-                            #         # Try to get text content
-                            #         row_text = row.text.strip() if row.text else ""
-                            #         if row_text:
-                            #             row_data["text"] = row_text
-
-                            #         print(f"  Row {i}: {row_data}")
-
-                            #         # Show the raw XML for the first row to understand structure
-                            #         if i == 0:
-                            #             import xml.etree.ElementTree as ET
-
-                            #             print(f"  Raw XML for first row: {ET.tostring(row, encoding='unicode')}")
-            except Exception as e:
+            except Exception:
                 # If XML parsing fails, continue with default tables
-                print(f"XML parsing error: {e}")  # Debug info
+                pass
             else:
-                # Debug: Show what we found (commented out for cleaner output)
-                # print(f"Found {len(available_tables)} tables in XML: {available_tables}")
-                # for detail in table_details:
-                #     print(f"  - {detail['name']}: {detail['data_rows']} data rows, {detail['objects']} objects")
                 pass
 
             # List of common result tables to try to extract (with variations)
@@ -805,16 +763,11 @@ def run_scia_analysis(params: Any, template_path: Path) -> scia.SciaAnalysis:  #
     :param template_path: The path to the ESA template file.
     :return: The executed SCIA analysis object.
     """
-    # print("run_scia_analysis: Starting...")  # Debug: commented out
     if not VIKTOR_AVAILABLE or scia is None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-    # print("run_scia_analysis: Setting up bridge analysis...")  # Debug: commented out
     xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
-    # print("run_scia_analysis: Creating SCIA analysis object...")  # Debug: commented out
     scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-    # print("run_scia_analysis: Executing SCIA analysis...")  # Debug: commented out
     scia_analysis.execute(timeout=600)
-    # print("run_scia_analysis: Analysis completed successfully")  # Debug: commented out
     return scia_analysis
 
 

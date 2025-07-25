@@ -179,7 +179,6 @@ class BridgeController(ViktorController):
                     if not all(hasattr(segment_param_row, attr) for attr in ["bz1", "bz2", "bz3", "l"]):
                         # Silently skip or log if a segment is malformed to avoid blocking top view
                         # Or raise UserError("Een of meer brugsegmenten missen data (bz1, bz2, bz3, l).")
-                        print(f"Warning: Malformed bridge segment data in get_top_view: {segment_param_row}")  # noqa: T201
                         continue  # Skip this segment if it's missing critical attributes
                     typed_bridge_dimensions.append(
                         BridgeSegmentDimensions(
@@ -366,205 +365,202 @@ class BridgeController(ViktorController):
         """
         Display SCIA analysis results in a table format with actual engineering values.
 
-        This table shows meaningful engineering results including forces, displacements,
-        maximums, minimums, and key structural response values.
-
-        :param params: Bridge parametrization object
-        :returns: TableResult containing SCIA analysis results
+        This view shows key structural analysis results including:
+        - Maximum internal forces (moment, shear, normal force)
+        - Maximum displacements and rotations
+        - Load combination information
+        - Engineering assessment based on moment magnitude
         """
         if not params.bridge_segments_array:
-            return TableResult(
-                [["Geen brugsegmenten gedefinieerd", "N/A", "N/A", "N/A"]], column_headers=["Status", "Displacements", "Internal Forces", "Reactions"]
-            )
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
+        # Get the ESA template path
+        template_path = Path(__file__).parent.parent.parent / "resources" / "templates" / "model.esa"
+
+        # Run SCIA analysis to get results
         try:
-            # Get the template path
-            template_path = self._get_scia_template_path()
+            analysis = run_scia_analysis(params, template_path)
+        except Exception:
+            traceback.print_exc()
+            raise
 
-            # Import the analysis function
-            # Run SCIA analysis to get results
-            # print("Starting SCIA analysis with load combinations...")  # Debug: commented out
-            try:
-                analysis = run_scia_analysis(params, template_path)
-                # print("SCIA analysis completed successfully")  # Debug: commented out
-            except Exception:
-                traceback.print_exc()
-                raise
+        # Extract results using the builder
 
-            # Extract results using the builder
+        builder = ViktorSciaModelBuilder()
+        results = builder.extract_analysis_results(analysis)
 
-            builder = ViktorSciaModelBuilder()
-            results = builder.extract_analysis_results(analysis)
+        # Initialize table data
+        table_data = []
 
-            # Prepare table data for engineering results
-            table_data = []
+        # Get parsed tables from XML results
+        parsed_tables = results.get("xml_parsing", {}).get("parsed_tables", {})
 
-            # Check if analysis was successful
-            analysis_status = results.get("analysis_status", {})
-            has_results = analysis_status.get("has_results", False)
+        # Extract internal forces data
+        internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
 
-            if not has_results:
-                table_data.append(["❌ Analyse Mislukt", "Geen Resultaten", "Controleer Parameters", "Fout"])
-                return TableResult(table_data, column_headers=["Parameter", "Waarde", "Locatie", "Status"])
+        # Extract displacement data
+        displacements_2d = parsed_tables.get("2D-verplaatsing", {})
 
-            # Extract engineering values from XML parsing
-            xml_parsing = results.get("xml_parsing", {})
-            if xml_parsing and xml_parsing.get("status") == "success":
-                parsed_tables = xml_parsing.get("parsed_tables", {})
+        # Extract result classes data
+        result_classes_uls = parsed_tables.get("Result classes - UGT", {})
 
-                # Extract internal forces data
-                internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
+        # Process internal forces data
+        if internal_forces_basis.get("status") == "success":
+            forces_data = internal_forces_basis.get("data", {})
 
-                # Extract displacement data
-                displacements_2d = parsed_tables.get("2D-verplaatsing", {})
+            # Initialize variables for maximum values
+            max_moment = None
+            max_shear = None
+            max_normal = None
+            plate_with_max_moment = "Onbekend"
 
-                # Extract result classes
-                result_classes_uls = parsed_tables.get("Resultaatklasses - Ultimate Limit State (ULS)", {})
+            # Process each plate's force data
+            for plate_name, plate_data in forces_data.items():
+                if not isinstance(plate_data, dict):
+                    continue
 
-                # Process internal forces data
-                if internal_forces_basis.get("status") == "success":
-                    forces_data = internal_forces_basis.get("data", {})
-                    if forces_data:
-                        # Extract key force values from the data
-                        max_moment = None
-                        max_shear = None
-                        max_normal = None
-                        plate_with_max_moment = None
+                # Extract moment, shear, and normal force data
+                moment_data = plate_data.get("Moment", {})
+                shear_data = plate_data.get("Shear", {})
+                normal_data = plate_data.get("Normal", {})
 
-                        # The OutputFileParser.get_result() returns a pandas-like structure
-                        # with column names and lists of values
-                        if isinstance(forces_data, dict) and "Basis grootheden" in forces_data:
-                            # Access the actual data
-                            data = forces_data["Basis grootheden"]
+                # Find maximum moment and corresponding plate
+                if moment_data:
+                    try:
+                        # Get all moment values and find the maximum
+                        moment_values = []
+                        for key, value in moment_data.items():
+                            if isinstance(value, (int, float)):
+                                moment_values.append(abs(value))
 
-                            # Extract force values from the columns
-                            # m_x, m_y, m_xy are moments, v_x, v_y are shear forces
-                            if "m_x" in data and "m_y" in data and "v_x" in data and "v_y" in data:
-                                m_x_values = data["m_x"]  # List of moment values
-                                m_y_values = data["m_y"]  # List of moment values
-                                v_x_values = data["v_x"]  # List of shear values
-                                v_y_values = data["v_y"]  # List of shear values
-                                plate_names = data["Naam"]  # List of plate names
+                        if moment_values:
+                            max_moment_comp = max(moment_values)
+                            if max_moment is None or max_moment_comp > max_moment:
+                                max_moment = max_moment_comp
+                                plate_with_max_moment = plate_name
+                    except (ValueError, TypeError, IndexError):
+                        continue
 
-                                # Find maximum values
-                                for i in range(len(m_x_values)):
-                                    try:
-                                        # Convert string values to float
-                                        m_x = float(m_x_values[i])
-                                        m_y = float(m_y_values[i])
-                                        v_x = float(v_x_values[i])
-                                        v_y = float(v_y_values[i])
+                # Find maximum shear force
+                if shear_data:
+                    try:
+                        shear_values = []
+                        for key, value in shear_data.items():
+                            if isinstance(value, (int, float)):
+                                shear_values.append(abs(value))
 
-                                        # Calculate resultant moment and shear
-                                        moment = (m_x**2 + m_y**2) ** 0.5
-                                        shear = (v_x**2 + v_y**2) ** 0.5
+                        if shear_values:
+                            max_shear_comp = max(shear_values)
+                            if max_shear is None or max_shear_comp > max_shear:
+                                max_shear = max_shear_comp
+                    except (ValueError, TypeError, IndexError):
+                        continue
 
-                                        # Track maximums
-                                        if max_moment is None or abs(moment) > abs(max_moment):
-                                            max_moment = moment
-                                            plate_with_max_moment = plate_names[i]
-                                        if max_shear is None or abs(shear) > abs(max_shear):
-                                            max_shear = shear
+                # Find maximum normal force
+                if normal_data:
+                    try:
+                        normal_values = []
+                        for key, value in normal_data.items():
+                            if isinstance(value, (int, float)):
+                                normal_values.append(abs(value))
 
-                                        # For normal force, we can use the maximum of the individual components
-                                        max_normal_comp = max(abs(m_x), abs(m_y))
-                                        if max_normal is None or max_normal_comp > max_normal:
-                                            max_normal = max_normal_comp
+                        if normal_values:
+                            max_normal_comp = max(normal_values)
+                            if max_normal is None or max_normal_comp > max_normal:
+                                max_normal = max_normal_comp
+                    except (ValueError, TypeError, IndexError):
+                        continue
 
-                                    except (ValueError, TypeError, IndexError):
-                                        continue
-
-                        # Add force results to table - concise format in Dutch
-                        if max_moment is not None:
-                            table_data.append(["Mmax", f"{max_moment / 1000:.1f} kNm", f"{plate_with_max_moment}", "UGT"])
-                            if max_shear is not None:
-                                table_data.append(["Vmax", f"{max_shear / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
-                            if max_normal is not None:
-                                table_data.append(["Nmax", f"{max_normal / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
-                        else:
-                            table_data.append(["Krachten", "Gegevens beschikbaar", "26 punten", "UGT"])
-
-                # Process displacement data
-                if displacements_2d.get("status") == "success":
-                    disp_data = displacements_2d.get("data", {})
-                    if disp_data:
-                        max_displacement = None
-                        max_rotation = None
-
-                        # Try to parse displacement data from the pandas-like structure
-                        if isinstance(disp_data, dict) and "Table0" in disp_data:
-                            # The displacement data might be in a different format
-                            # Let's try to access it properly
-                            data = disp_data["Table0"]
-
-                            # Look for displacement and rotation columns
-                            # Based on the XML structure, we need to find the right columns
-                            if hasattr(data, "columns"):
-                                # If it's a pandas DataFrame
-                                columns = list(data.columns)
-
-                                # Try to find displacement and rotation columns
-                                disp_col = None
-                                rot_col = None
-
-                                for col in columns:
-                                    if "displacement" in col.lower() or "verplaatsing" in col.lower():
-                                        disp_col = col
-                                    elif "rotation" in col.lower() or "rotatie" in col.lower():
-                                        rot_col = col
-
-                                if disp_col and rot_col:
-                                    disp_values = data[disp_col].values
-                                    rot_values = data[rot_col].values
-
-                                    for i in range(len(disp_values)):
-                                        try:
-                                            displacement = float(disp_values[i])
-                                            rotation = float(rot_values[i])
-
-                                            if max_displacement is None or abs(displacement) > abs(max_displacement):
-                                                max_displacement = displacement
-                                            if max_rotation is None or abs(rotation) > abs(max_rotation):
-                                                max_rotation = rotation
-                                        except (ValueError, TypeError):
-                                            continue
-
-                        # Add displacement results - concise format in Dutch
-                        if max_displacement is not None:
-                            table_data.append(["δmax", f"{max_displacement * 1000:.2f} mm", "Max doorbuiging", "UGT"])
-                        if max_rotation is not None:
-                            table_data.append(["θmax", f"{max_rotation * 1000:.3f} mrad", "Max rotatie", "UGT"])
-
-                # Show load combinations used - concise in Dutch
-                if result_classes_uls.get("status") == "success":
-                    table_data.append(["Combinaties", "Test_EN_ULS_SET_B", "ULS_Example_SW_Pedestrian", "Actief"])
-
-                # Add engineering assessment - concise in Dutch
-                if max_moment is not None and max_moment != 0:
-                    # Simple engineering check
-                    moment_magnitude = abs(max_moment)
-                    if moment_magnitude > 1000000:  # 1 MNm
-                        status = "⚠️ Hoog"
-                    elif moment_magnitude > 100000:  # 100 kNm
-                        status = "✅ Matig"
-                    else:
-                        status = "✅ Laag"
-
-                    table_data.append(["Beoordeling", f"{moment_magnitude / 1000:.1f} kNm", f"{plate_with_max_moment}", status])
-
+            # Add force results to table - concise format in Dutch
+            if max_moment is not None:
+                table_data.append(["Mmax", f"{max_moment / 1000:.1f} kNm", f"{plate_with_max_moment}", "UGT"])
+                if max_shear is not None:
+                    table_data.append(["Vmax", f"{max_shear / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
+                if max_normal is not None:
+                    table_data.append(["Nmax", f"{max_normal / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
             else:
-                # Fallback if XML parsing failed
-                table_data.append(["❌ Data Fout", "XML parsing mislukt", "Controleer output", "Fout"])
+                table_data.append(["Krachten", "Gegevens beschikbaar", "26 punten", "UGT"])
 
-            return TableResult(table_data, column_headers=["Parameter", "Waarde", "Locatie", "Status"])
+        # Process displacement data
+        if displacements_2d.get("status") == "success":
+            displacement_data = displacements_2d.get("data", {})
 
-        except Exception as e:
-            # Return error information in table format
-            error_data = [
-                ["❌ Analysis Failed", f"Error: {e!s}", "N/A", "N/A"],
-                ["💡 Suggestion", "Check bridge parameters", "Verify SCIA template", "Review error logs"],
-            ]
-            return TableResult(error_data, column_headers=["Engineering Results", "Values", "Details", "Status"])
+            # Initialize variables for maximum values
+            max_displacement = None
+            max_rotation = None
+
+            # Process displacement data for each plate
+            for plate_name, plate_data in displacement_data.items():
+                if not isinstance(plate_data, dict):
+                    continue
+
+                # Extract displacement and rotation data
+                disp_data = plate_data.get("Displacement", {})
+                rotation_data = plate_data.get("Rotation", {})
+
+                # Find maximum displacement
+                if disp_data:
+                    try:
+                        disp_values = []
+                        for key, value in disp_data.items():
+                            if isinstance(value, (int, float)):
+                                disp_values.append(abs(value))
+
+                        if disp_values:
+                            max_disp_comp = max(disp_values)
+                            if max_displacement is None or max_disp_comp > max_displacement:
+                                max_displacement = max_disp_comp
+                    except (ValueError, TypeError):
+                        continue
+
+                # Find maximum rotation
+                if rotation_data:
+                    try:
+                        rotation_values = []
+                        for key, value in rotation_data.items():
+                            if isinstance(value, (int, float)):
+                                rotation_values.append(abs(value))
+
+                        if rotation_values:
+                            max_rot_comp = max(rotation_values)
+                            if max_rotation is None or max_rot_comp > max_rotation:
+                                max_rotation = max_rot_comp
+                    except (ValueError, TypeError):
+                        continue
+
+            # Add displacement results - concise format in Dutch
+            if max_displacement is not None:
+                table_data.append(["δmax", f"{max_displacement * 1000:.2f} mm", "Max doorbuiging", "UGT"])
+                if max_rotation is not None:
+                    table_data.append(["θmax", f"{max_rotation * 1000:.3f} mrad", "Max rotatie", "UGT"])
+
+            # Show load combinations used - concise in Dutch
+            if result_classes_uls.get("status") == "success":
+                table_data.append(["Combinaties", "UGT actief", "1 combinatie", "Status"])
+
+            # Engineering assessment based on moment magnitude
+            if max_moment is not None:
+                moment_magnitude = max_moment
+
+                # Simple assessment based on moment magnitude (example thresholds)
+                if moment_magnitude < 1000000:  # 1000 kNm
+                    status = "✅ Laag"
+                elif moment_magnitude < 5000000:  # 5000 kNm
+                    status = "⚠️ Gemiddeld"
+                else:
+                    status = "❌ Hoog"
+
+                table_data.append(["Beoordeling", f"{moment_magnitude / 1000:.1f} kNm", f"{plate_with_max_moment}", status])
+
+        else:
+            # Fallback if XML parsing failed
+            table_data.append(["Resultaten", "Geen gegevens", "XML parsing mislukt", "Fout"])
+
+        # Create table with Dutch column headers
+        return TableResult(
+            headers=["Parameter", "Waarde", "Locatie", "Status"],
+            data=table_data,
+        )
 
     def _get_scia_template_path(self) -> Path:
         """

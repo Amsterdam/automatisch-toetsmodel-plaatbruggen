@@ -97,10 +97,7 @@ def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combination
     :param load_combinations: Dictionary of created load combinations
     """
     if not load_combinations:
-        # print("No load combinations found")  # Debug: commented out
         return
-
-    # print(f"Creating result classes with {len(load_combinations)} combinations")  # Debug: commented out
 
     # Create ULS result class
     uls_combinations = []
@@ -109,13 +106,7 @@ def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combination
             uls_combinations.append(combo)
 
     if uls_combinations:
-        # print(f"Creating result classes for {len(uls_combinations)} load combinations:")  # Debug: commented out
-        # for combo in uls_combinations:  # Debug: commented out
-        #     print(f"  - {combo.name}")  # Debug: commented out
-
-        # print("Creating ULS result class with {len(uls_combinations)} combinations")  # Debug: commented out
         builder.create_result_class(name="Ultimate Limit State (ULS)", combinations=uls_combinations)
-        # print("Result classes creation completed")  # Debug: commented out
 
     # Create SLS (Serviceability Limit State) result class
     sls_combinations = []
