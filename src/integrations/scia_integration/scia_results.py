@@ -10,7 +10,7 @@ from typing import Any
 from .scia_model_interface import SciaAnalysis, SciaModelBuilder
 
 
-def extract_analysis_results(builder: SciaModelBuilder, analysis: SciaAnalysis) -> dict[str, object]:
+def extract_analysis_results(builder: SciaModelBuilder, analysis: SciaAnalysis) -> dict[str, Any]:
     """
     Extract results from a completed SCIA analysis using the builder interface.
 

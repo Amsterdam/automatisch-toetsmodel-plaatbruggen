@@ -386,7 +386,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         xml_file, def_file = self.model.generate_xml_input()
         return xml_file, def_file
 
-    def run_analysis(self, xml_file: SciaFile, def_file: SciaFile, esa_template: SciaFile) -> SciaAnalysis:
+    def run_analysis(self, xml_file: File, def_file: File, esa_template: File) -> SciaAnalysis:
         """Runs the SCIA analysis and returns the analysis object."""
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
@@ -417,7 +417,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         except Exception as e:
             raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
 
-    def _try_get_table_result(self, xml_output_file: SciaFile, table_name: str) -> dict[str, object] | None:
+    def _try_get_table_result(self, xml_output_file: File, table_name: str) -> dict[str, object] | None:
         """Try to get a table result from the XML output file."""
         try:
             table_data = OutputFileParser.get_result(xml_output_file, table_name)
@@ -431,7 +431,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "table_name": table_name,
             }
 
-    def _try_parse_table(self, fresh_xml_content: SciaFile, table_name: str) -> dict[str, object]:
+    def _try_parse_table(self, fresh_xml_content: File, table_name: str) -> dict[str, object]:
         """Try to parse a specific table from the XML content."""
         try:
             table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
@@ -554,13 +554,13 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def get_analysis_status(self, analysis: SciaAnalysis) -> dict[str, object]:
+    def get_analysis_status(self, analysis: SciaAnalysis) -> dict[str, Any]:
         """Gets the status and metadata of the SCIA analysis."""
         try:
             # Check if analysis has been executed
             has_results = hasattr(analysis, "get_xml_output_file")
 
-            status = {
+            status: dict[str, Any] = {
                 "executed": has_results,
                 "has_results": has_results,
                 "error_message": None,
@@ -572,122 +572,150 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             if hasattr(analysis, "error"):
                 status["error_message"] = analysis.error
 
+            return status  # noqa: TRY300
+
         except Exception as e:
-            status = {
+            return {
                 "executed": False,
                 "has_results": False,
                 "error_message": str(e),
             }
-        else:
-            return status
 
-    def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, object]:
+    def _read_xml_content(self, xml_output_file: SciaFile) -> bytes | None:
+        """Read XML content from the output file."""
+        try:
+            if hasattr(xml_output_file, "getvalue"):
+                return xml_output_file.getvalue()
+            if hasattr(xml_output_file, "read"):
+                if hasattr(xml_output_file, "seek"):
+                    xml_output_file.seek(0)
+                content = xml_output_file.read()
+                if hasattr(xml_output_file, "seek"):
+                    xml_output_file.seek(0)  # Reset position
+                return content
+            return None  # noqa: TRY300
+        except Exception:
+            return None
+
+    def _parse_table_details(self, table: ET.Element) -> dict[str, Any] | None:
+        """Parse details for a single table."""
+        table_name = table.get("name")
+        if not table_name:
+            return None
+
+        # Check for data rows
+        data_rows = table.findall(".//row")
+        has_data = bool(data_rows)
+
+        # Check for object elements (metadata)
+        objects = table.findall(".//obj")
+        has_objects = bool(objects)
+
+        return {
+            "name": table_name,
+            "has_data": has_data,
+            "has_objects": has_objects,
+            "data_rows": len(data_rows),
+            "objects": len(objects),
+        }
+
+    def _discover_available_tables(self, xml_output_file: SciaFile) -> tuple[list[str], list[dict[str, Any]]]:
+        """Discover available tables in the XML output file."""
+        available_tables: list[str] = []
+        table_details: list[dict[str, Any]] = []
+
+        xml_content = self._read_xml_content(xml_output_file)
+        if not xml_content:
+            return available_tables, table_details
+
+        try:
+            # Parse XML to find table names and check if they have data
+            root = ET.fromstring(xml_content)
+
+            # Parse XML tables (SCIA might or might not use namespaces)
+            tables = root.findall(".//table")
+
+            for table in tables:
+                table_detail = self._parse_table_details(table)
+                if table_detail:
+                    available_tables.append(table_detail["name"])
+                    table_details.append(table_detail)
+
+        except Exception:
+            # If XML parsing fails, continue with default tables
+            pass
+
+        return available_tables, table_details
+
+    def _get_result_table_names(self, available_tables: list[str]) -> list[str]:
+        """Get the list of result table names to try."""
+        # List of common result tables to try to extract (with variations)
+        result_tables = [
+            # Actual table names from SCIA output
+            "2D-verplaatsing",
+            "1D-vervormingen",
+            "Interne 2D-krachten basis",
+            "Interne 2D-krachten elementair",
+            "Interne 1D-krachten",
+            # Fallback names
+            "Displacements",
+            "Displacement",
+            "2D internal forces",
+            "Internal forces",
+            "Internal Forces",
+            "Reactions",
+            "Reaction",
+            "Stresses",
+            "Stress",
+            "Result classes - UGT",
+            "Result classes - ULS",
+            "Result classes - SLS",
+            "Result classes",
+            "UGT",
+            "ULS",
+            "SLS",
+        ]
+
+        # Add discovered tables to the list
+        for table_name in available_tables:
+            if table_name not in result_tables:
+                result_tables.append(table_name)
+
+        return result_tables
+
+    def _create_fresh_xml_content(self, xml_output_file: SciaFile) -> SciaFile:
+        """Create a fresh BytesIO object for OutputFileParser."""
+        from io import BytesIO
+
+        fresh_xml_content: SciaFile
+
+        if hasattr(xml_output_file, "getvalue"):
+            fresh_xml_content = BytesIO(xml_output_file.getvalue())
+        elif hasattr(xml_output_file, "read"):
+            if hasattr(xml_output_file, "seek"):
+                xml_output_file.seek(0)
+            fresh_xml_content = BytesIO(xml_output_file.read())
+            if hasattr(xml_output_file, "seek"):
+                xml_output_file.seek(0)  # Reset position
+        else:
+            fresh_xml_content = xml_output_file
+
+        return fresh_xml_content
+
+    def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
         try:
-            # First, let's try to discover what tables are actually available
-            available_tables = []
-            table_details = []  # Store more details about each table
-            try:
-                # Try to read the XML content to discover table names
-                if hasattr(xml_output_file, "getvalue"):
-                    xml_content = xml_output_file.getvalue()
-                elif hasattr(xml_output_file, "read"):
-                    xml_output_file.seek(0)
-                    xml_content = xml_output_file.read()
-                    xml_output_file.seek(0)  # Reset position
-                else:
-                    xml_content = None
+            # Discover available tables
+            available_tables, table_details = self._discover_available_tables(xml_output_file)
 
-                if xml_content:
-                    # Parse XML to find table names and check if they have data
-                    root = ET.fromstring(xml_content)
+            # Get result table names
+            result_tables = self._get_result_table_names(available_tables)
 
-                    # Parse XML tables (SCIA might or might not use namespaces)
-                    tables = root.findall(".//table")
+            # Create fresh XML content for parsing
+            fresh_xml_content = self._create_fresh_xml_content(xml_output_file)
 
-                    for table in tables:
-                        table_name = table.get("name")
-                        if table_name:
-                            available_tables.append(table_name)
-
-                            # Check if table has actual data (rows with results)
-                            has_data = False
-                            has_objects = False
-
-                            # Check for data rows
-                            data_rows = table.findall(".//row")
-                            if data_rows:
-                                has_data = True
-
-                            # Check for object elements (metadata)
-                            objects = table.findall(".//obj")
-                            if objects:
-                                has_objects = True
-
-                            table_details.append(
-                                {
-                                    "name": table_name,
-                                    "has_data": has_data,
-                                    "has_objects": has_objects,
-                                    "data_rows": len(data_rows),
-                                    "objects": len(objects),
-                                }
-                            )
-
-            except Exception:
-                # If XML parsing fails, continue with default tables
-                pass
-            else:
-                pass
-
-            # List of common result tables to try to extract (with variations)
-            result_tables = [
-                # Actual table names from SCIA output
-                "2D-verplaatsing",
-                "1D-vervormingen",
-                "Interne 2D-krachten basis",
-                "Interne 2D-krachten elementair",
-                "Interne 1D-krachten",
-                # Fallback names
-                "Displacements",
-                "Displacement",
-                "2D internal forces",
-                "Internal forces",
-                "Internal Forces",
-                "Reactions",
-                "Reaction",
-                "Stresses",
-                "Stress",
-                "Result classes - UGT",
-                "Result classes - ULS",
-                "Result classes - SLS",
-                "Result classes",
-                "UGT",
-                "ULS",
-                "SLS",
-            ]
-
-            # Add discovered tables to the list
-            for table_name in available_tables:
-                if table_name not in result_tables:
-                    result_tables.append(table_name)
-
+            # Parse all tables
             parsed_results = {}
-
-            # Create a fresh BytesIO object for OutputFileParser
-            from io import BytesIO
-
-            fresh_xml_content = None
-
-            if hasattr(xml_output_file, "getvalue"):
-                fresh_xml_content = BytesIO(xml_output_file.getvalue())
-            elif hasattr(xml_output_file, "read"):
-                xml_output_file.seek(0)
-                fresh_xml_content = BytesIO(xml_output_file.read())
-                xml_output_file.seek(0)  # Reset position
-            else:
-                fresh_xml_content = xml_output_file
-
             for table_name in result_tables:
                 parsed_results[table_name] = self._try_parse_table(fresh_xml_content, table_name)
 
@@ -695,7 +723,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "status": "success",
                 "parsed_tables": parsed_results,
                 "available_tables": available_tables,
-                "table_details": table_details,  # Add detailed table information
+                "table_details": table_details,
                 "total_tables_found": sum(1 for r in parsed_results.values() if r["status"] == "success"),
                 "total_tables_attempted": len(result_tables),
             }
@@ -740,7 +768,7 @@ def setup_bridge_analysis(params: Any, template_path: Path) -> tuple[Any, Any, A
     return xml_file, def_file, esa_template
 
 
-def run_scia_analysis(params: Any, template_path: Path) -> scia.SciaAnalysis:  # noqa: ANN401
+def run_scia_analysis(params: Any, template_path: Path) -> SciaAnalysis:  # noqa: ANN401
     """
     Run the complete SCIA analysis and return the analysis object.
 
