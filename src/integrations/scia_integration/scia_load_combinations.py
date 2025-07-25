@@ -83,18 +83,18 @@ def _create_example_combination(
             # print(f"Builder load_cases keys: {list(builder.load_cases.keys())}")  # Debug: commented out
             # print(f"Self-weight case type: {type(self_weight_case)}")  # Debug: commented out
             # print(f"Pedestrian case type: {type(pedestrian_case)}")  # Debug: commented out
-            
+
             # Try creating a simple self-weight only combination first
             # print("Trying simple self-weight only combination...")  # Debug: commented out
             simple_factors = {self_weight_case: 1.0}
-            
+
             # Try different combination types
             combo_types_to_try = [
                 SciaCombinationType.EN_ULS_SET_B,
                 SciaCombinationType.LINEAR_ULTIMATE,
                 SciaCombinationType.ENVELOPE_ULTIMATE,
             ]
-            
+
             for combo_type in combo_types_to_try:
                 try:
                     # print(f"Trying combination type: {combo_type.value}")  # Debug: commented out
@@ -108,10 +108,10 @@ def _create_example_combination(
                     combinations.append(simple_combo)
                     # print(f"Successfully created combination with type {combo_type.value}")  # Debug: commented out
                     break  # Stop if one works
-                except Exception as e:
+                except Exception:
                     # print(f"Failed with combination type {combo_type.value}: {e}")  # Debug: commented out
                     continue
-            
+
             # Now try the full combination
             # print("Trying full combination with pedestrian load...")  # Debug: commented out
             uls_combo = create_load_combination(
@@ -126,6 +126,7 @@ def _create_example_combination(
         except Exception as e:
             print(f"Failed to create ULS combination: {e}")
             import traceback
+
             traceback.print_exc()
     else:
         # print("Pedestrian load case not found. Available cases:", list(all_load_cases.keys()))  # Debug: commented out

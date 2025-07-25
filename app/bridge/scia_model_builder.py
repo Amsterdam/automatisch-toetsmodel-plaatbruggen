@@ -321,7 +321,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         for load_case, factor in load_case_factors.items():
             scia_load_cases[load_case] = factor
             # print(f"    Adding load case with factor {factor}")  # Debug: commented out
-        
+
         # Create the combination with load cases included
         combination = self.model.create_load_combination(name, combo_class, scia_load_cases, description=description)
         self.load_combinations[name] = combination
@@ -338,7 +338,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         # Ensure we have at least one combination or nonlinear combination
         if not combinations and not nonlinear_combinations:
             raise ValueError("A result class should at least consist of 'combinations' or 'nonlinear_combinations'.")
-        
+
         # Create the result class with combinations
         if combinations:
             result_class = self.model.create_result_class(name, combinations=combinations)
@@ -615,7 +615,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     xml_content = None
 
                 if xml_content:
-
                     # Parse XML to find table names and check if they have data
                     root = ET.fromstring(xml_content)
 
