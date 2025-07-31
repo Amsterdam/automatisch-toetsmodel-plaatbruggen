@@ -408,8 +408,10 @@ Below you will find important information about this bridge structure."""
     info.theoretical_length = TextField("Theoretische Lengte", default="", suffix="m", description="Theoretische overspanningslengte")
     info.deck_width = TextField("Brugdekbreedte", default="", suffix="m", description="Totale breedte van het brugdek")
     info.construction_height = NumberField("Constructiehoogte", default=0.0, suffix="mm", description="Hoogte van de dekconstuctie")
-    info.slenderness = TextField("Slankheidsverhouding", default="", description="Slankheidsverhouding van de dekoverspanningen")
-    info.daily_length = TextField("Ldag", default="", suffix="m", description="Dagelijkse lengte van de brug")
+    info.slenderness = NumberField("Slankheidsverhouding", default=0.0, description="Slankheidsverhouding van de dekoverspanningen")
+    info.daily_length = TextField(
+        "Ldag", default="", suffix="m", description="Lengte van de brug tussen de steunpunten, waar krachten worden afgelezen"
+    )
 
     info.lb2c = LineBreak()
 
