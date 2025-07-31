@@ -5,7 +5,6 @@ This module provides functions for creating SCIA loads by calling the SciaModelB
 These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
@@ -20,80 +19,6 @@ from .scia_model_interface import SciaModelBuilder
 
 # Type alias to avoid importing from app layer
 BridgeParametrization = Any
-
-
-@dataclass
-class VehicleConfig:
-    """Configuration for a vehicle load type."""
-
-    vehicle_width: float
-    wheel_contact_area: float
-    force_per_wheel: float
-
-    def get_wheel_load_n(self) -> float:
-        """Get wheel load in Newtons."""
-        return self.force_per_wheel * 1000
-
-
-@dataclass
-class DualAxleVehicleConfig:
-    """Configuration for a dual-axle vehicle load type."""
-
-    vehicle_width: float
-    wheel_contact_area: float
-    front_axle_force: float  # Total force for front axle (kN)
-    rear_axle_force: float  # Total force for rear axle (kN)
-    axle_spacing: float
-
-    def get_front_wheel_load_n(self) -> float:
-        """Get front wheel load in Newtons (per wheel)."""
-        return (self.front_axle_force * 1000) // 2
-
-    def get_rear_wheel_load_n(self) -> float:
-        """Get rear wheel load in Newtons (per wheel)."""
-        return (self.rear_axle_force * 1000) // 2
-
-
-# Vehicle configurations according to NEN-EN 1991-2
-SERVICE_VEHICLE_CONFIG = VehicleConfig(
-    vehicle_width=1.75,
-    wheel_contact_area=0.25,
-    force_per_wheel=25,  # kN per axle, distributed over 4 wheels
-)
-
-ACCIDENTAL_VEHICLE_CONFIG = DualAxleVehicleConfig(
-    vehicle_width=1.30,  # From diagram: 1.30 m between wheel centers
-    wheel_contact_area=0.20,  # From diagram: 0.20 m contact area
-    front_axle_force=80,  # Q_sv1 = 80 kN
-    rear_axle_force=40,  # Q_sv2 = 40 kN
-    axle_spacing=1.2,  # Derived from 3.0m total - wheel contact areas
-)
-
-
-def _calculate_vehicle_y_base(y_coords: list[float], edge_type: str, wheel_contact_area: float, vehicle_width: float) -> float:
-    """Calculate Y base coordinate for vehicle positioning on bridge edge."""
-    base_coord = y_coords[0]
-    if edge_type in ("y_plus", "rs_1"):
-        return base_coord - wheel_contact_area / 2
-    # y_minus, rs_3
-    return base_coord + wheel_contact_area / 2 + vehicle_width
-
-
-def _create_wheel_surface_loads(
-    builder: SciaModelBuilder,
-    load_case_name: str,
-    name_prefix: str,
-    wheel_locations: dict[str, list[tuple[float, float, float]]],
-    load_value: float,
-) -> None:
-    """Create surface loads for all wheels in a vehicle."""
-    for wheel_name, wheel_corners in wheel_locations.items():
-        builder.create_surface_load(
-            name=f"{name_prefix}_{wheel_name.replace('_corners', '')}",
-            load_case_name=load_case_name,
-            corner_points=wheel_corners,
-            load_value=-load_value,  # Negative for downward load
-        )
 
 
 def add_theoretical_tandem_loads(
@@ -302,7 +227,11 @@ def add_crowd_loads(
 def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """Add accidental vehicle loads to the SCIA model using sequenced X positions."""
     # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
-    config = ACCIDENTAL_VEHICLE_CONFIG
+    vehicle_width = 1.30  # From diagram: 1.30 m between wheel centers
+    force_axle_1 = 80 * 1000  # Q_sv1 = 80 kN, convert to N
+    force_axle_2 = 40 * 1000  # Q_sv2 = 40 kN, convert to N
+    wheel_contact_area = 0.20  # From diagram: 0.20 m contact area
+    axle_spacing = 1.2  # Derived from 3.0m total - wheel contact areas
 
     # Get bridge geometry data
     bridge_geom_data = get_bridge_geom_data(params)
@@ -331,50 +260,66 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
         load_case_name = accidental_vehicle_cases[load_case_key].name
 
-        # Calculate Y base coordinate using helper
-        y_base = _calculate_vehicle_y_base(y_coords, edge_type, config.wheel_contact_area, config.vehicle_width)
+        # Calculate Y position at this X using same logic as service vehicle
+        # For simplicity, use the first Y coordinate (can be enhanced for variable width bridges)
+        y_base = y_coords[0] - wheel_contact_area / 2 if edge_type == "rs_1" else y_coords[0] + wheel_contact_area / 2 + vehicle_width
 
         # Determine front axle position based on direction (80 kN axle should always be the "front")
         # Forward: 80 kN front axle at x_pos, 40 kN rear axle at x_pos + axle_spacing
         # Reverse: 80 kN front axle at x_pos + axle_spacing, 40 kN rear axle at x_pos
-        front_axle_x = x_pos if direction == "forward" else x_pos + config.axle_spacing
+        front_axle_x = x_pos if direction == "forward" else x_pos + axle_spacing
 
-        # Calculate axle positions for both front and rear axles
-        rear_axle_x = front_axle_x + config.axle_spacing if direction == "forward" else front_axle_x - config.axle_spacing
+        # Load per wheel (divide axle load by 2 wheels per axle)
+        front_wheel_load = force_axle_1 // 2  # 40 kN per front wheel (80 kN total)
+        rear_wheel_load = force_axle_2 // 2  # 20 kN per rear wheel (40 kN total)
 
-        # Get wheel locations for both axles (using single axle approach)
+        # Use the same helper function as service vehicle for front axle (80 kN total)
         front_axle_locations = calc_vehicle_load_locations(
             x_coord=front_axle_x,
-            y_coord=y_base + config.wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
-            vehicle_length=config.wheel_contact_area,  # Single axle, so length = contact area
-            vehicle_width=config.vehicle_width,
-            wheel_contact_area=config.wheel_contact_area,
+            y_coord=y_base + wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
+            vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
+            vehicle_width=vehicle_width,
+            wheel_contact_area=wheel_contact_area,
         )
 
+        # Use the same helper function for rear axle (40 kN total)
+        rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
         rear_axle_locations = calc_vehicle_load_locations(
             x_coord=rear_axle_x,
-            y_coord=y_base + config.wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
-            vehicle_length=config.wheel_contact_area,  # Single axle, so length = contact area
-            vehicle_width=config.vehicle_width,
-            wheel_contact_area=config.wheel_contact_area,
+            y_coord=y_base + wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
+            vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
+            vehicle_width=vehicle_width,
+            wheel_contact_area=wheel_contact_area,
         )
 
-        # Create surface loads for front axle using helper
-        _create_wheel_surface_loads(
-            builder=builder,
+        # Create surface loads for front axle wheels (80 kN total = 40 kN per wheel)
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_left",
             load_case_name=load_case_name,
-            name_prefix=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front",
-            wheel_locations=front_axle_locations,
-            load_value=config.get_front_wheel_load_n(),
+            corner_points=front_axle_locations["top_left_wheel_corners"],
+            load_value=-front_wheel_load,  # 40 kN
         )
 
-        # Create surface loads for rear axle using helper
-        _create_wheel_surface_loads(
-            builder=builder,
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_right",
             load_case_name=load_case_name,
-            name_prefix=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear",
-            wheel_locations=rear_axle_locations,
-            load_value=config.get_rear_wheel_load_n(),
+            corner_points=front_axle_locations["bottom_left_wheel_corners"],
+            load_value=-front_wheel_load,  # 40 kN
+        )
+
+        # Create surface loads for rear axle wheels (40 kN total = 20 kN per wheel)
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_left",
+            load_case_name=load_case_name,
+            corner_points=rear_axle_locations["top_left_wheel_corners"],
+            load_value=-rear_wheel_load,  # 20 kN
+        )
+
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_right",
+            load_case_name=load_case_name,
+            corner_points=rear_axle_locations["bottom_left_wheel_corners"],
+            load_value=-rear_wheel_load,  # 20 kN
         )
 
     # Create loads for each X position on both edges (RS 1 and RS 3) in both directions
@@ -391,8 +336,10 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """Add service vehicle loads to the SCIA model using sequenced X positions."""
     # Dienstvoertuig volgens NEN-EN 1991-2 art. 5.3.2.3
-    config = SERVICE_VEHICLE_CONFIG
     vehicle_length = 3.0
+    vehicle_width = 1.75
+    force_per_axle = 25 * 1000  # Convert to N
+    wheel_contact_area = 0.25
 
     # Get bridge geometry data
     bridge_geom_data = get_bridge_geom_data(params)
@@ -421,26 +368,27 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
         load_case_name = service_vehicle_cases[load_case_key].name
 
-        # Calculate Y base coordinate using helper
-        y_base = _calculate_vehicle_y_base(y_coords, edge_type, config.wheel_contact_area, config.vehicle_width)
+        # Calculate Y position at this X (interpolate between D-points)
+        # For simplicity, use the first Y coordinate (can be enhanced for variable width bridges)
+        y_base = y_coords[0] - wheel_contact_area / 2 if edge_type == "y_plus" else y_coords[0] + wheel_contact_area / 2 + vehicle_width
 
         # Use the helper function to calculate wheel positions
         wheel_locations = calc_vehicle_load_locations(
             x_coord=x_pos,
-            y_coord=y_base + config.wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
+            y_coord=y_base + wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
             vehicle_length=vehicle_length,
-            vehicle_width=config.vehicle_width,
-            wheel_contact_area=config.wheel_contact_area,
+            vehicle_width=vehicle_width,
+            wheel_contact_area=wheel_contact_area,
         )
 
-        # Create surface loads for all wheels using helper
-        _create_wheel_surface_loads(
-            builder=builder,
-            load_case_name=load_case_name,
-            name_prefix=f"service_vehicle_{edge_type}_x{x_pos}",
-            wheel_locations=wheel_locations,
-            load_value=config.get_wheel_load_n(),
-        )
+        # Create surface loads for each wheel
+        for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
+            builder.create_surface_load(
+                name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
+                load_case_name=load_case_name,
+                corner_points=wheel_corners,
+                load_value=-force_per_axle,
+            )
 
     # Create loads for each X position on both edges
     for x_pos in positions:
