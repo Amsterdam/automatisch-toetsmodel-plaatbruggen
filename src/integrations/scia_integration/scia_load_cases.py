@@ -8,7 +8,7 @@ the SciaModelBuilder interface.
 from typing import Any, Literal
 
 from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
-from .scia_loads_helper import generate_theoretical_lane_positions, tandem_system_sequencer
+from .scia_loads_helper import generate_theoretical_lane_positions_bg8000, tandem_system_sequencer
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
@@ -254,7 +254,7 @@ def create_dynamic_tandem_load_cases(
     width = bridge_params["width_bridgedeck"]
 
     # Determine the number of theoretical lanes, with a maximum of 3
-    num_lanes = len(generate_theoretical_lane_positions(width))
+    num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
     num_lanes = min(num_lanes, 3)
 
     # Create tandem load cases for each road system (RS)
@@ -296,19 +296,53 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
 
     positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
     cases = {}
-    for i, pos in enumerate(positions, 1):
-        case_name = f"{prefix}{i:03d}"
-        description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
-        cases[f"tandem_rs{rs}_x{pos}"] = create_load_case(
-            builder,
-            group_name=group_name,
-            case_name=case_name,
-            description=description,
-            case_type="VARIABLE",
-            variable_type="STATIC",
-            specification="STANDARD",
-            duration="SHORT",
-        )
+    if rs == 3:
+        # BG10000 series: double amount for both configurations
+        idx = 1
+        # First configuration (A): 200 kN left, 100 kN right
+        for pos in positions:
+            case_name = f"{prefix}{idx:03d}"
+            description = f"Verkeer, dek - LM1 TS RS 3 (configuratie 1) - x = {pos:g} m"
+            cases[f"tandem_rs3_x{pos}_A"] = create_load_case(
+                builder,
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
+            idx += 1
+        # Second configuration (B): 100 kN left, 200 kN right
+        for pos in positions:
+            case_name = f"{prefix}{idx:03d}"
+            description = f"Verkeer, dek - LM1 TS RS 3 (configuratie 2) - x = {pos:g} m"
+            cases[f"tandem_rs3_x{pos}_B"] = create_load_case(
+                builder,
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
+            idx += 1
+    else:
+        for i, pos in enumerate(positions, 1):
+            case_name = f"{prefix}{i:03d}"
+            description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
+            cases[f"tandem_rs{rs}_x{pos}"] = create_load_case(
+                builder,
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
     return cases
 
 
