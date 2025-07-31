@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
-def create_udl_traffic_loads(
+def create_udl_traffic_loads( #noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
@@ -35,7 +35,6 @@ def create_udl_traffic_loads(
 
     :param length_bridgedeck: Bridge length in meters
     :param width_bridgedeck: Bridge width in meters
-    :param thickness_bridgedeck: Bridge thickness in meters
     :param width_firstsegment_zone3: Zone 3 width (for lane offset)
     :param width_firstsegment_zone2: Zone 2 width (for lane offset)
     :param lane_width: Lane width in meters (default 3.0)
