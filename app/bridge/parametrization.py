@@ -521,10 +521,10 @@ Below you will find important information about this bridge structure."""
     )
     input.belastingcombinaties.lb = LineBreak()
     input.belastingcombinaties.design_code = OptionField(
-        "Norm", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
+        "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
     )
     input.belastingcombinaties.lb1 = LineBreak()
-    input.belastingcombinaties.shortest_span = NumberField("Korste overspanning L", default=20, suffix="m", name="shortest_span")
+    input.belastingcombinaties.shortest_span = NumberField("Kortste overspanning L", default=20, suffix="m", name="shortest_span")
 
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
