@@ -261,12 +261,15 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
         load_case_name = accidental_vehicle_cases[load_case_key].name
 
-        # Calculate Y position at this X with 0.5m inset from bridge edge
-        # For simplicity, use the first Y coordinate (can be enhanced for variable width bridges)
+        # Calculate vehicle top edge position with 0.5m inset from bridge edge
+        # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
         if edge_type == "rs_1":
-            y_base = y_coords[0] - inset_distance - wheel_contact_area / 2
+            # For rs_1: top edge should be inward from bridge edge
+            vehicle_top_edge = y_coords[0] - inset_distance
         else:  # rs_3
-            y_base = y_coords[0] + inset_distance + wheel_contact_area / 2
+            # For rs_3: bottom edge should be inward, so top edge = bottom edge + vehicle_width
+            vehicle_bottom_edge = y_coords[0] + inset_distance  
+            vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
         # Determine front axle position based on direction (80 kN axle should always be the "front")
         # Forward: 80 kN front axle at x_pos, 40 kN rear axle at x_pos + axle_spacing
@@ -286,7 +289,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         # Use the same helper function as service vehicle for front axle (80 kN total)
         front_axle_locations = calc_vehicle_load_locations(
             x_coord=front_axle_x,
-            y_coord=y_base + wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
             vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
@@ -296,7 +299,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
         rear_axle_locations = calc_vehicle_load_locations(
             x_coord=rear_axle_x,
-            y_coord=y_base + wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
             vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
@@ -379,13 +382,16 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
         load_case_name = service_vehicle_cases[load_case_key].name
 
-        # Calculate Y position at this X with 0.5m inset from bridge edge
-        # For simplicity, use the first Y coordinate (can be enhanced for variable width bridges)
+        # Calculate vehicle top edge position with 0.5m inset from bridge edge
+        # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
         if edge_type == "y_plus":
-            y_base = y_coords[0] - inset_distance - wheel_contact_area / 2
+            # For y_plus: top edge should be inward from bridge edge
+            vehicle_top_edge = y_coords[0] - inset_distance
         else:  # y_minus
-            y_base = y_coords[0] + inset_distance + wheel_contact_area / 2
-
+            # For y_minus: bottom edge should be inward, so top edge = bottom edge + vehicle_width
+            vehicle_bottom_edge = y_coords[0] + inset_distance  
+            vehicle_top_edge = vehicle_bottom_edge + vehicle_width
+        
         # Calculate wheel contact area and load per unit area
         wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
         force_per_wheel = force_per_axle / 2  # Divide axle load by 2 wheels
@@ -394,7 +400,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         # Use the helper function to calculate wheel positions
         wheel_locations = calc_vehicle_load_locations(
             x_coord=x_pos,
-            y_coord=y_base + wheel_contact_area / 2,  # Adjust for calc_vehicle_load_locations coordinate system
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
             vehicle_length=vehicle_length,
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
