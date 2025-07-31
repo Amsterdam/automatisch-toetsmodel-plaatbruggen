@@ -95,15 +95,98 @@ class TestStandardLoadCases:
         create_pedestrian_load_case(mock_builder)
         mock_builder.create_load_case.assert_called_once()
 
-    def test_create_service_vehicle_load_cases(self, mock_builder: Mock) -> None:
-        """Test creation of service vehicle load case definitions."""
-        create_service_vehicle_load_cases(mock_builder)
-        assert mock_builder.create_load_case.call_count == 3
+    @patch("src.integrations.scia_integration.scia_load_cases.extract_tandem_parameters_from_bridge")
+    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
+    def test_create_service_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+        """Test creation of service vehicle load case definitions with dynamic X positions."""
+        mock_extract.return_value = {"length_bridgedeck": 50.0, "thickness_bridgedeck": 0.5}
+        mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
+        mock_params = Mock()
 
-    def test_create_unintended_vehicle_load_cases(self, mock_builder: Mock) -> None:
-        """Test creation of unintended vehicle load case definitions."""
-        create_unintended_vehicle_load_cases(mock_builder)
-        assert mock_builder.create_load_case.call_count == 3
+        cases = create_service_vehicle_load_cases(mock_builder, mock_params)
+
+        # Should create 6 cases: 3 positions × 2 edges (y_plus, y_minus)
+        assert mock_builder.create_load_case.call_count == 6
+        assert len(cases) == 6
+
+        # Check keys follow pattern
+        expected_keys = ["y_plus_x2.5", "y_plus_x25.0", "y_plus_x47.5", "y_minus_x2.5", "y_minus_x25.0", "y_minus_x47.5"]
+        assert list(cases.keys()) == expected_keys
+
+        # Check first y_plus case
+        mock_builder.create_load_case.assert_any_call(
+            name="BG6001",
+            description="Verkeer, dienstvoertuig - y+ - x = 2.5 m",
+            group_name="LG6000 - Dienstvoertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+
+        # Check first y_minus case
+        mock_builder.create_load_case.assert_any_call(
+            name="BG6004",
+            description="Verkeer, dienstvoertuig - y- - x = 2.5 m",
+            group_name="LG6000 - Dienstvoertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+
+    @patch("src.integrations.scia_integration.scia_load_cases.extract_tandem_parameters_from_bridge")
+    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
+    def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+        """Test creation of unintended vehicle load case definitions with bidirectional X positions."""
+        mock_extract.return_value = {"length_bridgedeck": 50.0, "thickness_bridgedeck": 0.5}
+        mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
+        mock_params = Mock()
+
+        cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
+
+        # Should create 12 cases: 3 positions × 2 edges × 2 directions
+        assert mock_builder.create_load_case.call_count == 12
+        assert len(cases) == 12
+
+        # Check keys follow bidirectional pattern
+        expected_keys = [
+            "rs_1_x2.5_forward",
+            "rs_1_x25.0_forward",
+            "rs_1_x47.5_forward",
+            "rs_1_x2.5_reverse",
+            "rs_1_x25.0_reverse",
+            "rs_1_x47.5_reverse",
+            "rs_3_x2.5_forward",
+            "rs_3_x25.0_forward",
+            "rs_3_x47.5_forward",
+            "rs_3_x2.5_reverse",
+            "rs_3_x25.0_reverse",
+            "rs_3_x47.5_reverse",
+        ]
+        assert list(cases.keys()) == expected_keys
+
+        # Check first RS1 forward case
+        mock_builder.create_load_case.assert_any_call(
+            name="BG7001",
+            description="Verkeer, onbedoeld voertuig - RS 1 forward - x = 2.5 m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+
+        # Check first RS1 reverse case
+        mock_builder.create_load_case.assert_any_call(
+            name="BG7004",
+            description="Verkeer, onbedoeld voertuig - RS 1 reverse - x = 2.5 m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
 
 
 class TestTandemLoadCases:
@@ -168,9 +251,13 @@ class TestCreateAllLoadCases:
     """Tests for the main function creating all load cases."""
 
     @patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases")
+    @patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases")
+    @patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
-    def test_create_all_load_cases_calls_helpers(self, mock_sw: Mock, mock_dead: Mock, mock_tandem: Mock) -> None:
+    def test_create_all_load_cases_calls_helpers(
+        self, mock_sw: Mock, mock_dead: Mock, mock_unintended: Mock, mock_service: Mock, mock_tandem: Mock
+    ) -> None:
         """Test that all individual creation functions are called."""
         builder = Mock()
         params = Mock()
@@ -178,6 +265,8 @@ class TestCreateAllLoadCases:
 
         mock_sw.assert_called_once_with(builder)
         mock_dead.assert_called_once_with(builder)
+        mock_service.assert_called_once_with(builder, params)
+        mock_unintended.assert_called_once_with(builder, params)
         mock_tandem.assert_called_once_with(builder, params)
 
     def test_create_all_load_cases_structure(self) -> None:
@@ -188,19 +277,23 @@ class TestCreateAllLoadCases:
         with (
             patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case"),
             patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_temperature_load_cases"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_udl_traffic_load_cases"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_pedestrian_load_case"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases"),
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases"),
         ):
             all_cases = create_all_load_cases(builder, params)
 
         expected_keys = [
-            "standard_cases",
+            "self_weight",
             "dead_load_cases",
             "temperature_cases",
             "udl_traffic_cases",
+            "pedestrian",
             "service_vehicle_cases",
             "unintended_vehicle_cases",
             "tandem_cases",
         ]
         assert list(all_cases.keys()) == expected_keys
-        assert "self_weight" in all_cases["standard_cases"]
-        assert "pedestrian" in all_cases["standard_cases"]
