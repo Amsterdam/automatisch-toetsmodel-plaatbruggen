@@ -14,11 +14,12 @@ from .scia_bridge_geometry import (
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, interpolate_points_along_line, create_udl_traffic_loads
+from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, interpolate_points_along_line
 from .scia_model_interface import SciaModelBuilder
 
 # Type alias to avoid importing from app layer
 BridgeParametrization = Any
+
 
 def add_udl_loads(
     builder: SciaModelBuilder,
@@ -64,11 +65,12 @@ def add_udl_loads(
             # Rest polygons
             for i, rest in enumerate(udl["rest"]):
                 builder.create_surface_load(
-                    name=f"udl_{key}_rest_{i+1}",
+                    name=f"udl_{key}_rest_{i + 1}",
                     load_case_name=scia_case.name,
                     corner_points=rest["polygon"],
                     load_value=-rest["load"],
                 )
+
 
 def add_theoretical_tandem_loads(
     builder: SciaModelBuilder,

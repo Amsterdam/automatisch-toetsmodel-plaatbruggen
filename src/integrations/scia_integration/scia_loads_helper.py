@@ -18,6 +18,7 @@ BridgeParametrization = Any
 if TYPE_CHECKING:
     from .scia_model_interface import SciaModelBuilder
 
+
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
@@ -45,9 +46,7 @@ def create_udl_traffic_loads(
     rest_value = 2500.0
 
     # BG4001: leftmost lane (BG8000 logic)
-    y_positions_left = generate_theoretical_lane_positions_bg8000(
-        width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
-    )
+    y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_left:
         y_center = y_positions_left[0]
         y_min = y_center - lane_width / 2
@@ -59,21 +58,21 @@ def create_udl_traffic_loads(
             (0.0, y_max, 0.0),
         ]
         rest_polygons = []
-        rest_polygons.append([
-            (0.0, y_max, 0.0),
-            (length_bridgedeck, y_max, 0.0),
-            (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-        ])
+        rest_polygons.append(
+            [
+                (0.0, y_max, 0.0),
+                (length_bridgedeck, y_max, 0.0),
+                (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            ]
+        )
         results["BG4001"] = {
             "main": {"polygon": main_polygon, "load": udl_value},
             "rest": [{"polygon": p, "load": rest_value} for p in rest_polygons],
         }
 
     # BG4002: rightmost lane (BG9000 logic)
-    y_positions_right = generate_theoretical_lane_positions_bg9000(
-        width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
-    )
+    y_positions_right = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_right:
         y_center = y_positions_right[0]
         y_min = y_center - lane_width / 2
@@ -85,21 +84,21 @@ def create_udl_traffic_loads(
             (0.0, y_max, 0.0),
         ]
         rest_polygons = []
-        rest_polygons.append([
-            (0.0, - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (length_bridgedeck,- 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (length_bridgedeck, y_min, 0.0),
-            (0.0, y_min, 0.0),
-        ])
+        rest_polygons.append(
+            [
+                (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, y_min, 0.0),
+                (0.0, y_min, 0.0),
+            ]
+        )
         results["BG4002"] = {
             "main": {"polygon": main_polygon, "load": udl_value},
             "rest": [{"polygon": p, "load": rest_value} for p in rest_polygons],
         }
 
     # BG4003: center lane (BG10000 logic)
-    y_positions_center = generate_theoretical_lane_positions_bg10000(
-        width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
-    )
+    y_positions_center = generate_theoretical_lane_positions_bg10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_center:
         y_center = y_positions_center[0]
         y_min = y_center - lane_width / 2
@@ -111,24 +110,29 @@ def create_udl_traffic_loads(
             (0.0, y_max, 0.0),
         ]
         rest_polygons = []
-        rest_polygons.append([
-            (0.0, y_max, 0.0),
-            (length_bridgedeck, y_max, 0.0),
-            (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-        ])
-        rest_polygons.append([
-            (0.0, - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (length_bridgedeck,- 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (length_bridgedeck, y_min, 0.0),
-            (0.0, y_min, 0.0),
-        ])
+        rest_polygons.append(
+            [
+                (0.0, y_max, 0.0),
+                (length_bridgedeck, y_max, 0.0),
+                (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            ]
+        )
+        rest_polygons.append(
+            [
+                (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, y_min, 0.0),
+                (0.0, y_min, 0.0),
+            ]
+        )
         results["BG4003"] = {
             "main": {"polygon": main_polygon, "load": udl_value},
             "rest": [{"polygon": p, "load": rest_value} for p in rest_polygons],
         }
 
     return results
+
 
 # ========================================================================
 # THEORETICAL TRAFFIC LANE INTEGRATION
@@ -595,10 +599,12 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
         idx += 1
     return results
 
+
 # ========================================================================
 # FUTURE INTEGRATION ARCHITECTURE
 # ========================================================================
 # The following function signatures are planned for future implementation:
+
 
 def tandem_systems_actual_lanes(
     length_bridgedeck: float,
