@@ -153,7 +153,7 @@ class TestServiceVehicleLoads:
         from src.integrations.scia_integration.scia_loads import add_service_vehicle_loads
 
         mock_bridge_geom.return_value = None
-        mock_load_cases = {"service_vehicle_cases": {}}
+        mock_load_cases: dict[str, dict[str, Mock]] = {"service_vehicle_cases": {}}
 
         add_service_vehicle_loads(mock_builder, mock_params, mock_load_cases)
 
