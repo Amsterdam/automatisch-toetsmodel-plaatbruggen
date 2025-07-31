@@ -268,7 +268,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             vehicle_top_edge = y_coords[0] - inset_distance
         else:  # rs_3
             # For rs_3: bottom edge should be inward, so top edge = bottom edge + vehicle_width
-            vehicle_bottom_edge = y_coords[0] + inset_distance  
+            vehicle_bottom_edge = y_coords[0] + inset_distance
             vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
         # Determine front axle position based on direction (80 kN axle should always be the "front")
@@ -389,9 +389,9 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             vehicle_top_edge = y_coords[0] - inset_distance
         else:  # y_minus
             # For y_minus: bottom edge should be inward, so top edge = bottom edge + vehicle_width
-            vehicle_bottom_edge = y_coords[0] + inset_distance  
+            vehicle_bottom_edge = y_coords[0] + inset_distance
             vehicle_top_edge = vehicle_bottom_edge + vehicle_width
-        
+
         # Calculate wheel contact area and load per unit area
         wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
         force_per_wheel = force_per_axle / 2  # Divide axle load by 2 wheels
