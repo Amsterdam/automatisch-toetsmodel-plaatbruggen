@@ -10,6 +10,7 @@ by calling methods on the SciaModelBuilder interface.
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
+import traceback
 from typing import Any
 
 from .scia_model_interface import SciaCombinationType, SciaLoadCombination, SciaModelBuilder
@@ -65,7 +66,7 @@ def _create_example_combination(
     combinations = []
 
     # Example: Get pedestrian load case from the nested dictionary
-    pedestrian_case = all_load_cases.get("standard_cases", {}).get("pedestrian")
+    pedestrian_case = all_load_cases.get("pedestrian")
 
     if pedestrian_case:
         # Example: Define load factors for ULS combination
@@ -76,7 +77,31 @@ def _create_example_combination(
         }
 
         try:
-            # Create the combination using the builder
+            # Try creating a simple self-weight only combination first
+            simple_factors = {self_weight_case: 1.0}
+
+            # Try different combination types
+            combo_types_to_try = [
+                SciaCombinationType.EN_ULS_SET_B,
+                SciaCombinationType.LINEAR_ULTIMATE,
+                SciaCombinationType.ENVELOPE_ULTIMATE,
+            ]
+
+            for combo_type in combo_types_to_try:
+                try:
+                    simple_combo = create_load_combination(
+                        builder=builder,
+                        combination_type=combo_type,
+                        combination_name=f"Test_{combo_type.value}",
+                        load_case_factors=simple_factors,
+                        description=f"Test: 1.0*G (Self-weight only) - {combo_type.value}",
+                    )
+                    combinations.append(simple_combo)
+                    break  # Stop if one works
+                except Exception:
+                    continue
+
+            # Now try the full combination
             uls_combo = create_load_combination(
                 builder=builder,
                 combination_type=SciaCombinationType.EN_ULS_SET_B,
@@ -86,7 +111,21 @@ def _create_example_combination(
             )
             combinations.append(uls_combo)
         except Exception:
-            pass  # Continue if combination creation fails
+            traceback.print_exc()
+    else:
+        # Try to create a simple self-weight only combination as fallback
+        try:
+            load_factors = {self_weight_case: 1.0}
+            simple_combo = create_load_combination(
+                builder=builder,
+                combination_type=SciaCombinationType.EN_ULS_SET_B,
+                combination_name="ULS_Self_Weight_Only",
+                load_case_factors=load_factors,
+                description="Simple ULS: 1.0*G (Self-weight only)",
+            )
+            combinations.append(simple_combo)
+        except Exception:
+            pass
 
     return combinations
 
@@ -116,7 +155,7 @@ def create_all_load_combinations(builder: SciaModelBuilder, all_load_cases: dict
     all_combinations = []
 
     # Get the main permanent load case (required for all combinations)
-    self_weight_case = all_load_cases.get("standard_cases", {}).get("self_weight")
+    self_weight_case = all_load_cases.get("self_weight")
 
     if not self_weight_case:
         return []  # Cannot create combinations without self-weight
