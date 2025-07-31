@@ -8,7 +8,7 @@
 ### Removed
 
 ### Fixed
-- Service vehicle loadvehicle load
+- Service vehicle loadvehicle load.
 
 ## [`v0.0.8`] - 2025-07-17
 ### Added
