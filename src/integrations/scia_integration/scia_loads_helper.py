@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
-def create_udl_traffic_loads( #noqa: PLR0913
+def create_udl_traffic_loads(  # noqa: PLR0913
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
