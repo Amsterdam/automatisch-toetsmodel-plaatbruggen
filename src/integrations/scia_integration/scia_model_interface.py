@@ -8,7 +8,8 @@ This approach decouples the core logic from the specific SDK implementation.
 """
 
 from enum import Enum
-from typing import Any, Literal, Protocol
+from io import BytesIO
+from typing import Any, Literal, Protocol, Union
 
 # Type aliases for opaque SCIA objects that the builder implementation will handle.
 # The src layer treats these as abstract types.
@@ -24,6 +25,12 @@ SciaLineSupport = Any
 SciaFreeSurfaceLoad = Any
 SciaLineForceSurface = Any
 SciaFreeLineLoad = Any
+SciaAnalysis = Any
+SciaResults = Any
+SciaResultClass = Any
+
+# Type aliases for file objects
+SciaFile = Union[BytesIO, bytes]
 
 
 class SciaCombinationType(Enum):
@@ -129,7 +136,7 @@ class SciaModelBuilder(Protocol):
         edge_index: int,
         load_value: float,
     ) -> SciaLineForceSurface:
-        """Creates a uniform line load on a plane edge."""
+        """Creates a uniform line load on a plane edge in the SCIA model."""
         ...
 
     def create_free_line_load(  # noqa: PLR0913
@@ -154,6 +161,15 @@ class SciaModelBuilder(Protocol):
         """Creates a load combination in the SCIA model."""
         ...
 
+    def create_result_class(
+        self,
+        name: str,
+        combinations: list[SciaLoadCombination] | None = None,
+        nonlinear_combinations: list[SciaResultClass] | None = None,
+    ) -> SciaResultClass:
+        """Creates a result class in the SCIA model."""
+        ...
+
     def create_line_support_on_plane(
         self,
         name: str,
@@ -169,6 +185,38 @@ class SciaModelBuilder(Protocol):
         """Returns the final, fully constructed SCIA model object."""
         ...
 
-    def generate_xml_input(self) -> tuple[Any, Any]:
+    def generate_xml_input(self) -> tuple[SciaFile, SciaFile]:
         """Generates the XML and DEF file from the constructed model."""
+        ...
+
+    def run_analysis(self, xml_file: SciaFile, def_file: SciaFile, esa_template: SciaFile) -> SciaAnalysis:
+        """Runs the SCIA analysis and returns the analysis object."""
+        ...
+
+    def extract_analysis_results(self, analysis: SciaAnalysis) -> SciaResults:
+        """Extracts results from a completed SCIA analysis."""
+        ...
+
+    def get_displacement_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts displacement results from SCIA analysis."""
+        ...
+
+    def get_internal_force_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts internal force results from SCIA analysis."""
+        ...
+
+    def get_reaction_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts reaction force results from SCIA analysis."""
+        ...
+
+    def get_stress_results(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Extracts stress results from SCIA analysis."""
+        ...
+
+    def get_analysis_status(self, analysis: SciaAnalysis) -> dict[str, Any]:
+        """Gets the status and metadata of the SCIA analysis."""
+        ...
+
+    def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, Any]:
+        """Parses the XML output file to extract structured results."""
         ...

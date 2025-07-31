@@ -25,20 +25,11 @@ from scipy.interpolate import RegularGridInterpolator  # type: ignore[import-unt
 # ===================================================================================================================
 
 PROJECT_PATH = Path(__file__).parent.parent.parent
-PSI_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN8700.csv"
-GAMMA_NEN8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamma_NEN8700.csv"
-PSI_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_nen8701.csv"
-ALPHA_TREND_NEN8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_trend_NEN8701.csv"
-
-# PSI Factors from NEN 8701 - extracted from CSV for efficient access
-PSI_FACTORS_NEN8701: dict[float, dict[int, float]] = {
-    100.0: {20: 1.0, 50: 1.0, 100: 1.0, 200: 1.0},
-    50.0: {20: 0.99, 50: 0.99, 100: 0.99, 200: 0.99},
-    30.0: {20: 0.99, 50: 0.99, 100: 0.98, 200: 0.97},
-    15.0: {20: 0.98, 50: 0.98, 100: 0.96, 200: 0.96},
-    1.0: {20: 0.95, 50: 0.94, 100: 0.89, 200: 0.88},
-    1.0 / 12.0: {20: 0.91, 50: 0.91, 100: 0.81, 200: 0.81},  # 0.08333333333
-}
+PSI_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN_8700.csv"
+GAMMA_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamma_NEN_8700.csv"
+PSI_NEN_8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN_8701.csv"
+ALPHA_TREND_NEN_8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_trend_NEN_8701.csv"
+ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_Q_q_NEN_EN_1991_2.csv"
 
 # ===================================================================================================================
 # Functions
@@ -62,7 +53,7 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
 
     """
     # Read the code tables from CSV
-    df_gamma = pd.read_csv(GAMMA_NEN8700_PATH, sep=";", decimal=",")
+    df_gamma = pd.read_csv(GAMMA_NEN_8700_PATH, sep=";", decimal=",")
 
     # Extract the safety level if design code is NEN 8700
     if "NEN 8700" in safety_level:
@@ -142,7 +133,7 @@ def create_load_combination_table(params: dict) -> Styler:
         raise KeyError("Missing required parameter: info.construction_year")
 
     # Read the code tables from CSV and set "Combinatie" as index
-    df_combination_table_psi = pd.read_csv(PSI_NEN8700_PATH, sep=";", decimal=",", index_col="Combinatie")
+    df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
     # Lists for load cases related to permanent-, traffic-, wind- and other loads
     permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
@@ -257,78 +248,7 @@ def create_load_combination_table(params: dict) -> Styler:
     return df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)
 
 
-def get_interpolation_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Get interpolation data from PSI_FACTORS_NEN8701 for use with RegularGridInterpolator.
-
-    :returns: Tuple of (spans, periods, values) arrays for interpolation
-    :rtype: tuple[np.ndarray, np.ndarray, np.ndarray]
-    """
-    # Extract spans (sorted) and periods (sorted descending for interpolator)
-    spans = np.array(sorted(PSI_FACTORS_NEN8701[100.0].keys()))  # [20, 50, 100, 200]
-    periods = np.array(sorted(PSI_FACTORS_NEN8701.keys(), reverse=True))  # [100.0, 50.0, 30.0, 15.0, 1.0, 0.083...]
-
-    # Create values array
-    values = np.zeros((len(periods), len(spans)))
-    for i, period in enumerate(periods):
-        for j, span in enumerate(spans):
-            values[i, j] = PSI_FACTORS_NEN8701[period][span]
-
-    return spans, periods, values
-
-
-def validate_input(span: float, reference_period: float) -> tuple[float, float]:
-    """
-    Validate and clamp input parameters for PSI factor calculation.
-
-    :param span: Span length in meters
-    :type span: float | int
-    :param reference_period: Reference period in years
-    :type reference_period: float | int
-    :returns: Tuple of (clamped_span, reference_period)
-    :rtype: tuple[float, float]
-    :raises TypeError: If span or reference_period are not numeric
-    :raises ValueError: If span or reference_period are not positive or reference_period exceeds maximum
-    """
-    # Type validation
-    if not isinstance(span, (int, float)) or not isinstance(reference_period, (int, float)):
-        raise TypeError("Span and reference period must be numeric values")
-
-    # Value validation
-    if span <= 0:
-        raise ValueError("Span must be positive")
-    if reference_period <= 0:
-        raise ValueError("Reference period must be positive")
-    if reference_period > 100.0:  # Max from PSI_FACTORS_NEN8701
-        raise ValueError("Reference period must not exceed 100 years")
-
-    # Get valid ranges from PSI_FACTORS_NEN8701
-    valid_spans = sorted(PSI_FACTORS_NEN8701[100.0].keys())  # [20, 50, 100, 200]
-    min_span, max_span = min(valid_spans), max(valid_spans)
-
-    # Clamp span to valid range
-    clamped_span = _clamp(float(span), float(min_span), float(max_span))
-
-    return clamped_span, float(reference_period)
-
-
-def _clamp(value: float, min_val: float, max_val: float) -> float:
-    """
-    Clamp a value to a specified range.
-
-    :param value: Value to clamp
-    :type value: float
-    :param min_val: Minimum allowed value
-    :type min_val: float
-    :param max_val: Maximum allowed value
-    :type max_val: float
-    :returns: Clamped value
-    :rtype: float
-    """
-    return min(max(value, min_val), max_val)
-
-
-def get_psi_nen8701(span: float, reference_period: float) -> float:
+def get_psi_nen_8701(span: float, reference_period: float) -> float:
     """
     Calculate the psi factor according to NEN 8701 based on span length and reference period.
 
@@ -341,7 +261,7 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
     - Spans > 200m are calculated using span = 200m
 
     For reference periods outside the valid range:
-    - Reference periods < 1 year are calculated using reference_period = 1 year
+    - Reference periods < 1/12 year are calculated using reference_period = 1/12 year
     - Reference periods > 100 years are calculated using reference_period = 100 years
 
     Args:
@@ -351,39 +271,40 @@ def get_psi_nen8701(span: float, reference_period: float) -> float:
     Returns:
         float: Interpolated psi factor value
 
-    Raises:
-        ValueError: If reference period is outside the valid range
-        TypeError: If inputs are not numeric
-
     """
-    # Validate and clamp input parameters
-    clamped_span, clamped_reference_period = validate_input(span, reference_period)
+    # Read the CSV file
+    psi_data = pd.read_csv(PSI_NEN_8701_PATH, sep=";", decimal=",")
 
-    # Get interpolation data from extracted constant
-    x_coords, y_coords, z_values = get_interpolation_data()
+    # Extract x (spans) and y (reference periods) coordinates from column headers and index
+    spans = np.array([float(col) for col in psi_data.columns[1:]])  # spans from columns
+
+    # Handle reference periods - use list comprehension instead of for loop
+    reference_periods = np.array([float(period_str) for period_str in psi_data.iloc[:, 0]])
+
+    # Extract z values (psi factors)
+    z_values = psi_data.iloc[:, 1:].to_numpy()
 
     # Create interpolator
     interpolator = RegularGridInterpolator(
-        (y_coords, x_coords),
+        (reference_periods, spans),
         z_values,
         method="linear",
-        bounds_error=False,  # Use clamping for out-of-bounds values
+        bounds_error=False,  # Allow extrapolation
         fill_value=None,  # Will use nearest value for out-of-bounds points
     )
 
-    # Clamp reference period to interpolation range (additional safety check)
-    final_reference_period = _clamp(clamped_reference_period, min(y_coords), max(y_coords))
+    # Clamp span to valid ranges
+    clamped_span = min(max(span, min(spans)), max(spans))
+
+    # Clamp reference period to valid ranges
+    clamped_reference_period = min(max(reference_period, min(reference_periods)), max(reference_periods))
 
     # Return interpolated value - extract first (and only) element from the array
-    result = interpolator([final_reference_period, clamped_span])
+    result = interpolator([clamped_reference_period, clamped_span])
     return float(result.item())
 
 
-# Backward compatibility alias
-get_psi_factor = get_psi_nen8701
-
-
-def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
+def get_alpha_trend_nen_8701(span: float, design_life: int) -> float:
     """
     Calculate the alpha trend factor according to NEN 8701 based on span length and design life.
 
@@ -408,7 +329,7 @@ def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
 
     """
     # Read the CSV file
-    alpha_trend_data = pd.read_csv(ALPHA_TREND_NEN8701_PATH, sep=";", decimal=",")
+    alpha_trend_data = pd.read_csv(ALPHA_TREND_NEN_8701_PATH, sep=";", decimal=",")
 
     # Extract x (years) and y (spans) coordinates from column headers and index
     years = np.array([int(col) for col in alpha_trend_data.columns[1:]])  # years from columns
@@ -437,3 +358,77 @@ def get_alpha_trend_nen8701(span: float, design_life: int) -> float:
     # Return interpolated value - extract first (and only) element from the array
     result = interpolator([clamped_span, clamped_year])
     return float(result.item())
+
+
+def get_alpha_q_nen_en_1991_2(span: float, nobs: int) -> list:
+    """
+    Calculate the alpha_Q, alpha_q and alpha_qr factors according to NEN-EN 1991-2 based on span length and number of trucks per year.
+
+    The alpha_Q and alpha_q factors are determined by interpolating values from NEN-EN 1991-2 based on
+    the span length and Nobs (number of trucks per year). The function uses bilinear interpolation
+    to calculate intermediate values for combinations not directly available in the table.
+
+    The alpha_qr factor is only dependent on Nobs and is taken from the last column of the table.
+
+    For spans outside the valid range:
+    - Spans < 20m are calculated using span = 20m
+    - Spans > 200m are calculated using span = 200m
+
+    For Nobs outside the valid range:
+    - Nobs < 200 are calculated using Nobs = 200
+    - Nobs > 2000000 are calculated using Nobs = 2000000
+
+    Args:
+        span: Length of the span in meters
+        nobs: Number of trucks per year (Nobs)
+
+    Returns:
+        list: [alpha_Q_q, alpha_qr]
+
+    """
+    # Read the CSV file
+    alpha_data = pd.read_csv(ALPHA_Q_q_NEN_EN_1991_2_PATH, sep=";", decimal=",")
+
+    # Extract x (spans) and y (Nobs) coordinates from column headers and index
+    spans = np.array([float(col) for col in alpha_data.columns[1:-1]])  # spans from columns (excluding first and last)
+    nobs_values = np.array([float(row) for row in alpha_data.iloc[:, 0]])  # Nobs from first column
+
+    # Extract z values for alpha_Q_q (all columns except first and last)
+    z_values_alpha_q = alpha_data.iloc[:, 1:-1].to_numpy()
+
+    # Extract alpha_qr values (last column only)
+    alpha_qr_values = alpha_data.iloc[:, -1].to_numpy()
+
+    # Create interpolator for alpha_Q_q
+    interpolator_alpha_q = RegularGridInterpolator(
+        (nobs_values, spans),
+        z_values_alpha_q,
+        method="linear",
+        bounds_error=False,  # Allow extrapolation
+        fill_value=None,  # Will use nearest value for out-of-bounds points
+    )
+
+    # Create interpolator for alpha_qr (1D interpolation based on Nobs only)
+    interpolator_alpha_qr = RegularGridInterpolator(
+        (nobs_values,),
+        alpha_qr_values,
+        method="linear",
+        bounds_error=False,  # Allow extrapolation
+        fill_value=None,  # Will use nearest value for out-of-bounds points
+    )
+
+    # Clamp span to valid ranges
+    clamped_span = min(max(span, min(spans)), max(spans))
+
+    # Clamp Nobs to valid ranges
+    clamped_nobs = min(max(nobs, min(nobs_values)), max(nobs_values))
+
+    # Calculate alpha_Q_q using 2D interpolation
+    result_alpha_q = interpolator_alpha_q([clamped_nobs, clamped_span])
+    alpha_q = float(result_alpha_q.item())
+
+    # Calculate alpha_qr using 1D interpolation (only depends on Nobs)
+    result_alpha_qr = interpolator_alpha_qr([clamped_nobs])
+    alpha_qr = float(result_alpha_qr.item())
+
+    return [alpha_q, alpha_qr]

@@ -1,9 +1,26 @@
-# Changelog
+## [`v0.0.9`] - 2025-07-31
+### Added
+- SCIA load cases BG 4000 series, 6000 series, 7000 series, 8000 series, 9000 series and 10000 series
+- Accidental vehicle load
+
+### Changed
+
+### Removed
+
+### Fixed
+- Service vehicle loadvehicle load.
+
 ## [`v0.0.8`] - 2025-07-17
 ### Added
 - IDEA model builder
 - IDEA export + viewer
-- SCIA load cases BG 1001, 2001, 2002, 2003, 5001
+- SCIA load cases BG 1001, 2001, 2002, 2003, 4000 series, 5001 , 8000 series, 9000 series and 10000 series
+- **SCIA Analysis Results Table**: Basic structural analysis results display
+  - Force results (Mmax, Vmax, Nmax) with location information
+  - Displacement results (δmax, θmax) for deformation analysis
+  - Load combination information showing active combinations
+  - Engineering assessment with moment magnitude evaluation
+  - Clean table format with Parameter, Value, Location, and Status columns
 
 ### Changed
 - SCIA model builder logic

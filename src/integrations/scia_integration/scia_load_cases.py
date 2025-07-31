@@ -8,7 +8,7 @@ the SciaModelBuilder interface.
 from typing import Any, Literal
 
 from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
-from .scia_loads_helper import generate_theoretical_lane_positions, tandem_system_sequencer
+from .scia_loads_helper import generate_theoretical_lane_positions_bg8000, tandem_system_sequencer
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
@@ -174,59 +174,146 @@ def create_pedestrian_load_case(builder: SciaModelBuilder) -> SciaLoadCase:
     )
 
 
-def create_service_vehicle_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
+def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, SciaLoadCase]:  # noqa: ANN401
     """
-    Create service vehicle load cases BG6001 to BG6003.
+    Create service vehicle load cases with dynamic positioning based on bridge geometry.
 
     :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters for calculating positions.
     :returns: Dictionary of created service vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
-    data = [
-        ("rs_1", "BG6001", "Verkeer, dienstvoertuig - RS 1"),
-        ("rs_2", "BG6002", "Verkeer, dienstvoertuig - RS 2"),
-        ("rs_3", "BG6003", "Verkeer, dienstvoertuig - RS 3"),
-    ]
+    # Extract bridge parameters needed for position calculation
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+    length = bridge_params["length_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
+
+    # Get X positions using the same sequencer as tandem loads
+    positions = tandem_system_sequencer(length, thickness)
+
     cases = {}
-    for key, name, desc in data:
+
+    # Create load cases for y_plus (top edge)
+    for i, pos in enumerate(positions, 1):
+        case_name = f"BG6{i:03d}"
+        key = f"y_plus_x{pos}"
         cases[key] = create_load_case(
             builder,
             group_name="LG6000 - Dienstvoertuig",
-            case_name=name,
-            description=desc,
+            case_name=case_name,
+            description=f"Verkeer, dienstvoertuig - y+ - x = {pos:g} m",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
             duration="SHORT",
         )
+
+    # Create load cases for y_minus (bottom edge), continuing numbering
+    for i, pos in enumerate(positions, len(positions) + 1):
+        case_name = f"BG6{i:03d}"
+        key = f"y_minus_x{pos}"
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG6000 - Dienstvoertuig",
+            case_name=case_name,
+            description=f"Verkeer, dienstvoertuig - y- - x = {pos:g} m",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+
     return cases
 
 
-def create_unintended_vehicle_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]:
+def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, SciaLoadCase]:  # noqa: ANN401
     """
-    Create unintended vehicle load cases BG7001 to BG7003.
+    Create unintended vehicle load cases with dynamic positioning based on bridge geometry.
+    Creates loads for both forward and reverse directions on edges (RS 1 and RS 3).
+
+    Forward: 80 kN front axle leads, 40 kN rear axle follows
+    Reverse: 80 kN front axle leads in opposite direction
 
     :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters for calculating positions.
     :returns: Dictionary of created unintended vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
-    data = [
-        ("rs_1", "BG7001", "Verkeer, onbedoeld voertuig - RS 1"),
-        ("rs_2", "BG7002", "Verkeer, onbedoeld voertuig - RS 2"),
-        ("rs_3", "BG7003", "Verkeer, onbedoeld voertuig - RS 3"),
-    ]
+    # Extract bridge parameters needed for position calculation
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+    length = bridge_params["length_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
+
+    # Get X positions using the same sequencer as tandem loads
+    positions = tandem_system_sequencer(length, thickness)
+
     cases = {}
-    for key, name, desc in data:
+    case_counter = 1
+
+    # Create load cases for RS 1 (top edge) - Forward direction
+    for pos in positions:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_1_x{pos}_forward"
         cases[key] = create_load_case(
             builder,
             group_name="LG7000 - Onbedoeld voertuig",
-            case_name=name,
-            description=desc,
+            case_name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 1 forward - x = {pos:g} m",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
             duration="SHORT",
         )
+        case_counter += 1
+
+    # Create load cases for RS 1 (top edge) - Reverse direction
+    for pos in positions:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_1_x{pos}_reverse"
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 1 reverse - x = {pos:g} m",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+
+    # Create load cases for RS 3 (bottom edge) - Forward direction
+    for pos in positions:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_3_x{pos}_forward"
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 3 forward - x = {pos:g} m",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+
+    # Create load cases for RS 3 (bottom edge) - Reverse direction
+    for pos in positions:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_3_x{pos}_reverse"
+        cases[key] = create_load_case(
+            builder,
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 3 reverse - x = {pos:g} m",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+
     return cases
 
 
@@ -254,7 +341,7 @@ def create_dynamic_tandem_load_cases(
     width = bridge_params["width_bridgedeck"]
 
     # Determine the number of theoretical lanes, with a maximum of 3
-    num_lanes = len(generate_theoretical_lane_positions(width))
+    num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
     num_lanes = min(num_lanes, 3)
 
     # Create tandem load cases for each road system (RS)
@@ -296,19 +383,53 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
 
     positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
     cases = {}
-    for i, pos in enumerate(positions, 1):
-        case_name = f"{prefix}{i:03d}"
-        description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
-        cases[f"tandem_rs{rs}_x{pos}"] = create_load_case(
-            builder,
-            group_name=group_name,
-            case_name=case_name,
-            description=description,
-            case_type="VARIABLE",
-            variable_type="STATIC",
-            specification="STANDARD",
-            duration="SHORT",
-        )
+    if rs == 3:
+        # BG10000 series: double amount for both configurations
+        idx = 1
+        # First configuration (A): 200 kN left, 100 kN right
+        for pos in positions:
+            case_name = f"{prefix}{idx:03d}"
+            description = f"Verkeer, dek - LM1 TS RS 3 (configuratie 1) - x = {pos:g} m"
+            cases[f"tandem_rs3_x{pos}_A"] = create_load_case(
+                builder,
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
+            idx += 1
+        # Second configuration (B): 100 kN left, 200 kN right
+        for pos in positions:
+            case_name = f"{prefix}{idx:03d}"
+            description = f"Verkeer, dek - LM1 TS RS 3 (configuratie 2) - x = {pos:g} m"
+            cases[f"tandem_rs3_x{pos}_B"] = create_load_case(
+                builder,
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
+            idx += 1
+    else:
+        for i, pos in enumerate(positions, 1):
+            case_name = f"{prefix}{i:03d}"
+            description = f"Verkeer, dek - LM1 TS RS {rs} - x = {pos:g} m"
+            cases[f"tandem_rs{rs}_x{pos}"] = create_load_case(
+                builder,
+                group_name=group_name,
+                case_name=case_name,
+                description=description,
+                case_type="VARIABLE",
+                variable_type="STATIC",
+                specification="STANDARD",
+                duration="SHORT",
+            )
     return cases
 
 
@@ -331,7 +452,7 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
         "temperature_cases": create_temperature_load_cases(builder),
         "udl_traffic_cases": create_udl_traffic_load_cases(builder),
         "pedestrian": create_pedestrian_load_case(builder),
-        "service_vehicle_cases": create_service_vehicle_load_cases(builder),
-        "unintended_vehicle_cases": create_unintended_vehicle_load_cases(builder),
+        "service_vehicle_cases": create_service_vehicle_load_cases(builder, params),
+        "unintended_vehicle_cases": create_unintended_vehicle_load_cases(builder, params),
         "tandem_cases": create_dynamic_tandem_load_cases(builder, params),
     }

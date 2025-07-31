@@ -7,21 +7,24 @@ These functions are pure Python and can be used by the app layer to construct th
 
 from typing import Any
 
-from app.bridge.parametrization import BridgeParametrization
-from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
+from src.geometry.load_zone_geometry import get_bridge_geom_data
 
 from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_loads_helper import calculate_pavement_load_from_material
+from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, tandem_system_sequencer
 from .scia_model_interface import SciaModelBuilder
+
+# Type alias to avoid importing from app layer
+BridgeParametrization = Any
 
 
 def add_theoretical_tandem_loads(
     builder: SciaModelBuilder,
     params: Any,  # noqa: ANN401
+    _load_cases: dict[str, Any],
 ) -> None:
     """
     Create theoretical tandem loads and apply them to their existing load cases.
@@ -31,6 +34,7 @@ def add_theoretical_tandem_loads(
 
     :param builder: The SCIA model builder instance.
     :param params: VIKTOR parameters for the bridge.
+    :param load_cases: Dictionary of created load cases.
     """
     # 1. Extract bridge parameters needed for load geometry calculation
     bridge_params = extract_tandem_parameters_from_bridge(params)
@@ -42,20 +46,24 @@ def add_theoretical_tandem_loads(
     scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
 
     # 4. Create surface loads using the builder, applying them to the correct load case
+
     for tandem in scia_tandem_data:
-        load_case_name = tandem["load_case"]
-        for i, patch_load in enumerate(tandem["patch_loads"]):
-            builder.create_surface_load(
-                name=f"{load_case_name}_Wheel_{i + 1}",
-                load_case_name=load_case_name,
-                corner_points=patch_load["corners"],
-                load_value=-patch_load["load_value"],  # Negative for downward load
-            )
+        # Only process dicts that have both 'load_case' and 'patch_loads' keys
+        if "load_case" in tandem and "patch_loads" in tandem:
+            load_case_name = tandem["load_case"]
+            for i, patch_load in enumerate(tandem["patch_loads"]):
+                builder.create_surface_load(
+                    name=f"{load_case_name}_Wheel_{i + 1}",
+                    load_case_name=load_case_name,
+                    corner_points=patch_load["corners"],
+                    load_value=-patch_load["load_value"],  # Negative for downward load
+                )
 
 
 def add_actual_tandem_loads(
     _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """PLACEHOLDER: Add actual tandem loads based on user-defined lanes."""
     # This will be implemented when user-defined lanes are supported.
@@ -65,6 +73,7 @@ def add_actual_tandem_loads(
 def add_parapet_loads(
     builder: SciaModelBuilder,
     params: Any,  # noqa: ANN401
+    load_cases: dict[str, Any],
 ) -> list[Any]:
     """
     Add permanent line loads for parapets (railing) to the SCIA model.
@@ -75,13 +84,13 @@ def add_parapet_loads(
 
     :param builder: SCIA model builder instance
     :param params: Bridge parameters (should provide plate_definitions)
+    :param load_cases: Dictionary of created load cases.
     """
-    try:
-        load_value = params.input.belastingzones.lijnlast_leuning * 1000  # Convert to kN/m
-    except AttributeError:
-        load_value = 1000  # Fallback default if not present
+    load_value = params.input.belastingzones.lijnlast_leuning * 1000  # Convert to kN/m
 
-    load_case_name = "BG2004"
+    # Get the parapet load case name from the load cases dictionary
+    parapet_load_case = load_cases["dead_load_cases"]["leuning"]
+    load_case_name = parapet_load_case.name
 
     # builder.plates is now a dict: {plate_name: Plane}
     plates = getattr(builder, "plates", {})
@@ -114,6 +123,7 @@ def add_parapet_loads(
 def add_pedestrian_loads(
     _builder: SciaModelBuilder,
     _params: Any,  # noqa: ANN401
+    _load_cases: dict[str, Any],
 ) -> list[Any]:
     """PLACEHOLDER: Add pedestrian loads to the SCIA model."""
     # This will be implemented based on pedestrian area parameters.
@@ -123,222 +133,64 @@ def add_pedestrian_loads(
 def add_asfalt_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    load_cases: dict[str, Any],
 ) -> list[Any]:
-    """PLACEHOLDER: Add asphalt loads to the SCIA model."""
-    # Get unit weight for asphalt loads
+    """Add asphalt loads to the SCIA model."""
+    # Get the asphalt load case name from the load cases dictionary
+    asphalt_load_case = load_cases["dead_load_cases"]["asfalt"]
+    load_case_name = asphalt_load_case.name
 
-    # Get load zone information from params using the utility functions
-    load_zones_data_params = get_load_zones_data_from_params(params)
-    bridge_geom_data = get_bridge_geom_data(params)
-
-    # Check if bridge geometry data is available
-    if bridge_geom_data is None:
-        return []
-
-    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
-
-    # Iterate through load zones and apply asphalt loads
-    for i, load_zone in enumerate(load_zones_data_params):
-        if load_zone.get("pavement_material", BridgeParametrization) == "Asfalt":
-            # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
-                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-                corners = [
-                    (x_coord_left, y_coord_top_left, 0.0),
-                    (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_bottom_right, 0.0),
-                    (x_coord_left, y_coord_bottom_left, 0.0),
-                ]
-
-                builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_{i}_Asfalt_{span}_d{load_zone['pavement_thickness']}",
-                    load_case_name="BG2001",  # TODO is dit correct?
-                    corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
-                    * 1000,  # Convert to kN/m²
-                )
-    return []  # Placeholder return to match function signature
+    material_config = {"Asfalt": load_case_name}
+    add_material_loads(builder, params, material_config)
+    return []
 
 
 def add_concrete_fill_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    load_cases: dict[str, Any],
 ) -> list[Any]:
-    """PLACEHOLDER: Add asphalt loads to the SCIA model."""
-    # Get unit weight for asphalt loads
+    """Add concrete fill loads to the SCIA model."""
+    # Get the concrete fill load case name from the load cases dictionary
+    concrete_fill_load_case = load_cases["dead_load_cases"]["uitvulling"]
+    load_case_name = concrete_fill_load_case.name
 
-    # Get load zone information from params using the utility functions
-    load_zones_data_params = get_load_zones_data_from_params(params)
-    bridge_geom_data = get_bridge_geom_data(params)
-
-    # Check if bridge geometry data is available
-    if bridge_geom_data is None:
-        return []
-
-    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
-
-    # Iterate through load zones and apply asphalt loads
-    for i, load_zone in enumerate(load_zones_data_params):
-        if load_zone.get("pavement_material", BridgeParametrization) == "Beton (normaal)":
-            # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
-                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-                corners = [
-                    (x_coord_left, y_coord_top_left, 0.0),
-                    (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_bottom_right, 0.0),
-                    (x_coord_left, y_coord_bottom_left, 0.0),
-                ]
-
-                builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_{i}_beton_(normaal)_opvulling_{span}_d{load_zone['pavement_thickness']}",
-                    load_case_name="BG2002",  # TODO is dit correct?
-                    corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
-                    * 1000,  # Convert to kN/m²
-                )
-
-        elif load_zone.get("pavement_material", BridgeParametrization) == "Beton (gewapend)":
-            # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
-                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-                corners = [
-                    (x_coord_left, y_coord_top_left, 0.0),
-                    (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_bottom_right, 0.0),
-                    (x_coord_left, y_coord_bottom_left, 0.0),
-                ]
-
-                builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_{i}_beton_(gewapend)_opvulling_{span}_d{load_zone['pavement_thickness']}",
-                    load_case_name="BG2002",  # TODO is dit correct?
-                    corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
-                    * 1000,  # Convert to kN/m²
-                )
-    return []  # Placeholder return to match function signature
+    material_config = {
+        "Beton (normaal)": load_case_name,
+        "Beton (gewapend)": load_case_name,
+    }
+    add_material_loads(builder, params, material_config)
+    return []
 
 
 def add_pavement_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    load_cases: dict[str, Any],
 ) -> list[Any]:
-    """PLACEHOLDER: Add asphalt loads to the SCIA model."""
-    # Get unit weight for asphalt loads
+    """Add pavement loads (klinkers, grind, tegels) to the SCIA model."""
+    # Get the pavement load case name from the load cases dictionary
+    pavement_load_case = load_cases["dead_load_cases"]["ophogingen"]
+    load_case_name = pavement_load_case.name
 
-    # Get load zone information from params using the utility functions
-    load_zones_data_params = get_load_zones_data_from_params(params)
-    bridge_geom_data = get_bridge_geom_data(params)
-
-    # Check if bridge geometry data is available
-    if bridge_geom_data is None:
-        return []
-
-    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
-
-    # Iterate through load zones and apply asphalt loads
-    for i, load_zone in enumerate(load_zones_data_params):
-        if load_zone.get("pavement_material", BridgeParametrization) == "Klinkers":
-            # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
-                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-                corners = [
-                    (x_coord_left, y_coord_top_left, 0.0),
-                    (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_bottom_right, 0.0),
-                    (x_coord_left, y_coord_bottom_left, 0.0),
-                ]
-
-                builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_{i}_klinkers_opvulling_{span}_d{load_zone['pavement_thickness']}",
-                    load_case_name="BG2003",  # TODO is dit correct?
-                    corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
-                    * 1000,  # Convert to kN/m²
-                )
-
-        elif load_zone.get("pavement_material", BridgeParametrization) == "Grind":
-            # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
-                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-                corners = [
-                    (x_coord_left, y_coord_top_left, 0.0),
-                    (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_bottom_right, 0.0),
-                    (x_coord_left, y_coord_bottom_left, 0.0),
-                ]
-
-                builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_{i}_Grind_opvulling_{span}_d{load_zone['pavement_thickness']}",
-                    load_case_name="BG2003",  # TODO is dit correct?
-                    corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
-                    * 1000,  # Convert to kN/m²
-                )
-
-        elif load_zone.get("pavement_material", BridgeParametrization) == "Tegels":
-            # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
-                # Create individual surface load for each span in the asphalt zone
-                y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-                y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-                y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-                y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
-                x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-                x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-                corners = [
-                    (x_coord_left, y_coord_top_left, 0.0),
-                    (x_coord_right, y_coord_top_right, 0.0),
-                    (x_coord_right, y_coord_bottom_right, 0.0),
-                    (x_coord_left, y_coord_bottom_left, 0.0),
-                ]
-
-                builder.create_surface_load(
-                    name=f"{load_zone['zone_type']}_{i}_tegels_opvulling_{span}_d{load_zone['pavement_thickness']}",
-                    load_case_name="BG2003",  # TODO is dit correct?
-                    corner_points=corners,
-                    load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"])
-                    * 1000,  # Convert to kN/m²
-                )
-    return []  # Placeholder return to match function signature
+    material_config = {
+        "Klinkers": load_case_name,
+        "Grind": load_case_name,
+        "Tegels": load_case_name,
+    }
+    add_material_loads(builder, params, material_config)
+    return []
 
 
 def add_crowd_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
+    load_cases: dict[str, Any],
 ) -> list[Any]:
     """PLACEHOLDER: Add crowd loads to the SCIA model."""
-    # Get unit weight for crowd loads
+    # Crowd load according to NEN-EN 1991-2 art. 5.3.2.1 (LM4)
+    crowd_load_per_sqm = 5.0  # kN/m²
+    crowd_load_per_sqm_n = crowd_load_per_sqm * 1000  # Convert to N/m²
 
     # Get load zone information from params using the utility functions
     bridge_geom_data = get_bridge_geom_data(params)
@@ -359,16 +211,217 @@ def add_crowd_loads(
         (x_left, y_bottom, 0.0),
     ]
 
+    # Get the pedestrian load case name from the load cases dictionary
+    pedestrian_load_case = load_cases["pedestrian"]
+    load_case_name = pedestrian_load_case.name
+
     builder.create_surface_load(
         name="mensenmenigte_belasting",
-        load_case_name="BG5001",  # TODO is dit correct?
+        load_case_name=load_case_name,
         corner_points=corners,
-        load_value=-5 * 1000,  # Convert to kN/m²
+        load_value=-crowd_load_per_sqm_n,  # Negative for downward load
     )
     return []  # Placeholder return to match function signature
 
 
-def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -> None:
+def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
+    """Add accidental vehicle loads to the SCIA model using sequenced X positions."""
+    # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
+    vehicle_width = 1.30  # From diagram: 1.30 m between wheel centers
+    force_axle_1 = 80 * 1000  # Q_sv1 = 80 kN, convert to N
+    force_axle_2 = 40 * 1000  # Q_sv2 = 40 kN, convert to N
+    wheel_contact_area = 0.20  # From diagram: 0.20 m contact area
+    axle_spacing = 1.2  # Derived from 3.0m total - wheel contact areas
+    inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
+
+    # Get bridge geometry data
+    bridge_geom_data = get_bridge_geom_data(params)
+    if bridge_geom_data is None:
+        return
+
+    # Extract bridge parameters and get X positions
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+    length = bridge_params["length_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
+    positions = tandem_system_sequencer(length, thickness)
+
+    # Get geometry coordinates
+    y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
+    y_bridge_bottom_at_d_points = bridge_geom_data.y_bridge_bottom_at_d_points
+
+    # Get load cases dictionary
+    accidental_vehicle_cases = load_cases["unintended_vehicle_cases"]
+
+    def create_accidental_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], direction: str) -> None:
+        """Create accidental vehicle loads at a specific X position and direction."""
+        # Get the appropriate load case for this position, edge, and direction
+        load_case_key = f"{edge_type}_x{x_pos}_{direction}"
+        if load_case_key not in accidental_vehicle_cases:
+            return
+
+        load_case_name = accidental_vehicle_cases[load_case_key].name
+
+        # Calculate vehicle top edge position with 0.5m inset from bridge edge
+        # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
+        if edge_type == "rs_1":
+            # For rs_1: top edge should be inward from bridge edge
+            vehicle_top_edge = y_coords[0] - inset_distance
+        else:  # rs_3
+            # For rs_3: bottom edge should be inward, so top edge = bottom edge + vehicle_width
+            vehicle_bottom_edge = y_coords[0] + inset_distance
+            vehicle_top_edge = vehicle_bottom_edge + vehicle_width
+
+        # Determine front axle position based on direction (80 kN axle should always be the "front")
+        # Forward: 80 kN front axle at x_pos, 40 kN rear axle at x_pos + axle_spacing
+        # Reverse: 80 kN front axle at x_pos + axle_spacing, 40 kN rear axle at x_pos
+        front_axle_x = x_pos if direction == "forward" else x_pos + axle_spacing
+
+        # Calculate wheel contact area and load per unit area
+        wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
+
+        # Load per wheel (divide axle load by 2 wheels per axle) then by contact area
+        front_wheel_force = force_axle_1 / 2  # 40 kN per front wheel (80 kN total)
+        rear_wheel_force = force_axle_2 / 2  # 20 kN per rear wheel (40 kN total)
+
+        front_wheel_load = front_wheel_force / wheel_area  # N/m²
+        rear_wheel_load = rear_wheel_force / wheel_area  # N/m²
+
+        # Use the same helper function as service vehicle for front axle (80 kN total)
+        front_axle_locations = calc_vehicle_load_locations(
+            x_coord=front_axle_x,
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
+            vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
+            vehicle_width=vehicle_width,
+            wheel_contact_area=wheel_contact_area,
+        )
+
+        # Use the same helper function for rear axle (40 kN total)
+        rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
+        rear_axle_locations = calc_vehicle_load_locations(
+            x_coord=rear_axle_x,
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
+            vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
+            vehicle_width=vehicle_width,
+            wheel_contact_area=wheel_contact_area,
+        )
+
+        # Create surface loads for front axle wheels (80 kN total = 40 kN per wheel)
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_left",
+            load_case_name=load_case_name,
+            corner_points=front_axle_locations["top_left_wheel_corners"],
+            load_value=-front_wheel_load,  # N/m²
+        )
+
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_right",
+            load_case_name=load_case_name,
+            corner_points=front_axle_locations["bottom_left_wheel_corners"],
+            load_value=-front_wheel_load,  # N/m²
+        )
+
+        # Create surface loads for rear axle wheels (40 kN total = 20 kN per wheel)
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_left",
+            load_case_name=load_case_name,
+            corner_points=rear_axle_locations["top_left_wheel_corners"],
+            load_value=-rear_wheel_load,  # N/m²
+        )
+
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_right",
+            load_case_name=load_case_name,
+            corner_points=rear_axle_locations["bottom_left_wheel_corners"],
+            load_value=-rear_wheel_load,  # N/m²
+        )
+
+    # Create loads for each X position on both edges (RS 1 and RS 3) in both directions
+    for x_pos in positions:
+        # RS 1 (top edge) - both directions
+        create_accidental_vehicle_at_position(x_pos, "rs_1", y_top_structural_edge_at_d_points, "forward")
+        create_accidental_vehicle_at_position(x_pos, "rs_1", y_top_structural_edge_at_d_points, "reverse")
+
+        # RS 3 (bottom edge) - both directions
+        create_accidental_vehicle_at_position(x_pos, "rs_3", y_bridge_bottom_at_d_points, "forward")
+        create_accidental_vehicle_at_position(x_pos, "rs_3", y_bridge_bottom_at_d_points, "reverse")
+
+
+def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
+    """Add service vehicle loads to the SCIA model using sequenced X positions."""
+    # Dienstvoertuig volgens NEN-EN 1991-2 art. 5.3.2.3
+    vehicle_length = 3.0
+    vehicle_width = 1.75
+    force_per_axle = 25 * 1000  # Convert to N
+    wheel_contact_area = 0.25
+    inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
+
+    # Get bridge geometry data
+    bridge_geom_data = get_bridge_geom_data(params)
+    if bridge_geom_data is None:
+        return
+
+    # Extract bridge parameters and get X positions
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+    length = bridge_params["length_bridgedeck"]
+    thickness = bridge_params["thickness_bridgedeck"]
+    positions = tandem_system_sequencer(length, thickness)
+
+    # Get geometry coordinates
+    y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
+    y_bridge_bottom_at_d_points = bridge_geom_data.y_bridge_bottom_at_d_points
+
+    # Get load cases dictionary
+    service_vehicle_cases = load_cases["service_vehicle_cases"]
+
+    def create_service_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
+        """Create service vehicle loads at a specific X position."""
+        # Get the appropriate load case for this position and edge
+        load_case_key = f"{edge_type}_x{x_pos}"
+        if load_case_key not in service_vehicle_cases:
+            return
+
+        load_case_name = service_vehicle_cases[load_case_key].name
+
+        # Calculate vehicle top edge position with 0.5m inset from bridge edge
+        # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
+        if edge_type == "y_plus":
+            # For y_plus: top edge should be inward from bridge edge
+            vehicle_top_edge = y_coords[0] - inset_distance
+        else:  # y_minus
+            # For y_minus: bottom edge should be inward, so top edge = bottom edge + vehicle_width
+            vehicle_bottom_edge = y_coords[0] + inset_distance
+            vehicle_top_edge = vehicle_bottom_edge + vehicle_width
+
+        # Calculate wheel contact area and load per unit area
+        wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
+        force_per_wheel = force_per_axle / 2  # Divide axle load by 2 wheels
+        load_per_area = force_per_wheel / wheel_area  # N/m²
+
+        # Use the helper function to calculate wheel positions
+        wheel_locations = calc_vehicle_load_locations(
+            x_coord=x_pos,
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
+            vehicle_length=vehicle_length,
+            vehicle_width=vehicle_width,
+            wheel_contact_area=wheel_contact_area,
+        )
+
+        # Create surface loads for each wheel
+        for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
+            builder.create_surface_load(
+                name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
+                load_case_name=load_case_name,
+                corner_points=wheel_corners,
+                load_value=-load_per_area,  # N/m²
+            )
+
+    # Create loads for each X position on both edges
+    for x_pos in positions:
+        create_service_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points)
+        create_service_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points)
+
+
+def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """
     Create and apply all load types to the bridge model.
 
@@ -379,16 +432,20 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization) -
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
+    :param load_cases: Dictionary of created load cases.
     """
     # Apply theoretical tandem loads
-    add_asfalt_loads(builder, params)
-    add_concrete_fill_loads(builder, params)
-    add_pavement_loads(builder, params)
-    add_parapet_loads(builder, params)
-    add_crowd_loads(builder, params)
-    add_theoretical_tandem_loads(builder, params)
+    add_asfalt_loads(builder, params, load_cases)
+    add_concrete_fill_loads(builder, params, load_cases)
+    add_pavement_loads(builder, params, load_cases)
+    add_parapet_loads(builder, params, load_cases)
+    add_crowd_loads(builder, params, load_cases)
+    add_theoretical_tandem_loads(builder, params, load_cases)
+
+    add_service_vehicle_loads(builder, params, load_cases)
+    add_accidental_vehicle_loads(builder, params, load_cases)
 
     # TODO: Add calls to other load functions when they are implemented
-    # add_actual_tandem_loads(builder, params)  # noqa: ERA001
-    # add_railing_loads(builder, params)  # noqa: ERA001
-    # add_pedestrian_loads(builder, params)  # noqa: ERA001
+    # add_actual_tandem_loads(builder, params, load_cases)  # noqa: ERA001
+    # add_railing_loads(builder, params, load_cases)  # noqa: ERA001
+    # add_pedestrian_loads(builder, params, load_cases)  # noqa: ERA001

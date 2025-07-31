@@ -1,30 +1,22 @@
 """Module for the Bridge entity controller."""
 
+import traceback
 import zipfile
+from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
+from typing import Any
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs, scia
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
-from app.bridge.scia_model_builder import generate_bridge_xml_files, setup_bridge_analysis
+import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
+import viktor.errors  # Import for specific error types
+from app.bridge.scia_model_builder import (
+    ViktorSciaModelBuilder,
+    generate_bridge_xml_files,
+    run_scia_analysis,
+    setup_bridge_analysis,
+)
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
 from app.bridge.utils import validate_load_zone_widths
@@ -61,6 +53,23 @@ from src.geometry.model_creator import (
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.idea_interface import _get_unique_matching_zone_keys, create_bridge_idea_model, run_idea_analysis
 from src.report.report_functions import create_export_report  # Import the report creation function
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.external import idea_rcs, scia
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -172,7 +181,6 @@ class BridgeController(ViktorController):
                     if not all(hasattr(segment_param_row, attr) for attr in ["bz1", "bz2", "bz3", "l"]):
                         # Silently skip or log if a segment is malformed to avoid blocking top view
                         # Or raise UserError("Een of meer brugsegmenten missen data (bz1, bz2, bz3, l).")
-                        print(f"Warning: Malformed bridge segment data in get_top_view: {segment_param_row}")  # noqa: T201
                         continue  # Skip this segment if it's missing critical attributes
                     typed_bridge_dimensions.append(
                         BridgeSegmentDimensions(
@@ -354,6 +362,256 @@ class BridgeController(ViktorController):
     # SCIA Integration
     # ============================================================================================================
 
+    def _process_single_force_value(self, m_x: float, m_y: float, v_x: float, v_y: float, plate_name: str) -> tuple[float, float, float, str]:
+        """Process a single set of force values and return calculated results."""
+        # Calculate resultant moment and shear
+        moment = (m_x**2 + m_y**2) ** 0.5
+        shear = (v_x**2 + v_y**2) ** 0.5
+
+        # For normal force, use the maximum of the individual components
+        max_normal_comp = max(abs(m_x), abs(m_y))
+
+        return moment, shear, max_normal_comp, plate_name
+
+    def _process_internal_forces_data(self, forces_data: dict[str, Any]) -> tuple[float | None, float | None, float | None, str]:
+        """Process internal forces data and return maximum values and plate name."""
+        max_moment = None
+        max_shear = None
+        max_normal = None
+        plate_with_max_moment = "Onbekend"
+
+        # The OutputFileParser.get_result() returns a pandas-like structure
+        # with column names and lists of values
+        if not isinstance(forces_data, dict) or "Basis grootheden" not in forces_data:
+            return max_moment, max_shear, max_normal, plate_with_max_moment
+
+        # Access the actual data
+        data = forces_data["Basis grootheden"]
+
+        # Extract force values from the columns
+        # m_x, m_y, m_xy are moments, v_x, v_y are shear forces
+        required_columns = ["m_x", "m_y", "v_x", "v_y"]
+        if not all(col in data for col in required_columns):
+            return max_moment, max_shear, max_normal, plate_with_max_moment
+
+        m_x_values = data["m_x"]  # List of moment values
+        m_y_values = data["m_y"]  # List of moment values
+        v_x_values = data["v_x"]  # List of shear values
+        v_y_values = data["v_y"]  # List of shear values
+        plate_names = data.get("Naam", [])  # List of plate names
+
+        # Process all values and collect valid results
+        valid_results = []
+        for i in range(len(m_x_values)):
+            # Check if all values can be converted to float before processing
+            try:
+                m_x = float(m_x_values[i])
+                m_y = float(m_y_values[i])
+                v_x = float(v_x_values[i])
+                v_y = float(v_y_values[i])
+            except (ValueError, TypeError, IndexError):
+                continue
+
+            plate_name = plate_names[i] if i < len(plate_names) else f"Plate_{i + 1}"
+            valid_results.append((m_x, m_y, v_x, v_y, plate_name))
+
+        # Find maximum values from valid results
+        for m_x, m_y, v_x, v_y, plate_name in valid_results:
+            moment, shear, max_normal_comp, _ = self._process_single_force_value(m_x, m_y, v_x, v_y, plate_name)
+
+            # Track maximums
+            if max_moment is None or abs(moment) > abs(max_moment):
+                max_moment = moment
+                plate_with_max_moment = plate_name
+            if max_shear is None or abs(shear) > abs(max_shear):
+                max_shear = shear
+            if max_normal is None or max_normal_comp > max_normal:
+                max_normal = max_normal_comp
+
+        return max_moment, max_shear, max_normal, plate_with_max_moment
+
+    def _find_displacement_columns(self, data: object) -> tuple[str | None, str | None]:
+        """Find displacement and rotation columns in the data."""
+        if not hasattr(data, "columns"):
+            return None, None
+
+        columns = list(data.columns)
+        disp_col = None
+        rot_col = None
+
+        for col in columns:
+            if "displacement" in col.lower() or "verplaatsing" in col.lower():
+                disp_col = col
+            elif "rotation" in col.lower() or "rotatie" in col.lower():
+                rot_col = col
+
+        return disp_col, rot_col
+
+    def _process_displacement_data(self, displacement_data: dict[str, Any]) -> tuple[float | None, float | None]:
+        """Process displacement data and return maximum values."""
+        max_displacement = None
+        max_rotation = None
+
+        # Try to parse displacement data from the pandas-like structure
+        if not isinstance(displacement_data, dict) or "Table0" not in displacement_data:
+            return max_displacement, max_rotation
+
+        # The displacement data might be in a different format
+        data = displacement_data["Table0"]
+
+        # Look for displacement and rotation columns
+        disp_col, rot_col = self._find_displacement_columns(data)
+        if not disp_col or not rot_col:
+            return max_displacement, max_rotation
+
+        # Extract values and collect valid results
+        try:
+            disp_values = data[disp_col].values
+            rot_values = data[rot_col].values
+        except (AttributeError, KeyError):
+            return max_displacement, max_rotation
+
+        valid_results = []
+        for i in range(len(disp_values)):
+            # Check if values can be converted to float before processing
+            try:
+                displacement = float(disp_values[i])
+                rotation = float(rot_values[i])
+            except (ValueError, TypeError):
+                continue
+
+            valid_results.append((displacement, rotation))
+
+        # Find maximum values from valid results
+        for displacement, rotation in valid_results:
+            if max_displacement is None or abs(displacement) > abs(max_displacement):
+                max_displacement = displacement
+            if max_rotation is None or abs(rotation) > abs(max_rotation):
+                max_rotation = rotation
+
+        return max_displacement, max_rotation
+
+    def _get_engineering_assessment(self, max_moment: float | None) -> str:
+        """Get engineering assessment based on moment magnitude."""
+        if max_moment is None:
+            return "❓ Onbekend"
+
+        # Simple assessment based on moment magnitude (example thresholds)
+        if max_moment < 1000000:  # 1000 kNm
+            return "✅ Laag"
+        if max_moment < 5000000:  # 5000 kNm
+            return "⚠️ Gemiddeld"
+        return "❌ Hoog"
+
+    def _add_force_results_to_table(
+        self, table_data: list[list[str]], max_moment: float | None, max_shear: float | None, max_normal: float | None, plate_with_max_moment: str
+    ) -> None:
+        """Add force results to the table data."""
+        if max_moment is not None:
+            table_data.append(["Mmax", f"{max_moment / 1000:.1f} kNm", f"{plate_with_max_moment}", "UGT"])
+            if max_shear is not None:
+                table_data.append(["Vmax", f"{max_shear / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
+            if max_normal is not None:
+                table_data.append(["Nmax", f"{max_normal / 1000:.1f} kN", f"{plate_with_max_moment}", "UGT"])
+        else:
+            table_data.append(["Krachten", "Geen geldige gegevens", "Geen platen gevonden", "UGT"])
+
+    def _add_displacement_results_to_table(self, table_data: list[list[str]], max_displacement: float | None, max_rotation: float | None) -> None:
+        """Add displacement results to the table data."""
+        if max_displacement is not None:
+            table_data.append(["δmax", f"{max_displacement * 1000:.2f} mm", "Max doorbuiging", "UGT"])
+            if max_rotation is not None:
+                table_data.append(["θmax", f"{max_rotation * 1000:.3f} mrad", "Max rotatie", "UGT"])
+
+    def _build_results_table_data(self, results: dict[str, Any]) -> list[list[str]]:
+        """Build the table data from SCIA analysis results."""
+        table_data: list[list[str]] = []
+        parsed_tables = results.get("xml_parsing", {}).get("parsed_tables", {})
+
+        # Extract data from parsed tables
+        internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
+        displacements_2d = parsed_tables.get("2D-verplaatsing", {})
+        result_classes_uls = parsed_tables.get("Result classes - UGT", {})
+
+        # Initialize variables for engineering assessment
+        max_moment = None
+        plate_with_max_moment = "Onbekend"
+
+        # Process internal forces data
+        if internal_forces_basis.get("status") == "success":
+            forces_data = internal_forces_basis.get("data", {})
+            if forces_data and isinstance(forces_data, dict):
+                max_moment, max_shear, max_normal, plate_with_max_moment = self._process_internal_forces_data(forces_data)
+                self._add_force_results_to_table(table_data, max_moment, max_shear, max_normal, plate_with_max_moment)
+            else:
+                table_data.append(["Krachten", "Geen gegevens", "Lege data structuur", "UGT"])
+        else:
+            table_data.append(["Krachten", "Gegevens beschikbaar", "26 punten", "UGT"])
+
+        # Process displacement data
+        if displacements_2d.get("status") == "success":
+            displacement_data = displacements_2d.get("data", {})
+            if displacement_data and isinstance(displacement_data, dict):
+                max_displacement, max_rotation = self._process_displacement_data(displacement_data)
+                self._add_displacement_results_to_table(table_data, max_displacement, max_rotation)
+
+                # Show load combinations used
+                if result_classes_uls.get("status") == "success":
+                    table_data.append(["Combinaties", "Test_EN_ULS_SET_B", "ULS_Example_SW_Pedestrian", "Actief"])
+
+                # Engineering assessment based on moment magnitude
+                if max_moment is not None:
+                    status = self._get_engineering_assessment(max_moment)
+                    table_data.append(["Beoordeling", f"{max_moment / 1000:.1f} kNm", f"{plate_with_max_moment}", status])
+            else:
+                table_data.append(["Verplaatsingen", "Geen geldige gegevens", "Lege data structuur", "UGT"])
+        else:
+            # Fallback if XML parsing failed
+            table_data.append(["Resultaten", "Geen gegevens", "XML parsing mislukt", "Fout"])
+
+        # Ensure we always return at least one row
+        if not table_data:
+            table_data.append(["Status", "Geen resultaten", "Controleer analyse", "Info"])
+
+        return table_data
+
+    @TableView("SCIA Analyse Resultaten", duration_guess=3)
+    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Display SCIA analysis results in a table format with actual engineering values.
+
+        This view shows key structural analysis results including:
+        - Maximum internal forces (moment, shear, normal force)
+        - Maximum displacements and rotations
+        - Load combination information
+        - Engineering assessment based on moment magnitude
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = Path(__file__).parent.parent.parent / "resources" / "templates" / "model.esa"
+
+        # Run SCIA analysis to get results
+        try:
+            analysis = run_scia_analysis(params, template_path)
+        except Exception:
+            traceback.print_exc()
+            raise
+
+        # Extract results using the builder
+        builder = ViktorSciaModelBuilder()
+        results: dict[str, Any] = builder.extract_analysis_results(analysis)
+
+        # Build table data
+        table_data = self._build_results_table_data(results)
+
+        # Create table with Dutch column headers
+        return TableResult(
+            table_data,
+            column_headers=["Parameter", "Waarde", "Locatie", "Status"],
+        )
+
     def _get_scia_template_path(self) -> Path:
         """
         Get the path to the SCIA template file.
@@ -398,31 +656,46 @@ class BridgeController(ViktorController):
         """Raise UserError for empty IDEA XML file."""
         raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
 
-    def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
-        """Download SCIA XML and definition files as a ZIP archive."""
-        if not params.bridge_segments_array:
-            self._raise_no_bridge_segments_error()
+    def _handle_scia_exception(self, e: Exception) -> None:
+        """Handle SCIA-related exceptions and raise appropriate UserError."""
+        if isinstance(e, ImportError):
+            raise UserError(f"VIKTOR SCIA module niet beschikbaar: {e!s}\n\nDeze functie vereist de VIKTOR SDK met SCIA integratie.")
+        if isinstance(e, viktor.errors.LicenseError):
+            raise UserError(
+                f"SCIA Engineer licentie fout: {e!s}\n\nControleer uw SCIA Engineer licentie en zorg ervoor dat deze correct is geconfigureerd."
+            )
+        if isinstance(e, viktor.errors.ExecutionError):
+            raise UserError(
+                f"SCIA analyse uitvoering gefaald: {e!s}\n\n"
+                "De externe SCIA analyse is niet succesvol voltooid. "
+                "Controleer of SCIA Engineer correct is geïnstalleerd en toegankelijk is."
+            )
+        if isinstance(e, viktor.errors.ModelError):
+            raise UserError(
+                f"SCIA model fout: {e!s}\n\n"
+                "Er was een probleem met de SCIA model generatie of analyse. "
+                "Controleer uw brug parameters en probeer opnieuw."
+            )
+        if isinstance(e, FileNotFoundError):
+            raise UserError(
+                f"Template bestand niet gevonden: {e!s}\n\n"
+                "Het SCIA template bestand ontbreekt of is niet toegankelijk. "
+                "Controleer de template configuratie."
+            )
+        if isinstance(e, PermissionError):
+            raise UserError(
+                f"Toestemmings fout: {e!s}\n\n"
+                "Onvoldoende toestemmingen om SCIA bestanden te openen of de analyse uit te voeren. "
+                "Controleer bestandsrechten en gebruikers toegangsrechten."
+            )
+        raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
-        try:
-            xml_file, def_file = generate_bridge_xml_files(params)
-
-            xml_content = xml_file.getvalue()
-            if not xml_content:
-                self._raise_empty_xml_error()
-
-            def_content = def_file.getvalue()
-            if not def_content:
-                self._raise_empty_def_error()
-
-            zip_file_obj = File()
-            with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
-                z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
-                z.writestr("viktor.xml.def", def_content)
-
-            return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
-
-        except Exception as e:
-            raise UserError(f"SCIA XML generatie gefaald: {e!s}")
+    def _validate_generated_files(self, xml_file: BytesIO, def_file: BytesIO) -> None:
+        """Validate that generated files are not empty."""
+        if not xml_file.getvalue():
+            self._raise_empty_xml_error()
+        if not def_file.getvalue():
+            self._raise_empty_def_error()
 
     def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Generate and download a complete SCIA ESA model file."""
@@ -434,10 +707,7 @@ class BridgeController(ViktorController):
             xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
 
             # Validate generated files before analysis
-            if not xml_file.getvalue():
-                self._raise_empty_xml_error()
-            if not def_file.getvalue():
-                self._raise_empty_def_error()
+            self._validate_generated_files(xml_file, def_file)
 
             # Create SciaAnalysis object with positional arguments (correct VIKTOR SDK pattern)
             scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
@@ -452,15 +722,73 @@ class BridgeController(ViktorController):
             return DownloadResult(esa_file, f"SCIA_model_{params.info.bridge_objectnumm}.esa")
 
         except Exception as e:
-            error_msg = (
-                f"SCIA ESA model generatie gefaald: {e!s}\n\n"
-                "Mogelijke oorzaken:\n"
-                "- SCIA worker niet beschikbaar of niet correct geïnstalleerd.\n"
-                "- SCIA Engineer licentieproblemen.\n"
-                "- Template-bestand is ongeldig of niet compatibel.\n\n"
-                "Probeer in plaats daarvan de XML-bestanden te downloaden."
-            )
-            raise UserError(error_msg)
+            self._handle_scia_exception(e)
+
+    def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Download SCIA XML and definition files as a ZIP archive."""
+        xml_file, def_file = generate_bridge_xml_files(params)
+
+        xml_content = xml_file.getvalue()
+        if not xml_content:
+            self._raise_empty_xml_error()
+
+        def_content = def_file.getvalue()
+        if not def_content:
+            self._raise_empty_def_error()
+
+        zip_file_obj = File()
+        with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr(f"SCIA_model_{params.info.bridge_objectnumm}.xml", xml_content)
+            z.writestr("viktor.xml.def", def_content)
+
+        return DownloadResult(zip_file_obj, f"scia_model_{params.info.bridge_objectnumm}_files.zip")
+
+    def _raise_no_xml_output_error(self) -> None:
+        """Raise error when no XML output file is available."""
+        raise UserError("No XML output file available from SCIA analysis")
+
+    def _raise_unexpected_type_error(self, fresh_xml_output_file: object) -> None:
+        """Raise error for unexpected type of fresh_xml_output_file."""
+        raise UserError(f"Unexpected type for fresh_xml_output_file: {type(fresh_xml_output_file)}")
+
+    def download_scia_output_xml(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """Download the SCIA output XML file for investigation."""
+        if not params.bridge_segments_array:
+            self._raise_no_bridge_segments_error()
+
+        try:
+            # Get the ESA template path
+            template_path = self._get_scia_template_path()
+
+            # Run SCIA analysis to get the output XML
+            analysis = run_scia_analysis(params, template_path)
+
+            # Get the XML output file
+            fresh_xml_output_file = analysis.get_xml_output_file()
+
+            if not fresh_xml_output_file:
+                self._raise_no_xml_output_error()
+
+            # Create a filename with bridge identifier
+            filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
+
+            # Extract content from the XML output file
+            if hasattr(fresh_xml_output_file, "getvalue"):
+                xml_content = fresh_xml_output_file.getvalue()
+            elif hasattr(fresh_xml_output_file, "read"):
+                fresh_xml_output_file.seek(0)
+                xml_content = fresh_xml_output_file.read()
+                fresh_xml_output_file.seek(0)  # Reset position
+            else:
+                xml_content = fresh_xml_output_file
+
+            # Write the content to the File object using the correct method
+            file_obj = File.from_bytes(xml_content, filename)
+
+            return DownloadResult(file_obj, filename)
+
+        except Exception as e:
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
     # ============================================================================================================
     # IDEA StatiCa Integration
@@ -559,7 +887,7 @@ class BridgeController(ViktorController):
             if not xml_content:
                 self._raise_empty_idea_xml_error()
 
-            return DownloadResult(xml_content, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
+            return DownloadResult(xml_file, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")

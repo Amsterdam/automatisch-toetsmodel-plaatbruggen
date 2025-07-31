@@ -101,5 +101,5 @@ class TestDefineCompleteBridgeModel:
         mock_supports.assert_called_once_with(mock_builder, ["plate1", "plate2"])
         mock_groups.assert_called_once_with(mock_builder)
         mock_cases.assert_called_once_with(mock_builder, mock_params)
-        mock_loads.assert_called_once_with(mock_builder, mock_params)
+        mock_loads.assert_called_once_with(mock_builder, mock_params, mock_cases.return_value)
         mock_combinations.assert_called_once_with(mock_builder, mock_cases.return_value)
