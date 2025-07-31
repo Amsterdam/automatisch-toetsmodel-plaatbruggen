@@ -275,13 +275,13 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
         # Calculate wheel contact area and load per unit area
         wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
-        
+
         # Load per wheel (divide axle load by 2 wheels per axle) then by contact area
         front_wheel_force = force_axle_1 / 2  # 40 kN per front wheel (80 kN total)
-        rear_wheel_force = force_axle_2 / 2   # 20 kN per rear wheel (40 kN total)
-        
+        rear_wheel_force = force_axle_2 / 2  # 20 kN per rear wheel (40 kN total)
+
         front_wheel_load = front_wheel_force / wheel_area  # N/m²
-        rear_wheel_load = rear_wheel_force / wheel_area    # N/m²
+        rear_wheel_load = rear_wheel_force / wheel_area  # N/m²
 
         # Use the same helper function as service vehicle for front axle (80 kN total)
         front_axle_locations = calc_vehicle_load_locations(
