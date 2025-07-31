@@ -232,6 +232,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     force_axle_2 = 40 * 1000  # Q_sv2 = 40 kN, convert to N
     wheel_contact_area = 0.20  # From diagram: 0.20 m contact area
     axle_spacing = 1.2  # Derived from 3.0m total - wheel contact areas
+    inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
 
     # Get bridge geometry data
     bridge_geom_data = get_bridge_geom_data(params)
@@ -260,18 +261,27 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
         load_case_name = accidental_vehicle_cases[load_case_key].name
 
-        # Calculate Y position at this X using same logic as service vehicle
+        # Calculate Y position at this X with 0.5m inset from bridge edge
         # For simplicity, use the first Y coordinate (can be enhanced for variable width bridges)
-        y_base = y_coords[0] - wheel_contact_area / 2 if edge_type == "rs_1" else y_coords[0] + wheel_contact_area / 2 + vehicle_width
+        if edge_type == "rs_1":
+            y_base = y_coords[0] - inset_distance - wheel_contact_area / 2
+        else:  # rs_3
+            y_base = y_coords[0] + inset_distance + wheel_contact_area / 2
 
         # Determine front axle position based on direction (80 kN axle should always be the "front")
         # Forward: 80 kN front axle at x_pos, 40 kN rear axle at x_pos + axle_spacing
         # Reverse: 80 kN front axle at x_pos + axle_spacing, 40 kN rear axle at x_pos
         front_axle_x = x_pos if direction == "forward" else x_pos + axle_spacing
 
-        # Load per wheel (divide axle load by 2 wheels per axle)
-        front_wheel_load = force_axle_1 // 2  # 40 kN per front wheel (80 kN total)
-        rear_wheel_load = force_axle_2 // 2  # 20 kN per rear wheel (40 kN total)
+        # Calculate wheel contact area and load per unit area
+        wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
+        
+        # Load per wheel (divide axle load by 2 wheels per axle) then by contact area
+        front_wheel_force = force_axle_1 / 2  # 40 kN per front wheel (80 kN total)
+        rear_wheel_force = force_axle_2 / 2   # 20 kN per rear wheel (40 kN total)
+        
+        front_wheel_load = front_wheel_force / wheel_area  # N/m²
+        rear_wheel_load = rear_wheel_force / wheel_area    # N/m²
 
         # Use the same helper function as service vehicle for front axle (80 kN total)
         front_axle_locations = calc_vehicle_load_locations(
@@ -297,14 +307,14 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_left",
             load_case_name=load_case_name,
             corner_points=front_axle_locations["top_left_wheel_corners"],
-            load_value=-front_wheel_load,  # 40 kN
+            load_value=-front_wheel_load,  # N/m²
         )
 
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_right",
             load_case_name=load_case_name,
             corner_points=front_axle_locations["bottom_left_wheel_corners"],
-            load_value=-front_wheel_load,  # 40 kN
+            load_value=-front_wheel_load,  # N/m²
         )
 
         # Create surface loads for rear axle wheels (40 kN total = 20 kN per wheel)
@@ -312,14 +322,14 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_left",
             load_case_name=load_case_name,
             corner_points=rear_axle_locations["top_left_wheel_corners"],
-            load_value=-rear_wheel_load,  # 20 kN
+            load_value=-rear_wheel_load,  # N/m²
         )
 
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_right",
             load_case_name=load_case_name,
             corner_points=rear_axle_locations["bottom_left_wheel_corners"],
-            load_value=-rear_wheel_load,  # 20 kN
+            load_value=-rear_wheel_load,  # N/m²
         )
 
     # Create loads for each X position on both edges (RS 1 and RS 3) in both directions
@@ -340,6 +350,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     vehicle_width = 1.75
     force_per_axle = 25 * 1000  # Convert to N
     wheel_contact_area = 0.25
+    inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
 
     # Get bridge geometry data
     bridge_geom_data = get_bridge_geom_data(params)
@@ -368,9 +379,17 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
         load_case_name = service_vehicle_cases[load_case_key].name
 
-        # Calculate Y position at this X (interpolate between D-points)
+        # Calculate Y position at this X with 0.5m inset from bridge edge
         # For simplicity, use the first Y coordinate (can be enhanced for variable width bridges)
-        y_base = y_coords[0] - wheel_contact_area / 2 if edge_type == "y_plus" else y_coords[0] + wheel_contact_area / 2 + vehicle_width
+        if edge_type == "y_plus":
+            y_base = y_coords[0] - inset_distance - wheel_contact_area / 2
+        else:  # y_minus
+            y_base = y_coords[0] + inset_distance + wheel_contact_area / 2
+
+        # Calculate wheel contact area and load per unit area
+        wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
+        force_per_wheel = force_per_axle / 2  # Divide axle load by 2 wheels
+        load_per_area = force_per_wheel / wheel_area  # N/m²
 
         # Use the helper function to calculate wheel positions
         wheel_locations = calc_vehicle_load_locations(
@@ -387,7 +406,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
                 name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
                 load_case_name=load_case_name,
                 corner_points=wheel_corners,
-                load_value=-force_per_axle,
+                load_value=-load_per_area,  # N/m²
             )
 
     # Create loads for each X position on both edges
