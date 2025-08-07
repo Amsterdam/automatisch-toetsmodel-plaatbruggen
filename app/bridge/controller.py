@@ -16,10 +16,10 @@ from app.bridge.analysis_cache import (
     get_cached_analysis_results,
     get_idea_analysis_results,
     get_idea_model_only,
-    get_scia_analysis_results,
 )
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
+    get_scia_analysis_results,
 )
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -922,23 +922,36 @@ class BridgeController(ViktorController):
         :returns: XML file download for IDEA RCS
         :rtype: DownloadResult
         """
+
+        def _raise_entity_id_error() -> None:
+            raise UserError("Entity ID not found in kwargs")
+
+        def _raise_model_creation_error() -> None:
+            raise UserError("IDEA model creation failed or no cached results available")
+
+        def _raise_incomplete_model_error() -> None:
+            raise UserError("Cached IDEA model is incomplete")
+
         try:
             # Get entity ID from kwargs
             entity_id = kwargs.get("entity_id")
             if entity_id is None:
-                raise UserError("Entity ID not found in kwargs")
+                _raise_entity_id_error()
 
             # Get cached IDEA model
+            assert entity_id is not None  # type: ignore[unreachable]
             cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_model_only)
             if cached_results is None:
-                raise UserError("IDEA model creation failed or no cached results available")
+                _raise_model_creation_error()
 
             # Extract XML input from cache
+            assert cached_results is not None  # type: ignore[unreachable]
             xml_input = cached_results.get("xml_input")
             if xml_input is None:
-                raise UserError("Cached IDEA model is incomplete")
+                _raise_incomplete_model_error()
 
             # Validate content
+            assert xml_input is not None  # type: ignore[unreachable]
             xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
 
             if not xml_content:
@@ -974,6 +987,7 @@ class BridgeController(ViktorController):
             raise UserError("IDEA analysis failed or no cached results available")
 
         # Extract results from cache
+        assert cached_results is not None  # type: ignore[unreachable]
         model = cached_results.get("model")
         xml_input = cached_results.get("xml_input")
         output_content = cached_results.get("output_content")
@@ -982,6 +996,7 @@ class BridgeController(ViktorController):
             raise UserError("Cached IDEA results are incomplete")
 
         # Validate content
+        assert xml_input is not None  # type: ignore[unreachable]
         xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
 
         if not xml_content:
