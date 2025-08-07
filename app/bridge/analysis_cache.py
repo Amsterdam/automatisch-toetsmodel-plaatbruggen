@@ -18,8 +18,6 @@ from src.integrations.idea_interface import create_bridge_idea_model
 from viktor.core import File, Storage
 from viktor.external import idea_rcs
 
-from .scia_model_builder import get_scia_analysis_results
-
 
 def _extract_file_content(file_obj: Any) -> bytes:
     """Extract content from file object."""
@@ -31,7 +29,7 @@ def _extract_file_content(file_obj: Any) -> bytes:
             file_obj.seek(0)
     else:
         content = b""
-    
+
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
@@ -39,13 +37,13 @@ def get_idea_analysis_results(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """Run IDEA analysis and extract results."""
     model = create_bridge_idea_model(params)
     xml_input = model.generate_xml_input()
-    
+
     analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
     analysis.execute(120)
-    
+
     idea_output_xml_bytes = analysis.get_output_file(as_file=True)
     output_content = _extract_file_content(idea_output_xml_bytes)
-    
+
     results: dict[str, Any] = {}
     try:
         parser = idea_rcs.RcsOutputFileParser(BytesIO(output_content))
@@ -62,23 +60,27 @@ def get_idea_analysis_results(params: Any) -> dict[str, Any]:  # noqa: ANN401
                 "stress_limitation": section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"},
             }
             section_results.append(section_data)
-        
-        results.update({
-            "section_results": section_results,
-            "analysis_status": "completed",
-            "model": model,
-            "xml_input": xml_input,
-            "output_content": output_content,
-        })
+
+        results.update(
+            {
+                "section_results": section_results,
+                "analysis_status": "completed",
+                "model": model,
+                "xml_input": xml_input,
+                "output_content": output_content,
+            }
+        )
     except Exception as e:
-        results.update({
-            "analysis_status": "failed",
-            "error": str(e),
-            "model": model,
-            "xml_input": xml_input,
-            "output_content": output_content,
-        })
-    
+        results.update(
+            {
+                "analysis_status": "failed",
+                "error": str(e),
+                "model": model,
+                "xml_input": xml_input,
+                "output_content": output_content,
+            }
+        )
+
     return results
 
 
@@ -94,6 +96,7 @@ def get_idea_model_only(params: Any) -> dict[str, Any]:  # noqa: ANN401
 
 class AnalysisType(Enum):
     """Enumeration of supported analysis types."""
+
     SCIA = "scia"
     IDEA = "idea"
 
@@ -110,22 +113,26 @@ class AnalysisCache:
             "bridge_segments": self._extract_bridge_segments(params),
             "materials": self._extract_materials(params),
         }
-        
+
         if analysis_type == AnalysisType.SCIA:
-            base_params.update({
-                "load_zones": self._extract_load_zones(params),
-                "load_combinations": self._extract_load_combinations(params),
-                "template_path": template_path,
-            })
+            base_params.update(
+                {
+                    "load_zones": self._extract_load_zones(params),
+                    "load_combinations": self._extract_load_combinations(params),
+                    "template_path": template_path,
+                }
+            )
         elif analysis_type == AnalysisType.IDEA:
-            base_params.update({
-                "reinforcement_zones": self._extract_reinforcement_zones(params),
-                "reinforcement_materials": self._extract_reinforcement_materials(params),
-                "reinforcement_geometry": self._extract_reinforcement_geometry(params),
-            })
+            base_params.update(
+                {
+                    "reinforcement_zones": self._extract_reinforcement_zones(params),
+                    "reinforcement_materials": self._extract_reinforcement_materials(params),
+                    "reinforcement_geometry": self._extract_reinforcement_geometry(params),
+                }
+            )
         else:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
-        
+
         return base_params
 
     def _extract_bridge_segments(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
@@ -133,16 +140,18 @@ class AnalysisCache:
         segments = []
         if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
             for segment in params.bridge_segments_array:
-                segments.append({
-                    "bz1": getattr(segment, "bz1", 0.0),
-                    "bz2": getattr(segment, "bz2", 0.0),
-                    "bz3": getattr(segment, "bz3", 0.0),
-                    "dz": getattr(segment, "dz", 0.0),
-                    "dz_2": getattr(segment, "dz_2", 0.0),
-                    "l": getattr(segment, "l", 0.0),
-                    "is_first_segment": getattr(segment, "is_first_segment", False),
-                    "is_support": getattr(segment, "is_support", False),
-                })
+                segments.append(
+                    {
+                        "bz1": getattr(segment, "bz1", 0.0),
+                        "bz2": getattr(segment, "bz2", 0.0),
+                        "bz3": getattr(segment, "bz3", 0.0),
+                        "dz": getattr(segment, "dz", 0.0),
+                        "dz_2": getattr(segment, "dz_2", 0.0),
+                        "l": getattr(segment, "l", 0.0),
+                        "is_first_segment": getattr(segment, "is_first_segment", False),
+                        "is_support": getattr(segment, "is_support", False),
+                    }
+                )
         return segments
 
     def _extract_load_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
@@ -181,25 +190,27 @@ class AnalysisCache:
         zones = []
         geometrie_wapening = getattr(params.input, "geometrie_wapening", None)
         zones_array = getattr(geometrie_wapening, "zones", None) if geometrie_wapening else None
-        
+
         if zones_array:
             for zone in zones_array:
-                zones.append({
-                    "zone_number": getattr(zone, "zone_number", []),
-                    "hoofdwapening_langs_boven_diameter": getattr(zone, "hoofdwapening_langs_boven_diameter", 0.0),
-                    "hoofdwapening_langs_boven_hart_op_hart": getattr(zone, "hoofdwapening_langs_boven_hart_op_hart", 0.0),
-                    "hoofdwapening_langs_onder_diameter": getattr(zone, "hoofdwapening_langs_onder_diameter", 0.0),
-                    "hoofdwapening_langs_onder_hart_op_hart": getattr(zone, "hoofdwapening_langs_onder_hart_op_hart", 0.0),
-                    "hoofdwapening_dwars_boven_diameter": getattr(zone, "hoofdwapening_dwars_boven_diameter", 0.0),
-                    "hoofdwapening_dwars_boven_hart_op_hart": getattr(zone, "hoofdwapening_dwars_boven_hart_op_hart", 0.0),
-                    "hoofdwapening_dwars_onder_diameter": getattr(zone, "hoofdwapening_dwars_onder_diameter", 0.0),
-                    "hoofdwapening_dwars_onder_hart_op_hart": getattr(zone, "hoofdwapening_dwars_onder_hart_op_hart", 0.0),
-                    "heeft_bijlegwapening": getattr(zone, "heeft_bijlegwapening", False),
-                    "bijlegwapening_langs_boven_diameter": getattr(zone, "bijlegwapening_langs_boven_diameter", 0.0),
-                    "bijlegwapening_langs_onder_diameter": getattr(zone, "bijlegwapening_langs_onder_diameter", 0.0),
-                    "bijlegwapening_dwars_boven_diameter": getattr(zone, "bijlegwapening_dwars_boven_diameter", 0.0),
-                    "bijlegwapening_dwars_onder_diameter": getattr(zone, "bijlegwapening_dwars_onder_diameter", 0.0),
-                })
+                zones.append(
+                    {
+                        "zone_number": getattr(zone, "zone_number", []),
+                        "hoofdwapening_langs_boven_diameter": getattr(zone, "hoofdwapening_langs_boven_diameter", 0.0),
+                        "hoofdwapening_langs_boven_hart_op_hart": getattr(zone, "hoofdwapening_langs_boven_hart_op_hart", 0.0),
+                        "hoofdwapening_langs_onder_diameter": getattr(zone, "hoofdwapening_langs_onder_diameter", 0.0),
+                        "hoofdwapening_langs_onder_hart_op_hart": getattr(zone, "hoofdwapening_langs_onder_hart_op_hart", 0.0),
+                        "hoofdwapening_dwars_boven_diameter": getattr(zone, "hoofdwapening_dwars_boven_diameter", 0.0),
+                        "hoofdwapening_dwars_boven_hart_op_hart": getattr(zone, "hoofdwapening_dwars_boven_hart_op_hart", 0.0),
+                        "hoofdwapening_dwars_onder_diameter": getattr(zone, "hoofdwapening_dwars_onder_diameter", 0.0),
+                        "hoofdwapening_dwars_onder_hart_op_hart": getattr(zone, "hoofdwapening_dwars_onder_hart_op_hart", 0.0),
+                        "heeft_bijlegwapening": getattr(zone, "heeft_bijlegwapening", False),
+                        "bijlegwapening_langs_boven_diameter": getattr(zone, "bijlegwapening_langs_boven_diameter", 0.0),
+                        "bijlegwapening_langs_onder_diameter": getattr(zone, "bijlegwapening_langs_onder_diameter", 0.0),
+                        "bijlegwapening_dwars_boven_diameter": getattr(zone, "bijlegwapening_dwars_boven_diameter", 0.0),
+                        "bijlegwapening_dwars_onder_diameter": getattr(zone, "bijlegwapening_dwars_onder_diameter", 0.0),
+                    }
+                )
         return zones
 
     def _extract_reinforcement_materials(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
@@ -241,13 +252,13 @@ class AnalysisCache:
             # Get stored input hash
             input_hash_key = f"analysis_input_hash_{analysis_type.value}_{entity_id}"
             stored_input_hash_file = self.storage.get(input_hash_key, scope="entity")
-            
+
             if stored_input_hash_file is None:
                 return None
 
             stored_input_hash = stored_input_hash_file.getvalue()
             stored_input_hash = stored_input_hash.decode("utf-8") if isinstance(stored_input_hash, bytes) else str(stored_input_hash)
-            
+
             # Compare hashes
             current_input_hash = self._generate_input_hash(params, analysis_type, template_path)
             if stored_input_hash != current_input_hash:
@@ -256,7 +267,7 @@ class AnalysisCache:
             # Get stored results
             results_key = f"analysis_results_{analysis_type.value}_{entity_id}"
             stored_results_file = self.storage.get(results_key, scope="entity")
-            
+
             if stored_results_file is None:
                 return None
 
