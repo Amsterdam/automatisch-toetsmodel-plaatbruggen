@@ -11,7 +11,7 @@ import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from app.bridge.scia_cache import clear_scia_cache, get_cached_scia_analysis_results, get_scia_cache_info
+from app.bridge.scia_cache import get_cached_scia_analysis_results
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
     run_scia_analysis,
@@ -597,16 +597,22 @@ class BridgeController(ViktorController):
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
+        def _raise_scia_error() -> None:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+
         # Get cached or run new SCIA analysis
         try:
             results = get_cached_scia_analysis_results(params, str(template_path), entity_id)
             if results is None:
-                raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+                _raise_scia_error()
         except Exception:
             traceback.print_exc()
-            raise
+            _raise_scia_error()
 
         # Build table data
+        if results is None:
+            _raise_scia_error()
         table_data = self._build_results_table_data(results)
 
         # Create table with Dutch column headers
@@ -772,7 +778,7 @@ class BridgeController(ViktorController):
             results = get_cached_scia_analysis_results(params, str(template_path), entity_id)
 
             # Check if we have XML output in cached results
-            if results.get("xml_output"):
+            if results is not None and "xml_output" in results and results["xml_output"]:
                 xml_content = results["xml_output"]
                 filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
                 file_obj = File.from_bytes(xml_content, filename)
@@ -951,36 +957,6 @@ class BridgeController(ViktorController):
                     z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", f.read())
 
         return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
-
-    # ============================================================================================================
-    # Cache Management
-    # ============================================================================================================
-
-    def clear_scia_cache_action(self, params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG002
-        """Clear SCIA analysis cache for the current entity."""
-        entity_id = kwargs.get("entity_id")
-        if not isinstance(entity_id, int):
-            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
-
-        clear_scia_cache(entity_id)
-        raise UserError("SCIA cache succesvol gewist.")
-
-    def get_scia_cache_info_action(self, params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG002
-        """Get SCIA cache information for the current entity."""
-        entity_id = kwargs.get("entity_id")
-        if not isinstance(entity_id, int):
-            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
-
-        cache_info = get_scia_cache_info(entity_id)
-        info_text = f"Cache Info voor Entity {entity_id}:\n"
-        info_text += f"- Input hash cached: {cache_info.get('has_cached_input_hash', False)}\n"
-        info_text += f"- Results cached: {cache_info.get('has_cached_results', False)}\n"
-        info_text += f"- Cache valid: {cache_info.get('cache_valid', False)}\n"
-
-        if "error" in cache_info:
-            info_text += f"- Error: {cache_info['error']}\n"
-
-        raise UserError(info_text)
 
     # ============================================================================================================
     # output - Rapport
