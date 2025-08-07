@@ -19,7 +19,6 @@ from src.integrations.scia_integration.scia_model_interface import (
     SciaLoadGroup,
     SciaModelBuilder,
 )
-from src.integrations.scia_integration.scia_results import get_result_summary, validate_analysis_results
 
 # Global VIKTOR imports with error handling for CI/testing environments
 try:
@@ -784,17 +783,111 @@ def run_scia_analysis(params: Any, template_path: Path) -> SciaAnalysis:  # noqa
     return scia_analysis
 
 
-def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any]:  # noqa: ANN401
+def _extract_xml_output_for_caching(analysis: SciaAnalysis) -> bytes | None:
     """
-    Run SCIA analysis and extract results.
+    Extract XML output from analysis for caching purposes.
+
+    :param analysis: The SCIA analysis object.
+    :return: XML output as bytes or None if extraction fails.
+    """
+    try:
+        xml_output_file = analysis.get_xml_output_file()
+        if xml_output_file:
+            if hasattr(xml_output_file, "getvalue"):
+                return xml_output_file.getvalue()
+            if hasattr(xml_output_file, "read"):
+                xml_output_file.seek(0)
+                content = xml_output_file.read()
+                xml_output_file.seek(0)  # Reset position
+                return content
+            return xml_output_file
+    except Exception:
+        # If XML output extraction fails, continue without it
+        pass
+    return None
+
+
+def _extract_esa_model_for_caching(analysis: SciaAnalysis) -> bytes | None:
+    """
+    Extract ESA model from analysis for caching purposes.
+
+    :param analysis: The SCIA analysis object.
+    :return: ESA model as bytes or None if extraction fails.
+    """
+    try:
+        # Try to get the updated ESA model
+        print("Attempting to get ESA model with get_updated_esa_model(as_file=True)...")
+        esa_model_file = analysis.get_updated_esa_model(as_file=True)
+
+        # If that fails, try alternative method
+        if esa_model_file is None and hasattr(analysis, "get_esa_model"):
+            print("Trying alternative get_esa_model method...")
+            esa_model_file = analysis.get_esa_model(as_file=True)
+
+        # Extract content from the file
+        if esa_model_file:
+            print(f"ESA model file obtained, type: {type(esa_model_file)}")
+            content = _extract_content_from_file(esa_model_file)
+            if content:
+                print(f"ESA model content extracted, size: {len(content)} bytes")
+                return content
+            print("ESA model content extraction failed")
+        else:
+            print("No ESA model file obtained from analysis")
+
+        # If no ESA model file obtained, try without as_file parameter
+        print("Trying to get ESA model without as_file parameter...")
+        try:
+            esa_model_file = analysis.get_updated_esa_model()
+            if esa_model_file:
+                print(f"ESA model obtained without as_file, type: {type(esa_model_file)}")
+                if hasattr(esa_model_file, "getvalue"):
+                    return esa_model_file.getvalue()
+                if hasattr(esa_model_file, "read"):
+                    esa_model_file.seek(0)
+                    content = esa_model_file.read()
+                    esa_model_file.seek(0)
+                    return content
+                return esa_model_file
+        except Exception as e:
+            print(f"Alternative ESA model extraction failed: {e}")
+
+    except Exception as e:
+        print(f"ESA model extraction failed: {e}")
+
+    return None
+
+
+def _extract_content_from_file(file_obj) -> bytes | None:
+    """
+    Extract content from a file object, handling different types.
+
+    :param file_obj: File object to extract content from
+    :return: Content as bytes or None if extraction fails
+    """
+    try:
+        if hasattr(file_obj, "getvalue"):
+            return file_obj.getvalue()
+        if hasattr(file_obj, "read"):
+            file_obj.seek(0)
+            content = file_obj.read()
+            file_obj.seek(0)  # Reset position
+            return content
+        if isinstance(file_obj, bytes):
+            return file_obj
+        return file_obj
+    except Exception:
+        return None
+
+
+def _run_scia_analysis_with_builder(params: Any, template_path: Path) -> tuple[SciaAnalysis, dict[str, object]]:  # noqa: ANN401
+    """
+    Run SCIA analysis using the builder interface and extract basic results.
 
     :param params: The bridge parameters.
     :param template_path: The path to the ESA template file.
-    :return: Dictionary containing extracted analysis results.
+    :return: Tuple of (analysis object, basic results dictionary).
     """
-    if not VIKTOR_AVAILABLE or scia is None:
-        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-
     # Create builder and generate input files
     builder = ViktorSciaModelBuilder()
     define_complete_bridge_model(builder, params)
@@ -807,28 +900,41 @@ def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any
     # Extract results using the builder interface
     results = builder.extract_analysis_results(analysis)
 
-    # Try to get XML output for caching
-    try:
-        xml_output_file = analysis.get_xml_output_file()
-        if xml_output_file:
-            if hasattr(xml_output_file, "getvalue"):
-                results["xml_output"] = xml_output_file.getvalue()
-            elif hasattr(xml_output_file, "read"):
-                xml_output_file.seek(0)
-                results["xml_output"] = xml_output_file.read()
-                xml_output_file.seek(0)  # Reset position
-            else:
-                results["xml_output"] = xml_output_file
-    except Exception:
-        # If XML output extraction fails, continue without it
-        results["xml_output"] = None
+    return analysis, results
 
-    # Validate results
-    is_valid, validation_messages = validate_analysis_results(results)
-    if not is_valid:
-        results["validation_errors"] = validation_messages
 
-    # Add summary
-    results["summary"] = get_result_summary(results)
+def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any]:  # noqa: ANN401
+    """
+    Run SCIA analysis and extract results.
+
+    :param params: The bridge parameters.
+    :param template_path: The path to the ESA template file.
+    :return: Dictionary containing extracted analysis results.
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    # Run analysis and get basic results
+    analysis, results = _run_scia_analysis_with_builder(params, template_path)
+
+    # Extract additional data for caching
+    results["xml_output"] = _extract_xml_output_for_caching(analysis)
+
+    # Extract ESA model with debugging
+    esa_model = _extract_esa_model_for_caching(analysis)
+    results["esa_model"] = esa_model
+
+    # Debug: Check if ESA model was extracted
+    if esa_model is None:
+        print("Warning: ESA model extraction returned None")
+    else:
+        print(f"ESA model extracted successfully, size: {len(esa_model)} bytes")
+
+    # Add summary information
+    results["summary"] = {
+        "analysis_status": results.get("analysis_status", "unknown"),
+        "xml_parsing": results.get("xml_parsing", {}),
+        "has_esa_model": esa_model is not None,
+    }
 
     return results

@@ -14,8 +14,6 @@ import viktor.errors  # Import for specific error types
 from app.bridge.scia_cache import get_cached_scia_analysis_results
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
-    run_scia_analysis,
-    setup_bridge_analysis,
 )
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -55,7 +53,7 @@ from src.integrations.idea_interface import _get_unique_matching_zone_keys, crea
 from src.report.report_functions import create_export_report  # Import the report creation function
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs, scia
+from viktor.external import idea_rcs
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
     GeometryResult,
@@ -613,7 +611,7 @@ class BridgeController(ViktorController):
         # Build table data
         if results is None:
             _raise_scia_error()
-        table_data = self._build_results_table_data(results)
+        table_data = self._build_results_table_data(results)  # type: ignore[arg-type]
 
         # Create table with Dutch column headers
         return TableResult(
@@ -706,32 +704,44 @@ class BridgeController(ViktorController):
         if not def_file.getvalue():
             self._raise_empty_def_error()
 
-    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """Generate and download a complete SCIA ESA model file."""
         if not params.bridge_segments_array:
             self._raise_no_bridge_segments_error()
 
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_no_cached_esa_error() -> None:
+            """Raise error for missing cached ESA model."""
+            raise UserError("Geen gecachte SCIA ESA model gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
+
         try:
+            # Get the ESA template path
             template_path = self._get_scia_template_path()
-            xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
 
-            # Validate generated files before analysis
-            self._validate_generated_files(xml_file, def_file)
+            # Get cached or run new SCIA analysis
+            results = get_cached_scia_analysis_results(params, str(template_path), entity_id)
 
-            # Create SciaAnalysis object with positional arguments (correct VIKTOR SDK pattern)
-            scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+            # Check if we have valid results
+            if results is None:
+                _raise_no_cached_esa_error()
 
-            # Execute analysis and get the ESA file
-            scia_analysis.execute(timeout=600)  # 10-minute timeout
-            esa_file = scia_analysis.get_updated_esa_model(as_file=True)
+            # Check if we have ESA model in results
+            if results.get("esa_model"):
+                esa_content = results["esa_model"]
+                filename = f"SCIA_model_{params.info.bridge_objectnumm}.esa"
+                # Create File object from bytes using the correct method
+                file_obj = File.from_data(esa_content)
+                return DownloadResult(file_obj, filename)
 
-            if not esa_file:
-                self._raise_empty_esa_error()
-
-            return DownloadResult(esa_file, f"SCIA_model_{params.info.bridge_objectnumm}.esa")
+            # If no ESA model in results, raise error
+            _raise_no_cached_esa_error()
 
         except Exception as e:
-            self._handle_scia_exception(e)
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Download SCIA XML and definition files as a ZIP archive."""
@@ -770,6 +780,10 @@ class BridgeController(ViktorController):
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
+        def _raise_no_cached_results_error() -> None:
+            """Raise error for missing cached results."""
+            raise UserError("Geen gecachte SCIA resultaten gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
+
         try:
             # Get the ESA template path
             template_path = self._get_scia_template_path()
@@ -784,30 +798,8 @@ class BridgeController(ViktorController):
                 file_obj = File.from_bytes(xml_content, filename)
                 return DownloadResult(file_obj, filename)
 
-            # If no cached XML output, run analysis to get it
-            analysis = run_scia_analysis(params, template_path)
-            fresh_xml_output_file = analysis.get_xml_output_file()
-
-            if not fresh_xml_output_file:
-                self._raise_no_xml_output_error()
-
-            # Create a filename with bridge identifier
-            filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
-
-            # Extract content from the XML output file
-            if hasattr(fresh_xml_output_file, "getvalue"):
-                xml_content = fresh_xml_output_file.getvalue()
-            elif hasattr(fresh_xml_output_file, "read"):
-                fresh_xml_output_file.seek(0)
-                xml_content = fresh_xml_output_file.read()
-                fresh_xml_output_file.seek(0)  # Reset position
-            else:
-                xml_content = fresh_xml_output_file
-
-            # Write the content to the File object using the correct method
-            file_obj = File.from_bytes(xml_content, filename)
-
-            return DownloadResult(file_obj, filename)
+            # If no cached results or no XML output, raise error
+            _raise_no_cached_results_error()
 
         except Exception as e:
             raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
