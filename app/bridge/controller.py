@@ -854,40 +854,55 @@ class BridgeController(ViktorController):
             raise UserError("Cached IDEA results are incomplete")
 
         # Create a BytesIO object from the cached content for parsing
-        from io import BytesIO
-
         output_file_obj = BytesIO(output_content)
 
-        # Obtain the results for specific or all section(s).
-        parser = idea_rcs.RcsOutputFileParser(output_file_obj)
-
-        # Prepare data for the table
-        data = []
-        columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
-
-        for section in parser.section_results():
-            capacity_results = section.capacity()[0]
-            shear_results = section.shear()[0]
-            torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
-            interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
-            crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
-            detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
-            stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
-
-            data.append(
-                [
-                    section.id_,
-                    capacity_results.get("Result"),
-                    shear_results.get("Result"),
-                    torsion_results.get("Result"),
-                    interaction_results.get("Result"),
-                    crack_width_results.get("Result"),
-                    detailing_results.get("Result"),
-                    stress_limitations_results.get("Result"),
-                ]
+        # Check if the analysis failed
+        if cached_results.get("analysis_status") == "failed":
+            error_msg = cached_results.get("error", "Unknown error")
+            return TableResult(
+                [["Analyse gefaald", error_msg, "", "", "", "", "", ""]],
+                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
             )
 
-        return TableResult(data, column_headers=columns)
+        # Try to parse the results
+        try:
+            # Obtain the results for specific or all section(s).
+            parser = idea_rcs.RcsOutputFileParser(output_file_obj)
+
+            # Prepare data for the table
+            data = []
+            columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
+
+            for section in parser.section_results():
+                capacity_results = section.capacity()[0]
+                shear_results = section.shear()[0]
+                torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
+                interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
+                crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
+                detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
+                stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
+
+                data.append(
+                    [
+                        section.id_,
+                        capacity_results.get("Result"),
+                        shear_results.get("Result"),
+                        torsion_results.get("Result"),
+                        interaction_results.get("Result"),
+                        crack_width_results.get("Result"),
+                        detailing_results.get("Result"),
+                        stress_limitations_results.get("Result"),
+                    ]
+                )
+
+            return TableResult(data, column_headers=columns)
+
+        except Exception as e:
+            # If parsing fails, return an error message
+            return TableResult(
+                [["Parsing fout", f"Kon resultaten niet parsen: {e!s}", "", "", "", "", "", ""]],
+                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
+            )
 
     def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
