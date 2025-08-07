@@ -45,15 +45,19 @@ ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_table
 
 def load_combination_table_without_rounding(params: BridgeParametrization) -> DataFrame:
     """
-    Returns a representation of the load combination table, similar to what is generated in load_factors.py.
-    However, this is with the initial decimal numbers, without rounding.
-    """
-    # Validate required parameters
-    # if not all(key in params for key in ["cc_class", "design_code"]):
-    # raise KeyError("Missing required parameters: cc_class and/or design_code")
-    # if "info" not in params or "construction_year" not in params["info"]:
-    # raise KeyError("Missing required parameter: info.construction_year")
+    Generate the load combination table for the bridge model, without rounding factors.
 
+    This function reads the Eurocode/NEN load combination table from CSV, applies gamma factors
+    based on the project parameters, and filters the table to include only relevant load cases and combinations.
+    The resulting DataFrame contains the initial (non-rounded) factors for each combination and load case.
+
+    :param params: The bridge parametrization object containing user/project input.
+    :type params: BridgeParametrization
+    :returns: DataFrame with load combination factors (not rounded), indexed by combination name.
+    :rtype: pandas.DataFrame
+    :raises FileNotFoundError: If the required CSV file is missing.
+    :raises KeyError: If required parameters are missing from params.
+    """
     # Read the code tables from CSV and set "Combinatie" as index
     df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
@@ -85,7 +89,7 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
         ("Cal gr1a", "Calamiteit"),
         ("Cal gr2", "Calamiteit"),
     }
-    # print("params,", params.keys())
+
     # Create load combination gamma values
     gamma_factors = get_gamma_factors(cc=params["cc_class"], safety_level=params["design_code"], building_year=params["info"]["construction_year"])
 
@@ -132,11 +136,10 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
 
     # Filter rows based on load_combinations_project
     valid_row_names = {row_name for row_name, _ in load_combinations_project}
-    df_combination_table_gamma_psi = df_combination_table_gamma_psi[
+
+    return df_combination_table_gamma_psi[
         [idx.split(" ", 1)[1] in valid_row_names if len(idx.split(" ", 1)) > 1 else False for idx in df_combination_table_gamma_psi.index]
     ]
-
-    return df_combination_table_gamma_psi
 
 
 def create_load_combination(
@@ -165,7 +168,7 @@ def create_load_combination(
     )
 
 
-def create_scia_load_combinations(
+def create_scia_load_combinations(  # noqa: PLR0912, C901
     params: BridgeParametrization,
     builder: SciaModelBuilder,
     all_load_cases: dict[str, dict],
@@ -189,21 +192,22 @@ def create_scia_load_combinations(
     """
     combinations = []
 
-    df = load_combination_table_without_rounding(params)
+    dataframe_loadcombination = load_combination_table_without_rounding(params)
 
     # Use row name prefixes for robust selection
-    def _filter_by_prefix(df, prefixes):
+    def _filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
         """
         Filter DataFrame rows where the index starts with any of the given prefixes.
+
         :param df: DataFrame with string index
         :param prefixes: list of string prefixes
-        :return: filtered DataFrame
+        :return: filtered DataFrame.
         """
         return df[df.index.to_series().str.startswith(tuple(prefixes))]
 
-    uls_df = _filter_by_prefix(df, ["6.10a", "6.10b"])
-    sls_df = _filter_by_prefix(df, ["6.14b", "6.15b", "6.16b"])
-    fatigue_df = _filter_by_prefix(df, ["6.67", "6.69"])
+    uls_df = _filter_by_prefix(dataframe_loadcombination, ["6.10a", "6.10b"])
+    sls_df = _filter_by_prefix(dataframe_loadcombination, ["6.14b", "6.15b", "6.16b"])
+    fatigue_df = _filter_by_prefix(dataframe_loadcombination, ["6.67", "6.69"])
 
     subject_to_series = {
         "Permanent": ["dead_load_cases"],
@@ -395,21 +399,7 @@ def create_all_load_combinations(
     """
     all_combinations = []
 
-    # Get the main permanent load case (required for all combinations)
-    # self_weight_case = all_load_cases.get("self_weight")
-
-    # if not self_weight_case:
-    # return []  # Cannot create combinations without self-weight
-
-    # Create example combinations using the helper function
-    # all_combinations.extend(_create_example_combination(builder, self_weight_case, all_load_cases))
     all_combinations.extend(create_scia_load_combinations(params, builder, all_load_cases))
-    # TODO: add more helper functions here following the same pattern:
-    # TODO: Add _create_temperature_combinations function for temperature load combinations
-    # TODO: Add _create_traffic_combinations function for traffic load combinations (tandem, UDL)
-    # TODO: Add _create_dead_load_combinations function for dead load combinations (asphalt, filling, etc.)
-    # TODO: Add _create_sls_combinations function for SLS combinations
-    # TODO: Add _create_accidental_combinations function for accidental situation combinations
 
     return all_combinations
 
