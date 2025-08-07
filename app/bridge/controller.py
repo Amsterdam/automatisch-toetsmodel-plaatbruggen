@@ -588,7 +588,7 @@ class BridgeController(ViktorController):
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
         # Get the ESA template path
-        template_path = Path(__file__).parent.parent.parent / "resources" / "templates" / "model.esa"
+        template_path = self._get_scia_template_path()
 
         # Get entity ID for caching
         entity_id = kwargs.get("entity_id")
@@ -795,7 +795,8 @@ class BridgeController(ViktorController):
             if results is not None and "xml_output" in results and results["xml_output"]:
                 xml_content = results["xml_output"]
                 filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
-                file_obj = File.from_bytes(xml_content, filename)
+                # Create File object from bytes using the correct method
+                file_obj = File.from_data(xml_content)
                 return DownloadResult(file_obj, filename)
 
             # If no cached results or no XML output, raise error
