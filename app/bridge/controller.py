@@ -834,7 +834,7 @@ class BridgeController(ViktorController):
 
         return TableResult(data, column_headers=columns)
 
-    @TableView("IDEA RCS resultaten", duration_guess=4)
+    @TableView("IDEA RCS resultaten", duration_guess=90)
     def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Toon een tabel met resultaten van de IDEA RCS analyse.
