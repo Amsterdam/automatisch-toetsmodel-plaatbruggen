@@ -11,7 +11,7 @@ import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from app.bridge.scia_cache import get_cached_scia_analysis_results
+from app.bridge.analysis_cache import get_cached_scia_analysis_results
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
 )
