@@ -807,6 +807,22 @@ def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any
     # Extract results using the builder interface
     results = builder.extract_analysis_results(analysis)
 
+    # Try to get XML output for caching
+    try:
+        xml_output_file = analysis.get_xml_output_file()
+        if xml_output_file:
+            if hasattr(xml_output_file, "getvalue"):
+                results["xml_output"] = xml_output_file.getvalue()
+            elif hasattr(xml_output_file, "read"):
+                xml_output_file.seek(0)
+                results["xml_output"] = xml_output_file.read()
+                xml_output_file.seek(0)  # Reset position
+            else:
+                results["xml_output"] = xml_output_file
+    except Exception:
+        # If XML output extraction fails, continue without it
+        results["xml_output"] = None
+
     # Validate results
     is_valid, validation_messages = validate_analysis_results(results)
     if not is_valid:

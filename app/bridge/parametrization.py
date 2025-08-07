@@ -18,6 +18,7 @@ from app.constants import (
 )
 from viktor import DynamicArray
 from viktor.parametrization import (
+    ActionButton,
     BooleanField,
     DownloadButton,
     DynamicArrayConstraint,
@@ -860,6 +861,16 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 
     # Analysis button
     scia.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+
+    # Cache management section
+    scia.lb_cache = LineBreak()
+    scia.cache_header = Text("### Cache Beheer")
+    scia.cache_info = Text(
+        "De SCIA analyse resultaten worden gecached om herberekening te voorkomen. De cache wordt automatisch gewist wanneer parameters veranderen."
+    )
+
+    scia.cache_info_button = ActionButton("Toon Cache Info", method="get_scia_cache_info_action")
+    scia.clear_cache_button = ActionButton("Wis Cache", method="clear_scia_cache_action")
 
     # ----------------------------------
     # --- IDEA StatiCa Page ---
