@@ -12,7 +12,7 @@ by calling methods on the SciaModelBuilder interface.
 
 import traceback
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from pandas import DataFrame
@@ -209,7 +209,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
     sls_df = _filter_by_prefix(dataframe_loadcombination, ["6.14b", "6.15b", "6.16b"])
     fatigue_df = _filter_by_prefix(dataframe_loadcombination, ["6.67", "6.69"])
 
-    subject_to_series = {
+    subject_to_series: dict[str, list[str]] = {
         "Permanent": ["dead_load_cases"],
         "TS": ["tandem_cases"],
         "UDL": ["udl_traffic_cases"],
@@ -229,7 +229,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
         for subject, factor in row.items():
             if factor == 0:
                 continue
-            series_list = subject_to_series.get(subject, [])
+            series_list = subject_to_series.get(subject, []) # type: ignore
             for series in series_list:
                 cases_dict = all_load_cases.get(series, {})
                 if isinstance(cases_dict, dict):
@@ -250,7 +250,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
         for subject, factor in row.items():
             if factor == 0:
                 continue
-            series_list = subject_to_series.get(subject, [])
+            series_list = subject_to_series.get(subject, []) # type: ignore
             for series in series_list:
                 cases_dict = all_load_cases.get(series, {})
                 if isinstance(cases_dict, dict):
@@ -271,7 +271,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
         for subject, factor in row.items():
             if factor == 0:
                 continue
-            series_list = subject_to_series.get(subject, [])
+            series_list = subject_to_series.get(subject, []) # type: ignore
             for series in series_list:
                 cases_dict = all_load_cases.get(series, {})
                 if isinstance(cases_dict, dict):
