@@ -11,7 +11,13 @@ import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from app.bridge.analysis_cache import get_cached_idea_analysis_results, get_cached_idea_model, get_cached_scia_analysis_results
+from app.bridge.analysis_cache import (
+    AnalysisType,
+    get_cached_analysis_results,
+    get_idea_analysis_results,
+    get_idea_model_only,
+    get_scia_analysis_results,
+)
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
 )
@@ -573,7 +579,7 @@ class BridgeController(ViktorController):
 
         return table_data
 
-    @TableView("SCIA Analyse Resultaten", duration_guess=3)
+    @TableView("SCIA Analyse Resultaten", duration_guess=300)
     def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SCIA analysis results in a table format with actual engineering values.
@@ -601,7 +607,7 @@ class BridgeController(ViktorController):
 
         # Get cached or run new SCIA analysis
         try:
-            results = get_cached_scia_analysis_results(params, str(template_path), entity_id)
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
             if results is None:
                 _raise_scia_error()
         except Exception:
@@ -723,7 +729,7 @@ class BridgeController(ViktorController):
             template_path = self._get_scia_template_path()
 
             # Get cached or run new SCIA analysis
-            results = get_cached_scia_analysis_results(params, str(template_path), entity_id)
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
             # Check if we have valid results
             if results is None:
@@ -789,7 +795,7 @@ class BridgeController(ViktorController):
             template_path = self._get_scia_template_path()
 
             # Get cached or run new SCIA analysis
-            results = get_cached_scia_analysis_results(params, str(template_path), entity_id)
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
             # Check if we have XML output in cached results
             if results is not None and "xml_output" in results and results["xml_output"]:
@@ -844,7 +850,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID not found in kwargs")
 
         # Get cached IDEA analysis results
-        cached_results = get_cached_idea_analysis_results(params, entity_id)
+        cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analysis failed or no cached results available")
 
@@ -923,7 +929,7 @@ class BridgeController(ViktorController):
                 raise UserError("Entity ID not found in kwargs")
 
             # Get cached IDEA model
-            cached_results = get_cached_idea_model(params, entity_id)
+            cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_model_only)
             if cached_results is None:
                 raise UserError("IDEA model creation failed or no cached results available")
 
@@ -963,7 +969,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID not found in kwargs")
 
         # Get cached IDEA analysis results
-        cached_results = get_cached_idea_analysis_results(params, entity_id)
+        cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analysis failed or no cached results available")
 

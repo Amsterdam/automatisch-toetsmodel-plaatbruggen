@@ -1,3 +1,34 @@
+## [`v0.0.10`] - 2025-xx-xx
+### Added
+- **Analysis Caching System**: Comprehensive caching mechanism for SCIA and IDEA calculations
+  - Persistent caching using VIKTOR Storage with entity scope
+  - SHA256 input hashing for automatic cache invalidation when parameters change
+  - Base64 encoding for binary data (ESA models, XML output) to avoid encoding issues
+  - Separate caches for SCIA and IDEA analyses with type-specific parameter extraction
+  - Lazy initialization to avoid `OSError: Job token is not set` during import
+  - Unified caching API with single `get_cached_analysis_results()` function
+  - Graceful error handling for XML parsing issues in IDEA results
+
+### Changed
+- **Performance Improvements**: Dramatic performance improvements for repeated calculations
+  - SCIA cached downloads: ~14 seconds vs 5+ minutes for new analysis
+  - IDEA cached operations: ~0.5 seconds vs 10+ seconds for new analysis
+  - Automatic cache invalidation when any relevant parameter changes
+  - Hash mismatch detection with clear logging for debugging
+
+### Removed
+- **Redundant Caching Functions**: Simplified API by removing backward compatibility functions
+  - Removed `get_cached_scia_analysis_results()`, `get_cached_idea_analysis_results()`, `get_cached_idea_model()`
+  - Unified under single `get_cached_analysis_results()` function
+  - 50% code reduction in caching module
+
+### Fixed
+- **IDEA XML Parsing**: Fixed UTF-16 encoded XML parsing issues in IDEA results
+  - Proper string-to-bytes conversion for IDEA output content
+  - Graceful error handling in IDEA RCS results table view
+  - Type checking and conversion for different file object types
+
+
 ## [`v0.0.9`] - 2025-07-31
 ### Added
 - SCIA load cases BG 4000 series, 6000 series, 7000 series, 8000 series, 9000 series and 10000 series
