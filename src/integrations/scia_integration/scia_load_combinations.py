@@ -12,7 +12,7 @@ by calling methods on the SciaModelBuilder interface.
 
 import traceback
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 from pandas import DataFrame
@@ -229,7 +229,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
         for subject, factor in row.items():
             if factor == 0:
                 continue
-            series_list = subject_to_series.get(subject, []) # type: ignore
+            series_list = subject_to_series.get(subject, [])  # type: ignore
             for series in series_list:
                 cases_dict = all_load_cases.get(series, {})
                 if isinstance(cases_dict, dict):
@@ -250,7 +250,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
         for subject, factor in row.items():
             if factor == 0:
                 continue
-            series_list = subject_to_series.get(subject, []) # type: ignore
+            series_list = subject_to_series.get(subject, [])  # type: ignore
             for series in series_list:
                 cases_dict = all_load_cases.get(series, {})
                 if isinstance(cases_dict, dict):
@@ -271,7 +271,7 @@ def create_scia_load_combinations(  # noqa: PLR0912, C901
         for subject, factor in row.items():
             if factor == 0:
                 continue
-            series_list = subject_to_series.get(subject, []) # type: ignore
+            series_list = subject_to_series.get(subject, [])  # type: ignore
             for series in series_list:
                 cases_dict = all_load_cases.get(series, {})
                 if isinstance(cases_dict, dict):

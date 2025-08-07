@@ -5,10 +5,10 @@ Tests for load combination creation functions using a mocked SciaModelBuilder.
 """
 
 from unittest.mock import Mock, patch
-from app.bridge.parametrization import BridgeParametrization
 
 import pytest
 
+from app.bridge.parametrization import BridgeParametrization
 from src.integrations.scia_integration.scia_load_combinations import (
     create_all_load_combinations,
     create_load_combination,
@@ -71,7 +71,7 @@ class TestCreateAllLoadCombinations:
         )
         assert combinations[0] == mock_create.return_value
 
-    def test_create_all_load_combinations_no_self_weight(self, params:BridgeParametrization, mock_builder: Mock) -> None:
+    def test_create_all_load_combinations_no_self_weight(self, params: BridgeParametrization, mock_builder: Mock) -> None:
         """Test behavior when self-weight load case is missing."""
         combinations = create_all_load_combinations(params, mock_builder, {})
         assert combinations == []
