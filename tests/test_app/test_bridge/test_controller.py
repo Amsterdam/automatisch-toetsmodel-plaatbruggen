@@ -121,7 +121,7 @@ class TestBridgeController(unittest.TestCase):
     def test_get_bridge_entity_data_invalid_entity_id(self) -> None:
         """Test fetching bridge entity data with invalid entity ID."""
         # Act
-        objectnumm, name, error_result = self.controller._get_bridge_entity_data(None)  # type: ignore[arg-type]  # noqa: SLF001
+        objectnumm, name, error_result = self.controller._get_bridge_entity_data(None)  # type: ignore[arg-type]
 
         # Assert
         assert objectnumm is None
@@ -137,7 +137,7 @@ class TestBridgeController(unittest.TestCase):
         entity_id = None
 
         # Act
-        objectnumm, name, error_result = self.controller._get_bridge_entity_data(entity_id)  # type: ignore[arg-type]  # noqa: SLF001
+        objectnumm, name, error_result = self.controller._get_bridge_entity_data(entity_id)  # type: ignore[arg-type]
 
         # Assert - with invalid ID, should return None values and error
         assert objectnumm is None
