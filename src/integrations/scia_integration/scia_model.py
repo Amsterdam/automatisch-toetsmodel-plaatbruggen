@@ -130,7 +130,7 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     create_all_loads(builder, params, all_load_cases)
 
     # 6. Build Load Combinations (after loads are applied)
-    create_all_load_combinations(builder, all_load_cases)
+    create_all_load_combinations(params, builder, all_load_cases)
 
     # 7. Create Result Classes to tell SCIA which combinations to analyze
     if hasattr(builder, "load_combinations") and builder.load_combinations:
