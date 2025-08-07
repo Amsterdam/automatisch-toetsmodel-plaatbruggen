@@ -137,7 +137,7 @@ def create_load_combination_table(params: dict) -> Styler:
 
     # Lists for load cases related to permanent-, traffic-, wind- and other loads
     permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
-    traffic_loads = ["TS", "UDL", "Enkele as", "Horizontale belasting", "Fiets- en voetpaden", "Mensenmenigte", "Bijzondere voertuigen"]
+    traffic_loads = ["TS", "UDL", "Enkele as", "Horizontale belasting", "Dienstvoertuig Qserv", "Fiets- en voetpaden", "Mensenmenigte", "Bijzondere voertuigen", "Onbedoeld voertuig"]
     wind_loads = ["Wind Fwk", "Wind Fw*"]
     temperature_loads = ["Temperatuur"]
     snow_loads = ["Sneeuw"]
@@ -152,9 +152,11 @@ def create_load_combination_table(params: dict) -> Styler:
         ("gr1a", "UDL"),
         ("gr1b", "Enkele as"),
         ("gr2", "Horizontale belasting"),
+        ("gr2", "Dienstvoertuig Qserv"),
         ("gr3", "Fiets- en voetpaden"),
         ("gr4", "Mensenmenigte"),
         ("gr5", "Bijzondere voertuigen"),
+        ("Onb. vrtg.", "Onbedoeld voertuig"),
         ("Wind gr1a", "Wind Fwk"),
         ("Wind gr2", "Wind Fwk"),
         ("Temp gr1", "Temperatuur"),
@@ -202,7 +204,7 @@ def create_load_combination_table(params: dict) -> Styler:
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
 
     # Filter columns so that the load cases represent the project scope
-    load_cases_project = ["Permanent", "TS", "UDL", "Fiets- en voetpaden", "Mensenmenigte", "Temperatuur"]
+    load_cases_project = ["Permanent", "TS", "UDL", "Dienstvoertuig Qserv", "Fiets- en voetpaden", "Mensenmenigte", "Onbedoeld voertuig", "Temperatuur"]
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
 
     # Filter rows so that the load cases represent the project scope
