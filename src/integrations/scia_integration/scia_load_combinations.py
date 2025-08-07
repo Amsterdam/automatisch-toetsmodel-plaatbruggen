@@ -63,7 +63,17 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
 
     # Lists for load cases related to permanent-, traffic-, wind- and other loads
     permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
-    traffic_loads = ["TS", "UDL", "Enkele as", "Horizontale belasting", "Dienstvoertuig Qserv", "Fiets- en voetpaden", "Mensenmenigte", "Bijzondere voertuigen", "Onbedoeld voertuig"]
+    traffic_loads = [
+        "TS",
+        "UDL",
+        "Enkele as",
+        "Horizontale belasting",
+        "Dienstvoertuig Qserv",
+        "Fiets- en voetpaden",
+        "Mensenmenigte",
+        "Bijzondere voertuigen",
+        "Onbedoeld voertuig",
+    ]
     wind_loads = ["Wind Fwk", "Wind Fw*"]
     temperature_loads = ["Temperatuur"]
     snow_loads = ["Sneeuw"]
@@ -130,7 +140,16 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
 
     # Filter columns so that the load cases represent the project scope
-    load_cases_project = ["Permanent", "TS", "UDL", "Dienstvoertuig Qserv", "Fiets- en voetpaden", "Mensenmenigte", "Onbedoeld voertuig", "Temperatuur"]
+    load_cases_project = [
+        "Permanent",
+        "TS",
+        "UDL",
+        "Dienstvoertuig Qserv",
+        "Fiets- en voetpaden",
+        "Mensenmenigte",
+        "Onbedoeld voertuig",
+        "Temperatuur",
+    ]
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
 
     # Filter rows so that the load cases represent the project scope
