@@ -730,7 +730,7 @@ class BridgeController(ViktorController):
                 _raise_no_cached_esa_error()
 
             # Check if we have ESA model in results
-            if results.get("esa_model"):
+            if results is not None and results.get("esa_model"):
                 esa_content = results["esa_model"]
                 filename = f"SCIA_model_{params.info.bridge_objectnumm}.esa"
                 # Create File object from bytes using the correct method
