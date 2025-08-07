@@ -11,7 +11,7 @@ import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from app.bridge.analysis_cache import get_cached_scia_analysis_results
+from app.bridge.analysis_cache import get_cached_idea_analysis_results, get_cached_idea_model, get_cached_scia_analysis_results
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
 )
@@ -49,7 +49,7 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-from src.integrations.idea_interface import _get_unique_matching_zone_keys, create_bridge_idea_model, run_idea_analysis
+from src.integrations.idea_interface import _get_unique_matching_zone_keys
 from src.report.report_functions import create_export_report  # Import the report creation function
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
@@ -829,7 +829,7 @@ class BridgeController(ViktorController):
         return TableResult(data, column_headers=columns)
 
     @TableView("IDEA RCS resultaten", duration_guess=4)
-    def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+    def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Toon een tabel met resultaten van de IDEA RCS analyse.
 
@@ -838,48 +838,58 @@ class BridgeController(ViktorController):
         :returns: TableResult met unieke zone keys
         :rtype: TableResult
         """
-        # Generate XML input file
-        model = create_bridge_idea_model(params)
-        xml_input = model.generate_xml_input()
+        # Get entity ID from kwargs
+        entity_id = kwargs.get("entity_id")
+        if entity_id is None:
+            raise UserError("Entity ID not found in kwargs")
 
-        analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
-        analysis.execute(120)
+        # Get cached IDEA analysis results
+        cached_results = get_cached_idea_analysis_results(params, entity_id)
+        if cached_results is None:
+            raise UserError("IDEA analysis failed or no cached results available")
 
-        idea_output_xml_bytes = analysis.get_output_file(as_file=True)
+        # Extract results from cache
+        output_content = cached_results.get("output_content")
+        if output_content is None:
+            raise UserError("Cached IDEA results are incomplete")
+
+        # Create a BytesIO object from the cached content for parsing
+        from io import BytesIO
+
+        output_file_obj = BytesIO(output_content)
 
         # Obtain the results for specific or all section(s).
-        with idea_output_xml_bytes.open_binary() as f:
-            parser = idea_rcs.RcsOutputFileParser(f)
+        parser = idea_rcs.RcsOutputFileParser(output_file_obj)
 
-            # Prepare data for the table
-            data = []
-            columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
+        # Prepare data for the table
+        data = []
+        columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
 
-            for section in parser.section_results():
-                capacity_results = section.capacity()[0]
-                shear_results = section.shear()[0]
-                torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
-                interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
-                crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
-                detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
-                stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
+        for section in parser.section_results():
+            capacity_results = section.capacity()[0]
+            shear_results = section.shear()[0]
+            torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
+            interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
+            crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
+            detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
+            stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
 
-                data.append(
-                    [
-                        section.id_,
-                        capacity_results.get("Result"),
-                        shear_results.get("Result"),
-                        torsion_results.get("Result"),
-                        interaction_results.get("Result"),
-                        crack_width_results.get("Result"),
-                        detailing_results.get("Result"),
-                        stress_limitations_results.get("Result"),
-                    ]
-                )
+            data.append(
+                [
+                    section.id_,
+                    capacity_results.get("Result"),
+                    shear_results.get("Result"),
+                    torsion_results.get("Result"),
+                    interaction_results.get("Result"),
+                    crack_width_results.get("Result"),
+                    detailing_results.get("Result"),
+                    stress_limitations_results.get("Result"),
+                ]
+            )
 
         return TableResult(data, column_headers=columns)
 
-    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
         Download IDEA StatiCa RCS XML input file for cross-section analysis.
 
@@ -892,22 +902,33 @@ class BridgeController(ViktorController):
         :rtype: DownloadResult
         """
         try:
-            # Generate XML input file
-            model = create_bridge_idea_model(params)
-            xml_file = model.generate_xml_input()
+            # Get entity ID from kwargs
+            entity_id = kwargs.get("entity_id")
+            if entity_id is None:
+                raise UserError("Entity ID not found in kwargs")
+
+            # Get cached IDEA model
+            cached_results = get_cached_idea_model(params, entity_id)
+            if cached_results is None:
+                raise UserError("IDEA model creation failed or no cached results available")
+
+            # Extract XML input from cache
+            xml_input = cached_results.get("xml_input")
+            if xml_input is None:
+                raise UserError("Cached IDEA model is incomplete")
 
             # Validate content
-            xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+            xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
 
             if not xml_content:
                 self._raise_empty_idea_xml_error()
 
-            return DownloadResult(xml_file, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
+            return DownloadResult(xml_input, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
 
-    def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+    def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
         Download IDEA StatiCa RCS analysis results for cross-section capacity assessment.
 
@@ -921,18 +942,29 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-        # Generate XML input file
-        model = create_bridge_idea_model(params)
-        xml_file = model.generate_xml_input()
+        # Get entity ID from kwargs
+        entity_id = kwargs.get("entity_id")
+        if entity_id is None:
+            raise UserError("Entity ID not found in kwargs")
+
+        # Get cached IDEA analysis results
+        cached_results = get_cached_idea_analysis_results(params, entity_id)
+        if cached_results is None:
+            raise UserError("IDEA analysis failed or no cached results available")
+
+        # Extract results from cache
+        model = cached_results.get("model")
+        xml_input = cached_results.get("xml_input")
+        output_content = cached_results.get("output_content")
+
+        if model is None or xml_input is None or output_content is None:
+            raise UserError("Cached IDEA results are incomplete")
 
         # Validate content
-        xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+        xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
 
         if not xml_content:
             self._raise_empty_idea_xml_error()
-
-        # Run cross-section analysis
-        output_file = run_idea_analysis(model, timeout=240)
 
         # Create ZIP with XML input and analysis results
         zip_file_obj = File()
@@ -941,13 +973,7 @@ class BridgeController(ViktorController):
             z.writestr(f"IDEA_rcs_input_model_{params.info.bridge_objectnumm}.xml", xml_content)
 
             # Add analysis output results
-            if hasattr(output_file, "getvalue"):
-                output_content = output_file.getvalue()
-                z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
-            elif hasattr(output_file, "source"):
-                # If it's a File object
-                with output_file.open_binary() as f:
-                    z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", f.read())
+            z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
 
         return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
 
