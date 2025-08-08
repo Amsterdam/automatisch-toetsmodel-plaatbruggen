@@ -60,7 +60,7 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
     """
     # Read the code tables from CSV and set "Combinatie" as index
     df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
-
+    print(params.items())
     # Lists for load cases related to permanent-, traffic-, wind- and other loads
     permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
     traffic_loads = [

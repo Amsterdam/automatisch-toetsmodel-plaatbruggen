@@ -11,18 +11,32 @@ from typing import TYPE_CHECKING, Any
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
+from src.combinations.load_factors import get_alpha_trend_nen_8701, get_alpha_q_nen_en_1991_2
 
 # Type alias to avoid importing from app layer
-BridgeParametrization = Any
+from app.bridge.parametrization import BridgeParametrization
+
+def get_reference_period(params: BridgeParametrization) -> int:
+    """
+    Return the reference period (in years) based on the veiligheidsniveau input.
+
+    :param veiligheidsniveau: The value of the veiligheidsniveau field from parametrization.py
+    :type veiligheidsniveau: str
+    :returns: Reference period in years (30 or 15)
+    :rtype: int
+    """
+    if params["design_code"] == "NEN 8700 afkeur":
+        return 15
+    return 30
 
 if TYPE_CHECKING:
     from .scia_model_interface import SciaModelBuilder
-
 
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
 def create_udl_traffic_loads(  # noqa: PLR0913
+    params: BridgeParametrization,    
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
@@ -42,7 +56,10 @@ def create_udl_traffic_loads(  # noqa: PLR0913
     :returns: Dict with keys BG4001, BG4002, BG4003, each containing lane polygon and load value
     """
     results = {}
-    rest_value = 2500.0
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck,(get_reference_period(params) + 2010))
+    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+    udl_value = udl_value * alpha_trend_factor * alpha_q_factors[0]
+    rest_value = 2500.0 * alpha_trend_factor * alpha_q_factors[0]
 
     # BG4001: leftmost lane (BG8000 logic)
     y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
