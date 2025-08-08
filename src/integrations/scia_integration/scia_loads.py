@@ -14,11 +14,60 @@ from .scia_bridge_geometry import (
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, tandem_system_sequencer
+from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, tandem_system_sequencer
 from .scia_model_interface import SciaModelBuilder
 
 # Type alias to avoid importing from app layer
 BridgeParametrization = Any
+
+
+def add_udl_loads(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
+    load_cases: dict[str, Any],
+) -> None:
+    """
+    Create UDL traffic loads (9 kN/m²) for the three main notional lanes and apply them to BG4001, BG4002, BG4003.
+
+    :param builder: The SCIA model builder instance.
+    :param params: VIKTOR parameters for the bridge.
+    :param load_cases: Dictionary of created load cases.
+    """
+    # Extract bridge parameters needed for load geometry calculation
+    bridge_params = extract_tandem_parameters_from_bridge(params)
+    length = bridge_params["length_bridgedeck"]
+    width = bridge_params["width_bridgedeck"]
+    width_firstsegment_zone3 = bridge_params["width_firstsegment_zone3"]
+    width_firstsegment_zone2 = bridge_params["width_firstsegment_zone2"]
+
+    # Call the helper to get UDL polygons and loads
+    udl_results = create_udl_traffic_loads(
+        length,
+        width,
+        width_firstsegment_zone3,
+        width_firstsegment_zone2,
+    )
+
+    bg_to_rs = {"BG4001": "rs_1", "BG4002": "rs_2", "BG4003": "rs_3"}
+    for key, udl in udl_results.items():
+        rs_key = bg_to_rs.get(key)
+        if rs_key and rs_key in load_cases["udl_traffic_cases"]:
+            scia_case = load_cases["udl_traffic_cases"][rs_key]
+            # Main notional lane
+            builder.create_surface_load(
+                name=f"udl_{key}",
+                load_case_name=scia_case.name,
+                corner_points=udl["main"]["polygon"],
+                load_value=-udl["main"]["load"],
+            )
+            # Rest polygons
+            for i, rest in enumerate(udl["rest"]):
+                builder.create_surface_load(
+                    name=f"udl_{key}_rest_{i + 1}",
+                    load_case_name=scia_case.name,
+                    corner_points=rest["polygon"],
+                    load_value=-rest["load"],
+                )
 
 
 def add_theoretical_tandem_loads(
@@ -440,6 +489,7 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
     add_pavement_loads(builder, params, load_cases)
     add_parapet_loads(builder, params, load_cases)
     add_crowd_loads(builder, params, load_cases)
+    add_udl_loads(builder, params, load_cases)
     add_theoretical_tandem_loads(builder, params, load_cases)
 
     add_service_vehicle_loads(builder, params, load_cases)

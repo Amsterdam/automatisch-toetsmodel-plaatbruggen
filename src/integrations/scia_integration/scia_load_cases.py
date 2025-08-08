@@ -137,7 +137,6 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLo
         ("rs_1", "BG4001", "Verkeer, dek - LM1 UDL RS 1"),
         ("rs_2", "BG4002", "Verkeer, dek - LM1 UDL RS 2"),
         ("rs_3", "BG4003", "Verkeer, dek - LM1 UDL RS 3"),
-        ("rest", "BG4004", "Verkeer, dek - LM1 UDL rest"),
     ]
     cases = {}
     for key, name, desc in data:

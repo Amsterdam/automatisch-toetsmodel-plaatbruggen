@@ -12,7 +12,7 @@ import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs, scia
+from viktor.external import idea_rcs
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
     GeometryResult,
@@ -28,11 +28,15 @@ from viktor.views import (
     TableView,  # Import TableView
 )
 
+from app.bridge.analysis_cache import (
+    AnalysisType,
+    get_cached_analysis_results,
+    get_idea_analysis_results,
+    get_idea_model_only,
+)
 from app.bridge.scia_model_builder import (
-    ViktorSciaModelBuilder,
     generate_bridge_xml_files,
-    run_scia_analysis,
-    setup_bridge_analysis,
+    get_scia_analysis_results,
 )
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
@@ -68,7 +72,7 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-from src.integrations.idea_interface import _get_unique_matching_zone_keys, create_bridge_idea_model, run_idea_analysis
+from src.integrations.idea_interface import _get_unique_matching_zone_keys
 from src.report.report_functions import create_export_report  # Import the report creation function
 
 # Import parametrization from the separate file
@@ -575,8 +579,8 @@ class BridgeController(ViktorController):
 
         return table_data
 
-    @TableView("SCIA Analyse Resultaten", duration_guess=3)
-    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+    @TableView("SCIA Analyse Resultaten", duration_guess=300)
+    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SCIA analysis results in a table format with actual engineering values.
 
@@ -590,21 +594,30 @@ class BridgeController(ViktorController):
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
         # Get the ESA template path
-        template_path = Path(__file__).parent.parent.parent / "resources" / "templates" / "model.esa"
+        template_path = self._get_scia_template_path()
 
-        # Run SCIA analysis to get results
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error() -> None:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+
+        # Get cached or run new SCIA analysis
         try:
-            analysis = run_scia_analysis(params, template_path)
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+            if results is None:
+                _raise_scia_error()
         except Exception:
             traceback.print_exc()
-            raise
-
-        # Extract results using the builder
-        builder = ViktorSciaModelBuilder()
-        results: dict[str, Any] = builder.extract_analysis_results(analysis)
+            _raise_scia_error()
 
         # Build table data
-        table_data = self._build_results_table_data(results)
+        if results is None:
+            _raise_scia_error()
+        table_data = self._build_results_table_data(results)  # type: ignore[arg-type]
 
         # Create table with Dutch column headers
         return TableResult(
@@ -697,32 +710,44 @@ class BridgeController(ViktorController):
         if not def_file.getvalue():
             self._raise_empty_def_error()
 
-    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+    def download_scia_esa_model(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """Generate and download a complete SCIA ESA model file."""
         if not params.bridge_segments_array:
             self._raise_no_bridge_segments_error()
 
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_no_cached_esa_error() -> None:
+            """Raise error for missing cached ESA model."""
+            raise UserError("Geen gecachte SCIA ESA model gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
+
         try:
+            # Get the ESA template path
             template_path = self._get_scia_template_path()
-            xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
 
-            # Validate generated files before analysis
-            self._validate_generated_files(xml_file, def_file)
+            # Get cached or run new SCIA analysis
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
-            # Create SciaAnalysis object with positional arguments (correct VIKTOR SDK pattern)
-            scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+            # Check if we have valid results
+            if results is None:
+                _raise_no_cached_esa_error()
 
-            # Execute analysis and get the ESA file
-            scia_analysis.execute(timeout=600)  # 10-minute timeout
-            esa_file = scia_analysis.get_updated_esa_model(as_file=True)
+            # Check if we have ESA model in results
+            if results is not None and results.get("esa_model"):
+                esa_content = results["esa_model"]
+                filename = f"SCIA_model_{params.info.bridge_objectnumm}.esa"
+                # Create File object from bytes using the correct method
+                file_obj = File.from_data(esa_content)
+                return DownloadResult(file_obj, filename)
 
-            if not esa_file:
-                self._raise_empty_esa_error()
-
-            return DownloadResult(esa_file, f"SCIA_model_{params.info.bridge_objectnumm}.esa")
+            # If no ESA model in results, raise error
+            _raise_no_cached_esa_error()
 
         except Exception as e:
-            self._handle_scia_exception(e)
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Download SCIA XML and definition files as a ZIP archive."""
@@ -751,41 +776,37 @@ class BridgeController(ViktorController):
         """Raise error for unexpected type of fresh_xml_output_file."""
         raise UserError(f"Unexpected type for fresh_xml_output_file: {type(fresh_xml_output_file)}")
 
-    def download_scia_output_xml(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+    def download_scia_output_xml(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """Download the SCIA output XML file for investigation."""
         if not params.bridge_segments_array:
             self._raise_no_bridge_segments_error()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_no_cached_results_error() -> None:
+            """Raise error for missing cached results."""
+            raise UserError("Geen gecachte SCIA resultaten gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
 
         try:
             # Get the ESA template path
             template_path = self._get_scia_template_path()
 
-            # Run SCIA analysis to get the output XML
-            analysis = run_scia_analysis(params, template_path)
+            # Get cached or run new SCIA analysis
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
-            # Get the XML output file
-            fresh_xml_output_file = analysis.get_xml_output_file()
+            # Check if we have XML output in cached results
+            if results is not None and "xml_output" in results and results["xml_output"]:
+                xml_content = results["xml_output"]
+                filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
+                # Create File object from bytes using the correct method
+                file_obj = File.from_data(xml_content)
+                return DownloadResult(file_obj, filename)
 
-            if not fresh_xml_output_file:
-                self._raise_no_xml_output_error()
-
-            # Create a filename with bridge identifier
-            filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
-
-            # Extract content from the XML output file
-            if hasattr(fresh_xml_output_file, "getvalue"):
-                xml_content = fresh_xml_output_file.getvalue()
-            elif hasattr(fresh_xml_output_file, "read"):
-                fresh_xml_output_file.seek(0)
-                xml_content = fresh_xml_output_file.read()
-                fresh_xml_output_file.seek(0)  # Reset position
-            else:
-                xml_content = fresh_xml_output_file
-
-            # Write the content to the File object using the correct method
-            file_obj = File.from_bytes(xml_content, filename)
-
-            return DownloadResult(file_obj, filename)
+            # If no cached results or no XML output, raise error
+            _raise_no_cached_results_error()
 
         except Exception as e:
             raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
@@ -813,8 +834,8 @@ class BridgeController(ViktorController):
 
         return TableResult(data, column_headers=columns)
 
-    @TableView("IDEA RCS resultaten", duration_guess=4)
-    def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+    @TableView("IDEA RCS resultaten", duration_guess=90)
+    def get_view_idea_rcs_results(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Toon een tabel met resultaten van de IDEA RCS analyse.
 
@@ -823,18 +844,36 @@ class BridgeController(ViktorController):
         :returns: TableResult met unieke zone keys
         :rtype: TableResult
         """
-        # Generate XML input file
-        model = create_bridge_idea_model(params)
-        xml_input = model.generate_xml_input()
+        # Get entity ID from kwargs
+        entity_id = kwargs.get("entity_id")
+        if entity_id is None:
+            raise UserError("Entity ID not found in kwargs")
 
-        analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
-        analysis.execute(120)
+        # Get cached IDEA analysis results
+        cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
+        if cached_results is None:
+            raise UserError("IDEA analysis failed or no cached results available")
 
-        idea_output_xml_bytes = analysis.get_output_file(as_file=True)
+        # Extract results from cache
+        output_content = cached_results.get("output_content")
+        if output_content is None:
+            raise UserError("Cached IDEA results are incomplete")
 
-        # Obtain the results for specific or all section(s).
-        with idea_output_xml_bytes.open_binary() as f:
-            parser = idea_rcs.RcsOutputFileParser(f)
+        # Create a BytesIO object from the cached content for parsing
+        output_file_obj = BytesIO(output_content)
+
+        # Check if the analysis failed
+        if cached_results.get("analysis_status") == "failed":
+            error_msg = cached_results.get("error", "Unknown error")
+            return TableResult(
+                [["Analyse gefaald", error_msg, "", "", "", "", "", ""]],
+                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
+            )
+
+        # Try to parse the results
+        try:
+            # Obtain the results for specific or all section(s).
+            parser = idea_rcs.RcsOutputFileParser(output_file_obj)
 
             # Prepare data for the table
             data = []
@@ -862,9 +901,16 @@ class BridgeController(ViktorController):
                     ]
                 )
 
-        return TableResult(data, column_headers=columns)
+            return TableResult(data, column_headers=columns)
 
-    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+        except Exception as e:
+            # If parsing fails, return an error message
+            return TableResult(
+                [["Parsing fout", f"Kon resultaten niet parsen: {e!s}", "", "", "", "", "", ""]],
+                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
+            )
+
+    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
         Download IDEA StatiCa RCS XML input file for cross-section analysis.
 
@@ -876,23 +922,47 @@ class BridgeController(ViktorController):
         :returns: XML file download for IDEA RCS
         :rtype: DownloadResult
         """
+
+        def _raise_entity_id_error() -> None:
+            raise UserError("Entity ID not found in kwargs")
+
+        def _raise_model_creation_error() -> None:
+            raise UserError("IDEA model creation failed or no cached results available")
+
+        def _raise_incomplete_model_error() -> None:
+            raise UserError("Cached IDEA model is incomplete")
+
         try:
-            # Generate XML input file
-            model = create_bridge_idea_model(params)
-            xml_file = model.generate_xml_input()
+            # Get entity ID from kwargs
+            entity_id = kwargs.get("entity_id")
+            if entity_id is None:
+                _raise_entity_id_error()
+
+            # Get cached IDEA model
+            assert entity_id is not None  # type: ignore[unreachable]
+            cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_model_only)
+            if cached_results is None:
+                _raise_model_creation_error()
+
+            # Extract XML input from cache
+            assert cached_results is not None  # type: ignore[unreachable]
+            xml_input = cached_results.get("xml_input")
+            if xml_input is None:
+                _raise_incomplete_model_error()
 
             # Validate content
-            xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+            assert xml_input is not None  # type: ignore[unreachable]
+            xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
 
             if not xml_content:
                 self._raise_empty_idea_xml_error()
 
-            return DownloadResult(xml_file, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
+            return DownloadResult(xml_input, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
 
-    def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
+    def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
         Download IDEA StatiCa RCS analysis results for cross-section capacity assessment.
 
@@ -906,18 +976,31 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
-        # Generate XML input file
-        model = create_bridge_idea_model(params)
-        xml_file = model.generate_xml_input()
+        # Get entity ID from kwargs
+        entity_id = kwargs.get("entity_id")
+        if entity_id is None:
+            raise UserError("Entity ID not found in kwargs")
+
+        # Get cached IDEA analysis results
+        cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
+        if cached_results is None:
+            raise UserError("IDEA analysis failed or no cached results available")
+
+        # Extract results from cache
+        assert cached_results is not None  # type: ignore[unreachable]
+        model = cached_results.get("model")
+        xml_input = cached_results.get("xml_input")
+        output_content = cached_results.get("output_content")
+
+        if model is None or xml_input is None or output_content is None:
+            raise UserError("Cached IDEA results are incomplete")
 
         # Validate content
-        xml_content = xml_file.getvalue() if hasattr(xml_file, "getvalue") else xml_file.read() if hasattr(xml_file, "read") else b""
+        assert xml_input is not None  # type: ignore[unreachable]
+        xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
 
         if not xml_content:
             self._raise_empty_idea_xml_error()
-
-        # Run cross-section analysis
-        output_file = run_idea_analysis(model, timeout=240)
 
         # Create ZIP with XML input and analysis results
         zip_file_obj = File()
@@ -926,13 +1009,7 @@ class BridgeController(ViktorController):
             z.writestr(f"IDEA_rcs_input_model_{params.info.bridge_objectnumm}.xml", xml_content)
 
             # Add analysis output results
-            if hasattr(output_file, "getvalue"):
-                output_content = output_file.getvalue()
-                z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
-            elif hasattr(output_file, "source"):
-                # If it's a File object
-                with output_file.open_binary() as f:
-                    z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", f.read())
+            z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
 
         return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
 
