@@ -139,6 +139,7 @@ def create_udl_traffic_loads(  # noqa: PLR0913
 # These functions connect tandem loads to theoretical traffic lanes from
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
+
 def generate_theoretical_lane_positions_bg8000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
@@ -231,7 +232,7 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
-    
+
     results = []
     # Only generate for BG8 (first lane position)
     if lane_y_positions:
