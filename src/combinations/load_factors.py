@@ -36,14 +36,18 @@ ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_table
 # ===================================================================================================================
 
 
-def apply_gamma_for_combination(
+# Type alias for boolean mask inputs (pandas or numpy)
+MaskType = pd.Series | np.ndarray
+
+
+def apply_gamma_for_combination(  # noqa: PLR0913 - clear, explicit arguments preferred here
     df: pd.DataFrame,
     combination: str,
     gamma_factors: dict[str, dict[str, float]],
-    permanent_mask: pd.Series,
-    traffic_mask: pd.Series,
-    wind_mask: pd.Series,
-    other_mask: pd.Series,
+    permanent_mask: MaskType,
+    traffic_mask: MaskType,
+    wind_mask: MaskType,
+    other_mask: MaskType,
 ) -> None:
     """
     Apply gamma factors to the given DataFrame for a specific combination key.

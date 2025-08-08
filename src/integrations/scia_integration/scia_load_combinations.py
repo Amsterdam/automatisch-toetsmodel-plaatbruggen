@@ -130,7 +130,7 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
     """
 
     # Helper to safely read params as dict or attribute object
-    def _get_value(obj: Any, key: str) -> Any:
+    def _get_value(obj: object, key: str) -> object:
         if isinstance(obj, dict):
             return obj.get(key)
         return getattr(obj, key, None)
@@ -276,8 +276,8 @@ def create_uls_combinations_from_table(
     :returns: List of SCIA load combinations for ULS.
     :rtype: list[SciaLoadCombination]
     """
-    df = load_combination_table_without_rounding(params)
-    uls_df = _filter_by_prefix(df, ["6.10a", "6.10b"])
+    df_combinations = load_combination_table_without_rounding(params)
+    uls_df = _filter_by_prefix(df_combinations, ["6.10a", "6.10b"])
     return _create_combinations_from_df(
         builder=builder,
         df=uls_df,
@@ -298,8 +298,8 @@ def create_sls_combinations_from_table(
     :returns: List of SCIA load combinations for SLS.
     :rtype: list[SciaLoadCombination]
     """
-    df = load_combination_table_without_rounding(params)
-    sls_df = _filter_by_prefix(df, ["6.14b", "6.15b", "6.16b"])
+    df_combinations = load_combination_table_without_rounding(params)
+    sls_df = _filter_by_prefix(df_combinations, ["6.14b", "6.15b", "6.16b"])
     return _create_combinations_from_df(
         builder=builder,
         df=sls_df,
@@ -320,8 +320,8 @@ def create_fatigue_combinations_from_table(
     :returns: List of SCIA load combinations for fatigue.
     :rtype: list[SciaLoadCombination]
     """
-    df = load_combination_table_without_rounding(params)
-    fatigue_df = _filter_by_prefix(df, ["6.67", "6.69"])
+    df_combinations = load_combination_table_without_rounding(params)
+    fatigue_df = _filter_by_prefix(df_combinations, ["6.67", "6.69"])
     return _create_combinations_from_df(
         builder=builder,
         df=fatigue_df,
@@ -450,8 +450,6 @@ def create_all_load_combinations(
     combinations.extend(create_fatigue_combinations_from_table(params, builder, all_load_cases))
 
     # TODO: Extend with additional families when available
-    # combinations.extend(create_temperature_only_combinations(...))
-    # combinations.extend(create_accidental_situation_combinations(...))
 
     return combinations
 
