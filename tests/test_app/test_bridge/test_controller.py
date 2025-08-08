@@ -4,13 +4,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
-from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
 from src.geometry.load_zone_geometry import _create_bridge_segment_dimensions_from_params, _prepare_bridge_geometry_for_plotting
 from src.geometry.model_creator import BridgeSegmentDimensions
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import controller_test_wrapper
+from viktor.errors import UserError
 
 
 class TestBridgeController(unittest.TestCase):
@@ -121,7 +121,7 @@ class TestBridgeController(unittest.TestCase):
     def test_get_bridge_entity_data_invalid_entity_id(self) -> None:
         """Test fetching bridge entity data with invalid entity ID."""
         # Act
-        objectnumm, name, error_result = self.controller._get_bridge_entity_data(None)  # type: ignore[arg-type]  # noqa: SLF001
+        objectnumm, name, error_result = self.controller._get_bridge_entity_data(None)  # type: ignore[arg-type]
 
         # Assert
         assert objectnumm is None
@@ -137,7 +137,7 @@ class TestBridgeController(unittest.TestCase):
         entity_id = None
 
         # Act
-        objectnumm, name, error_result = self.controller._get_bridge_entity_data(entity_id)  # type: ignore[arg-type]  # noqa: SLF001
+        objectnumm, name, error_result = self.controller._get_bridge_entity_data(entity_id)  # type: ignore[arg-type]
 
         # Assert - with invalid ID, should return None values and error
         assert objectnumm is None

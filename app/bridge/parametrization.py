@@ -5,6 +5,17 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
@@ -24,18 +35,6 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
-)
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -408,8 +407,10 @@ Below you will find important information about this bridge structure."""
     info.theoretical_length = TextField("Theoretische Lengte", default="", suffix="m", description="Theoretische overspanningslengte")
     info.deck_width = TextField("Brugdekbreedte", default="", suffix="m", description="Totale breedte van het brugdek")
     info.construction_height = NumberField("Constructiehoogte", default=0.0, suffix="mm", description="Hoogte van de dekconstuctie")
-    info.slenderness = TextField("Slankheidsverhouding", default="", description="Slankheidsverhouding van de dekoverspanningen")
-    info.daily_length = TextField("Ldag", default="", suffix="m", description="Dagelijkse lengte van de brug")
+    info.slenderness = NumberField("Slankheidsverhouding", default=0.0, description="Slankheidsverhouding van de dekoverspanningen")
+    info.daily_length = TextField(
+        "Ldag", default="", suffix="m", description="Lengte van de brug tussen de steunpunten, waar krachten worden afgelezen"
+    )
 
     info.lb2c = LineBreak()
 
@@ -519,10 +520,10 @@ Below you will find important information about this bridge structure."""
     )
     input.belastingcombinaties.lb = LineBreak()
     input.belastingcombinaties.design_code = OptionField(
-        "Norm", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
+        "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
     )
     input.belastingcombinaties.lb1 = LineBreak()
-    input.belastingcombinaties.shortest_span = NumberField("Korste overspanning L", default=20, suffix="m", name="shortest_span")
+    input.belastingcombinaties.shortest_span = NumberField("Kortste overspanning L", default=20, suffix="m", name="shortest_span")
 
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---

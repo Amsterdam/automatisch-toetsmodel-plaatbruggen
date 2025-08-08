@@ -145,7 +145,7 @@ SCIA Engineer ondersteunt een brede range aan materialen via string-gebaseerde n
 **Volledig ondersteund:**
 - **Alle moderne Eurocode materialen** (C12/15 tot C90/105, B500A/B/C)
 - **Oudere Nederlandse materialen** (K150-K600, B12,5-B65)
-- **Oude wapeningsstaal** (QR22-QR54, QRn32-QRn54, FeB 220/400/500)
+- **Oud wapeningsstaal** (QR22-QR54, QRn32-QRn54, FeB 220/400/500)
 - **Historische staalsoorten** (St. 37, St. 52, Speciaal st. 36/48)
 
 **Voordeel:** SCIA accepteert materialen direct zoals ze in de project database staan.

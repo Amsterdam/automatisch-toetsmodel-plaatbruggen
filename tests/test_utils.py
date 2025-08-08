@@ -292,7 +292,7 @@ class EnhancedTestResult(unittest.TestResult):
         exc_type, exc_value, exc_traceback = err
 
         # Extract relevant information
-        test_name = test._testMethodName  # noqa: SLF001
+        test_name = test._testMethodName
         test_class = test.__class__.__name__
         error_msg = str(exc_value)
 

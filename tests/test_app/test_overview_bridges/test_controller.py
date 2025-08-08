@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
-from viktor.errors import UserError
 
 from app.overview_bridges.controller import OverviewBridgesController
 from tests.test_data.seed_loader import create_mocked_entity_list, load_overview_bridges_default_params
+from viktor.errors import UserError
 
 
 class TestOverviewBridgesController(unittest.TestCase):
@@ -41,7 +41,7 @@ class TestOverviewBridgesController(unittest.TestCase):
             mock_exists.return_value = True
 
             # Act
-            result = self.controller._get_resource_paths()  # noqa: SLF001
+            result = self.controller._get_resource_paths()
 
             # Assert
             assert len(result) == 3
@@ -55,7 +55,7 @@ class TestOverviewBridgesController(unittest.TestCase):
             file_path = "/path/to/filtered_bridges.json"
 
             # Act
-            result = self.controller._load_filtered_bridges(file_path)  # noqa: SLF001
+            result = self.controller._load_filtered_bridges(file_path)
 
             # Assert
             assert isinstance(result, list)
@@ -69,7 +69,7 @@ class TestOverviewBridgesController(unittest.TestCase):
 
             # Act & Assert
             with pytest.raises(UserError):
-                self.controller._load_filtered_bridges(file_path)  # noqa: SLF001
+                self.controller._load_filtered_bridges(file_path)
 
     @patch("app.overview_bridges.controller.gpd.read_file")
     def test_load_shapefile_and_names_success(self, mock_read_file: MagicMock) -> None:
@@ -84,7 +84,7 @@ class TestOverviewBridgesController(unittest.TestCase):
         shapefile_path = "test_bridges.shp"
 
         # Act
-        result = self.controller._load_shapefile_and_names(shapefile_path)  # noqa: SLF001
+        result = self.controller._load_shapefile_and_names(shapefile_path)
 
         # Assert
         assert isinstance(result, dict)
@@ -104,7 +104,7 @@ class TestOverviewBridgesController(unittest.TestCase):
         shapefile_path = "/path/to/shapefile.shp"
 
         # Act
-        result = self.controller._load_shapefile_and_names(shapefile_path)  # noqa: SLF001
+        result = self.controller._load_shapefile_and_names(shapefile_path)
 
         # Assert
         assert isinstance(result, dict)
@@ -131,7 +131,7 @@ class TestOverviewBridgesController(unittest.TestCase):
         entity_id = 123
 
         # Act
-        result = self.controller._get_existing_child_objectnumms(entity_id)  # noqa: SLF001
+        result = self.controller._get_existing_child_objectnumms(entity_id)
 
         # Assert
         assert isinstance(result, set)
@@ -149,7 +149,7 @@ class TestOverviewBridgesController(unittest.TestCase):
 
         # Act & Assert
         with pytest.raises(UserError):
-            self.controller._get_existing_child_objectnumms(entity_id)  # noqa: SLF001
+            self.controller._get_existing_child_objectnumms(entity_id)
 
     @patch("viktor.api_v1.API")
     def test_create_missing_children_success(self, mock_api_class: MagicMock) -> None:
@@ -167,7 +167,7 @@ class TestOverviewBridgesController(unittest.TestCase):
         existing_objectnumms: set[str] = {"BRIDGE-001"}  # BRIDGE-001 already exists
 
         # Act
-        self.controller._create_missing_children(parent_entity_id, filtered_bridge_data, objectnumm_to_name, existing_objectnumms)  # noqa: SLF001
+        self.controller._create_missing_children(parent_entity_id, filtered_bridge_data, objectnumm_to_name, existing_objectnumms)
 
         # Assert
         # Should only create BRIDGE-002 (BRIDGE-001 already exists)
@@ -194,7 +194,7 @@ class TestOverviewBridgesController(unittest.TestCase):
         # but we're testing that the method handles invalid data gracefully
         # The API error is expected since we're not mocking the VIKTOR API properly
         with pytest.raises((UserError, AttributeError, TypeError)):
-            self.controller._create_missing_children(parent_entity_id, filtered_bridge_data, objectnumm_to_name, existing_objectnumms)  # noqa: SLF001
+            self.controller._create_missing_children(parent_entity_id, filtered_bridge_data, objectnumm_to_name, existing_objectnumms)
 
     @patch.object(OverviewBridgesController, "_get_resource_paths")
     @patch.object(OverviewBridgesController, "_load_filtered_bridges")
