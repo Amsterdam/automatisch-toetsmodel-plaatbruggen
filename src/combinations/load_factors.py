@@ -36,7 +36,7 @@ ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_table
 # ===================================================================================================================
 
 
-def _apply_gamma_for_combination(
+def apply_gamma_for_combination(
     df: pd.DataFrame,
     combination: str,
     gamma_factors: dict[str, dict[str, float]],
@@ -215,7 +215,7 @@ def create_load_combination_table(params: dict) -> Styler:
 
     # Apply gamma factors based on combination type (6.10a or 6.10b)
     for combination in ["6.10a", "6.10b"]:
-        _apply_gamma_for_combination(
+        apply_gamma_for_combination(
             df=df_combination_table_gamma_psi,
             combination=combination,
             gamma_factors=gamma_factors,
