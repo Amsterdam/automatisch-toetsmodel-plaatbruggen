@@ -14,9 +14,8 @@ from .scia_bridge_geometry import (
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
 )
-from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, tandem_system_sequencer
+from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, tandem_system_sequencer
 from .scia_model_interface import SciaModelBuilder
-from .scia_loads_helper import create_udl_traffic_loads
 
 # Type alias to avoid importing from app layer
 BridgeParametrization = Any
