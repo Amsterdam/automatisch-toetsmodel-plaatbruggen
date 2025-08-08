@@ -37,15 +37,13 @@ def add_udl_loads(
     bridge_params = extract_tandem_parameters_from_bridge(params)
     length = bridge_params["length_bridgedeck"]
     width = bridge_params["width_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
-    width_firstsegment_zone3 = bridge_params.get("width_firstsegment_zone3", 0.0)
-    width_firstsegment_zone2 = bridge_params.get("width_firstsegment_zone2", 0.0)
+    width_firstsegment_zone3 = bridge_params["width_firstsegment_zone3"]
+    width_firstsegment_zone2 = bridge_params["width_firstsegment_zone2"]
 
     # Call the helper to get UDL polygons and loads
     udl_results = create_udl_traffic_loads(
         length,
         width,
-        thickness,
         width_firstsegment_zone3,
         width_firstsegment_zone2,
     )
