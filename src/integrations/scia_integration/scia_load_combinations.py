@@ -38,6 +38,43 @@ GAMMA_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gam
 # ===================================================================================================================
 
 
+def _apply_gamma_for_combination(
+    df: DataFrame,
+    combination: str,
+    gamma_factors: dict[str, dict[str, float]],
+    permanent_mask: Any,
+    traffic_mask: Any,
+    wind_mask: Any,
+    other_mask: Any,
+) -> None:
+    """
+    Apply gamma factors to the given DataFrame for a specific combination key.
+
+    The function updates the DataFrame in place for rows whose index starts with the
+    provided combination prefix (e.g., "6.10a" or "6.10b"). It multiplies the
+    permanent, traffic, wind and other load columns by their respective gamma values.
+
+    :param df: DataFrame with numeric psi-factors indexed by combination names.
+    :type df: pandas.DataFrame
+    :param combination: Combination prefix (e.g. "6.10a").
+    :type combination: str
+    :param gamma_factors: Mapping of combination -> gamma keys -> values.
+    :type gamma_factors: dict[str, dict[str, float]]
+    :param permanent_mask: Boolean mask for permanent load columns.
+    :param traffic_mask: Boolean mask for traffic load columns.
+    :param wind_mask: Boolean mask for wind load columns.
+    :param other_mask: Boolean mask for other load columns (snow, temperature).
+    """
+    combo_mask = df.index.str.startswith(combination)
+    if not combo_mask.any():
+        return
+
+    df.loc[combo_mask, permanent_mask] = df.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
+    df.loc[combo_mask, traffic_mask] = df.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
+    df.loc[combo_mask, wind_mask] = df.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
+    df.loc[combo_mask, other_mask] = df.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
+
+
 def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: ANN401
     """
     Generate the load combination table for the bridge model, without rounding factors.
@@ -128,24 +165,15 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
 
     # Apply gamma factors based on combination type (6.10a or 6.10b)
     for combination in ["6.10a", "6.10b"]:
-        combo_mask = df_combination_table_gamma_psi.index.str.startswith(combination)
-        if combo_mask.any():
-            # Multiply permanent loads with gamma_Gjsup
-            df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
-            )
-            # Multiply traffic loads with gamma_Qverkeer
-            df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
-            )
-            # Multiply wind loads with gamma_Qwind
-            df_combination_table_gamma_psi.loc[combo_mask, wind_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
-            )
-            # Multiply other loads with gamma_Qoverig
-            df_combination_table_gamma_psi.loc[combo_mask, other_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
-            )
+        _apply_gamma_for_combination(
+            df=df_combination_table_gamma_psi,
+            combination=combination,
+            gamma_factors=gamma_factors,
+            permanent_mask=permanent_mask,
+            traffic_mask=traffic_mask,
+            wind_mask=wind_mask,
+            other_mask=other_mask,
+        )
 
     # Filter out rows that only contain zeros
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
@@ -261,59 +289,38 @@ def create_scia_load_combinations(  # noqa: C901
         else:
             out[series_obj] = factor
 
-    # ULS combinations
-    for idx, row in uls_df.iterrows():
-        load_case_factors = {}
-        for subject, factor in row.items():
-            if factor == 0:
-                continue
-            series_list = subject_to_series.get(subject, [])  # type: ignore[call-overload]
-            for series in series_list:
-                _add_series_to_factors(series, float(factor), load_case_factors)
-        combination = create_load_combination(
-            builder=builder,
-            combination_type=SciaCombinationType.ENVELOPE_ULTIMATE,
-            combination_name=str(idx),
-            load_case_factors=load_case_factors,
-            description=f"ULS Combination {idx}",
-        )
-        combinations.append(combination)
+    def _series_list(subject: str) -> list[str]:
+        return subject_to_series.get(subject, [])
 
-    # SLS combinations (characteristic)
-    for idx, row in sls_df.iterrows():
-        load_case_factors = {}
-        for subject, factor in row.items():
-            if factor == 0:
+    def _create_combinations_from_df(
+        df: DataFrame,
+        combination_type: SciaCombinationType,
+        desc_prefix: str,
+    ) -> list[SciaLoadCombination]:
+        results: list[SciaLoadCombination] = []
+        for idx, row in df.iterrows():
+            load_case_factors: dict[SciaLoadCase, float] = {}
+            for subject, factor in row.items():
+                if factor == 0:
+                    continue
+                for series in _series_list(str(subject)):
+                    _add_series_to_factors(series, float(factor), load_case_factors)
+            if not load_case_factors:
                 continue
-            series_list = subject_to_series.get(subject, [])  # type: ignore[call-overload]
-            for series in series_list:
-                _add_series_to_factors(series, float(factor), load_case_factors)
-        combination = create_load_combination(
-            builder=builder,
-            combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
-            combination_name=str(idx),
-            load_case_factors=load_case_factors,
-            description=f"SLS Combination {idx}",
-        )
-        combinations.append(combination)
+            results.append(
+                create_load_combination(
+                    builder=builder,
+                    combination_type=combination_type,
+                    combination_name=str(idx),
+                    load_case_factors=load_case_factors,
+                    description=f"{desc_prefix} {idx}",
+                )
+            )
+        return results
 
-    # Fatigue combinations
-    for idx, row in fatigue_df.iterrows():
-        load_case_factors = {}
-        for subject, factor in row.items():
-            if factor == 0:
-                continue
-            series_list = subject_to_series.get(subject, [])  # type: ignore[call-overload]
-            for series in series_list:
-                _add_series_to_factors(series, float(factor), load_case_factors)
-        combination = create_load_combination(
-            builder=builder,
-            combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
-            combination_name=str(idx),
-            load_case_factors=load_case_factors,
-            description=f"Fatigue Combination {idx}",
-        )
-        combinations.append(combination)
+    combinations.extend(_create_combinations_from_df(uls_df, SciaCombinationType.ENVELOPE_ULTIMATE, "ULS Combination"))
+    combinations.extend(_create_combinations_from_df(sls_df, SciaCombinationType.ENVELOPE_SERVICEABILITY, "SLS Combination"))
+    combinations.extend(_create_combinations_from_df(fatigue_df, SciaCombinationType.ENVELOPE_SERVICEABILITY, "Fatigue Combination"))
 
     return combinations
 
