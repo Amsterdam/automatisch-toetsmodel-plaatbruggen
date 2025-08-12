@@ -17,7 +17,14 @@ from typing import Any
 import pandas as pd
 from pandas import DataFrame
 
-from src.combinations.load_factors import apply_gamma_for_combination, get_gamma_factors
+from src.combinations.load_factors import (
+    apply_gamma_for_combination,
+    get_gamma_factors,
+    get_load_categories,
+    get_project_scope,
+    get_leading_action_positions,
+    prepare_combination_table,
+)
 
 from .scia_model_interface import SciaCombinationType, SciaLoadCombination, SciaModelBuilder
 
@@ -128,108 +135,26 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
     :raises KeyError: If required parameters are missing from params.
     :raises ValueError: If gamma factors could not be derived for given parameters.
     """
+    # Helper to safely convert params to dict format
+    def _convert_to_dict(params_obj: Any) -> dict:  # noqa: ANN401
+        if isinstance(params_obj, dict):
+            return params_obj
+        return {
+            "cc_class": getattr(params_obj, "cc_class", None),
+            "design_code": getattr(params_obj, "design_code", None),
+            "info": {"construction_year": getattr(getattr(params_obj, "info", None), "construction_year", None)},
+        }
 
-    # Helper to safely read params as dict or attribute object
-    def _get_value(obj: object, key: str) -> object:
-        if isinstance(obj, dict):
-            return obj.get(key)
-        return getattr(obj, key, None)
-
-    # Read the code tables from CSV and set "Combinatie" as index
-    df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
-
-    # Lists for load cases related to permanent-, traffic-, wind- and other loads
-    permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
-    traffic_loads = [
-        "TS",
-        "UDL",
-        "Enkele as",
-        "Horizontale belasting",
-        "Dienstvoertuig Qserv",
-        "Fiets- en voetpaden",
-        "Mensenmenigte",
-        "Bijzondere voertuigen",
-        "Onbedoeld voertuig",
-    ]
-    wind_loads = ["Wind Fwk", "Wind Fw*"]
-    temperature_loads = ["Temperatuur"]
-    snow_loads = ["Sneeuw"]
-    other_loads = temperature_loads + snow_loads
-
-    # Table positions for leading actions which should be highlighted
-    leading_action_positions = {
-        ("Perm", "Permanent"),
-        ("Perm", "Voorspanning"),
-        ("Perm zet", "Zetting"),
-        ("gr1a", "TS"),
-        ("gr1a", "UDL"),
-        ("gr1b", "Enkele as"),
-        ("gr2", "Horizontale belasting"),
-        ("gr2", "Dienstvoertuig Qserv"),
-        ("gr3", "Fiets- en voetpaden"),
-        ("gr4", "Mensenmenigte"),
-        ("gr5", "Bijzondere voertuigen"),
-        ("Onb. vrtg.", "Onbedoeld voertuig"),
-        ("Wind gr1a", "Wind Fwk"),
-        ("Wind gr2", "Wind Fwk"),
-        ("Temp gr1", "Temperatuur"),
-        ("Temp gr2", "Temperatuur"),
-        ("Sneeuw", "Sneeuw"),
-        ("Cal gr1a", "Calamiteit"),
-        ("Cal gr2", "Calamiteit"),
-    }
-
-    # Create load combination gamma values
-    cc_class = _get_value(params, "cc_class")
-    design_code = _get_value(params, "design_code")
-    info = _get_value(params, "info")
-    construction_year = _get_value(info, "construction_year") if info is not None else None
-
-    if cc_class is None or design_code is None or construction_year is None:
-        raise KeyError("Missing required parameters: cc_class, design_code and/or info.construction_year")
-
-    gamma_factors = get_gamma_factors(cc=str(cc_class), safety_level=str(design_code), building_year=str(construction_year))
-
-    # Multiply the psi factors with the gamma factors for all load cases
-    # Create a copy and convert to float64 to ensure dtype compatibility
-    df_combination_table_gamma_psi = df_combination_table_psi.astype("float64")
-
-    # Create masks for different load types based on column names
-    permanent_mask = df_combination_table_gamma_psi.columns.isin(permanent_loads)
-    traffic_mask = df_combination_table_gamma_psi.columns.isin(traffic_loads)
-    wind_mask = df_combination_table_gamma_psi.columns.isin(wind_loads)
-    other_mask = df_combination_table_gamma_psi.columns.isin(other_loads)
-
-    # Apply gamma factors based on combination type (6.10a or 6.10b)
-    for combination in ["6.10a", "6.10b"]:
-        apply_gamma_for_combination(
-            df=df_combination_table_gamma_psi,
-            combination=combination,
-            gamma_factors=gamma_factors,
-            permanent_mask=permanent_mask,
-            traffic_mask=traffic_mask,
-            wind_mask=wind_mask,
-            other_mask=other_mask,
-        )
-
-    # Filter out rows that only contain zeros
-    df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
+    # Convert params to dict format and prepare the initial table
+    params_dict = _convert_to_dict(params)
+    df_combination_table_gamma_psi = prepare_combination_table(params_dict)
 
     # Filter columns so that the load cases represent the project scope
-    load_cases_project = [
-        "Permanent",
-        "TS",
-        "UDL",
-        "Dienstvoertuig Qserv",
-        "Fiets- en voetpaden",
-        "Mensenmenigte",
-        "Onbedoeld voertuig",
-        "Temperatuur",
-    ]
+    load_cases_project = get_project_scope()
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
 
     # Filter rows so that the load cases represent the project scope
-    load_combinations_project = [(row_name, col_name) for row_name, col_name in leading_action_positions if col_name in load_cases_project]
+    load_combinations_project = [(row_name, col_name) for row_name, col_name in get_leading_action_positions() if col_name in load_cases_project]
 
     # Filter rows based on load_combinations_project
     valid_row_names = {row_name for row_name, _ in load_combinations_project}
