@@ -1,3 +1,10 @@
+## [`v0.0.10`] - 2025-08-14
+### Added
+- SCIA load combinations
+### Changed
+### Removed
+### Fixed
+- Refactored functions for load combination table
 ## [`v0.0.9`] - 2025-07-31
 ### Added
 - SCIA load cases BG 4000 series, 6000 series, 7000 series, 8000 series, 9000 series and 10000 series
