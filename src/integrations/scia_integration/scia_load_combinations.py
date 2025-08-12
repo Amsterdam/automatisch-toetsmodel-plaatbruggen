@@ -18,11 +18,8 @@ import pandas as pd
 from pandas import DataFrame
 
 from src.combinations.load_factors import (
-    apply_gamma_for_combination,
-    get_gamma_factors,
-    get_load_categories,
-    get_project_scope,
     get_leading_action_positions,
+    get_project_scope,
     prepare_combination_table,
 )
 
@@ -135,6 +132,7 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
     :raises KeyError: If required parameters are missing from params.
     :raises ValueError: If gamma factors could not be derived for given parameters.
     """
+
     # Helper to safely convert params to dict format
     def _convert_to_dict(params_obj: Any) -> dict:  # noqa: ANN401
         if isinstance(params_obj, dict):
