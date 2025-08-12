@@ -282,7 +282,7 @@ class TestBridgeControllerViews(unittest.TestCase):
 
         # Should contain error message
         error_point = result.features[0]
-        assert "Ongeldige entity ID" in error_point._description  # noqa: SLF001
+        assert "Ongeldige entity ID" in error_point._description
 
     # NOTE: get_output_report tests removed due to external VIKTOR API dependencies
     # The report generation function uses viktor.utils.convert_word_to_pdf which requires
