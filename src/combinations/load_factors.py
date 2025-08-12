@@ -36,6 +36,34 @@ ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_table
 # ===================================================================================================================
 
 
+# Type alias for boolean mask inputs (pandas or numpy)
+MaskType = pd.Series | np.ndarray
+
+
+def apply_gamma_for_combination(  # noqa: PLR0913 - clear, explicit arguments preferred here
+    df: pd.DataFrame,
+    combination: str,
+    gamma_factors: dict[str, dict[str, float]],
+    permanent_mask: MaskType,
+    traffic_mask: MaskType,
+    wind_mask: MaskType,
+    other_mask: MaskType,
+) -> None:
+    """
+    Apply gamma factors to the given DataFrame for a specific combination key.
+
+    Updates df in place for rows whose index starts with the given combination prefix.
+    """
+    combo_mask = df.index.str.startswith(combination)
+    if not combo_mask.any():
+        return
+
+    df.loc[combo_mask, permanent_mask] = df.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
+    df.loc[combo_mask, traffic_mask] = df.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
+    df.loc[combo_mask, wind_mask] = df.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
+    df.loc[combo_mask, other_mask] = df.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
+
+
 def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     """
     Extract gamma factors based on consequence class (CC), assessment level and building year.
@@ -191,24 +219,15 @@ def create_load_combination_table(params: dict) -> Styler:
 
     # Apply gamma factors based on combination type (6.10a or 6.10b)
     for combination in ["6.10a", "6.10b"]:
-        combo_mask = df_combination_table_gamma_psi.index.str.startswith(combination)
-        if combo_mask.any():
-            # Multiply permanent loads with gamma_Gjsup
-            df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
-            )
-            # Multiply traffic loads with gamma_Qverkeer
-            df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
-            )
-            # Multiply wind loads with gamma_Qwind
-            df_combination_table_gamma_psi.loc[combo_mask, wind_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
-            )
-            # Multiply other loads with gamma_Qoverig
-            df_combination_table_gamma_psi.loc[combo_mask, other_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
-            )
+        apply_gamma_for_combination(
+            df=df_combination_table_gamma_psi,
+            combination=combination,
+            gamma_factors=gamma_factors,
+            permanent_mask=permanent_mask,
+            traffic_mask=traffic_mask,
+            wind_mask=wind_mask,
+            other_mask=other_mask,
+        )
 
     # Filter out rows that only contain zeros
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]

@@ -17,8 +17,7 @@ from typing import Any
 import pandas as pd
 from pandas import DataFrame
 
-from app.bridge.parametrization import BridgeParametrization
-from src.combinations.load_factors import get_gamma_factors
+from src.combinations.load_factors import apply_gamma_for_combination, get_gamma_factors
 
 from .scia_model_interface import SciaCombinationType, SciaLoadCombination, SciaModelBuilder
 
@@ -33,17 +32,87 @@ SciaLoadCase = Any
 PROJECT_PATH = Path(__file__).parent.parent.parent.parent
 PSI_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN_8700.csv"
 GAMMA_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamma_NEN_8700.csv"
-# psi en alpha trend factors apply to load cases.
-PSI_NEN_8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN_8701.csv"
-ALPHA_TREND_NEN_8701_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_trend_NEN_8701.csv"
-ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Alpha_Q_q_NEN_EN_1991_2.csv"
 
 # ===================================================================================================================
 # Functions
 # ===================================================================================================================
 
+# Mapping from table subject columns to load case series keys
+SUBJECT_TO_SERIES: dict[str, list[str]] = {
+    "Permanent": ["self_weight", "dead_load_cases"],
+    "TS": ["tandem_cases"],
+    "UDL": ["udl_traffic_cases"],
+    "Dienstvoertuig Qserv": ["service_vehicle_cases"],
+    "Fiets- en voetpaden": ["pedestrian"],
+    "Mensenmenigte": ["pedestrian"],
+    "Onbedoeld voertuig": ["unintended_vehicle_cases"],
+    "Temperatuur": ["temperature_cases"],
+}
 
-def load_combination_table_without_rounding(params: BridgeParametrization) -> DataFrame:
+
+def _series_list(subject: str) -> list[str]:
+    return SUBJECT_TO_SERIES.get(subject, [])
+
+
+def _add_series_to_factors_generic(
+    all_load_cases: dict[str, Any],
+    series_key: str,
+    factor: float,
+    out: dict[SciaLoadCase, float],
+) -> None:
+    series_obj = all_load_cases.get(series_key)
+    if series_obj is None:
+        return
+    if isinstance(series_obj, dict):
+        for case in series_obj.values():
+            out[case] = factor
+    else:
+        out[series_obj] = factor
+
+
+def _create_combinations_from_df(
+    *,
+    builder: SciaModelBuilder,
+    df: DataFrame,
+    combination_type: SciaCombinationType,
+    desc_prefix: str,
+    all_load_cases: dict[str, Any],
+) -> list[SciaLoadCombination]:
+    results: list[SciaLoadCombination] = []
+    for idx, row in df.iterrows():
+        load_case_factors: dict[SciaLoadCase, float] = {}
+        for subject, factor in row.items():
+            # Skip non-numeric, NaN, or zero factors
+            if factor is None:
+                continue
+            try:
+                numeric_factor = float(factor)
+            except (TypeError, ValueError):
+                continue
+            if pd.isna(numeric_factor) or numeric_factor == 0.0:
+                continue
+            for series in _series_list(str(subject)):
+                _add_series_to_factors_generic(all_load_cases, series_key=series, factor=numeric_factor, out=load_case_factors)
+        if not load_case_factors:
+            continue
+        results.append(
+            create_load_combination(
+                builder=builder,
+                combination_type=combination_type,
+                combination_name=str(idx),
+                load_case_factors=load_case_factors,
+                description=f"{desc_prefix} {idx}",
+            )
+        )
+    return results
+
+
+def _filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
+    """Filter DataFrame rows where the index starts with any of the given prefixes."""
+    return df[df.index.to_series().str.startswith(tuple(prefixes))]
+
+
+def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: ANN401
     """
     Generate the load combination table for the bridge model, without rounding factors.
 
@@ -51,13 +120,21 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
     based on the project parameters, and filters the table to include only relevant load cases and combinations.
     The resulting DataFrame contains the initial (non-rounded) factors for each combination and load case.
 
-    :param params: The bridge parametrization object containing user/project input.
-    :type params: BridgeParametrization
+    :param params: The bridge parameters object or dict containing user/project input.
+    :type params: Any
     :returns: DataFrame with load combination factors (not rounded), indexed by combination name.
     :rtype: pandas.DataFrame
     :raises FileNotFoundError: If the required CSV file is missing.
     :raises KeyError: If required parameters are missing from params.
+    :raises ValueError: If gamma factors could not be derived for given parameters.
     """
+
+    # Helper to safely read params as dict or attribute object
+    def _get_value(obj: object, key: str) -> object:
+        if isinstance(obj, dict):
+            return obj.get(key)
+        return getattr(obj, key, None)
+
     # Read the code tables from CSV and set "Combinatie" as index
     df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
@@ -103,7 +180,15 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
     }
 
     # Create load combination gamma values
-    gamma_factors = get_gamma_factors(cc=params["cc_class"], safety_level=params["design_code"], building_year=params["info"]["construction_year"])
+    cc_class = _get_value(params, "cc_class")
+    design_code = _get_value(params, "design_code")
+    info = _get_value(params, "info")
+    construction_year = _get_value(info, "construction_year") if info is not None else None
+
+    if cc_class is None or design_code is None or construction_year is None:
+        raise KeyError("Missing required parameters: cc_class, design_code and/or info.construction_year")
+
+    gamma_factors = get_gamma_factors(cc=str(cc_class), safety_level=str(design_code), building_year=str(construction_year))
 
     # Multiply the psi factors with the gamma factors for all load cases
     # Create a copy and convert to float64 to ensure dtype compatibility
@@ -117,24 +202,15 @@ def load_combination_table_without_rounding(params: BridgeParametrization) -> Da
 
     # Apply gamma factors based on combination type (6.10a or 6.10b)
     for combination in ["6.10a", "6.10b"]:
-        combo_mask = df_combination_table_gamma_psi.index.str.startswith(combination)
-        if combo_mask.any():
-            # Multiply permanent loads with gamma_Gjsup
-            df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
-            )
-            # Multiply traffic loads with gamma_Qverkeer
-            df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
-            )
-            # Multiply wind loads with gamma_Qwind
-            df_combination_table_gamma_psi.loc[combo_mask, wind_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
-            )
-            # Multiply other loads with gamma_Qoverig
-            df_combination_table_gamma_psi.loc[combo_mask, other_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
-            )
+        apply_gamma_for_combination(
+            df=df_combination_table_gamma_psi,
+            combination=combination,
+            gamma_factors=gamma_factors,
+            permanent_mask=permanent_mask,
+            traffic_mask=traffic_mask,
+            wind_mask=wind_mask,
+            other_mask=other_mask,
+        )
 
     # Filter out rows that only contain zeros
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
@@ -189,127 +265,70 @@ def create_load_combination(
     )
 
 
-def create_scia_load_combinations(  # noqa: PLR0912, C901
-    params: BridgeParametrization,
+def create_uls_combinations_from_table(
+    params: Any,  # noqa: ANN401
     builder: SciaModelBuilder,
-    all_load_cases: dict[str, dict],
+    all_load_cases: dict[str, Any],
 ) -> list[SciaLoadCombination]:
     """
-    Create the load combinations for the bridge model, according to Eurocode equations.
+    Create ULS combinations (6.10a/6.10b) from the NEN 8700 combination table.
 
-    This function generates ULS, SLS, and fatigue load combinations for the bridge model by
-    filtering the load combination table using Eurocode row name prefixes. The resulting combinations
-    are created using the SCIA model builder and returned as a list.
-
-    :param params: The bridge parametrization object containing user/project input.
-    :type params: BridgeParametrization
-    :param builder: The SCIA model builder instance used to create load combinations.
-    :type builder: SciaModelBuilder
-    :param all_load_cases: Nested dictionary of all available SCIA load case objects, grouped by series name.
-    :type all_load_cases: dict[str, dict]
-    :returns: List of created SCIA load combination objects (ULS, SLS, and fatigue).
+    :returns: List of SCIA load combinations for ULS.
     :rtype: list[SciaLoadCombination]
-    :raises KeyError: If required load cases are missing from all_load_cases.
     """
-    combinations = []
+    df_combinations = load_combination_table_without_rounding(params)
+    uls_df = _filter_by_prefix(df_combinations, ["6.10a", "6.10b"])
+    return _create_combinations_from_df(
+        builder=builder,
+        df=uls_df,
+        combination_type=SciaCombinationType.ENVELOPE_ULTIMATE,
+        desc_prefix="ULS Combination",
+        all_load_cases=all_load_cases,
+    )
 
-    dataframe_loadcombination = load_combination_table_without_rounding(params)
 
-    # Use row name prefixes for robust selection
-    def _filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
-        """
-        Filter DataFrame rows where the index starts with any of the given prefixes.
+def create_sls_combinations_from_table(
+    params: Any,  # noqa: ANN401
+    builder: SciaModelBuilder,
+    all_load_cases: dict[str, Any],
+) -> list[SciaLoadCombination]:
+    """
+    Create SLS combinations (6.14b/6.15b/6.16b) from the NEN 8700 combination table.
 
-        :param df: DataFrame with string index
-        :param prefixes: list of string prefixes
-        :return: filtered DataFrame.
-        """
-        return df[df.index.to_series().str.startswith(tuple(prefixes))]
+    :returns: List of SCIA load combinations for SLS.
+    :rtype: list[SciaLoadCombination]
+    """
+    df_combinations = load_combination_table_without_rounding(params)
+    sls_df = _filter_by_prefix(df_combinations, ["6.14b", "6.15b", "6.16b"])
+    return _create_combinations_from_df(
+        builder=builder,
+        df=sls_df,
+        combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
+        desc_prefix="SLS Combination",
+        all_load_cases=all_load_cases,
+    )
 
-    uls_df = _filter_by_prefix(dataframe_loadcombination, ["6.10a", "6.10b"])
-    sls_df = _filter_by_prefix(dataframe_loadcombination, ["6.14b", "6.15b", "6.16b"])
-    fatigue_df = _filter_by_prefix(dataframe_loadcombination, ["6.67", "6.69"])
 
-    subject_to_series: dict[str, list[str]] = {
-        "Permanent": ["dead_load_cases"],
-        "TS": ["tandem_cases"],
-        "UDL": ["udl_traffic_cases"],
-        "Dienstvoertuig Qserv": ["service_vehicle_cases"],
-        "Fiets- en voetpaden": ["pedestrian_cases"],
-        "Mensenmenigte": ["pedestrian_cases"],
-        "Onbedoeld voertuig": ["unintended_vehicle_cases"],
-        "Temperatuur": ["temperature_cases"],
-    }
+def create_fatigue_combinations_from_table(
+    params: Any,  # noqa: ANN401
+    builder: SciaModelBuilder,
+    all_load_cases: dict[str, Any],
+) -> list[SciaLoadCombination]:
+    """
+    Create fatigue combinations (6.67/6.69) from the NEN 8700 combination table.
 
-    load_case_lookup = {}
-    for series, cases in all_load_cases.items():
-        if isinstance(cases, dict):
-            load_case_lookup.update(cases)
-
-    # ULS combinations
-    for idx, row in uls_df.iterrows():
-        load_case_factors = {}
-        for subject, factor in row.items():
-            if factor == 0:
-                continue
-            series_list = subject_to_series.get(subject, [])  # type: ignore[call-overload]
-            for series in series_list:
-                cases_dict = all_load_cases.get(series, {})
-                if isinstance(cases_dict, dict):
-                    for case in cases_dict.values():
-                        load_case_factors[case] = factor
-        combination = create_load_combination(
-            builder=builder,
-            combination_type=SciaCombinationType.ENVELOPE_ULTIMATE,
-            combination_name=str(idx),
-            load_case_factors=load_case_factors,
-            description=f"ULS Combination {idx}",
-        )
-        combinations.append(combination)
-
-    # SLS combinations (characteristic)
-    for idx, row in sls_df.iterrows():
-        load_case_factors = {}
-        for subject, factor in row.items():
-            if factor == 0:
-                continue
-            series_list = subject_to_series.get(subject, [])  # type: ignore[call-overload]
-            for series in series_list:
-                cases_dict = all_load_cases.get(series, {})
-                if isinstance(cases_dict, dict):
-                    for case in cases_dict.values():
-                        load_case_factors[case] = factor
-        combination = create_load_combination(
-            builder=builder,
-            combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
-            combination_name=str(idx),
-            load_case_factors=load_case_factors,
-            description=f"SLS Combination {idx}",
-        )
-        combinations.append(combination)
-
-    # Fatigue combinations
-    for idx, row in fatigue_df.iterrows():
-        load_case_factors = {}
-        for subject, factor in row.items():
-            if factor == 0:
-                continue
-            series_list = subject_to_series.get(subject, [])  # type: ignore[call-overload]
-            for series in series_list:
-                cases_dict = all_load_cases.get(series, {})
-                if isinstance(cases_dict, dict):
-                    for case in cases_dict.values():
-                        load_case_factors[case] = factor
-        combination = create_load_combination(
-            builder=builder,
-            combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
-            combination_name=str(idx),
-            load_case_factors=load_case_factors,
-            description=f"Fatigue Combination {idx}",
-        )
-        combinations.append(combination)
-
-    return combinations
+    :returns: List of SCIA load combinations for fatigue.
+    :rtype: list[SciaLoadCombination]
+    """
+    df_combinations = load_combination_table_without_rounding(params)
+    fatigue_df = _filter_by_prefix(df_combinations, ["6.67", "6.69"])
+    return _create_combinations_from_df(
+        builder=builder,
+        df=fatigue_df,
+        combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
+        desc_prefix="Fatigue Combination",
+        all_load_cases=all_load_cases,
+    )
 
 
 def _create_example_combination(
@@ -397,14 +416,17 @@ def _create_example_combination(
 
 
 def create_all_load_combinations(
-    params: BridgeParametrization, builder: SciaModelBuilder, all_load_cases: dict[str, dict]
+    params: Any,  # noqa: ANN401
+    builder: SciaModelBuilder,
+    all_load_cases: dict[str, Any],
 ) -> list[SciaLoadCombination]:
     """
-    Create a list of standard ULS and SLS load combinations.
+    Create all load combinations for the bridge model (ULS, SLS, fatigue, ...).
 
-    This function serves as the main entry point for load combination creation.
-    Colleagues should extend this function by adding more helper functions
-    following the pattern shown in _create_example_combination().
+    This function aggregates outputs from dedicated helper creators, similar to
+    how `create_all_load_cases` composes all load cases. Extend this function
+    with extra families (temperature-only, accidental scenarios, etc.) when
+    implemented.
 
     :param builder: The SCIA model builder instance.
     :param all_load_cases: A nested dictionary of all available SciaLoadCase objects.
@@ -420,11 +442,16 @@ def create_all_load_combinations(
     :return: A list of created SciaLoadCombination objects.
     :rtype: list[SciaLoadCombination]
     """
-    all_combinations = []
+    combinations: list[SciaLoadCombination] = []
 
-    all_combinations.extend(create_scia_load_combinations(params, builder, all_load_cases))
+    # Standard combinations from the NEN 8700 table (one function per family)
+    combinations.extend(create_uls_combinations_from_table(params, builder, all_load_cases))
+    combinations.extend(create_sls_combinations_from_table(params, builder, all_load_cases))
+    combinations.extend(create_fatigue_combinations_from_table(params, builder, all_load_cases))
 
-    return all_combinations
+    # TODO: Extend with additional families when available
+
+    return combinations
 
 
 # TODO: Additional load combination creation functions to be added by colleagues:
