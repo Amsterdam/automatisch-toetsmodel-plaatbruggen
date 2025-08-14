@@ -15,6 +15,7 @@ from .scia_load_combinations import create_all_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import create_all_loads
 from .scia_model_interface import SciaModelBuilder
+from .scia_results import create_result_classes_for_bridge
 from .scia_supports import create_all_supports
 
 def create_bridge_geometry(builder: SciaModelBuilder, params: Any) -> list[str]:  # noqa: ANN401
@@ -127,27 +128,9 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     # 5. Apply all loads to the now-existing cases
     create_all_loads(builder, params, all_load_cases)
 
-    # 6. Build Load Combinations (PLACEHOLDER FOR NOW)
-    create_all_load_combinations(builder, all_load_cases)
+    # 6. Build Load Combinations (after loads are applied)
+    create_all_load_combinations(params, builder, all_load_cases)
 
-# TO BE DELETED
-    from .scia_bridge_geometry import get_bridge_deck_zone_coordinates, get_bridge_load_zone_coordinates, get_bridge_deck_zone_materials_and_thickness, get_bridge_load_zone_materials_and_thickness, get_deck_mat_and_thick_at_coord, get_load_mat_and_thick_at_coord, get_dispersion_at_coord
-    test_input_coord = [5, 5, 0]
-
-    deck_zone_coord = get_bridge_deck_zone_coordinates(params=params)
-    load_zone_coord = get_bridge_load_zone_coordinates(params=params)
-    deck_zone_materials_and_thickness = get_bridge_deck_zone_materials_and_thickness(params=params)
-    load_zone_materials_and_thickness = get_bridge_load_zone_materials_and_thickness(params=params)
-    deck_materials, deck_thickness = get_deck_mat_and_thick_at_coord(params=params, coord=test_input_coord)
-    load_materials, load_thickness = get_load_mat_and_thick_at_coord(params=params, coord=test_input_coord)
-    dispersion = get_dispersion_at_coord(params=params, coord=test_input_coord)
-
-    print("Deck zone coordinates:", deck_zone_coord)
-    print("Load zone coordinates:", load_zone_coord)
-    print("Deck zone materials and thickness:", deck_zone_materials_and_thickness)
-    print("Load zone materials and thickness:", load_zone_materials_and_thickness)
-    print("Deck materials at coord:", deck_materials)
-    print("Deck thickness at coord:", deck_thickness)
-    print("Load materials at coord:", load_materials)
-    print("Load thickness at coord:", load_thickness)
-    print("Dispersion at coord:", dispersion)
+    # 7. Create Result Classes to tell SCIA which combinations to analyze
+    if hasattr(builder, "load_combinations") and builder.load_combinations:
+        create_result_classes_for_bridge(builder, builder.load_combinations)

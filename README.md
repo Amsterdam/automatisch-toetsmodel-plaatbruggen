@@ -2,7 +2,7 @@
 
 ## Beschrijving
 
-Deze applicatie, draaiend op het VIKTOR-platform, voert geautomatiseerde structurele toetsingen uit voor plaatbruggen. Het model analyseert bruggegevens en past relevante technische normen en berekeningen toe om de constructieve veiligheid en prestaties te beoordelen.
+Deze applicatie, draaiend op het VIKTOR-platform, voert geautomatiseerde constructieve toetsingen uit voor plaatbruggen. Het model analyseert bruggegevens en past relevante technische normen en berekeningen toe om de constructieve veiligheid en prestaties te beoordelen.
 
 Als u deze documentatie op GitHub bekijkt, kunt u de live productie-applicatie [hier](https://amsterdam.viktor.ai/workspaces/108/app/dashboard) vinden.
 
