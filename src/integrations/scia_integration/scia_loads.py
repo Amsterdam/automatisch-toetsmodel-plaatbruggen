@@ -84,9 +84,9 @@ def dispersal_function(corner_points, load_value, BridgeParametrization: BridgeP
     dispersed_corners = corner_points  # No change in corners for now
     dispersed_load_value = load_value  # No change in load value for now
 
-    for coordinate in dispersed_corners:
-        layer_properties = get_layer_properties_at_coordinate(coordinate)  # helper function from App layer that retrieves a dict of materials as keys and their thicknesses as values
-        # logica om de belasting te spreiden over een groter bereik van de hoekpunten (dus de corners verder uit elkaar) op basis van dikte van de brug en diktes van de toplaag
+    # for coordinate in dispersed_corners:
+    #     layer_properties = get_layer_properties_at_coordinate(coordinate)  # helper function from App layer that retrieves a dict of materials as keys and their thicknesses as values
+    #     # logica om de belasting te spreiden over een groter bereik van de hoekpunten (dus de corners verder uit elkaar) op basis van dikte van de brug en diktes van de toplaag
 
     # constructieve dikte brug
     # Materiaal van het brugdek (asfalt en beton bv)
