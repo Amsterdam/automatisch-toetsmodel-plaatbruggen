@@ -253,91 +253,6 @@ def create_fatigue_combinations_from_table(
         all_load_cases=all_load_cases,
     )
 
-
-def _create_example_combination(
-    builder: SciaModelBuilder, self_weight_case: SciaLoadCase, all_load_cases: dict[str, dict]
-) -> list[SciaLoadCombination]:
-    """
-    Create an example load combination to demonstrate the pattern.
-
-    This function serves as an example for colleagues to understand:
-    - How to access load cases from the all_load_cases dictionary
-    - How to define load factors
-    - How to create combinations using the builder
-
-    :param builder: The SCIA model builder instance.
-    :param self_weight_case: The self-weight load case object.
-    :param all_load_cases: A nested dictionary of all available SciaLoadCase objects.
-    :return: A list of created SciaLoadCombination objects.
-    :rtype: list[SciaLoadCombination]
-    """
-    combinations = []
-
-    # Example: Get pedestrian load case from the nested dictionary
-    pedestrian_case = all_load_cases.get("pedestrian")
-
-    if pedestrian_case:
-        # Example: Define load factors for ULS combination
-        # These are placeholder values - colleagues should replace with proper NEN/Eurocode factors
-        load_factors = {
-            self_weight_case: 1.35,  # γG for permanent loads (ULS)
-            pedestrian_case: 1.50,  # γQ for variable loads (ULS)
-        }
-
-        try:
-            # Try creating a simple self-weight only combination first
-            simple_factors = {self_weight_case: 1.0}
-
-            # Try different combination types
-            combo_types_to_try = [
-                SciaCombinationType.EN_ULS_SET_B,
-                SciaCombinationType.LINEAR_ULTIMATE,
-                SciaCombinationType.ENVELOPE_ULTIMATE,
-            ]
-
-            for combo_type in combo_types_to_try:
-                try:
-                    simple_combo = create_load_combination(
-                        builder=builder,
-                        combination_type=combo_type,
-                        combination_name=f"Test_{combo_type.value}",
-                        load_case_factors=simple_factors,
-                        description=f"Test: 1.0*G (Self-weight only) - {combo_type.value}",
-                    )
-                    combinations.append(simple_combo)
-                    break  # Stop if one works
-                except Exception:
-                    continue
-
-            # Now try the full combination
-            uls_combo = create_load_combination(
-                builder=builder,
-                combination_type=SciaCombinationType.EN_ULS_SET_B,
-                combination_name="ULS_Example_SW_Pedestrian",
-                load_case_factors=load_factors,
-                description="Example ULS: 1.35*G + 1.50*Q (Self-weight + Pedestrian)",
-            )
-            combinations.append(uls_combo)
-        except Exception:
-            traceback.print_exc()
-    else:
-        # Try to create a simple self-weight only combination as fallback
-        try:
-            load_factors = {self_weight_case: 1.0}
-            simple_combo = create_load_combination(
-                builder=builder,
-                combination_type=SciaCombinationType.EN_ULS_SET_B,
-                combination_name="ULS_Self_Weight_Only",
-                load_case_factors=load_factors,
-                description="Simple ULS: 1.0*G (Self-weight only)",
-            )
-            combinations.append(simple_combo)
-        except Exception:
-            pass
-
-    return combinations
-
-
 def create_all_load_combinations(
     params: Any,  # noqa: ANN401
     builder: SciaModelBuilder,
@@ -372,25 +287,10 @@ def create_all_load_combinations(
     combinations.extend(create_sls_combinations_from_table(params, builder, all_load_cases))
     combinations.extend(create_fatigue_combinations_from_table(params, builder, all_load_cases))
 
-    # TODO: Extend with additional families when available
+    # TODO: Extend with dominant lane and other active lanes combinations
 
     return combinations
 
 
-# TODO: Additional load combination creation functions to be added by colleagues:
-#
-# Example structure for _create_temperature_combinations:
-# - Get temperature_cases from all_load_cases.get("temperature_cases", {})
-# - Define appropriate load factors for temperature combinations
-# - Create combinations using create_load_combination function
-#
-# Example structure for _create_traffic_combinations:
-# - Get tandem_cases from all_load_cases.get("tandem_cases", {})
-# - Get udl_cases from all_load_cases.get("udl_traffic_cases", {})
-# - Define appropriate load factors for traffic combinations
-# - Create combinations using create_load_combination function
-#
-# Example structure for _create_dead_load_combinations:
-# - Get dead_load_cases from all_load_cases.get("dead_load_cases", {})
-# - Define appropriate load factors for dead load combinations
-# - Create combinations using create_load_combination function
+
+
