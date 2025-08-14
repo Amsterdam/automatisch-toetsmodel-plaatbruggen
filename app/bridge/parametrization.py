@@ -380,7 +380,7 @@ Below you will find important information about this bridge structure."""
         """
         Load concrete quality options from resources/data/materials/betonkwaliteit.csv.
 
-        :returns: List of concrete quality keys (e.g., ["K150", "K160", ...])
+        :returns: List of concrete quality keys
         :rtype: list[str]
         """
         csv_path = CONCRETEQUALITY_CSV_PATH
@@ -388,11 +388,36 @@ Below you will find important information about this bridge structure."""
             reader = csv.DictReader(f, delimiter=";")
             return [row["Betonkwaliteit"].strip('"') for row in reader]
 
+    @staticmethod
+    def _get_concrete_quality_options_dynamic(params, **kwargs) -> list[str]:  # noqa: ANN001, ARG004
+        """
+        Dynamic options provider for Betonsterkteklasse.
+
+        Ensures legacy/default values (e.g., "B55") already stored in older
+        entities are included so loading does not fail when value is not in
+        the standard C12/15..C90/105 list.
+
+        :param params: Current parameters (may contain a stored value)
+        :returns: Options list including any stored legacy value
+        :rtype: list[str]
+        """
+        options = BridgeParametrization._get_concrete_quality_options()
+
+        try:
+            current_value = getattr(getattr(params, "info", None), "concrete_strength_class", None)
+            if isinstance(current_value, str) and current_value and current_value not in options:
+                options.append(current_value)
+        except Exception:
+            # If params is not fully initialized yet, just return base options
+            pass
+
+        return options
+
     info.concrete_strength_class = OptionField(
         "Betonsterkteklasse",
-        options=_get_concrete_quality_options(),
+        options=_get_concrete_quality_options_dynamic,
         default="",
-        description="Beton sterkte classificatie (bijv. B25, B45)",
+        description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
 
     info.steel_quality_reinforcement = TextField("Staalkwaliteit (Wapening)", default="", description="Kwaliteitsklasse van betonstaal (bijv. B500)")
@@ -518,12 +543,21 @@ Below you will find important information about this bridge structure."""
     input.belastingcombinaties.cc_class = OptionField(
         "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
     )
+    input.belastingcombinaties.berekeningsniveau = OptionField(
+        "Berekeningsniveau",
+        options=[
+            "Theoretische wegindeling",
+            "Werkelijke wegindeling",
+            "Werkelijke wegindeling onderliggend wegennet",
+        ],
+        variant="radio",
+        name="berekeningsniveau",
+        default="Theoretische wegindeling",
+    )
     input.belastingcombinaties.lb = LineBreak()
     input.belastingcombinaties.design_code = OptionField(
         "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
     )
-    input.belastingcombinaties.lb1 = LineBreak()
-    input.belastingcombinaties.shortest_span = NumberField("Kortste overspanning L", default=20, suffix="m", name="shortest_span")
 
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---

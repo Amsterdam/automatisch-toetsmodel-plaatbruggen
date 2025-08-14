@@ -1,3 +1,38 @@
+## [`v0.0.10`] - 2025-08-14
+### Added
+- **Analysis Caching System**: Added parameter-based caching for SCIA and IDEA calculations
+  - Caches analysis results based on input parameters
+  - Automatically invalidates cache when parameters change
+  - Unified caching API for both SCIA and IDEA analyses
+- **Traffic Load Cases**: Added UDL traffic load case implementation
+  - Uniform distributed load patterns for traffic analysis
+  - Integration with existing load combination system
+- **Load Combinations**: Added combinations for service vehicle and accidental vehicle
+  - Service vehicle load combinations per design requirements
+  - Accidental vehicle impact scenarios
+  - SCIA load combinations
+- Graceful error handling for XML parsing issues in IDEA results
+
+### Changed
+- **Performance Improvements**: Significant speedup for repeated calculations through caching
+  - SCIA: ~14 seconds vs 5+ minutes for new analysis
+  - IDEA: ~0.5 seconds vs 10+ seconds for new analysis
+  - Automatic cache invalidation when any relevant parameter changes
+- **SCIA Functions**: Updated tandem system functions for correct load positioning
+  - Improved load placement accuracy
+  - Enhanced spatial distribution of forces
+- Refactored functions for load combination table
+
+### Removed
+- **Redundant Caching Functions**: Simplified API by unifying caching under single function
+  - Removed separate caching functions in favor of unified approach
+  - Reduced code complexity in caching module
+
+### Fixed
+- **IDEA XML Parsing**: Fixed UTF-16 encoded XML parsing issues in IDEA results
+  - Proper handling of IDEA output content
+  - Improved error handling in results view
+
 ## [`v0.0.9`] - 2025-07-31
 ### Added
 - SCIA load cases BG 4000 series, 6000 series, 7000 series, 8000 series, 9000 series and 10000 series

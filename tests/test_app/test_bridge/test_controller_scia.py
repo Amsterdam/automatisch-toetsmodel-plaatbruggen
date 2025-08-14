@@ -27,7 +27,7 @@ class TestGetSciaTemplatePath:
 
         with patch("pathlib.Path.exists", return_value=True):
             # Act
-            result = controller._get_scia_template_path()  # noqa: SLF001
+            result = controller._get_scia_template_path()
 
             # Assert
             assert isinstance(result, Path)
@@ -40,7 +40,7 @@ class TestGetSciaTemplatePath:
 
         # Act & Assert
         with patch("pathlib.Path.exists", return_value=False), pytest.raises(UserError, match="SCIA template file niet gevonden"):
-            controller._get_scia_template_path()  # noqa: SLF001
+            controller._get_scia_template_path()
 
 
 class TestDownloadSciaXmlFiles:
@@ -52,6 +52,26 @@ class TestDownloadSciaXmlFiles:
         self.mock_params = Munch(
             {
                 "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
+                "input": Munch(
+                    {
+                        "belastingzones": Munch({"lijnlast_leuning": 1.0}),
+                        "belastingcombinaties": Munch(
+                            {
+                                "cc_class": "CC2",
+                                "berekeningsniveau": "Theoretische wegindeling",
+                                "design_code": "NEN 8700 verbouw",
+                            }
+                        ),
+                        "geometrie_wapening": Munch(
+                            {
+                                "staalsoort": "B500B",
+                                "dekking_boven": 55.0,
+                                "dekking_onder": 55.0,
+                                "langswapening_buiten": True,
+                            }
+                        ),
+                    }
+                ),
                 "bridge_segments_array": [
                     Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0}),
                     Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0}),
@@ -369,7 +389,7 @@ class TestSciaErrorHelperMethods:
 
         # Act & Assert
         with pytest.raises(UserError, match="XML bestand is leeg - SCIA model generatie gefaald"):
-            controller._raise_empty_xml_error()  # noqa: SLF001
+            controller._raise_empty_xml_error()
 
     def test_raise_empty_def_error(self) -> None:
         """Test _raise_empty_def_error method."""
@@ -378,7 +398,7 @@ class TestSciaErrorHelperMethods:
 
         # Act & Assert
         with pytest.raises(UserError, match="Definition bestand is leeg - SCIA model generatie gefaald"):
-            controller._raise_empty_def_error()  # noqa: SLF001
+            controller._raise_empty_def_error()
 
     def test_raise_empty_esa_error(self) -> None:
         """Test _raise_empty_esa_error method."""
@@ -387,7 +407,7 @@ class TestSciaErrorHelperMethods:
 
         # Act & Assert
         with pytest.raises(UserError, match="ESA bestand is leeg - SCIA worker uitvoering gefaald"):
-            controller._raise_empty_esa_error()  # noqa: SLF001
+            controller._raise_empty_esa_error()
 
 
 class TestSciaIntegrationEdgeCases:
