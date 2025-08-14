@@ -52,6 +52,26 @@ class TestDownloadSciaXmlFiles:
         self.mock_params = Munch(
             {
                 "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
+                "input": Munch(
+                    {
+                        "belastingzones": Munch({"lijnlast_leuning": 1.0}),
+                        "belastingcombinaties": Munch(
+                            {
+                                "cc_class": "CC2",
+                                "berekeningsniveau": "Theoretische wegindeling",
+                                "design_code": "NEN 8700 verbouw",
+                            }
+                        ),
+                        "geometrie_wapening": Munch(
+                            {
+                                "staalsoort": "B500B",
+                                "dekking_boven": 55.0,
+                                "dekking_onder": 55.0,
+                                "langswapening_buiten": True,
+                            }
+                        ),
+                    }
+                ),
                 "bridge_segments_array": [
                     Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0}),
                     Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0}),

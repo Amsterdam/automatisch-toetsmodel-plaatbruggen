@@ -350,6 +350,17 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert hasattr(self.default_params.info, "bridge_name")
         assert hasattr(self.default_params.input.dimensions, "horizontal_section_loc")
 
+        # New structure checks (parametrization alignment)
+        # Load combinations present and typed
+        assert hasattr(self.default_params.input, "belastingcombinaties")
+        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
+        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
+        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+
+        # Guardrail line load present
+        assert hasattr(self.default_params.input, "belastingzones")
+        assert hasattr(self.default_params.input.belastingzones, "lijnlast_leuning")
+
 
 if __name__ == "__main__":
     unittest.main()
