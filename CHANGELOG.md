@@ -8,6 +8,7 @@
   - Lazy initialization to avoid `OSError: Job token is not set` during import
   - Unified caching API with single `get_cached_analysis_results()` function
   - Graceful error handling for XML parsing issues in IDEA results
+  - SCIA load combinations
 
 ### Changed
 - **Performance Improvements**: Dramatic performance improvements for repeated calculations
@@ -15,6 +16,7 @@
   - IDEA cached operations: ~0.5 seconds vs 10+ seconds for new analysis
   - Automatic cache invalidation when any relevant parameter changes
   - Hash mismatch detection with clear logging for debugging
+  - Refactored functions for load combination table
 
 ### Removed
 - **Redundant Caching Functions**: Simplified API by removing backward compatibility functions
@@ -27,7 +29,6 @@
   - Proper string-to-bytes conversion for IDEA output content
   - Graceful error handling in IDEA RCS results table view
   - Type checking and conversion for different file object types
-
 
 ## [`v0.0.9`] - 2025-07-31
 ### Added

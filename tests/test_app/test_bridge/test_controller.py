@@ -4,13 +4,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
-from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
 from src.geometry.load_zone_geometry import _create_bridge_segment_dimensions_from_params, _prepare_bridge_geometry_for_plotting
 from src.geometry.model_creator import BridgeSegmentDimensions
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import controller_test_wrapper
+from viktor.errors import UserError
 
 
 class TestBridgeController(unittest.TestCase):
@@ -178,6 +178,25 @@ class TestBridgeController(unittest.TestCase):
         assert len(self.default_params.bridge_segments_array) == 2
         assert len(self.default_params.load_zones_data_array) == 4
 
+        # New structure checks (parametrization alignment)
+        # Load combinations
+        assert hasattr(self.default_params.input, "belastingcombinaties")
+        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
+        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
+        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+
+        # Reinforcement cover split
+        assert hasattr(self.default_params.input.geometrie_wapening, "dekking_boven")
+        assert hasattr(self.default_params.input.geometrie_wapening, "dekking_onder")
+
+        # Guardrail line load present
+        assert hasattr(self.default_params.input, "belastingzones")
+        assert hasattr(self.default_params.input.belastingzones, "lijnlast_leuning")
+
+        # Load zone types up-to-date (no legacy labels)
+        zone_types = {row.zone_type for row in self.default_params.load_zones_data_array}
+        assert "Auto (Rijbaan)" not in zone_types
+
     def test_seed_data_integrity_complex(self) -> None:
         """Test that complex seed data has expected structure."""
         # Assert
@@ -191,6 +210,29 @@ class TestBridgeController(unittest.TestCase):
         assert self.complex_params.info.bridge_objectnumm == "BRIDGE-COMPLEX-001"
         assert len(self.complex_params.bridge_segments_array) == 3
         assert len(self.complex_params.load_zones_data_array) == 3
+
+        # New structure checks (parametrization alignment)
+        # Load combinations
+        assert hasattr(self.complex_params.input, "belastingcombinaties")
+        assert isinstance(self.complex_params.input.belastingcombinaties.cc_class, str)
+        assert hasattr(self.complex_params.input.belastingcombinaties, "berekeningsniveau")
+        assert hasattr(self.complex_params.input.belastingcombinaties, "design_code")
+
+        # Reinforcement cover split
+        assert hasattr(self.complex_params.input.geometrie_wapening, "dekking_boven")
+        assert hasattr(self.complex_params.input.geometrie_wapening, "dekking_onder")
+
+        # Guardrail line load present
+        assert hasattr(self.complex_params.input, "belastingzones")
+        assert hasattr(self.complex_params.input.belastingzones, "lijnlast_leuning")
+
+        # Reinforcement zones: check structure of first item
+        first_zone = self.complex_params.reinforcement_zones_array[0]
+        assert isinstance(first_zone.zone_number, list)
+        assert hasattr(first_zone, "hoofdwapening_dwars_boven_diameter")
+        assert hasattr(first_zone, "hoofdwapening_dwars_boven_hart_op_hart")
+        assert hasattr(first_zone, "hoofdwapening_dwars_onder_diameter")
+        assert hasattr(first_zone, "hoofdwapening_dwars_onder_hart_op_hart")
 
     def test_seed_data_bridge_segments_structure(self) -> None:
         """Test that bridge segments in seed data have correct structure."""

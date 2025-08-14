@@ -19,13 +19,18 @@
       "cross_section_loc": 12.5
     },
     "belastingcombinaties": {
-      "cc_class": ["CC1a/b", "CC2"],
-      "uls_comb_factor": ["ULS", "SLS"]
+      "cc_class": "CC2",
+      "berekeningsniveau": "Theoretische wegindeling",
+      "design_code": "NEN 8700 verbouw"
     },
     "geometrie_wapening": {
       "staalsoort": "B500B",
-      "dekking": 60.0,
+      "dekking_boven": 60.0,
+      "dekking_onder": 60.0,
       "langswapening_buiten": false
+    },
+    "belastingzones": {
+      "lijnlast_leuning": 1.0
     }
   },
   "bridge_segments_array": [
@@ -105,7 +110,7 @@
       "d15_width": 3.0
     },
     {
-      "zone_type": "Auto (Rijbaan)",
+      "zone_type": "Auto",
       "pavement_thickness": 0.12,
       "pavement_material": "Beton",
       "d1_width": 14.0,
@@ -127,75 +132,83 @@
   ],
   "reinforcement_zones_array": [
     {
-      "zone_number": "1-1",
+      "zone_number": ["1-1"],
       "hoofdwapening_langs_boven_diameter": 16.0,
       "hoofdwapening_langs_boven_hart_op_hart": 125.0,
       "hoofdwapening_langs_onder_diameter": 16.0,
       "hoofdwapening_langs_onder_hart_op_hart": 125.0,
-      "hoofdwapening_dwars_diameter": 12.0,
-      "hoofdwapening_dwars_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_boven_diameter": 12.0,
+      "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_onder_diameter": 12.0,
+      "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
       "heeft_bijlegwapening": true,
       "bijlegwapening_langs_boven_diameter": 12.0,
-      "bijlegwapening_langs_boven_hart_op_hart": 200.0,
       "bijlegwapening_langs_onder_diameter": 12.0,
-      "bijlegwapening_langs_onder_hart_op_hart": 200.0,
-      "bijlegwapening_dwars_diameter": 10.0,
-      "bijlegwapening_dwars_hart_op_hart": 250.0
+      "bijlegwapening_dwars_boven_diameter": 10.0,
+      "bijlegwapening_dwars_onder_diameter": 10.0
     },
     {
-      "zone_number": "2-1",
+      "zone_number": ["2-1"],
       "hoofdwapening_langs_boven_diameter": 14.0,
       "hoofdwapening_langs_boven_hart_op_hart": 130.0,
       "hoofdwapening_langs_onder_diameter": 14.0,
       "hoofdwapening_langs_onder_hart_op_hart": 130.0,
-      "hoofdwapening_dwars_diameter": 12.0,
-      "hoofdwapening_dwars_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_boven_diameter": 12.0,
+      "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_onder_diameter": 12.0,
+      "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
       "heeft_bijlegwapening": false
     },
     {
-      "zone_number": "3-1",
+      "zone_number": ["3-1"],
       "hoofdwapening_langs_boven_diameter": 16.0,
       "hoofdwapening_langs_boven_hart_op_hart": 125.0,
       "hoofdwapening_langs_onder_diameter": 16.0,
       "hoofdwapening_langs_onder_hart_op_hart": 125.0,
-      "hoofdwapening_dwars_diameter": 12.0,
-      "hoofdwapening_dwars_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_boven_diameter": 12.0,
+      "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
+      "hoofdwapening_dwars_onder_diameter": 12.0,
+      "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
       "heeft_bijlegwapening": true,
       "bijlegwapening_langs_boven_diameter": 12.0,
-      "bijlegwapening_langs_boven_hart_op_hart": 200.0,
       "bijlegwapening_langs_onder_diameter": 12.0,
-      "bijlegwapening_langs_onder_hart_op_hart": 200.0,
-      "bijlegwapening_dwars_diameter": 10.0,
-      "bijlegwapening_dwars_hart_op_hart": 250.0
+      "bijlegwapening_dwars_boven_diameter": 10.0,
+      "bijlegwapening_dwars_onder_diameter": 10.0
     },
     {
-      "zone_number": "1-2",
+      "zone_number": ["1-2"],
       "hoofdwapening_langs_boven_diameter": 12.0,
       "hoofdwapening_langs_boven_hart_op_hart": 150.0,
       "hoofdwapening_langs_onder_diameter": 12.0,
       "hoofdwapening_langs_onder_hart_op_hart": 150.0,
-      "hoofdwapening_dwars_diameter": 10.0,
-      "hoofdwapening_dwars_hart_op_hart": 175.0,
+      "hoofdwapening_dwars_boven_diameter": 10.0,
+      "hoofdwapening_dwars_boven_hart_op_hart": 175.0,
+      "hoofdwapening_dwars_onder_diameter": 10.0,
+      "hoofdwapening_dwars_onder_hart_op_hart": 175.0,
       "heeft_bijlegwapening": false
     },
     {
-      "zone_number": "2-2",
+      "zone_number": ["2-2"],
       "hoofdwapening_langs_boven_diameter": 12.0,
       "hoofdwapening_langs_boven_hart_op_hart": 150.0,
       "hoofdwapening_langs_onder_diameter": 12.0,
       "hoofdwapening_langs_onder_hart_op_hart": 150.0,
-      "hoofdwapening_dwars_diameter": 10.0,
-      "hoofdwapening_dwars_hart_op_hart": 175.0,
+      "hoofdwapening_dwars_boven_diameter": 10.0,
+      "hoofdwapening_dwars_boven_hart_op_hart": 175.0,
+      "hoofdwapening_dwars_onder_diameter": 10.0,
+      "hoofdwapening_dwars_onder_hart_op_hart": 175.0,
       "heeft_bijlegwapening": false
     },
     {
-      "zone_number": "3-2",
+      "zone_number": ["3-2"],
       "hoofdwapening_langs_boven_diameter": 12.0,
       "hoofdwapening_langs_boven_hart_op_hart": 150.0,
       "hoofdwapening_langs_onder_diameter": 12.0,
       "hoofdwapening_langs_onder_hart_op_hart": 150.0,
-      "hoofdwapening_dwars_diameter": 10.0,
-      "hoofdwapening_dwars_hart_op_hart": 175.0,
+      "hoofdwapening_dwars_boven_diameter": 10.0,
+      "hoofdwapening_dwars_boven_hart_op_hart": 175.0,
+      "hoofdwapening_dwars_onder_diameter": 10.0,
+      "hoofdwapening_dwars_onder_hart_op_hart": 175.0,
       "heeft_bijlegwapening": false
     }
   ]
