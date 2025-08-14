@@ -2,6 +2,7 @@
 """Enhanced test runner with colorful output and detailed failure reporting."""
 
 import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -115,8 +116,25 @@ def main() -> None:
         exit_code = pytest.main(pytest_args)
         sys.exit(exit_code)
     except ImportError:
-        # Pytest not installed; fall back to unittest runner below
-        pass
+        # Attempt to install pytest or dev requirements automatically, then retry
+        req_file = Path("requirements_dev.txt")
+        install_cmd = [sys.executable, "-m", "pip", "install", "pytest"]
+        if req_file.exists():
+            install_cmd = [sys.executable, "-m", "pip", "install", "-r", str(req_file)]
+
+        try:
+            subprocess.run(install_cmd, check=False, cwd=Path.cwd())
+            import importlib
+
+            if importlib.util.find_spec("pytest") is not None:
+                import pytest  # type: ignore
+
+                pytest_args2: list[str] = ["tests"]
+                pytest_args2.insert(0, "-q")
+                sys.exit(pytest.main(pytest_args2))
+        except Exception:
+            # Fall back to unittest runner below
+            pass
 
     # In concise mode, don't show startup message
     if not concise_mode:

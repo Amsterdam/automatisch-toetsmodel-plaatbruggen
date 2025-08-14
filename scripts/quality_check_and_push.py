@@ -434,6 +434,29 @@ def main() -> int:
         else:
             print(f"{Colors.YELLOW}[DRY RUN] Would prompt to commit uncommitted changes{Colors.RESET}")
 
+    # Prepare a dedicated RUFT venv so developers can just run a single command
+    def get_tool_python() -> str:
+        """Create or reuse a local venv for tools and return its python path."""
+        venv_dir = Path(".ruft_venv")
+        py_path = venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+        if not py_path.exists():
+            print(f"{Colors.CYAN}[>] Creating RUFT virtual environment...{Colors.RESET}")
+            code, _ = run_command(f"{sys.executable} -m venv {venv_dir}")
+            if code != 0:
+                print(f"{Colors.YELLOW}[!] Failed to create RUFT venv, falling back to system interpreter{Colors.RESET}")
+                return sys.executable
+
+        # Ensure dev requirements (pytest, ruff, mypy) are installed
+        req_file = Path("requirements_dev.txt")
+        if req_file.exists():
+            print(f"{Colors.CYAN}[>] Ensuring dev dependencies are installed in RUFT venv...{Colors.RESET}")
+            run_command(f"{py_path} -m pip install -r {req_file}")
+
+        return str(py_path)
+
+    tool_python = get_tool_python()
+
     max_iterations = 3  # Prevent infinite loops
     iteration = 0
 
@@ -449,10 +472,10 @@ def main() -> int:
         diff_hash_before = get_git_diff_hash()
 
         # 1. Run Ruff style check (can auto-fix)
-        ruff_check = run_quality_check("Ruff Style Check", "python scripts/run_ruff_check.py", can_auto_fix=True)
+        ruff_check = run_quality_check("Ruff Style Check", f"{tool_python} scripts/run_ruff_check.py", can_auto_fix=True)
 
         # 2. Run Ruff formatter (can auto-fix)
-        ruff_format = run_quality_check("Ruff Formatter", "python scripts/run_ruff_format.py", can_auto_fix=True)
+        ruff_format = run_quality_check("Ruff Formatter", f"{tool_python} scripts/run_ruff_format.py", can_auto_fix=True)
 
         # Get git diff hash after running Ruff
         diff_hash_after = get_git_diff_hash()
@@ -469,32 +492,18 @@ def main() -> int:
                 print(f"{Colors.YELLOW}[DRY RUN] Would commit Ruff auto-fixes{Colors.RESET}")
 
         # 3. Run MyPy (cannot auto-fix)
-        mypy_check = run_quality_check("MyPy Type Check", "python scripts/run_mypy.py", can_auto_fix=False)
+        mypy_check = run_quality_check("MyPy Type Check", f"{tool_python} scripts/run_mypy.py", can_auto_fix=False)
 
-        # 4. Ensure pytest is available for full coverage; auto-install dev deps if missing
-        def _is_pytest_available() -> bool:
-            try:
-                import importlib
+        # 4. Run tests using RUFT venv; label based on pytest presence inside that venv
+        def _is_pytest_available_in(py_exe: str) -> bool:
+            code, _ = run_command(f"{py_exe} -c \"import importlib,sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)\"")
+            return code == 0
 
-                return importlib.util.find_spec("pytest") is not None
-            except Exception:
-                return False
-
-        if not _is_pytest_available():
-            req_file = Path("requirements_dev.txt")
-            if req_file.exists():
-                print(f"{Colors.YELLOW}[i] Pytest not found. Installing dev dependencies to enable full test coverage...{Colors.RESET}")
-                exit_code, _ = run_command(f"{sys.executable} -m pip install -r {req_file}")
-                if exit_code != 0:
-                    print(f"{Colors.YELLOW}[!] Failed to install dev dependencies. Falling back to unittest-based discovery.{Colors.RESET}")
-            else:
-                print(f"{Colors.YELLOW}[i] requirements_dev.txt not found. Falling back to unittest-based discovery.{Colors.RESET}")
-
-        tests_label = "Pytest Tests" if _is_pytest_available() else "Unit Tests"
-        test_check = run_quality_check(tests_label, "python scripts/run_enhanced_tests.py", can_auto_fix=False)
+        tests_label = "Pytest Tests" if _is_pytest_available_in(tool_python) else "Unit Tests"
+        test_check = run_quality_check(tests_label, f"{tool_python} scripts/run_enhanced_tests.py", can_auto_fix=False)
 
         # 5. Run VIKTOR tests (cannot auto-fix)
-        viktor_test_check = run_quality_check("VIKTOR Tests", "python scripts/run_viktor_tests.py", can_auto_fix=False)
+        viktor_test_check = run_quality_check("VIKTOR Tests", f"{tool_python} scripts/run_viktor_tests.py", can_auto_fix=False)
 
         # If no auto-fixes were made, we're done with iterations
         if not made_fixes:
