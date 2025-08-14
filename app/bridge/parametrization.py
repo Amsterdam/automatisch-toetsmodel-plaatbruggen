@@ -16,10 +16,10 @@ from app.constants import (
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
 )
-from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
+    DynamicArray,
     DynamicArrayConstraint,
     IsFalse,
     LineBreak,
