@@ -90,7 +90,12 @@ def print_detailed_summary(result: TextTestResult) -> None:
 
 
 def main() -> None:
-    """Run all tests with enhanced reporting."""
+    """
+    Run all tests with enhanced reporting.
+
+    Prefer pytest (collects both pytest-style and unittest-style tests). If pytest
+    isn't available, fall back to unittest discovery with enhanced output.
+    """
     # Enable colors for Git environments (like Git Bash) even if detection is conservative
     if any(os.environ.get(var) for var in ["MSYSTEM", "MINGW_PREFIX", "TERM"]):
         os.environ["FORCE_COLOR"] = "1"
@@ -98,12 +103,27 @@ def main() -> None:
     # Use the improved environment detection from test_utils
     concise_mode = should_use_concise_mode()
 
+    # Try pytest first to ensure complete test coverage
+    try:
+        import pytest  # type: ignore
+
+        pytest_args: list[str] = ["tests"]
+        # Keep output concise to align with the previous minimal verbosity behavior
+        pytest_args.insert(0, "-q")
+
+        # Run pytest and exit with its status code
+        exit_code = pytest.main(pytest_args)
+        sys.exit(exit_code)
+    except ImportError:
+        # Pytest not installed; fall back to unittest runner below
+        pass
+
     # In concise mode, don't show startup message
     if not concise_mode:
         print("Running enhanced test suite...")
         print("=" * 60)
 
-    # Discover all tests
+    # Discover all tests (unittest-only fallback)
     loader = unittest.TestLoader()
     test_suite = loader.discover("tests", pattern="test_*.py")
 

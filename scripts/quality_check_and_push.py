@@ -105,18 +105,19 @@ def parse_error_details(name: str, output: str) -> tuple[int, str]:
                     error_types.add(error_type)
             error_details = ", ".join(list(error_types)[:2])  # Show up to 2 error types
 
-    elif "Unit Tests" in name:
-        # Parse test output for failure count
+    elif "Tests" in name:
+        # Parse test output for failure/error counts (works for pytest and unittest)
         if "FAILED" in output:
             failed_match = re.search(r"(\d+) failed", output)
             if failed_match:
                 error_count = int(failed_match.group(1))
                 error_details = "test failures"
-        elif "ERROR" in output:
+        if "ERROR" in output:
             error_match = re.search(r"(\d+) error", output)
             if error_match:
-                error_count = int(error_match.group(1))
-                error_details = "test errors"
+                # Some runners report both failed and error; prefer sum when both present
+                error_count = max(error_count, 0) + int(error_match.group(1))
+                error_details = "test errors" if not error_details else error_details
 
     return error_count, error_details
 
@@ -470,8 +471,27 @@ def main() -> int:
         # 3. Run MyPy (cannot auto-fix)
         mypy_check = run_quality_check("MyPy Type Check", "python scripts/run_mypy.py", can_auto_fix=False)
 
-        # 4. Run unit tests (cannot auto-fix)
-        test_check = run_quality_check("Unit Tests", "python scripts/run_enhanced_tests.py", can_auto_fix=False)
+        # 4. Ensure pytest is available for full coverage; auto-install dev deps if missing
+        def _is_pytest_available() -> bool:
+            try:
+                import importlib
+
+                return importlib.util.find_spec("pytest") is not None
+            except Exception:
+                return False
+
+        if not _is_pytest_available():
+            req_file = Path("requirements_dev.txt")
+            if req_file.exists():
+                print(f"{Colors.YELLOW}[i] Pytest not found. Installing dev dependencies to enable full test coverage...{Colors.RESET}")
+                exit_code, _ = run_command(f"{sys.executable} -m pip install -r {req_file}")
+                if exit_code != 0:
+                    print(f"{Colors.YELLOW}[!] Failed to install dev dependencies. Falling back to unittest-based discovery.{Colors.RESET}")
+            else:
+                print(f"{Colors.YELLOW}[i] requirements_dev.txt not found. Falling back to unittest-based discovery.{Colors.RESET}")
+
+        tests_label = "Pytest Tests" if _is_pytest_available() else "Unit Tests"
+        test_check = run_quality_check(tests_label, "python scripts/run_enhanced_tests.py", can_auto_fix=False)
 
         # 5. Run VIKTOR tests (cannot auto-fix)
         viktor_test_check = run_quality_check("VIKTOR Tests", "python scripts/run_viktor_tests.py", can_auto_fix=False)
