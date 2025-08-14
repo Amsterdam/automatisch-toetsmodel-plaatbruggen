@@ -9,7 +9,7 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 from typing import TYPE_CHECKING, Any
 
 from src.common.materials import get_material_densities
-from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params 
+from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
 
 # Type alias to avoid importing from app layer

@@ -4,8 +4,9 @@ Tests for SCIA bridge geometry module.
 Tests for bridge parameter extraction, geometry calculations, and coordinate transformations.
 """
 
-from unittest.mock import Mock
 import math
+from unittest.mock import Mock
+
 import pytest
 
 from src.integrations.scia_integration.scia_bridge_geometry import (
@@ -18,12 +19,12 @@ from src.integrations.scia_integration.scia_bridge_geometry import (
     extract_tandem_parameters_from_bridge,
     extract_zone_boundaries,
     get_bridge_deck_zone_coordinates,
-    get_bridge_load_zone_coordinates,
     get_bridge_deck_zone_materials_and_thickness,
+    get_bridge_load_zone_coordinates,
     get_bridge_load_zone_materials_and_thickness,
     get_deck_mat_and_thick_at_coord,
+    get_dispersion_at_coord,
     get_load_mat_and_thick_at_coord,
-    get_dispersion_at_coord
 )
 
 
@@ -321,7 +322,8 @@ class TestFullOutputDeckAndLoadZone:
     """Comprehensive output test for deck/load/load zone functions."""
 
     @staticmethod
-    def make_params():
+    def make_params() -> Mock:
+        """Create mock parameters for full output deck/load/load zone tests."""
         # D-parameters (bridge segments)
         d1 = Mock(bz1=10, bz2=3, bz3=16, dz=2, dz_2=2, afstand=None, oplegging=True, l=0)
         d2 = Mock(bz1=12, bz2=7, bz3=20, dz=2.4, dz_2=2.4, afstand=12, oplegging=False, l=12)
@@ -339,63 +341,64 @@ class TestFullOutputDeckAndLoadZone:
         params.load_zones_data_array = params.load_zones  # Fix for function expectation
         return params
 
-    def test_full_output(self):
+    def test_full_output(self) -> None:
+        """Comprehensive output test for deck/load/load zone functions."""
         params = self.make_params()
 
         deck_zone_coord = get_bridge_deck_zone_coordinates(params=params)
         load_zone_coord = get_bridge_load_zone_coordinates(params=params)
         assert deck_zone_coord == {
-            'zone_1_1': [[0.0, 11.5, 0.0], [12.0, 15.5, 0.0], [12.0, 3.5, 0.0], [0.0, 1.5, 0.0]],
-            'zone_2_1': [[0.0, 1.5, 0.0], [12.0, 3.5, 0.0], [12.0, -3.5, 0.0], [0.0, -1.5, 0.0]],
-            'zone_3_1': [[0.0, -1.5, 0.0], [12.0, -3.5, 0.0], [12.0, -23.5, 0.0], [0.0, -17.5, 0.0]],
-            'zone_1_2': [[12.0, 15.5, 0.0], [21.0, 17.0, 0.0], [21.0, 2.0, 0.0], [12.0, 3.5, 0.0]],
-            'zone_2_2': [[12.0, 3.5, 0.0], [21.0, 2.0, 0.0], [21.0, -2.0, 0.0], [12.0, -3.5, 0.0]],
-            'zone_3_2': [[12.0, -3.5, 0.0], [21.0, -2.0, 0.0], [21.0, -19.0, 0.0], [12.0, -23.5, 0.0]],
-            'zone_1_3': [[21.0, 17.0, 0.0], [25.0, 11.0, 0.0], [25.0, 1.0, 0.0], [21.0, 2.0, 0.0]],
-            'zone_2_3': [[21.0, 2.0, 0.0], [25.0, 1.0, 0.0], [25.0, -1.0, 0.0], [21.0, -2.0, 0.0]],
-            'zone_3_3': [[21.0, -2.0, 0.0], [25.0, -1.0, 0.0], [25.0, -13.0, 0.0], [21.0, -19.0, 0.0]],
+            "zone_1_1": [[0.0, 11.5, 0.0], [12.0, 15.5, 0.0], [12.0, 3.5, 0.0], [0.0, 1.5, 0.0]],
+            "zone_2_1": [[0.0, 1.5, 0.0], [12.0, 3.5, 0.0], [12.0, -3.5, 0.0], [0.0, -1.5, 0.0]],
+            "zone_3_1": [[0.0, -1.5, 0.0], [12.0, -3.5, 0.0], [12.0, -23.5, 0.0], [0.0, -17.5, 0.0]],
+            "zone_1_2": [[12.0, 15.5, 0.0], [21.0, 17.0, 0.0], [21.0, 2.0, 0.0], [12.0, 3.5, 0.0]],
+            "zone_2_2": [[12.0, 3.5, 0.0], [21.0, 2.0, 0.0], [21.0, -2.0, 0.0], [12.0, -3.5, 0.0]],
+            "zone_3_2": [[12.0, -3.5, 0.0], [21.0, -2.0, 0.0], [21.0, -19.0, 0.0], [12.0, -23.5, 0.0]],
+            "zone_1_3": [[21.0, 17.0, 0.0], [25.0, 11.0, 0.0], [25.0, 1.0, 0.0], [21.0, 2.0, 0.0]],
+            "zone_2_3": [[21.0, 2.0, 0.0], [25.0, 1.0, 0.0], [25.0, -1.0, 0.0], [21.0, -2.0, 0.0]],
+            "zone_3_3": [[21.0, -2.0, 0.0], [25.0, -1.0, 0.0], [25.0, -13.0, 0.0], [21.0, -19.0, 0.0]],
         }
         assert load_zone_coord == {
-            'load_zone_1_1': [[0.0, 11.5, 0.0], [12.0, 15.5, 0.0], [12.0, 10.5, 0.0], [0.0, 10.5, 0.0]],
-            'load_zone_2_1': [[0.0, 10.5, 0.0], [12.0, 10.5, 0.0], [12.0, 3.5, 0.0], [0.0, -6.5, 0.0]],
-            'load_zone_3_1': [[0.0, -6.5, 0.0], [12.0, 3.5, 0.0], [12.0, -0.5, 0.0], [0.0, -13.5, 0.0]],
-            'load_zone_4_1': [[0.0, -13.5, 0.0], [12.0, -0.5, 0.0], [12.0, -23.5, 0.0], [0.0, -17.5, 0.0]],
-            'load_zone_1_2': [[12.0, 15.5, 0.0], [21.0, 17.0, 0.0], [21.0, 8.0, 0.0], [12.0, 10.5, 0.0]],
-            'load_zone_2_2': [[12.0, 10.5, 0.0], [21.0, 8.0, 0.0], [21.0, 5.0, 0.0], [12.0, 3.5, 0.0]],
-            'load_zone_3_2': [[12.0, 3.5, 0.0], [21.0, 5.0, 0.0], [21.0, -3.0, 0.0], [12.0, -0.5, 0.0]],
-            'load_zone_4_2': [[12.0, -0.5, 0.0], [21.0, -3.0, 0.0], [21.0, -19.0, 0.0], [12.0, -23.5, 0.0]],
-            'load_zone_1_3': [[21.0, 17.0, 0.0], [25.0, 11.0, 0.0], [25.0, 5.0, 0.0], [21.0, 8.0, 0.0]],
-            'load_zone_2_3': [[21.0, 8.0, 0.0], [25.0, 5.0, 0.0], [25.0, 2.0, 0.0], [21.0, 5.0, 0.0]],
-            'load_zone_3_3': [[21.0, 5.0, 0.0], [25.0, 2.0, 0.0], [25.0, -4.0, 0.0], [21.0, -3.0, 0.0]],
-            'load_zone_4_3': [[21.0, -3.0, 0.0], [25.0, -4.0, 0.0], [25.0, -13.0, 0.0], [21.0, -19.0, 0.0]],
+            "load_zone_1_1": [[0.0, 11.5, 0.0], [12.0, 15.5, 0.0], [12.0, 10.5, 0.0], [0.0, 10.5, 0.0]],
+            "load_zone_2_1": [[0.0, 10.5, 0.0], [12.0, 10.5, 0.0], [12.0, 3.5, 0.0], [0.0, -6.5, 0.0]],
+            "load_zone_3_1": [[0.0, -6.5, 0.0], [12.0, 3.5, 0.0], [12.0, -0.5, 0.0], [0.0, -13.5, 0.0]],
+            "load_zone_4_1": [[0.0, -13.5, 0.0], [12.0, -0.5, 0.0], [12.0, -23.5, 0.0], [0.0, -17.5, 0.0]],
+            "load_zone_1_2": [[12.0, 15.5, 0.0], [21.0, 17.0, 0.0], [21.0, 8.0, 0.0], [12.0, 10.5, 0.0]],
+            "load_zone_2_2": [[12.0, 10.5, 0.0], [21.0, 8.0, 0.0], [21.0, 5.0, 0.0], [12.0, 3.5, 0.0]],
+            "load_zone_3_2": [[12.0, 3.5, 0.0], [21.0, 5.0, 0.0], [21.0, -3.0, 0.0], [12.0, -0.5, 0.0]],
+            "load_zone_4_2": [[12.0, -0.5, 0.0], [21.0, -3.0, 0.0], [21.0, -19.0, 0.0], [12.0, -23.5, 0.0]],
+            "load_zone_1_3": [[21.0, 17.0, 0.0], [25.0, 11.0, 0.0], [25.0, 5.0, 0.0], [21.0, 8.0, 0.0]],
+            "load_zone_2_3": [[21.0, 8.0, 0.0], [25.0, 5.0, 0.0], [25.0, 2.0, 0.0], [21.0, 5.0, 0.0]],
+            "load_zone_3_3": [[21.0, 5.0, 0.0], [25.0, 2.0, 0.0], [25.0, -4.0, 0.0], [21.0, -3.0, 0.0]],
+            "load_zone_4_3": [[21.0, -3.0, 0.0], [25.0, -4.0, 0.0], [25.0, -13.0, 0.0], [21.0, -19.0, 0.0]],
         }
 
         deck_zone_materials = get_bridge_deck_zone_materials_and_thickness(params=params)
         assert deck_zone_materials == {
-            'zone_1_1': {'material': 'C40/50', 'thickness_start_d_line': 2, 'thickness_end_d_line': 2.4, 'distance_between_d_lines': 12},
-            'zone_2_1': {'material': 'C40/50', 'thickness_start_d_line': 0.8, 'thickness_end_d_line': 1.3, 'distance_between_d_lines': 12},
-            'zone_3_1': {'material': 'C40/50', 'thickness_start_d_line': 2, 'thickness_end_d_line': 2.4, 'distance_between_d_lines': 12},
-            'zone_1_2': {'material': 'C40/50', 'thickness_start_d_line': 2.4, 'thickness_end_d_line': 0.1, 'distance_between_d_lines': 9},
-            'zone_2_2': {'material': 'C40/50', 'thickness_start_d_line': 1.3, 'thickness_end_d_line': 0.34, 'distance_between_d_lines': 9},
-            'zone_3_2': {'material': 'C40/50', 'thickness_start_d_line': 2.4, 'thickness_end_d_line': 0.1, 'distance_between_d_lines': 9},
-            'zone_1_3': {'material': 'C40/50', 'thickness_start_d_line': 0.1, 'thickness_end_d_line': 0.785, 'distance_between_d_lines': 4},
-            'zone_2_3': {'material': 'C40/50', 'thickness_start_d_line': 0.34, 'thickness_end_d_line': 1.234, 'distance_between_d_lines': 4},
-            'zone_3_3': {'material': 'C40/50', 'thickness_start_d_line': 0.1, 'thickness_end_d_line': 0.785, 'distance_between_d_lines': 4},
+            "zone_1_1": {"material": "C40/50", "thickness_start_d_line": 2, "thickness_end_d_line": 2.4, "distance_between_d_lines": 12},
+            "zone_2_1": {"material": "C40/50", "thickness_start_d_line": 0.8, "thickness_end_d_line": 1.3, "distance_between_d_lines": 12},
+            "zone_3_1": {"material": "C40/50", "thickness_start_d_line": 2, "thickness_end_d_line": 2.4, "distance_between_d_lines": 12},
+            "zone_1_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.1, "distance_between_d_lines": 9},
+            "zone_2_2": {"material": "C40/50", "thickness_start_d_line": 1.3, "thickness_end_d_line": 0.34, "distance_between_d_lines": 9},
+            "zone_3_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.1, "distance_between_d_lines": 9},
+            "zone_1_3": {"material": "C40/50", "thickness_start_d_line": 0.1, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
+            "zone_2_3": {"material": "C40/50", "thickness_start_d_line": 0.34, "thickness_end_d_line": 1.234, "distance_between_d_lines": 4},
+            "zone_3_3": {"material": "C40/50", "thickness_start_d_line": 0.1, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
         }
         load_zone_materials = get_bridge_load_zone_materials_and_thickness(params=params)
         assert load_zone_materials == {
-            'load_zone_1_1': {'material': 'Asfalt', 'thickness': 0.1},
-            'load_zone_2_1': {'material': 'Grind', 'thickness': 0.445},
-            'load_zone_3_1': {'material': 'Beton (gewapend)', 'thickness': 0.781},
-            'load_zone_4_1': {'material': 'Tegels', 'thickness': 0.873},
-            'load_zone_1_2': {'material': 'Asfalt', 'thickness': 0.1},
-            'load_zone_2_2': {'material': 'Grind', 'thickness': 0.445},
-            'load_zone_3_2': {'material': 'Beton (gewapend)', 'thickness': 0.781},
-            'load_zone_4_2': {'material': 'Tegels', 'thickness': 0.873},
-            'load_zone_1_3': {'material': 'Asfalt', 'thickness': 0.1},
-            'load_zone_2_3': {'material': 'Grind', 'thickness': 0.445},
-            'load_zone_3_3': {'material': 'Beton (gewapend)', 'thickness': 0.781},
-            'load_zone_4_3': {'material': 'Tegels', 'thickness': 0.873},
+            "load_zone_1_1": {"material": "Asfalt", "thickness": 0.1},
+            "load_zone_2_1": {"material": "Grind", "thickness": 0.445},
+            "load_zone_3_1": {"material": "Beton (gewapend)", "thickness": 0.781},
+            "load_zone_4_1": {"material": "Tegels", "thickness": 0.873},
+            "load_zone_1_2": {"material": "Asfalt", "thickness": 0.1},
+            "load_zone_2_2": {"material": "Grind", "thickness": 0.445},
+            "load_zone_3_2": {"material": "Beton (gewapend)", "thickness": 0.781},
+            "load_zone_4_2": {"material": "Tegels", "thickness": 0.873},
+            "load_zone_1_3": {"material": "Asfalt", "thickness": 0.1},
+            "load_zone_2_3": {"material": "Grind", "thickness": 0.445},
+            "load_zone_3_3": {"material": "Beton (gewapend)", "thickness": 0.781},
+            "load_zone_4_3": {"material": "Tegels", "thickness": 0.873},
         }
 
         deck_materials, deck_thickness = get_deck_mat_and_thick_at_coord(params=params, coord=[5, 5, 0])
@@ -403,11 +406,16 @@ class TestFullOutputDeckAndLoadZone:
         dispersion = get_dispersion_at_coord(params=params, coord=[5, 5, 0])
 
         assert deck_materials == "C40/50"
+        assert deck_thickness is not None
         assert math.isclose(deck_thickness, 2.1666666666666665, rel_tol=1e-2)
         assert load_materials == "Grind"
+        assert load_thickness is not None
         assert math.isclose(load_thickness, 0.445, rel_tol=1e-2)
+        assert dispersion["deck_zone"] is not None
         assert math.isclose(dispersion["deck_zone"], 2.166666666666666, rel_tol=1e-2)
+        assert dispersion["load_zone"] is not None
         assert math.isclose(dispersion["load_zone"], 0.31159235450332085, rel_tol=1e-2)
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

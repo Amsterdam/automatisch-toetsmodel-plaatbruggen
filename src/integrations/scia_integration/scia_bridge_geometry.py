@@ -9,8 +9,8 @@ Functions moved from:
 - scia_loads.py: extract_tandem_parameters_from_bridge, determine_tandem_function_for_bridge, etc.
 """
 
+from math import radians, tan
 from typing import Any
-from math import tan, radians
 
 from src.geometry.load_zone_plot import (
     ZonePlottingGeometry,  # noqa: F401
@@ -600,13 +600,11 @@ def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list
     p1x, p1y = polygon_corners[0][0], polygon_corners[0][1]
     for i in range(1, n + 1):
         p2x, p2y = polygon_corners[i % n][0], polygon_corners[i % n][1]
-        if point_y > min(p1y, p2y):
-            if point_y <= max(p1y, p2y):
-                if point_x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        xinters = (point_y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or point_x <= xinters:
-                        inside = not inside
+        if point_y > min(p1y, p2y) and point_y <= max(p1y, p2y) and point_x <= max(p1x, p2x):
+            if p1y != p2y:
+                xinters = (point_y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+            if p1x == p2x or point_x <= xinters:
+                inside = not inside
         p1x, p1y = p2x, p2y
 
     return inside
@@ -649,7 +647,7 @@ def get_deck_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
             # Extract the start and end x-coordinates from zone corners
             # Zone corners are: [x_start, y, z], [x_end, y, z], [x_end, y, z], [x_start, y, z]
             x_start = zone_corners[0][0]  # x-coordinate of start D-line
-            x_end = zone_corners[1][0]    # x-coordinate of end D-line
+            x_end = zone_corners[1][0]  # x-coordinate of end D-line
 
             # Get thickness values at both D-lines
             thickness_start = zone_data["thickness_start_d_line"]
@@ -717,7 +715,7 @@ def get_load_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
     return (None, None)
 
 
-def get_dispersion_at_coord(params: Any, coord: list[float]) -> dict[str, float | None]:
+def get_dispersion_at_coord(params: object, coord: list[float]) -> dict[str, float | None]:
     """
     Calculate horizontal dispersion distances for deck and load zones at a coordinate.
 
@@ -736,22 +734,21 @@ def get_dispersion_at_coord(params: Any, coord: list[float]) -> dict[str, float 
     :rtype: dict[str, float | None]
     """
     # Define dispersion angles per material (degrees)
-    material_dispersion_angles = {
+    material_dispersion_angles: dict[str, int] = {
         "beton": 45,
         "asphalt": 45,
         "klinkers": 45,
         "grind": 35,
         "tegels": 45,
     }
-    result = {"deck_zone": None, "load_zone": None}
+    result: dict[str, float | None] = {"deck_zone": None, "load_zone": None}
 
-
-    def get_dispersion(material: Any, thickness: float | None) -> float | None:
+    def get_dispersion(material: str, thickness: float | None) -> float | None:
         """
         Helper to calculate horizontal dispersion distance for a given material and thickness.
 
         :param material: Material name or object
-        :type material: Any
+        :type material: str
         :param thickness: Thickness at the coordinate
         :type thickness: float | None
         :returns: Horizontal dispersion distance (float) or None if not applicable
@@ -763,17 +760,15 @@ def get_dispersion_at_coord(params: Any, coord: list[float]) -> dict[str, float 
         mat_str = str(material)
 
         # Use 'beton' angle if material starts with K, B, or C directly followed by a number, or contains 'Beton'
-        starts_with_kbc_and_digit = (
-            len(mat_str) > 1 and mat_str[0] in "KBC" and mat_str[1].isdigit()
-        )
+        starts_with_kbc_and_digit = len(mat_str) > 1 and mat_str[0] in "KBC" and mat_str[1].isdigit()
         if starts_with_kbc_and_digit or "Beton" in mat_str:
             angle_deg = material_dispersion_angles["beton"]
         else:
             # Try to match material name to a key in the dictionary (case-insensitive)
             angle_deg = None
-            for key in material_dispersion_angles:
+            for key, value in material_dispersion_angles.items():
                 if key.lower() in mat_str.lower():
-                    angle_deg = material_dispersion_angles[key]
+                    angle_deg = value
                     break
 
         if angle_deg is not None:

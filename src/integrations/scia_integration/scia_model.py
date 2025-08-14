@@ -18,6 +18,7 @@ from .scia_model_interface import SciaModelBuilder
 from .scia_results import create_result_classes_for_bridge
 from .scia_supports import create_all_supports
 
+
 def create_bridge_geometry(builder: SciaModelBuilder, params: Any) -> list[str]:  # noqa: ANN401
     """
     Define and create the geometry for a SCIA bridge model using the builder.

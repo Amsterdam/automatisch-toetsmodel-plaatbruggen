@@ -99,7 +99,9 @@ def add_theoretical_tandem_loads(
         load_case_name = tandem["load_case"]
         for i, patch_load in enumerate(tandem["patch_loads"]):
             # volgens code dksokf, moeten we ,
-            corner_points_dispersed, load_value_dispersed = dispersal_function(patch_load["corners"], patch_load["load_value"], BridgeParametrization=bridge_params)
+            corner_points_dispersed, load_value_dispersed = dispersal_function(
+                patch_load["corners"], patch_load["load_value"], bridge_parametrization=bridge_params
+            )
 
             builder.create_surface_load(
                 name=f"{load_case_name}_Wheel_{i + 1}",
@@ -107,44 +109,32 @@ def add_theoretical_tandem_loads(
                 corner_points=corner_points_dispersed,
                 load_value=-load_value_dispersed,  # Negative for downward load
             )
-                
-def dispersal_function(corner_points, load_value, BridgeParametrization: BridgeParametrization) -> tuple[list[tuple[float, float, float]], float]:
+
+
+def dispersal_function(
+    corner_points: list[tuple[float, float, float]],
+    load_value: float,
+    bridge_parametrization: BridgeParametrization,  # noqa: ARG001
+) -> tuple[list[tuple[float, float, float]], float]:
     """
     Disperse the load value across the corners based on the bridge parameters.
 
-        # Only process dicts that have both 'load_case' and 'patch_loads' keys
-        if "load_case" in tandem and "patch_loads" in tandem:
-            load_case_name = tandem["load_case"]
-            for i, patch_load in enumerate(tandem["patch_loads"]):
-                builder.create_surface_load(
-                    name=f"{load_case_name}_Wheel_{i + 1}",
-                    load_case_name=load_case_name,
-                    corner_points=patch_load["corners"],
-                    load_value=-patch_load["load_value"],  # Negative for downward load
-                )
-
     :param corner_points: List of corner points for the load.
+    :type corner_points: list[tuple[float, float, float]]
     :param load_value: Load value to be dispersed.
-    :param bridge_params: Bridge parameters for dispersal logic.
+    :type load_value: float
+    :param bridge_parametrization: Bridge parameters for dispersal logic.
+    :type bridge_parametrization: BridgeParametrization
     :return: Tuple of dispersed corner points and adjusted load value.
+    :rtype: tuple[list[tuple[float, float, float]], float]
     """
     # Placeholder logic for dispersal function
     # This should be replaced with actual logic based on bridge geometry
     dispersed_corners = corner_points  # No change in corners for now
     dispersed_load_value = load_value  # No change in load value for now
 
-    # for coordinate in dispersed_corners:
-    #     layer_properties = get_layer_properties_at_coordinate(coordinate)  # helper function from App layer that retrieves a dict of materials as keys and their thicknesses as values
-    #     # logica om de belasting te spreiden over een groter bereik van de hoekpunten (dus de corners verder uit elkaar) op basis van dikte van de brug en diktes van de toplaag
-
-    # constructieve dikte brug
-    # Materiaal van het brugdek (asfalt en beton bv)
-    # Spreidingshoeken materialen uit de normen
-    # Afmeting per wiel (breedte, lengte)
-    # Is het TS (twee richginten) of UDL (één richting)
-
-
     return dispersed_corners, dispersed_load_value
+
 
 def add_actual_tandem_loads(
     _builder: SciaModelBuilder,
