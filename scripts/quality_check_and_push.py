@@ -447,11 +447,15 @@ def main() -> int:
                 print(f"{Colors.YELLOW}[!] Failed to create RUFT venv, falling back to system interpreter{Colors.RESET}")
                 return sys.executable
 
-        # Ensure dev requirements (pytest, ruff, mypy) are installed
-        req_file = Path("requirements_dev.txt")
-        if req_file.exists():
+        # Ensure base/runtime and dev requirements are installed
+        base_req = Path("requirements.txt")
+        dev_req = Path("requirements_dev.txt")
+        if base_req.exists():
+            print(f"{Colors.CYAN}[>] Ensuring runtime dependencies are installed in RUFT venv...{Colors.RESET}")
+            run_command(f"{py_path} -m pip install -r {base_req}")
+        if dev_req.exists():
             print(f"{Colors.CYAN}[>] Ensuring dev dependencies are installed in RUFT venv...{Colors.RESET}")
-            run_command(f"{py_path} -m pip install -r {req_file}")
+            run_command(f"{py_path} -m pip install -r {dev_req}")
 
         return str(py_path)
 
