@@ -10,7 +10,6 @@ by calling methods on the SciaModelBuilder interface.
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
-import traceback
 from pathlib import Path
 from typing import Any
 
@@ -253,6 +252,7 @@ def create_fatigue_combinations_from_table(
         all_load_cases=all_load_cases,
     )
 
+
 def create_all_load_combinations(
     params: Any,  # noqa: ANN401
     builder: SciaModelBuilder,
@@ -290,7 +290,3 @@ def create_all_load_combinations(
     # TODO: Extend with dominant lane and other active lanes combinations
 
     return combinations
-
-
-
-
