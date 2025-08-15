@@ -37,7 +37,7 @@ errors = _ensure_module("viktor.errors")
 
 
 class UserError(Exception):
-    pass
+    """User error exception for testing."""
 
 
 errors.UserError = UserError
@@ -47,15 +47,20 @@ errors.UserError = UserError
 views = _ensure_module("viktor.views")
 
 
-def _passthrough_decorator(*_d_args: Any, **_d_kwargs: Any):  # noqa: ANN401
-    def _wrap(func):
+def _passthrough_decorator(*_d_args: Any, **_d_kwargs: Any) -> Any:  # noqa: ANN401
+    """Create a passthrough decorator for testing."""
+
+    def _wrap(func: Any) -> Any:
         return func
 
     return _wrap
 
 
 class GeometryResult:  # Minimal surface compatible class
+    """Minimal geometry result stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize geometry result with file, figure, data, and features."""
         self.file = kwargs.get("file")
         self.figure = kwargs.get("figure")
         self.data = kwargs.get("data")
@@ -63,23 +68,35 @@ class GeometryResult:  # Minimal surface compatible class
 
 
 class PlotlyResult:
+    """Minimal plotly result stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize plotly result with figure."""
         # Common usage stores a JSON string in figure
         self.figure = kwargs.get("figure") or (args[0] if args else None)
 
 
 class TableResult:
+    """Minimal table result stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize table result with data."""
         self.data = kwargs.get("data") or (args[0] if args else None)
 
 
 class WebResult:
+    """Minimal web result stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize web result with content."""
         self.content = kwargs.get("content") or (args[0] if args else None)
 
 
 class MapResult:
+    """Minimal map result stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize map result with features."""
         self.features = kwargs.get("features") or (args[0] if args else [])
         # For tests that inspect description-like fields, allow generic attributes
         for key, value in kwargs.items():
@@ -88,18 +105,24 @@ class MapResult:
 
 # Minimal map feature classes used by app.common.map_utils
 class MapFeature:
-    pass
+    """Base map feature class for testing."""
 
 
 class MapPoint(MapFeature):
+    """Map point feature for testing."""
+
     def __init__(self, lat: float, lon: float, description: str | None = None) -> None:
+        """Initialize map point with coordinates and description."""
         self.lat = lat
         self.lon = lon
         self._description = description or ""
 
 
 class MapPolygon(MapFeature):
+    """Map polygon feature for testing."""
+
     def __init__(self, points: list[MapPoint], description: str | None = None, color: Any | None = None) -> None:  # noqa: ANN401
+        """Initialize map polygon with points, description and color."""
         self.points = points
         self._description = description or ""
         self.color = color
@@ -119,7 +142,10 @@ views.MapResult = MapResult
 
 
 class PDFResult:
+    """Minimal PDF result stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize PDF result with file."""
         self.file = kwargs.get("file") or (args[0] if args else None)
 
 
@@ -134,7 +160,10 @@ result = _ensure_module("viktor.result")
 
 
 class DownloadResult:
-    def __init__(self, file: Any, filename: str) -> None:
+    """Download result stub for testing."""
+
+    def __init__(self, file: Any, filename: str) -> None:  # noqa: ANN401
+        """Initialize download result with file and filename."""
         self.file = file
         self.filename = filename
 
@@ -147,8 +176,10 @@ api_v1 = _ensure_module("viktor.api_v1")
 
 
 class API:  # pragma: no cover - only a stub for importability
+    """API stub for testing."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        pass
+        """Initialize API stub."""
 
 
 api_v1.API = API
@@ -159,7 +190,7 @@ core = _ensure_module("viktor.core")
 
 
 class ViktorController:  # Minimal base class for controllers
-    pass
+    """Minimal VIKTOR controller base class for testing."""
 
 
 core.ViktorController = ViktorController
@@ -169,33 +200,38 @@ class File:
     """Minimal File stub with helpers used in tests."""
 
     def __init__(self, data: bytes | None = None) -> None:
+        """Initialize file with data."""
         self._data = data or b""
         # Add source attribute for zipfile operations
         self.source = BytesIO()
 
     @classmethod
     def from_data(cls, data: bytes) -> File:
+        """Create file from data."""
         return cls(data)
 
     @classmethod
-    def from_path(cls, path) -> File:  # noqa: ANN001
+    def from_path(cls, path: Any) -> File:
+        """Create file from path."""
         try:
             with open(path, "rb") as f:
                 return cls(f.read())
         except Exception:
             return cls(b"")
 
-    def open_binary(self):  # Simple context manager returning a BytesIO
+    def open_binary(self) -> Any:  # Simple context manager returning a BytesIO
+        """Open file as binary context manager."""
+
         class _Ctx:
             def __init__(self, data: bytes) -> None:
                 self._data = data
 
-            def __enter__(self):
+            def __enter__(self) -> Any:
                 from io import BytesIO
 
                 return BytesIO(self._data)
 
-            def __exit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+            def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
                 return None
 
         return _Ctx(self._data)
@@ -205,15 +241,20 @@ core.File = File
 
 
 class Color:
+    """Color stub for testing."""
+
     def __init__(self, r: int, g: int, b: int) -> None:
+        """Initialize color with RGB values."""
         self.r, self.g, self.b = r, g, b
 
     @classmethod
     def blue(cls) -> Color:
+        """Create blue color."""
         return cls(0, 0, 255)
 
     @classmethod
     def red(cls) -> Color:
+        """Create red color."""
         return cls(255, 0, 0)
 
 
@@ -222,8 +263,10 @@ core.Color = Color
 
 # Provide symbols often imported from the root viktor module
 class InitialEntity:  # Placeholder symbol used by app/__init__.py
+    """Initial entity stub for testing."""
+
     def __init__(self, *_args: Any, **_kwargs: Any) -> None:  # noqa: ANN401
-        pass
+        """Initialize initial entity stub."""
 
 
 viktor.InitialEntity = InitialEntity
@@ -234,8 +277,10 @@ parametrization = _ensure_module("viktor.parametrization")
 
 
 class _Dummy:  # Generic stand-in for parametrization classes
+    """Generic dummy class for parametrization stubs."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        pass
+        """Initialize dummy class."""
 
 
 # Expose common names that might be imported; all behave as inert placeholders
@@ -277,7 +322,8 @@ setattr(viktor, "DynamicArray", getattr(parametrization, "DynamicArray"))
 utils = _ensure_module("viktor.utils")
 
 
-def convert_word_to_pdf(_file_like):  # noqa: ANN001
+def convert_word_to_pdf(_file_like: Any) -> File:
+    """Convert Word file to PDF stub for testing."""
     # Return a placeholder PDF-like File object
     return File.from_data(b"%PDF-1.4\n%stub-pdf\n")
 
@@ -290,10 +336,12 @@ idea_rcs = _ensure_module("viktor.external.idea_rcs")
 
 
 class _EnumBase:
-    pass
+    """Base enum class for testing."""
 
 
 class ConcreteMaterial(_EnumBase):
+    """Concrete material enum for testing."""
+
     C12_15 = object()
     C16_20 = object()
     C20_25 = object()
@@ -311,6 +359,8 @@ class ConcreteMaterial(_EnumBase):
 
 
 class ReinforcementMaterial(_EnumBase):
+    """Reinforcement material enum for testing."""
+
     B_400A = object()
     B_400B = object()
     B_400C = object()
@@ -330,16 +380,22 @@ idea_rcs.ReinforcementMaterial = ReinforcementMaterial
 
 # viktor.core.Storage (simple key-value in-memory stub)
 class Storage:
+    """Simple in-memory storage stub for testing."""
+
     def __init__(self) -> None:
+        """Initialize empty storage."""
         self._store: dict[str, bytes] = {}
 
     def get(self, key: str) -> bytes | None:
+        """Get value by key."""
         return self._store.get(key)
 
     def set(self, key: str, value: bytes) -> None:
+        """Set value for key."""
         self._store[key] = value
 
     def list(self, prefix: str | None = None) -> list[str]:  # noqa: ARG002
+        """List all keys."""
         return list(self._store.keys())
 
 
@@ -350,24 +406,36 @@ scia = _ensure_module("viktor.external.scia")
 
 
 class _Enum:
+    """Simple enum stub for testing."""
+
     def __init__(self, value: str | int) -> None:
+        """Initialize enum with value."""
         self.value = value
 
 
 class Material:
+    """Material stub for testing."""
+
     def __init__(self, material_id: int, name: str) -> None:
+        """Initialize material with ID and name."""
         self.material_id = material_id
         self.name = name
 
 
 class Node:
+    """Node stub for testing."""
+
     def __init__(self, name: str, x: float, y: float, z: float) -> None:
+        """Initialize node with name and coordinates."""
         self.name = name
         self.x, self.y, self.z = x, y, z
 
 
 class Plane:
+    """Plane stub for testing."""
+
     def __init__(self, name: str, corner_nodes: list[Node], thickness: float, material: Material) -> None:
+        """Initialize plane with name, corner nodes, thickness and material."""
         self.name = name
         self.corner_nodes = corner_nodes
         self.thickness = thickness
@@ -375,18 +443,26 @@ class Plane:
 
 
 class LoadGroup:
+    """Load group stub for testing."""
+
     class LoadOption:
+        """Load option enums."""
+
         PERMANENT = _Enum("PERMANENT")
         VARIABLE = _Enum("VARIABLE")
         ACCIDENTAL = _Enum("ACCIDENTAL")
         SEISMIC = _Enum("SEISMIC")
 
     class RelationOption:
+        """Relation option enums."""
+
         STANDARD = _Enum("STANDARD")
         EXCLUSIVE = _Enum("EXCLUSIVE")
         TOGETHER = _Enum("TOGETHER")
 
     class LoadTypeOption:
+        """Load type option enums."""
+
         CAT_A = _Enum("CAT_A")
         CAT_B = _Enum("CAT_B")
         CAT_C = _Enum("CAT_C")
@@ -403,19 +479,28 @@ class LoadGroup:
 
 
 class LoadCase:
-    def __init__(self, name: str = "default_load_case"):
+    """Load case stub for testing."""
+
+    def __init__(self, name: str = "default_load_case") -> None:
+        """Initialize load case with name."""
         self.name = name
 
     class PermanentLoadType:
+        """Permanent load type enums."""
+
         SELF_WEIGHT = _Enum("SELF_WEIGHT")
         STANDARD = _Enum("STANDARD")
         PRIMARY_EFFECT = _Enum("PRIMARY_EFFECT")
 
     class VariableLoadType:
+        """Variable load type enums."""
+
         STATIC = _Enum("STATIC")
         PRIMARY_EFFECT = _Enum("PRIMARY_EFFECT")
 
     class Specification:
+        """Specification enums."""
+
         STANDARD = _Enum("STANDARD")
         STATIC_WIND = _Enum("STATIC_WIND")
         SNOW = _Enum("SNOW")
@@ -423,6 +508,8 @@ class LoadCase:
         EARTHQUAKE = _Enum("EARTHQUAKE")
 
     class Duration:
+        """Duration enums."""
+
         INSTANTANEOUS = _Enum("INSTANTANEOUS")
         SHORT = _Enum("SHORT")
         MEDIUM = _Enum("MEDIUM")
@@ -430,31 +517,49 @@ class LoadCase:
 
 
 class FreeSurfaceLoad:
+    """Free surface load stub for testing."""
+
     class Direction:
+        """Direction enums."""
+
         X = _Enum("X")
         Y = _Enum("Y")
         Z = _Enum("Z")
 
     class Distribution:
+        """Distribution enums."""
+
         UNIFORM = _Enum("UNIFORM")
 
 
 class LineForceSurface:
+    """Line force surface stub for testing."""
+
     class Direction:
+        """Direction enums."""
+
         X = _Enum("X")
         Y = _Enum("Y")
         Z = _Enum("Z")
 
 
 class FreeLineLoad:
+    """Free line load stub for testing."""
+
     class Direction:
+        """Direction enums."""
+
         X = _Enum("X")
         Y = _Enum("Y")
         Z = _Enum("Z")
 
 
 class LoadCombination:
+    """Load combination stub for testing."""
+
     class Type:
+        """Type enums."""
+
         ENVELOPE_ULTIMATE = _Enum("ENVELOPE_ULTIMATE")
         ENVELOPE_SERVICEABILITY = _Enum("ENVELOPE_SERVICEABILITY")
         LINEAR_ULTIMATE = _Enum("LINEAR_ULTIMATE")
@@ -470,75 +575,101 @@ class LoadCombination:
 
 
 class ResultClass:
-    pass
+    """Result class stub for testing."""
 
 
 class LineSupport:
+    """Line support stub for testing."""
+
     class Freedom:
+        """Freedom enums."""
+
         FREE = _Enum("FREE")
         RIGID = _Enum("RIGID")
         FLEXIBLE = _Enum("FLEXIBLE")
 
 
 class Model:
+    """Model stub for testing."""
+
     def create_node(self, name: str, x: float, y: float, z: float) -> Node:
+        """Create a node."""
         return Node(name, x, y, z)
 
     def create_plane(self, corner_nodes: list[Node], thickness: float, name: str, material: Material) -> Plane:
+        """Create a plane."""
         return Plane(name, corner_nodes, thickness, material)
 
-    def create_load_group(self, name: str, *_args, **_kwargs) -> LoadGroup:
+    def create_load_group(self, name: str, *_args: Any, **_kwargs: Any) -> LoadGroup:  # noqa: ARG002
+        """Create a load group."""
         return LoadGroup()
 
-    def create_permanent_load_case(self, *args, **kwargs) -> LoadCase:
+    def create_permanent_load_case(self, *args: Any, **kwargs: Any) -> LoadCase:  # noqa: ARG002
+        """Create a permanent load case."""
         return LoadCase()
 
-    def create_variable_load_case(self, *args, **kwargs) -> LoadCase:
+    def create_variable_load_case(self, *args: Any, **kwargs: Any) -> LoadCase:  # noqa: ARG002
+        """Create a variable load case."""
         return LoadCase()
 
-    def create_free_surface_load(self, *args, **kwargs) -> FreeSurfaceLoad:
+    def create_free_surface_load(self, *args: Any, **kwargs: Any) -> FreeSurfaceLoad:  # noqa: ARG002
+        """Create a free surface load."""
         return FreeSurfaceLoad()
 
-    def create_line_load_on_plane(self, *args, **kwargs) -> LineForceSurface:
+    def create_line_load_on_plane(self, *args: Any, **kwargs: Any) -> LineForceSurface:  # noqa: ARG002
+        """Create a line load on plane."""
         return LineForceSurface()
 
-    def create_free_line_load(self, *args, **kwargs) -> FreeLineLoad:
+    def create_free_line_load(self, *args: Any, **kwargs: Any) -> FreeLineLoad:  # noqa: ARG002
+        """Create a free line load."""
         return FreeLineLoad()
 
-    def create_load_combination(self, *args, **kwargs) -> LoadCombination:
+    def create_load_combination(self, *args: Any, **kwargs: Any) -> LoadCombination:  # noqa: ARG002
+        """Create a load combination."""
         return LoadCombination()
 
-    def create_result_class(self, *args, **kwargs) -> ResultClass:
+    def create_result_class(self, *args: Any, **kwargs: Any) -> ResultClass:  # noqa: ARG002
+        """Create a result class."""
         return ResultClass()
 
-    def generate_xml_input(self):
+    def generate_xml_input(self) -> tuple[BytesIO, BytesIO]:
+        """Generate XML input."""
         from io import BytesIO
 
         return BytesIO(b"<xml/>"), BytesIO(b"<def/>")
 
 
 class SciaAnalysis:
-    def __init__(self, *_args, **_kwargs) -> None:
+    """SCIA analysis stub for testing."""
+
+    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+        """Initialize SCIA analysis."""
         self.status = "ok"
         self.error = None
 
     def execute(self, timeout: int = 0) -> None:  # noqa: ARG002
-        return None
+        """Execute analysis."""
+        return
 
-    def get_xml_output_file(self):
+    def get_xml_output_file(self) -> BytesIO:
+        """Get XML output file."""
         from io import BytesIO
 
         return BytesIO(b"<results><table name='Displacements'><row/></table></results>")
 
-    def get_updated_esa_model(self, as_file: bool = False):
+    def get_updated_esa_model(self, as_file: bool = False) -> File | bytes:
+        """Get updated ESA model."""
         if as_file:
             return File.from_data(b"ESA")
         return b"ESA"
 
 
 class OutputFileParser:
+    """Output file parser stub for testing."""
+
     @staticmethod
-    def get_result(_file_like, _table_name: str):  # noqa: ANN001
+    def get_result(_file_like: Any, _table_name: str) -> dict[str, list]:
+        """Get result from file."""
         return {"columns": [], "rows": []}
 
 

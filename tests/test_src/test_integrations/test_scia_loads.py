@@ -185,7 +185,10 @@ class TestAccidentalVehicleLoads:
 
         # Mock calc_vehicle_load_locations to return wheel corner coordinates
         # The function should return coordinates relative to the x_coord parameter
-        def mock_calc_locations_side_effect(x_coord, y_coord, vehicle_length, vehicle_width, wheel_contact_area):
+        def mock_calc_locations_side_effect(
+            x_coord: float, _y_coord: float, _vehicle_length: float, _vehicle_width: float, _wheel_contact_area: float
+        ) -> dict[str, list[tuple[float, float, float]]]:
+            """Mock function to return wheel corner coordinates."""
             return {
                 "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + 0.2, 0.0, 0.0), (x_coord + 0.2, 0.2, 0.0), (x_coord, 0.2, 0.0)],
                 "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + 0.2, -1.3, 0.0), (x_coord + 0.2, -1.1, 0.0), (x_coord, -1.1, 0.0)],
@@ -258,7 +261,10 @@ class TestAccidentalVehicleLoads:
 
             # Mock calc_vehicle_load_locations to return wheel corner coordinates
             # The function should return coordinates relative to the x_coord parameter
-            def mock_calc_locations_side_effect(x_coord, y_coord, vehicle_length, vehicle_width, wheel_contact_area):
+            def mock_calc_locations_side_effect(
+                x_coord: float, _y_coord: float, _vehicle_length: float, _vehicle_width: float, _wheel_contact_area: float
+            ) -> dict[str, list[tuple[float, float, float]]]:
+                """Mock function to return wheel corner coordinates."""
                 return {
                     "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + 0.2, 0.0, 0.0), (x_coord + 0.2, 0.2, 0.0), (x_coord, 0.2, 0.0)],
                     "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + 0.2, -1.3, 0.0), (x_coord + 0.2, -1.1, 0.0), (x_coord, -1.1, 0.0)],
@@ -297,21 +303,27 @@ class TestAccidentalVehicleLoads:
 class TestAllLoads:
     """Test the main orchestrator for creating all loads."""
 
-    @patch("src.integrations.scia_integration.scia_loads.add_accidental_vehicle_loads")
-    @patch("src.integrations.scia_integration.scia_loads.add_service_vehicle_loads")
-    @patch("src.integrations.scia_integration.scia_loads.add_theoretical_tandem_loads")
-    @patch("src.integrations.scia_integration.scia_loads.get_bridge_geom_data")
+    @pytest.fixture
+    def mock_patches(self) -> tuple[Mock, Mock, Mock, Mock]:
+        """Provide mock patches for the test."""
+        with (
+            patch("src.integrations.scia_integration.scia_loads.add_accidental_vehicle_loads") as mock_add_accidental,
+            patch("src.integrations.scia_integration.scia_loads.add_service_vehicle_loads") as mock_add_service,
+            patch("src.integrations.scia_integration.scia_loads.add_theoretical_tandem_loads") as mock_add_tandem,
+            patch("src.integrations.scia_integration.scia_loads.get_bridge_geom_data") as mock_get_bridge_geom,
+        ):
+            yield mock_get_bridge_geom, mock_add_tandem, mock_add_service, mock_add_accidental
+
     def test_create_all_loads(
         self,
-        mock_get_bridge_geom: Mock,
-        mock_add_tandem: Mock,
-        mock_add_service: Mock,
-        mock_add_accidental: Mock,
+        mock_patches: tuple[Mock, Mock, Mock, Mock],
         mock_builder: Mock,
         mock_params: Mock,
     ) -> None:
         """Test that `create_all_loads` calls all load functions."""
         from src.integrations.scia_integration.scia_loads import create_all_loads
+
+        mock_get_bridge_geom, mock_add_tandem, mock_add_service, mock_add_accidental = mock_patches
 
         # Create a mock load_cases dictionary
         mock_load_cases = {
@@ -344,11 +356,11 @@ class TestAllLoads:
         mock_builder.plates = {"Z1_1": Mock(), "Z2_1": Mock(), "Z3_1": Mock()}
 
         # Mock get_bridge_geom_data to return a simple mock
-        mock_bridge_geom = Mock()
-        mock_bridge_geom.y_top_structural_edge_at_d_points = [5.0]
-        mock_bridge_geom.y_bridge_bottom_at_d_points = [-5.0]
-        mock_bridge_geom.x_coords_d_points = [0.0, 25.0]
-        mock_get_bridge_geom.return_value = mock_bridge_geom
+        mock_bridge_geom_data = Mock()
+        mock_bridge_geom_data.y_top_structural_edge_at_d_points = [5.0]
+        mock_bridge_geom_data.y_bridge_bottom_at_d_points = [-5.0]
+        mock_bridge_geom_data.x_coords_d_points = [0.0, 25.0]
+        mock_get_bridge_geom.return_value = mock_bridge_geom_data
 
         create_all_loads(mock_builder, mock_params, mock_load_cases)
 

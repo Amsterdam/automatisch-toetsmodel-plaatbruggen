@@ -27,6 +27,7 @@ class TestCreateLoadCombination:
     """Tests for the base load combination creation function."""
 
     def test_create_load_combination(self, mock_builder: Mock) -> None:
+        """Test basic load combination creation."""
         mock_lc1 = Mock()
         mock_lc2 = Mock()
         factors = {mock_lc1: 1.5, mock_lc2: 1.0}
@@ -40,6 +41,7 @@ class TestCreateLoadCombination:
         )
 
     def test_create_load_combination_default_description(self, mock_builder: Mock) -> None:
+        """Test load combination creation with default description."""
         create_load_combination(mock_builder, SciaCombinationType.EN_SLS_CHAR, "DefaultDescCombo", {})
         mock_builder.create_load_combination.assert_called_once()
         assert mock_builder.create_load_combination.call_args[1]["description"] == "Load combination: DefaultDescCombo"
@@ -59,8 +61,9 @@ class TestCreateAllLoadCombinationsPipeline:
         params: BridgeParametrization,
         mock_builder: Mock,
     ) -> None:
+        """Test that ULS, SLS, and fatigue combinations are created from table."""
         # Build a minimal table with one row per family
-        df = pd.DataFrame(
+        combination_table = pd.DataFrame(
             data={
                 "Permanent": [1.35, 1.00, 1.00],
                 "Mensenmenigte": [1.50, 0.30, 0.00],
@@ -71,7 +74,7 @@ class TestCreateAllLoadCombinationsPipeline:
                 "6.67 COMBO_FAT_A",
             ],
         )
-        mock_prepare.return_value = df
+        mock_prepare.return_value = combination_table
         mock_scope.return_value = ["Permanent", "Mensenmenigte"]
         mock_leading.return_value = [
             ("COMBO_ULS_A", "Permanent"),
@@ -120,12 +123,13 @@ class TestCreateAllLoadCombinationsPipeline:
         params: BridgeParametrization,
         mock_builder: Mock,
     ) -> None:
+        """Test that empty result is returned when no rows remain after filtering."""
         # Table that will be filtered out by leading action rows
-        df = pd.DataFrame(
+        combination_table = pd.DataFrame(
             data={"Permanent": [1.0]},
             index=["6.10a OTHER"],
         )
-        mock_prepare.return_value = df
+        mock_prepare.return_value = combination_table
         mock_scope.return_value = ["Permanent"]
         mock_leading.return_value = [("NON_MATCHING", "Permanent")]
 

@@ -192,7 +192,13 @@ class TestStandardLoadCases:
 class TestTandemLoadCases:
     """Tests for creating tandem RS load case definitions."""
 
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
+    @pytest.fixture
+    def mock_sequencer(self) -> Mock:
+        """Provide mock sequencer."""
+        with patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer") as mock:
+            mock.return_value = [10.0, 25.0, 49.5]
+            yield mock
+
     @pytest.mark.parametrize(
         ("rs", "group", "prefix", "expected_count"),
         [(1, "LG8000 - TS rijstrook 1", "BG8", 3), (2, "LG9000 - TS rijstrook 2", "BG9", 3), (3, "LG10000 - TS rijstrook 3", "BG10", 6)],
@@ -201,7 +207,6 @@ class TestTandemLoadCases:
         self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str, expected_count: int
     ) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
-        mock_sequencer.return_value = [10.0, 25.0, 49.5]
         length_bridgedeck = 50.0
         thickness_bridgedeck = 0.5
 
@@ -211,12 +216,7 @@ class TestTandemLoadCases:
         assert mock_builder.create_load_case.call_count == expected_count
 
         # Check the call for the first load case
-        if rs == 3:
-            # RS3 uses 3-digit numbering and has 2 configurations
-            expected_name = f"{prefix}001"
-        else:
-            # RS1 and RS2 use 3-digit numbering
-            expected_name = f"{prefix}001"
+        expected_name = f"{prefix}001"
 
         # The function calls builder.create_load_case directly, not the create_load_case helper
         mock_builder.create_load_case.assert_any_call(
