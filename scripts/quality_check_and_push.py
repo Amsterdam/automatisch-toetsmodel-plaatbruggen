@@ -107,17 +107,29 @@ def parse_error_details(name: str, output: str) -> tuple[int, str]:
 
     elif "Tests" in name:
         # Parse test output for failure/error counts (works for pytest and unittest)
-        if "FAILED" in output:
-            failed_match = re.search(r"(\d+) failed", output)
-            if failed_match:
-                error_count = int(failed_match.group(1))
-                error_details = "test failures"
-        if "ERROR" in output:
-            error_match = re.search(r"(\d+) error", output)
-            if error_match:
-                # Some runners report both failed and error; prefer sum when both present
-                error_count = max(error_count, 0) + int(error_match.group(1))
-                error_details = error_details if error_details else "test errors"
+        # Look for pytest format first
+        pytest_failed = re.search(r"(\d+) failed", output)
+        pytest_error = re.search(r"(\d+) error", output)
+        
+        if pytest_failed:
+            error_count = int(pytest_failed.group(1))
+            error_details = "test failures"
+        if pytest_error:
+            error_count = max(error_count, 0) + int(pytest_error.group(1))
+            error_details = error_details if error_details else "test errors"
+        
+        # Fallback to unittest format if pytest didn't find anything
+        if error_count == 0:
+            if "FAILED" in output:
+                failed_match = re.search(r"(\d+) failed", output)
+                if failed_match:
+                    error_count = int(failed_match.group(1))
+                    error_details = "test failures"
+            if "ERROR" in output:
+                error_match = re.search(r"(\d+) error", output)
+                if error_match:
+                    error_count = max(error_count, 0) + int(error_match.group(1))
+                    error_details = error_details if error_details else "test errors"
 
     return error_count, error_details
 
@@ -343,6 +355,40 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
         status = f" {Colors.GREEN}[+] PASSED"
         if duration > 1.0:  # Show duration for longer operations
             status += f" ({duration:.1f}s)"
+        # For tests, try to extract and show test count if available
+        if "Tests" in name and output:
+            # Look for test count patterns in output (pytest format)
+            test_count_match = re.search(r"(\d+) collected", output)
+            if test_count_match:
+                test_count = test_count_match.group(1)
+                # Try to get passed count for "X/Y passed" format
+                passed_match = re.search(r"(\d+) passed", output)
+                if passed_match:
+                    passed_count = passed_match.group(1)
+                    if passed_count == test_count:
+                        status += f" - {test_count} tests"
+                    else:
+                        status += f" - {passed_count}/{test_count} tests"
+                else:
+                    status += f" - {test_count} tests"
+            else:
+                # Look for unittest format (e.g., "Ran 45 tests")
+                unittest_match = re.search(r"Ran (\d+) test", output)
+                if unittest_match:
+                    test_count = unittest_match.group(1)
+                    # For unittest, also try to get failure/error counts
+                    failed_match = re.search(r"(\d+) failed", output)
+                    error_match = re.search(r"(\d+) error", output)
+                    if failed_match or error_match:
+                        failed_count = int(failed_match.group(1)) if failed_match else 0
+                        error_count = int(error_match.group(1)) if error_match else 0
+                        passed_count = test_count - failed_count - error_count
+                        if passed_count == test_count:
+                            status += f" - {test_count} tests"
+                        else:
+                            status += f" - {passed_count}/{test_count} tests"
+                    else:
+                        status += f" - {test_count} tests"
     else:
         status = f" {Colors.RED}[X] FAILED"
         if error_count > 0:
@@ -381,6 +427,17 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
     for check in all_checks:
         if check.passed:
             status = f"{Colors.GREEN}[+] PASSED"
+            # For tests, try to show test count in final report
+            if "Tests" in check.name and check.output:
+                test_count_match = re.search(r"(\d+) collected", check.output)
+                if test_count_match:
+                    test_count = test_count_match.group(1)
+                    status += f" - {test_count} tests"
+                else:
+                    unittest_match = re.search(r"Ran (\d+) test", check.output)
+                    if unittest_match:
+                        test_count = unittest_match.group(1)
+                        status += f" - {test_count} tests"
         else:
             status = f"{Colors.RED}[X] FAILED"
             if check.error_count > 0:
@@ -459,13 +516,58 @@ def _run_quality_checks_iteration(
     # 3. Run MyPy (cannot auto-fix)
     mypy_check = run_quality_check("MyPy Type Check", f"{tool_python} scripts/run_mypy.py", can_auto_fix=False)
 
-    # 4. Run tests using RUFT venv; label based on pytest presence inside that venv
-    def _is_pytest_available_in(py_exe: str) -> bool:
-        code, _ = run_command(f"{py_exe} -c \"import importlib,sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)\"")
-        return code == 0
+    # 4. Run tests using RUFT venv; get test count and use consistent label
+    def _get_test_count_and_label(py_exe: str) -> tuple[str, str]:
+        """Get test count and determine label for tests."""
+        # Try to get test count by running a dry collection with pytest first
+        count_cmd = f"{py_exe} -m pytest --collect-only -q tests"
+        code, output = run_command(count_cmd)
+        
+        if code == 0:
+            # Parse test count from pytest output
+            lines = output.strip().split('\n')
+            test_count = 0
+            for line in lines:
+                if line.strip() and line.endswith(' collected'):
+                    try:
+                        test_count = int(line.split()[0])
+                        break
+                    except (ValueError, IndexError):
+                        pass
+            
+            if test_count > 0:
+                return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+        
+        # Fallback: try to get test count from unittest discovery
+        try:
+            discover_cmd = f"{py_exe} -m unittest discover --list tests"
+            code, output = run_command(discover_cmd)
+            if code == 0:
+                # Count test methods (lines ending with test method names)
+                test_lines = [line for line in output.split('\n') if line.strip() and '.' in line and line.endswith(')')]
+                if test_lines:
+                    return f"Tests ({len(test_lines)} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+        except Exception:
+            pass
+        
+        # Try one more approach: run a quick test to see how many tests we have
+        try:
+            quick_cmd = f"{py_exe} -m pytest --collect-only -q tests 2>/dev/null | tail -1"
+            code, output = run_command(quick_cmd)
+            if code == 0 and output.strip():
+                # Look for "X collected" pattern
+                collected_match = re.search(r"(\d+) collected", output.strip())
+                if collected_match:
+                    test_count = int(collected_match.group(1))
+                    return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+        except Exception:
+            pass
+        
+        # Final fallback: just return "Tests" without count
+        return "Tests", f"{py_exe} scripts/run_enhanced_tests.py"
 
-    tests_label = "Pytest Tests" if _is_pytest_available_in(tool_python) else "Unit Tests"
-    test_check = run_quality_check(tests_label, f"{tool_python} scripts/run_enhanced_tests.py", can_auto_fix=False)
+    tests_label, test_command = _get_test_count_and_label(tool_python)
+    test_check = run_quality_check(tests_label, test_command, can_auto_fix=False)
 
     # 5. Run VIKTOR tests (cannot auto-fix)
     viktor_test_check = run_quality_check("VIKTOR Tests", f"{tool_python} scripts/run_viktor_tests.py", can_auto_fix=False)

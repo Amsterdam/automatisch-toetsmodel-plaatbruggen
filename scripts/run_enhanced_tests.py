@@ -28,11 +28,12 @@ def print_concise_summary(result: TextTestResult) -> None:
     total_tests = result.testsRun
     failures = len(result.failures)
     errors = len(result.errors)
+    passed = total_tests - failures - errors
 
     # Always show a summary line for git hooks
     if failures == 0 and errors == 0:
         safe_emoji_text("✅ ALL TESTS PASSED!", "ALL TESTS PASSED!")
-        print(colorized_status_message(f"Ran {total_tests} tests successfully", is_success=True))
+        print(colorized_status_message(f"All {total_tests} tests passed successfully", is_success=True))
 
         # Overall status message - more generic since other checks might have failed
         print("\n" + "=" * 60)
@@ -41,6 +42,7 @@ def print_concise_summary(result: TextTestResult) -> None:
         print("=" * 60)
     else:
         safe_emoji_text("❌ TESTS FAILED", "TESTS FAILED")
+        print(colorized_status_message(f"Test results: {passed}/{total_tests} passed, {failures} failed, {errors} errors", is_success=False))
         print(colorized_status_message("Run the following command for detailed test error information:", is_success=False, is_warning=True))
         print(f"  {safe_arrow()}{colored_text('python run_enhanced_tests.py', Colors.CYAN, bold=True)}")
 
@@ -56,12 +58,12 @@ def print_detailed_summary(result: TextTestResult) -> None:
 
     if failures == 0 and errors == 0:
         safe_emoji_text("🎉 ALL TESTS PASSED! 🎉", "ALL TESTS PASSED!")
-        print(colorized_status_message(f"Successfully ran {total_tests} tests", is_success=True))
+        print(colorized_status_message(f"All {total_tests} tests passed successfully! 🎯", is_success=True))
     else:
         safe_emoji_text("❌ SOME TESTS FAILED", "SOME TESTS FAILED")
         print(
             colorized_status_message(
-                f"Test results: {passed} passed, {failures} failed, {errors} errors out of {total_tests} total", is_success=False
+                f"Test results: {passed}/{total_tests} passed, {failures} failed, {errors} errors", is_success=False
             )
         )
 
@@ -109,8 +111,11 @@ def main() -> None:
         import pytest  # type: ignore[import-untyped]
 
         pytest_args: list[str] = ["tests"]
-        # Keep output concise to align with the previous minimal verbosity behavior
-        pytest_args.insert(0, "-q")
+        # Use verbose output to show test counts clearly
+        if not concise_mode:
+            pytest_args.insert(0, "-v")
+        else:
+            pytest_args.insert(0, "-q")
 
         # Run pytest and exit with its status code
         exit_code = pytest.main(pytest_args)
@@ -130,7 +135,10 @@ def main() -> None:
                 import pytest  # type: ignore[import-untyped]
 
                 pytest_args2: list[str] = ["tests"]
-                pytest_args2.insert(0, "-q")
+                if not concise_mode:
+                    pytest_args2.insert(0, "-v")
+                else:
+                    pytest_args2.insert(0, "-q")
                 sys.exit(pytest.main(pytest_args2))
         except Exception:
             # Fall back to unittest runner below

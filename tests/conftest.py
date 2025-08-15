@@ -12,8 +12,6 @@ behavior and validate structure or business logic.
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 # VIKTOR SDK stubs for unit tests
@@ -38,14 +36,11 @@ viktor.errors.UserError = UserError  # type: ignore[attr-defined]
 
 
 # View decorators and result types
-def _passthrough_decorator(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+def _passthrough_decorator(*args: object, **kwargs: object) -> object:  # type: ignore[misc]
     """Pass-through decorator for view methods."""
-
-    def decorator(func: Any) -> Any:  # type: ignore[misc]
+    def decorator(func: object) -> object:  # type: ignore[misc]
         return func
-
     return decorator
-
 
 GeometryView = _passthrough_decorator  # type: ignore[misc]
 PlotlyView = _passthrough_decorator  # type: ignore[misc]
@@ -100,9 +95,8 @@ viktor.core.Color = Color  # type: ignore[attr-defined]
 InitialEntity = type("InitialEntity", (), {})  # type: ignore[misc]
 viktor.InitialEntity = InitialEntity  # type: ignore[attr-defined]
 
-
 # Utility functions
-def convert_word_to_pdf(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+def convert_word_to_pdf() -> object:  # type: ignore[misc]
     """Mock convert_word_to_pdf function."""
     return None
 
