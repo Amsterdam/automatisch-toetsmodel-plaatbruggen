@@ -750,7 +750,7 @@ class BridgeController(ViktorController):
 
         # Get entity ID for caching
         entity_id = kwargs.get("entity_id")
-        
+
         # Get bridge ID with fallback
         bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
@@ -777,9 +777,8 @@ class BridgeController(ViktorController):
                     # Analysis ran but didn't produce ESA model - log details for debugging
                     error_details = results.get("error", "Onbekende fout")
                     raise UserError(f"SCIA analyse uitgevoerd maar ESA model ontbreekt: {error_details}")
-                else:
-                    # Analysis function returned None - this indicates a serious problem
-                    raise UserError("SCIA analyse kon niet worden uitgevoerd. Controleer de brug parameters en probeer opnieuw.")
+                # Analysis function returned None - this indicates a serious problem
+                raise UserError("SCIA analyse kon niet worden uitgevoerd. Controleer de brug parameters en probeer opnieuw.")
 
             except Exception as e:
                 if isinstance(e, UserError):
@@ -790,25 +789,25 @@ class BridgeController(ViktorController):
             try:
                 # Get the ESA template path
                 template_path = self._get_scia_template_path()
-                
+
                 # Use the module-level function to create the model
                 xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
-                
+
                 # Run the analysis
                 analysis.execute(timeout=300)
-                
+
                 # Get the ESA model
                 esa_file = analysis.get_updated_esa_model()
                 if not esa_file:
                     raise UserError("ESA bestand is leeg")
-                
+
                 # Use _model suffix only if bridge_id doesn't already contain it
                 if bridge_id.endswith("_model"):
                     filename = f"{bridge_id}.esa"
                 else:
                     filename = f"{bridge_id}_model.esa"
                 return DownloadResult(esa_file, filename)
-                
+
             except Exception as e:
                 if isinstance(e, UserError):
                     raise
@@ -821,14 +820,14 @@ class BridgeController(ViktorController):
         try:
             # Get the template path
             template_path = self._get_scia_template_path()
-            
+
             # Use the module-level function
             xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
 
             # Check if files have getvalue method
-            if not hasattr(xml_file, 'getvalue'):
+            if not hasattr(xml_file, "getvalue"):
                 raise UserError("XML bestand is leeg")
-            if not hasattr(def_file, 'getvalue'):
+            if not hasattr(def_file, "getvalue"):
                 raise UserError("Definition bestand is leeg")
 
             xml_content = xml_file.getvalue()
@@ -848,7 +847,7 @@ class BridgeController(ViktorController):
                 z.writestr("viktor.xml.def", def_content)
 
             return DownloadResult(zip_file_obj, f"{bridge_id}_Input_Files.zip")
-            
+
         except Exception as e:
             # Convert any exceptions to UserError
             if isinstance(e, UserError):

@@ -405,7 +405,7 @@ class LoadGroup:
 class LoadCase:
     def __init__(self, name: str = "default_load_case"):
         self.name = name
-        
+
     class PermanentLoadType:
         SELF_WEIGHT = _Enum("SELF_WEIGHT")
         STANDARD = _Enum("STANDARD")

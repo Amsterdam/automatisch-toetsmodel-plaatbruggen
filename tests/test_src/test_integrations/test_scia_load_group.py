@@ -31,7 +31,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG1000 - Permanent",
             load_option="PERMANENT",
-            relation="EXCLUSIVE",
+            relation="STANDARD",
             load_type=None,
         )
 
@@ -42,7 +42,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG2000 - Rustende belasting",
             load_option="PERMANENT",
-            relation="EXCLUSIVE",
+            relation="STANDARD",
             load_type=None,
         )
 
@@ -64,7 +64,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG4000 - UDL",
             load_option="VARIABLE",
-            relation="EXCLUSIVE",
+            relation="STANDARD",
             load_type="CONSTRUCTION_LOADS",
         )
 

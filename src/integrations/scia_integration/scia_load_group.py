@@ -18,7 +18,7 @@ def create_permanent_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     return builder.create_load_group(
         name="LG1000 - Permanent",
         load_option="PERMANENT",
-        relation="EXCLUSIVE",
+        relation="STANDARD",
         load_type=None,
     )
 

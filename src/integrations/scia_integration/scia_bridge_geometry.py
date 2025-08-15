@@ -136,8 +136,7 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
     if mode == "theoretical":
         # Theoretical mode uses theoretical lanes regardless of bridge width
         tandem_function = tandem_systems_theoretical_lanes_bg8000
-        # Report a generic function name expected by tests
-        function_name = "tandem_systems_theoretical_lanes"
+        function_name = "tandem_systems_theoretical_lanes_BG8000"
         tandem_function2 = tandem_systems_theoretical_lanes_bg9000
         function_name2 = "tandem_systems_theoretical_lanes_BG9000"
         tandem_function3 = tandem_systems_theoretical_lanes_bg10000
@@ -272,26 +271,17 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
 
     for tandem in tandem_data:
         patch_loads = []
-        # Support both a single-load structure (top-level wheels) and a list of loads
-        if "wheels" in tandem and isinstance(tandem.get("wheels"), list):
-            wheels_list = tandem["wheels"]
-            load_value = tandem.get("load", 0.0)
-            for wheel_coords_2d in wheels_list:
+        # Loop over all loads in the tandem dict (standard structure)
+        for load in tandem.get("loads", []):
+            for wheel_coords_2d in load.get("wheels", []):
                 wheel_coords_3d = convert_wheel_coordinates_to_3d(wheel_coords_2d)
                 aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
-                patch_loads.append({"corners": aligned_coords, "load_value": load_value})
-        else:
-            # Loop over all loads in the tandem dict (standard structure)
-            for load in tandem.get("loads", []):
-                for wheel_coords_2d in load.get("wheels", []):
-                    wheel_coords_3d = convert_wheel_coordinates_to_3d(wheel_coords_2d)
-                    aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
-                    patch_loads.append(
-                        {
-                            "corners": aligned_coords,
-                            "load_value": load.get("load", 0.0),
-                        }
-                    )
+                patch_loads.append(
+                    {
+                        "corners": aligned_coords,
+                        "load_value": load.get("load", 0.0),
+                    }
+                )
 
         scia_load_cases.append(
             {

@@ -197,7 +197,9 @@ class TestTandemLoadCases:
         ("rs", "group", "prefix", "expected_count"),
         [(1, "LG8000 - TS rijstrook 1", "BG8", 3), (2, "LG9000 - TS rijstrook 2", "BG9", 3), (3, "LG10000 - TS rijstrook 3", "BG10", 6)],
     )
-    def test_create_tandem_rs_load_cases(self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str, expected_count: int) -> None:
+    def test_create_tandem_rs_load_cases(
+        self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str, expected_count: int
+    ) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
         mock_sequencer.return_value = [10.0, 25.0, 49.5]
         length_bridgedeck = 50.0
@@ -215,7 +217,7 @@ class TestTandemLoadCases:
         else:
             # RS1 and RS2 use 3-digit numbering
             expected_name = f"{prefix}001"
-            
+
         # The function calls builder.create_load_case directly, not the create_load_case helper
         mock_builder.create_load_case.assert_any_call(
             name=expected_name,

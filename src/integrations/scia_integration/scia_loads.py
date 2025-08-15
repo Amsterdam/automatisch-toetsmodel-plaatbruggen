@@ -142,7 +142,7 @@ def add_parapet_loads(
     except (AttributeError, ValueError, TypeError):
         # If the parameter structure is missing or invalid, use default value
         leuning_numeric = 0.0
-    
+
     load_value = leuning_numeric * 1000  # Convert to N/m
 
     # Get the parapet load case name from the load cases dictionary
