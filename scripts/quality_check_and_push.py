@@ -426,6 +426,16 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
                 if unittest_match:
                     test_count = unittest_match.group(1)
                     status += f" - {test_count} tests"
+                else:
+                    # Try to find test count in error messages or other output
+                    # Look for patterns like "test_*.py::test_name" or similar
+                    test_file_pattern = re.search(r"test_.*\.py", output)
+                    if test_file_pattern:
+                        # Count test files mentioned in output
+                        test_files = re.findall(r"test_.*\.py", output)
+                        unique_files = set(test_files)
+                        if len(unique_files) > 0:
+                            status += f" - {len(unique_files)}+ test files"
 
     print(f"{status}{Colors.RESET}")
 
@@ -487,6 +497,15 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
                     if unittest_match:
                         test_count = unittest_match.group(1)
                         status += f" - {test_count} tests"
+                    else:
+                        # Try to find test count in error messages or other output
+                        test_file_pattern = re.search(r"test_.*\.py", check.output)
+                        if test_file_pattern:
+                            # Count test files mentioned in output
+                            test_files = re.findall(r"test_.*\.py", check.output)
+                            unique_files = set(test_files)
+                            if len(unique_files) > 0:
+                                status += f" - {len(unique_files)}+ test files"
 
             failed_checks.append(check)
 
@@ -604,6 +623,38 @@ def _run_quality_checks_iteration(
                 if collected_match:
                     test_count = int(collected_match.group(1))
                     return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+        except Exception:
+            pass
+
+        # Try to get test count from the actual test runner output
+        try:
+            # Run a minimal test to see what output we get
+            test_cmd = f"{py_exe} scripts/run_enhanced_tests.py --help"
+            code, output = run_command(test_cmd)
+            if code == 0:
+                # Look for any test count patterns in the help output
+                help_match = re.search(r"(\d+) tests?", output, re.IGNORECASE)
+                if help_match:
+                    test_count = int(help_match.group(1))
+                    return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+        except Exception:
+            pass
+
+        # Try to count test files directly from the tests directory
+        try:
+            import os
+
+            tests_dir = Path("tests")
+            if tests_dir.exists():
+                test_files = []
+                for root, dirs, files in os.walk(tests_dir):
+                    for file in files:
+                        if file.startswith("test_") and file.endswith(".py"):
+                            test_files.append(file)
+                if test_files:
+                    # Estimate test count based on files (rough estimate: 5-10 tests per file)
+                    estimated_tests = len(test_files) * 7  # Average of 7 tests per file
+                    return f"Tests (~{estimated_tests} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
         except Exception:
             pass
 
