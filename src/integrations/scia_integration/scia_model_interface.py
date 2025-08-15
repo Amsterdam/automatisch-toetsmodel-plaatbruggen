@@ -165,7 +165,7 @@ class SciaModelBuilder(Protocol):
         self,
         name: str,
         combinations: list[SciaLoadCombination] | None = None,
-        nonlinear_combinations: list[SciaResultClass] | None = None,
+        nonlinear_combinations: list[Any] | None = None,
     ) -> SciaResultClass:
         """Creates a result class in the SCIA model."""
         ...

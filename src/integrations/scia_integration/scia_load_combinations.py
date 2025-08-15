@@ -110,7 +110,7 @@ def _create_combinations_from_df(
     return results
 
 
-def _filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
+def filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
     """Filter DataFrame rows where the index starts with any of the given prefixes."""
     return df[df.index.to_series().str.startswith(tuple(prefixes))]
 
@@ -155,7 +155,6 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
 
     # Filter rows based on load_combinations_project
     valid_row_names = {row_name for row_name, _ in load_combinations_project}
-
     return df_combination_table_gamma_psi[
         [idx.split(" ", 1)[1] in valid_row_names if len(idx.split(" ", 1)) > 1 else False for idx in df_combination_table_gamma_psi.index]
     ]
@@ -199,7 +198,7 @@ def create_uls_combinations_from_table(
     :rtype: list[SciaLoadCombination]
     """
     df_combinations = load_combination_table_without_rounding(params)
-    uls_df = _filter_by_prefix(df_combinations, ["6.10a", "6.10b"])
+    uls_df = filter_by_prefix(df_combinations, ["6.10a", "6.10b"])
     return _create_combinations_from_df(
         builder=builder,
         df=uls_df,
@@ -221,7 +220,7 @@ def create_sls_combinations_from_table(
     :rtype: list[SciaLoadCombination]
     """
     df_combinations = load_combination_table_without_rounding(params)
-    sls_df = _filter_by_prefix(df_combinations, ["6.14b", "6.15b", "6.16b"])
+    sls_df = filter_by_prefix(df_combinations, ["6.14b", "6.15b", "6.16b"])
     return _create_combinations_from_df(
         builder=builder,
         df=sls_df,
@@ -243,7 +242,7 @@ def create_fatigue_combinations_from_table(
     :rtype: list[SciaLoadCombination]
     """
     df_combinations = load_combination_table_without_rounding(params)
-    fatigue_df = _filter_by_prefix(df_combinations, ["6.67", "6.69"])
+    fatigue_df = filter_by_prefix(df_combinations, ["6.67", "6.69"])
     return _create_combinations_from_df(
         builder=builder,
         df=fatigue_df,
