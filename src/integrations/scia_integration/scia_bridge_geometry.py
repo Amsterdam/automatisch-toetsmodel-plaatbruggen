@@ -715,7 +715,7 @@ def get_load_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
     return (None, None)
 
 
-def get_dispersion_at_coord(params: object, coord: list[float]) -> dict[str, float | None]:
+def get_dispersion_at_coord(params: Any, coord: list[float]) -> dict[str, float | None]:  # noqa: ANN401
     """
     Calculate horizontal dispersion distances for deck and load zones at a coordinate.
 
