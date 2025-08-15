@@ -82,10 +82,13 @@ viktor.views.MapPolygon = MapPolygon  # type: ignore[attr-defined]
 class DownloadResult:
     """Download result stub for testing."""
 
-    def __init__(self, file: object, filename: str) -> None:
-        """Initialize download result with file and filename."""
-        self.file = file
-        self.filename = filename
+    def __init__(self, file_content: object = None, file_name: str = None, **kwargs) -> None:
+        """Initialize download result with file_content and file_name."""
+        self._file = file_content
+        self._file_name = file_name
+        # Also provide the public attributes for backward compatibility
+        self.file = file_content
+        self.file_name = file_name
 
 
 viktor.result.DownloadResult = DownloadResult  # type: ignore[attr-defined]

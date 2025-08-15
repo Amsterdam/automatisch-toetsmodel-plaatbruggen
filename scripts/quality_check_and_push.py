@@ -426,16 +426,7 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
                 if unittest_match:
                     test_count = unittest_match.group(1)
                     status += f" - {test_count} tests"
-                else:
-                    # Try to find test count in error messages or other output
-                    # Look for patterns like "test_*.py::test_name" or similar
-                    test_file_pattern = re.search(r"test_.*\.py", output)
-                    if test_file_pattern:
-                        # Count test files mentioned in output
-                        test_files = re.findall(r"test_.*\.py", output)
-                        unique_files = set(test_files)
-                        if len(unique_files) > 0:
-                            status += f" - {len(unique_files)}+ test files"
+                # Don't add confusing file count estimates from error output
 
     print(f"{status}{Colors.RESET}")
 
@@ -497,15 +488,7 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
                     if unittest_match:
                         test_count = unittest_match.group(1)
                         status += f" - {test_count} tests"
-                    else:
-                        # Try to find test count in error messages or other output
-                        test_file_pattern = re.search(r"test_.*\.py", check.output)
-                        if test_file_pattern:
-                            # Count test files mentioned in output
-                            test_files = re.findall(r"test_.*\.py", check.output)
-                            unique_files = set(test_files)
-                            if len(unique_files) > 0:
-                                status += f" - {len(unique_files)}+ test files"
+                    # Don't add confusing file count estimates from error output
 
             failed_checks.append(check)
 
@@ -601,6 +584,44 @@ def _run_quality_checks_iteration(
             if test_count > 0:
                 return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
 
+        # If pytest collection failed, try with more verbose output to see what's wrong
+        if code != 0:
+            # Try with import mode to see if it's an import issue
+            import_cmd = f"{py_exe} -m pytest --collect-only --import-mode=importlib tests"
+            import_code, import_output = run_command(import_cmd)
+            if import_code == 0:
+                # Parse test count from import mode output
+                lines = import_output.strip().split("\n")
+                test_count = 0
+                for line in lines:
+                    if line.strip() and line.endswith(" collected"):
+                        try:
+                            test_count = int(line.split()[0])
+                            break
+                        except (ValueError, IndexError):
+                            pass
+
+                if test_count > 0:
+                    return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+
+            # Try with basic discovery to see if it's a configuration issue
+            basic_cmd = f"{py_exe} -m pytest --collect-only --tb=no tests"
+            basic_code, basic_output = run_command(basic_cmd)
+            if basic_code == 0:
+                # Parse test count from basic output
+                lines = basic_output.strip().split("\n")
+                test_count = 0
+                for line in lines:
+                    if line.strip() and line.endswith(" collected"):
+                        try:
+                            test_count = int(line.split()[0])
+                            break
+                        except (ValueError, IndexError):
+                            pass
+
+                if test_count > 0:
+                    return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+
         # Fallback: try to get test count from unittest discovery
         try:
             discover_cmd = f"{py_exe} -m unittest discover --list tests"
@@ -650,11 +671,32 @@ def _run_quality_checks_iteration(
                 for root, dirs, files in os.walk(tests_dir):
                     for file in files:
                         if file.startswith("test_") and file.endswith(".py"):
-                            test_files.append(file)
+                            # Store the full path relative to tests directory
+                            rel_path = Path(root) / file
+                            test_files.append(rel_path)
                 if test_files:
-                    # Estimate test count based on files (rough estimate: 5-10 tests per file)
-                    estimated_tests = len(test_files) * 7  # Average of 7 tests per file
-                    return f"Tests (~{estimated_tests} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+                    # Count actual test methods by reading the files
+                    total_methods = 0
+                    unreadable_files = []
+
+                    for test_file_path in test_files:
+                        try:
+                            with open(test_file_path, encoding="utf-8") as f:
+                                content = f.read()
+                                # Count test methods (def test_*)
+                                test_methods = len(re.findall(r"def test_", content))
+                                total_methods += test_methods
+                        except Exception as e:
+                            # Track files we can't read - this shouldn't happen normally
+                            # Add some debug info to understand the issue
+                            unreadable_files.append(f"{test_file_path} ({type(e).__name__})")
+
+                    if unreadable_files:
+                        # If we can't read some files, we can't give an exact count
+                        readable_count = len(test_files) - len(unreadable_files)
+                        return f"Tests ({total_methods}+ tests, {len(unreadable_files)} files unreadable)", f"{py_exe} scripts/run_enhanced_tests.py"
+                    # Exact count - we read all files successfully
+                    return f"Tests ({total_methods} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
         except Exception:
             pass
 

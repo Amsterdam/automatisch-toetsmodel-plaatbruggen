@@ -781,7 +781,7 @@ class BridgeController(ViktorController):
                 filename = f"SCIA_model_{bridge_id}.esa"
                 # Create File object from bytes using the correct method
                 file_obj = File.from_data(esa_content)
-                return DownloadResult(file_obj, filename)
+                return DownloadResult(file_content=file_obj, file_name=filename)
 
             # If no ESA model in results, something went wrong with the analysis
             # This should rarely happen since get_cached_analysis_results runs analysis if needed
@@ -817,7 +817,7 @@ class BridgeController(ViktorController):
 
             # Use _model suffix only if bridge_id doesn't already contain it
             filename = f"{bridge_id}.esa" if bridge_id.endswith("_model") else f"{bridge_id}_model.esa"
-            return DownloadResult(esa_file, filename)
+            return DownloadResult(file_content=esa_file, file_name=filename)
 
         except Exception as e:
             if isinstance(e, UserError):
@@ -858,7 +858,7 @@ class BridgeController(ViktorController):
                 z.writestr(f"SCIA_model_{bridge_id}.xml", xml_content)
                 z.writestr("viktor.xml.def", def_content)
 
-            return DownloadResult(zip_file_obj, f"{bridge_id}_Input_Files.zip")
+            return DownloadResult(file_content=zip_file_obj, file_name=f"{bridge_id}_Input_Files.zip")
 
         except Exception as e:
             # Convert any exceptions to UserError
@@ -901,7 +901,7 @@ class BridgeController(ViktorController):
                 filename = f"scia_output_{params.info.bridge_objectnumm}.xml"
                 # Create File object from bytes using the correct method
                 file_obj = File.from_data(xml_content)
-                return DownloadResult(file_obj, filename)
+                return DownloadResult(file_content=file_obj, file_name=filename)
 
             # If no cached results or no XML output, raise error
             _raise_no_cached_results_error()
