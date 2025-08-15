@@ -231,7 +231,7 @@ class File:
 
                 return BytesIO(self._data)
 
-            def __exit__(self, exc_type: object | None, exc: BaseException | None, tb: object | None) -> None:
+            def __exit__(self, exc_type: object | None, exc: object | None, tb: object | None) -> None:  # noqa: PYI036
                 return None
 
         return _Ctx(self._data)
