@@ -231,7 +231,7 @@ class File:
 
                 return BytesIO(self._data)
 
-            def __exit__(self, exc_type: object | None, exc: BaseException | None, tb: Any) -> None:  # noqa: ANN401
+            def __exit__(self, exc_type: object | None, exc: BaseException | None, tb: object | None) -> None:
                 return None
 
         return _Ctx(self._data)
@@ -695,7 +695,7 @@ scia.OutputFileParser = OutputFileParser
 
 
 @pytest.fixture
-def params() -> Any:
+def params() -> object:
     """
     Provide minimal project parameters for combination/load tests.
 

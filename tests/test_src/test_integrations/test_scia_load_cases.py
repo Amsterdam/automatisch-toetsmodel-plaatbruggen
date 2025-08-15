@@ -203,9 +203,7 @@ class TestTandemLoadCases:
         ("rs", "group", "prefix", "expected_count"),
         [(1, "LG8000 - TS rijstrook 1", "BG8", 3), (2, "LG9000 - TS rijstrook 2", "BG9", 3), (3, "LG10000 - TS rijstrook 3", "BG10", 6)],
     )
-    def test_create_tandem_rs_load_cases(
-        self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str, expected_count: int
-    ) -> None:
+    def test_create_tandem_rs_load_cases(self, mock_builder: Mock, rs: int, group: str, prefix: str, expected_count: int) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
         length_bridgedeck = 50.0
         thickness_bridgedeck = 0.5
