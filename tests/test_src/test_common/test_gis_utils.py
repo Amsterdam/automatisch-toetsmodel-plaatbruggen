@@ -275,8 +275,8 @@ class TestGisUtilsPrepareBridgeData(unittest.TestCase):
         poly_coords = [(10, 10), (10, 11), (11, 11), (11, 10), (10, 10)]
         polygon = Polygon(poly_coords[:-1])
 
-        rows_data = [
-            {"name": "Feature1", "type_val": "P", "geometry": point},
+        rows_data: list[dict[str, Any]] = [
+            {"name": "Feature1", "type_val": "Point", "geometry": point},
             {"name": "Feature2", "type_val": "Poly", "geometry": polygon},
             {"name": "Feature3", "type_val": "Invalid", "geometry": MagicMock(type="SomethingElse")},
         ]
