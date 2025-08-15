@@ -331,12 +331,13 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     ) -> scia.ResultClass:
         """Creates a result class in the SCIA model."""
         # Ensure we have at least one combination or nonlinear combination
-        if not combinations and not nonlinear_combinations:
+        combinations_list = combinations.values.tolist()
+        if not combinations_list and not nonlinear_combinations:
             raise ValueError("A result class should at least consist of 'combinations' or 'nonlinear_combinations'.")
 
         # Create the result class with combinations
-        if combinations:
-            result_class = self.model.create_result_class(name, combinations=combinations)
+        if combinations_list:
+            result_class = self.model.create_result_class(name, combinations=combinations_list)
         else:
             # Create with nonlinear combinations (future implementation)
             result_class = self.model.create_result_class(name, nonlinear_combinations=nonlinear_combinations)

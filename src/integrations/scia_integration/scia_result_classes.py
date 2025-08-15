@@ -11,7 +11,7 @@ by calling methods on the SciaModelBuilder interface.
 from typing import Any
 
 from src.integrations.scia_integration.scia_load_combinations import filter_by_prefix, load_combination_table_without_rounding
-from .scia_model_interface import SciaModelBuilder, SciaLoadCombination, SciaResultClass
+from .scia_model_interface import SciaModelBuilder, SciaResultClass
 
 # ===================================================================================================================
 # Functions
