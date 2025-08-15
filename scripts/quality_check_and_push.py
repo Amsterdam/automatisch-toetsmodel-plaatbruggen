@@ -679,26 +679,33 @@ def _run_quality_checks_iteration(
                     total_methods = 0
                     unreadable_files = []
 
-                    for test_file_path in test_files:
+                    def read_test_file(file_path: Path) -> tuple[int, str | None]:
+                        """Read a test file and return test method count and error info."""
                         try:
-                            with open(test_file_path, encoding="utf-8") as f:
+                            with open(file_path, encoding="utf-8") as f:
                                 content = f.read()
                                 # Count test methods (def test_*)
                                 test_methods = len(re.findall(r"def test_", content))
-                                total_methods += test_methods
+                                return test_methods, None
                         except Exception as e:
                             # Track files we can't read - this shouldn't happen normally
                             # Add some debug info to understand the issue
-                            unreadable_files.append(f"{test_file_path} ({type(e).__name__})")
+                            return 0, f"{file_path} ({type(e).__name__})"
 
-                            if unreadable_files:
-                                # If we can't read some files, we can't give an exact count
-                                return (
-                                    f"Tests ({total_methods}+ tests, {len(unreadable_files)} files unreadable)",
-                                    f"{py_exe} scripts/run_enhanced_tests.py",
-                                )
-                        # Exact count - we read all files successfully
-                        return f"Tests ({total_methods} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+                    for test_file_path in test_files:
+                        test_methods, error_info = read_test_file(test_file_path)
+                        total_methods += test_methods
+                        if error_info:
+                            unreadable_files.append(error_info)
+
+                    if unreadable_files:
+                        # If we can't read some files, we can't give an exact count
+                        return (
+                            f"Tests ({total_methods}+ tests, {len(unreadable_files)} files unreadable)",
+                            f"{py_exe} scripts/run_enhanced_tests.py",
+                        )
+                    # Exact count - we read all files successfully
+                    return f"Tests ({total_methods} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
         except Exception:
             pass
 
