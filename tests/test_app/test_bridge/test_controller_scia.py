@@ -46,8 +46,12 @@ class TestGetSciaTemplatePath:
 class TestDownloadSciaXmlFiles:
     """Test cases for download_scia_xml_files method."""
 
-    def setup_method(self) -> None:
+    @patch("app.bridge.controller.DownloadResult")
+    def setup_method(self, mock_download_result_class) -> None:
         """Set up test fixtures."""
+        # Store the mock class for use in tests
+        self.mock_download_result_class = mock_download_result_class
+
         self.controller = BridgeController()
         self.mock_params = Munch(
             {
@@ -97,6 +101,11 @@ class TestDownloadSciaXmlFiles:
         mock_analysis = MagicMock()
 
         mock_create_model.return_value = (mock_xml_file, mock_def_file, mock_analysis)
+
+        # Create a mock DownloadResult instance
+        mock_result = MagicMock()
+        mock_result.filename = "BR-2024-001_Input_Files.zip"
+        self.mock_download_result_class.return_value = mock_result
 
         # Mock template file reading
         with patch("builtins.open", mock_open(read_data=b"Mock template content")), patch("pathlib.Path.open"):

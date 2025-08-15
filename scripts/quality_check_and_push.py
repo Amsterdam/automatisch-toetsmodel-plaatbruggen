@@ -105,31 +105,48 @@ def parse_error_details(name: str, output: str) -> tuple[int, str]:
                     error_types.add(error_type)
             error_details = ", ".join(list(error_types)[:2])  # Show up to 2 error types
 
-    elif "Tests" in name:
-        # Parse test output for failure/error counts (works for pytest and unittest)
-        # Look for pytest format first
-        pytest_failed = re.search(r"(\d+) failed", output)
-        pytest_error = re.search(r"(\d+) error", output)
+        elif "Tests" in name:
+            # Parse test output for failure/error counts (works for pytest and unittest)
+            # Look for pytest format first
+            pytest_failed = re.search(r"(\d+) failed", output)
+            pytest_error = re.search(r"(\d+) error", output)
+            pytest_passed = re.search(r"(\d+) passed", output)
+            pytest_collected = re.search(r"(\d+) collected", output)
 
-        if pytest_failed:
-            error_count = int(pytest_failed.group(1))
-            error_details = "test failures"
-        if pytest_error:
-            error_count = max(error_count, 0) + int(pytest_error.group(1))
-            error_details = error_details if error_details else "test errors"
+            if pytest_failed:
+                error_count = int(pytest_failed.group(1))
+                error_details = "test failures"
+            if pytest_error:
+                error_count = max(error_count, 0) + int(pytest_error.group(1))
+                error_details = error_details if error_details else "test errors"
 
-        # Fallback to unittest format if pytest didn't find anything
-        if error_count == 0:
-            if "FAILED" in output:
-                failed_match = re.search(r"(\d+) failed", output)
-                if failed_match:
-                    error_count = int(failed_match.group(1))
-                    error_details = "test failures"
-            if "ERROR" in output:
-                error_match = re.search(r"(\d+) error", output)
-                if error_match:
-                    error_count = max(error_count, 0) + int(error_match.group(1))
-                    error_details = error_details if error_details else "test errors"
+            # For pytest, try to get total and passed counts for better error details
+            if pytest_collected and (pytest_failed or pytest_error):
+                total_tests = int(pytest_collected.group(1))
+                passed_tests = int(pytest_passed.group(1)) if pytest_passed else 0
+                if error_details:
+                    error_details = f"{passed_tests}/{total_tests} passed, {error_details}"
+
+            # Fallback to unittest format if pytest didn't find anything
+            if error_count == 0:
+                if "FAILED" in output:
+                    failed_match = re.search(r"(\d+) failed", output)
+                    if failed_match:
+                        error_count = int(failed_match.group(1))
+                        error_details = "test failures"
+                if "ERROR" in output:
+                    error_match = re.search(r"(\d+) error", output)
+                    if error_match:
+                        error_count = max(error_count, 0) + int(error_match.group(1))
+                        error_details = error_details if error_details else "test errors"
+
+                # For unittest, try to get total count
+                unittest_total = re.search(r"Ran (\d+) test", output)
+                if unittest_total and error_count > 0:
+                    total_tests = int(unittest_total.group(1))
+                    passed_tests = total_tests - error_count
+                    if error_details:
+                        error_details = f"{passed_tests}/{total_tests} passed, {error_details}"
 
     return error_count, error_details
 
@@ -396,6 +413,20 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
             if error_details:
                 status += f" ({error_details})"
 
+        # For failed tests, also try to show test count information
+        if "Tests" in name and output:
+            # Look for test count patterns in output (pytest format)
+            test_count_match = re.search(r"(\d+) collected", output)
+            if test_count_match:
+                test_count = test_count_match.group(1)
+                status += f" - {test_count} tests"
+            else:
+                # Look for unittest format (e.g., "Ran 45 tests")
+                unittest_match = re.search(r"Ran (\d+) test", output)
+                if unittest_match:
+                    test_count = unittest_match.group(1)
+                    status += f" - {test_count} tests"
+
     print(f"{status}{Colors.RESET}")
 
     return CheckResult(
@@ -444,6 +475,19 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
                 status += f" - Found {check.error_count} error{'s' if check.error_count != 1 else ''}"
                 if check.error_details:
                     status += f" ({check.error_details})"
+
+            # For failed tests, also try to show test count in final report
+            if "Tests" in check.name and check.output:
+                test_count_match = re.search(r"(\d+) collected", check.output)
+                if test_count_match:
+                    test_count = test_count_match.group(1)
+                    status += f" - {test_count} tests"
+                else:
+                    unittest_match = re.search(r"Ran (\d+) test", check.output)
+                    if unittest_match:
+                        test_count = unittest_match.group(1)
+                        status += f" - {test_count} tests"
+
             failed_checks.append(check)
 
         print(f"  {check.name}: {status}{Colors.RESET}")

@@ -77,8 +77,17 @@ viktor.views.MapFeature = MapFeature  # type: ignore[attr-defined]
 viktor.views.MapPoint = MapPoint  # type: ignore[attr-defined]
 viktor.views.MapPolygon = MapPolygon  # type: ignore[attr-defined]
 
+
 # Result types
-DownloadResult = type("DownloadResult", (), {})  # type: ignore[misc]
+class DownloadResult:
+    """Download result stub for testing."""
+
+    def __init__(self, file: object, filename: str) -> None:
+        """Initialize download result with file and filename."""
+        self.file = file
+        self.filename = filename
+
+
 viktor.result.DownloadResult = DownloadResult  # type: ignore[attr-defined]
 
 # API and controller types
