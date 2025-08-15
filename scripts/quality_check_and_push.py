@@ -765,9 +765,10 @@ def main() -> int:
 
         if not py_path.exists():
             print(f"{Colors.CYAN}[>] Creating RUFT virtual environment...{Colors.RESET}")
-            code, _ = run_command(f"{sys.executable} -m venv {venv_dir}")
+            code, output = run_command(f"{sys.executable} -m venv {venv_dir}")
             if code != 0:
                 print(f"{Colors.YELLOW}[!] Failed to create RUFT venv, falling back to system interpreter{Colors.RESET}")
+                print(f"{Colors.YELLOW}[DEBUG] Venv creation error: {output[:200]}...{Colors.RESET}")
                 return sys.executable
 
         # Ensure base/runtime and dev requirements are installed
@@ -775,10 +776,20 @@ def main() -> int:
         dev_req = Path("requirements_dev.txt")
         if base_req.exists():
             print(f"{Colors.CYAN}[>] Ensuring runtime dependencies are installed in RUFT venv...{Colors.RESET}")
-            run_command(f"{py_path} -m pip install -r {base_req}")
+            code, output = run_command(f"{py_path} -m pip install -r {base_req}")
+            if code != 0:
+                print(f"{Colors.YELLOW}[DEBUG] Runtime deps install error: {output[:200]}...{Colors.RESET}")
         if dev_req.exists():
             print(f"{Colors.CYAN}[>] Ensuring dev dependencies are installed in RUFT venv...{Colors.RESET}")
-            run_command(f"{py_path} -m pip install -r {dev_req}")
+            code, output = run_command(f"{py_path} -m pip install -r {dev_req}")
+            if code != 0:
+                print(f"{Colors.YELLOW}[DEBUG] Dev deps install error: {output[:200]}...{Colors.RESET}")
+
+        # Verify the python path works
+        test_code, test_output = run_command(f"{py_path} --version")
+        if test_code != 0:
+            print(f"{Colors.YELLOW}[DEBUG] Python path test failed: {test_output}{Colors.RESET}")
+            return sys.executable
 
         return str(py_path)
 
