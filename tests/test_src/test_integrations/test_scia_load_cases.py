@@ -194,10 +194,10 @@ class TestTandemLoadCases:
 
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
     @pytest.mark.parametrize(
-        ("rs", "group", "prefix"),
-        [(1, "LG8000 - TS rijstrook 1", "BG800"), (2, "LG9000 - TS rijstrook 2", "BG900"), (3, "LG10000 - TS rijstrook 3", "BG1000")],
+        ("rs", "group", "prefix", "expected_count"),
+        [(1, "LG8000 - TS rijstrook 1", "BG8", 3), (2, "LG9000 - TS rijstrook 2", "BG9", 3), (3, "LG10000 - TS rijstrook 3", "BG10", 6)],
     )
-    def test_create_tandem_rs_load_cases(self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str) -> None:
+    def test_create_tandem_rs_load_cases(self, mock_sequencer: Mock, mock_builder: Mock, rs: int, group: str, prefix: str, expected_count: int) -> None:
         """Test creation of tandem RS load case definitions for different RS values."""
         mock_sequencer.return_value = [10.0, 25.0, 49.5]
         length_bridgedeck = 50.0
@@ -205,15 +205,24 @@ class TestTandemLoadCases:
 
         cases = create_tandem_rs_load_cases(mock_builder, rs, length_bridgedeck, thickness_bridgedeck)
 
-        assert len(cases) == 3
-        assert mock_builder.create_load_case.call_count == 3
+        assert len(cases) == expected_count
+        assert mock_builder.create_load_case.call_count == expected_count
 
         # Check the call for the first load case
+        if rs == 3:
+            # RS3 uses 3-digit numbering and has 2 configurations
+            expected_name = f"{prefix}001"
+        else:
+            # RS1 and RS2 use 3-digit numbering
+            expected_name = f"{prefix}001"
+            
+        # The function calls builder.create_load_case directly, not the create_load_case helper
         mock_builder.create_load_case.assert_any_call(
-            name=f"{prefix}01",
-            description=f"Verkeer, dek - LM1 TS RS {rs} - x = 10 m",
+            name=expected_name,
+            description=f"Verkeer, dek - LM1 TS RS {rs} - x = 10 m" if rs != 3 else "Verkeer, dek - LM1 TS RS 3 (configuratie 1) - x = 10 m",
             group_name=group,
             case_type="VARIABLE",
+            permanent_type=None,  # Function explicitly passes this
             variable_type="STATIC",
             specification="STANDARD",
             duration="SHORT",

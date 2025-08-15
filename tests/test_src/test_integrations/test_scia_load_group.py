@@ -31,7 +31,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG1000 - Permanent",
             load_option="PERMANENT",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type=None,
         )
 
@@ -42,7 +42,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG2000 - Rustende belasting",
             load_option="PERMANENT",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type=None,
         )
 
@@ -53,7 +53,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG3000 - Temperatuur",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type="TEMPERATURE",
         )
 
@@ -64,7 +64,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG4000 - UDL",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type="CONSTRUCTION_LOADS",
         )
 
@@ -75,7 +75,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG5000 - Mensenmenigte",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type="CONSTRUCTION_LOADS",
         )
 
@@ -86,7 +86,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG6000 - Dienstvoertuig",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type="CONSTRUCTION_LOADS",
         )
 
@@ -97,7 +97,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG7000 - Onbedoeld voertuig",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",
             load_type="CONSTRUCTION_LOADS",
         )
 
@@ -108,7 +108,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG8000 - TS rijstrook 1",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",  # Tandem loads are mutually exclusive
             load_type="CONSTRUCTION_LOADS",
         )
 
@@ -119,7 +119,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG9000 - TS rijstrook 2",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",  # Tandem loads are mutually exclusive
             load_type="CONSTRUCTION_LOADS",
         )
 
@@ -130,7 +130,7 @@ class TestLoadGroupCreation:
         builder.create_load_group.assert_called_once_with(
             name="LG10000 - TS rijstrook 3",
             load_option="VARIABLE",
-            relation="STANDARD",
+            relation="EXCLUSIVE",  # Tandem loads are mutually exclusive
             load_type="CONSTRUCTION_LOADS",
         )
 

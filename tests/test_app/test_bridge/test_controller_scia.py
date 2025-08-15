@@ -419,7 +419,7 @@ class TestSciaIntegrationEdgeCases:
         self.mock_params = Munch(
             {
                 "info": Munch({"bridge_objectnumm": "BR-TEST-001"}),
-                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0})],
+                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 0.5})],
             }
         )
 
@@ -432,7 +432,7 @@ class TestSciaIntegrationEdgeCases:
         mock_params = Munch(
             {
                 "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0})],
+                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 0.5})],
             }
         )
 
@@ -473,7 +473,7 @@ class TestSciaIntegrationEdgeCases:
         mock_params = Munch(
             {
                 "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0})],
+                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 0.5})],
             }
         )
 

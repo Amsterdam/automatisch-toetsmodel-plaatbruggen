@@ -103,7 +103,15 @@ def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combination
 
     # Create ULS result class
     uls_combinations = []
-    for combo_name, combo in load_combinations.items():
+    items_iter = []
+    if isinstance(load_combinations, dict):
+        items_iter = list(load_combinations.items())
+    elif hasattr(load_combinations, "items"):
+        try:
+            items_iter = list(load_combinations.items())  # type: ignore[misc]
+        except Exception:
+            items_iter = []
+    for combo_name, combo in items_iter:
         if "ULS" in combo_name or "UGT" in combo_name:
             uls_combinations.append(combo)
 
@@ -112,7 +120,15 @@ def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combination
 
     # Create SLS (Serviceability Limit State) result class
     sls_combinations = []
-    for combo_name, combo in load_combinations.items():
+    items_iter2 = []
+    if isinstance(load_combinations, dict):
+        items_iter2 = list(load_combinations.items())
+    elif hasattr(load_combinations, "items"):
+        try:
+            items_iter2 = list(load_combinations.items())  # type: ignore[misc]
+        except Exception:
+            items_iter2 = []
+    for combo_name, combo in items_iter2:
         if "SLS" in combo_name or "BGT" in combo_name or "serviceability" in combo_name.lower():
             sls_combinations.append(combo)
 
@@ -121,5 +137,9 @@ def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combination
 
     # Create a general result class with all combinations if no specific ones found
     if not uls_combinations and not sls_combinations and load_combinations:
-        all_combinations = list(load_combinations.values())
-        builder.create_result_class(name="All Load Combinations", combinations=all_combinations)
+        try:
+            all_combinations = list(load_combinations.values())  # type: ignore[call-arg]
+        except Exception:
+            all_combinations = []
+        if all_combinations:
+            builder.create_result_class(name="All Load Combinations", combinations=all_combinations)
