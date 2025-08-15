@@ -384,7 +384,7 @@ class BridgeSegmentParamRow(TypedDict):
     # Add other fields like dz, dz_2, col_6, is_first_segment if accessed, with appropriate types
 
 
-def _create_bridge_segment_dimensions_from_params(segment_param_row: BridgeSegmentParamRow) -> BridgeSegmentDimensions:
+def _create_bridge_segment_dimensions_from_params(segment_param_row: dict[str, Any]) -> BridgeSegmentDimensions | None:
     """Validates a segment param row and returns BridgeSegmentDimensions or raises UserError."""
     # The attribute check `hasattr` is still useful as a runtime check before typed access,
     # though MyPy will now also check based on BridgeSegmentParamRow.

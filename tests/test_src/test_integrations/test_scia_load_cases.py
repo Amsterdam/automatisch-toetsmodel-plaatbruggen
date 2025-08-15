@@ -4,6 +4,7 @@ Tests for SCIA load cases module.
 Tests for load case creation functions using a mocked SciaModelBuilder.
 """
 
+from collections.abc import Generator
 from unittest.mock import Mock, patch
 
 import pytest
@@ -193,7 +194,7 @@ class TestTandemLoadCases:
     """Tests for creating tandem RS load case definitions."""
 
     @pytest.fixture
-    def mock_objects(self) -> tuple[Mock, Mock]:
+    def mock_objects(self) -> Generator[tuple[Mock, Mock], None, None]:
         """Provide mock objects for testing."""
         with patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer") as mock_sequencer:
             mock_sequencer.return_value = [10.0, 25.0, 49.5]

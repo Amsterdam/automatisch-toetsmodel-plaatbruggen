@@ -4,6 +4,7 @@ Tests for SCIA loads module.
 Tests for load application functions and tandem load integration using a mocked builder.
 """
 
+from collections.abc import Generator
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -302,7 +303,7 @@ class TestAllLoads:
     """Test the main orchestrator for creating all loads."""
 
     @pytest.fixture
-    def mock_patches(self) -> tuple[Mock, Mock, Mock, Mock]:
+    def mock_patches(self) -> Generator[tuple[Mock, Mock, Mock, Mock], None, None]:
         """Provide mock patches for the test."""
         with (
             patch("src.integrations.scia_integration.scia_loads.add_accidental_vehicle_loads") as mock_add_accidental,

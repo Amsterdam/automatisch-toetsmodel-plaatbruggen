@@ -91,10 +91,10 @@ def create_bridge_scia_model(params: BridgeParametrization, _template_path: Path
     Exists to support tests patching this symbol. In production it constructs
     input files and a SCIA analysis object using the builder utilities.
     """
-    xml_file, def_file, esa_template = generate_bridge_xml_files(params)
+    xml_file, def_file = generate_bridge_xml_files(params)
     # Note: This is a simplified version for testing - in production you might want
     # to actually run the SCIA analysis here
-    return xml_file, def_file, esa_template
+    return xml_file, def_file, None
 
 
 # ============================================================================================================
