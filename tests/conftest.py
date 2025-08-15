@@ -50,7 +50,7 @@ views = _ensure_module("viktor.views")
 def _passthrough_decorator(*_d_args: Any, **_d_kwargs: Any) -> Any:  # noqa: ANN401
     """Create a passthrough decorator for testing."""
 
-    def _wrap(func: Any) -> Any:
+    def _wrap(func: Any) -> Any:  # noqa: ANN401
         return func
 
     return _wrap
@@ -59,7 +59,7 @@ def _passthrough_decorator(*_d_args: Any, **_d_kwargs: Any) -> Any:  # noqa: ANN
 class GeometryResult:  # Minimal surface compatible class
     """Minimal geometry result stub for testing."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+    def __init__(self, *_args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         """Initialize geometry result with file, figure, data, and features."""
         self.file = kwargs.get("file")
         self.figure = kwargs.get("figure")
@@ -211,7 +211,7 @@ class File:
         return cls(data)
 
     @classmethod
-    def from_path(cls, path: Any) -> File:
+    def from_path(cls, path: str) -> File:
         """Create file from path."""
         try:
             with open(path, "rb") as f:
@@ -219,19 +219,19 @@ class File:
         except Exception:
             return cls(b"")
 
-    def open_binary(self) -> Any:  # Simple context manager returning a BytesIO
+    def open_binary(self) -> object:  # Simple context manager returning a BytesIO
         """Open file as binary context manager."""
 
         class _Ctx:
             def __init__(self, data: bytes) -> None:
                 self._data = data
 
-            def __enter__(self) -> Any:
+            def __enter__(self) -> Any:  # noqa: ANN401
                 from io import BytesIO
 
                 return BytesIO(self._data)
 
-            def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            def __exit__(self, exc_type: object | None, exc: BaseException | None, tb: Any) -> None:  # noqa: ANN401
                 return None
 
         return _Ctx(self._data)
@@ -322,7 +322,7 @@ setattr(viktor, "DynamicArray", getattr(parametrization, "DynamicArray"))
 utils = _ensure_module("viktor.utils")
 
 
-def convert_word_to_pdf(_file_like: Any) -> File:
+def convert_word_to_pdf(_file_like: object) -> File:
     """Convert Word file to PDF stub for testing."""
     # Return a placeholder PDF-like File object
     return File.from_data(b"%PDF-1.4\n%stub-pdf\n")
@@ -600,35 +600,35 @@ class Model:
         """Create a plane."""
         return Plane(name, corner_nodes, thickness, material)
 
-    def create_load_group(self, name: str, *_args: Any, **_kwargs: Any) -> LoadGroup:  # noqa: ARG002
+    def create_load_group(self, name: str, *_args: object, **_kwargs: object) -> LoadGroup:  # noqa: ARG002
         """Create a load group."""
         return LoadGroup()
 
-    def create_permanent_load_case(self, *args: Any, **kwargs: Any) -> LoadCase:  # noqa: ARG002
+    def create_permanent_load_case(self, *args: object, **kwargs: object) -> LoadCase:  # noqa: ARG002
         """Create a permanent load case."""
         return LoadCase()
 
-    def create_variable_load_case(self, *args: Any, **kwargs: Any) -> LoadCase:  # noqa: ARG002
+    def create_variable_load_case(self, *args: object, **kwargs: object) -> LoadCase:  # noqa: ARG002
         """Create a variable load case."""
         return LoadCase()
 
-    def create_free_surface_load(self, *args: Any, **kwargs: Any) -> FreeSurfaceLoad:  # noqa: ARG002
+    def create_free_surface_load(self, *args: object, **kwargs: object) -> FreeSurfaceLoad:  # noqa: ARG002
         """Create a free surface load."""
         return FreeSurfaceLoad()
 
-    def create_line_load_on_plane(self, *args: Any, **kwargs: Any) -> LineForceSurface:  # noqa: ARG002
+    def create_line_load_on_plane(self, *args: object, **kwargs: object) -> LineForceSurface:  # noqa: ARG002
         """Create a line load on plane."""
         return LineForceSurface()
 
-    def create_free_line_load(self, *args: Any, **kwargs: Any) -> FreeLineLoad:  # noqa: ARG002
+    def create_free_line_load(self, *args: object, **kwargs: object) -> FreeLineLoad:  # noqa: ARG002
         """Create a free line load."""
         return FreeLineLoad()
 
-    def create_load_combination(self, *args: Any, **kwargs: Any) -> LoadCombination:  # noqa: ARG002
+    def create_load_combination(self, *args: object, **kwargs: object) -> LoadCombination:  # noqa: ARG002
         """Create a load combination."""
         return LoadCombination()
 
-    def create_result_class(self, *args: Any, **kwargs: Any) -> ResultClass:  # noqa: ARG002
+    def create_result_class(self, *args: object, **kwargs: object) -> ResultClass:  # noqa: ARG002
         """Create a result class."""
         return ResultClass()
 
@@ -642,7 +642,7 @@ class Model:
 class SciaAnalysis:
     """SCIA analysis stub for testing."""
 
-    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
         """Initialize SCIA analysis."""
         self.status = "ok"
         self.error = None
@@ -668,7 +668,7 @@ class OutputFileParser:
     """Output file parser stub for testing."""
 
     @staticmethod
-    def get_result(_file_like: Any, _table_name: str) -> dict[str, list]:
+    def get_result(_file_like: object, _table_name: str) -> dict[str, list]:
         """Get result from file."""
         return {"columns": [], "rows": []}
 

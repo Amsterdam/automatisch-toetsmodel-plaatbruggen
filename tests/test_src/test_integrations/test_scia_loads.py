@@ -185,10 +185,9 @@ class TestAccidentalVehicleLoads:
 
         # Mock calc_vehicle_load_locations to return wheel corner coordinates
         # The function should return coordinates relative to the x_coord parameter
-        def mock_calc_locations_side_effect(
-            x_coord: float, _y_coord: float, _vehicle_length: float, _vehicle_width: float, _wheel_contact_area: float
-        ) -> dict[str, list[tuple[float, float, float]]]:
+        def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
             """Mock function to return wheel corner coordinates."""
+            x_coord = kwargs["x_coord"]
             return {
                 "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + 0.2, 0.0, 0.0), (x_coord + 0.2, 0.2, 0.0), (x_coord, 0.2, 0.0)],
                 "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + 0.2, -1.3, 0.0), (x_coord + 0.2, -1.1, 0.0), (x_coord, -1.1, 0.0)],
@@ -261,10 +260,9 @@ class TestAccidentalVehicleLoads:
 
             # Mock calc_vehicle_load_locations to return wheel corner coordinates
             # The function should return coordinates relative to the x_coord parameter
-            def mock_calc_locations_side_effect(
-                x_coord: float, _y_coord: float, _vehicle_length: float, _vehicle_width: float, _wheel_contact_area: float
-            ) -> dict[str, list[tuple[float, float, float]]]:
+            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
                 """Mock function to return wheel corner coordinates."""
+                x_coord = kwargs["x_coord"]
                 return {
                     "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + 0.2, 0.0, 0.0), (x_coord + 0.2, 0.2, 0.0), (x_coord, 0.2, 0.0)],
                     "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + 0.2, -1.3, 0.0), (x_coord + 0.2, -1.1, 0.0), (x_coord, -1.1, 0.0)],

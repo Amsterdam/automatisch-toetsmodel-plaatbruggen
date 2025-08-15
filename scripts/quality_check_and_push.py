@@ -117,7 +117,7 @@ def parse_error_details(name: str, output: str) -> tuple[int, str]:
             if error_match:
                 # Some runners report both failed and error; prefer sum when both present
                 error_count = max(error_count, 0) + int(error_match.group(1))
-                error_details = "test errors" if not error_details else error_details
+                error_details = error_details if error_details else "test errors"
 
     return error_count, error_details
 

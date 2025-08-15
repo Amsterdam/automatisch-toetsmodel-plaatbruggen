@@ -106,7 +106,7 @@ def main() -> None:
 
     # Try pytest first to ensure complete test coverage
     try:
-        import pytest  # type: ignore
+        import pytest  # type: ignore[import-untyped]
 
         pytest_args: list[str] = ["tests"]
         # Keep output concise to align with the previous minimal verbosity behavior
@@ -127,7 +127,7 @@ def main() -> None:
             import importlib
 
             if importlib.util.find_spec("pytest") is not None:
-                import pytest  # type: ignore
+                import pytest  # type: ignore[import-untyped]
 
                 pytest_args2: list[str] = ["tests"]
                 pytest_args2.insert(0, "-q")
