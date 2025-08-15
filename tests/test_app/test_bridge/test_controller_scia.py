@@ -85,7 +85,9 @@ class TestDownloadSciaXmlFiles:
     @patch("app.bridge.controller.SCIA_ZIP_README_CONTENT", "Mock README content")
     @patch("app.bridge.controller.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
-    def test_download_scia_xml_files_success(self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result) -> None:
+    def test_download_scia_xml_files_success(
+        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+    ) -> None:
         """Test successful XML files download."""
         # Arrange
         mock_template_path = Path("resources/templates/model.esa")
@@ -164,7 +166,9 @@ class TestDownloadSciaXmlFiles:
 
     @patch("app.bridge.controller.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
-    def test_download_scia_xml_files_no_bridge_id(self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result) -> None:
+    def test_download_scia_xml_files_no_bridge_id(
+        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+    ) -> None:
         """Test download with missing bridge ID - should use default filename."""
         # Arrange
         mock_template_path = Path("resources/templates/model.esa")
@@ -218,7 +222,9 @@ class TestDownloadSciaXmlFiles:
     @patch("app.bridge.controller.SCIA_ZIP_README_CONTENT", "Mock README content")
     @patch("app.bridge.controller.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
-    def test_download_scia_xml_files_zip_contents(self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result) -> None:
+    def test_download_scia_xml_files_zip_contents(
+        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+    ) -> None:
         """Test that ZIP file contains all expected files with correct names."""
         # Arrange
         mock_template_path = Path("resources/templates/model.esa")
