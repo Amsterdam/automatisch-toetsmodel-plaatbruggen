@@ -394,6 +394,101 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
     return failed_checks
 
 
+def _handle_uncommitted_changes(args: argparse.Namespace) -> bool:
+    """Handle uncommitted changes and return success status."""
+    if check_git_status():
+        print(f"{Colors.YELLOW}[!] Uncommitted changes detected{Colors.RESET}")
+        if not args.dry_run:
+            # Stop any active spinners before prompting for input
+            print()  # Ensure clean line
+
+            response = safe_input(f"{Colors.CYAN}Commit all changes before quality checks? (y/N): {Colors.RESET}").lower()
+
+            if response in ("y", "yes"):
+                commit_message = safe_input(f"{Colors.CYAN}Enter commit message: {Colors.RESET}")
+                print(f"{Colors.YELLOW}[*] Processing commit...{Colors.RESET}", flush=True)
+                if not commit_message:
+                    commit_message = "Manual changes before quality checks"
+                if not commit_changes(commit_message):
+                    return False
+            elif response in ("n", "no", ""):
+                print(f"{Colors.YELLOW}[i] Proceeding with uncommitted changes (only auto-fixes will be committed){Colors.RESET}")
+            else:
+                print(f"{Colors.YELLOW}[i] Unrecognized response '{response}', treating as 'no'{Colors.RESET}")
+                print(f"{Colors.YELLOW}[i] Proceeding with uncommitted changes (only auto-fixes will be committed){Colors.RESET}")
+        else:
+            print(f"{Colors.YELLOW}[DRY RUN] Would prompt to commit uncommitted changes{Colors.RESET}")
+    return True
+
+
+def _run_quality_checks_iteration(
+    tool_python: str, iteration: int, args: argparse.Namespace
+) -> tuple[bool, CheckResult, CheckResult, CheckResult, CheckResult, CheckResult]:
+    """Run one iteration of quality checks and return results."""
+    print(f"\n{Colors.BOLD}>> Iteration {iteration}{Colors.RESET}")
+    print("-" * 40)
+
+    # Track if we made any auto-fixes this iteration
+    made_fixes = False
+
+    # Get git diff hash before running Ruff
+    diff_hash_before = get_git_diff_hash()
+
+    # 1. Run Ruff style check (can auto-fix)
+    ruff_check = run_quality_check("Ruff Style Check", f"{tool_python} scripts/run_ruff_check.py", can_auto_fix=True)
+
+    # 2. Run Ruff formatter (can auto-fix)
+    ruff_format = run_quality_check("Ruff Formatter", f"{tool_python} scripts/run_ruff_format.py", can_auto_fix=True)
+
+    # Get git diff hash after running Ruff
+    diff_hash_after = get_git_diff_hash()
+
+    # If the diff hash changed, it means Ruff made changes
+    if diff_hash_before != diff_hash_after:
+        print(f"{Colors.YELLOW}[!] Ruff made auto-fixes{Colors.RESET}")
+        made_fixes = True
+
+        if not args.dry_run:
+            if not commit_changes(f"Auto-fix: Ruff style and formatting (iteration {iteration})"):
+                # Create default CheckResult objects for error case
+                default_result = CheckResult("", False, False, "", "", 0, "")
+                return False, ruff_check, ruff_format, default_result, default_result, default_result
+        else:
+            print(f"{Colors.YELLOW}[DRY RUN] Would commit Ruff auto-fixes{Colors.RESET}")
+
+    # 3. Run MyPy (cannot auto-fix)
+    mypy_check = run_quality_check("MyPy Type Check", f"{tool_python} scripts/run_mypy.py", can_auto_fix=False)
+
+    # 4. Run tests using RUFT venv; label based on pytest presence inside that venv
+    def _is_pytest_available_in(py_exe: str) -> bool:
+        code, _ = run_command(f"{py_exe} -c \"import importlib,sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)\"")
+        return code == 0
+
+    tests_label = "Pytest Tests" if _is_pytest_available_in(tool_python) else "Unit Tests"
+    test_check = run_quality_check(tests_label, f"{tool_python} scripts/run_enhanced_tests.py", can_auto_fix=False)
+
+    # 5. Run VIKTOR tests (cannot auto-fix)
+    viktor_test_check = run_quality_check("VIKTOR Tests", f"{tool_python} scripts/run_viktor_tests.py", can_auto_fix=False)
+
+    return made_fixes, ruff_check, ruff_format, mypy_check, test_check, viktor_test_check
+
+
+def _handle_push(args: argparse.Namespace) -> int:
+    """Handle pushing changes and return exit code."""
+    if not args.no_push and not args.dry_run:
+        print(f"{Colors.BLUE}[>] Pushing changes...{Colors.RESET}")
+        exit_code, output = run_command("git push", capture_output=False)
+        if exit_code != 0:
+            print(f"{Colors.RED}[X] Failed to push changes{Colors.RESET}")
+            return 1
+        print(f"{Colors.GREEN}[+] Changes pushed successfully!{Colors.RESET}")
+    elif args.dry_run:
+        print(f"{Colors.YELLOW}[DRY RUN] Would push changes{Colors.RESET}")
+    else:
+        print(f"{Colors.YELLOW}[*] Changes ready to push (use 'git push' manually){Colors.RESET}")
+    return 0
+
+
 def main() -> int:
     """Main function."""
     parser = argparse.ArgumentParser(description="Run quality checks and push")
@@ -410,29 +505,9 @@ def main() -> int:
         print(f"{Colors.RED}[X] Not in a git repository{Colors.RESET}")
         return 1
 
-    # Check for uncommitted changes
-    if check_git_status():
-        print(f"{Colors.YELLOW}[!] Uncommitted changes detected{Colors.RESET}")
-        if not args.dry_run:
-            # Stop any active spinners before prompting for input
-            print()  # Ensure clean line
-
-            response = safe_input(f"{Colors.CYAN}Commit all changes before quality checks? (y/N): {Colors.RESET}").lower()
-
-            if response in ("y", "yes"):
-                commit_message = safe_input(f"{Colors.CYAN}Enter commit message: {Colors.RESET}")
-                print(f"{Colors.YELLOW}[*] Processing commit...{Colors.RESET}", flush=True)
-                if not commit_message:
-                    commit_message = "Manual changes before quality checks"
-                if not commit_changes(commit_message):
-                    return 1
-            elif response in ("n", "no", ""):
-                print(f"{Colors.YELLOW}[i] Proceeding with uncommitted changes (only auto-fixes will be committed){Colors.RESET}")
-            else:
-                print(f"{Colors.YELLOW}[i] Unrecognized response '{response}', treating as 'no'{Colors.RESET}")
-                print(f"{Colors.YELLOW}[i] Proceeding with uncommitted changes (only auto-fixes will be committed){Colors.RESET}")
-        else:
-            print(f"{Colors.YELLOW}[DRY RUN] Would prompt to commit uncommitted changes{Colors.RESET}")
+    # Handle uncommitted changes
+    if not _handle_uncommitted_changes(args):
+        return 1
 
     # Prepare a dedicated RUFT venv so developers can just run a single command
     def get_tool_python() -> str:
@@ -466,50 +541,9 @@ def main() -> int:
 
     while iteration < max_iterations:
         iteration += 1
-        print(f"\n{Colors.BOLD}>> Iteration {iteration}{Colors.RESET}")
-        print("-" * 40)
 
-        # Track if we made any auto-fixes this iteration
-        made_fixes = False
+        made_fixes, ruff_check, ruff_format, mypy_check, test_check, viktor_test_check = _run_quality_checks_iteration(tool_python, iteration, args)
 
-        # Get git diff hash before running Ruff
-        diff_hash_before = get_git_diff_hash()
-
-        # 1. Run Ruff style check (can auto-fix)
-        ruff_check = run_quality_check("Ruff Style Check", f"{tool_python} scripts/run_ruff_check.py", can_auto_fix=True)
-
-        # 2. Run Ruff formatter (can auto-fix)
-        ruff_format = run_quality_check("Ruff Formatter", f"{tool_python} scripts/run_ruff_format.py", can_auto_fix=True)
-
-        # Get git diff hash after running Ruff
-        diff_hash_after = get_git_diff_hash()
-
-        # If the diff hash changed, it means Ruff made changes
-        if diff_hash_before != diff_hash_after:
-            print(f"{Colors.YELLOW}[!] Ruff made auto-fixes{Colors.RESET}")
-            made_fixes = True
-
-            if not args.dry_run:
-                if not commit_changes(f"Auto-fix: Ruff style and formatting (iteration {iteration})"):
-                    return 1
-            else:
-                print(f"{Colors.YELLOW}[DRY RUN] Would commit Ruff auto-fixes{Colors.RESET}")
-
-        # 3. Run MyPy (cannot auto-fix)
-        mypy_check = run_quality_check("MyPy Type Check", f"{tool_python} scripts/run_mypy.py", can_auto_fix=False)
-
-        # 4. Run tests using RUFT venv; label based on pytest presence inside that venv
-        def _is_pytest_available_in(py_exe: str) -> bool:
-            code, _ = run_command(f"{py_exe} -c \"import importlib,sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)\"")
-            return code == 0
-
-        tests_label = "Pytest Tests" if _is_pytest_available_in(tool_python) else "Unit Tests"
-        test_check = run_quality_check(tests_label, f"{tool_python} scripts/run_enhanced_tests.py", can_auto_fix=False)
-
-        # 5. Run VIKTOR tests (cannot auto-fix)
-        viktor_test_check = run_quality_check("VIKTOR Tests", f"{tool_python} scripts/run_viktor_tests.py", can_auto_fix=False)
-
-        # If no auto-fixes were made, we're done with iterations
         if not made_fixes:
             print(f"{Colors.CYAN}[i] No auto-fixes applied this iteration, proceeding to final report{Colors.RESET}")
             break
@@ -532,20 +566,8 @@ def main() -> int:
     # All checks passed!
     print(f"\n{Colors.GREEN}[+] All quality checks passed!{Colors.RESET}")
 
-    # Push changes
-    if not args.no_push and not args.dry_run:
-        print(f"{Colors.BLUE}[>] Pushing changes...{Colors.RESET}")
-        exit_code, output = run_command("git push", capture_output=False)
-        if exit_code != 0:
-            print(f"{Colors.RED}[X] Failed to push changes{Colors.RESET}")
-            return 1
-        print(f"{Colors.GREEN}[+] Changes pushed successfully!{Colors.RESET}")
-    elif args.dry_run:
-        print(f"{Colors.YELLOW}[DRY RUN] Would push changes{Colors.RESET}")
-    else:
-        print(f"{Colors.YELLOW}[*] Changes ready to push (use 'git push' manually){Colors.RESET}")
-
-    return 0
+    # Handle push
+    return _handle_push(args)
 
 
 if __name__ == "__main__":

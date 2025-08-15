@@ -702,6 +702,14 @@ class BridgeController(ViktorController):
         """Raise UserError for empty IDEA XML file."""
         raise UserError("XML bestand is leeg - IDEA RCS model generatie gefaald")
 
+    def _raise_missing_esa_error(self, error_details: str) -> None:
+        """Raise UserError for missing ESA model."""
+        raise UserError(f"SCIA analyse uitgevoerd maar ESA model ontbreekt: {error_details}")
+
+    def _raise_analysis_failed_error(self) -> None:
+        """Raise UserError for failed analysis."""
+        raise UserError("SCIA analyse kon niet worden uitgevoerd. Controleer de brug parameters en probeer opnieuw.")
+
     def _handle_scia_exception(self, e: Exception) -> None:
         """Handle SCIA-related exceptions and raise appropriate UserError."""
         if isinstance(e, ImportError):
@@ -755,62 +763,68 @@ class BridgeController(ViktorController):
         bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
         if entity_id is not None and isinstance(entity_id, int):
-            # Use caching when entity_id is provided
-            try:
-                # Get the ESA template path
-                template_path = self._get_scia_template_path()
+            return self._download_scia_esa_model_cached(params, entity_id, bridge_id)
+        return self._download_scia_esa_model_direct(params, bridge_id)
 
-                # Get cached or run new SCIA analysis
-                results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+    def _download_scia_esa_model_cached(self, params: BridgeParametrization, entity_id: int, bridge_id: str) -> DownloadResult:
+        """Download SCIA ESA model using cached results."""
+        try:
+            # Get the ESA template path
+            template_path = self._get_scia_template_path()
 
-                # Check if we have ESA model in results
-                if results is not None and results.get("esa_model"):
-                    esa_content = results["esa_model"]
-                    filename = f"SCIA_model_{bridge_id}.esa"
-                    # Create File object from bytes using the correct method
-                    file_obj = File.from_data(esa_content)
-                    return DownloadResult(file_obj, filename)
+            # Get cached or run new SCIA analysis
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
-                # If no ESA model in results, something went wrong with the analysis
-                # This should rarely happen since get_cached_analysis_results runs analysis if needed
-                if results is not None:
-                    # Analysis ran but didn't produce ESA model - log details for debugging
-                    error_details = results.get("error", "Onbekende fout")
-                    raise UserError(f"SCIA analyse uitgevoerd maar ESA model ontbreekt: {error_details}")
-                # Analysis function returned None - this indicates a serious problem
-                raise UserError("SCIA analyse kon niet worden uitgevoerd. Controleer de brug parameters en probeer opnieuw.")
+            # Check if we have ESA model in results
+            if results is not None and results.get("esa_model"):
+                esa_content = results["esa_model"]
+                filename = f"SCIA_model_{bridge_id}.esa"
+                # Create File object from bytes using the correct method
+                file_obj = File.from_data(esa_content)
+                return DownloadResult(file_obj, filename)
 
-            except Exception as e:
-                if isinstance(e, UserError):
-                    raise
-                raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
-        else:
-            # Direct mode - create SCIA model and run analysis
-            try:
-                # Get the ESA template path
-                template_path = self._get_scia_template_path()
+            # If no ESA model in results, something went wrong with the analysis
+            # This should rarely happen since get_cached_analysis_results runs analysis if needed
+            if results is not None:
+                # Analysis ran but didn't produce ESA model - log details for debugging
+                error_details = results.get("error", "Onbekende fout")
+                self._raise_missing_esa_error(error_details)
 
-                # Use the module-level function to create the model
-                xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
+            # Analysis function returned None - this indicates a serious problem
+            self._raise_analysis_failed_error()
 
-                # Run the analysis
-                analysis.execute(timeout=300)
+        except Exception as e:
+            if isinstance(e, UserError):
+                raise
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
 
-                # Get the ESA model
-                esa_file = analysis.get_updated_esa_model()
-                if not esa_file:
-                    raise UserError("ESA bestand is leeg")
+    def _download_scia_esa_model_direct(self, params: BridgeParametrization, bridge_id: str) -> DownloadResult:
+        """Download SCIA ESA model by creating and running analysis directly."""
+        try:
+            # Get the ESA template path
+            template_path = self._get_scia_template_path()
 
-                # Use _model suffix only if bridge_id doesn't already contain it
-                filename = f"{bridge_id}.esa" if bridge_id.endswith("_model") else f"{bridge_id}_model.esa"
-                return DownloadResult(esa_file, filename)
+            # Use the module-level function to create the model
+            xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
 
-            except Exception as e:
-                if isinstance(e, UserError):
-                    raise
-                if "SCIA worker" in str(e):
-                    raise UserError(f"SCIA worker uitvoering gefaald: {e!s}\n\nSCIA worker niet beschikbaar\n\nXML bestanden te downloaden")
-                raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nXML bestanden te downloaden")
+            # Run the analysis
+            analysis.execute(timeout=300)
+
+            # Get the ESA model
+            esa_file = analysis.get_updated_esa_model()
+            if not esa_file:
+                self._raise_empty_esa_error()
+
+            # Use _model suffix only if bridge_id doesn't already contain it
+            filename = f"{bridge_id}.esa" if bridge_id.endswith("_model") else f"{bridge_id}_model.esa"
+            return DownloadResult(esa_file, filename)
+
+        except Exception as e:
+            if isinstance(e, UserError):
+                raise
+            if "SCIA worker" in str(e):
+                raise UserError(f"SCIA worker uitvoering gefaald: {e!s}\n\nSCIA worker niet beschikbaar\n\nXML bestanden te downloaden")
+            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nXML bestanden te downloaden")
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """Download SCIA XML and definition files as a ZIP archive."""
@@ -823,9 +837,10 @@ class BridgeController(ViktorController):
 
             # Check if files have getvalue method
             if not hasattr(xml_file, "getvalue"):
-                raise UserError("XML bestand is leeg")
+                self._raise_empty_xml_error()
+
             if not hasattr(def_file, "getvalue"):
-                raise UserError("Definition bestand is leeg")
+                self._raise_empty_def_error()
 
             xml_content = xml_file.getvalue()
             if not xml_content:

@@ -88,6 +88,79 @@ def validate_analysis_results(results: dict[str, Any]) -> tuple[bool, list[str]]
     return is_valid, validation_messages
 
 
+def _extract_combinations_by_type(load_combinations: dict[str, Any], combo_type: str) -> list[Any]:
+    """
+    Extract load combinations by type from the load combinations dictionary.
+
+    :param load_combinations: Dictionary of created load combinations
+    :param combo_type: Type to filter by (ULS, SLS, etc.)
+    :returns: List of combinations of the specified type
+    """
+    if not load_combinations:
+        return []
+
+    items_iter = []
+    if isinstance(load_combinations, dict):
+        items_iter = list(load_combinations.items())
+    elif hasattr(load_combinations, "items"):
+        try:
+            items_iter = list(load_combinations.items())
+        except Exception:
+            items_iter = []
+
+    combinations = []
+    for combo_name, combo in items_iter:
+        if combo_type in combo_name:
+            combinations.append(combo)
+
+    return combinations
+
+
+def _extract_sls_combinations(load_combinations: dict[str, Any]) -> list[Any]:
+    """
+    Extract SLS (Serviceability Limit State) combinations.
+
+    :param load_combinations: Dictionary of created load combinations
+    :returns: List of SLS combinations
+    """
+    if not load_combinations:
+        return []
+
+    items_iter = []
+    if isinstance(load_combinations, dict):
+        items_iter = list(load_combinations.items())
+    elif hasattr(load_combinations, "items"):
+        try:
+            items_iter = list(load_combinations.items())
+        except Exception:
+            items_iter = []
+
+    combinations = []
+    for combo_name, combo in items_iter:
+        if "SLS" in combo_name or "BGT" in combo_name or "serviceability" in combo_name.lower():
+            combinations.append(combo)
+
+    return combinations
+
+
+def _extract_all_combinations(load_combinations: dict[str, Any]) -> list[Any]:
+    """
+    Extract all load combinations.
+
+    :param load_combinations: Dictionary of created load combinations
+    :returns: List of all combinations
+    """
+    if not load_combinations:
+        return []
+
+    try:
+        all_combinations = list(load_combinations.values())
+    except Exception:
+        all_combinations = []
+
+    return all_combinations
+
+
 def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combinations: dict[str, Any]) -> None:
     """
     Create result classes for bridge analysis.
@@ -102,44 +175,20 @@ def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combination
         return
 
     # Create ULS result class
-    uls_combinations = []
-    items_iter = []
-    if isinstance(load_combinations, dict):
-        items_iter = list(load_combinations.items())
-    elif hasattr(load_combinations, "items"):
-        try:
-            items_iter = list(load_combinations.items())  # type: ignore[misc]
-        except Exception:
-            items_iter = []
-    for combo_name, combo in items_iter:
-        if "ULS" in combo_name or "UGT" in combo_name:
-            uls_combinations.append(combo)
+    uls_combinations = _extract_combinations_by_type(load_combinations, "ULS")
+    uls_combinations.extend(_extract_combinations_by_type(load_combinations, "UGT"))
 
     if uls_combinations:
         builder.create_result_class(name="Ultimate Limit State (ULS)", combinations=uls_combinations)
 
     # Create SLS (Serviceability Limit State) result class
-    sls_combinations = []
-    items_iter2 = []
-    if isinstance(load_combinations, dict):
-        items_iter2 = list(load_combinations.items())
-    elif hasattr(load_combinations, "items"):
-        try:
-            items_iter2 = list(load_combinations.items())  # type: ignore[misc]
-        except Exception:
-            items_iter2 = []
-    for combo_name, combo in items_iter2:
-        if "SLS" in combo_name or "BGT" in combo_name or "serviceability" in combo_name.lower():
-            sls_combinations.append(combo)
+    sls_combinations = _extract_sls_combinations(load_combinations)
 
     if sls_combinations:
         builder.create_result_class(name="Serviceability Limit State (SLS)", combinations=sls_combinations)
 
     # Create a general result class with all combinations if no specific ones found
     if not uls_combinations and not sls_combinations and load_combinations:
-        try:
-            all_combinations = list(load_combinations.values())  # type: ignore[call-arg]
-        except Exception:
-            all_combinations = []
+        all_combinations = _extract_all_combinations(load_combinations)
         if all_combinations:
             builder.create_result_class(name="All Load Combinations", combinations=all_combinations)
