@@ -61,11 +61,7 @@ def print_detailed_summary(result: TextTestResult) -> None:
         print(colorized_status_message(f"All {total_tests} tests passed successfully! 🎯", is_success=True))
     else:
         safe_emoji_text("❌ SOME TESTS FAILED", "SOME TESTS FAILED")
-        print(
-            colorized_status_message(
-                f"Test results: {passed}/{total_tests} passed, {failures} failed, {errors} errors", is_success=False
-            )
-        )
+        print(colorized_status_message(f"Test results: {passed}/{total_tests} passed, {failures} failed, {errors} errors", is_success=False))
 
         print("\n" + "=" * 60)
         print(colorized_status_message("DETAILED ERROR INFORMATION:", is_success=False))

@@ -38,9 +38,12 @@ viktor.errors.UserError = UserError  # type: ignore[attr-defined]
 # View decorators and result types
 def _passthrough_decorator(*args: object, **kwargs: object) -> object:  # type: ignore[misc]
     """Pass-through decorator for view methods."""
+
     def decorator(func: object) -> object:  # type: ignore[misc]
         return func
+
     return decorator
+
 
 GeometryView = _passthrough_decorator  # type: ignore[misc]
 PlotlyView = _passthrough_decorator  # type: ignore[misc]
@@ -94,6 +97,7 @@ viktor.core.Color = Color  # type: ignore[attr-defined]
 
 InitialEntity = type("InitialEntity", (), {})  # type: ignore[misc]
 viktor.InitialEntity = InitialEntity  # type: ignore[attr-defined]
+
 
 # Utility functions
 def convert_word_to_pdf() -> object:  # type: ignore[misc]

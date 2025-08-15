@@ -110,14 +110,14 @@ def parse_error_details(name: str, output: str) -> tuple[int, str]:
         # Look for pytest format first
         pytest_failed = re.search(r"(\d+) failed", output)
         pytest_error = re.search(r"(\d+) error", output)
-        
+
         if pytest_failed:
             error_count = int(pytest_failed.group(1))
             error_details = "test failures"
         if pytest_error:
             error_count = max(error_count, 0) + int(pytest_error.group(1))
             error_details = error_details if error_details else "test errors"
-        
+
         # Fallback to unittest format if pytest didn't find anything
         if error_count == 0:
             if "FAILED" in output:
@@ -522,34 +522,34 @@ def _run_quality_checks_iteration(
         # Try to get test count by running a dry collection with pytest first
         count_cmd = f"{py_exe} -m pytest --collect-only -q tests"
         code, output = run_command(count_cmd)
-        
+
         if code == 0:
             # Parse test count from pytest output
-            lines = output.strip().split('\n')
+            lines = output.strip().split("\n")
             test_count = 0
             for line in lines:
-                if line.strip() and line.endswith(' collected'):
+                if line.strip() and line.endswith(" collected"):
                     try:
                         test_count = int(line.split()[0])
                         break
                     except (ValueError, IndexError):
                         pass
-            
+
             if test_count > 0:
                 return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
-        
+
         # Fallback: try to get test count from unittest discovery
         try:
             discover_cmd = f"{py_exe} -m unittest discover --list tests"
             code, output = run_command(discover_cmd)
             if code == 0:
                 # Count test methods (lines ending with test method names)
-                test_lines = [line for line in output.split('\n') if line.strip() and '.' in line and line.endswith(')')]
+                test_lines = [line for line in output.split("\n") if line.strip() and "." in line and line.endswith(")")]
                 if test_lines:
                     return f"Tests ({len(test_lines)} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
         except Exception:
             pass
-        
+
         # Try one more approach: run a quick test to see how many tests we have
         try:
             quick_cmd = f"{py_exe} -m pytest --collect-only -q tests 2>/dev/null | tail -1"
@@ -562,7 +562,7 @@ def _run_quality_checks_iteration(
                     return f"Tests ({test_count} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
         except Exception:
             pass
-        
+
         # Final fallback: just return "Tests" without count
         return "Tests", f"{py_exe} scripts/run_enhanced_tests.py"
 
