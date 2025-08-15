@@ -36,7 +36,7 @@ viktor.errors.UserError = UserError  # type: ignore[attr-defined]
 
 
 # View decorators and result types
-def _passthrough_decorator(*args: object, **kwargs: object) -> object:  # type: ignore[misc]
+def _passthrough_decorator(*_args: object, **_kwargs: object) -> object:  # type: ignore[misc]
     """Pass-through decorator for view methods."""
 
     def decorator(func: object) -> object:  # type: ignore[misc]
@@ -82,7 +82,7 @@ viktor.views.MapPolygon = MapPolygon  # type: ignore[attr-defined]
 class DownloadResult:
     """Download result stub for testing."""
 
-    def __init__(self, file_content: object = None, file_name: str = None, **kwargs) -> None:
+    def __init__(self, file_content: object | None = None, file_name: str | None = None, **_kwargs) -> None:
         """Initialize download result with file_content and file_name."""
         self._file = file_content
         self._file_name = file_name

@@ -392,7 +392,7 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
                 # Look for unittest format (e.g., "Ran 45 tests")
                 unittest_match = re.search(r"Ran (\d+) test", output)
                 if unittest_match:
-                    test_count = unittest_match.group(1)
+                    test_count = int(unittest_match.group(1))
                     # For unittest, also try to get failure/error counts
                     failed_match = re.search(r"(\d+) failed", output)
                     error_match = re.search(r"(\d+) error", output)
@@ -418,15 +418,15 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
             # Look for test count patterns in output (pytest format)
             test_count_match = re.search(r"(\d+) collected", output)
             if test_count_match:
-                test_count = test_count_match.group(1)
+                test_count = int(test_count_match.group(1))
                 status += f" - {test_count} tests"
             else:
                 # Look for unittest format (e.g., "Ran 45 tests")
                 unittest_match = re.search(r"Ran (\d+) test", output)
                 if unittest_match:
-                    test_count = unittest_match.group(1)
+                    test_count = int(unittest_match.group(1))
                     status += f" - {test_count} tests"
-                # Don't add confusing file count estimates from error output
+            # Don't add confusing file count estimates from error output
 
     print(f"{status}{Colors.RESET}")
 
@@ -463,12 +463,12 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
             if "Tests" in check.name and check.output:
                 test_count_match = re.search(r"(\d+) collected", check.output)
                 if test_count_match:
-                    test_count = test_count_match.group(1)
+                    test_count = int(test_count_match.group(1))
                     status += f" - {test_count} tests"
                 else:
                     unittest_match = re.search(r"Ran (\d+) test", check.output)
                     if unittest_match:
-                        test_count = unittest_match.group(1)
+                        test_count = int(unittest_match.group(1))
                         status += f" - {test_count} tests"
         else:
             status = f"{Colors.RED}[X] FAILED"
@@ -481,14 +481,14 @@ def print_final_status_report(all_checks: list[CheckResult]) -> list[CheckResult
             if "Tests" in check.name and check.output:
                 test_count_match = re.search(r"(\d+) collected", check.output)
                 if test_count_match:
-                    test_count = test_count_match.group(1)
+                    test_count = int(test_count_match.group(1))
                     status += f" - {test_count} tests"
                 else:
                     unittest_match = re.search(r"Ran (\d+) test", check.output)
                     if unittest_match:
-                        test_count = unittest_match.group(1)
+                        test_count = int(unittest_match.group(1))
                         status += f" - {test_count} tests"
-                    # Don't add confusing file count estimates from error output
+                # Don't add confusing file count estimates from error output
 
             failed_checks.append(check)
 
@@ -691,12 +691,14 @@ def _run_quality_checks_iteration(
                             # Add some debug info to understand the issue
                             unreadable_files.append(f"{test_file_path} ({type(e).__name__})")
 
-                    if unreadable_files:
-                        # If we can't read some files, we can't give an exact count
-                        readable_count = len(test_files) - len(unreadable_files)
-                        return f"Tests ({total_methods}+ tests, {len(unreadable_files)} files unreadable)", f"{py_exe} scripts/run_enhanced_tests.py"
-                    # Exact count - we read all files successfully
-                    return f"Tests ({total_methods} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
+                            if unreadable_files:
+                                # If we can't read some files, we can't give an exact count
+                                return (
+                                    f"Tests ({total_methods}+ tests, {len(unreadable_files)} files unreadable)",
+                                    f"{py_exe} scripts/run_enhanced_tests.py",
+                                )
+                        # Exact count - we read all files successfully
+                        return f"Tests ({total_methods} tests)", f"{py_exe} scripts/run_enhanced_tests.py"
         except Exception:
             pass
 
