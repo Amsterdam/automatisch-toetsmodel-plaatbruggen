@@ -1,10 +1,22 @@
 ## [`v0.0.11`] - 2025-xx-XX
+### Added
+- **Resource File Access Testing**: Added comprehensive test suite for resource file access patterns
+  - Tests all resource paths use absolute paths consistently
+  - Verifies critical files exist in repository
+  - Validates cross-platform path compatibility
+  - Ensures proper file accessibility (binary for templates, UTF-8 for CSVs)
+  - Prevents future production deployment issues with missing resources
+
 ### Fixed
 - **SCIA Template Path Issue**: Potential fix for production deployment issue where SCIA template file was not found
   - Changed from relative path (`resources/templates/model.esa`) to absolute path using `SCIA_TEMPLATE_PATH` constant
   - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
   - Aims to ensure consistent behavior between development and production environments
   - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
+- **Development Environment Portability**: Fixed user-specific paths in development tools
+  - Added `.ruft_venv/` to `.gitignore` to prevent committing user-specific virtual environment paths
+  - Removed existing `.ruft_venv` directory from git tracking to avoid path conflicts between developers
+  - Quality check script already uses portable relative paths and cross-platform logic
 
 ## [`v0.0.10`] - 2025-08-14
 ### Added

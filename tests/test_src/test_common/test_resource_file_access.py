@@ -50,8 +50,8 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in constants_paths:
             with self.subTest(constant=name):
-                self.assertIsInstance(path, Path, f"{name} should be a Path object")
-                self.assertTrue(path.is_absolute(), f"{name} should be an absolute path, got: {path}")
+                assert isinstance(path, Path), f"{name} should be a Path object"
+                assert path.is_absolute(), f"{name} should be an absolute path, got: {path}"
 
     def test_all_material_paths_use_absolute_paths(self) -> None:
         """Test that all material paths in src.common.materials use absolute paths."""
@@ -66,8 +66,8 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in material_paths:
             with self.subTest(material_path=name):
-                self.assertIsInstance(path, Path, f"{name} should be a Path object")
-                self.assertTrue(path.is_absolute(), f"{name} should be an absolute path, got: {path}")
+                assert isinstance(path, Path), f"{name} should be a Path object"
+                assert path.is_absolute(), f"{name} should be an absolute path, got: {path}"
 
     def test_critical_resource_files_exist(self) -> None:
         """Test that critical resource files actually exist in the repository."""
@@ -81,7 +81,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in critical_files:
             with self.subTest(file=name):
-                self.assertTrue(path.exists(), f"{name} file should exist at {path}. This file is critical for production functionality.")
+                assert path.exists(), f"{name} file should exist at {path}. This file is critical for production functionality."
 
     def test_material_csv_files_exist(self) -> None:
         """Test that all material CSV files exist."""
@@ -95,7 +95,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in material_files:
             with self.subTest(material_file=name):
-                self.assertTrue(path.exists(), f"{name} CSV file should exist at {path}. This file is required for material calculations.")
+                assert path.exists(), f"{name} CSV file should exist at {path}. This file is required for material calculations."
 
     def test_path_construction_consistency(self) -> None:
         """Test that all paths are constructed consistently from PROJECT_PATH."""
@@ -134,10 +134,10 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
             template_path = controller._get_scia_template_path()
 
         # Verify it's absolute
-        self.assertTrue(template_path.is_absolute(), f"Controller should return absolute path, got: {template_path}")
+        assert template_path.is_absolute(), f"Controller should return absolute path, got: {template_path}"
 
         # Verify it matches our constant
-        self.assertEqual(template_path, SCIA_TEMPLATE_PATH, "Controller should use the SCIA_TEMPLATE_PATH constant")
+        assert template_path == SCIA_TEMPLATE_PATH, "Controller should use the SCIA_TEMPLATE_PATH constant"
 
     def test_resource_directory_structure(self) -> None:
         """Test that the expected resource directory structure exists."""
@@ -153,7 +153,8 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for directory in expected_dirs:
             with self.subTest(directory=str(directory)):
-                self.assertTrue(directory.exists() and directory.is_dir(), f"Expected resource directory should exist: {directory}")
+                assert directory.exists(), f"Expected resource directory should exist: {directory}"
+                assert directory.is_dir(), f"Expected path should be a directory: {directory}"
 
     def test_path_separators_are_cross_platform(self) -> None:
         """Test that all paths use pathlib for cross-platform compatibility."""
@@ -177,17 +178,17 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for path in all_paths:
             with self.subTest(path=str(path)):
-                self.assertIsInstance(path, Path, f"Path should be a pathlib.Path object for cross-platform compatibility: {path}")
+                assert isinstance(path, Path), f"Path should be a pathlib.Path object for cross-platform compatibility: {path}"
 
     def test_template_file_is_binary_accessible(self) -> None:
         """Test that the SCIA template file can be accessed as binary (required for VIKTOR)."""
-        self.assertTrue(SCIA_TEMPLATE_PATH.exists(), "SCIA template file must exist")
+        assert SCIA_TEMPLATE_PATH.exists(), "SCIA template file must exist"
 
         # Test that we can read it as binary (this is how VIKTOR File.from_path works)
         try:
             with SCIA_TEMPLATE_PATH.open("rb") as f:
                 content = f.read(100)  # Read first 100 bytes
-                self.assertGreater(len(content), 0, "Template file should not be empty")
+                assert len(content) > 0, "Template file should not be empty"
         except Exception as e:
             self.fail(f"Should be able to read SCIA template as binary: {e}")
 
@@ -203,12 +204,12 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in csv_files:
             with self.subTest(csv_file=name):
-                self.assertTrue(path.exists(), f"{name} CSV file must exist")
+                assert path.exists(), f"{name} CSV file must exist"
 
                 try:
                     with path.open("r", encoding="utf-8") as f:
                         first_line = f.readline()
-                        self.assertGreater(len(first_line), 0, f"{name} CSV should not be empty")
+                        assert len(first_line) > 0, f"{name} CSV should not be empty"
                 except Exception as e:
                     self.fail(f"Should be able to read {name} CSV as UTF-8 text: {e}")
 
