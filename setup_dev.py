@@ -20,9 +20,9 @@ def run_command(command: str, description: str, show_output: bool = False) -> bo
     try:
         if show_output:
             # Show live output for longer operations
-            result = subprocess.run(command, shell=True, check=True, cwd=Path.cwd())
+            subprocess.run(command, shell=True, check=True, cwd=Path.cwd())
         else:
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, cwd=Path.cwd())
+            subprocess.run(command, shell=True, check=True, capture_output=True, text=True, cwd=Path.cwd())
         print(f"[+] {description} - SUCCESS")
         return True
     except subprocess.CalledProcessError as e:
@@ -54,15 +54,13 @@ def setup_ruft_venv() -> tuple[bool, str]:
     py_path = venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
     # Create virtual environment if it doesn't exist
-    if not py_path.exists():
-        if not run_command(f"{sys.executable} -m venv {venv_dir}", "Creating RUFT virtual environment"):
-            return False, ""
+    if not py_path.exists() and not run_command(f"{sys.executable} -m venv {venv_dir}", "Creating RUFT virtual environment"):
+        return False, ""
 
     # Install requirements in RUFT venv
     for req_file in ["requirements.txt", "requirements_dev.txt"]:
-        if Path(req_file).exists():
-            if not run_command(f"{py_path} -m pip install -r {req_file}", f"Installing {req_file} in RUFT venv", show_output=True):
-                return False, ""
+        if Path(req_file).exists() and not run_command(f"{py_path} -m pip install -r {req_file}", f"Installing {req_file} in RUFT venv", show_output=True):
+            return False, ""
 
     # Verify the setup
     if not run_command(f"{py_path} --version", "Verifying RUFT Python installation"):
