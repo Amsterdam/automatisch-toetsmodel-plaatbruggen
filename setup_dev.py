@@ -133,7 +133,7 @@ def main() -> int:
     print("   git checkout -b feature/my-new-feature")
     print("   # ... make changes ...")
     print("   python ruft.py              # Quality checks + auto-commit + push")
-    
+
     print("\nFirst Time Setup:")
     print("   - Run 'python ruft.py --dry-run' to verify everything works")
     print("   - This will take 2-5 minutes as it sets up and tests everything")
