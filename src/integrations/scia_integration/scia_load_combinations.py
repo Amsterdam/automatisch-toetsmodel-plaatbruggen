@@ -131,27 +131,6 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
     :raises KeyError: If required parameters are missing from params.
     :raises ValueError: If gamma factors could not be derived for given parameters.
     """
-    # Read the code tables from CSV and set "Combinatie" as index
-    df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
-    print(params.items())
-    # Lists for load cases related to permanent-, traffic-, wind- and other loads
-    permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
-    traffic_loads = [
-        "TS",
-        "UDL",
-        "Enkele as",
-        "Horizontale belasting",
-        "Dienstvoertuig Qserv",
-        "Fiets- en voetpaden",
-        "Mensenmenigte",
-        "Bijzondere voertuigen",
-        "Onbedoeld voertuig",
-    ]
-    wind_loads = ["Wind Fwk", "Wind Fw*"]
-    temperature_loads = ["Temperatuur"]
-    snow_loads = ["Sneeuw"]
-    other_loads = temperature_loads + snow_loads
-
     # Helper to safely convert params to dict format
     def _convert_to_dict(params_obj: Any) -> dict:  # noqa: ANN401
         if isinstance(params_obj, dict):
