@@ -696,7 +696,7 @@ def tandem_systems_actual_lanes(
 # for regulatory requirements and comparison purposes.
 
 
-def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int,float]:
+def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
     """
     Calculate the number of notional lanes and their width based on the bridge deck width.
 
