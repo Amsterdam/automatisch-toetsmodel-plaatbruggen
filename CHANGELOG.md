@@ -1,5 +1,18 @@
 ## [`v0.0.10`] - 2025-08-14
 ### Added
+- **Result Classes**: Added result classes to the SCIA model
+
+### Changed
+-
+
+### Removed
+-
+
+### Fixed
+-
+
+## [`v0.0.10`] - 2025-08-14
+### Added
 - **Analysis Caching System**: Added parameter-based caching for SCIA and IDEA calculations
   - Caches analysis results based on input parameters
   - Automatically invalidates cache when parameters change
