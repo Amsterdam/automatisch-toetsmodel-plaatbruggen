@@ -2,8 +2,9 @@
 
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
-from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
 from viktor.errors import UserError
+
+from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
