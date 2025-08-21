@@ -31,6 +31,7 @@ from app.common.map_utils import (
 )
 
 # Params for load combinations are in app.constants
+from app.constants import SCIA_TEMPLATE_PATH
 from src.combinations.load_factors import create_load_combination_table
 from src.common.plot_utils import (
     create_bridge_outline_traces,
@@ -666,8 +667,8 @@ class BridgeController(ViktorController):
         :rtype: Path
         :raises UserError: If template file is not found
         """
-        # Path relative to the app root (automatisch-toetsmodel-plaatbruggen/)
-        template_path = Path("resources/templates/model.esa")
+        # Use absolute path from constants to ensure it works in production
+        template_path = SCIA_TEMPLATE_PATH
 
         if not template_path.exists():
             raise UserError(f"SCIA template file niet gevonden: {template_path}")
