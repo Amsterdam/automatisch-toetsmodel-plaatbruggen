@@ -1,6 +1,6 @@
 """Module for geometric calculations related to load zones."""
 
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from viktor.errors import UserError
 
@@ -8,7 +8,6 @@ from app.bridge.parametrization import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
     BridgeParametrization,
 )
-
 from src.geometry.model_creator import (
     BridgeSegmentDimensions,  # Import the dataclass
     LoadZoneGeometryData,  # Import the dataclass
