@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
-from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
+from viktor.errors import UserError
 
 
 # Patch DownloadResult at the module level to use our mock

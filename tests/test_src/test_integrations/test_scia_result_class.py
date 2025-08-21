@@ -4,7 +4,6 @@ Tests for SCIA result class creation functions.
 This module tests the creation and filtering of SCIA result classes using dummy objects and mocks.
 """
 
-from typing import Optional
 from unittest.mock import Mock
 
 import pandas as pd
@@ -23,7 +22,7 @@ class DummyLoadCombination:
 class DummySciaModelBuilder:
     """Dummy class to simulate the SCIA model builder for result class tests."""
 
-    def create_result_class(self, name: str, combinations: list, nonlinear_combinations: Optional[list] = None) -> dict:
+    def create_result_class(self, name: str, combinations: list, nonlinear_combinations: list | None = None) -> dict:
         """
         Create a dummy result class dictionary.
 

@@ -9,7 +9,7 @@ This approach decouples the core logic from the specific SDK implementation.
 
 from enum import Enum
 from io import BytesIO
-from typing import Any, Literal, Protocol, Union
+from typing import Any, Literal, Protocol
 
 # Type aliases for opaque SCIA objects that the builder implementation will handle.
 # The src layer treats these as abstract types.
@@ -30,7 +30,7 @@ SciaResults = Any
 SciaResultClass = Any
 
 # Type aliases for file objects
-SciaFile = Union[BytesIO, bytes]
+SciaFile = BytesIO | bytes
 
 
 class SciaCombinationType(Enum):

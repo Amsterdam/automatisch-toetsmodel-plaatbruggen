@@ -7,7 +7,8 @@ SciaModelBuilder interface. It is independent of the VIKTOR SDK.
 
 from typing import Any
 
-from .scia_bridge_geometry import create_node_and_thickness_dict
+from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
+
 from .scia_load_cases import (
     create_all_load_cases,
 )

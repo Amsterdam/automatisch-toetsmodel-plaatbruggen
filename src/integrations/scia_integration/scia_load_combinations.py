@@ -134,11 +134,23 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
 
     # Helper to safely convert params to dict format
     def _convert_to_dict(params_obj: Any) -> dict:  # noqa: ANN401
-        if isinstance(params_obj, dict):
+        # Check if it's already a plain dict with the required keys
+        if isinstance(params_obj, dict) and not hasattr(params_obj, "input") and "cc_class" in params_obj and "design_code" in params_obj:
             return params_obj
+
+        # Try to get cc_class and design_code from the named fields first (VIKTOR parametrization)
+        cc_class = getattr(params_obj, "cc_class", None)
+        design_code = getattr(params_obj, "design_code", None)
+
+        # If not found directly, try to get from nested structure
+        if cc_class is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "belastingcombinaties"):
+            cc_class = getattr(params_obj.input.belastingcombinaties, "cc_class", None)
+        if design_code is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "belastingcombinaties"):
+            design_code = getattr(params_obj.input.belastingcombinaties, "design_code", None)
+
         return {
-            "cc_class": getattr(params_obj, "cc_class", None),
-            "design_code": getattr(params_obj, "design_code", None),
+            "cc_class": cc_class,
+            "design_code": design_code,
             "info": {"construction_year": getattr(getattr(params_obj, "info", None), "construction_year", None)},
         }
 
