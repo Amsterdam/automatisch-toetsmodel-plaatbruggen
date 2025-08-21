@@ -12,12 +12,8 @@ from io import StringIO
 # Add GeoPandas import (ensure it's installed in your venv)
 import geopandas as gpd
 import markdown
-import viktor.api_v1 as api  # Import VIKTOR API
-from viktor.core import ViktorController  # Import Color, ViktorController
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
+import viktor.api_v1 as api  # Import VIKTOR API
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
     get_filtered_bridges_json_path,
@@ -31,6 +27,10 @@ from app.constants import (  # Replace relative imports with absolute imports
     CSS_PATH,
     README_PATH,
 )
+from viktor.core import ViktorController  # Import Color, ViktorController
+from viktor.errors import UserError  # Import UserError
+from viktor.parametrization import Parametrization  # Import for type hint
+from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
 from .parametrization import OverviewBridgesParametrization
@@ -359,10 +359,10 @@ class OverviewBridgesController(ViktorController):
         return {
             "number_of_spans": number_of_spans if isinstance(number_of_spans, int) else 1,
             "static_system": bridge_data.get("statisch_systeem", ""),
-            "crossing_angle": crossing_angle if isinstance(crossing_angle, (int, float)) else 90.0,
+            "crossing_angle": crossing_angle if isinstance(crossing_angle, int | float) else 90.0,
             "theoretical_length": theoretical_length,
             "deck_width": deck_width,
-            "construction_height": construction_height if isinstance(construction_height, (int, float)) else 0.0,
+            "construction_height": construction_height if isinstance(construction_height, int | float) else 0.0,
             "slenderness": bridge_data.get("slankheid_dek", ""),
             "daily_length": bridge_data.get("ldag", ""),
         }

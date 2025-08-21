@@ -8,14 +8,14 @@ recalculating when input parameters haven't changed.
 import hashlib
 import json
 import pickle
+from collections.abc import Callable
 from enum import Enum
 from io import BytesIO
-from typing import Any, Callable, Optional
-
-from viktor.core import Storage
-from viktor.external import idea_rcs
+from typing import Any
 
 from src.integrations.idea_interface import create_bridge_idea_model
+from viktor.core import Storage
+from viktor.external import idea_rcs
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -227,7 +227,7 @@ class AnalysisCache:
         analysis_type: AnalysisType,
         entity_id: int,
         template_path: str | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
@@ -310,7 +310,7 @@ class AnalysisCache:
 
 
 # Global cache instance (lazy initialization)
-_analysis_cache: Optional[AnalysisCache] = None
+_analysis_cache: AnalysisCache | None = None
 
 
 def _get_analysis_cache() -> AnalysisCache:
@@ -327,7 +327,7 @@ def get_cached_analysis_results(
     entity_id: int,
     analysis_function: Callable[..., dict[str, Any]],
     template_path: str | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Get cached analysis results or run analysis if not cached."""
     cache = _get_analysis_cache()
 

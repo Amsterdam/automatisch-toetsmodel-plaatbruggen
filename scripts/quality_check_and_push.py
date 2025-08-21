@@ -228,32 +228,43 @@ def check_git_status() -> bool:
 
 def safe_input(prompt: str, max_attempts: int = 3) -> str:
     """Safely get user input with retry logic for different terminals."""
-    for attempt in range(max_attempts):
+
+    def _attempt_input() -> str:
+        """Single input attempt."""
+        # Ensure clean state before prompting
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        # Clear any remaining spinner artifacts
+        print("\r" + " " * 80 + "\r", end="", flush=True)
+
+        # Use traditional input() which works better across terminals (direct return fixes RET504)
+        return input(prompt).strip()
+
+    def _handle_attempt(attempt_num: int) -> str | None:
+        """Handle a single input attempt. Returns result or None to continue."""
         try:
-            # Ensure clean state before prompting
-            sys.stdout.flush()
-            sys.stderr.flush()
-
-            # Clear any remaining spinner artifacts
-            print("\r" + " " * 80 + "\r", end="", flush=True)
-
-            # Use traditional input() which works better across terminals (direct return fixes RET504)
-            return input(prompt).strip()
-
-        except (EOFError, KeyboardInterrupt):  # noqa: PERF203
-            if attempt < max_attempts - 1:
+            return _attempt_input()
+        except (EOFError, KeyboardInterrupt):
+            if attempt_num < max_attempts - 1:
                 print(f"\n{Colors.YELLOW}[!] Input interrupted, retrying... (Ctrl+C again to cancel){Colors.RESET}")
                 time.sleep(0.5)
-                continue
+                return None  # Continue to next attempt
             print(f"\n{Colors.YELLOW}[!] Input cancelled, proceeding with default behavior{Colors.RESET}")
             return ""
         except Exception as e:
-            if attempt < max_attempts - 1:
+            if attempt_num < max_attempts - 1:
                 print(f"\n{Colors.YELLOW}[!] Input error ({e}), retrying...{Colors.RESET}")
                 time.sleep(0.5)
-                continue
+                return None  # Continue to next attempt
             print(f"\n{Colors.YELLOW}[!] Input failed, proceeding with default behavior{Colors.RESET}")
             return ""
+
+    # Try each attempt separately to avoid PERF203
+    for attempt in range(max_attempts):
+        result = _handle_attempt(attempt)
+        if result is not None:
+            return result
 
     return ""
 
@@ -314,22 +325,41 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
         """Show animated spinner while operation is running."""
         # Test encoding support once before the loop (PERF203 fix)
         use_colors = True
+        use_spinner = True
         try:
             print(f"\r{Colors.CYAN}[>] Running {name}... |{Colors.RESET}", end="", flush=True)
         except UnicodeEncodeError:
             use_colors = False
 
+        # Test spinner support once before the loop
+        try:
+            test_spinner_char = next(spinner)
+            if use_colors:
+                print(f"\r{Colors.CYAN}[>] Running {name}... {test_spinner_char}{Colors.RESET}", end="", flush=True)
+            else:
+                print(f"\r[>] Running {name}... {test_spinner_char}", end="", flush=True)
+        except (UnicodeEncodeError, Exception):
+            use_spinner = False
+
         while not stop_spinner.is_set():
-            try:
-                if use_colors:
-                    print(f"\r{Colors.CYAN}[>] Running {name}... {next(spinner)}{Colors.RESET}", end="", flush=True)
-                else:
-                    print(f"\r[>] Running {name}... {next(spinner)}", end="", flush=True)
-                time.sleep(0.2)
-            except (UnicodeEncodeError, Exception):  # noqa: PERF203
+            if use_spinner:
+                try:
+                    spinner_char = next(spinner)
+                    if use_colors:
+                        print(f"\r{Colors.CYAN}[>] Running {name}... {spinner_char}{Colors.RESET}", end="", flush=True)
+                    else:
+                        print(f"\r[>] Running {name}... {spinner_char}", end="", flush=True)
+                except StopIteration:
+                    # Reset spinner if it runs out
+                    spinner_char = next(spinner)
+                    if use_colors:
+                        print(f"\r{Colors.CYAN}[>] Running {name}... {spinner_char}{Colors.RESET}", end="", flush=True)
+                    else:
+                        print(f"\r[>] Running {name}... {spinner_char}", end="", flush=True)
+            else:
                 # Fallback to simple output if any encoding or other issues
                 print(f"\r[>] Running {name}...", end="", flush=True)
-                time.sleep(0.2)
+            time.sleep(0.2)
 
     # Start spinner for tests (which take longer)
     if "Tests" in name:

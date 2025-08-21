@@ -61,7 +61,8 @@ README_CONTENT = """
 # ===================================================================================================================
 
 MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Define how many D-fields (D1 to D15) we'll support for load zones
+MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
+# Import from src layer to maintain single source of truth
 LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
 
 # TODO: Load pavement material properties from CSV file according to Eurocode 1
