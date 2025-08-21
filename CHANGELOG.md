@@ -7,6 +7,9 @@
   - Ensures proper file accessibility (binary for templates, UTF-8 for CSVs)
   - Prevents future production deployment issues with missing resources
 
+### Changed
+- **Load Cases**: Altered the generation of UDL traffic loads to a polygon per notional lane and for the remainder of bridge deck
+
 ### Fixed
 - **SCIA Template Path Issue**: Potential fix for production deployment issue where SCIA template file was not found
   - Changed from relative path (`resources/templates/model.esa`) to absolute path using `SCIA_TEMPLATE_PATH` constant
