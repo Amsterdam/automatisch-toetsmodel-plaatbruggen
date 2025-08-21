@@ -27,7 +27,8 @@ def add_udl_loads(
     load_cases: dict[str, Any],
 ) -> None:
     """
-    Create UDL traffic loads (9 kN/m²) for the three main notional lanes and apply them to BG4001, BG4002, BG4003.
+    Create UDL traffic loads with separate polygons for main lane (9 kN/m²), other notional lanes (2.5 kN/m²),
+    and remaining areas (2.5 kN/m²). Applied to load cases BG4001, BG4002, BG4003.
 
     :param builder: The SCIA model builder instance.
     :param params: VIKTOR parameters for the bridge.
@@ -53,20 +54,32 @@ def add_udl_loads(
         rs_key = bg_to_rs.get(key)
         if rs_key and rs_key in load_cases["udl_traffic_cases"]:
             scia_case = load_cases["udl_traffic_cases"][rs_key]
-            # Main notional lane
-            builder.create_surface_load(
-                name=f"udl_{key}",
-                load_case_name=scia_case.name,
-                corner_points=udl["main"]["polygon"],
-                load_value=-udl["main"]["load"],
-            )
-            # Rest polygons
-            for i, rest in enumerate(udl["rest"]):
+            
+            # Create surface loads for main notional lane(s)
+            for i, main_load in enumerate(udl["main"]):
+                builder.create_surface_load(
+                    name=f"udl_{key}_main_{i + 1}",
+                    load_case_name=scia_case.name,
+                    corner_points=main_load["polygon"],
+                    load_value=-main_load["load"],
+                )
+            
+            # Create surface loads for other notional lanes
+            for i, other_load in enumerate(udl["other"]):
+                builder.create_surface_load(
+                    name=f"udl_{key}_other_{i + 1}",
+                    load_case_name=scia_case.name,
+                    corner_points=other_load["polygon"],
+                    load_value=-other_load["load"],
+                )
+            
+            # Create surface loads for remaining areas
+            for i, rest_load in enumerate(udl["rest"]):
                 builder.create_surface_load(
                     name=f"udl_{key}_rest_{i + 1}",
                     load_case_name=scia_case.name,
-                    corner_points=rest["polygon"],
-                    load_value=-rest["load"],
+                    corner_points=rest_load["polygon"],
+                    load_value=-rest_load["load"],
                 )
 
 

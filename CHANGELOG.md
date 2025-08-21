@@ -1,3 +1,10 @@
+## [`v0.0.11`] - 2025-08-28
+### Added
+### Changed
+- **Load Cases**: Altered the generation of UDL traffic loads to a polygon per notional lane and for the remainder of bridge deck
+### Removed
+### Fixed
+
 ## [`v0.0.10`] - 2025-08-14
 ### Added
 - **Analysis Caching System**: Added parameter-based caching for SCIA and IDEA calculations
