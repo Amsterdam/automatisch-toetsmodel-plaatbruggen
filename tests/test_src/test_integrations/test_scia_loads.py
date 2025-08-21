@@ -528,7 +528,7 @@ class TestUniformlyDistributedLoads:
         # Should still create main lane
         assert "BG4001" in result_narrow
         assert len(result_narrow["BG4001"]["main"]) == 1, "Should have one main lane even with minimal width"
-        
+
         # Test with zero load value (although unrealistic, should handle gracefully)
         result_zero_load = create_udl_traffic_loads(
             length_bridgedeck=10.0,
