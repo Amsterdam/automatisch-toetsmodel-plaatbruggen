@@ -266,7 +266,7 @@ class TestBridgeControllerViews(unittest.TestCase):
 
     @patch("app.bridge.controller.api_sdk.API")
     @view_test_wrapper("get_bridge_map_view")
-    def test_get_bridge_map_view_execution_invalid_entity(self, _mock_api_class: MagicMock) -> None:  # noqa: PT019
+    def test_get_bridge_map_view_execution_invalid_entity(self, _mock_api_class: MagicMock) -> None:
         """Test get_bridge_map_view with invalid entity ID."""
         # Access the original method directly
         original_method = self.controller.__class__.get_bridge_map_view

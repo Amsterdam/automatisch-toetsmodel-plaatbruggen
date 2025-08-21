@@ -103,9 +103,9 @@ max-statements = 75
 "app/**/__init__.py" = ["F401", "ERA001"]
 "src/geometry/old_geom_functions.py" = ["F", "E", "W", "C90", "I", "N", "D", "UP", "ANN", "ASYNC", "A", "COM", "C4", "DTZ", "EXE", "ISC", "ICN", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "INT", "ARG", "FIX", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF", "RUF"]
 # Test files can access private members for testing purposes
-"tests/**/*.py" = ["SLF001"]
+"tests/**/*.py" = ["SLF001", "PT019"]
 # CLI scripts should be allowed to use print statements and have some complexity
-"scripts/quality_check_and_push.py" = ["T201", "C901", "PLR0912", "TRY300"]
-"scripts/run_enhanced_tests.py" = ["T201"]
+"scripts/quality_check_and_push.py" = ["T201", "C901", "PLR0912", "PLR0915", "PLR0911", "TRY300"]
+"scripts/run_enhanced_tests.py" = ["T201", "C901", "PLR0912"]
 "ruft.py" = ["T201"]
 "setup_dev.py" = ["T201", "TRY300"]
