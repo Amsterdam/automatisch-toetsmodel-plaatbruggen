@@ -58,8 +58,9 @@ def create_udl_traffic_loads(  # noqa: PLR0913
     results = {}
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck,(get_reference_period(params) + 2010))
     alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
-    udl_value = udl_value * alpha_trend_factor * alpha_q_factors[0]
-    rest_value = 2500.0 * alpha_trend_factor * alpha_q_factors[0]
+    main_value = udl_value * alpha_trend_factor * alpha_q_factors[0]
+    other_value = 2500.0 * alpha_trend_factor * alpha_q_factors[0]
+    rest_value = 2500.0 * alpha_trend_factor * alpha_q_factors[1]
 
     # BG4001: leftmost lane (BG8000 logic)
     y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
