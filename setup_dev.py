@@ -59,7 +59,9 @@ def setup_ruft_venv() -> tuple[bool, str]:
 
     # Install requirements in RUFT venv
     for req_file in ["requirements.txt", "requirements_dev.txt"]:
-        if Path(req_file).exists() and not run_command(f"{py_path} -m pip install -r {req_file}", f"Installing {req_file} in RUFT venv", show_output=True):
+        if Path(req_file).exists() and not run_command(
+            f"{py_path} -m pip install -r {req_file}", f"Installing {req_file} in RUFT venv", show_output=True
+        ):
             return False, ""
 
     # Verify the setup
