@@ -149,7 +149,7 @@ class TestTandemFunctionDetermination:
 
         result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
 
-        assert result["function_name"] == "tandem_systems_theoretical_lanes"
+        assert result["function_name"] == "tandem_systems_theoretical_lanes_BG8000"
         assert result["lane_count"] == 10  # 30/3 = 10 lanes
         assert result["mode"] == "theoretical"
         assert "10 lanes across 30.0m" in result["description"]
@@ -199,8 +199,12 @@ class TestCoordinateConversion:
         tandem_data = [
             {
                 "load_case": "TestTandem",
-                "load": 150000.0,
-                "wheels": [[[10.0, 1.0], [10.4, 1.0], [10.4, 1.4], [10.0, 1.4]]],
+                "loads": [
+                    {
+                        "wheels": [[[10.0, 1.0], [10.4, 1.0], [10.4, 1.4], [10.0, 1.4]]],
+                        "load": 150000.0,
+                    }
+                ],
             }
         ]
 

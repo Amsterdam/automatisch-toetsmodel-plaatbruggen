@@ -1,33 +1,59 @@
-## [`v0.0.10`] - 2025-xx-xx
+## [`v0.0.11`] - 2025-xx-XX
 ### Added
-- **Analysis Caching System**: Comprehensive caching mechanism for SCIA and IDEA calculations
-  - Persistent caching using VIKTOR Storage with entity scope
-  - SHA256 input hashing for automatic cache invalidation when parameters change
-  - Base64 encoding for binary data (ESA models, XML output) to avoid encoding issues
-  - Separate caches for SCIA and IDEA analyses with type-specific parameter extraction
-  - Lazy initialization to avoid `OSError: Job token is not set` during import
-  - Unified caching API with single `get_cached_analysis_results()` function
-  - Graceful error handling for XML parsing issues in IDEA results
+- **Resource File Access Testing**: Added comprehensive test suite for resource file access patterns
+  - Tests all resource paths use absolute paths consistently
+  - Verifies critical files exist in repository
+  - Validates cross-platform path compatibility
+  - Ensures proper file accessibility (binary for templates, UTF-8 for CSVs)
+  - Prevents future production deployment issues with missing resources
+
+### Fixed
+- **SCIA Template Path Issue**: Potential fix for production deployment issue where SCIA template file was not found
+  - Changed from relative path (`resources/templates/model.esa`) to absolute path using `SCIA_TEMPLATE_PATH` constant
+  - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
+  - Aims to ensure consistent behavior between development and production environments
+  - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
+e- **Development Environment Portability**: Fixed user-specific paths in development tools
+  - Added `.ruft_venv/` to `.gitignore` to prevent committing user-specific virtual environment paths
+  - Removed existing `.ruft_venv` directory from git tracking to avoid path conflicts between developers
+  - Quality check script already uses portable relative paths and cross-platform logic
+  - Enhanced `setup_dev.py` to automatically create RUFT virtual environment and install all dependencies
+  - Added clear IDE setup instructions with exact Python interpreter path for VS Code/Cursor
+
+## [`v0.0.10`] - 2025-08-14
+### Added
+- **Analysis Caching System**: Added parameter-based caching for SCIA and IDEA calculations
+  - Caches analysis results based on input parameters
+  - Automatically invalidates cache when parameters change
+  - Unified caching API for both SCIA and IDEA analyses
+- **Traffic Load Cases**: Added UDL traffic load case implementation
+  - Uniform distributed load patterns for traffic analysis
+  - Integration with existing load combination system
+- **Load Combinations**: Added combinations for service vehicle and accidental vehicle
+  - Service vehicle load combinations per design requirements
+  - Accidental vehicle impact scenarios
+  - SCIA load combinations
+- Graceful error handling for XML parsing issues in IDEA results
 
 ### Changed
-- **Performance Improvements**: Dramatic performance improvements for repeated calculations
-  - SCIA cached downloads: ~14 seconds vs 5+ minutes for new analysis
-  - IDEA cached operations: ~0.5 seconds vs 10+ seconds for new analysis
+- **Performance Improvements**: Significant speedup for repeated calculations through caching
+  - SCIA: ~14 seconds vs 5+ minutes for new analysis
+  - IDEA: ~0.5 seconds vs 10+ seconds for new analysis
   - Automatic cache invalidation when any relevant parameter changes
-  - Hash mismatch detection with clear logging for debugging
+- **SCIA Functions**: Updated tandem system functions for correct load positioning
+  - Improved load placement accuracy
+  - Enhanced spatial distribution of forces
+- Refactored functions for load combination table
 
 ### Removed
-- **Redundant Caching Functions**: Simplified API by removing backward compatibility functions
-  - Removed `get_cached_scia_analysis_results()`, `get_cached_idea_analysis_results()`, `get_cached_idea_model()`
-  - Unified under single `get_cached_analysis_results()` function
-  - 50% code reduction in caching module
+- **Redundant Caching Functions**: Simplified API by unifying caching under single function
+  - Removed separate caching functions in favor of unified approach
+  - Reduced code complexity in caching module
 
 ### Fixed
 - **IDEA XML Parsing**: Fixed UTF-16 encoded XML parsing issues in IDEA results
-  - Proper string-to-bytes conversion for IDEA output content
-  - Graceful error handling in IDEA RCS results table view
-  - Type checking and conversion for different file object types
-
+  - Proper handling of IDEA output content
+  - Improved error handling in results view
 
 ## [`v0.0.9`] - 2025-07-31
 ### Added

@@ -5,10 +5,21 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from viktor import DynamicArray
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
+    DynamicArray,
     DynamicArrayConstraint,
     IsFalse,
     LineBreak,
@@ -24,18 +35,6 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
-)
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -381,7 +380,7 @@ Below you will find important information about this bridge structure."""
         """
         Load concrete quality options from resources/data/materials/betonkwaliteit.csv.
 
-        :returns: List of concrete quality keys (e.g., ["K150", "K160", ...])
+        :returns: List of concrete quality keys
         :rtype: list[str]
         """
         csv_path = CONCRETEQUALITY_CSV_PATH
@@ -389,11 +388,36 @@ Below you will find important information about this bridge structure."""
             reader = csv.DictReader(f, delimiter=";")
             return [row["Betonkwaliteit"].strip('"') for row in reader]
 
+    @staticmethod
+    def _get_concrete_quality_options_dynamic(params, **kwargs) -> list[str]:  # noqa: ANN001, ARG004
+        """
+        Dynamic options provider for Betonsterkteklasse.
+
+        Ensures legacy/default values (e.g., "B55") already stored in older
+        entities are included so loading does not fail when value is not in
+        the standard C12/15..C90/105 list.
+
+        :param params: Current parameters (may contain a stored value)
+        :returns: Options list including any stored legacy value
+        :rtype: list[str]
+        """
+        options = BridgeParametrization._get_concrete_quality_options()
+
+        try:
+            current_value = getattr(getattr(params, "info", None), "concrete_strength_class", None)
+            if isinstance(current_value, str) and current_value and current_value not in options:
+                options.append(current_value)
+        except Exception:
+            # If params is not fully initialized yet, just return base options
+            pass
+
+        return options
+
     info.concrete_strength_class = OptionField(
         "Betonsterkteklasse",
-        options=_get_concrete_quality_options(),
+        options=_get_concrete_quality_options_dynamic,
         default="",
-        description="Beton sterkte classificatie (bijv. B25, B45)",
+        description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
 
     info.steel_quality_reinforcement = TextField("Staalkwaliteit (Wapening)", default="", description="Kwaliteitsklasse van betonstaal (bijv. B500)")

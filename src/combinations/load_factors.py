@@ -36,6 +36,34 @@ ALPHA_Q_q_NEN_EN_1991_2_PATH = PROJECT_PATH / "resources" / "data" / "code_table
 # ===================================================================================================================
 
 
+# Type alias for boolean mask inputs (pandas or numpy)
+MaskType = pd.Series | np.ndarray
+
+
+def apply_gamma_for_combination(  # noqa: PLR0913 - clear, explicit arguments preferred here
+    df: pd.DataFrame,
+    combination: str,
+    gamma_factors: dict[str, dict[str, float]],
+    permanent_mask: MaskType,
+    traffic_mask: MaskType,
+    wind_mask: MaskType,
+    other_mask: MaskType,
+) -> None:
+    """
+    Apply gamma factors to the given DataFrame for a specific combination key.
+
+    Updates df in place for rows whose index starts with the given combination prefix.
+    """
+    combo_mask = df.index.str.startswith(combination)
+    if not combo_mask.any():
+        return
+
+    df.loc[combo_mask, permanent_mask] = df.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
+    df.loc[combo_mask, traffic_mask] = df.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
+    df.loc[combo_mask, wind_mask] = df.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
+    df.loc[combo_mask, other_mask] = df.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
+
+
 def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     """
     Extract gamma factors based on consequence class (CC), assessment level and building year.
@@ -108,53 +136,42 @@ def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:
     return gamma_factors
 
 
-def create_load_combination_table(params: dict) -> Styler:
+def get_load_categories() -> dict[str, list[str]]:
     """
-    Generates a styled table view of load combinations based on the NEN8700 combination table.
-
-    Args:
-        params (dict): Object containing parameters for load combination generation.
-                      Required keys:
-                      - cc_class: The consequence class
-                      - design_code: The safety level code
-                      - info: Dictionary containing construction_year
+    Get the categorized lists of load cases.
 
     Returns:
-        Styled table showing load combinations and their active loads.
-
-    Raises:
-        KeyError: If required parameters are missing from the params dict.
+        Dictionary containing lists of load cases by category.
 
     """
-    # Validate required parameters
-    if not all(key in params for key in ["cc_class", "design_code"]):
-        raise KeyError("Missing required parameters: cc_class and/or design_code")
-    if "info" not in params or "construction_year" not in params["info"]:
-        raise KeyError("Missing required parameter: info.construction_year")
+    return {
+        "permanent": ["Permanent", "Voorspanning", "Zetting"],
+        "traffic": [
+            "TS",
+            "UDL",
+            "Enkele as",
+            "Horizontale belasting",
+            "Dienstvoertuig Qserv",
+            "Fiets- en voetpaden",
+            "Mensenmenigte",
+            "Bijzondere voertuigen",
+            "Onbedoeld voertuig",
+        ],
+        "wind": ["Wind Fwk", "Wind Fw*"],
+        "temperature": ["Temperatuur"],
+        "snow": ["Sneeuw"],
+    }
 
-    # Read the code tables from CSV and set "Combinatie" as index
-    df_combination_table_psi = pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
-    # Lists for load cases related to permanent-, traffic-, wind- and other loads
-    permanent_loads = ["Permanent", "Voorspanning", "Zetting"]
-    traffic_loads = [
-        "TS",
-        "UDL",
-        "Enkele as",
-        "Horizontale belasting",
-        "Dienstvoertuig Qserv",
-        "Fiets- en voetpaden",
-        "Mensenmenigte",
-        "Bijzondere voertuigen",
-        "Onbedoeld voertuig",
-    ]
-    wind_loads = ["Wind Fwk", "Wind Fw*"]
-    temperature_loads = ["Temperatuur"]
-    snow_loads = ["Sneeuw"]
-    other_loads = temperature_loads + snow_loads
+def get_leading_action_positions() -> set[tuple[str, str]]:
+    """
+    Get the table positions for leading actions which should be highlighted.
 
-    # Table positions for leading actions which should be highlighted
-    leading_action_positions = {
+    Returns:
+        Set of tuples containing (row_name, col_name) pairs for leading actions.
+
+    """
+    return {
         ("Perm", "Permanent"),
         ("Perm", "Voorspanning"),
         ("Perm zet", "Zetting"),
@@ -176,45 +193,16 @@ def create_load_combination_table(params: dict) -> Styler:
         ("Cal gr2", "Calamiteit"),
     }
 
-    # Create load combination gamma values
-    gamma_factors = get_gamma_factors(cc=params["cc_class"], safety_level=params["design_code"], building_year=params["info"]["construction_year"])
 
-    # Multiply the psi factors with the gamma factors for all load cases
-    # Create a copy and convert to float64 to ensure dtype compatibility
-    df_combination_table_gamma_psi = df_combination_table_psi.astype("float64")
+def get_project_scope() -> list[str]:
+    """
+    Get the load cases that represent the project scope.
 
-    # Create masks for different load types based on column names
-    permanent_mask = df_combination_table_gamma_psi.columns.isin(permanent_loads)
-    traffic_mask = df_combination_table_gamma_psi.columns.isin(traffic_loads)
-    wind_mask = df_combination_table_gamma_psi.columns.isin(wind_loads)
-    other_mask = df_combination_table_gamma_psi.columns.isin(other_loads)
+    Returns:
+        List of load case names included in the project scope.
 
-    # Apply gamma factors based on combination type (6.10a or 6.10b)
-    for combination in ["6.10a", "6.10b"]:
-        combo_mask = df_combination_table_gamma_psi.index.str.startswith(combination)
-        if combo_mask.any():
-            # Multiply permanent loads with gamma_Gjsup
-            df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
-            )
-            # Multiply traffic loads with gamma_Qverkeer
-            df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
-            )
-            # Multiply wind loads with gamma_Qwind
-            df_combination_table_gamma_psi.loc[combo_mask, wind_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
-            )
-            # Multiply other loads with gamma_Qoverig
-            df_combination_table_gamma_psi.loc[combo_mask, other_mask] = (
-                df_combination_table_gamma_psi.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
-            )
-
-    # Filter out rows that only contain zeros
-    df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
-
-    # Filter columns so that the load cases represent the project scope
-    load_cases_project = [
+    """
+    return [
         "Permanent",
         "TS",
         "UDL",
@@ -224,10 +212,145 @@ def create_load_combination_table(params: dict) -> Styler:
         "Onbedoeld voertuig",
         "Temperatuur",
     ]
+
+
+def validate_combination_params(params: dict) -> tuple[str, str, str]:
+    """
+    Validate and extract required parameters for load combination generation.
+
+    Args:
+        params: Parameter dictionary containing configuration values
+
+    Returns:
+        Tuple of (cc_class, design_code, construction_year)
+
+    Raises:
+        KeyError: If required parameters are missing
+
+    """
+    if not all(key in params for key in ["cc_class", "design_code"]):
+        raise KeyError("Missing required parameters: cc_class and/or design_code")
+    if "info" not in params or "construction_year" not in params["info"]:
+        raise KeyError("Missing required parameter: info.construction_year")
+
+    return str(params["cc_class"]), str(params["design_code"]), str(params["info"]["construction_year"])
+
+
+def get_initial_combination_table() -> pd.DataFrame:
+    """
+    Read and prepare the initial combination table from the NEN 8700 CSV file.
+
+    Returns:
+        DataFrame containing the initial psi factors with 'Combinatie' as index
+
+    """
+    return pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
+
+
+def prepare_combination_table(params: dict) -> pd.DataFrame:
+    """
+    Prepare the combination table with gamma factors applied.
+
+    Args:
+        params: Parameter dictionary containing configuration values
+
+    Returns:
+        DataFrame with gamma factors applied to the psi factors
+
+    """
+    # Validate parameters
+    cc_class, design_code, construction_year = validate_combination_params(params)
+
+    # Get initial table
+    df_combination_table_psi = get_initial_combination_table()
+
+    # Get gamma factors
+    gamma_factors = get_gamma_factors(cc=cc_class, safety_level=design_code, building_year=construction_year)
+
+    # Convert to float64 to ensure dtype compatibility
+    df_combination_table_gamma_psi = df_combination_table_psi.astype("float64")
+
+    # Get load categories
+    load_categories = get_load_categories()
+
+    # Create masks for different load types
+    permanent_mask = df_combination_table_gamma_psi.columns.isin(load_categories["permanent"])
+    traffic_mask = df_combination_table_gamma_psi.columns.isin(load_categories["traffic"])
+    wind_mask = df_combination_table_gamma_psi.columns.isin(load_categories["wind"])
+    other_mask = df_combination_table_gamma_psi.columns.isin(load_categories["temperature"] + load_categories["snow"])
+
+    # Apply gamma factors for both combinations
+    for combination in ["6.10a", "6.10b"]:
+        apply_gamma_for_combination(
+            df=df_combination_table_gamma_psi,
+            combination=combination,
+            gamma_factors=gamma_factors,
+            permanent_mask=permanent_mask,
+            traffic_mask=traffic_mask,
+            wind_mask=wind_mask,
+            other_mask=other_mask,
+        )
+
+    # Filter out zero rows and return
+    return df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]
+
+
+def highlight_leading_actions(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Apply highlighting to leading action cells in the load combination table.
+
+    Args:
+        df: DataFrame to style
+    Returns:
+        DataFrame with background-color styling applied
+
+    """
+    # Create empty styling DataFrame with same shape
+    styling = pd.DataFrame("", index=df.index, columns=df.columns)
+
+    # Apply highlighting to leading action positions
+    for row_name, col_name in get_leading_action_positions():
+        # Skip if column doesn't exist in the DataFrame
+        if col_name not in df.columns:
+            continue
+
+        # Find matching indices in the current DataFrame
+        matching_indices = [idx for idx in df.index if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
+
+        for idx in matching_indices:
+            if idx in df.index and col_name in df.columns:
+                styling.loc[idx, col_name] = "background-color: lightgreen"
+
+    return styling
+
+
+def create_load_combination_table(params: dict) -> Styler:
+    """
+    Generates a styled table view of load combinations based on the NEN8700 combination table.
+
+    Args:
+        params (dict): Object containing parameters for load combination generation.
+                      Required keys:
+                      - cc_class: The consequence class
+                      - design_code: The safety level code
+                      - info: Dictionary containing construction_year
+
+    Returns:
+        Styled table showing load combinations and their active loads.
+
+    Raises:
+        KeyError: If required parameters are missing from the params dict.
+
+    """
+    # Prepare the initial table with gamma factors applied
+    df_combination_table_gamma_psi = prepare_combination_table(params)
+
+    # Filter columns so that the load cases represent the project scope
+    load_cases_project = get_project_scope()
     df_combination_table_gamma_psi = df_combination_table_gamma_psi[df_combination_table_gamma_psi.columns.intersection(load_cases_project)]
 
     # Filter rows so that the load cases represent the project scope
-    load_combinations_project = [(row_name, col_name) for row_name, col_name in leading_action_positions if col_name in load_cases_project]
+    load_combinations_project = [(row_name, col_name) for row_name, col_name in get_leading_action_positions() if col_name in load_cases_project]
 
     # Filter rows based on load_combinations_project
     valid_row_names = {row_name for row_name, _ in load_combinations_project}
@@ -237,33 +360,6 @@ def create_load_combination_table(params: dict) -> Styler:
 
     # Round values in table to 5 decimal places
     df_combination_table_gamma_psi = df_combination_table_gamma_psi.round(5)
-
-    def highlight_leading_actions(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply highlighting to leading action cells in the load combination table.
-
-        :param df: DataFrame to style
-        :type df: pd.DataFrame
-        :returns: DataFrame with background-color styling applied
-        :rtype: pd.DataFrame
-        """
-        # Create empty styling DataFrame with same shape
-        styling = pd.DataFrame("", index=df.index, columns=df.columns)
-
-        # Apply highlighting to leading action positions
-        for row_name, col_name in leading_action_positions:
-            # Skip if column doesn't exist in the DataFrame
-            if col_name not in df.columns:
-                continue
-
-            # Find matching indices in the current DataFrame
-            matching_indices = [idx for idx in df.index if len(idx.split(" ", 1)) > 1 and row_name == idx.split(" ", 1)[1]]
-
-            for idx in matching_indices:
-                if idx in df.index and col_name in df.columns:
-                    styling.loc[idx, col_name] = "background-color: lightgreen"
-
-        return styling
 
     # Apply styling using the apply method (type-safe approach) and return directly
     return df_combination_table_gamma_psi.style.apply(lambda _: highlight_leading_actions(df_combination_table_gamma_psi), axis=None)

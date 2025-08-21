@@ -2,6 +2,7 @@
 """Enhanced test runner with colorful output and detailed failure reporting."""
 
 import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -27,11 +28,12 @@ def print_concise_summary(result: TextTestResult) -> None:
     total_tests = result.testsRun
     failures = len(result.failures)
     errors = len(result.errors)
+    passed = total_tests - failures - errors
 
     # Always show a summary line for git hooks
     if failures == 0 and errors == 0:
         safe_emoji_text("✅ ALL TESTS PASSED!", "ALL TESTS PASSED!")
-        print(colorized_status_message(f"Ran {total_tests} tests successfully", is_success=True))
+        print(colorized_status_message(f"All {total_tests} tests passed successfully", is_success=True))
 
         # Overall status message - more generic since other checks might have failed
         print("\n" + "=" * 60)
@@ -40,6 +42,7 @@ def print_concise_summary(result: TextTestResult) -> None:
         print("=" * 60)
     else:
         safe_emoji_text("❌ TESTS FAILED", "TESTS FAILED")
+        print(colorized_status_message(f"Test results: {passed}/{total_tests} passed, {failures} failed, {errors} errors", is_success=False))
         print(colorized_status_message("Run the following command for detailed test error information:", is_success=False, is_warning=True))
         print(f"  {safe_arrow()}{colored_text('python run_enhanced_tests.py', Colors.CYAN, bold=True)}")
 
@@ -55,14 +58,10 @@ def print_detailed_summary(result: TextTestResult) -> None:
 
     if failures == 0 and errors == 0:
         safe_emoji_text("🎉 ALL TESTS PASSED! 🎉", "ALL TESTS PASSED!")
-        print(colorized_status_message(f"Successfully ran {total_tests} tests", is_success=True))
+        print(colorized_status_message(f"All {total_tests} tests passed successfully! 🎯", is_success=True))
     else:
         safe_emoji_text("❌ SOME TESTS FAILED", "SOME TESTS FAILED")
-        print(
-            colorized_status_message(
-                f"Test results: {passed} passed, {failures} failed, {errors} errors out of {total_tests} total", is_success=False
-            )
-        )
+        print(colorized_status_message(f"Test results: {passed}/{total_tests} passed, {failures} failed, {errors} errors", is_success=False))
 
         print("\n" + "=" * 60)
         print(colorized_status_message("DETAILED ERROR INFORMATION:", is_success=False))
@@ -90,7 +89,12 @@ def print_detailed_summary(result: TextTestResult) -> None:
 
 
 def main() -> None:
-    """Run all tests with enhanced reporting."""
+    """
+    Run all tests with enhanced reporting.
+
+    Prefer pytest (collects both pytest-style and unittest-style tests). If pytest
+    isn't available, fall back to unittest discovery with enhanced output.
+    """
     # Enable colors for Git environments (like Git Bash) even if detection is conservative
     if any(os.environ.get(var) for var in ["MSYSTEM", "MINGW_PREFIX", "TERM"]):
         os.environ["FORCE_COLOR"] = "1"
@@ -98,12 +102,50 @@ def main() -> None:
     # Use the improved environment detection from test_utils
     concise_mode = should_use_concise_mode()
 
+    # Try pytest first to ensure complete test coverage
+    try:
+        import pytest  # type: ignore[import-untyped]
+
+        pytest_args: list[str] = ["tests"]
+        # Use verbose output to show test counts clearly
+        if not concise_mode:
+            pytest_args.insert(0, "-v")
+        else:
+            pytest_args.insert(0, "-q")
+
+        # Run pytest and exit with its status code
+        exit_code = pytest.main(pytest_args)
+        sys.exit(exit_code)
+    except ImportError:
+        # Attempt to install pytest or dev requirements automatically, then retry
+        req_file = Path("requirements_dev.txt")
+        install_cmd = [sys.executable, "-m", "pip", "install", "pytest"]
+        if req_file.exists():
+            install_cmd = [sys.executable, "-m", "pip", "install", "-r", str(req_file)]
+
+        try:
+            subprocess.run(install_cmd, check=False, cwd=Path.cwd())
+            import importlib
+
+            if importlib.util.find_spec("pytest") is not None:
+                import pytest  # type: ignore[import-untyped]
+
+                pytest_args2: list[str] = ["tests"]
+                if not concise_mode:
+                    pytest_args2.insert(0, "-v")
+                else:
+                    pytest_args2.insert(0, "-q")
+                sys.exit(pytest.main(pytest_args2))
+        except Exception:
+            # Fall back to unittest runner below
+            pass
+
     # In concise mode, don't show startup message
     if not concise_mode:
         print("Running enhanced test suite...")
         print("=" * 60)
 
-    # Discover all tests
+    # Discover all tests (unittest-only fallback)
     loader = unittest.TestLoader()
     test_suite = loader.discover("tests", pattern="test_*.py")
 

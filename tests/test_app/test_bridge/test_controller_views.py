@@ -266,7 +266,7 @@ class TestBridgeControllerViews(unittest.TestCase):
 
     @patch("app.bridge.controller.api_sdk.API")
     @view_test_wrapper("get_bridge_map_view")
-    def test_get_bridge_map_view_execution_invalid_entity(self, _mock_api_class: MagicMock) -> None:  # noqa: PT019
+    def test_get_bridge_map_view_execution_invalid_entity(self, _mock_api_class: MagicMock) -> None:
         """Test get_bridge_map_view with invalid entity ID."""
         # Access the original method directly
         original_method = self.controller.__class__.get_bridge_map_view
@@ -349,6 +349,17 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert hasattr(self.default_params.info, "bridge_objectnumm")
         assert hasattr(self.default_params.info, "bridge_name")
         assert hasattr(self.default_params.input.dimensions, "horizontal_section_loc")
+
+        # New structure checks (parametrization alignment)
+        # Load combinations present and typed
+        assert hasattr(self.default_params.input, "belastingcombinaties")
+        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
+        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
+        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+
+        # Guardrail line load present
+        assert hasattr(self.default_params.input, "belastingzones")
+        assert hasattr(self.default_params.input.belastingzones, "lijnlast_leuning")
 
 
 if __name__ == "__main__":
