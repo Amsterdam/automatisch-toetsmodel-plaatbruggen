@@ -13,10 +13,12 @@
   - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
   - Aims to ensure consistent behavior between development and production environments
   - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
-- **Development Environment Portability**: Fixed user-specific paths in development tools
+e- **Development Environment Portability**: Fixed user-specific paths in development tools
   - Added `.ruft_venv/` to `.gitignore` to prevent committing user-specific virtual environment paths
   - Removed existing `.ruft_venv` directory from git tracking to avoid path conflicts between developers
   - Quality check script already uses portable relative paths and cross-platform logic
+  - Enhanced `setup_dev.py` to automatically create RUFT virtual environment and install all dependencies
+  - Added clear IDE setup instructions with exact Python interpreter path for VS Code/Cursor
 
 ## [`v0.0.10`] - 2025-08-14
 ### Added
