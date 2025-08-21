@@ -52,7 +52,7 @@ def create_udl_traffic_loads(  # noqa: PLR0912, C901
     # BG4001: leftmost lanes (BG8000 logic)
     y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_left:
-        load_polygons = {"main": [], "other": [], "rest": []}
+        load_polygons: dict[str, list[dict[str, list[tuple[float, float, float]] | float]]] = {"main": [], "other": [], "rest": []}
 
         # Create lane polygons for up to max_lanes, starting from leftmost
         for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
@@ -696,7 +696,7 @@ def tandem_systems_actual_lanes(
 # for regulatory requirements and comparison purposes.
 
 
-def amount_of_notional_lanes(width_bridgedeck: float) -> int:
+def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int,float]:
     """
     Calculate the number of notional lanes and their width based on the bridge deck width.
 
