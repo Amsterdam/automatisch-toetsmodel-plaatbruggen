@@ -14,10 +14,9 @@ from enum import Enum
 from io import BytesIO
 from typing import Any
 
+from src.integrations.idea_interface import create_bridge_idea_model
 from viktor.core import File, Storage
 from viktor.external import idea_rcs
-
-from src.integrations.idea_interface import create_bridge_idea_model
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -196,19 +195,21 @@ class AnalysisCache:
         """Extract SCIA-specific load combinations data from params."""
         # For SCIA analysis, we need the load combination parameters
         scia_params = {}
-        
+
         # Try to get load combination parameters from the nested structure
         if hasattr(params, "input") and hasattr(params.input, "belastingcombinaties"):
             belasting = params.input.belastingcombinaties
-            scia_params.update({
-                "cc_class": getattr(belasting, "cc_class", None),
-                "design_code": getattr(belasting, "design_code", None),
-            })
-        
+            scia_params.update(
+                {
+                    "cc_class": getattr(belasting, "cc_class", None),
+                    "design_code": getattr(belasting, "design_code", None),
+                }
+            )
+
         # Also get construction year if available
         if hasattr(params, "info"):
             scia_params["construction_year"] = getattr(params.info, "construction_year", None)
-        
+
         return scia_params
 
     def _extract_scia_load_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
@@ -272,20 +273,20 @@ class AnalysisCache:
         extracted_params = self._extract_params(params, analysis_type, template_path)
         params_json = json.dumps(extracted_params, sort_keys=True, default=str)
         input_hash = hashlib.md5(params_json.encode()).hexdigest()
-        
+
         print(f"[CACHE DEBUG] Hash generation for {analysis_type.value}:")
         print(f"  - Template path: {template_path}")
         print(f"  - Bridge segments count: {len(extracted_params.get('bridge_segments', []))}")
         if analysis_type == AnalysisType.SCIA:
-            load_combo_params = extracted_params.get('load_combinations', {})
-            scia_load_zones = extracted_params.get('load_zones', [])
+            load_combo_params = extracted_params.get("load_combinations", {})
+            scia_load_zones = extracted_params.get("load_zones", [])
             print(f"  - SCIA load combo params: {load_combo_params}")
             print(f"  - SCIA load zones count: {len(scia_load_zones)}")
         else:
             print(f"  - Load zones count: {len(extracted_params.get('load_zones', []))}")
         print(f"  - Generated hash: {input_hash}")
         print(f"  - Full extracted params keys: {list(extracted_params.keys())}")
-        
+
         return input_hash
 
     def get_cached_analysis(
@@ -298,8 +299,8 @@ class AnalysisCache:
         """Get cached analysis results if available."""
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
-        
-        print(f"[CACHE DEBUG] Looking for cached analysis:")
+
+        print("[CACHE DEBUG] Looking for cached analysis:")
         print(f"  - Entity ID: {entity_id}")
         print(f"  - Analysis Type: {analysis_type.value}")
         print(f"  - Input Hash: {input_hash}")
@@ -310,23 +311,22 @@ class AnalysisCache:
             if cached_file:
                 print(f"[CACHE DEBUG] ✓ Cache HIT - Found cached results for {analysis_type.value}")
                 # Read the base64-encoded data
-                if hasattr(cached_file, 'getvalue'):
+                if hasattr(cached_file, "getvalue"):
                     encoded_data = cached_file.getvalue()
-                elif hasattr(cached_file, 'read'):
+                elif hasattr(cached_file, "read"):
                     cached_file.seek(0)
                     encoded_data = cached_file.read()
                 else:
                     encoded_data = cached_file
-                
+
                 # Ensure we have string data for base64 decoding
                 if isinstance(encoded_data, bytes):
-                    encoded_data = encoded_data.decode('utf-8')
-                
+                    encoded_data = encoded_data.decode("utf-8")
+
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
                 return pickle.loads(cached_data)
-            else:
-                print(f"[CACHE DEBUG] ✗ Cache MISS - No cached results found for {analysis_type.value}")
+            print(f"[CACHE DEBUG] ✗ Cache MISS - No cached results found for {analysis_type.value}")
         except Exception as e:
             print(f"[CACHE DEBUG] ✗ Cache ERROR - Failed to retrieve cached data: {e}")
 
@@ -343,8 +343,8 @@ class AnalysisCache:
         """Cache analysis results."""
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
-        
-        print(f"[CACHE DEBUG] Caching analysis results:")
+
+        print("[CACHE DEBUG] Caching analysis results:")
         print(f"  - Entity ID: {entity_id}")
         print(f"  - Analysis Type: {analysis_type.value}")
         print(f"  - Input Hash: {input_hash}")
@@ -353,7 +353,7 @@ class AnalysisCache:
         try:
             # Pickle the results and encode as base64 to avoid binary data issues
             cached_data = pickle.dumps(results)
-            encoded_data = base64.b64encode(cached_data).decode('utf-8')
+            encoded_data = base64.b64encode(cached_data).decode("utf-8")
             cached_file = File.from_data(encoded_data)
             self.storage.set(cache_key, data=cached_file, scope="entity")
             print(f"[CACHE DEBUG] ✓ Successfully cached {analysis_type.value} results")
@@ -448,6 +448,6 @@ def get_cached_analysis_results(
         print(f"[CACHE DEBUG] Caching new {analysis_type.value} results...")
         cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
     else:
-        print(f"[CACHE DEBUG] ✗ Analysis function returned None - cannot cache")
+        print("[CACHE DEBUG] ✗ Analysis function returned None - cannot cache")
 
     return results

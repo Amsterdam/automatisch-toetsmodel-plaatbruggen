@@ -434,12 +434,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         """Try to parse a specific table from the XML content."""
         # Debug: Log which table we're trying to parse
         print(f"DEBUG: _try_parse_table called for '{table_name}'")  # noqa: T201
-        
+
         # Check if this is a result class table that needs custom parsing
         if "Resultaatklasses" in table_name:
             print(f"DEBUG: Dispatching to custom parser for '{table_name}'")  # noqa: T201
             return self._parse_result_class_table(fresh_xml_content, table_name)
-        
+
         print(f"DEBUG: Using standard OutputFileParser for '{table_name}'")  # noqa: T201
         try:
             table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
@@ -639,7 +639,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             # Parse XML to find table names and check if they have data.
             root = ET.fromstring(xml_content)
-            
+
             # Handle XML namespace if present
             namespace = ""
             if root.tag.startswith("{"):
@@ -648,23 +648,23 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Parse XML tables (SCIA might or might not use namespaces)
             # Try multiple search strategies to find all tables
             all_tables = []
-            
+
             # Strategy 1: Direct search (with and without namespace)
             all_tables.extend(root.findall(".//table"))
             if namespace:
                 all_tables.extend(root.findall(f".//{namespace}table"))
-            
+
             # Strategy 2: Search within containers (with and without namespace)
             for container in root.findall(".//container"):
                 all_tables.extend(container.findall(".//table"))
                 if namespace:
                     all_tables.extend(container.findall(f".//{namespace}table"))
-            
+
             if namespace:
                 for container in root.findall(f".//{namespace}container"):
                     all_tables.extend(container.findall(".//table"))
                     all_tables.extend(container.findall(f".//{namespace}table"))
-            
+
             # Remove duplicates and process
             seen_tables = set()
             for table in all_tables:
@@ -678,25 +678,24 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         except Exception as e:
             # If XML parsing fails, add error info but continue with default tables
-            table_details.append({
-                "name": "XML_PARSING_ERROR",
-                "error": str(e),
-                "has_data": False,
-                "has_objects": False,
-                "data_rows": 0,
-                "objects": 0,
-            })
+            table_details.append(
+                {
+                    "name": "XML_PARSING_ERROR",
+                    "error": str(e),
+                    "has_data": False,
+                    "has_objects": False,
+                    "data_rows": 0,
+                    "objects": 0,
+                }
+            )
 
         return available_tables, table_details
 
     def _get_result_table_names(self, available_tables: list[str]) -> list[str]:
         """Get the list of result table names to try."""
         # First, add any tables that look like result classes from available tables
-        dynamic_result_tables = [
-            table for table in available_tables 
-            if "resultaat" in table.lower() or "result" in table.lower()
-        ]
-        
+        dynamic_result_tables = [table for table in available_tables if "resultaat" in table.lower() or "result" in table.lower()]
+
         # List of common result tables to try to extract (with variations)
         result_tables = dynamic_result_tables + [
             # Actual table names from SCIA output
@@ -707,12 +706,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "Interne 1D-krachten",
             # Result Classes (exact names from XML output)
             "Resultaatklasses - ULS",
-            "Resultaatklasses - SLS kar", 
+            "Resultaatklasses - SLS kar",
             "Resultaatklasses - SLS freq",
             "Resultaatklasses - SLS qp",
             "Resultaatklasses - FAT",
             "Resultaatklasses - All ULS",
-            "Resultaatklasses - All SLS", 
+            "Resultaatklasses - All SLS",
             "Resultaatklasses - All ULS+SLS",
             # Fallback names
             "Displacements",
@@ -764,7 +763,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             # Debug: Log that we're entering the custom parser
             print(f"DEBUG: Entering custom parser for {table_name}")  # noqa: T201
-            
+
             # Read XML content
             xml_bytes = self._read_xml_content(xml_content)
             if not xml_bytes:
@@ -776,16 +775,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # Parse XML
             root = ET.fromstring(xml_bytes)
-            
+
             # Handle XML namespace if present
             namespace = ""
             if root.tag.startswith("{"):
                 namespace = root.tag.split("}")[0] + "}"
-            
+
             # Find the specific table - try multiple search strategies
             table_element = None
             found_tables = []
-            
+
             # Strategy 1: Direct search (with and without namespace)
             for table in root.findall(".//table"):
                 table_name_attr = table.get("name", "")
@@ -793,7 +792,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 if table_name_attr == table_name:
                     table_element = table
                     break
-            
+
             if namespace and table_element is None:
                 for table in root.findall(f".//{namespace}table"):
                     table_name_attr = table.get("name", "")
@@ -802,7 +801,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     if table_name_attr == table_name:
                         table_element = table
                         break
-            
+
             # Strategy 2: If not found, try searching within containers
             if table_element is None:
                 for container in root.findall(".//container"):
@@ -815,7 +814,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                             break
                     if table_element is not None:
                         break
-            
+
             # Strategy 3: If namespace exists, try containers with namespace
             if namespace and table_element is None:
                 for container in root.findall(f".//{namespace}container"):
@@ -828,7 +827,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                             break
                     if table_element is not None:
                         break
-                    
+
                     for table in container.findall(f".//{namespace}table"):
                         table_name_attr = table.get("name", "")
                         if table_name_attr not in found_tables:
@@ -838,7 +837,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                             break
                     if table_element is not None:
                         break
-            
+
             if table_element is None:
                 return {
                     "status": "not_found",
@@ -848,7 +847,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
-            
+
             return {
                 "status": "success",
                 "data": result_data,
@@ -879,31 +878,31 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         main_obj = table_element.find(".//obj")
         if main_obj is None and namespace:
             main_obj = table_element.find(f".//{namespace}obj")
-        
+
         result_data["debug_obj_found"] = main_obj is not None
-        
+
         if main_obj is not None:
             # Extract metadata from p0 and p1 elements
             p0_elem = main_obj.find("p0")
             if p0_elem is None and namespace:
                 p0_elem = main_obj.find(f"{namespace}p0")
-                
+
             p1_elem = main_obj.find("p1")
             if p1_elem is None and namespace:
                 p1_elem = main_obj.find(f"{namespace}p1")
-            
+
             if p0_elem is not None:
                 result_data["metadata"]["name"] = p0_elem.get("v", "")
             if p1_elem is not None:
                 result_data["metadata"]["unique_id"] = p1_elem.get("v", "")
-            
+
             # Extract load combinations from p2 table
             p2_element = main_obj.find("p2")
             if p2_element is None and namespace:
                 p2_element = main_obj.find(f"{namespace}p2")
-            
+
             result_data["debug_p2_found"] = p2_element is not None
-            
+
             if p2_element is not None:
                 # Extract load combination rows - try different search strategies
                 rows = p2_element.findall(".//row")
@@ -913,30 +912,30 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     rows = p2_element.findall("row")  # Direct children only
                 if not rows and namespace:
                     rows = p2_element.findall(f"{namespace}row")  # Direct children with namespace
-                
+
                 result_data["debug_row_count"] = len(rows)
-                
+
                 for row in rows:
                     combo_data = {}
-                    
+
                     # Extract load combination data from p1 element
                     p1_elem = row.find("p1")
                     if p1_elem is None and namespace:
                         p1_elem = row.find(f"{namespace}p1")
-                    
+
                     if p1_elem is not None:
                         combo_data["id"] = p1_elem.get("i", "")
                         combo_data["name"] = p1_elem.get("n", "")
-                    
+
                     # Extract other parameters (p6, p7, p8, p9)
                     for param in ["p6", "p7", "p8", "p9"]:
                         param_elem = row.find(param)
                         if param_elem is None and namespace:
                             param_elem = row.find(f"{namespace}{param}")
-                        
+
                         if param_elem is not None:
                             combo_data[param] = param_elem.get("v", "")
-                    
+
                     if combo_data:
                         result_data["load_combinations"].append(combo_data)
             else:
@@ -949,7 +948,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
-        print(f"DEBUG: parse_xml_results method called")  # noqa: T201
+        print("DEBUG: parse_xml_results method called")  # noqa: T201
         try:
             # Discover available tables
             available_tables, table_details = self._discover_available_tables(xml_output_file)
