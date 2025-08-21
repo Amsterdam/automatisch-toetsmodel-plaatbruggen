@@ -8,7 +8,7 @@ by calling methods on the SciaModelBuilder interface.
 :synopsis: Utilities for creating SCIA result classes.
 """
 
-from typing import Any, List
+from typing import Any
 
 from pandas import DataFrame
 
@@ -21,7 +21,7 @@ from .scia_model_interface import SciaModelBuilder, SciaResultClass
 # ===================================================================================================================
 
 
-def filter_list_by_df_index(index_df: DataFrame, filter_list: list, prefixes: list[str]) -> List[Any]:
+def filter_list_by_df_index(index_df: DataFrame, filter_list: list, prefixes: list[str]) -> list[Any]:
     """
     Filter items in ``filter_list`` whose index in ``index_df`` starts with any of the given prefixes.
 
@@ -37,10 +37,8 @@ def filter_list_by_df_index(index_df: DataFrame, filter_list: list, prefixes: li
     filtered_items = []
     for idx, df_index in enumerate(index_df.index):
         df_index_str = str(df_index)
-        if any(df_index_str.startswith(prefix) for prefix in prefixes):
-            # Use the index position to extract the corresponding item from filter_list
-            if idx < len(filter_list):
-                filtered_items.append(filter_list[idx])
+        if any(df_index_str.startswith(prefix) for prefix in prefixes) and idx < len(filter_list):
+            filtered_items.append(filter_list[idx])
     return filtered_items
 
 
