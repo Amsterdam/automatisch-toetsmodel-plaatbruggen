@@ -131,6 +131,7 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
     :raises KeyError: If required parameters are missing from params.
     :raises ValueError: If gamma factors could not be derived for given parameters.
     """
+
     # Helper to safely convert params to dict format
     def _convert_to_dict(params_obj: Any) -> dict:  # noqa: ANN401
         if isinstance(params_obj, dict):
