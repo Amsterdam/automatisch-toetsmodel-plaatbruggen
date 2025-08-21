@@ -7,7 +7,6 @@ and follow consistent patterns to prevent production deployment issues.
 
 import unittest
 from pathlib import Path
-from typing import Any
 
 from app.constants import (
     BRIDGE_DATA_PATH,
@@ -26,6 +25,8 @@ from src.common.materials import (
     MATERIAL_DENSITY_PATH,
     MATERIALS_DIR,
     PRESTRESS_PATH,
+)
+from src.common.materials import (
     REINFORCEMENT_PATH as SRC_REINFORCEMENT_PATH,
 )
 
@@ -80,11 +81,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in critical_files:
             with self.subTest(file=name):
-                self.assertTrue(
-                    path.exists(),
-                    f"{name} file should exist at {path}. "
-                    f"This file is critical for production functionality."
-                )
+                self.assertTrue(path.exists(), f"{name} file should exist at {path}. This file is critical for production functionality.")
 
     def test_material_csv_files_exist(self) -> None:
         """Test that all material CSV files exist."""
@@ -98,11 +95,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for name, path in material_files:
             with self.subTest(material_file=name):
-                self.assertTrue(
-                    path.exists(),
-                    f"{name} CSV file should exist at {path}. "
-                    f"This file is required for material calculations."
-                )
+                self.assertTrue(path.exists(), f"{name} CSV file should exist at {path}. This file is required for material calculations.")
 
     def test_path_construction_consistency(self) -> None:
         """Test that all paths are constructed consistently from PROJECT_PATH."""
@@ -130,27 +123,21 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
         """Test that controllers don't use relative paths for resource access."""
         # This is a static analysis test - we'll check the controller files
         from app.bridge.controller import BridgeController
-        
+
         # Get the template path using the method
         controller = BridgeController()
-        
+
         # Mock the path exists check since we're testing the path construction
         import unittest.mock
-        with unittest.mock.patch.object(Path, 'exists', return_value=True):
+
+        with unittest.mock.patch.object(Path, "exists", return_value=True):
             template_path = controller._get_scia_template_path()
-        
+
         # Verify it's absolute
-        self.assertTrue(
-            template_path.is_absolute(),
-            f"Controller should return absolute path, got: {template_path}"
-        )
-        
+        self.assertTrue(template_path.is_absolute(), f"Controller should return absolute path, got: {template_path}")
+
         # Verify it matches our constant
-        self.assertEqual(
-            template_path,
-            SCIA_TEMPLATE_PATH,
-            "Controller should use the SCIA_TEMPLATE_PATH constant"
-        )
+        self.assertEqual(template_path, SCIA_TEMPLATE_PATH, "Controller should use the SCIA_TEMPLATE_PATH constant")
 
     def test_resource_directory_structure(self) -> None:
         """Test that the expected resource directory structure exists."""
@@ -166,36 +153,39 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
 
         for directory in expected_dirs:
             with self.subTest(directory=str(directory)):
-                self.assertTrue(
-                    directory.exists() and directory.is_dir(),
-                    f"Expected resource directory should exist: {directory}"
-                )
+                self.assertTrue(directory.exists() and directory.is_dir(), f"Expected resource directory should exist: {directory}")
 
     def test_path_separators_are_cross_platform(self) -> None:
         """Test that all paths use pathlib for cross-platform compatibility."""
         # All our constants should be Path objects, not strings with hardcoded separators
         all_paths = [
-            README_PATH, CHANGELOG_PATH, CSS_PATH, OUTPUT_REPORT_PATH,
-            SCIA_TEMPLATE_PATH, REINFORCEMENT_PATH, BRIDGE_DATA_PATH,
-            CONCRETEQUALITY_CSV_PATH, MATERIALS_DIR, CONCRETE_PATH,
-            SRC_REINFORCEMENT_PATH, PRESTRESS_PATH, BENDING_RADIUS_PATH,
-            MATERIAL_DENSITY_PATH
+            README_PATH,
+            CHANGELOG_PATH,
+            CSS_PATH,
+            OUTPUT_REPORT_PATH,
+            SCIA_TEMPLATE_PATH,
+            REINFORCEMENT_PATH,
+            BRIDGE_DATA_PATH,
+            CONCRETEQUALITY_CSV_PATH,
+            MATERIALS_DIR,
+            CONCRETE_PATH,
+            SRC_REINFORCEMENT_PATH,
+            PRESTRESS_PATH,
+            BENDING_RADIUS_PATH,
+            MATERIAL_DENSITY_PATH,
         ]
 
         for path in all_paths:
             with self.subTest(path=str(path)):
-                self.assertIsInstance(
-                    path, Path,
-                    f"Path should be a pathlib.Path object for cross-platform compatibility: {path}"
-                )
+                self.assertIsInstance(path, Path, f"Path should be a pathlib.Path object for cross-platform compatibility: {path}")
 
     def test_template_file_is_binary_accessible(self) -> None:
         """Test that the SCIA template file can be accessed as binary (required for VIKTOR)."""
         self.assertTrue(SCIA_TEMPLATE_PATH.exists(), "SCIA template file must exist")
-        
+
         # Test that we can read it as binary (this is how VIKTOR File.from_path works)
         try:
-            with SCIA_TEMPLATE_PATH.open('rb') as f:
+            with SCIA_TEMPLATE_PATH.open("rb") as f:
                 content = f.read(100)  # Read first 100 bytes
                 self.assertGreater(len(content), 0, "Template file should not be empty")
         except Exception as e:
@@ -214,9 +204,9 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
         for name, path in csv_files:
             with self.subTest(csv_file=name):
                 self.assertTrue(path.exists(), f"{name} CSV file must exist")
-                
+
                 try:
-                    with path.open('r', encoding='utf-8') as f:
+                    with path.open("r", encoding="utf-8") as f:
                         first_line = f.readline()
                         self.assertGreater(len(first_line), 0, f"{name} CSV should not be empty")
                 except Exception as e:
