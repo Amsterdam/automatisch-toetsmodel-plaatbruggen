@@ -54,7 +54,7 @@ def add_udl_loads(
         rs_key = bg_to_rs.get(key)
         if rs_key and rs_key in load_cases["udl_traffic_cases"]:
             scia_case = load_cases["udl_traffic_cases"][rs_key]
-            
+
             # Create surface loads for main notional lane(s)
             for i, main_load in enumerate(udl["main"]):
                 builder.create_surface_load(
@@ -63,7 +63,7 @@ def add_udl_loads(
                     corner_points=main_load["polygon"],
                     load_value=-main_load["load"],
                 )
-            
+
             # Create surface loads for other notional lanes
             for i, other_load in enumerate(udl["other"]):
                 builder.create_surface_load(
@@ -72,7 +72,7 @@ def add_udl_loads(
                     corner_points=other_load["polygon"],
                     load_value=-other_load["load"],
                 )
-            
+
             # Create surface loads for remaining areas
             for i, rest_load in enumerate(udl["rest"]):
                 builder.create_surface_load(

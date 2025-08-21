@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
-def create_udl_traffic_loads(  # noqa: PLR0913
+def create_udl_traffic_loads(  # noqa: PLR0912, C901
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
@@ -53,7 +53,7 @@ def create_udl_traffic_loads(  # noqa: PLR0913
     y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_left:
         load_polygons = {"main": [], "other": [], "rest": []}
-        
+
         # Create lane polygons for up to max_lanes, starting from leftmost
         for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
             y_min = y_center - lane_width / 2
@@ -64,7 +64,7 @@ def create_udl_traffic_loads(  # noqa: PLR0913
                 (length_bridgedeck, y_max, 0.0),
                 (0.0, y_max, 0.0),
             ]
-            
+
             # First lane is "main", others are "other"
             if lane_idx == 0:
                 load_polygons["main"].append({"polygon": lane_polygon, "load": udl_value})
@@ -84,11 +84,11 @@ def create_udl_traffic_loads(  # noqa: PLR0913
 
         results["BG4001"] = load_polygons
 
-    #BG4002: Rightmost lanes (BG9000 logic)
+    # BG4002: Rightmost lanes (BG9000 logic)
     y_positions_right = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_right:
         load_polygons = {"main": [], "other": [], "rest": []}
-        
+
         for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
             y_min = y_center - lane_width / 2
             y_max = y_center + lane_width / 2
@@ -98,7 +98,7 @@ def create_udl_traffic_loads(  # noqa: PLR0913
                 (length_bridgedeck, y_max, 0.0),
                 (0.0, y_max, 0.0),
             ]
-            
+
             if lane_idx == 0:
                 load_polygons["main"].append({"polygon": lane_polygon, "load": udl_value})
             else:
@@ -120,12 +120,12 @@ def create_udl_traffic_loads(  # noqa: PLR0913
     # Calculate how many lanes can fit on each side of the center
     left_lanes, right_lanes, _ = amount_of_notional_lanes_from_center(width_bridgedeck)
     total_lanes = 1 + left_lanes + right_lanes  # Center lane + left lanes + right lanes
-    
+
     # Get the center position and adjust for zone offsets
     center_y = width_bridgedeck / 2 - width_firstsegment_zone3 - 0.5 * width_firstsegment_zone2
-    
+
     load_polygons = {"main": [], "other": [], "rest": []}
-    
+
     # Create center (main) lane
     center_y_min = center_y - lane_width / 2
     center_y_max = center_y + lane_width / 2
@@ -136,7 +136,7 @@ def create_udl_traffic_loads(  # noqa: PLR0913
         (0.0, center_y_max, 0.0),
     ]
     load_polygons["main"].append({"polygon": center_polygon, "load": udl_value})
-    
+
     # Create left side lanes
     for i in range(left_lanes):
         y_center = center_y - (i + 1) * lane_width
@@ -149,7 +149,7 @@ def create_udl_traffic_loads(  # noqa: PLR0913
             (0.0, y_max, 0.0),
         ]
         load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-    
+
     # Create right side lanes
     for i in range(right_lanes):
         y_center = center_y + (i + 1) * lane_width
@@ -162,30 +162,30 @@ def create_udl_traffic_loads(  # noqa: PLR0913
             (0.0, y_max, 0.0),
         ]
         load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-    
+
     # Create rest polygons for any remaining areas
     total_lanes_width = total_lanes * lane_width
-    
+
     # Upper rest area (if exists)
-    if center_y + total_lanes_width/2 < width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
+    if center_y + total_lanes_width / 2 < width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
         upper_rest = [
-            (0.0, center_y + total_lanes_width/2, 0.0),
-            (length_bridgedeck, center_y + total_lanes_width/2, 0.0),
+            (0.0, center_y + total_lanes_width / 2, 0.0),
+            (length_bridgedeck, center_y + total_lanes_width / 2, 0.0),
             (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
             (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
         ]
         load_polygons["rest"].append({"polygon": upper_rest, "load": other_value})
-    
+
     # Lower rest area (if exists)
-    if center_y - total_lanes_width/2 > -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
+    if center_y - total_lanes_width / 2 > -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
         lower_rest = [
             (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
             (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (length_bridgedeck, center_y - total_lanes_width/2, 0.0),
-            (0.0, center_y - total_lanes_width/2, 0.0),
+            (length_bridgedeck, center_y - total_lanes_width / 2, 0.0),
+            (0.0, center_y - total_lanes_width / 2, 0.0),
         ]
         load_polygons["rest"].append({"polygon": lower_rest, "load": other_value})
-    
+
     results["BG4003"] = load_polygons
 
     return results
@@ -709,10 +709,9 @@ def amount_of_notional_lanes(width_bridgedeck: float) -> int:
     """
     if width_bridgedeck < 5.4:
         return 1, 3
-    elif 5.4 <= width_bridgedeck < 6.0:
+    if 5.4 <= width_bridgedeck < 6.0:
         return 2, width_bridgedeck / 2
-    else:
-        return int(width_bridgedeck // 3), 3
+    return int(width_bridgedeck // 3), 3
 
 
 def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, int, float]:
@@ -731,6 +730,7 @@ def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, 
             - Number of lanes that fit left of center
             - Number of lanes that fit right of center
             - Width per lane (always 3.0m as per standard)
+
     """
     # Center lane always takes 3.0m
     center_lane_width = 3.0

@@ -392,7 +392,7 @@ class TestUniformlyDistributedLoads:
     def test_amount_of_notional_lanes(self) -> None:
         """
         Test calculation of number of notional lanes and lane width for different bridge widths.
-        
+
         Tests the following cases from the Eurocode:
         1. width < 5.4m: 1 lane of 3m
         2. 5.4m ≤ width < 6.0m: 2 lanes of width/2
@@ -423,7 +423,7 @@ class TestUniformlyDistributedLoads:
     def test_amount_of_notional_lanes_from_center(self) -> None:
         """
         Test calculation of number of notional lanes that can fit on either side of the bridge center.
-        
+
         This is used for BG4003 (center load case) where we need to determine how many lanes
         can fit on either side of a center lane.
         """
@@ -459,7 +459,7 @@ class TestUniformlyDistributedLoads:
         mock_geom.x_coords_d_points = [0.0, 25.0, 50.0]  # Example D-points coordinates
         mock_geom.y_top_structural_edge_at_d_points = [5.0, 5.0, 5.0]  # Example top edges
         mock_geom.y_bridge_bottom_at_d_points = [-1.0, -1.0, -1.0]  # Example bottom edges
-        yield mock_geom
+        return mock_geom
 
     @pytest.fixture
     def mock_load_cases(self) -> dict[str, Any]:
@@ -472,7 +472,7 @@ class TestUniformlyDistributedLoads:
 
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
-        width_bridgedeck = 10.0   # 10m wide bridge
+        width_bridgedeck = 10.0  # 10m wide bridge
         width_firstsegment_zone3 = 1.0  # 1m zone 3
         width_firstsegment_zone2 = 2.0  # 2m zone 2
         udl_value = 9000.0  # 9 kN/m²
