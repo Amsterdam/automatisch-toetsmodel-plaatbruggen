@@ -110,7 +110,7 @@ def _create_combinations_from_df(
     return results
 
 
-def _filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
+def filter_by_prefix(df: DataFrame, prefixes: list[str]) -> DataFrame:
     """Filter DataFrame rows where the index starts with any of the given prefixes."""
     return df[df.index.to_series().str.startswith(tuple(prefixes))]
 
@@ -134,11 +134,23 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
 
     # Helper to safely convert params to dict format
     def _convert_to_dict(params_obj: Any) -> dict:  # noqa: ANN401
-        if isinstance(params_obj, dict):
+        # Check if it's already a plain dict with the required keys
+        if isinstance(params_obj, dict) and not hasattr(params_obj, "input") and "cc_class" in params_obj and "design_code" in params_obj:
             return params_obj
+
+        # Try to get cc_class and design_code from the named fields first (VIKTOR parametrization)
+        cc_class = getattr(params_obj, "cc_class", None)
+        design_code = getattr(params_obj, "design_code", None)
+
+        # If not found directly, try to get from nested structure
+        if cc_class is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "belastingcombinaties"):
+            cc_class = getattr(params_obj.input.belastingcombinaties, "cc_class", None)
+        if design_code is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "belastingcombinaties"):
+            design_code = getattr(params_obj.input.belastingcombinaties, "design_code", None)
+
         return {
-            "cc_class": getattr(params_obj, "cc_class", None),
-            "design_code": getattr(params_obj, "design_code", None),
+            "cc_class": cc_class,
+            "design_code": design_code,
             "info": {"construction_year": getattr(getattr(params_obj, "info", None), "construction_year", None)},
         }
 
@@ -155,7 +167,6 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
 
     # Filter rows based on load_combinations_project
     valid_row_names = {row_name for row_name, _ in load_combinations_project}
-
     return df_combination_table_gamma_psi[
         [idx.split(" ", 1)[1] in valid_row_names if len(idx.split(" ", 1)) > 1 else False for idx in df_combination_table_gamma_psi.index]
     ]
@@ -199,7 +210,7 @@ def create_uls_combinations_from_table(
     :rtype: list[SciaLoadCombination]
     """
     df_combinations = load_combination_table_without_rounding(params)
-    uls_df = _filter_by_prefix(df_combinations, ["6.10a", "6.10b"])
+    uls_df = filter_by_prefix(df_combinations, ["6.10a", "6.10b"])
     return _create_combinations_from_df(
         builder=builder,
         df=uls_df,
@@ -221,7 +232,7 @@ def create_sls_combinations_from_table(
     :rtype: list[SciaLoadCombination]
     """
     df_combinations = load_combination_table_without_rounding(params)
-    sls_df = _filter_by_prefix(df_combinations, ["6.14b", "6.15b", "6.16b"])
+    sls_df = filter_by_prefix(df_combinations, ["6.14b", "6.15b", "6.16b"])
     return _create_combinations_from_df(
         builder=builder,
         df=sls_df,
@@ -243,7 +254,7 @@ def create_fatigue_combinations_from_table(
     :rtype: list[SciaLoadCombination]
     """
     df_combinations = load_combination_table_without_rounding(params)
-    fatigue_df = _filter_by_prefix(df_combinations, ["6.67", "6.69"])
+    fatigue_df = filter_by_prefix(df_combinations, ["6.67", "6.69"])
     return _create_combinations_from_df(
         builder=builder,
         df=fatigue_df,

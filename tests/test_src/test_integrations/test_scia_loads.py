@@ -386,5 +386,161 @@ class TestLoadErrorHandling:
             add_theoretical_tandem_loads(mock_builder, mock_params, mock_load_cases)
 
 
+class TestUniformlyDistributedLoads:
+    """Test generation and application of uniformly distributed loads (UDL)."""
+
+    def test_amount_of_notional_lanes(self) -> None:
+        """
+        Test calculation of number of notional lanes and lane width for different bridge widths.
+
+        Tests the following cases from the Eurocode:
+        1. width < 5.4m: 1 lane of 3m
+        2. 5.4m ≤ width < 6.0m: 2 lanes of width/2
+        3. width ≥ 6.0m: width//3 lanes of 3m
+        """
+        from src.integrations.scia_integration.scia_loads_helper import amount_of_notional_lanes
+
+        # Test case 1: width < 5.4m
+        num_lanes, lane_width = amount_of_notional_lanes(5.0)
+        assert num_lanes == 1, "Bridge width < 5.4m should have 1 lane"
+        assert lane_width == 3, "Lane width should be 3m for narrow bridges"
+
+        # Test case 2: 5.4m ≤ width < 6.0m
+        num_lanes, lane_width = amount_of_notional_lanes(5.7)
+        assert num_lanes == 2, "Bridge width between 5.4m and 6.0m should have 2 lanes"
+        assert abs(lane_width - 2.85) < 0.001, "Lane width should be width/2 for medium bridges"
+
+        # Test case 3: width ≥ 6.0m
+        num_lanes, lane_width = amount_of_notional_lanes(9.0)
+        assert num_lanes == 3, "Bridge width of 9.0m should have 3 lanes"
+        assert lane_width == 3, "Lane width should be 3m for wide bridges"
+
+        # Test larger bridge
+        num_lanes, lane_width = amount_of_notional_lanes(15.0)
+        assert num_lanes == 5, "Bridge width of 15.0m should have 5 lanes"
+        assert lane_width == 3, "Lane width should be 3m for wide bridges"
+
+    def test_amount_of_notional_lanes_from_center(self) -> None:
+        """
+        Test calculation of number of notional lanes that can fit on either side of the bridge center.
+
+        This is used for BG4003 (center load case) where we need to determine how many lanes
+        can fit on either side of a center lane.
+        """
+        from src.integrations.scia_integration.scia_loads_helper import amount_of_notional_lanes_from_center
+
+        # Test narrow bridge - only center lane possible
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(5.0)
+        assert left_lanes == 0, "5.0m bridge should have no lanes left of center"
+        assert right_lanes == 0, "5.0m bridge should have no lanes right of center"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+        # Test medium bridge - one lane on each side possible
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(9.0)
+        assert left_lanes == 1, "9.0m bridge should have one lane left of center"
+        assert right_lanes == 1, "9.0m bridge should have one lane right of center"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+        # Test wide bridge - multiple lanes on each side possible
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(15.0)
+        assert left_lanes == 2, "15.0m bridge should have two lanes left of center"
+        assert right_lanes == 2, "15.0m bridge should have two lanes right of center"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+        # Test asymmetric width (should still give symmetric results)
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(11.3)
+        assert left_lanes == right_lanes, "Number of lanes should be equal on both sides"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+    @pytest.fixture
+    def mock_bridge_geometry(self) -> Generator[Mock, None, None]:
+        """Fixture to provide mocked bridge geometry data."""
+        mock_geom = Mock()
+        mock_geom.x_coords_d_points = [0.0, 25.0, 50.0]  # Example D-points coordinates
+        mock_geom.y_top_structural_edge_at_d_points = [5.0, 5.0, 5.0]  # Example top edges
+        mock_geom.y_bridge_bottom_at_d_points = [-1.0, -1.0, -1.0]  # Example bottom edges
+        return mock_geom
+
+    @pytest.fixture
+    def mock_load_cases(self) -> dict[str, Any]:
+        """Fixture to provide a mock load cases dictionary."""
+        return {}
+
+    def test_create_udl_traffic_loads_basic_case(self) -> None:
+        """Test creation of UDL traffic loads for a simple bridge configuration."""
+        from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+
+        # Test case parameters
+        length_bridgedeck = 20.0  # 20m long bridge
+        width_bridgedeck = 10.0  # 10m wide bridge
+        width_firstsegment_zone3 = 1.0  # 1m zone 3
+        width_firstsegment_zone2 = 2.0  # 2m zone 2
+        udl_value = 9000.0  # 9 kN/m²
+
+        # Execute the function
+        result = create_udl_traffic_loads(
+            length_bridgedeck=length_bridgedeck,
+            width_bridgedeck=width_bridgedeck,
+            width_firstsegment_zone3=width_firstsegment_zone3,
+            width_firstsegment_zone2=width_firstsegment_zone2,
+            udl_value=udl_value,
+        )
+
+        # Verify basic structure of results
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert "BG4001" in result, "Result should contain BG4001 load case"
+        assert "BG4002" in result, "Result should contain BG4002 load case"
+
+        # Check structure of BG4001 (leftmost lanes)
+        bg4001 = result["BG4001"]
+        assert all(key in bg4001 for key in ["main", "other", "rest"]), "BG4001 should have main, other, and rest areas"
+
+        # Check main lane properties in BG4001
+        main_loads = bg4001["main"]
+        assert len(main_loads) == 1, "Should have exactly one main lane"
+        assert main_loads[0]["load"] == udl_value, f"Main lane load should be {udl_value}"
+
+        # Verify polygon structure
+        main_polygon = main_loads[0]["polygon"]
+        assert len(main_polygon) == 4, "Load polygon should have 4 corners"
+        assert all(len(point) == 3 for point in main_polygon), "Each point should have x, y, z coordinates"
+        assert all(point[2] == 0.0 for point in main_polygon), "All z-coordinates should be 0.0"
+
+        # Check other lanes properties
+        other_loads = bg4001["other"]
+        for load in other_loads:
+            assert load["load"] == 2500.0, "Other lanes should have 2.5 kN/m² load"
+            assert len(load["polygon"]) == 4, "Other lane polygons should have 4 corners"
+
+    def test_create_udl_traffic_loads_edge_cases(self) -> None:
+        """Test UDL traffic loads creation with edge cases."""
+        from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+
+        # Test with minimal bridge width (just enough for one lane)
+        result_narrow = create_udl_traffic_loads(
+            length_bridgedeck=10.0,
+            width_bridgedeck=5.5,  # Just enough for one lane + zones
+            width_firstsegment_zone3=1.0,
+            width_firstsegment_zone2=1.0,
+            udl_value=9000.0,
+        )
+
+        # Should still create main lane
+        assert "BG4001" in result_narrow
+        assert len(result_narrow["BG4001"]["main"]) == 1, "Should have one main lane even with minimal width"
+
+        # Test with zero load value (although unrealistic, should handle gracefully)
+        result_zero_load = create_udl_traffic_loads(
+            length_bridgedeck=10.0,
+            width_bridgedeck=10.0,
+            width_firstsegment_zone3=1.0,
+            width_firstsegment_zone2=1.0,
+            udl_value=0.0,
+        )
+
+        assert "BG4001" in result_zero_load
+        assert result_zero_load["BG4001"]["main"][0]["load"] == 0.0, "Should handle zero load value"
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -2,6 +2,8 @@
 
 from typing import Any, TypedDict, cast
 
+from viktor.errors import UserError
+
 from app.bridge.parametrization import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
     BridgeParametrization,
@@ -11,7 +13,6 @@ from src.geometry.model_creator import (
     LoadZoneGeometryData,  # Import the dataclass
     prepare_load_zone_geometry_data,
 )
-from viktor.errors import UserError
 
 
 # Define a protocol for the expected structure of zone_param_data
@@ -432,7 +433,7 @@ def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZ
         raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
 
 
-def get_bridge_geom_data(params: BridgeParametrization) -> LoadZoneGeometryData | None:
+def get_bridge_geom_data(params: "BridgeParametrization") -> LoadZoneGeometryData | None:
     """
     Extract and prepare bridge geometry data from bridge parametrization.
 
@@ -472,7 +473,7 @@ def calculate_zone_geometry_properties(
         for d_idx in range(bridge_geom_data.num_defined_d_points):
             d_width_field = f"d{d_idx + 1}_width"
             width_value = zone_data.get(d_width_field)
-            if isinstance(width_value, (int, float)):
+            if isinstance(width_value, int | float):
                 zone_widths.append(float(width_value))
             else:
                 zone_widths.append(0.0)
@@ -497,7 +498,7 @@ def calculate_zone_geometry_properties(
     return updated_zones
 
 
-def get_load_zones_data_from_params(params: BridgeParametrization) -> list[LoadZoneDataRow]:
+def get_load_zones_data_from_params(params: "BridgeParametrization") -> list[LoadZoneDataRow]:
     """
     Extract load zone data from bridge parametrization and convert to LoadZoneDataRow format.
 
@@ -510,7 +511,7 @@ def get_load_zones_data_from_params(params: BridgeParametrization) -> list[LoadZ
     """
     load_zones_data_params: list[LoadZoneDataRow] = []
     rows = getattr(params, "load_zones_data_array", None)
-    if isinstance(rows, (list, tuple)) and rows:
+    if isinstance(rows, list | tuple) and rows:
         for row_param in rows:
             # Construct a dictionary that matches LoadZoneDataRow fields
             temp_row_data: dict[str, Any] = {

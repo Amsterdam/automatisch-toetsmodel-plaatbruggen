@@ -7,6 +7,9 @@
   - Ensures proper file accessibility (binary for templates, UTF-8 for CSVs)
   - Prevents future production deployment issues with missing resources
 
+### Changed
+- **Load Cases**: Altered the generation of UDL traffic loads to a polygon per notional lane and for the remainder of bridge deck
+
 ### Fixed
 - **SCIA Template Path Issue**: Potential fix for production deployment issue where SCIA template file was not found
   - Changed from relative path (`resources/templates/model.esa`) to absolute path using `SCIA_TEMPLATE_PATH` constant
@@ -19,6 +22,19 @@ e- **Development Environment Portability**: Fixed user-specific paths in develop
   - Quality check script already uses portable relative paths and cross-platform logic
   - Enhanced `setup_dev.py` to automatically create RUFT virtual environment and install all dependencies
   - Added clear IDE setup instructions with exact Python interpreter path for VS Code/Cursor
+
+## [`v0.0.10`] - 2025-08-14
+### Added
+- **Result Classes**: Added result classes to the SCIA model
+
+### Changed
+-
+
+### Removed
+-
+
+### Fixed
+-
 
 ## [`v0.0.10`] - 2025-08-14
 ### Added
