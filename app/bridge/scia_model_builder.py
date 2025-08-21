@@ -432,6 +432,15 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def _try_parse_table(self, fresh_xml_content: File, table_name: str) -> dict[str, object]:
         """Try to parse a specific table from the XML content."""
+        # Debug: Log which table we're trying to parse
+        print(f"DEBUG: _try_parse_table called for '{table_name}'")  # noqa: T201
+        
+        # Check if this is a result class table that needs custom parsing
+        if "Resultaatklasses" in table_name:
+            print(f"DEBUG: Dispatching to custom parser for '{table_name}'")  # noqa: T201
+            return self._parse_result_class_table(fresh_xml_content, table_name)
+        
+        print(f"DEBUG: Using standard OutputFileParser for '{table_name}'")  # noqa: T201
         try:
             table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
         except Exception as e:
@@ -628,34 +637,83 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             return available_tables, table_details
 
         try:
-            # Parse XML to find table names and check if they have data
+            # Parse XML to find table names and check if they have data.
             root = ET.fromstring(xml_content)
+            
+            # Handle XML namespace if present
+            namespace = ""
+            if root.tag.startswith("{"):
+                namespace = root.tag.split("}")[0] + "}"
 
             # Parse XML tables (SCIA might or might not use namespaces)
-            tables = root.findall(".//table")
+            # Try multiple search strategies to find all tables
+            all_tables = []
+            
+            # Strategy 1: Direct search (with and without namespace)
+            all_tables.extend(root.findall(".//table"))
+            if namespace:
+                all_tables.extend(root.findall(f".//{namespace}table"))
+            
+            # Strategy 2: Search within containers (with and without namespace)
+            for container in root.findall(".//container"):
+                all_tables.extend(container.findall(".//table"))
+                if namespace:
+                    all_tables.extend(container.findall(f".//{namespace}table"))
+            
+            if namespace:
+                for container in root.findall(f".//{namespace}container"):
+                    all_tables.extend(container.findall(".//table"))
+                    all_tables.extend(container.findall(f".//{namespace}table"))
+            
+            # Remove duplicates and process
+            seen_tables = set()
+            for table in all_tables:
+                table_name = table.get("name", "")
+                if table_name and table_name not in seen_tables:
+                    seen_tables.add(table_name)
+                    table_detail = self._parse_table_details(table)
+                    if table_detail:
+                        available_tables.append(table_detail["name"])
+                        table_details.append(table_detail)
 
-            for table in tables:
-                table_detail = self._parse_table_details(table)
-                if table_detail:
-                    available_tables.append(table_detail["name"])
-                    table_details.append(table_detail)
-
-        except Exception:
-            # If XML parsing fails, continue with default tables
-            pass
+        except Exception as e:
+            # If XML parsing fails, add error info but continue with default tables
+            table_details.append({
+                "name": "XML_PARSING_ERROR",
+                "error": str(e),
+                "has_data": False,
+                "has_objects": False,
+                "data_rows": 0,
+                "objects": 0,
+            })
 
         return available_tables, table_details
 
     def _get_result_table_names(self, available_tables: list[str]) -> list[str]:
         """Get the list of result table names to try."""
+        # First, add any tables that look like result classes from available tables
+        dynamic_result_tables = [
+            table for table in available_tables 
+            if "resultaat" in table.lower() or "result" in table.lower()
+        ]
+        
         # List of common result tables to try to extract (with variations)
-        result_tables = [
+        result_tables = dynamic_result_tables + [
             # Actual table names from SCIA output
             "2D-verplaatsing",
             "1D-vervormingen",
             "Interne 2D-krachten basis",
             "Interne 2D-krachten elementair",
             "Interne 1D-krachten",
+            # Result Classes (exact names from XML output)
+            "Resultaatklasses - ULS",
+            "Resultaatklasses - SLS kar", 
+            "Resultaatklasses - SLS freq",
+            "Resultaatklasses - SLS qp",
+            "Resultaatklasses - FAT",
+            "Resultaatklasses - All ULS",
+            "Resultaatklasses - All SLS", 
+            "Resultaatklasses - All ULS+SLS",
             # Fallback names
             "Displacements",
             "Displacement",
@@ -701,11 +759,201 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         return fresh_xml_content
 
+    def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:
+        """Custom parser for result class tables with obj/p2 structure."""
+        try:
+            # Debug: Log that we're entering the custom parser
+            print(f"DEBUG: Entering custom parser for {table_name}")  # noqa: T201
+            
+            # Read XML content
+            xml_bytes = self._read_xml_content(xml_content)
+            if not xml_bytes:
+                return {
+                    "status": "error",
+                    "message": f"Could not read XML content for {table_name}",
+                    "error": "Empty XML content",
+                }
+
+            # Parse XML
+            root = ET.fromstring(xml_bytes)
+            
+            # Handle XML namespace if present
+            namespace = ""
+            if root.tag.startswith("{"):
+                namespace = root.tag.split("}")[0] + "}"
+            
+            # Find the specific table - try multiple search strategies
+            table_element = None
+            found_tables = []
+            
+            # Strategy 1: Direct search (with and without namespace)
+            for table in root.findall(".//table"):
+                table_name_attr = table.get("name", "")
+                found_tables.append(table_name_attr)
+                if table_name_attr == table_name:
+                    table_element = table
+                    break
+            
+            if namespace and table_element is None:
+                for table in root.findall(f".//{namespace}table"):
+                    table_name_attr = table.get("name", "")
+                    if table_name_attr not in found_tables:
+                        found_tables.append(table_name_attr)
+                    if table_name_attr == table_name:
+                        table_element = table
+                        break
+            
+            # Strategy 2: If not found, try searching within containers
+            if table_element is None:
+                for container in root.findall(".//container"):
+                    for table in container.findall(".//table"):
+                        table_name_attr = table.get("name", "")
+                        if table_name_attr not in found_tables:
+                            found_tables.append(table_name_attr)
+                        if table_name_attr == table_name:
+                            table_element = table
+                            break
+                    if table_element is not None:
+                        break
+            
+            # Strategy 3: If namespace exists, try containers with namespace
+            if namespace and table_element is None:
+                for container in root.findall(f".//{namespace}container"):
+                    for table in container.findall(".//table"):
+                        table_name_attr = table.get("name", "")
+                        if table_name_attr not in found_tables:
+                            found_tables.append(table_name_attr)
+                        if table_name_attr == table_name:
+                            table_element = table
+                            break
+                    if table_element is not None:
+                        break
+                    
+                    for table in container.findall(f".//{namespace}table"):
+                        table_name_attr = table.get("name", "")
+                        if table_name_attr not in found_tables:
+                            found_tables.append(table_name_attr)
+                        if table_name_attr == table_name:
+                            table_element = table
+                            break
+                    if table_element is not None:
+                        break
+            
+            if table_element is None:
+                return {
+                    "status": "not_found",
+                    "message": f"Table '{table_name}' not found in XML",
+                    "error": f"Cannot find table '{table_name}' in output XML. Found tables: {found_tables[:10]}",
+                }
+
+            # Extract result class data
+            result_data = self._extract_result_class_data(table_element)
+            
+            return {
+                "status": "success",
+                "data": result_data,
+                "message": f"Successfully parsed result class table {table_name}",
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Failed to parse result class table {table_name}",
+                "error": str(e),
+            }
+
+    def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:
+        """Extract data from a result class table element."""
+        result_data = {
+            "table_name": table_element.get("name", "Unknown"),
+            "load_combinations": [],
+            "metadata": {},
+        }
+
+        # Detect namespace from the table element
+        namespace = ""
+        if table_element.tag.startswith("{"):
+            namespace = table_element.tag.split("}")[0] + "}"
+
+        # Find the main obj element (should be the result class definition)
+        main_obj = table_element.find(".//obj")
+        if main_obj is None and namespace:
+            main_obj = table_element.find(f".//{namespace}obj")
+        
+        result_data["debug_obj_found"] = main_obj is not None
+        
+        if main_obj is not None:
+            # Extract metadata from p0 and p1 elements
+            p0_elem = main_obj.find("p0")
+            if p0_elem is None and namespace:
+                p0_elem = main_obj.find(f"{namespace}p0")
+                
+            p1_elem = main_obj.find("p1")
+            if p1_elem is None and namespace:
+                p1_elem = main_obj.find(f"{namespace}p1")
+            
+            if p0_elem is not None:
+                result_data["metadata"]["name"] = p0_elem.get("v", "")
+            if p1_elem is not None:
+                result_data["metadata"]["unique_id"] = p1_elem.get("v", "")
+            
+            # Extract load combinations from p2 table
+            p2_element = main_obj.find("p2")
+            if p2_element is None and namespace:
+                p2_element = main_obj.find(f"{namespace}p2")
+            
+            result_data["debug_p2_found"] = p2_element is not None
+            
+            if p2_element is not None:
+                # Extract load combination rows - try different search strategies
+                rows = p2_element.findall(".//row")
+                if not rows and namespace:
+                    rows = p2_element.findall(f".//{namespace}row")
+                if not rows:
+                    rows = p2_element.findall("row")  # Direct children only
+                if not rows and namespace:
+                    rows = p2_element.findall(f"{namespace}row")  # Direct children with namespace
+                
+                result_data["debug_row_count"] = len(rows)
+                
+                for row in rows:
+                    combo_data = {}
+                    
+                    # Extract load combination data from p1 element
+                    p1_elem = row.find("p1")
+                    if p1_elem is None and namespace:
+                        p1_elem = row.find(f"{namespace}p1")
+                    
+                    if p1_elem is not None:
+                        combo_data["id"] = p1_elem.get("i", "")
+                        combo_data["name"] = p1_elem.get("n", "")
+                    
+                    # Extract other parameters (p6, p7, p8, p9)
+                    for param in ["p6", "p7", "p8", "p9"]:
+                        param_elem = row.find(param)
+                        if param_elem is None and namespace:
+                            param_elem = row.find(f"{namespace}{param}")
+                        
+                        if param_elem is not None:
+                            combo_data[param] = param_elem.get("v", "")
+                    
+                    if combo_data:
+                        result_data["load_combinations"].append(combo_data)
+            else:
+                result_data["debug_row_count"] = 0
+        else:
+            result_data["debug_p2_found"] = False
+            result_data["debug_row_count"] = 0
+
+        return result_data
+
     def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
+        print(f"DEBUG: parse_xml_results method called")  # noqa: T201
         try:
             # Discover available tables
             available_tables, table_details = self._discover_available_tables(xml_output_file)
+            print(f"DEBUG: Discovered {len(available_tables)} available tables")  # noqa: T201
 
             # Get result table names
             result_tables = self._get_result_table_names(available_tables)
@@ -715,7 +963,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # Parse all tables
             parsed_results = {}
+            print(f"DEBUG: parse_xml_results processing {len(result_tables)} tables")  # noqa: T201
             for table_name in result_tables:
+                print(f"DEBUG: About to parse table: '{table_name}'")  # noqa: T201
                 parsed_results[table_name] = self._try_parse_table(fresh_xml_content, table_name)
 
             return {

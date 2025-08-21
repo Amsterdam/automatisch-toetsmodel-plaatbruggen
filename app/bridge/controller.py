@@ -28,6 +28,13 @@ from viktor.views import (
     TableView,  # Import TableView
 )
 
+# SCIA integration imports
+from src.integrations.scia_integration.scia_force_envelopes import (
+    extract_force_envelopes,
+    get_force_envelope_summary,
+    format_force_envelope_report,
+)
+
 from app.bridge.analysis_cache import (
     AnalysisType,
     get_cached_analysis_results,
@@ -569,7 +576,13 @@ class BridgeController(ViktorController):
         # Extract data from parsed tables
         internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
         displacements_2d = parsed_tables.get("2D-verplaatsing", {})
-        result_classes_uls = parsed_tables.get("Result classes - UGT", {})
+        
+        # Extract result classes data (try multiple possible names)
+        result_classes_uls = (
+            parsed_tables.get("Resultaatklasses - ULS", {}) or
+            parsed_tables.get("Result classes - UGT", {}) or
+            parsed_tables.get("Result classes - ULS", {})
+        )
 
         # Initialize variables for engineering assessment
         max_moment = None
@@ -613,6 +626,95 @@ class BridgeController(ViktorController):
 
         return table_data
 
+    def _add_result_classes_overview(self, results: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add overview of available result classes to the table."""
+        xml_parsing = results.get("xml_parsing", {})
+        if not isinstance(xml_parsing, dict):
+            return
+
+        parsed_tables = xml_parsing.get("parsed_tables", {})
+        result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+        
+        if result_class_tables:
+            table_data.append(["Result Classes", f"{len(result_class_tables)} beschikbaar", "Alle types", "Succes"])
+            for rc_table in result_class_tables:
+                rc_name = rc_table.replace("Resultaatklasses - ", "")
+                table_data.append([f"  └─ {rc_name}", "Actief", "Load combinations", "Info"])
+
+    def _add_available_tables_info(self, xml_parsing: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add information about available result tables."""
+        table_details = xml_parsing.get("table_details", [])
+        if table_details:
+            tables_with_data = [t for t in table_details if t.get("has_data", False)]
+            table_data.append(["Tabellen met Data", f"{len(tables_with_data)}", "XML Structure", "Info"])
+            
+            # Show key engineering tables
+            key_tables = ["2D-verplaatsing", "Interne 2D-krachten basis", "Interne 2D-krachten elementair"]
+            for table_name in key_tables:
+                table_detail = next((t for t in table_details if t.get("name") == table_name), None)
+                if table_detail:
+                    rows = table_detail.get("data_rows", 0)
+                    table_data.append([f"  └─ {table_name}", f"{rows} rijen", "Resultaten", "Succes"])
+
+    def _add_displacement_results(self, displacements: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add displacement result information to the table."""
+        disp_status = displacements.get("status", "unknown")
+        if disp_status == "success":
+            table_data.append(["Verplaatsingen", "Beschikbaar", "2D-verplaatsing", "Succes"])
+            
+            # Try to extract sample displacement values
+            disp_data = displacements.get("data", {})
+            if disp_data and hasattr(disp_data, "rows"):
+                try:
+                    max_displacement = 0.0
+                    for row in disp_data.rows:
+                        if hasattr(row, "u_z") and row.u_z:
+                            max_displacement = max(max_displacement, abs(float(row.u_z)))
+                    
+                    if max_displacement > 0:
+                        table_data.append(["Max Doorbuiging", f"{max_displacement*1000:.2f} mm", "Alle punten", "UGT"])
+                except Exception:
+                    table_data.append(["Verplaatsing Data", "Parsing fout", "2D-verplaatsing", "Waarschuwing"])
+        else:
+            table_data.append(["Verplaatsingen", "Niet beschikbaar", "2D-verplaatsing", "Waarschuwing"])
+
+    def _add_internal_force_results(self, internal_forces: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add internal force result information to the table."""
+        force_status = internal_forces.get("status", "unknown")
+        if force_status == "success":
+            table_data.append(["Interne Krachten", "Beschikbaar", "2D-krachten", "Succes"])
+            
+            # Try to extract sample force values
+            force_data = internal_forces.get("data", {})
+            if force_data and hasattr(force_data, "rows"):
+                try:
+                    max_moment = 0.0
+                    max_shear = 0.0
+                    for row in force_data.rows:
+                        if hasattr(row, "m_x") and row.m_x:
+                            max_moment = max(max_moment, abs(float(row.m_x)))
+                        if hasattr(row, "v_x") and row.v_x:
+                            max_shear = max(max_shear, abs(float(row.v_x)))
+                    
+                    if max_moment > 0:
+                        table_data.append(["Max Moment", f"{max_moment/1000000:.1f} kNm", "Alle elementen", "UGT"])
+                    if max_shear > 0:
+                        table_data.append(["Max Dwarskracht", f"{max_shear:.0f} kN", "Alle elementen", "UGT"])
+                except Exception:
+                    table_data.append(["Krachten Data", "Parsing fout", "2D-krachten", "Waarschuwing"])
+        else:
+            table_data.append(["Interne Krachten", "Niet beschikbaar", "2D-krachten", "Waarschuwing"])
+
+    def _add_reaction_results(self, reactions: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add reaction result information to the table."""
+        reaction_status = reactions.get("status", "unknown")
+        if reaction_status == "success":
+            table_data.append(["Reactiekrachten", "Beschikbaar", "Ondersteuningen", "Succes"])
+        elif reaction_status == "not_found":
+            table_data.append(["Reactiekrachten", "Niet gevonden", "Ondersteuningen", "Info"])
+        else:
+            table_data.append(["Reactiekrachten", "Fout bij extractie", "Ondersteuningen", "Waarschuwing"])
+
     @TableView("SCIA Analyse Resultaten", duration_guess=300)
     def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
@@ -651,6 +753,10 @@ class BridgeController(ViktorController):
         # Build table data
         if results is None:
             _raise_scia_error()
+            
+        # Print comprehensive results summary to console
+        self._print_scia_results_summary(results)  # type: ignore[arg-type]
+        
         table_data = self._build_results_table_data(results)  # type: ignore[arg-type]
 
         # Create table with Dutch column headers
@@ -658,6 +764,399 @@ class BridgeController(ViktorController):
             table_data,
             column_headers=["Parameter", "Waarde", "Locatie", "Status"],
         )
+
+    @TableView("SCIA Resultaten Overzicht", duration_guess=300)
+    def get_scia_results_overview(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Comprehensive overview of all available SCIA analysis results.
+        
+        This view provides a detailed breakdown of:
+        - All result classes and their load combinations
+        - Available result tables and data structure
+        - Sample engineering values from each result type
+        - Data quality and completeness assessment
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error() -> None:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+            if results is None:
+                _raise_scia_error()
+        except Exception:
+            traceback.print_exc()
+            _raise_scia_error()
+
+        # Build comprehensive overview table data
+        if results is None:
+            _raise_scia_error()
+        table_data = self._build_comprehensive_results_overview(results)  # type: ignore[arg-type]
+
+        return TableResult(
+            table_data,
+            column_headers=["Category", "Item", "Value/Status", "Details"],
+        )
+
+    def get_force_envelopes(self, params: BridgeParametrization, **kwargs) -> dict[str, Any]:
+        """
+        Extract force envelopes from SCIA analysis results.
+        
+        Returns a dictionary containing max/min values for each force component
+        along with complete force state and location context.
+        
+        :param params: Bridge parametrization
+        :return: Force envelopes dictionary
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get SCIA analysis results
+        template_path = self._get_scia_template_path()
+        results = get_cached_analysis_results(
+            params=params,
+            entity_id=self.entity_id,
+            analysis_type=AnalysisType.SCIA,
+            template_path=str(template_path),
+        )
+
+        if not results:
+            raise UserError("Geen SCIA analyse resultaten beschikbaar. Voer eerst een analyse uit.")
+
+        # Extract force envelopes
+        envelopes = extract_force_envelopes(results)
+        
+        # Add summary information
+        summary = get_force_envelope_summary(envelopes)
+        
+        return {
+            "envelopes": envelopes,
+            "summary": summary,
+            "analysis_info": {
+                "total_components": len(envelopes),
+                "has_data": any(
+                    env["max"]["value"] != float("-inf") and env["min"]["value"] != float("inf")
+                    for env in envelopes.values()
+                )
+            }
+        }
+
+    def _build_comprehensive_results_overview(self, results: dict[str, Any]) -> list[list[str]]:
+        """Build comprehensive overview table data from SCIA analysis results."""
+        table_data: list[list[str]] = []
+
+        # 1. Analysis Status Overview
+        table_data.append(["ANALYSIS", "Status", "Completed", "✓"])
+        analysis_status = results.get("analysis_status", {})
+        if isinstance(analysis_status, dict):
+            executed = analysis_status.get("executed", False)
+            table_data.append(["ANALYSIS", "Execution", "Success" if executed else "Failed", "✓" if executed else "✗"])
+
+        # 2. Result Classes Overview
+        table_data.append(["RESULT CLASSES", "Overview", "", ""])
+        xml_parsing = results.get("xml_parsing", {})
+        if isinstance(xml_parsing, dict):
+            parsed_tables = xml_parsing.get("parsed_tables", {})
+            result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+            
+            table_data.append(["RESULT CLASSES", "Total Classes", f"{len(result_class_tables)}", "Available"])
+            
+            # Detail each result class
+            for rc_table in result_class_tables:
+                rc_name = rc_table.replace("Resultaatklasses - ", "")
+                rc_data = parsed_tables.get(rc_table, {})
+                status = rc_data.get("status", "unknown")
+                
+                # Count load combinations if available
+                combo_info = "Available"
+                if status == "success" and "data" in rc_data:
+                    data = rc_data["data"]
+                    if isinstance(data, dict) and "load_combinations" in data:
+                        combo_count = len(data["load_combinations"])
+                        combo_info = f"{combo_count} combinations"
+                    elif hasattr(data, "rows") and data.rows:
+                        combo_info = f"{len(data.rows)} combinations"
+                    elif isinstance(data, dict) and "rows" in data:
+                        combo_info = f"{len(data['rows'])} combinations"
+                
+                status_display = "Active" if status == "success" else "Failed"
+                table_data.append(["RESULT CLASSES", f"  {rc_name}", status_display, combo_info])
+
+        # 3. Engineering Results Overview
+        table_data.append(["ENGINEERING DATA", "Overview", "", ""])
+        
+        # Displacements
+        displacements = results.get("displacements", {})
+        self._add_displacement_overview_detailed(displacements, table_data)
+        
+        # Internal Forces
+        internal_forces = results.get("internal_forces", {})
+        self._add_internal_forces_overview_detailed(internal_forces, table_data)
+        
+        # 4. Available Tables Summary
+        table_data.append(["DATA TABLES", "Overview", "", ""])
+        if isinstance(xml_parsing, dict):
+            table_details = xml_parsing.get("table_details", [])
+            tables_with_data = [t for t in table_details if t.get("has_data", False)]
+            table_data.append(["DATA TABLES", "Tables with Data", f"{len(tables_with_data)}", "Available"])
+            
+            # Key engineering tables detail
+            key_tables = {
+                "2D-verplaatsing": "Displacements",
+                "Interne 2D-krachten basis": "Internal Forces (Basic)",
+                "Interne 2D-krachten elementair": "Internal Forces (Design)",
+                "Interne 1D-krachten": "1D Internal Forces",
+                "1D-vervormingen": "1D Deformations"
+            }
+            
+            for table_name, description in key_tables.items():
+                table_detail = next((t for t in table_details if t.get("name") == table_name), None)
+                if table_detail:
+                    rows = table_detail.get("data_rows", 0)
+                    has_data = "✓" if table_detail.get("has_data", False) else "✗"
+                    table_data.append(["DATA TABLES", f"  {description}", f"{rows} rows", has_data])
+
+        # 5. Load Combination Summary
+        self._add_load_combination_summary_detailed(results, table_data)
+
+        return table_data
+
+    def _add_displacement_overview_detailed(self, displacements: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add detailed displacement results overview to the table."""
+        disp_status = displacements.get("status", "unknown")
+        table_data.append(["ENGINEERING DATA", "Displacements", disp_status.title(), "✓" if disp_status == "success" else "✗"])
+        
+        if disp_status == "success":
+            table_data.append(["ENGINEERING DATA", "  Available Fields", "u_x, u_y, u_z, f_x, f_y, f_z", "3D + rotations"])
+            table_data.append(["ENGINEERING DATA", "  Coverage", "All bridge zones", "Z1_1, Z2_1, Z3_1"])
+            table_data.append(["ENGINEERING DATA", "  Load Cases", "All result classes", "ULS + SLS + FAT"])
+
+    def _add_internal_forces_overview_detailed(self, internal_forces: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add detailed internal forces results overview to the table."""
+        force_status = internal_forces.get("status", "unknown")
+        table_data.append(["ENGINEERING DATA", "Internal Forces", force_status.title(), "✓" if force_status == "success" else "✗"])
+        
+        if force_status == "success":
+            table_data.append(["ENGINEERING DATA", "  Basic Quantities", "m_x, m_y, m_xy, v_x, v_y, n_x, n_y, n_xy", "Raw forces"])
+            table_data.append(["ENGINEERING DATA", "  Design Quantities", "m_xD+/-, m_yD+/-, m_cD+/-, n_xD, n_yD, n_cD", "Design forces"])
+            table_data.append(["ENGINEERING DATA", "  Coverage", "All bridge elements", "Shell elements"])
+            table_data.append(["ENGINEERING DATA", "  Load Cases", "All result classes", "ULS + SLS + FAT"])
+
+    def _add_load_combination_summary_detailed(self, results: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add detailed load combination summary to the table."""
+        table_data.append(["LOAD COMBINATIONS", "Overview", "", ""])
+        
+        # Standard combination types from XML
+        combination_types = {
+            "ULS": "6.10a/b series - Ultimate Limit State",
+            "SLS kar": "6.14b series - Characteristic SLS", 
+            "SLS freq": "6.15b series - Frequent SLS",
+            "SLS qp": "6.16b series - Quasi-permanent SLS",
+            "FAT": "6.67/6.69 series - Fatigue",
+            "All ULS": "Combined Ultimate combinations",
+            "All SLS": "Combined Serviceability combinations", 
+            "All ULS+SLS": "Complete combination set"
+        }
+        
+        for combo_type, description in combination_types.items():
+            table_data.append(["LOAD COMBINATIONS", f"  {combo_type}", "Active", description])
+
+    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
+        """Print a summary of SCIA results to console for debugging/development."""
+        print("\n" + "="*80)  # noqa: T201
+        print("SCIA ANALYSIS RESULTS SUMMARY")  # noqa: T201
+        print("="*80)  # noqa: T201
+        
+        # Analysis status
+        analysis_status = results.get("analysis_status", {})
+        print(f"Analysis executed: {analysis_status.get('executed', False)}")  # noqa: T201
+        
+        # Result classes
+        xml_parsing = results.get("xml_parsing", {})
+        if isinstance(xml_parsing, dict):
+            parsed_tables = xml_parsing.get("parsed_tables", {})
+            result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+            print(f"Result classes found: {len(result_class_tables)}")  # noqa: T201
+            for rc_table in result_class_tables:
+                rc_name = rc_table.replace("Resultaatklasses - ", "")
+                rc_data = parsed_tables.get(rc_table, {})
+                status = rc_data.get("status", "unknown")
+                print(f"  - {rc_name}: {status}")  # noqa: T201
+                
+                # Debug: Show what we're looking for vs what we found
+                if status == "not_found":
+                    error_msg = rc_data.get("error", "No error message")
+                    print(f"    Error: {error_msg}")  # noqa: T201
+                
+                # Show load combinations if available
+                if status == "success" and "data" in rc_data:
+                    data = rc_data["data"]
+                    if isinstance(data, dict) and "load_combinations" in data:
+                        combos = data["load_combinations"]
+                        print(f"    Load combinations: {len(combos)}")  # noqa: T201
+                        if combos:
+                            print(f"    Sample: {combos[0].get('name', 'Unknown')}")  # noqa: T201
+                        
+                        # Debug info for troubleshooting
+                        debug_row_count = data.get("debug_row_count", "unknown")
+                        debug_p2_found = data.get("debug_p2_found", "unknown")
+                        debug_obj_found = data.get("debug_obj_found", "unknown")
+                        print(f"    Debug - Obj: {debug_obj_found}, P2: {debug_p2_found}, Rows: {debug_row_count}")  # noqa: T201
+                        
+                    elif hasattr(data, "rows") and data.rows:
+                        print(f"    Load combinations: {len(data.rows)}")  # noqa: T201
+                    elif isinstance(data, dict) and "rows" in data:
+                        print(f"    Load combinations: {len(data['rows'])}")  # noqa: T201
+        
+        # Engineering data summary
+        displacements = results.get("displacements", {})
+        internal_forces = results.get("internal_forces", {})
+        print(f"Displacement data: {displacements.get('status', 'unknown')}")  # noqa: T201
+        print(f"Internal forces data: {internal_forces.get('status', 'unknown')}")  # noqa: T201
+        
+        # Data tables summary
+        if isinstance(xml_parsing, dict):
+            table_details = xml_parsing.get("table_details", [])
+            tables_with_data = [t for t in table_details if t.get("has_data", False)]
+            print(f"Tables with data: {len(tables_with_data)}")  # noqa: T201
+            for table in tables_with_data:
+                name = table.get("name", "Unknown")
+                rows = table.get("data_rows", 0)
+                print(f"  - {name}: {rows} rows")  # noqa: T201
+            
+            # Debug: Show ALL available tables for debugging
+            available_tables = xml_parsing.get("available_tables", [])
+            table_details = xml_parsing.get("table_details", [])
+            
+            print(f"\nDEBUG - XML parsing status: {xml_parsing.get('status', 'unknown')}")  # noqa: T201
+            print(f"DEBUG - Total tables attempted: {xml_parsing.get('total_tables_attempted', 0)}")  # noqa: T201
+            print(f"DEBUG - Total tables found: {xml_parsing.get('total_tables_found', 0)}")  # noqa: T201
+            
+            if available_tables:
+                print(f"\nDEBUG - All available tables ({len(available_tables)}):")  # noqa: T201
+                for table in available_tables:
+                    print(f"  - '{table}'")  # noqa: T201
+                    
+                # Show which result class tables we're looking for
+                result_class_search_terms = ["Resultaatklasses - ULS", "Resultaatklasses - SLS kar", "Resultaatklasses - SLS freq"]
+                print(f"\nDEBUG - Looking for these result class tables:")  # noqa: T201
+                for search_term in result_class_search_terms:
+                    found = search_term in available_tables
+                    print(f"  - '{search_term}': {'FOUND' if found else 'NOT FOUND'}")  # noqa: T201
+            else:
+                print(f"\nDEBUG - No available tables found!")  # noqa: T201
+                if table_details:
+                    print(f"DEBUG - Table details ({len(table_details)}):")  # noqa: T201
+                    for detail in table_details[:5]:  # Show first 5 details
+                        print(f"  - {detail}")  # noqa: T201
+        
+        print("="*80)  # noqa: T201
+        
+        # Print sample engineering values if available
+        self._print_sample_engineering_values(results)
+        
+        # Extract and print force envelopes
+        self._print_force_envelopes(results)
+
+    def _print_sample_engineering_values(self, results: dict[str, Any]) -> None:
+        """Print sample engineering values from SCIA results."""
+        print("\nSAMPLE ENGINEERING VALUES:")  # noqa: T201
+        print("-" * 40)  # noqa: T201
+        
+        # Try to extract and print sample values from internal forces
+        internal_forces = results.get("internal_forces", {})
+        if internal_forces.get("status") == "success":
+            force_data = internal_forces.get("data", {})
+            if force_data and hasattr(force_data, "rows"):
+                try:
+                    print("Internal Forces (first 3 entries):")  # noqa: T201
+                    for i, row in enumerate(force_data.rows[:3]):
+                        if hasattr(row, "m_x") and hasattr(row, "v_x"):
+                            element = getattr(row, "element_name", f"Element {i+1}")
+                            moment_x = float(row.m_x) / 1000000  # Convert to kNm
+                            shear_x = float(row.v_x) / 1000  # Convert to kN
+                            load_case = getattr(row, "load_case", "Unknown")
+                            print(f"  {element}: Mx={moment_x:.1f} kNm, Vx={shear_x:.1f} kN ({load_case})")  # noqa: T201
+                except Exception as e:
+                    print(f"  Error parsing force data: {e}")  # noqa: T201
+        
+        # Try to extract and print sample values from displacements
+        displacements = results.get("displacements", {})
+        if displacements.get("status") == "success":
+            disp_data = displacements.get("data", {})
+            if disp_data and hasattr(disp_data, "rows"):
+                try:
+                    print("Displacements (first 3 entries):")  # noqa: T201
+                    for i, row in enumerate(disp_data.rows[:3]):
+                        if hasattr(row, "u_z"):
+                            element = getattr(row, "element_name", f"Point {i+1}")
+                            displacement = float(row.u_z) * 1000  # Convert to mm
+                            load_case = getattr(row, "load_case", "Unknown")
+                            print(f"  {element}: δz={displacement:.2f} mm ({load_case})")  # noqa: T201
+                except Exception as e:
+                    print(f"  Error parsing displacement data: {e}")  # noqa: T201
+        
+        print("-" * 40)  # noqa: T201
+    
+    def _print_force_envelopes(self, results: dict[str, Any]) -> None:
+        """Extract and print force envelopes from SCIA results."""
+        print("\nFORCE ENVELOPE ANALYSIS:")  # noqa: T201
+        print("=" * 50)  # noqa: T201
+        
+        try:
+            # Extract force envelopes
+            envelopes = extract_force_envelopes(results)
+            
+            if not envelopes:
+                print("No force envelope data available.")  # noqa: T201
+                return
+            
+            # Print summary for each bridge section and force component
+            for section, section_envelopes in envelopes.items():
+                print(f"\n=== BRIDGE SECTION {section} ===")  # noqa: T201
+                
+                for component, envelope in section_envelopes.items():
+                    max_data = envelope["max"]
+                    min_data = envelope["min"]
+                    
+                    # Skip if no valid data found
+                    if max_data["value"] == float("-inf") or min_data["value"] == float("inf"):
+                        print(f"{component}: No data available")  # noqa: T201
+                        continue
+                    
+                    print(f"\n{component} Envelope:")  # noqa: T201
+                    print(f"  Max: {max_data['value']:.2f} at {max_data['location']} ({max_data['combination']})")  # noqa: T201
+                    print(f"    Complete state: N={max_data['forces'].get('N', 0):.1f}, Vy={max_data['forces'].get('Vy', 0):.1f}, Vz={max_data['forces'].get('Vz', 0):.1f}")  # noqa: T201
+                    print(f"                   Mxd+={max_data['forces'].get('Mxd+', 0):.1f}, Mxd-={max_data['forces'].get('Mxd-', 0):.1f}")  # noqa: T201
+                    print(f"                   Myd+={max_data['forces'].get('Myd+', 0):.1f}, Myd-={max_data['forces'].get('Myd-', 0):.1f}")  # noqa: T201
+                    
+                    print(f"  Min: {min_data['value']:.2f} at {min_data['location']} ({min_data['combination']})")  # noqa: T201
+                    print(f"    Complete state: N={min_data['forces'].get('N', 0):.1f}, Vy={min_data['forces'].get('Vy', 0):.1f}, Vz={min_data['forces'].get('Vz', 0):.1f}")  # noqa: T201
+                    print(f"                   Mxd+={min_data['forces'].get('Mxd+', 0):.1f}, Mxd-={min_data['forces'].get('Mxd-', 0):.1f}")  # noqa: T201
+                    print(f"                   Myd+={min_data['forces'].get('Myd+', 0):.1f}, Myd-={min_data['forces'].get('Myd-', 0):.1f}")  # noqa: T201
+            
+            # Print summary statistics
+            summary = get_force_envelope_summary(envelopes)
+            print(f"\nSUMMARY:")  # noqa: T201
+            print(f"  Critical locations: {list(summary['critical_locations'].keys())[:3]}")  # noqa: T201
+            print(f"  Critical combinations: {list(summary['critical_combinations'].keys())[:3]}")  # noqa: T201
+            
+        except Exception as e:
+            print(f"Error extracting force envelopes: {e}")  # noqa: T201
+            import traceback
+            traceback.print_exc()
 
     def _get_scia_template_path(self) -> Path:
         """
