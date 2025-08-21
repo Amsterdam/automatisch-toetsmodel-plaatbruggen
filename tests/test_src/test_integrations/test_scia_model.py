@@ -102,4 +102,4 @@ class TestDefineCompleteBridgeModel:
         mock_groups.assert_called_once_with(mock_builder)
         mock_cases.assert_called_once_with(mock_builder, mock_params)
         mock_loads.assert_called_once_with(mock_builder, mock_params, mock_cases.return_value)
-        mock_combinations.assert_called_once_with(mock_builder, mock_cases.return_value)
+        mock_combinations.assert_called_once_with(mock_params, mock_builder, mock_cases.return_value)

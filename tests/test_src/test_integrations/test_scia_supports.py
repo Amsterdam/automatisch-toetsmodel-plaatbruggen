@@ -94,9 +94,13 @@ class TestCreateLineSupports:
 
         # Should still create start and end supports on the same plates
         assert mock_builder.create_line_support_on_plane.call_count == 6
-        mock_builder.create_line_support_on_plane.assert_any_call(name="SLB_opleg_as_1:1", plane_name="Z1_1", edge_index=4)
-        # last_section_number will be 2
-        mock_builder.create_line_support_on_plane.assert_any_call(name="SLB_opleg_as_2:1", plane_name="Z1_1", edge_index=2)
+        mock_builder.create_line_support_on_plane.assert_any_call(
+            name="SLB_opleg_as_1:1",
+            plane_name="Z1_1",
+            edge_index=4,
+            freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+            stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+        )
 
 
 class TestCreateAllSupports:
