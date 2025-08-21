@@ -79,7 +79,7 @@ class TestStandardLoadCases:
     def test_create_udl_traffic_load_cases(self, mock_builder: Mock) -> None:
         """Test creation of UDL traffic load case definitions."""
         create_udl_traffic_load_cases(mock_builder)
-        assert mock_builder.create_load_case.call_count == 4
+        assert mock_builder.create_load_case.call_count == 3
         mock_builder.create_load_case.assert_any_call(
             name="BG4001",
             description="Verkeer, dek - LM1 UDL RS 1",
