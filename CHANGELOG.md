@@ -1,3 +1,11 @@
+## [`v0.0.11`] - 2025-xx-XX
+### Fixed
+- **SCIA Template Path Issue**: Potential fix for production deployment issue where SCIA template file was not found
+  - Changed from relative path (`resources/templates/model.esa`) to absolute path using `SCIA_TEMPLATE_PATH` constant
+  - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
+  - Aims to ensure consistent behavior between development and production environments
+  - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
+
 ## [`v0.0.10`] - 2025-08-14
 ### Added
 - **Result Classes**: Added result classes to the SCIA model
