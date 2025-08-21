@@ -135,3 +135,10 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     # 7. Create Result Classes to tell SCIA which combinations to analyze
     if hasattr(builder, "load_combinations") and builder.load_combinations:
         create_result_classes_for_bridge(builder, builder.load_combinations)
+
+        import src.integrations.scia_integration.scia_bridge_geometry as scia_bridge_geometry
+
+        test_coord = [5,3,0]
+
+        dispersion = scia_bridge_geometry.get_dispersion_at_coord(params, test_coord)
+        print(f"Dispersion at {test_coord}: {dispersion}")
