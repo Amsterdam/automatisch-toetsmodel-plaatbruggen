@@ -883,7 +883,7 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- SCIA Page ---
     # ----------------------------------
 
-    scia = Page("SCIA", views=["get_3d_view", "get_scia_results_table", "get_scia_results_overview"])
+    scia = Page("SCIA", views=["get_3d_view", "get_scia_results_table"])
 
     scia.info_text = Text(SCIA_INFO_TEXT)
 

@@ -714,16 +714,18 @@ class BridgeController(ViktorController):
         else:
             table_data.append(["Reactiekrachten", "Fout bij extractie", "Ondersteuningen", "Waarschuwing"])
 
-    @TableView("SCIA Analyse Resultaten", duration_guess=300)
+    @TableView("SCIA Analyse Resultaten", duration_guess=600)
     def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
-        Display SCIA analysis results in a table format with actual engineering values.
+        Display force envelopes from SCIA analysis in a comprehensive table format.
 
-        This view shows key structural analysis results including:
-        - Maximum internal forces (moment, shear, normal force)
-        - Maximum displacements and rotations
-        - Load combination information
-        - Engineering assessment based on moment magnitude
+        Shows maximum and minimum values for each force component (N, Vy, Vz, Mxd+, Mxd-, Myd+, Myd-)
+        per bridge section (Z1_1, Z2_1, Z3_1) along with:
+        - Complete force state at that point
+        - Location and load combination causing the extreme value
+        - All other force components at the critical point
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
         """
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
@@ -736,78 +738,91 @@ class BridgeController(ViktorController):
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        def _raise_scia_error() -> None:
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> None:
             """Raise a user error for SCIA analysis failures."""
-            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+            raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
         try:
-            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
             if results is None:
                 _raise_scia_error()
-        except Exception:
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
             traceback.print_exc()
-            _raise_scia_error()
-
-        # Build table data
-        if results is None:
-            _raise_scia_error()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Print comprehensive results summary to console
         self._print_scia_results_summary(results)  # type: ignore[arg-type]
 
-        table_data = self._build_results_table_data(results)  # type: ignore[arg-type]
-
-        # Create table with Dutch column headers
-        return TableResult(
-            table_data,
-            column_headers=["Parameter", "Waarde", "Locatie", "Status"],
-        )
-
-    @TableView("SCIA Resultaten Overzicht", duration_guess=300)
-    def get_scia_results_overview(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """
-        Comprehensive overview of all available SCIA analysis results.
-
-        This view provides a detailed breakdown of:
-        - All result classes and their load combinations
-        - Available result tables and data structure
-        - Sample engineering values from each result type
-        - Data quality and completeness assessment
-        """
-        if not params.bridge_segments_array:
-            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
-
-        # Get the ESA template path
-        template_path = self._get_scia_template_path()
-
-        # Get entity ID for caching
-        entity_id = kwargs.get("entity_id")
-        if not isinstance(entity_id, int):
-            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
-
-        def _raise_scia_error() -> None:
-            """Raise a user error for SCIA analysis failures."""
-            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
-
-        # Get cached or run new SCIA analysis
+        # Extract force envelopes
         try:
-            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
-            if results is None:
-                _raise_scia_error()
-        except Exception:
-            traceback.print_exc()
-            _raise_scia_error()
+            envelopes = extract_force_envelopes(results)  # type: ignore[arg-type]
+        except Exception as e:
+            return TableResult(
+                [["Fout", f"Kon krachtenveloppen niet extraheren: {str(e)[:100]}...", "", "", "", "", ""]],
+                column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
+            )
 
-        # Build comprehensive overview table data
-        if results is None:
-            _raise_scia_error()
-        table_data = self._build_comprehensive_results_overview(results)  # type: ignore[arg-type]
+        if not envelopes:
+            return TableResult(
+                [["Geen gegevens", "Geen krachtenveloppen beschikbaar - mogelijk geen interne krachten data", "", "", "", "", ""]],
+                column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
+            )
 
-        return TableResult(
-            table_data,
-            column_headers=["Category", "Item", "Value/Status", "Details"],
-        )
+        # Build table data
+        table_data = []
+
+        for section, section_envelopes in envelopes.items():
+            for component, envelope in section_envelopes.items():
+                max_data = envelope["max"]
+                min_data = envelope["min"]
+
+                # Add maximum value row
+                if max_data["value"] != float("-inf"):
+                    max_forces_str = self._format_complete_force_state(max_data["forces"])
+                    table_data.append(
+                        [section, component, "Maximum", f"{max_data['value']:.1f}", max_data["location"], max_data["combination"], max_forces_str]
+                    )
+
+                # Add minimum value row
+                if min_data["value"] != float("inf"):
+                    min_forces_str = self._format_complete_force_state(min_data["forces"])
+                    table_data.append(
+                        [section, component, "Minimum", f"{min_data['value']:.1f}", min_data["location"], min_data["combination"], min_forces_str]
+                    )
+
+        # Sort by section and component for better readability
+        table_data.sort(key=lambda x: (x[0], x[1], x[2]))
+
+        return TableResult(table_data, column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"])
 
     def get_force_envelopes(self, params: BridgeParametrization, **kwargs) -> dict[str, Any]:
         """
@@ -849,125 +864,36 @@ class BridgeController(ViktorController):
             },
         }
 
-    def _build_comprehensive_results_overview(self, results: dict[str, Any]) -> list[list[str]]:
-        """Build comprehensive overview table data from SCIA analysis results."""
-        table_data: list[list[str]] = []
+    def _format_complete_force_state(self, forces: dict[str, float]) -> str:
+        """Format the complete force state as a compact readable string."""
+        force_parts = []
 
-        # 1. Analysis Status Overview
-        table_data.append(["ANALYSIS", "Status", "Completed", "✓"])
-        analysis_status = results.get("analysis_status", {})
-        if isinstance(analysis_status, dict):
-            executed = analysis_status.get("executed", False)
-            table_data.append(["ANALYSIS", "Execution", "Success" if executed else "Failed", "✓" if executed else "✗"])
+        # Only show non-zero forces to reduce clutter
+        # Normal force
+        if "N" in forces and abs(forces["N"]) > 0.1:
+            force_parts.append(f"N={forces['N']:.0f}")
 
-        # 2. Result Classes Overview
-        table_data.append(["RESULT CLASSES", "Overview", "", ""])
-        xml_parsing = results.get("xml_parsing", {})
-        if isinstance(xml_parsing, dict):
-            parsed_tables = xml_parsing.get("parsed_tables", {})
-            result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+        # Shear forces
+        if "Vy" in forces and abs(forces["Vy"]) > 0.1:
+            force_parts.append(f"Vy={forces['Vy']:.0f}")
+        if "Vz" in forces and abs(forces["Vz"]) > 0.1:
+            force_parts.append(f"Vz={forces['Vz']:.0f}")
 
-            table_data.append(["RESULT CLASSES", "Total Classes", f"{len(result_class_tables)}", "Available"])
+        # Moments - only show if significant
+        if "Mxd+" in forces and abs(forces["Mxd+"]) > 0.1:
+            force_parts.append(f"Mx+={forces['Mxd+']:.0f}")
+        if "Mxd-" in forces and abs(forces["Mxd-"]) > 0.1:
+            force_parts.append(f"Mx-={forces['Mxd-']:.0f}")
+        if "Myd+" in forces and abs(forces["Myd+"]) > 0.1:
+            force_parts.append(f"My+={forces['Myd+']:.0f}")
+        if "Myd-" in forces and abs(forces["Myd-"]) > 0.1:
+            force_parts.append(f"My-={forces['Myd-']:.0f}")
 
-            # Detail each result class
-            for rc_table in result_class_tables:
-                rc_name = rc_table.replace("Resultaatklasses - ", "")
-                rc_data = parsed_tables.get(rc_table, {})
-                status = rc_data.get("status", "unknown")
+        # If no significant forces, show "All ≈ 0"
+        if not force_parts:
+            return "All ≈ 0"
 
-                # Count load combinations if available
-                combo_info = "Available"
-                if status == "success" and "data" in rc_data:
-                    data = rc_data["data"]
-                    if isinstance(data, dict) and "load_combinations" in data:
-                        combo_count = len(data["load_combinations"])
-                        combo_info = f"{combo_count} combinations"
-                    elif hasattr(data, "rows") and data.rows:
-                        combo_info = f"{len(data.rows)} combinations"
-                    elif isinstance(data, dict) and "rows" in data:
-                        combo_info = f"{len(data['rows'])} combinations"
-
-                status_display = "Active" if status == "success" else "Failed"
-                table_data.append(["RESULT CLASSES", f"  {rc_name}", status_display, combo_info])
-
-        # 3. Engineering Results Overview
-        table_data.append(["ENGINEERING DATA", "Overview", "", ""])
-
-        # Displacements
-        displacements = results.get("displacements", {})
-        self._add_displacement_overview_detailed(displacements, table_data)
-
-        # Internal Forces
-        internal_forces = results.get("internal_forces", {})
-        self._add_internal_forces_overview_detailed(internal_forces, table_data)
-
-        # 4. Available Tables Summary
-        table_data.append(["DATA TABLES", "Overview", "", ""])
-        if isinstance(xml_parsing, dict):
-            table_details = xml_parsing.get("table_details", [])
-            tables_with_data = [t for t in table_details if t.get("has_data", False)]
-            table_data.append(["DATA TABLES", "Tables with Data", f"{len(tables_with_data)}", "Available"])
-
-            # Key engineering tables detail
-            key_tables = {
-                "2D-verplaatsing": "Displacements",
-                "Interne 2D-krachten basis": "Internal Forces (Basic)",
-                "Interne 2D-krachten elementair": "Internal Forces (Design)",
-                "Interne 1D-krachten": "1D Internal Forces",
-                "1D-vervormingen": "1D Deformations",
-            }
-
-            for table_name, description in key_tables.items():
-                table_detail = next((t for t in table_details if t.get("name") == table_name), None)
-                if table_detail:
-                    rows = table_detail.get("data_rows", 0)
-                    has_data = "✓" if table_detail.get("has_data", False) else "✗"
-                    table_data.append(["DATA TABLES", f"  {description}", f"{rows} rows", has_data])
-
-        # 5. Load Combination Summary
-        self._add_load_combination_summary_detailed(results, table_data)
-
-        return table_data
-
-    def _add_displacement_overview_detailed(self, displacements: dict[str, Any], table_data: list[list[str]]) -> None:
-        """Add detailed displacement results overview to the table."""
-        disp_status = displacements.get("status", "unknown")
-        table_data.append(["ENGINEERING DATA", "Displacements", disp_status.title(), "✓" if disp_status == "success" else "✗"])
-
-        if disp_status == "success":
-            table_data.append(["ENGINEERING DATA", "  Available Fields", "u_x, u_y, u_z, f_x, f_y, f_z", "3D + rotations"])
-            table_data.append(["ENGINEERING DATA", "  Coverage", "All bridge zones", "Z1_1, Z2_1, Z3_1"])
-            table_data.append(["ENGINEERING DATA", "  Load Cases", "All result classes", "ULS + SLS + FAT"])
-
-    def _add_internal_forces_overview_detailed(self, internal_forces: dict[str, Any], table_data: list[list[str]]) -> None:
-        """Add detailed internal forces results overview to the table."""
-        force_status = internal_forces.get("status", "unknown")
-        table_data.append(["ENGINEERING DATA", "Internal Forces", force_status.title(), "✓" if force_status == "success" else "✗"])
-
-        if force_status == "success":
-            table_data.append(["ENGINEERING DATA", "  Basic Quantities", "m_x, m_y, m_xy, v_x, v_y, n_x, n_y, n_xy", "Raw forces"])
-            table_data.append(["ENGINEERING DATA", "  Design Quantities", "m_xD+/-, m_yD+/-, m_cD+/-, n_xD, n_yD, n_cD", "Design forces"])
-            table_data.append(["ENGINEERING DATA", "  Coverage", "All bridge elements", "Shell elements"])
-            table_data.append(["ENGINEERING DATA", "  Load Cases", "All result classes", "ULS + SLS + FAT"])
-
-    def _add_load_combination_summary_detailed(self, results: dict[str, Any], table_data: list[list[str]]) -> None:
-        """Add detailed load combination summary to the table."""
-        table_data.append(["LOAD COMBINATIONS", "Overview", "", ""])
-
-        # Standard combination types from XML
-        combination_types = {
-            "ULS": "6.10a/b series - Ultimate Limit State",
-            "SLS kar": "6.14b series - Characteristic SLS",
-            "SLS freq": "6.15b series - Frequent SLS",
-            "SLS qp": "6.16b series - Quasi-permanent SLS",
-            "FAT": "6.67/6.69 series - Fatigue",
-            "All ULS": "Combined Ultimate combinations",
-            "All SLS": "Combined Serviceability combinations",
-            "All ULS+SLS": "Complete combination set",
-        }
-
-        for combo_type, description in combination_types.items():
-            table_data.append(["LOAD COMBINATIONS", f"  {combo_type}", "Active", description])
+        return " | ".join(force_parts)
 
     def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
         """Print a summary of SCIA results to console for debugging/development."""
