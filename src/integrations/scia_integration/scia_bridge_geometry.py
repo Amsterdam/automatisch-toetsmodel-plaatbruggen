@@ -663,8 +663,6 @@ def get_deck_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
 
             # Linear interpolation between start and end thickness
             interpolated_thickness = thickness_start + interpolation_factor * (thickness_end - thickness_start)
-
-            print(zone_data)
             
             return (
                 zone_data["material"],
