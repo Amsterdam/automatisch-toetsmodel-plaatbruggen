@@ -18,6 +18,8 @@ from .scia_loads_helper import (
     tandem_systems_theoretical_lanes_bg10000,
 )
 
+# Type alias to avoid importing from app layer
+BridgeParametrization = Any
 
 def extract_bridge_dimensions(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
@@ -176,7 +178,7 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
     raise ValueError(f"Unsupported mode: {mode}. Use 'theoretical' or 'actual'")
 
 
-def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str = "theoretical") -> list[dict[str, Any]]:
+def generate_tandem_loads_for_bridge(params: BridgeParametrization, bridge_params: dict[str, float], mode: str = "theoretical") -> list[dict[str, Any]]:
     """
     Generate tandem load data for bridge using appropriate function.
 
@@ -195,6 +197,7 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
     # Generate tandem loads using the selected function
     try:
         tandem_loads_bg8000 = tandem_function(
+            params,
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
@@ -206,6 +209,7 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
     # Generate tandem loads for configuration with reversed lane order (9000 series)
     try:
         tandem_loads_bg9000 = tandem_function2(
+            params,
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
@@ -218,6 +222,7 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
     # Generate tandem loads for configuration with middle lane order (10000 series)
     try:
         tandem_loads_bg10000 = tandem_function3(
+            params,
             bridge_params["length_bridgedeck"],
             bridge_params["width_bridgedeck"],
             bridge_params["thickness_bridgedeck"],
