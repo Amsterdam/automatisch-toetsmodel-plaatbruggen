@@ -21,9 +21,11 @@ def mock_builder() -> Mock:
 
 @pytest.fixture
 def mock_params() -> Mock:
-    """Fixture to provide mocked VIKTOR parameters."""
-    return Mock()
+    """Fixture to provide design code in mock_params"""
 
+    # Configure mock params to handle dictionary-style access
+    mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+    return Mock()
 
 class TestTheoreticalTandemLoads:
     """Test theoretical tandem load application."""
@@ -479,11 +481,9 @@ class TestUniformlyDistributedLoads:
         width_firstsegment_zone2 = 2.0  # 2m zone 2
         udl_value = 9000.0  # 9 kN/m²
 
-        # Configure mock params as needed
-        mock_params.input = Mock()
-        mock_params.input.belastingsfactoren = Mock()
-        # Set any required alpha factors here based on your implementation
-        mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
+        # Configure mock params to handle dictionary-style access
+        mock_params.__getitem__ = lambda self, key: "NEN-EN 1991-2" if key == "design_code" else None
+        mock_params.__contains__ = lambda self, key: key == "design_code"
 
         # Execute the function
         result = create_udl_traffic_loads(
