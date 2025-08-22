@@ -6,6 +6,7 @@
   - Validates cross-platform path compatibility
   - Ensures proper file accessibility (binary for templates, UTF-8 for CSVs)
   - Prevents future production deployment issues with missing resources
+  - Alpha_q, alpha_trend and psi_nen_8701 factors to vertical traffic loads of load model 1.
 
 ### Changed
 - **Load Cases**: Altered the generation of UDL traffic loads to a polygon per notional lane and for the remainder of bridge deck
