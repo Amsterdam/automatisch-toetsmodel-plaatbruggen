@@ -470,7 +470,12 @@ class TestUniformlyDistributedLoads:
         """Fixture to provide a mock load cases dictionary."""
         return {}
 
-    def test_create_udl_traffic_loads_basic_case(self, mock_params: Mock) -> None:
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
+    def test_create_udl_traffic_loads_basic_case(
+        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock
+    ) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
 
@@ -484,6 +489,11 @@ class TestUniformlyDistributedLoads:
         # Configure mock params to handle dictionary-style access
         mock_params.__getitem__ = lambda self, key: "NEN-EN 1991-2" if key == "design_code" else None
         mock_params.__contains__ = lambda self, key: key == "design_code"
+
+        # Mock the load factors
+        mock_psi.return_value = 0.95  # Example psi factor
+        mock_alpha_trend.return_value = 0.99  # Example alpha trend factor
+        mock_alpha_q.return_value = [0.95, 1.0]  # Example alpha q factors for main and other lanes
 
         # Execute the function
         result = create_udl_traffic_loads(
@@ -507,7 +517,14 @@ class TestUniformlyDistributedLoads:
         # Check main lane properties in BG4001
         main_loads = bg4001["main"]
         assert len(main_loads) == 1, "Should have exactly one main lane"
-        assert main_loads[0]["load"] == udl_value, f"Main lane load should be {udl_value}"
+
+        # Calculate expected load values with factors
+        expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
+        expected_other_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
+        expected_rest_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[1]
+
+        # Check load values with factors applied
+        assert abs(main_loads[0]["load"] - expected_main_load) < 0.1, f"Main lane load should be {expected_main_load}"
 
         # Verify polygon structure
         main_polygon = main_loads[0]["polygon"]
@@ -518,8 +535,14 @@ class TestUniformlyDistributedLoads:
         # Check other lanes properties
         other_loads = bg4001["other"]
         for load in other_loads:
-            assert load["load"] == 2500.0, "Other lanes should have 2.5 kN/m² load"
+            assert abs(load["load"] - expected_other_load) < 0.1, f"Other lanes should have {expected_other_load} kN/m² load"
             assert len(load["polygon"]) == 4, "Other lane polygons should have 4 corners"
+
+        # Check rest area load value if it exists
+        if "rest" in bg4001 and bg4001["rest"]:
+            rest_loads = bg4001["rest"]
+            for load in rest_loads:
+                assert abs(load["load"] - expected_rest_load) < 0.1, f"Rest areas should have {expected_rest_load} kN/m² load"
 
     def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
         """Test UDL traffic loads creation with edge cases."""
