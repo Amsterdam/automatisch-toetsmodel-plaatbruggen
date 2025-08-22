@@ -402,7 +402,7 @@ def _extract_combination_mapping(results: dict[str, Any]) -> dict[str, str]:
 
     Uses the result class data we successfully parsed to create ID -> name mapping.
     """
-    mapping = {}
+    mapping: dict[str, str] = {}
 
     xml_parsing = results.get("xml_parsing", {})
     if not isinstance(xml_parsing, dict):
@@ -432,13 +432,13 @@ def get_force_envelope_summary(envelopes: dict[str, dict[str, dict[str, dict[str
     :param envelopes: Force envelopes dictionary from extract_force_envelopes() (per section)
     :return: Summary dictionary with key statistics
     """
-    summary = {"total_sections": len(envelopes), "sections": {}, "critical_locations": {}, "critical_combinations": {}}
+    summary: dict[str, Any] = {"total_sections": len(envelopes), "sections": {}, "critical_locations": {}, "critical_combinations": {}}
 
-    location_counts = {}
-    combination_counts = {}
+    location_counts: dict[str, int] = {}
+    combination_counts: dict[str, int] = {}
 
     for section, section_envelopes in envelopes.items():
-        section_summary = {"components": {}, "total_components": len(section_envelopes)}
+        section_summary: dict[str, Any] = {"components": {}, "total_components": len(section_envelopes)}
 
         for component, envelope in section_envelopes.items():
             max_data = envelope["max"]

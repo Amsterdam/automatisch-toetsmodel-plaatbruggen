@@ -843,6 +843,7 @@ class BridgeController(ViktorController):
             params=params,
             entity_id=self.entity_id,
             analysis_type=AnalysisType.SCIA,
+            analysis_function=get_scia_analysis_results,
             template_path=str(template_path),
         )
 
