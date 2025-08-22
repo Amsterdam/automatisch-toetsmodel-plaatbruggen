@@ -12,6 +12,7 @@ import pytest
 
 BridgeParametrization: Any
 
+
 @pytest.fixture
 def mock_builder() -> Mock:
     """Fixture to provide a mocked SciaModelBuilder."""
