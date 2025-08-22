@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+BridgeParametrization: Any
 
 @pytest.fixture
 def mock_builder() -> Mock:
@@ -466,7 +467,7 @@ class TestUniformlyDistributedLoads:
         """Fixture to provide a mock load cases dictionary."""
         return {}
 
-    def test_create_udl_traffic_loads_basic_case(self) -> None:
+    def test_create_udl_traffic_loads_basic_case(self, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
 
@@ -477,8 +478,15 @@ class TestUniformlyDistributedLoads:
         width_firstsegment_zone2 = 2.0  # 2m zone 2
         udl_value = 9000.0  # 9 kN/m²
 
+        # Configure mock params as needed
+        mock_params.input = Mock()
+        mock_params.input.belastingsfactoren = Mock()
+        # Set any required alpha factors here based on your implementation
+        mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
+
         # Execute the function
         result = create_udl_traffic_loads(
+            params=mock_params,
             length_bridgedeck=length_bridgedeck,
             width_bridgedeck=width_bridgedeck,
             width_firstsegment_zone3=width_firstsegment_zone3,
@@ -512,12 +520,18 @@ class TestUniformlyDistributedLoads:
             assert load["load"] == 2500.0, "Other lanes should have 2.5 kN/m² load"
             assert len(load["polygon"]) == 4, "Other lane polygons should have 4 corners"
 
-    def test_create_udl_traffic_loads_edge_cases(self) -> None:
+    def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
         """Test UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
 
+        # Configure mock params
+        mock_params.input = Mock()
+        mock_params.input.belastingsfactoren = Mock()
+        mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
+
         # Test with minimal bridge width (just enough for one lane)
         result_narrow = create_udl_traffic_loads(
+            params=mock_params,
             length_bridgedeck=10.0,
             width_bridgedeck=5.5,  # Just enough for one lane + zones
             width_firstsegment_zone3=1.0,
@@ -531,6 +545,7 @@ class TestUniformlyDistributedLoads:
 
         # Test with zero load value (although unrealistic, should handle gracefully)
         result_zero_load = create_udl_traffic_loads(
+            params=mock_params,
             length_bridgedeck=10.0,
             width_bridgedeck=10.0,
             width_firstsegment_zone3=1.0,

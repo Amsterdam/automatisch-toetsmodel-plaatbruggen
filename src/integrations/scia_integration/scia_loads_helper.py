@@ -8,13 +8,13 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
+# Type alias to avoid importing from app layer
+from app.bridge.parametrization import BridgeParametrization
+from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
-from src.combinations.load_factors import get_psi_nen_8701, get_alpha_trend_nen_8701, get_alpha_q_nen_en_1991_2
 
-# Type alias to avoid importing from app layer
-from app.bridge.parametrization import BridgeParametrization
 
 def get_reference_period(params: BridgeParametrization) -> int:
     """
@@ -29,6 +29,7 @@ def get_reference_period(params: BridgeParametrization) -> int:
         return 15
     return 30
 
+
 if TYPE_CHECKING:
     from .scia_model_interface import SciaModelBuilder
 
@@ -36,7 +37,8 @@ if TYPE_CHECKING:
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
 
-def create_udl_traffic_loads(  # noqa: PLR0912, C901
+
+def create_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     params: BridgeParametrization,
     length_bridgedeck: float,
     width_bridgedeck: float,
@@ -305,7 +307,6 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
         - wheels: List of 4 wheel coordinates per tandem
         - load: Load intensity in N/m²
     """
-    
     wheel_size = 0.4
 
     # Get longitudinal positions (same as existing system)

@@ -21,6 +21,7 @@ from .scia_loads_helper import (
 # Type alias to avoid importing from app layer
 BridgeParametrization = Any
 
+
 def extract_bridge_dimensions(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
     Extract basic bridge dimensions from bridge parameters.
@@ -178,7 +179,9 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
     raise ValueError(f"Unsupported mode: {mode}. Use 'theoretical' or 'actual'")
 
 
-def generate_tandem_loads_for_bridge(params: BridgeParametrization, bridge_params: dict[str, float], mode: str = "theoretical") -> list[dict[str, Any]]:
+def generate_tandem_loads_for_bridge(
+    params: BridgeParametrization, bridge_params: dict[str, float], mode: str = "theoretical"
+) -> list[dict[str, Any]]:
     """
     Generate tandem load data for bridge using appropriate function.
 
