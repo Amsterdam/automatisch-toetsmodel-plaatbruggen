@@ -19,8 +19,8 @@ from viktor.external import idea_rcs
 from app.bridge.parametrization import (
     BridgeParametrization,
 )
+from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
-from src.integrations.scia_integration.scia_bridge_geometry import create_node_and_thickness_dict
 
 
 def _get_unique_matching_zone_keys(

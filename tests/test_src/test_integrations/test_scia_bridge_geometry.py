@@ -8,11 +8,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.scia_integration.scia_bridge_geometry import (
     align_bridge_coordinates_to_scia,
     convert_tandem_data_to_scia_format,
     convert_wheel_coordinates_to_3d,
-    create_node_and_thickness_dict,
     determine_tandem_function_for_bridge,
     extract_bridge_dimensions,
     extract_tandem_parameters_from_bridge,

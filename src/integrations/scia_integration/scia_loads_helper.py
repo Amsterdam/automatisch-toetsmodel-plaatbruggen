@@ -885,7 +885,7 @@ def calculate_pavement_load_from_dynamic_array(
     for row in load_zones_array:
         thickness = row.get(thickness_field, 0.0)
         material = row.get(material_field, "")
-        if not material or not isinstance(thickness, (int, float)):
+        if not material or not isinstance(thickness, int | float):
             result.append(0.0)
             continue
         density = density_lookup.get(str(material).lower(), 0.0)
@@ -911,7 +911,7 @@ def calculate_pavement_load_from_material(
     # Build a lookup for material densities (case-insensitive)
     density_lookup = {name.lower(): density for name, density in get_material_densities()}
 
-    if not material or not isinstance(thickness, (int, float)):
+    if not material or not isinstance(thickness, int | float):
         return 0.0
 
     density = density_lookup.get(str(material).lower(), 0.0)
