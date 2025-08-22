@@ -12,10 +12,9 @@ from enum import Enum
 from io import BytesIO
 from typing import Any, Callable, Optional
 
+from src.integrations.idea_interface import create_bridge_idea_model
 from viktor.core import Storage
 from viktor.external import idea_rcs
-
-from src.integrations.idea_interface import create_bridge_idea_model
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401

@@ -22,10 +22,10 @@ def mock_builder() -> Mock:
 @pytest.fixture
 def mock_params() -> Mock:
     """Fixture to provide design code in mock_params"""
-
     # Configure mock params to handle dictionary-style access
     mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
     return Mock()
+
 
 class TestTheoreticalTandemLoads:
     """Test theoretical tandem load application."""
@@ -473,9 +473,7 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
-    def test_create_udl_traffic_loads_basic_case(
-        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_udl_traffic_loads_basic_case(self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
 
@@ -539,7 +537,7 @@ class TestUniformlyDistributedLoads:
             assert len(load["polygon"]) == 4, "Other lane polygons should have 4 corners"
 
         # Check rest area load value if it exists
-        if "rest" in bg4001 and bg4001["rest"]:
+        if bg4001.get("rest"):
             rest_loads = bg4001["rest"]
             for load in rest_loads:
                 assert abs(load["load"] - expected_rest_load) < 0.1, f"Rest areas should have {expected_rest_load} kN/m² load"
