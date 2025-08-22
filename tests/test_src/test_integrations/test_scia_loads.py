@@ -21,10 +21,12 @@ def mock_builder() -> Mock:
 
 @pytest.fixture
 def mock_params() -> Mock:
-    """Fixture to provide design code in mock_params"""
+    """Fixture to provide design code in mock_params."""
+    mock_params = Mock()
     # Configure mock params to handle dictionary-style access
     mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
-    return Mock()
+    mock_params.__contains__ = Mock(return_value=True)
+    return mock_params
 
 
 class TestTheoreticalTandemLoads:
@@ -56,7 +58,7 @@ class TestTheoreticalTandemLoads:
 
         # Verify workflow
         mock_extract.assert_called_once_with(mock_params)
-        mock_generate.assert_called_once_with(mock_extract.return_value, mode="theoretical")
+        mock_generate.assert_called_once_with(mock_params, mock_extract.return_value, mode="theoretical")
         mock_convert.assert_called_once_with(mock_generate.return_value)
 
         # Verify builder calls
@@ -337,6 +339,10 @@ class TestAllLoads:
             "udl_traffic_cases": {"rs_1": Mock(name="BG4001"), "rs_2": Mock(name="BG4002"), "rs_3": Mock(name="BG4003")},
         }
 
+        # Configure mock params to handle dictionary-style access
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
+
         # Mock the bridge_segments_array to be iterable with required attributes
         mock_segment1 = Mock()
         mock_segment1.l = 10.0
@@ -485,8 +491,8 @@ class TestUniformlyDistributedLoads:
         udl_value = 9000.0  # 9 kN/m²
 
         # Configure mock params to handle dictionary-style access
-        mock_params.__getitem__ = lambda self, key: "NEN-EN 1991-2" if key == "design_code" else None
-        mock_params.__contains__ = lambda self, key: key == "design_code"
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
 
         # Mock the load factors
         mock_psi.return_value = 0.95  # Example psi factor
@@ -545,6 +551,10 @@ class TestUniformlyDistributedLoads:
     def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
         """Test UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+
+        # Configure mock params to handle dictionary-style access
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
 
         # Configure mock params
         mock_params.input = Mock()
