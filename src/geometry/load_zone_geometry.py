@@ -2,6 +2,8 @@
 
 from typing import Any, TypedDict, cast
 
+from viktor.errors import UserError
+
 from app.bridge.parametrization import (
     MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
     BridgeParametrization,
@@ -11,7 +13,6 @@ from src.geometry.model_creator import (
     LoadZoneGeometryData,  # Import the dataclass
     prepare_load_zone_geometry_data,
 )
-from viktor.errors import UserError
 
 
 # Define a protocol for the expected structure of zone_param_data
