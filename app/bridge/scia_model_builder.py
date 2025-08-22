@@ -627,7 +627,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "objects": len(objects),
         }
 
-    def _discover_available_tables(self, xml_output_file: SciaFile) -> tuple[list[str], list[dict[str, Any]]]:
+    def _discover_available_tables(self, xml_output_file: SciaFile) -> tuple[list[str], list[dict[str, Any]]]:  # noqa: C901
         """Discover available tables in the XML output file."""
         available_tables: list[str] = []
         table_details: list[dict[str, Any]] = []
@@ -697,7 +697,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         dynamic_result_tables = [table for table in available_tables if "resultaat" in table.lower() or "result" in table.lower()]
 
         # List of common result tables to try to extract (with variations)
-        result_tables = dynamic_result_tables + [
+        static_result_tables = [
             # Actual table names from SCIA output
             "2D-verplaatsing",
             "1D-vervormingen",
@@ -731,6 +731,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "ULS",
             "SLS",
         ]
+        result_tables = [*dynamic_result_tables, *static_result_tables]
 
         # Add discovered tables to the list
         for table_name in available_tables:
@@ -758,7 +759,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         return fresh_xml_content
 
-    def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:
+    def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:  # noqa: C901, PLR0912
         """Custom parser for result class tables with obj/p2 structure."""
         try:
             # Debug: Log that we're entering the custom parser
@@ -847,21 +848,20 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
-
-            return {
-                "status": "success",
-                "data": result_data,
-                "message": f"Successfully parsed result class table {table_name}",
-            }
-
         except Exception as e:
             return {
                 "status": "error",
                 "message": f"Failed to parse result class table {table_name}",
                 "error": str(e),
             }
+        else:
+            return {
+                "status": "success",
+                "data": result_data,
+                "message": f"Successfully parsed result class table {table_name}",
+            }
 
-    def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:
+    def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:  # noqa: C901, PLR0912
         """Extract data from a result class table element."""
         result_data = {
             "table_name": table_element.get("name", "Unknown"),

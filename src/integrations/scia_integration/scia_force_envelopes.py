@@ -5,10 +5,11 @@ This module extracts maximum and minimum force values from SCIA analysis results
 along with the complete force state and location context for each extreme value.
 """
 
+import contextlib
 from typing import Any
 
 
-def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
+def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:  # noqa: C901, PLR0912, PLR0915
     """
     Extract force envelopes (max/min values with context) from SCIA analysis results.
 
@@ -208,7 +209,7 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
     return rows
 
 
-def _extract_force_values_from_row(row: Any) -> dict[str, float]:
+def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, float]:  # noqa: C901, PLR0912, PLR0915
     """
     Extract force values from a SCIA results row.
 
@@ -226,7 +227,7 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
                 available_force_fields.append(f"{field}={val}")
 
         # Helper function to get value from row (handles both dict and object)
-        def get_row_value(row_obj, field_name):
+        def get_row_value(row_obj: dict[str, Any] | object, field_name: str) -> float | str | None:
             if isinstance(row_obj, dict):
                 return row_obj.get(field_name)
             return getattr(row_obj, field_name, None)
@@ -247,27 +248,21 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
         # Vy = v_y (shear force in Y direction)
         val = get_row_value(row, "v_y")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Vy"] = float(val)
-            except (ValueError, TypeError):
-                pass
 
         # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
         val = get_row_value(row, "v_x")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Vz"] = float(val)
-            except (ValueError, TypeError):
-                pass
 
         # Extract moments - try design quantities first, then basic quantities
         # Mxd+ and Mxd- (design moments in X direction)
         val = get_row_value(row, "m_xD+")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Mxd+"] = float(val)
-            except (ValueError, TypeError):
-                pass
         else:
             val = get_row_value(row, "m_x")
             if val is not None and val != "":
@@ -279,10 +274,8 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
 
         val = get_row_value(row, "m_xD-")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Mxd-"] = float(val)
-            except (ValueError, TypeError):
-                pass
         elif "Mxd+" not in force_values:
             val = get_row_value(row, "m_x")
             if val is not None and val != "":
@@ -295,10 +288,8 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
         # Myd+ and Myd- (design moments in Y direction)
         val = get_row_value(row, "m_yD+")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Myd+"] = float(val)
-            except (ValueError, TypeError):
-                pass
         else:
             val = get_row_value(row, "m_y")
             if val is not None and val != "":
@@ -310,10 +301,8 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
 
         val = get_row_value(row, "m_yD-")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Myd-"] = float(val)
-            except (ValueError, TypeError):
-                pass
         elif "Myd+" not in force_values:
             val = get_row_value(row, "m_y")
             if val is not None and val != "":
@@ -335,12 +324,12 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
     return force_values
 
 
-def _extract_row_metadata(row: Any, combination_mapping: dict[str, str]) -> dict[str, str]:
+def _extract_row_metadata(row: dict[str, Any] | object, combination_mapping: dict[str, str]) -> dict[str, str]:  # noqa: C901, PLR0912
     """Extract metadata (location, combination, element) from a SCIA results row."""
     metadata = {"location": "Unknown", "combination": "Unknown", "element_id": "Unknown"}
 
     # Helper function to get value from row (handles both dict and object)
-    def get_row_value(row_obj, field_name):
+    def get_row_value(row_obj: dict[str, Any] | object, field_name: str) -> str | None:
         if isinstance(row_obj, dict):
             return row_obj.get(field_name)
         return getattr(row_obj, field_name, None)
