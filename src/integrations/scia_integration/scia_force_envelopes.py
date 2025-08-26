@@ -5,6 +5,7 @@ This module extracts maximum and minimum force values from SCIA analysis results
 along with the complete force state and location context for each extreme value.
 """
 
+import contextlib
 from typing import Any
 
 
@@ -226,7 +227,7 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
                 available_force_fields.append(f"{field}={val}")
 
         # Helper function to get value from row (handles both dict and object)
-        def get_row_value(row_obj, field_name):
+        def get_row_value(row_obj: Any, field_name: str) -> Any:
             if isinstance(row_obj, dict):
                 return row_obj.get(field_name)
             return getattr(row_obj, field_name, None)
@@ -247,27 +248,21 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
         # Vy = v_y (shear force in Y direction)
         val = get_row_value(row, "v_y")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Vy"] = float(val)
-            except (ValueError, TypeError):
-                pass
 
         # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
         val = get_row_value(row, "v_x")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Vz"] = float(val)
-            except (ValueError, TypeError):
-                pass
 
         # Extract moments - try design quantities first, then basic quantities
         # Mxd+ and Mxd- (design moments in X direction)
         val = get_row_value(row, "m_xD+")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Mxd+"] = float(val)
-            except (ValueError, TypeError):
-                pass
         else:
             val = get_row_value(row, "m_x")
             if val is not None and val != "":
@@ -279,10 +274,8 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
 
         val = get_row_value(row, "m_xD-")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Mxd-"] = float(val)
-            except (ValueError, TypeError):
-                pass
         elif "Mxd+" not in force_values:
             val = get_row_value(row, "m_x")
             if val is not None and val != "":
@@ -295,10 +288,8 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
         # Myd+ and Myd- (design moments in Y direction)
         val = get_row_value(row, "m_yD+")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Myd+"] = float(val)
-            except (ValueError, TypeError):
-                pass
         else:
             val = get_row_value(row, "m_y")
             if val is not None and val != "":
@@ -310,10 +301,8 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:
 
         val = get_row_value(row, "m_yD-")
         if val is not None and val != "":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 force_values["Myd-"] = float(val)
-            except (ValueError, TypeError):
-                pass
         elif "Myd+" not in force_values:
             val = get_row_value(row, "m_y")
             if val is not None and val != "":
@@ -340,7 +329,7 @@ def _extract_row_metadata(row: Any, combination_mapping: dict[str, str]) -> dict
     metadata = {"location": "Unknown", "combination": "Unknown", "element_id": "Unknown"}
 
     # Helper function to get value from row (handles both dict and object)
-    def get_row_value(row_obj, field_name):
+    def get_row_value(row_obj: Any, field_name: str) -> Any:
         if isinstance(row_obj, dict):
             return row_obj.get(field_name)
         return getattr(row_obj, field_name, None)
@@ -413,7 +402,7 @@ def _extract_combination_mapping(results: dict[str, Any]) -> dict[str, str]:
 
     Uses the result class data we successfully parsed to create ID -> name mapping.
     """
-    mapping = {}
+    mapping: dict[str, str] = {}
 
     xml_parsing = results.get("xml_parsing", {})
     if not isinstance(xml_parsing, dict):
@@ -445,8 +434,8 @@ def get_force_envelope_summary(envelopes: dict[str, dict[str, dict[str, dict[str
     """
     summary = {"total_sections": len(envelopes), "sections": {}, "critical_locations": {}, "critical_combinations": {}}
 
-    location_counts = {}
-    combination_counts = {}
+    location_counts: dict[str, int] = {}
+    combination_counts: dict[str, int] = {}
 
     for section, section_envelopes in envelopes.items():
         section_summary = {"components": {}, "total_components": len(section_envelopes)}

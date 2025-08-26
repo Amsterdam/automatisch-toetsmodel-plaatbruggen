@@ -697,7 +697,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         dynamic_result_tables = [table for table in available_tables if "resultaat" in table.lower() or "result" in table.lower()]
 
         # List of common result tables to try to extract (with variations)
-        result_tables = dynamic_result_tables + [
+        static_result_tables = [
             # Actual table names from SCIA output
             "2D-verplaatsing",
             "1D-vervormingen",
@@ -731,6 +731,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "ULS",
             "SLS",
         ]
+        result_tables = [*dynamic_result_tables, *static_result_tables]
 
         # Add discovered tables to the list
         for table_name in available_tables:
@@ -844,7 +845,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     "message": f"Table '{table_name}' not found in XML",
                     "error": f"Cannot find table '{table_name}' in output XML. Found tables: {found_tables[:10]}",
                 }
-
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
 

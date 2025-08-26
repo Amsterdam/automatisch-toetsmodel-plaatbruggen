@@ -632,7 +632,7 @@ class BridgeController(ViktorController):
             return
 
         parsed_tables = xml_parsing.get("parsed_tables", {})
-        result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+        result_class_tables = [name for name in parsed_tables if "Resultaatklasses" in name]
 
         if result_class_tables:
             table_data.append(["Result Classes", f"{len(result_class_tables)} beschikbaar", "Alle types", "Succes"])
@@ -809,7 +809,7 @@ class BridgeController(ViktorController):
             column_headers=["Category", "Item", "Value/Status", "Details"],
         )
 
-    def get_force_envelopes(self, params: BridgeParametrization, **kwargs) -> dict[str, Any]:
+    def get_force_envelopes(self, params: BridgeParametrization, **_kwargs) -> dict[str, Any]:
         """
         Extract force envelopes from SCIA analysis results.
 
@@ -826,8 +826,9 @@ class BridgeController(ViktorController):
         template_path = self._get_scia_template_path()
         results = get_cached_analysis_results(
             params=params,
-            entity_id=self.entity_id,
             analysis_type=AnalysisType.SCIA,
+            entity_id=self.entity_id,
+            analysis_function=get_scia_analysis_results,
             template_path=str(template_path),
         )
 
@@ -865,7 +866,7 @@ class BridgeController(ViktorController):
         xml_parsing = results.get("xml_parsing", {})
         if isinstance(xml_parsing, dict):
             parsed_tables = xml_parsing.get("parsed_tables", {})
-            result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+            result_class_tables = [name for name in parsed_tables if "Resultaatklasses" in name]
 
             table_data.append(["RESULT CLASSES", "Total Classes", f"{len(result_class_tables)}", "Available"])
 
@@ -950,7 +951,7 @@ class BridgeController(ViktorController):
             table_data.append(["ENGINEERING DATA", "  Coverage", "All bridge elements", "Shell elements"])
             table_data.append(["ENGINEERING DATA", "  Load Cases", "All result classes", "ULS + SLS + FAT"])
 
-    def _add_load_combination_summary_detailed(self, results: dict[str, Any], table_data: list[list[str]]) -> None:
+    def _add_load_combination_summary_detailed(self, _results: dict[str, Any], table_data: list[list[str]]) -> None:
         """Add detailed load combination summary to the table."""
         table_data.append(["LOAD COMBINATIONS", "Overview", "", ""])
 
@@ -983,7 +984,7 @@ class BridgeController(ViktorController):
         xml_parsing = results.get("xml_parsing", {})
         if isinstance(xml_parsing, dict):
             parsed_tables = xml_parsing.get("parsed_tables", {})
-            result_class_tables = [name for name in parsed_tables.keys() if "Resultaatklasses" in name]
+            result_class_tables = [name for name in parsed_tables if "Resultaatklasses" in name]
             print(f"Result classes found: {len(result_class_tables)}")  # noqa: T201
             for rc_table in result_class_tables:
                 rc_name = rc_table.replace("Resultaatklasses - ", "")
@@ -1142,7 +1143,8 @@ class BridgeController(ViktorController):
 
                     print(f"  Min: {min_data['value']:.2f} at {min_data['location']} ({min_data['combination']})")  # noqa: T201
                     print(
-                        f"    Complete state: N={min_data['forces'].get('N', 0):.1f}, Vy={min_data['forces'].get('Vy', 0):.1f}, Vz={min_data['forces'].get('Vz', 0):.1f}"
+                        f"    Complete state: N={min_data['forces'].get('N', 0):.1f}, "
+                        f"Vy={min_data['forces'].get('Vy', 0):.1f}, Vz={min_data['forces'].get('Vz', 0):.1f}"
                     )
                     print(f"                   Mxd+={min_data['forces'].get('Mxd+', 0):.1f}, Mxd-={min_data['forces'].get('Mxd-', 0):.1f}")  # noqa: T201
                     print(f"                   Myd+={min_data['forces'].get('Myd+', 0):.1f}, Myd-={min_data['forces'].get('Myd-', 0):.1f}")  # noqa: T201
