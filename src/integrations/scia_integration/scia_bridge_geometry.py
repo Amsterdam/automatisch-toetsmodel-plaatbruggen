@@ -197,41 +197,32 @@ def generate_tandem_loads_for_bridge(
     tandem_function2 = tandem_info["function2"]
     tandem_function3 = tandem_info["function3"]
 
+    # Common arguments for all tandem load functions
+    tandem_loads_args = (
+        params,
+        bridge_params["length_bridgedeck"],
+        bridge_params["width_bridgedeck"],
+        bridge_params["thickness_bridgedeck"],
+        bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
+        bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
+    )
+
     # Generate tandem loads using the selected function
     try:
-        tandem_loads_bg8000 = tandem_function(
-            params,
-            bridge_params["length_bridgedeck"],
-            bridge_params["width_bridgedeck"],
-            bridge_params["thickness_bridgedeck"],
-            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
-            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
-        )
+        tandem_loads_bg8000 = tandem_function(*tandem_loads_args)
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
+    
     # Generate tandem loads for configuration with reversed lane order (9000 series)
     try:
-        tandem_loads_bg9000 = tandem_function2(
-            params,
-            bridge_params["length_bridgedeck"],
-            bridge_params["width_bridgedeck"],
-            bridge_params["thickness_bridgedeck"],
-            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
-            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
-        )
+        tandem_loads_bg9000 = tandem_function2(*tandem_loads_args)
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
     tandem_loads_bg8000.extend(tandem_loads_bg9000)
+    
     # Generate tandem loads for configuration with middle lane order (10000 series)
     try:
-        tandem_loads_bg10000 = tandem_function3(
-            params,
-            bridge_params["length_bridgedeck"],
-            bridge_params["width_bridgedeck"],
-            bridge_params["thickness_bridgedeck"],
-            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
-            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
-        )
+        tandem_loads_bg10000 = tandem_function3(*tandem_loads_args)
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
     tandem_loads_bg8000.extend(tandem_loads_bg10000)
