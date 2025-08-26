@@ -1,5 +1,6 @@
 """Tests for the analysis caching system."""
 
+import base64
 import pickle
 import unittest
 from unittest.mock import Mock, patch
@@ -182,10 +183,11 @@ class TestAnalysisCache(unittest.TestCase):
         # Mock storage with cached results
         mock_storage_instance = Mock()
 
-        # Mock cached results (pickled data)
+        # Mock cached results (base64-encoded pickled data)
         cached_results = {"test": "data", "analysis_status": "completed"}
         pickled_data = pickle.dumps(cached_results)
-        mock_storage_instance.get.return_value = pickled_data
+        encoded_data = base64.b64encode(pickled_data).decode("utf-8")
+        mock_storage_instance.get.return_value = encoded_data
 
         with patch("app.bridge.analysis_cache.Storage", return_value=mock_storage_instance):
             cache = AnalysisCache()
