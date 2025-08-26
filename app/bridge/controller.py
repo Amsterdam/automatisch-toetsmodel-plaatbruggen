@@ -1135,14 +1135,15 @@ class BridgeController(ViktorController):
 
                     print(f"\n{component} Envelope:")  # noqa: T201
                     print(f"  Max: {max_data['value']:.2f} at {max_data['location']} ({max_data['combination']})")  # noqa: T201
-                    print(
-                        f"    Complete state: N={max_data['forces'].get('N', 0):.1f}, Vy={max_data['forces'].get('Vy', 0):.1f}, Vz={max_data['forces'].get('Vz', 0):.1f}"
+                    print(  # noqa: T201
+                        f"    Complete state: N={max_data['forces'].get('N', 0):.1f}, "
+                        f"Vy={max_data['forces'].get('Vy', 0):.1f}, Vz={max_data['forces'].get('Vz', 0):.1f}"
                     )
                     print(f"                   Mxd+={max_data['forces'].get('Mxd+', 0):.1f}, Mxd-={max_data['forces'].get('Mxd-', 0):.1f}")  # noqa: T201
                     print(f"                   Myd+={max_data['forces'].get('Myd+', 0):.1f}, Myd-={max_data['forces'].get('Myd-', 0):.1f}")  # noqa: T201
 
                     print(f"  Min: {min_data['value']:.2f} at {min_data['location']} ({min_data['combination']})")  # noqa: T201
-                    print(
+                    print(  # noqa: T201
                         f"    Complete state: N={min_data['forces'].get('N', 0):.1f}, "
                         f"Vy={min_data['forces'].get('Vy', 0):.1f}, Vz={min_data['forces'].get('Vz', 0):.1f}"
                     )

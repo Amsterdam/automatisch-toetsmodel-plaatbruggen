@@ -863,7 +863,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:
         """Extract data from a result class table element."""
-        result_data = {
+        result_data: dict[str, Any] = {
             "table_name": table_element.get("name", "Unknown"),
             "load_combinations": [],
             "metadata": {},

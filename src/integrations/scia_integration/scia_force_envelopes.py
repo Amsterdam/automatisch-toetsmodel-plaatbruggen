@@ -209,7 +209,7 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
     return rows
 
 
-def _extract_force_values_from_row(row: Any) -> dict[str, float]:
+def _extract_force_values_from_row(row: Any) -> dict[str, float]:  # noqa: ANN401
     """
     Extract force values from a SCIA results row.
 
@@ -432,13 +432,13 @@ def get_force_envelope_summary(envelopes: dict[str, dict[str, dict[str, dict[str
     :param envelopes: Force envelopes dictionary from extract_force_envelopes() (per section)
     :return: Summary dictionary with key statistics
     """
-    summary = {"total_sections": len(envelopes), "sections": {}, "critical_locations": {}, "critical_combinations": {}}
+    summary: dict[str, Any] = {"total_sections": len(envelopes), "sections": {}, "critical_locations": {}, "critical_combinations": {}}
 
     location_counts: dict[str, int] = {}
     combination_counts: dict[str, int] = {}
 
     for section, section_envelopes in envelopes.items():
-        section_summary = {"components": {}, "total_components": len(section_envelopes)}
+        section_summary: dict[str, Any] = {"components": {}, "total_components": len(section_envelopes)}
 
         for component, envelope in section_envelopes.items():
             max_data = envelope["max"]
