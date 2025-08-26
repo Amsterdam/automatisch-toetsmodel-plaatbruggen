@@ -102,7 +102,7 @@ def add_theoretical_tandem_loads(
     bridge_params = extract_tandem_parameters_from_bridge(params)
 
     # 2. Generate tandem loads based on theoretical lanes
-    raw_tandem_data = generate_tandem_loads_for_bridge(bridge_params, mode="theoretical")
+    raw_tandem_data = generate_tandem_loads_for_bridge(params, bridge_params, mode="theoretical")
 
     # 3. Convert tandem data to SCIA format for surface loads
     scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
