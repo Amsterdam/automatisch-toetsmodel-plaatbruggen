@@ -627,7 +627,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "objects": len(objects),
         }
 
-    def _discover_available_tables(self, xml_output_file: SciaFile) -> tuple[list[str], list[dict[str, Any]]]:
+    def _discover_available_tables(self, xml_output_file: SciaFile) -> tuple[list[str], list[dict[str, Any]]]:  # noqa: C901
         """Discover available tables in the XML output file."""
         available_tables: list[str] = []
         table_details: list[dict[str, Any]] = []
@@ -759,7 +759,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         return fresh_xml_content
 
-    def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:
+    def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:  # noqa: C901, PLR0912
         """Custom parser for result class tables with obj/p2 structure."""
         try:
             # Debug: Log that we're entering the custom parser
@@ -848,7 +848,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
 
-            return {
+            return {  # noqa: TRY300
                 "status": "success",
                 "data": result_data,
                 "message": f"Successfully parsed result class table {table_name}",
@@ -861,7 +861,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:
+    def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:  # noqa: C901, PLR0912
         """Extract data from a result class table element."""
         result_data: dict[str, Any] = {
             "table_name": table_element.get("name", "Unknown"),

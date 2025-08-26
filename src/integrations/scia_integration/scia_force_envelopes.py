@@ -9,30 +9,8 @@ import contextlib
 from typing import Any
 
 
-def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
-    """
-    Extract force envelopes (max/min values with context) from SCIA analysis results.
-
-    For each bridge section and force component, finds:
-    - Maximum value + complete force state + location + load combination
-    - Minimum value + complete force state + location + load combination
-
-    :param results: SCIA analysis results dictionary
-    :return: Force envelopes dictionary with structure:
-        {
-            "Z1_1": {
-                "N": {
-                    "max": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str},
-                    "min": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str}
-                },
-                "Vy": { ... },
-                # ... etc for all force components
-            },
-            "Z2_1": { ... },
-            "Z3_1": { ... }
-        }
-    """
-    # Initialize envelope structure per bridge section
+def _initialize_envelopes() -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
+    """Initialize the envelope structure for all bridge sections and force components."""
     force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
     bridge_sections = ["Z1_1", "Z2_1", "Z3_1"]
 
@@ -45,101 +23,67 @@ def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict
             }
             for component in force_components
         }
+    return envelopes
 
-    # Extract internal forces data
+
+def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract internal forces data from SCIA results."""
     xml_parsing = results.get("xml_parsing", {})
     if not isinstance(xml_parsing, dict):
-        return envelopes
+        return None
 
     parsed_tables = xml_parsing.get("parsed_tables", {})
 
     # Try different internal forces table names
-    internal_forces_data = None
     for table_name in ["Interne 2D-krachten basis", "Interne 2D-krachten elementair", "Internal forces"]:
         table_data = parsed_tables.get(table_name, {})
         if table_data.get("status") == "success":
-            internal_forces_data = table_data.get("data", {})
-            break
+            return table_data.get("data", {})
 
-    if not internal_forces_data:
-        return envelopes
+    return None
 
+
+def _extract_rows_from_internal_forces(internal_forces_data: dict[str, Any]) -> list[Any] | None:
+    """Extract rows from internal forces data, handling various nested structures."""
     # Process force data rows - handle nested structure
     rows = None
 
     if hasattr(internal_forces_data, "rows"):
         rows = internal_forces_data.rows
-        print(f"DEBUG: Found {len(rows)} rows in internal forces data")  # noqa: T201
     elif isinstance(internal_forces_data, dict) and "rows" in internal_forces_data:
         rows = internal_forces_data["rows"]
-        print(f"DEBUG: Found {len(rows)} rows in internal forces dict")  # noqa: T201
     elif isinstance(internal_forces_data, dict):
-        # Check for nested structure like {'Basis grootheden': {...}}
-        print(f"DEBUG: Internal forces data keys: {list(internal_forces_data.keys())}")  # noqa: T201
-
         # Try to find rows in nested structures
-        for key, value in internal_forces_data.items():
-            print(f"DEBUG: Checking key '{key}', type: {type(value)}")  # noqa: T201
-
+        for value in internal_forces_data.values():
             if hasattr(value, "rows"):
                 rows = value.rows
-                print(f"DEBUG: Found {len(rows)} rows under key '{key}'")  # noqa: T201
                 break
             if isinstance(value, dict) and "rows" in value:
                 rows = value["rows"]
-                print(f"DEBUG: Found {len(rows)} rows in dict under key '{key}'")  # noqa: T201
-                break
-            if hasattr(value, "__dict__"):
-                print(f"DEBUG: Key '{key}' attributes: {list(value.__dict__.keys())[:10]}")  # noqa: T201
-            elif isinstance(value, dict):
-                print(f"DEBUG: Key '{key}' sub-keys: {list(value.keys())[:10]}")  # noqa: T201
-
-    if rows is None:
-        # Try to handle column-based data structure
-        column_data = None
-        for key, value in internal_forces_data.items():
-            if isinstance(value, dict) and any(force_field in value for force_field in ["m_x", "m_y", "v_x", "v_y", "n_x", "n_y"]):
-                column_data = value
-                print(f"DEBUG: Found column data under key '{key}' with fields: {list(value.keys())}")  # noqa: T201
                 break
 
-        if column_data is None:
-            print("DEBUG: No column data found in internal forces structure")  # noqa: T201
-            return envelopes
+    return rows
 
-        # Convert column data to row-like structure for processing
-        rows = _convert_columns_to_rows(column_data)
-        print(f"DEBUG: Converted {len(rows)} rows from column data")  # noqa: T201
 
-    # Extract load combination mapping from result classes
-    combination_mapping = _extract_combination_mapping(results)
+def _extract_column_data_from_internal_forces(internal_forces_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract column-based data structure from internal forces."""
+    for value in internal_forces_data.values():
+        if isinstance(value, dict) and any(force_field in value for force_field in ["m_x", "m_y", "v_x", "v_y", "n_x", "n_y"]):
+            return value
+    return None
 
-    # Process each row of force data
-    print(f"DEBUG: Processing {len(rows)} rows of force data")  # noqa: T201
 
-    # Debug: Show available fields in first row
-    if rows:
-        first_row = rows[0]
-        if isinstance(first_row, dict):
-            available_fields = list(first_row.keys())
-        elif hasattr(first_row, "__dict__"):
-            available_fields = list(first_row.__dict__.keys())
-        else:
-            available_fields = [attr for attr in dir(first_row) if not attr.startswith("_")]
-        print(f"DEBUG: Available fields in first row: {available_fields[:20]}")  # noqa: T201
+def _process_force_data_rows(
+    rows: list[Any], envelopes: dict[str, dict[str, dict[str, dict[str, Any]]]], combination_mapping: dict[str, str]
+) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
+    """Process force data rows and update envelopes with max/min values."""
+    force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
 
-    processed_count = 0
-    for i, row in enumerate(rows):
+    for row in rows:
         # Extract force values and metadata
         force_values = _extract_force_values_from_row(row)
         if not force_values:
-            if i < 3:  # Debug first few rows
-                print(f"DEBUG: Row {i} - No force values extracted")  # noqa: T201
             continue
-
-        processed_count += 1
-        if processed_count <= 3:  # Debug first few successful extractions
-            print(f"DEBUG: Row {i} - Extracted forces: {force_values}")  # noqa: T201
 
         metadata = _extract_row_metadata(row, combination_mapping)
 
@@ -177,6 +121,56 @@ def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict
     return envelopes
 
 
+def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
+    """
+    Extract force envelopes (max/min values with context) from SCIA analysis results.
+
+    For each bridge section and force component, finds:
+    - Maximum value + complete force state + location + load combination
+    - Minimum value + complete force state + location + load combination
+
+    :param results: SCIA analysis results dictionary
+    :return: Force envelopes dictionary with structure:
+        {
+            "Z1_1": {
+                "N": {
+                    "max": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str},
+                    "min": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str}
+                },
+                "Vy": { ... },
+                # ... etc for all force components
+            },
+            "Z2_1": { ... },
+            "Z3_1": { ... }
+        }
+    """
+    # Initialize envelope structure
+    envelopes = _initialize_envelopes()
+
+    # Extract internal forces data
+    internal_forces_data = _extract_internal_forces_data(results)
+    if not internal_forces_data:
+        return envelopes
+
+    # Process force data rows - handle nested structure
+    rows = _extract_rows_from_internal_forces(internal_forces_data)
+
+    if rows is None:
+        # Try to handle column-based data structure
+        column_data = _extract_column_data_from_internal_forces(internal_forces_data)
+        if column_data is None:
+            return envelopes
+
+        # Convert column data to row-like structure for processing
+        rows = _convert_columns_to_rows(column_data)
+
+    # Extract load combination mapping from result classes
+    combination_mapping = _extract_combination_mapping(results)
+
+    # Process force data rows and update envelopes
+    return _process_force_data_rows(rows, envelopes, combination_mapping)
+
+
 def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Convert column-based data structure to row-based structure.
@@ -209,7 +203,91 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
     return rows
 
 
-def _extract_force_values_from_row(row: Any) -> dict[str, float]:  # noqa: ANN401
+def _extract_single_force_value(get_row_value_func: Any, row: Any, field_name: str) -> float | None:  # noqa: ANN401
+    """Extract a single force value from a row, handling conversion errors."""
+    val = get_row_value_func(row, field_name)
+    if val is not None and val != "":
+        with contextlib.suppress(ValueError, TypeError):
+            return float(val)
+    return None
+
+
+def _extract_normal_forces(get_row_value_func: Any, row: Any) -> dict[str, float]:  # noqa: ANN401
+    """Extract normal forces (N) from a row."""
+    force_values = {}
+
+    # Try different normal force fields and use the dominant one
+    n_values = []
+    for field in ["n_x", "n_y", "n_xy", "n_xD", "n_yD", "n_cD"]:
+        val = _extract_single_force_value(get_row_value_func, row, field)
+        if val is not None:
+            n_values.append(abs(val))
+
+    if n_values:
+        force_values["N"] = max(n_values)
+
+    return force_values
+
+
+def _extract_shear_forces(get_row_value_func: Any, row: Any) -> dict[str, float]:  # noqa: ANN401
+    """Extract shear forces (Vy, Vz) from a row."""
+    force_values = {}
+
+    # Vy = v_y (shear force in Y direction)
+    val = _extract_single_force_value(get_row_value_func, row, "v_y")
+    if val is not None:
+        force_values["Vy"] = val
+
+    # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
+    val = _extract_single_force_value(get_row_value_func, row, "v_x")
+    if val is not None:
+        force_values["Vz"] = val
+
+    return force_values
+
+
+def _extract_moment_forces(get_row_value_func: Any, row: Any) -> dict[str, float]:  # noqa: ANN401, C901
+    """Extract moment forces (Mxd+, Mxd-, Myd+, Myd-) from a row."""
+    force_values = {}
+
+    # Mxd+ and Mxd- (design moments in X direction)
+    val = _extract_single_force_value(get_row_value_func, row, "m_xD+")
+    if val is not None:
+        force_values["Mxd+"] = val
+    else:
+        val = _extract_single_force_value(get_row_value_func, row, "m_x")
+        if val is not None:
+            force_values["Mxd+"] = max(0, val)  # Positive part
+
+    val = _extract_single_force_value(get_row_value_func, row, "m_xD-")
+    if val is not None:
+        force_values["Mxd-"] = val
+    elif "Mxd+" not in force_values:
+        val = _extract_single_force_value(get_row_value_func, row, "m_x")
+        if val is not None:
+            force_values["Mxd-"] = abs(min(0, val))  # Negative part (as positive)
+
+    # Myd+ and Myd- (design moments in Y direction)
+    val = _extract_single_force_value(get_row_value_func, row, "m_yD+")
+    if val is not None:
+        force_values["Myd+"] = val
+    else:
+        val = _extract_single_force_value(get_row_value_func, row, "m_y")
+        if val is not None:
+            force_values["Myd+"] = max(0, val)  # Positive part
+
+    val = _extract_single_force_value(get_row_value_func, row, "m_yD-")
+    if val is not None:
+        force_values["Myd-"] = val
+    elif "Myd+" not in force_values:
+        val = _extract_single_force_value(get_row_value_func, row, "m_y")
+        if val is not None:
+            force_values["Myd-"] = abs(min(0, val))  # Negative part (as positive)
+
+    return force_values
+
+
+def _extract_force_values_from_row(row: Any) -> dict[str, float]:  # noqa: ANN401, C901, PLR0912, PLR0915
     """
     Extract force values from a SCIA results row.
 
@@ -227,7 +305,7 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:  # noqa: ANN40
                 available_force_fields.append(f"{field}={val}")
 
         # Helper function to get value from row (handles both dict and object)
-        def get_row_value(row_obj: Any, field_name: str) -> Any:
+        def get_row_value(row_obj: Any, field_name: str) -> Any:  # noqa: ANN401
             if isinstance(row_obj, dict):
                 return row_obj.get(field_name)
             return getattr(row_obj, field_name, None)
@@ -324,12 +402,12 @@ def _extract_force_values_from_row(row: Any) -> dict[str, float]:  # noqa: ANN40
     return force_values
 
 
-def _extract_row_metadata(row: Any, combination_mapping: dict[str, str]) -> dict[str, str]:
+def _extract_row_metadata(row: Any, combination_mapping: dict[str, str]) -> dict[str, str]:  # noqa: ANN401, C901, PLR0912
     """Extract metadata (location, combination, element) from a SCIA results row."""
     metadata = {"location": "Unknown", "combination": "Unknown", "element_id": "Unknown"}
 
     # Helper function to get value from row (handles both dict and object)
-    def get_row_value(row_obj: Any, field_name: str) -> Any:
+    def get_row_value(row_obj: Any, field_name: str) -> Any:  # noqa: ANN401
         if isinstance(row_obj, dict):
             return row_obj.get(field_name)
         return getattr(row_obj, field_name, None)

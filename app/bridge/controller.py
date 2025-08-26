@@ -850,7 +850,7 @@ class BridgeController(ViktorController):
             },
         }
 
-    def _build_comprehensive_results_overview(self, results: dict[str, Any]) -> list[list[str]]:
+    def _build_comprehensive_results_overview(self, results: dict[str, Any]) -> list[list[str]]:  # noqa: C901
         """Build comprehensive overview table data from SCIA analysis results."""
         table_data: list[list[str]] = []
 
@@ -970,7 +970,7 @@ class BridgeController(ViktorController):
         for combo_type, description in combination_types.items():
             table_data.append(["LOAD COMBINATIONS", f"  {combo_type}", "Active", description])
 
-    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
+    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:  # noqa: C901, PLR0912
         """Print a summary of SCIA results to console for debugging/development."""
         print("\n" + "=" * 80)  # noqa: T201
         print("SCIA ANALYSIS RESULTS SUMMARY")  # noqa: T201
@@ -1067,7 +1067,7 @@ class BridgeController(ViktorController):
         # Extract and print force envelopes
         self._print_force_envelopes(results)
 
-    def _print_sample_engineering_values(self, results: dict[str, Any]) -> None:
+    def _print_sample_engineering_values(self, results: dict[str, Any]) -> None:  # noqa: C901
         """Print sample engineering values from SCIA results."""
         print("\nSAMPLE ENGINEERING VALUES:")  # noqa: T201
         print("-" * 40)  # noqa: T201
