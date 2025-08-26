@@ -896,11 +896,11 @@ class BridgeController(ViktorController):
 
         return " | ".join(force_parts)
 
-    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:  # noqa: C901, PLR0912
+    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
         """Print a summary of SCIA results to console for debugging/development."""
         # Analysis status
         analysis_status = results.get("analysis_status", {})
-        
+
         # Result classes
         xml_parsing = results.get("xml_parsing", {})
         if isinstance(xml_parsing, dict):
