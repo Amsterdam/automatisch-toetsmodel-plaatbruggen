@@ -276,15 +276,15 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
 
     for tandem in tandem_data:
         patch_loads = []
-        # Loop over all loads in the tandem dict
+        # Loop over all loads in the tandem dict (standard structure)
         for load in tandem.get("loads", []):
-            for wheel_coords_2d in load["wheels"]:
+            for wheel_coords_2d in load.get("wheels", []):
                 wheel_coords_3d = convert_wheel_coordinates_to_3d(wheel_coords_2d)
                 aligned_coords = align_bridge_coordinates_to_scia(wheel_coords_3d)
                 patch_loads.append(
                     {
                         "corners": aligned_coords,
-                        "load_value": load["load"],
+                        "load_value": load.get("load", 0.0),
                     }
                 )
 

@@ -359,10 +359,10 @@ class OverviewBridgesController(ViktorController):
         return {
             "number_of_spans": number_of_spans if isinstance(number_of_spans, int) else 1,
             "static_system": bridge_data.get("statisch_systeem", ""),
-            "crossing_angle": crossing_angle if isinstance(crossing_angle, (int, float)) else 90.0,
+            "crossing_angle": crossing_angle if isinstance(crossing_angle, int | float) else 90.0,
             "theoretical_length": theoretical_length,
             "deck_width": deck_width,
-            "construction_height": construction_height if isinstance(construction_height, (int, float)) else 0.0,
+            "construction_height": construction_height if isinstance(construction_height, int | float) else 0.0,
             "slenderness": bridge_data.get("slankheid_dek", ""),
             "daily_length": bridge_data.get("ldag", ""),
         }

@@ -8,7 +8,12 @@ the SciaModelBuilder interface.
 from typing import Any, Literal
 
 from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
-from .scia_loads_helper import generate_theoretical_lane_positions_bg8000, tandem_system_sequencer
+from .scia_loads_helper import (
+    generate_theoretical_lane_positions_bg8000 as generate_theoretical_lane_positions,
+)
+from .scia_loads_helper import (
+    tandem_system_sequencer,
+)
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
@@ -196,11 +201,11 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     for i, pos in enumerate(positions, 1):
         case_name = f"BG6{i:03d}"
         key = f"y_plus_x{pos}"
-        cases[key] = create_load_case(
-            builder,
-            group_name="LG6000 - Dienstvoertuig",
-            case_name=case_name,
+        # Call builder directly to avoid passing permanent_type=None (tests expect it omitted)
+        cases[key] = builder.create_load_case(
+            name=case_name,
             description=f"Verkeer, dienstvoertuig - y+ - x = {pos:g} m",
+            group_name="LG6000 - Dienstvoertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -211,11 +216,10 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     for i, pos in enumerate(positions, len(positions) + 1):
         case_name = f"BG6{i:03d}"
         key = f"y_minus_x{pos}"
-        cases[key] = create_load_case(
-            builder,
-            group_name="LG6000 - Dienstvoertuig",
-            case_name=case_name,
+        cases[key] = builder.create_load_case(
+            name=case_name,
             description=f"Verkeer, dienstvoertuig - y- - x = {pos:g} m",
+            group_name="LG6000 - Dienstvoertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -253,11 +257,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
         key = f"rs_1_x{pos}_forward"
-        cases[key] = create_load_case(
-            builder,
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_name=case_name,
+        cases[key] = builder.create_load_case(
+            name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 1 forward - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -269,11 +272,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
         key = f"rs_1_x{pos}_reverse"
-        cases[key] = create_load_case(
-            builder,
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_name=case_name,
+        cases[key] = builder.create_load_case(
+            name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 1 reverse - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -285,11 +287,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
         key = f"rs_3_x{pos}_forward"
-        cases[key] = create_load_case(
-            builder,
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_name=case_name,
+        cases[key] = builder.create_load_case(
+            name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 3 forward - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -301,11 +302,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
         key = f"rs_3_x{pos}_reverse"
-        cases[key] = create_load_case(
-            builder,
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_name=case_name,
+        cases[key] = builder.create_load_case(
+            name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 3 reverse - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
             specification="STANDARD",
@@ -340,7 +340,8 @@ def create_dynamic_tandem_load_cases(
     width = bridge_params["width_bridgedeck"]
 
     # Determine the number of theoretical lanes, with a maximum of 3
-    num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
+    # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
+    num_lanes = len(generate_theoretical_lane_positions(width))
     num_lanes = min(num_lanes, 3)
 
     # Create tandem load cases for each road system (RS)

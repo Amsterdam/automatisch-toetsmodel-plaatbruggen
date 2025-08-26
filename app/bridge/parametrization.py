@@ -5,10 +5,10 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from viktor import DynamicArray
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
+    DynamicArray,
     DynamicArrayConstraint,
     IsFalse,
     LineBreak,

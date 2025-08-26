@@ -27,7 +27,8 @@ def add_udl_loads(
     load_cases: dict[str, Any],
 ) -> None:
     """
-    Create UDL traffic loads (9 kN/m²) for the three main notional lanes and apply them to BG4001, BG4002, BG4003.
+    Create UDL traffic loads with separate polygons for main lane (9 kN/m²), other notional lanes (2.5 kN/m²),
+    and remaining areas (2.5 kN/m²). Applied to load cases BG4001, BG4002, BG4003.
 
     :param builder: The SCIA model builder instance.
     :param params: VIKTOR parameters for the bridge.
@@ -53,20 +54,32 @@ def add_udl_loads(
         rs_key = bg_to_rs.get(key)
         if rs_key and rs_key in load_cases["udl_traffic_cases"]:
             scia_case = load_cases["udl_traffic_cases"][rs_key]
-            # Main notional lane
-            builder.create_surface_load(
-                name=f"udl_{key}",
-                load_case_name=scia_case.name,
-                corner_points=udl["main"]["polygon"],
-                load_value=-udl["main"]["load"],
-            )
-            # Rest polygons
-            for i, rest in enumerate(udl["rest"]):
+
+            # Create surface loads for main notional lane(s)
+            for i, main_load in enumerate(udl["main"]):
+                builder.create_surface_load(
+                    name=f"udl_{key}_main_{i + 1}",
+                    load_case_name=scia_case.name,
+                    corner_points=main_load["polygon"],
+                    load_value=-main_load["load"],
+                )
+
+            # Create surface loads for other notional lanes
+            for i, other_load in enumerate(udl["other"]):
+                builder.create_surface_load(
+                    name=f"udl_{key}_other_{i + 1}",
+                    load_case_name=scia_case.name,
+                    corner_points=other_load["polygon"],
+                    load_value=-other_load["load"],
+                )
+
+            # Create surface loads for remaining areas
+            for i, rest_load in enumerate(udl["rest"]):
                 builder.create_surface_load(
                     name=f"udl_{key}_rest_{i + 1}",
                     load_case_name=scia_case.name,
-                    corner_points=rest["polygon"],
-                    load_value=-rest["load"],
+                    corner_points=rest_load["polygon"],
+                    load_value=-rest_load["load"],
                 )
 
 
@@ -162,7 +175,15 @@ def add_parapet_loads(
     :param params: Bridge parameters (should provide plate_definitions)
     :param load_cases: Dictionary of created load cases.
     """
-    load_value = params.input.belastingzones.lijnlast_leuning * 1000  # Convert to kN/m
+    # Get parapet line load value, defaulting to 0 if not specified
+    try:
+        leuning_value = params.input.belastingzones.lijnlast_leuning
+        leuning_numeric = float(leuning_value) if leuning_value is not None else 0.0
+    except (AttributeError, ValueError, TypeError):
+        # If the parameter structure is missing or invalid, use default value
+        leuning_numeric = 0.0
+
+    load_value = leuning_numeric * 1000  # Convert to N/m
 
     # Get the parapet load case name from the load cases dictionary
     parapet_load_case = load_cases["dead_load_cases"]["leuning"]
@@ -170,6 +191,8 @@ def add_parapet_loads(
 
     # builder.plates is now a dict: {plate_name: Plane}
     plates = getattr(builder, "plates", {})
+    if not isinstance(plates, dict):
+        return []
     for plate_name, _plane in plates.items():  # noqa: PERF102
         # Expect plate_name like 'Z1_1', 'Z3_2', etc.
         try:
@@ -359,6 +382,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         front_wheel_force = force_axle_1 / 2  # 40 kN per front wheel (80 kN total)
         rear_wheel_force = force_axle_2 / 2  # 20 kN per rear wheel (40 kN total)
 
+        # Calculate wheel load pressure (N/m²) from force and contact area
         front_wheel_load = front_wheel_force / wheel_area  # N/m²
         rear_wheel_load = rear_wheel_force / wheel_area  # N/m²
 
@@ -375,8 +399,8 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
         rear_axle_locations = calc_vehicle_load_locations(
             x_coord=rear_axle_x,
-            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
-            vehicle_length=wheel_contact_area,  # Single axle, so length = contact area
+            y_coord=vehicle_top_edge,
+            vehicle_length=wheel_contact_area,
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
         )
@@ -386,14 +410,14 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_left",
             load_case_name=load_case_name,
             corner_points=front_axle_locations["top_left_wheel_corners"],
-            load_value=-front_wheel_load,  # N/m²
+            load_value=-front_wheel_load,
         )
 
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_right",
             load_case_name=load_case_name,
             corner_points=front_axle_locations["bottom_left_wheel_corners"],
-            load_value=-front_wheel_load,  # N/m²
+            load_value=-front_wheel_load,
         )
 
         # Create surface loads for rear axle wheels (40 kN total = 20 kN per wheel)
@@ -401,14 +425,14 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_left",
             load_case_name=load_case_name,
             corner_points=rear_axle_locations["top_left_wheel_corners"],
-            load_value=-rear_wheel_load,  # N/m²
+            load_value=-rear_wheel_load,
         )
 
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_right",
             load_case_name=load_case_name,
             corner_points=rear_axle_locations["bottom_left_wheel_corners"],
-            load_value=-rear_wheel_load,  # N/m²
+            load_value=-rear_wheel_load,
         )
 
     # Create loads for each X position on both edges (RS 1 and RS 3) in both directions

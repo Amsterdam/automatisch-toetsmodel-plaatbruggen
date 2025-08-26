@@ -14,6 +14,7 @@ README_PATH = PROJECT_PATH / "README.md"
 CHANGELOG_PATH = PROJECT_PATH / "CHANGELOG.md"
 CSS_PATH = PROJECT_PATH / "resources" / "styles" / "style.css"
 OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindrapport.docx"
+SCIA_TEMPLATE_PATH = PROJECT_PATH / "resources" / "templates" / "model.esa"
 REINFORCEMENT_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonstaalkwaliteit.csv"
 BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"
 CONCRETEQUALITY_CSV_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonkwaliteit.csv"
@@ -60,7 +61,8 @@ README_CONTENT = """
 # ===================================================================================================================
 
 MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Define how many D-fields (D1 to D15) we'll support for load zones
+MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
+# Import from src layer to maintain single source of truth
 LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
 
 # TODO: Load pavement material properties from CSV file according to Eurocode 1

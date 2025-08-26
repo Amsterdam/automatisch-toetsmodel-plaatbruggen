@@ -9,11 +9,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.scia_integration.scia_bridge_geometry import (
     align_bridge_coordinates_to_scia,
     convert_tandem_data_to_scia_format,
     convert_wheel_coordinates_to_3d,
-    create_node_and_thickness_dict,
     determine_tandem_function_for_bridge,
     extract_bridge_dimensions,
     extract_tandem_parameters_from_bridge,
@@ -157,7 +157,7 @@ class TestTandemFunctionDetermination:
 
         result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
 
-        assert result["function_name"] == "tandem_systems_theoretical_lanes"
+        assert result["function_name"] == "tandem_systems_theoretical_lanes_BG8000"
         assert result["lane_count"] == 10  # 30/3 = 10 lanes
         assert result["mode"] == "theoretical"
         assert "10 lanes across 30.0m" in result["description"]
@@ -207,8 +207,12 @@ class TestCoordinateConversion:
         tandem_data = [
             {
                 "load_case": "TestTandem",
-                "load": 150000.0,
-                "wheels": [[[10.0, 1.0], [10.4, 1.0], [10.4, 1.4], [10.0, 1.4]]],
+                "loads": [
+                    {
+                        "wheels": [[[10.0, 1.0], [10.4, 1.0], [10.4, 1.4], [10.0, 1.4]]],
+                        "load": 150000.0,
+                    }
+                ],
             }
         ]
 
