@@ -7,7 +7,8 @@ SciaModelBuilder interface. It is independent of the VIKTOR SDK.
 
 from typing import Any
 
-from .scia_bridge_geometry import create_node_and_thickness_dict
+from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
+
 from .scia_load_cases import (
     create_all_load_cases,
 )
@@ -15,7 +16,7 @@ from .scia_load_combinations import create_all_load_combinations
 from .scia_load_group import create_all_load_groups
 from .scia_loads import create_all_loads
 from .scia_model_interface import SciaModelBuilder
-from .scia_results import create_result_classes_for_bridge
+from .scia_result_classes import create_all_result_classes
 from .scia_supports import create_all_supports
 
 
@@ -130,8 +131,7 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     create_all_loads(builder, params, all_load_cases)
 
     # 6. Build Load Combinations (after loads are applied)
-    create_all_load_combinations(params, builder, all_load_cases)
+    all_load_combinations = create_all_load_combinations(params, builder, all_load_cases)
 
     # 7. Create Result Classes to tell SCIA which combinations to analyze
-    if hasattr(builder, "load_combinations") and builder.load_combinations:
-        create_result_classes_for_bridge(builder, builder.load_combinations)
+    create_all_result_classes(params, builder, all_load_combinations)

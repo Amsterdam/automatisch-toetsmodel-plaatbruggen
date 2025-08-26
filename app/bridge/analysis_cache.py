@@ -5,15 +5,17 @@ This module provides caching functionality for analysis results (SCIA, IDEA, etc
 recalculating when input parameters haven't changed.
 """
 
+import base64
 import hashlib
 import json
 import pickle
+from collections.abc import Callable
 from enum import Enum
 from io import BytesIO
-from typing import Any, Callable, Optional
+from typing import Any
 
 from src.integrations.idea_interface import create_bridge_idea_model
-from viktor.core import Storage
+from viktor.core import File, Storage
 from viktor.external import idea_rcs
 
 
@@ -113,7 +115,21 @@ class AnalysisCache:
             "template_path": template_path,
         }
 
-        if analysis_type in {AnalysisType.SCIA, AnalysisType.IDEA}:
+        if analysis_type == AnalysisType.SCIA:
+            # For SCIA, extract the parameters that actually affect the analysis
+            extracted_params.update(
+                {
+                    "bridge_segments": self._extract_bridge_segments(params),
+                    "load_combinations": self._extract_scia_load_combinations(params),
+                    "load_zones": self._extract_scia_load_zones(params),
+                    "materials": self._extract_materials(params),
+                    "reinforcement_zones": self._extract_reinforcement_zones(params),
+                    "reinforcement_materials": self._extract_reinforcement_materials(params),
+                    "reinforcement_geometry": self._extract_reinforcement_geometry(params),
+                }
+            )
+        elif analysis_type == AnalysisType.IDEA:
+            # For IDEA, extract all relevant parameters
             extracted_params.update(
                 {
                     "bridge_segments": self._extract_bridge_segments(params),
@@ -179,6 +195,48 @@ class AnalysisCache:
             "load_combinations": getattr(params, "load_combinations", {}),
         }
 
+    def _extract_scia_load_combinations(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
+        """Extract SCIA-specific load combinations data from params."""
+        # For SCIA analysis, we need the load combination parameters
+        scia_params = {}
+
+        # Try to get load combination parameters from the nested structure
+        if hasattr(params, "input") and hasattr(params.input, "belastingcombinaties"):
+            belasting = params.input.belastingcombinaties
+            scia_params.update(
+                {
+                    "cc_class": getattr(belasting, "cc_class", None),
+                    "design_code": getattr(belasting, "design_code", None),
+                }
+            )
+
+        # Also get construction year if available
+        if hasattr(params, "info"):
+            scia_params["construction_year"] = getattr(params.info, "construction_year", None)
+
+        return scia_params
+
+    def _extract_scia_load_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
+        """Extract SCIA-specific load zones data from params (only parameters that affect SCIA analysis)."""
+        zones: list[dict[str, Any]] = []
+        zones_array = getattr(params, "load_zones_data_array", None)
+        if zones_array:
+            zones.extend(
+                {
+                    "zone_type": getattr(zone, "zone_type", ""),
+                    "pavement_thickness": getattr(zone, "pavement_thickness", 0.0),
+                    "pavement_material": getattr(zone, "pavement_material", ""),
+                    # Extract d{X}_width fields that affect load geometry
+                    **{
+                        f"d{i}_width": getattr(zone, f"d{i}_width", 0.0)
+                        for i in range(1, 16)  # D1 to D15 width fields
+                        if hasattr(zone, f"d{i}_width")
+                    },
+                }
+                for zone in zones_array
+            )
+        return zones
+
     def _extract_materials(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
         """Extract materials data from params."""
         return {
@@ -226,14 +284,29 @@ class AnalysisCache:
         analysis_type: AnalysisType,
         entity_id: int,
         template_path: str | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
         try:
-            cached_data = self.storage.get(cache_key)
-            if cached_data:
+            cached_file = self.storage.get(cache_key, scope="entity")
+            if cached_file:
+                # Read the base64-encoded data
+                if hasattr(cached_file, "getvalue"):
+                    encoded_data = cached_file.getvalue()
+                elif hasattr(cached_file, "read"):
+                    cached_file.seek(0)
+                    encoded_data = cached_file.read()
+                else:
+                    encoded_data = cached_file
+
+                # Ensure we have string data for base64 decoding
+                if isinstance(encoded_data, bytes):
+                    encoded_data = encoded_data.decode("utf-8")
+
+                # Decode from base64 and unpickle
+                cached_data = base64.b64decode(encoded_data)
                 return pickle.loads(cached_data)
         except Exception:
             pass
@@ -253,8 +326,11 @@ class AnalysisCache:
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
         try:
+            # Pickle the results and encode as base64 to avoid binary data issues
             cached_data = pickle.dumps(results)
-            self.storage.set(cache_key, cached_data)
+            encoded_data = base64.b64encode(cached_data).decode("utf-8")
+            cached_file = File.from_data(encoded_data)
+            self.storage.set(cache_key, data=cached_file, scope="entity")
         except Exception:
             pass
 
@@ -263,9 +339,9 @@ class AnalysisCache:
         pattern = f"analysis_cache_{entity_id}_{analysis_type.value if analysis_type else ''}_*"
 
         try:
-            keys_to_delete = [key for key in self.storage.list() if key.startswith(pattern)]
+            keys_to_delete = [key for key in self.storage.list(scope="entity") if key.startswith(pattern)]
             for key in keys_to_delete:
-                self.storage.delete(key)
+                self.storage.delete(key, scope="entity")
         except Exception:
             pass
 
@@ -278,7 +354,7 @@ class AnalysisCache:
         }
 
         try:
-            all_keys = self.storage.list()
+            all_keys = self.storage.list(scope="entity")
             entity_keys = [key for key in all_keys if key.startswith(f"analysis_cache_{entity_id}_")]
             cache_info["total_cache_entries"] = len(entity_keys)
 
@@ -296,7 +372,7 @@ class AnalysisCache:
         """Get cache information for a specific analysis type."""
         pattern = f"analysis_cache_{entity_id}_{analysis_type.value}_*"
         try:
-            keys = [key for key in self.storage.list() if key.startswith(pattern)]
+            keys = [key for key in self.storage.list(scope="entity") if key.startswith(pattern)]
             return {
                 "cache_entries": len(keys),
                 "cache_keys": keys,
@@ -309,7 +385,7 @@ class AnalysisCache:
 
 
 # Global cache instance (lazy initialization)
-_analysis_cache: Optional[AnalysisCache] = None
+_analysis_cache: AnalysisCache | None = None
 
 
 def _get_analysis_cache() -> AnalysisCache:
@@ -326,7 +402,7 @@ def get_cached_analysis_results(
     entity_id: int,
     analysis_function: Callable[..., dict[str, Any]],
     template_path: str | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Get cached analysis results or run analysis if not cached."""
     cache = _get_analysis_cache()
 

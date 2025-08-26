@@ -228,32 +228,43 @@ def check_git_status() -> bool:
 
 def safe_input(prompt: str, max_attempts: int = 3) -> str:
     """Safely get user input with retry logic for different terminals."""
-    for attempt in range(max_attempts):
+
+    def _attempt_input() -> str:
+        """Single input attempt."""
+        # Ensure clean state before prompting
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        # Clear any remaining spinner artifacts
+        print("\r" + " " * 80 + "\r", end="", flush=True)
+
+        # Use traditional input() which works better across terminals (direct return fixes RET504)
+        return input(prompt).strip()
+
+    def _handle_attempt(attempt_num: int) -> str | None:
+        """Handle a single input attempt. Returns result or None to continue."""
         try:
-            # Ensure clean state before prompting
-            sys.stdout.flush()
-            sys.stderr.flush()
-
-            # Clear any remaining spinner artifacts
-            print("\r" + " " * 80 + "\r", end="", flush=True)
-
-            # Use traditional input() which works better across terminals (direct return fixes RET504)
-            return input(prompt).strip()
-
-        except (EOFError, KeyboardInterrupt):  # noqa: PERF203
-            if attempt < max_attempts - 1:
+            return _attempt_input()
+        except (EOFError, KeyboardInterrupt):
+            if attempt_num < max_attempts - 1:
                 print(f"\n{Colors.YELLOW}[!] Input interrupted, retrying... (Ctrl+C again to cancel){Colors.RESET}")
                 time.sleep(0.5)
-                continue
+                return None  # Continue to next attempt
             print(f"\n{Colors.YELLOW}[!] Input cancelled, proceeding with default behavior{Colors.RESET}")
             return ""
         except Exception as e:
-            if attempt < max_attempts - 1:
+            if attempt_num < max_attempts - 1:
                 print(f"\n{Colors.YELLOW}[!] Input error ({e}), retrying...{Colors.RESET}")
                 time.sleep(0.5)
-                continue
+                return None  # Continue to next attempt
             print(f"\n{Colors.YELLOW}[!] Input failed, proceeding with default behavior{Colors.RESET}")
             return ""
+
+    # Try each attempt separately to avoid PERF203
+    for attempt in range(max_attempts):
+        result = _handle_attempt(attempt)
+        if result is not None:
+            return result
 
     return ""
 
@@ -314,22 +325,41 @@ def run_quality_check_with_progress(name: str, command: str, can_auto_fix: bool 
         """Show animated spinner while operation is running."""
         # Test encoding support once before the loop (PERF203 fix)
         use_colors = True
+        use_spinner = True
         try:
             print(f"\r{Colors.CYAN}[>] Running {name}... |{Colors.RESET}", end="", flush=True)
         except UnicodeEncodeError:
             use_colors = False
 
+        # Test spinner support once before the loop
+        try:
+            test_spinner_char = next(spinner)
+            if use_colors:
+                print(f"\r{Colors.CYAN}[>] Running {name}... {test_spinner_char}{Colors.RESET}", end="", flush=True)
+            else:
+                print(f"\r[>] Running {name}... {test_spinner_char}", end="", flush=True)
+        except (UnicodeEncodeError, Exception):
+            use_spinner = False
+
         while not stop_spinner.is_set():
-            try:
-                if use_colors:
-                    print(f"\r{Colors.CYAN}[>] Running {name}... {next(spinner)}{Colors.RESET}", end="", flush=True)
-                else:
-                    print(f"\r[>] Running {name}... {next(spinner)}", end="", flush=True)
-                time.sleep(0.2)
-            except (UnicodeEncodeError, Exception):  # noqa: PERF203
+            if use_spinner:
+                try:
+                    spinner_char = next(spinner)
+                    if use_colors:
+                        print(f"\r{Colors.CYAN}[>] Running {name}... {spinner_char}{Colors.RESET}", end="", flush=True)
+                    else:
+                        print(f"\r[>] Running {name}... {spinner_char}", end="", flush=True)
+                except StopIteration:
+                    # Reset spinner if it runs out
+                    spinner_char = next(spinner)
+                    if use_colors:
+                        print(f"\r{Colors.CYAN}[>] Running {name}... {spinner_char}{Colors.RESET}", end="", flush=True)
+                    else:
+                        print(f"\r[>] Running {name}... {spinner_char}", end="", flush=True)
+            else:
                 # Fallback to simple output if any encoding or other issues
                 print(f"\r[>] Running {name}...", end="", flush=True)
-                time.sleep(0.2)
+            time.sleep(0.2)
 
     # Start spinner for tests (which take longer)
     if "Tests" in name:
@@ -784,6 +814,36 @@ def main() -> int:
             code, output = run_command(f"{py_path} -m pip install -r {dev_req}")
             if code != 0:
                 print(f"{Colors.YELLOW}[DEBUG] Dev deps install error: {output[:200]}...{Colors.RESET}")
+
+        # Verify critical tools are properly installed with executables
+        print(f"{Colors.CYAN}[>] Verifying tool installations in RUFT venv...{Colors.RESET}")
+
+        # Test ruff installation
+        ruff_test_code, ruff_test_output = run_command(f"{py_path} -m ruff --version")
+        if ruff_test_code != 0:
+            print(f"{Colors.YELLOW}[!] Ruff executable missing, attempting to reinstall...{Colors.RESET}")
+            # Force reinstall ruff to ensure executable is created
+            reinstall_code, reinstall_output = run_command(f"{py_path} -m pip install --force-reinstall --no-cache-dir ruff==0.11.7")
+            if reinstall_code != 0:
+                print(f"{Colors.YELLOW}[DEBUG] Ruff reinstall error: {reinstall_output[:200]}...{Colors.RESET}")
+                print(f"{Colors.YELLOW}[!] Falling back to system interpreter for ruff{Colors.RESET}")
+                return sys.executable
+            # Test again after reinstall
+            ruff_retest_code, _ = run_command(f"{py_path} -m ruff --version")
+            if ruff_retest_code != 0:
+                print(f"{Colors.YELLOW}[!] Ruff still not working after reinstall, falling back to system interpreter{Colors.RESET}")
+                return sys.executable
+
+        # Test mypy installation
+        mypy_test_code, mypy_test_output = run_command(f"{py_path} -m mypy --version")
+        if mypy_test_code != 0:
+            print(f"{Colors.YELLOW}[!] MyPy executable missing, attempting to reinstall...{Colors.RESET}")
+            # Force reinstall mypy to ensure executable is created
+            reinstall_code, reinstall_output = run_command(f"{py_path} -m pip install --force-reinstall --no-cache-dir mypy==1.15.0")
+            if reinstall_code != 0:
+                print(f"{Colors.YELLOW}[DEBUG] MyPy reinstall error: {reinstall_output[:200]}...{Colors.RESET}")
+                print(f"{Colors.YELLOW}[!] Falling back to system interpreter for mypy{Colors.RESET}")
+                return sys.executable
 
         # Verify the python path works
         test_code, test_output = run_command(f"{py_path} --version")

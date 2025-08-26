@@ -20,14 +20,35 @@ We gebruiken de volgende branches:
   - Gemerged *terug naar* `development` via Pull Request
 
 
-## 2. Installeren van alle requirements
+## 2. Development Environment Setup
 
-Run setup_dev.py, dit script checkt of de juiste Python versie is gestalleerd en installeerd alle requirements. 
+Run `setup_dev.py` om automatisch de development environment in te stellen. Dit script:
+- Controleert of Python 3.12+ is geïnstalleerd
+- Maakt een RUFT virtual environment aan (`.ruft_venv/`)
+- Installeert alle runtime en development dependencies
+- Installeert VIKTOR CLI dependencies (optioneel)
+- Geeft exacte instructies voor IDE setup
 
 ```bash
-# In IDE terminal
-python setup-dev.py
+# In project root directory
+python setup_dev.py
 ```
+
+**IDE Setup (VS Code/Cursor):**
+1. Open Command Palette (Ctrl+Shift+P)
+2. Select "Python: Select Interpreter"
+3. Choose: `.ruft_venv\Scripts\python.exe` (pad wordt getoond door setup script)
+4. Dit zorgt voor correcte test discovery en linting
+
+**Eerste keer testen:**
+```bash
+python ruft.py --dry-run    # Duurt 2-5 minuten eerste keer, daarna snel
+```
+
+**Testing:**
+- Unit tests draaien automatisch via `ruft.py`
+- Resource file access tests controleren dat alle bestanden correct toegankelijk zijn
+- Tests gebruiken absolute paths om productie-problemen te voorkomen
 
 ## 3. Workflow
 
@@ -75,7 +96,7 @@ git checkout <naam-van-de-feature-branch>
 # Bijvoorbeeld: git checkout 73822_korte_taak_beschrijving
 ```
 
-#### 2.4.2 Wijzigingen maken en committen
+#### 3.4.2 Wijzigingen maken en committen
 
 1. **Maak en commit wijzigingen:**
 ```bash
@@ -85,18 +106,31 @@ git add .
 git commit -m "Beschrijvende commit message"
 ```
 
-#### 2.4.3 Run het ruft script
+#### 3.4.3 Quality Checks en Push
 
-Het ruft script (ruft.py) voert een aantal acties uit om de code kwaliteit te waarborgen:
-- Voert een commit uit (mocht dit nog niet zijn gedaan)
-- Voert de ruff formating, ruff checks en mypy checks uit
-- Voert de unit tests uit
-- Voert viktor tests uit 
-- Pushed de code naar de feature branch
+Het `ruft.py` script voert automatisch alle quality checks uit en pushed naar GitHub:
 
-Indien een check faalt krijg je dit te zien en kun je het oplossen. Run het ruft script vervolgens opnieuw.
+```bash
+python ruft.py              # Volledige workflow: checks + commit + push
+python ruft.py --dry-run    # Alleen checks, geen commits/push
+python ruft.py --no-push    # Checks + commit, maar geen push
+```
 
-#### 2.4.4 Pull Request aanmaken
+**Het script doet automatisch:**
+1. **Uncommitted changes**: Vraagt of je wilt committen
+2. **Quality checks**: Ruff style check, Ruff formatter, MyPy, unit tests, VIKTOR tests
+3. **Auto-fixes**: Ruff kan automatisch style issues oplossen
+4. **Auto-commit**: Commits auto-fixes met duidelijke messages
+5. **Iteratie**: Herhaalt tot geen fixes meer mogelijk zijn
+6. **Final report**: Toont status van alle checks
+7. **Push**: Pushed naar GitHub als alles slaagt
+
+**Bij gefaalde checks:**
+- Script toont exacte commando's om issues op te lossen
+- Los handmatig op en run `python ruft.py` opnieuw
+- Script blijft itereren tot alles werkt
+
+#### 3.4.4 Pull Request aanmaken
 
 Als alle wijzigingen uitgewerkt zijn, kan de feature branch samengevoegd worden in de development branch. Hiervoor moet een Pull Request (PR) aangemaakt worden.
 

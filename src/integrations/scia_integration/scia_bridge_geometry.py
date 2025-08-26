@@ -18,6 +18,9 @@ from .scia_loads_helper import (
     tandem_systems_theoretical_lanes_bg10000,
 )
 
+# Type alias to avoid importing from app layer
+BridgeParametrization = Any
+
 
 def extract_bridge_dimensions(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
@@ -176,7 +179,9 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
     raise ValueError(f"Unsupported mode: {mode}. Use 'theoretical' or 'actual'")
 
 
-def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str = "theoretical") -> list[dict[str, Any]]:
+def generate_tandem_loads_for_bridge(
+    params: BridgeParametrization, bridge_params: dict[str, float], mode: str = "theoretical"
+) -> list[dict[str, Any]]:
     """
     Generate tandem load data for bridge using appropriate function.
 
@@ -192,38 +197,32 @@ def generate_tandem_loads_for_bridge(bridge_params: dict[str, float], mode: str 
     tandem_function2 = tandem_info["function2"]
     tandem_function3 = tandem_info["function3"]
 
+    # Common arguments for all tandem load functions
+    tandem_loads_args = (
+        params,
+        bridge_params["length_bridgedeck"],
+        bridge_params["width_bridgedeck"],
+        bridge_params["thickness_bridgedeck"],
+        bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
+        bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
+    )
+
     # Generate tandem loads using the selected function
     try:
-        tandem_loads_bg8000 = tandem_function(
-            bridge_params["length_bridgedeck"],
-            bridge_params["width_bridgedeck"],
-            bridge_params["thickness_bridgedeck"],
-            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
-            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
-        )
+        tandem_loads_bg8000 = tandem_function(*tandem_loads_args)
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
+
     # Generate tandem loads for configuration with reversed lane order (9000 series)
     try:
-        tandem_loads_bg9000 = tandem_function2(
-            bridge_params["length_bridgedeck"],
-            bridge_params["width_bridgedeck"],
-            bridge_params["thickness_bridgedeck"],
-            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
-            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
-        )
+        tandem_loads_bg9000 = tandem_function2(*tandem_loads_args)
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
     tandem_loads_bg8000.extend(tandem_loads_bg9000)
+
     # Generate tandem loads for configuration with middle lane order (10000 series)
     try:
-        tandem_loads_bg10000 = tandem_function3(
-            bridge_params["length_bridgedeck"],
-            bridge_params["width_bridgedeck"],
-            bridge_params["thickness_bridgedeck"],
-            bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
-            bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
-        )
+        tandem_loads_bg10000 = tandem_function3(*tandem_loads_args)
     except Exception as e:
         raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
     tandem_loads_bg8000.extend(tandem_loads_bg10000)
@@ -291,68 +290,3 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
         )
 
     return scia_load_cases
-
-
-def create_node_and_thickness_dict(params: Any) -> tuple[dict[str, list[float]], dict[str, float]]:  # noqa: ANN401
-    """
-    Create node positions and thickness data from bridge parameters.
-
-    This function extracts the geometric information needed to create SCIA nodes and plates.
-    It returns pure Python data structures without creating actual SCIA objects.
-
-    :param params: Bridge parameters
-    :returns: (nodes_dict, thickness_dict)
-    :rtype: tuple[dict[str, list[float]], dict[str, float]]
-    """
-    dynamic_arrays = len(params.bridge_segments_array)
-    nodes_dict = {}
-    thickness_dict = {}
-
-    def calculate_cross_section_positions(segment_idx: int) -> dict[str, float]:
-        """Calculate node positions for cross section."""
-        l_sum = sum(item.l for item in params.bridge_segments_array[: segment_idx + 1])
-        segment = params.bridge_segments_array[segment_idx]
-
-        return {
-            "x": l_sum,
-            "z1_left": segment.bz1 + segment.bz2 / 2,
-            "z1_right": segment.bz2 / 2,
-            "z3_left": -segment.bz2 / 2,
-            "z3_right": -segment.bz3 - segment.bz2 / 2,
-        }
-
-    # Create first cross section
-    if dynamic_arrays > 0:
-        pos = calculate_cross_section_positions(0)
-        nodes_dict.update(
-            {
-                "K_dek:1_1": [pos["x"], pos["z1_left"], 0],
-                "K_dek:1_2": [pos["x"], pos["z1_right"], 0],
-                "K_dek:1_3": [pos["x"], pos["z3_left"], 0],
-                "K_dek:1_4": [pos["x"], pos["z3_right"], 0],
-            }
-        )
-
-    # Create remaining cross sections and thickness data
-    for dynamic_array in range(1, dynamic_arrays):
-        pos = calculate_cross_section_positions(dynamic_array)
-        d_num = dynamic_array + 1
-
-        nodes_dict.update(
-            {
-                f"K_dek:{d_num}_1": [pos["x"], pos["z1_left"], 0],
-                f"K_dek:{d_num}_2": [pos["x"], pos["z1_right"], 0],
-                f"K_dek:{d_num}_3": [pos["x"], pos["z3_left"], 0],
-                f"K_dek:{d_num}_4": [pos["x"], pos["z3_right"], 0],
-            }
-        )
-
-        thickness_dict.update(
-            {
-                f"Z1_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
-                f"Z2_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz_2,
-                f"Z3_{dynamic_array}": params.bridge_segments_array[dynamic_array].dz,
-            }
-        )
-
-    return nodes_dict, thickness_dict

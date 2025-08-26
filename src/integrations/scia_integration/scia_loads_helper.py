@@ -8,127 +8,212 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
+# Type alias to avoid importing from app layer
+from app.bridge.parametrization import BridgeParametrization
+from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
 
-# Type alias to avoid importing from app layer
-BridgeParametrization = Any
+
+def get_reference_period(params: BridgeParametrization) -> int:
+    """
+    Return the reference period (in years) based on the veiligheidsniveau input.
+
+    :param veiligheidsniveau: The value of the veiligheidsniveau field from parametrization.py
+    :type veiligheidsniveau: str
+    :returns: Reference period in years (30 or 15)
+    :rtype: int
+    """
+    if params["design_code"] == "NEN 8700 afkeur":
+        return 15
+    return 30
+
 
 if TYPE_CHECKING:
     from .scia_model_interface import SciaModelBuilder
 
-
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
-def create_udl_traffic_loads(  # noqa: PLR0913
+
+
+def create_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
+    params: BridgeParametrization,
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    lane_width: float = 3.0,
     udl_value: float = 9000.0,
 ) -> dict[str, dict[str, Any]]:
     """
-    Create UDLs (9 kN/m²) for the three main notional lanes, matching BG8000 (left), BG9000 (right), BG10000 (center).
+    Create UDLs for all notional lanes and remaining areas.
+
+    Creates three categories of load polygons:
+    - "main": First notional lane (9 kN/m²)
+    - "other": Additional notional lanes (2.5 kN/m²)
+    - "rest": Remaining bridge deck areas (2.5 kN/m²)
 
     :param length_bridgedeck: Bridge length in meters
     :param width_bridgedeck: Bridge width in meters
     :param width_firstsegment_zone3: Zone 3 width (for lane offset)
     :param width_firstsegment_zone2: Zone 2 width (for lane offset)
     :param lane_width: Lane width in meters (default 3.0)
-    :param udl_value: UDL value in N/m² (default 9000.0)
-    :returns: Dict with keys BG4001, BG4002, BG4003, each containing lane polygon and load value
+    :param udl_value: UDL value for main lane in N/m² (default 9000.0)
+    :returns: Dict with keys BG4001, BG4002, BG4003, each containing lane polygons and load values
     """
+    # Create an empty results dictionary
     results = {}
-    rest_value = 2500.0
 
-    # BG4001: leftmost lane (BG8000 logic)
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+    # Obtain load values
+    main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+    other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+    rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
+    max_lanes, lane_width = amount_of_notional_lanes(width_bridgedeck)  # Maximum number of lanes to consider and lane width
+
+    # BG4001: leftmost lanes (BG8000 logic)
     y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_left:
-        y_center = y_positions_left[0]
-        y_min = y_center - lane_width / 2
-        y_max = y_center + lane_width / 2
-        main_polygon = [
-            (0.0, y_min, 0.0),
-            (length_bridgedeck, y_min, 0.0),
-            (length_bridgedeck, y_max, 0.0),
-            (0.0, y_max, 0.0),
-        ]
-        rest_polygons = []
-        rest_polygons.append(
-            [
-                (0.0, y_max, 0.0),
+        load_polygons: dict[str, list[dict[str, list[tuple[float, float, float]] | float]]] = {"main": [], "other": [], "rest": []}
+
+        # Create lane polygons for up to max_lanes, starting from leftmost
+        for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
+            y_min = y_center - lane_width / 2
+            y_max = y_center + lane_width / 2
+            lane_polygon = [
+                (0.0, y_min, 0.0),
+                (length_bridgedeck, y_min, 0.0),
                 (length_bridgedeck, y_max, 0.0),
+                (0.0, y_max, 0.0),
+            ]
+
+            # First lane is "main", others are "other"
+            if lane_idx == 0:
+                load_polygons["main"].append({"polygon": lane_polygon, "load": main_value})
+            else:
+                load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
+
+        # Create rest polygon for areas not covered by lanes
+        max_lane_width = max_lanes * lane_width
+        if max_lane_width < width_bridgedeck:
+            rest_polygon = [
+                (0.0, y_positions_left[0] + max_lane_width - 0.5 * lane_width, 0.0),
+                (length_bridgedeck, y_positions_left[0] + max_lane_width - 0.5 * lane_width, 0.0),
                 (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
                 (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
             ]
-        )
-        results["BG4001"] = {
-            "main": {"polygon": main_polygon, "load": udl_value},
-            "rest": [{"polygon": p, "load": rest_value} for p in rest_polygons],
-        }
+            load_polygons["rest"].append({"polygon": rest_polygon, "load": rest_value})
 
-    # BG4002: rightmost lane (BG9000 logic)
+        results["BG4001"] = load_polygons
+
+    # BG4002: Rightmost lanes (BG9000 logic)
     y_positions_right = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
     if y_positions_right:
-        y_center = y_positions_right[0]
-        y_min = y_center - lane_width / 2
-        y_max = y_center + lane_width / 2
-        main_polygon = [
-            (0.0, y_min, 0.0),
-            (length_bridgedeck, y_min, 0.0),
-            (length_bridgedeck, y_max, 0.0),
-            (0.0, y_max, 0.0),
-        ]
-        rest_polygons = []
-        rest_polygons.append(
-            [
-                (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (length_bridgedeck, y_min, 0.0),
-                (0.0, y_min, 0.0),
-            ]
-        )
-        results["BG4002"] = {
-            "main": {"polygon": main_polygon, "load": udl_value},
-            "rest": [{"polygon": p, "load": rest_value} for p in rest_polygons],
-        }
+        load_polygons = {"main": [], "other": [], "rest": []}
 
-    # BG4003: center lane (BG10000 logic)
-    y_positions_center = generate_theoretical_lane_positions_bg10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
-    if y_positions_center:
-        y_center = y_positions_center[0]
+        for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
+            y_min = y_center - lane_width / 2
+            y_max = y_center + lane_width / 2
+            lane_polygon = [
+                (0.0, y_min, 0.0),
+                (length_bridgedeck, y_min, 0.0),
+                (length_bridgedeck, y_max, 0.0),
+                (0.0, y_max, 0.0),
+            ]
+
+            if lane_idx == 0:
+                load_polygons["main"].append({"polygon": lane_polygon, "load": main_value})
+            else:
+                load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
+
+        # Rest polygon for area below lanes
+        if max_lane_width < width_bridgedeck:
+            rest_polygon = [
+                (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, y_positions_right[0] - max_lane_width + 0.5 * lane_width, 0.0),
+                (0.0, y_positions_right[0] - max_lane_width + 0.5 * lane_width, 0.0),
+            ]
+            load_polygons["rest"].append({"polygon": rest_polygon, "load": rest_value})
+
+        results["BG4002"] = load_polygons
+
+    # BG4003: center lanes with dynamic number of lanes on each side
+    # Calculate how many lanes can fit on each side of the center
+    left_lanes, right_lanes, _ = amount_of_notional_lanes_from_center(width_bridgedeck)
+    total_lanes = 1 + left_lanes + right_lanes  # Center lane + left lanes + right lanes
+
+    # Get the center position and adjust for zone offsets
+    center_y = width_bridgedeck / 2 - width_firstsegment_zone3 - 0.5 * width_firstsegment_zone2
+
+    load_polygons = {"main": [], "other": [], "rest": []}
+
+    # Create center (main) lane
+    center_y_min = center_y - lane_width / 2
+    center_y_max = center_y + lane_width / 2
+    center_polygon = [
+        (0.0, center_y_min, 0.0),
+        (length_bridgedeck, center_y_min, 0.0),
+        (length_bridgedeck, center_y_max, 0.0),
+        (0.0, center_y_max, 0.0),
+    ]
+    load_polygons["main"].append({"polygon": center_polygon, "load": main_value})
+
+    # Create left side lanes
+    for i in range(left_lanes):
+        y_center = center_y - (i + 1) * lane_width
         y_min = y_center - lane_width / 2
         y_max = y_center + lane_width / 2
-        main_polygon = [
+        lane_polygon = [
             (0.0, y_min, 0.0),
             (length_bridgedeck, y_min, 0.0),
             (length_bridgedeck, y_max, 0.0),
             (0.0, y_max, 0.0),
         ]
-        rest_polygons = []
-        rest_polygons.append(
-            [
-                (0.0, y_max, 0.0),
-                (length_bridgedeck, y_max, 0.0),
-                (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            ]
-        )
-        rest_polygons.append(
-            [
-                (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (length_bridgedeck, y_min, 0.0),
-                (0.0, y_min, 0.0),
-            ]
-        )
-        results["BG4003"] = {
-            "main": {"polygon": main_polygon, "load": udl_value},
-            "rest": [{"polygon": p, "load": rest_value} for p in rest_polygons],
-        }
+        load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
+
+    # Create right side lanes
+    for i in range(right_lanes):
+        y_center = center_y + (i + 1) * lane_width
+        y_min = y_center - lane_width / 2
+        y_max = y_center + lane_width / 2
+        lane_polygon = [
+            (0.0, y_min, 0.0),
+            (length_bridgedeck, y_min, 0.0),
+            (length_bridgedeck, y_max, 0.0),
+            (0.0, y_max, 0.0),
+        ]
+        load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
+
+    # Create rest polygons for any remaining areas
+    total_lanes_width = total_lanes * lane_width
+
+    # Upper rest area (if exists)
+    if center_y + total_lanes_width / 2 < width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
+        upper_rest = [
+            (0.0, center_y + total_lanes_width / 2, 0.0),
+            (length_bridgedeck, center_y + total_lanes_width / 2, 0.0),
+            (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+        ]
+        load_polygons["rest"].append({"polygon": upper_rest, "load": rest_value})
+
+    # Lower rest area (if exists)
+    if center_y - total_lanes_width / 2 > -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
+        lower_rest = [
+            (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (length_bridgedeck, center_y - total_lanes_width / 2, 0.0),
+            (0.0, center_y - total_lanes_width / 2, 0.0),
+        ]
+        load_polygons["rest"].append({"polygon": lower_rest, "load": rest_value})
+
+    results["BG4003"] = load_polygons
 
     return results
 
@@ -190,6 +275,7 @@ TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
 def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
+    params: BridgeParametrization,
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -220,10 +306,6 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
         - load_case: "TH6001", "TH6002", etc. (TH = Theoretical)
         - wheels: List of 4 wheel coordinates per tandem
         - load: Load intensity in N/m²
-
-    Future Integration Points:
-        - Phase 2: Add lane shifting capability for critical loading
-        - Phase 3: Connect to params.input.belastingzones actual lanes
     """
     wheel_size = 0.4
 
@@ -234,6 +316,14 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    # Obtain load values
+    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG8 (first lane position)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -288,9 +378,9 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
                     wheels_100.append(wheel_coords)
 
             load_case["loads"] = [
-                {"wheels": wheels_main, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_200, "load": 200000 / (0.4 * 0.4)},
-                {"wheels": wheels_100, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_main, "load": load_main},
+                {"wheels": wheels_200, "load": load_second},
+                {"wheels": wheels_100, "load": load_third},
             ]
 
             results.append(load_case)
@@ -338,6 +428,7 @@ def generate_theoretical_lane_positions_bg9000(
 
 
 def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
+    params: BridgeParametrization,
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -366,6 +457,14 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     lane_y_positions = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    # Obtain load values
+    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG9 (first lane position, reversed)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -419,9 +518,9 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
                     wheels_100.append(wheel_coords)
 
             load_case["loads"] = [
-                {"wheels": wheels_main, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_200, "load": 200000 / (0.4 * 0.4)},
-                {"wheels": wheels_100, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_main, "load": load_main},
+                {"wheels": wheels_200, "load": load_second},
+                {"wheels": wheels_100, "load": load_third},
             ]
 
             results.append(load_case)
@@ -463,6 +562,7 @@ def generate_theoretical_lane_positions_bg10000(
 
 
 def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
+    params: BridgeParametrization,
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -487,6 +587,15 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     wheel_size = 0.4
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
     lane_y_positions = generate_theoretical_lane_positions_bg10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    # Obtain load values
+    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
 
     # Order: center (300 kN), left/right (200/100 kN)
     y_center, y_left, y_right = lane_y_positions
@@ -537,9 +646,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
         load_case_a = {
             "load_case": f"{prefix}{idx:03d}",
             "loads": [
-                {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_200_left, "load": 200000 / (0.4 * 0.4)},
-                {"wheels": wheels_100_right, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_300, "load": load_main},
+                {"wheels": wheels_200_left, "load": load_second},
+                {"wheels": wheels_100_right, "load": load_third},
             ],
         }
         results.append(load_case_a)
@@ -589,9 +698,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
         load_case_b = {
             "load_case": f"{prefix}{idx:03d}",
             "loads": [
-                {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_100_left, "load": 100000 / (0.4 * 0.4)},
-                {"wheels": wheels_200_right, "load": 200000 / (0.4 * 0.4)},
+                {"wheels": wheels_300, "load": load_main},
+                {"wheels": wheels_100_left, "load": load_third},
+                {"wheels": wheels_200_right, "load": load_second},
             ],
         }
         results.append(load_case_b)
@@ -650,15 +759,41 @@ def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
 
     """
     if width_bridgedeck < 5.4:
-        amount = 1
-        width_per_lane = 3.0
-    elif 5.4 <= width_bridgedeck < 6.0:
-        amount = 2
-        width_per_lane = width_bridgedeck / 2
-    else:
-        amount = int(width_bridgedeck // 3)
-        width_per_lane = 3.0
-    return amount, width_per_lane
+        return 1, 3
+    if 5.4 <= width_bridgedeck < 6.0:
+        return 2, width_bridgedeck / 2
+    return int(width_bridgedeck // 3), 3
+
+
+def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, int, float]:
+    """
+    Calculate the number of notional lanes that can fit on either side of the bridge deck center.
+
+    For BG4003 (center load case), we need to determine how many lanes can fit on either side of
+    the center lane. The total width available is divided into two parts (left and right of center),
+    and we calculate how many 3m lanes can fit in each part.
+
+    Args:
+        width_bridgedeck (float): The width of the bridge deck in meters.
+
+    Returns:
+        tuple[int, int, float]: A tuple containing:
+            - Number of lanes that fit left of center
+            - Number of lanes that fit right of center
+            - Width per lane (always 3.0m as per standard)
+
+    """
+    # Center lane always takes 3.0m
+    center_lane_width = 3.0
+    remaining_width = width_bridgedeck - center_lane_width
+
+    # Calculate space on either side
+    width_per_side = remaining_width / 2
+
+    # Calculate number of full 3.0m lanes that can fit on each side
+    lanes_per_side = int(width_per_side // 3.0)
+
+    return lanes_per_side, lanes_per_side, 3.0
 
 
 def calculate_possibilities_lane_orientation(width_bridgedeck: float) -> int:
@@ -750,7 +885,7 @@ def calculate_pavement_load_from_dynamic_array(
     for row in load_zones_array:
         thickness = row.get(thickness_field, 0.0)
         material = row.get(material_field, "")
-        if not material or not isinstance(thickness, (int, float)):
+        if not material or not isinstance(thickness, int | float):
             result.append(0.0)
             continue
         density = density_lookup.get(str(material).lower(), 0.0)
@@ -776,7 +911,7 @@ def calculate_pavement_load_from_material(
     # Build a lookup for material densities (case-insensitive)
     density_lookup = {name.lower(): density for name, density in get_material_densities()}
 
-    if not material or not isinstance(thickness, (int, float)):
+    if not material or not isinstance(thickness, int | float):
         return 0.0
 
     density = density_lookup.get(str(material).lower(), 0.0)

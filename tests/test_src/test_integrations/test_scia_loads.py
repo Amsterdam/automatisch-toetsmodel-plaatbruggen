@@ -10,6 +10,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+BridgeParametrization: Any
+
 
 @pytest.fixture
 def mock_builder() -> Mock:
@@ -19,8 +21,12 @@ def mock_builder() -> Mock:
 
 @pytest.fixture
 def mock_params() -> Mock:
-    """Fixture to provide mocked VIKTOR parameters."""
-    return Mock()
+    """Fixture to provide design code in mock_params."""
+    mock_params = Mock()
+    # Configure mock params to handle dictionary-style access
+    mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+    mock_params.__contains__ = Mock(return_value=True)
+    return mock_params
 
 
 class TestTheoreticalTandemLoads:
@@ -52,7 +58,7 @@ class TestTheoreticalTandemLoads:
 
         # Verify workflow
         mock_extract.assert_called_once_with(mock_params)
-        mock_generate.assert_called_once_with(mock_extract.return_value, mode="theoretical")
+        mock_generate.assert_called_once_with(mock_params, mock_extract.return_value, mode="theoretical")
         mock_convert.assert_called_once_with(mock_generate.return_value)
 
         # Verify builder calls
@@ -333,6 +339,10 @@ class TestAllLoads:
             "udl_traffic_cases": {"rs_1": Mock(name="BG4001"), "rs_2": Mock(name="BG4002"), "rs_3": Mock(name="BG4003")},
         }
 
+        # Configure mock params to handle dictionary-style access
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
+
         # Mock the bridge_segments_array to be iterable with required attributes
         mock_segment1 = Mock()
         mock_segment1.l = 10.0
@@ -384,6 +394,199 @@ class TestLoadErrorHandling:
         mock_load_cases: dict[str, Any] = {}
         with pytest.raises(ValueError, match="Parameter extraction failed"):
             add_theoretical_tandem_loads(mock_builder, mock_params, mock_load_cases)
+
+
+class TestUniformlyDistributedLoads:
+    """Test generation and application of uniformly distributed loads (UDL)."""
+
+    def test_amount_of_notional_lanes(self) -> None:
+        """
+        Test calculation of number of notional lanes and lane width for different bridge widths.
+
+        Tests the following cases from the Eurocode:
+        1. width < 5.4m: 1 lane of 3m
+        2. 5.4m ≤ width < 6.0m: 2 lanes of width/2
+        3. width ≥ 6.0m: width//3 lanes of 3m
+        """
+        from src.integrations.scia_integration.scia_loads_helper import amount_of_notional_lanes
+
+        # Test case 1: width < 5.4m
+        num_lanes, lane_width = amount_of_notional_lanes(5.0)
+        assert num_lanes == 1, "Bridge width < 5.4m should have 1 lane"
+        assert lane_width == 3, "Lane width should be 3m for narrow bridges"
+
+        # Test case 2: 5.4m ≤ width < 6.0m
+        num_lanes, lane_width = amount_of_notional_lanes(5.7)
+        assert num_lanes == 2, "Bridge width between 5.4m and 6.0m should have 2 lanes"
+        assert abs(lane_width - 2.85) < 0.001, "Lane width should be width/2 for medium bridges"
+
+        # Test case 3: width ≥ 6.0m
+        num_lanes, lane_width = amount_of_notional_lanes(9.0)
+        assert num_lanes == 3, "Bridge width of 9.0m should have 3 lanes"
+        assert lane_width == 3, "Lane width should be 3m for wide bridges"
+
+        # Test larger bridge
+        num_lanes, lane_width = amount_of_notional_lanes(15.0)
+        assert num_lanes == 5, "Bridge width of 15.0m should have 5 lanes"
+        assert lane_width == 3, "Lane width should be 3m for wide bridges"
+
+    def test_amount_of_notional_lanes_from_center(self) -> None:
+        """
+        Test calculation of number of notional lanes that can fit on either side of the bridge center.
+
+        This is used for BG4003 (center load case) where we need to determine how many lanes
+        can fit on either side of a center lane.
+        """
+        from src.integrations.scia_integration.scia_loads_helper import amount_of_notional_lanes_from_center
+
+        # Test narrow bridge - only center lane possible
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(5.0)
+        assert left_lanes == 0, "5.0m bridge should have no lanes left of center"
+        assert right_lanes == 0, "5.0m bridge should have no lanes right of center"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+        # Test medium bridge - one lane on each side possible
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(9.0)
+        assert left_lanes == 1, "9.0m bridge should have one lane left of center"
+        assert right_lanes == 1, "9.0m bridge should have one lane right of center"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+        # Test wide bridge - multiple lanes on each side possible
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(15.0)
+        assert left_lanes == 2, "15.0m bridge should have two lanes left of center"
+        assert right_lanes == 2, "15.0m bridge should have two lanes right of center"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+        # Test asymmetric width (should still give symmetric results)
+        left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(11.3)
+        assert left_lanes == right_lanes, "Number of lanes should be equal on both sides"
+        assert lane_width == 3.0, "Lane width should always be 3.0m"
+
+    @pytest.fixture
+    def mock_bridge_geometry(self) -> Generator[Mock, None, None]:
+        """Fixture to provide mocked bridge geometry data."""
+        mock_geom = Mock()
+        mock_geom.x_coords_d_points = [0.0, 25.0, 50.0]  # Example D-points coordinates
+        mock_geom.y_top_structural_edge_at_d_points = [5.0, 5.0, 5.0]  # Example top edges
+        mock_geom.y_bridge_bottom_at_d_points = [-1.0, -1.0, -1.0]  # Example bottom edges
+        return mock_geom
+
+    @pytest.fixture
+    def mock_load_cases(self) -> dict[str, Any]:
+        """Fixture to provide a mock load cases dictionary."""
+        return {}
+
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
+    def test_create_udl_traffic_loads_basic_case(self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock) -> None:
+        """Test creation of UDL traffic loads for a simple bridge configuration."""
+        from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+
+        # Test case parameters
+        length_bridgedeck = 20.0  # 20m long bridge
+        width_bridgedeck = 10.0  # 10m wide bridge
+        width_firstsegment_zone3 = 1.0  # 1m zone 3
+        width_firstsegment_zone2 = 2.0  # 2m zone 2
+        udl_value = 9000.0  # 9 kN/m²
+
+        # Configure mock params to handle dictionary-style access
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
+
+        # Mock the load factors
+        mock_psi.return_value = 0.95  # Example psi factor
+        mock_alpha_trend.return_value = 0.99  # Example alpha trend factor
+        mock_alpha_q.return_value = [0.95, 1.0]  # Example alpha q factors for main and other lanes
+
+        # Execute the function
+        result = create_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=length_bridgedeck,
+            width_bridgedeck=width_bridgedeck,
+            width_firstsegment_zone3=width_firstsegment_zone3,
+            width_firstsegment_zone2=width_firstsegment_zone2,
+            udl_value=udl_value,
+        )
+
+        # Verify basic structure of results
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert "BG4001" in result, "Result should contain BG4001 load case"
+        assert "BG4002" in result, "Result should contain BG4002 load case"
+
+        # Check structure of BG4001 (leftmost lanes)
+        bg4001 = result["BG4001"]
+        assert all(key in bg4001 for key in ["main", "other", "rest"]), "BG4001 should have main, other, and rest areas"
+
+        # Check main lane properties in BG4001
+        main_loads = bg4001["main"]
+        assert len(main_loads) == 1, "Should have exactly one main lane"
+
+        # Calculate expected load values with factors
+        expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
+        expected_other_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
+        expected_rest_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[1]
+
+        # Check load values with factors applied
+        assert abs(main_loads[0]["load"] - expected_main_load) < 0.1, f"Main lane load should be {expected_main_load}"
+
+        # Verify polygon structure
+        main_polygon = main_loads[0]["polygon"]
+        assert len(main_polygon) == 4, "Load polygon should have 4 corners"
+        assert all(len(point) == 3 for point in main_polygon), "Each point should have x, y, z coordinates"
+        assert all(point[2] == 0.0 for point in main_polygon), "All z-coordinates should be 0.0"
+
+        # Check other lanes properties
+        other_loads = bg4001["other"]
+        for load in other_loads:
+            assert abs(load["load"] - expected_other_load) < 0.1, f"Other lanes should have {expected_other_load} kN/m² load"
+            assert len(load["polygon"]) == 4, "Other lane polygons should have 4 corners"
+
+        # Check rest area load value if it exists
+        if bg4001.get("rest"):
+            rest_loads = bg4001["rest"]
+            for load in rest_loads:
+                assert abs(load["load"] - expected_rest_load) < 0.1, f"Rest areas should have {expected_rest_load} kN/m² load"
+
+    def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
+        """Test UDL traffic loads creation with edge cases."""
+        from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+
+        # Configure mock params to handle dictionary-style access
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
+
+        # Configure mock params
+        mock_params.input = Mock()
+        mock_params.input.belastingsfactoren = Mock()
+        mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
+
+        # Test with minimal bridge width (just enough for one lane)
+        result_narrow = create_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=10.0,
+            width_bridgedeck=5.5,  # Just enough for one lane + zones
+            width_firstsegment_zone3=1.0,
+            width_firstsegment_zone2=1.0,
+            udl_value=9000.0,
+        )
+
+        # Should still create main lane
+        assert "BG4001" in result_narrow
+        assert len(result_narrow["BG4001"]["main"]) == 1, "Should have one main lane even with minimal width"
+
+        # Test with zero load value (although unrealistic, should handle gracefully)
+        result_zero_load = create_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=10.0,
+            width_bridgedeck=10.0,
+            width_firstsegment_zone3=1.0,
+            width_firstsegment_zone2=1.0,
+            udl_value=0.0,
+        )
+
+        assert "BG4001" in result_zero_load
+        assert result_zero_load["BG4001"]["main"][0]["load"] == 0.0, "Should handle zero load value"
 
 
 if __name__ == "__main__":
