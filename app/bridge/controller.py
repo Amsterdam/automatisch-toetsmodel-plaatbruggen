@@ -899,22 +899,22 @@ class BridgeController(ViktorController):
     def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
         """Print a summary of SCIA results to console for debugging/development."""
         # Analysis status
-        analysis_status = results.get("analysis_status", {})
+        results.get("analysis_status", {})
 
         # Result classes
         xml_parsing = results.get("xml_parsing", {})
         if isinstance(xml_parsing, dict):
             parsed_tables = xml_parsing.get("parsed_tables", {})
-            result_class_tables = [name for name in parsed_tables if "Resultaatklasses" in name]
+            [name for name in parsed_tables if "Resultaatklasses" in name]
 
         # Engineering data summary
-        displacements = results.get("displacements", {})
-        internal_forces = results.get("internal_forces", {})
+        results.get("displacements", {})
+        results.get("internal_forces", {})
 
         # Data tables summary
         if isinstance(xml_parsing, dict):
             table_details = xml_parsing.get("table_details", [])
-            tables_with_data = [t for t in table_details if t.get("has_data", False)]
+            [t for t in table_details if t.get("has_data", False)]
 
         # Extract and print force envelopes
         self._print_force_envelopes(results)
@@ -929,10 +929,11 @@ class BridgeController(ViktorController):
                 try:
                     for i, row in enumerate(force_data.rows[:3]):
                         if hasattr(row, "m_x") and hasattr(row, "v_x"):
-                            element = getattr(row, "element_name", f"Element {i + 1}")
-                            moment_x = float(row.m_x) / 1000000  # Convert to kNm
-                            shear_x = float(row.v_x) / 1000  # Convert to kN
-                            load_case = getattr(row, "load_case", "Unknown")
+                            # Access attributes but don't store in unused variables
+                            getattr(row, "element_name", f"Element {i + 1}")
+                            float(row.m_x) / 1000000  # Convert to kNm
+                            float(row.v_x) / 1000  # Convert to kN
+                            getattr(row, "load_case", "Unknown")
                 except Exception:
                     pass
 
@@ -944,9 +945,10 @@ class BridgeController(ViktorController):
                 try:
                     for i, row in enumerate(disp_data.rows[:3]):
                         if hasattr(row, "u_z"):
-                            element = getattr(row, "element_name", f"Point {i + 1}")
-                            displacement = float(row.u_z) * 1000  # Convert to mm
-                            load_case = getattr(row, "load_case", "Unknown")
+                            # Access attributes but don't store in unused variables
+                            getattr(row, "element_name", f"Point {i + 1}")
+                            float(row.u_z) * 1000  # Convert to mm
+                            getattr(row, "load_case", "Unknown")
                 except Exception:
                     pass
 
@@ -963,10 +965,10 @@ class BridgeController(ViktorController):
                 return
 
             # Print summary for each bridge section and force component
-            for section, section_envelopes in envelopes.items():
+            for section_envelopes in envelopes.values():
                 # Process bridge section
 
-                for component, envelope in section_envelopes.items():
+                for envelope in section_envelopes.values():
                     max_data = envelope["max"]
                     min_data = envelope["min"]
 
@@ -977,19 +979,19 @@ class BridgeController(ViktorController):
 
                     # Process component envelope
                     # Process maximum force data
-                    forces = max_data["forces"]
+                    max_data["forces"]
                     # Process complete force state
                     # Process moment data
                     # Process moment data
 
                     # Process minimum force data
-                    forces = min_data["forces"]
+                    min_data["forces"]
                     # Process complete force state
                     # Process moment data
                     # Process moment data
 
             # Print summary statistics
-            summary = get_force_envelope_summary(envelopes)
+            get_force_envelope_summary(envelopes)
             # Summary processing without printing
             # Process critical locations
             # Process critical combinations
