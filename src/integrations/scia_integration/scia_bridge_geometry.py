@@ -218,6 +218,7 @@ def generate_tandem_loads_for_bridge(
     if mode == "theoretical":
         try:
             tandem_loads_bg8000 = tandem_function(
+                params,
                 bridge_params["length_bridgedeck"],
                 bridge_params["width_bridgedeck"],
                 bridge_params["thickness_bridgedeck"],
@@ -229,6 +230,7 @@ def generate_tandem_loads_for_bridge(
         # Generate tandem loads for configuration with reversed lane order (9000 series)
         try:
             tandem_loads_bg9000 = tandem_function2(
+                params,
                 bridge_params["length_bridgedeck"],
                 bridge_params["width_bridgedeck"],
                 bridge_params["thickness_bridgedeck"],
@@ -241,6 +243,7 @@ def generate_tandem_loads_for_bridge(
         # Generate tandem loads for configuration with middle lane order (10000 series)
         try:
             tandem_loads_bg10000 = tandem_function3(
+                params,
                 bridge_params["length_bridgedeck"],
                 bridge_params["width_bridgedeck"],
                 bridge_params["thickness_bridgedeck"],

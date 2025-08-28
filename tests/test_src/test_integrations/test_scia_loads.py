@@ -479,9 +479,276 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
+    def test_create_real_udl_traffic_loads_basic_case(
+        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock
+    ) -> None:
+        """Test creation of UDL traffic loads based on actual road configuration."""
+        from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
+
+        # Test case parameters
+        length_bridgedeck = 20.0  # 20m long bridge
+        udl_value = 9000.0  # 9 kN/m²
+
+        # Configure mock params
+        mock_params.reference_period = 50  # years
+        mock_params.load_zones_data_array = [
+            {
+                "zone_type": "Auto",
+                "d1_width": 10.5,
+                "zone_widths_per_d": [10.5, 10.5, 10.5, 10.5],
+                "y_coords_top_current_zone": [6.5, 6.5, 6.5, 6.5]
+            }
+        ]
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
+
+        # Mock the load factors
+        mock_psi.return_value = 1.0  # Example psi factor
+        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
+        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
+
+        # Execute the function
+        result = create_real_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=length_bridgedeck,
+            udl_value=udl_value,
+        )
+
+        # Verify basic structure of results
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert "UDL_Real" in result, "Result should contain UDL_Real key"
+        
+        udl_data = result["UDL_Real"]
+        
+        # Check structure of UDL_Real
+        assert all(key in udl_data for key in ["load_name", "load_value", "load_direction", "geometry"]), \
+            "UDL_Real should have load_name, load_value, load_direction, and geometry"
+        
+        # Check load direction
+        assert udl_data["load_direction"] == "z", "Load direction should be vertical (z)"
+        
+        # Check geometry properties
+        geometry = udl_data["geometry"]
+        assert isinstance(geometry, list), "Geometry should be a list"
+        assert len(geometry) > 0, "Geometry should not be empty"
+        
+        # Verify each polygon in geometry
+        for poly in geometry:
+            assert len(poly) == 4, "Each polygon should have 4 corners"
+            assert all(len(point) == 3 for point in poly), "Each point should have x, y, z coordinates"
+            assert all(point[2] == 0.0 for point in poly), "All z-coordinates should be 0.0"
+        
+        # Calculate expected load value with factors
+        expected_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
+        assert abs(udl_data["load_value"] - expected_load) < 0.1, f"Load value should be {expected_load}"
+
+    def test_create_real_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
+        """Test real UDL traffic loads creation with edge cases."""
+        from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
+
+        # Configure mock params
+        mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
+        mock_params.__contains__ = Mock(return_value=True)
+        mock_params.reference_period = 50
+
+        # Test with minimal road width
+        mock_params.load_zones_data_array = [
+            {
+                "zone_type": "Auto",
+                "d1_width": 3.0,  # Minimal width for one lane
+                "zone_widths_per_d": [3.0, 3.0, 3.0, 3.0],
+                "y_coords_top_current_zone": [3.0, 3.0, 3.0, 3.0]
+            }
+        ]
+        result_narrow = create_real_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=10.0,
+            udl_value=9000.0,
+        )
+        assert "UDL_Real" in result_narrow
+        assert len(result_narrow["UDL_Real"]["geometry"]) > 0, "Should handle minimal width road"
+
+        # Test with no auto zone (should handle gracefully)
+        mock_params.load_zones_data_array = [
+            {
+                "zone_type": "Voetgangers",
+                "d1_width": 3.0,
+                "zone_widths_per_d": [3.0, 3.0, 3.0, 3.0],
+                "y_coords_top_current_zone": [3.0, 3.0, 3.0, 3.0]
+            }
+        ]
+        result_no_auto = create_real_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=10.0,
+            udl_value=9000.0,
+        )
+        assert "UDL_Real" in result_no_auto
+        assert len(result_no_auto["UDL_Real"]["geometry"]) == 0, "Should handle no auto zone case"
+
+        # Test with zero load value
+        mock_params.load_zones_data_array = [
+            {
+                "zone_type": "Auto",
+                "d1_width": 10.5,
+                "zone_widths_per_d": [10.5, 10.5, 10.5, 10.5],
+                "y_coords_top_current_zone": [6.5, 6.5, 6.5, 6.5]
+            }
+        ]
+        result_zero_load = create_real_udl_traffic_loads(
+            params=mock_params,
+            length_bridgedeck=10.0,
+            udl_value=0.0,
+        )
+        assert "UDL_Real" in result_zero_load
+        assert result_zero_load["UDL_Real"]["load_value"] == 0.0, "Should handle zero load value"
+
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_load_zones_data_from_params")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data")
+    @patch("src.integrations.scia_integration.scia_loads_helper.calculate_zone_geometry_properties")
+    def test_obtain_y_coordinates_road_basic_case(
+        self, mock_calc_geom: Mock, mock_bridge_geom: Mock, mock_load_zones: Mock, mock_params: Mock
+    ) -> None:
+        """Test obtaining y-coordinates for road section in basic case."""
+        from src.integrations.scia_integration.scia_loads_helper import obtain_y_coordinates_road
+
+        # Setup mock bridge geometry data
+        mock_bridge_geom_data = Mock()
+        mock_bridge_geom.return_value = mock_bridge_geom_data
+
+        # Setup mock load zones data
+        mock_load_zones.return_value = [
+            {
+                "zone_type": "Auto",
+                "d1_width": 10.5,
+                "y_coords_top_current_zone": [6.5]
+            }
+        ]
+        mock_calc_geom.return_value = mock_load_zones.return_value
+
+        # Execute function
+        y_coord, width = obtain_y_coordinates_road(mock_params)
+
+        # Verify results
+        assert y_coord == 6.5, "Y-coordinate should match the top of Auto zone"
+        assert width == 10.5, "Width should match d1_width of Auto zone"
+
+        # Verify mocks were called correctly
+        mock_load_zones.assert_called_once_with(mock_params)
+        mock_bridge_geom.assert_called_once_with(mock_params)
+        mock_calc_geom.assert_called_once()
+
+    def test_obtain_y_coordinates_road_edge_cases(self, mock_params: Mock) -> None:
+        """Test obtaining y-coordinates for road section in edge cases."""
+        from src.integrations.scia_integration.scia_loads_helper import obtain_y_coordinates_road
+
+        with patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data") as mock_bridge_geom:
+            # Test case: No bridge geometry data
+            mock_bridge_geom.return_value = None
+            y_coord, width = obtain_y_coordinates_road(mock_params)
+            assert y_coord == 0.0, "Should return 0.0 when no bridge geometry data"
+            assert width == 0.0, "Should return 0.0 when no bridge geometry data"
+
+        with (
+            patch("src.integrations.scia_integration.scia_loads_helper.get_load_zones_data_from_params") as mock_load_zones,
+            patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data") as mock_bridge_geom,
+            patch("src.integrations.scia_integration.scia_loads_helper.calculate_zone_geometry_properties") as mock_calc_geom,
+        ):
+            # Setup for remaining tests
+            mock_bridge_geom.return_value = Mock()
+
+            # Test case: No Auto zone
+            mock_load_zones.return_value = [{"zone_type": "Voetgangers"}]
+            mock_calc_geom.return_value = mock_load_zones.return_value
+            y_coord, width = obtain_y_coordinates_road(mock_params)
+            assert y_coord == 0.0, "Should return 0.0 when no Auto zone"
+            assert width == 0.0, "Should return 0.0 when no Auto zone"
+
+            # Test case: Empty y_coords list
+            mock_load_zones.return_value = [{"zone_type": "Auto", "y_coords_top_current_zone": []}]
+            mock_calc_geom.return_value = mock_load_zones.return_value
+            y_coord, width = obtain_y_coordinates_road(mock_params)
+            assert y_coord == 0.0, "Should return 0.0 when y_coords is empty"
+
+            # Test case: Invalid d1_width (non-numeric)
+            mock_load_zones.return_value = [
+                {
+                    "zone_type": "Auto",
+                    "d1_width": "invalid",
+                    "y_coords_top_current_zone": [5.0]
+                }
+            ]
+            mock_calc_geom.return_value = mock_load_zones.return_value
+            y_coord, width = obtain_y_coordinates_road(mock_params)
+            assert width == 0.0, "Should return 0.0 when d1_width is invalid"
+
+    def test_generate_real_lane_positions_bg8000(self, mock_params: Mock) -> None:
+        """Test generation of lane positions for BG8000 load group."""
+        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg8000
+
+        with (
+            patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_obtain_coords
+        ):
+            # Test case: Normal road width with multiple lanes
+            mock_obtain_coords.return_value = (10.0, 9.0)  # y_top = 10.0, width = 9.0
+            lane_positions = generate_real_lane_positions_bg8000(mock_params)
+            assert len(lane_positions) == 3, "Should have 3 lanes for 9.0m width"
+            # Verify lane centers are correctly positioned from bottom up
+            assert lane_positions[0] == pytest.approx(1.5), "First lane center should be at y=1.5"
+            assert lane_positions[1] == pytest.approx(4.5), "Second lane center should be at y=4.5"
+            assert lane_positions[2] == pytest.approx(7.5), "Third lane center should be at y=7.5"
+
+            # Test case: Minimal road width (one lane)
+            mock_obtain_coords.return_value = (5.0, 3.0)  # y_top = 5.0, width = 3.0
+            lane_positions = generate_real_lane_positions_bg8000(mock_params)
+            assert len(lane_positions) == 1, "Should have 1 lane for 3.0m width"
+            assert lane_positions[0] == pytest.approx(3.5), "Single lane center should be at y=3.5"
+
+            # Test case: Invalid road width
+            mock_obtain_coords.return_value = (0.0, 0.0)
+            with pytest.raises(ValueError, match="Road width must be a positive value"):
+                generate_real_lane_positions_bg8000(mock_params)
+
+            # Test case: Invalid lane width
+            with pytest.raises(ValueError, match="Lane width must be positive"):
+                generate_real_lane_positions_bg8000(mock_params, lane_width=0)
+
+    def test_generate_real_lane_positions_bg9000(self, mock_params: Mock) -> None:
+        """Test generation of lane positions for BG9000 load group."""
+        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg9000
+
+        with (
+            patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_obtain_coords
+        ):
+            # Test case: Normal road width with multiple lanes
+            mock_obtain_coords.return_value = (10.0, 9.0)  # y_top = 10.0, width = 9.0
+            lane_positions = generate_real_lane_positions_bg9000(mock_params)
+            assert len(lane_positions) == 3, "Should have 3 lanes for 9.0m width"
+            # Verify lane centers are correctly positioned from top down
+            assert lane_positions[0] == pytest.approx(8.5), "First lane center should be at y=8.5"
+            assert lane_positions[1] == pytest.approx(5.5), "Second lane center should be at y=5.5"
+            assert lane_positions[2] == pytest.approx(2.5), "Third lane center should be at y=2.5"
+
+            # Test case: Minimal road width (one lane)
+            mock_obtain_coords.return_value = (5.0, 3.0)  # y_top = 5.0, width = 3.0
+            lane_positions = generate_real_lane_positions_bg9000(mock_params)
+            assert len(lane_positions) == 1, "Should have 1 lane for 3.0m width"
+            assert lane_positions[0] == pytest.approx(3.5), "Single lane center should be at y=3.5"
+
+            # Test case: Invalid road width
+            mock_obtain_coords.return_value = (0.0, 0.0)
+            with pytest.raises(ValueError, match="Road width must be a positive value"):
+                generate_real_lane_positions_bg9000(mock_params)
+
+            # Test case: Invalid lane width
+            with pytest.raises(ValueError, match="Lane width must be positive"):
+                generate_real_lane_positions_bg9000(mock_params, lane_width=0)
+
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
     def test_create_udl_traffic_loads_basic_case(self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
-        from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+        from src.integrations.scia_integration.scia_loads_helper import create_theoretical_udl_traffic_loads
 
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
@@ -500,7 +767,7 @@ class TestUniformlyDistributedLoads:
         mock_alpha_q.return_value = [0.95, 1.0]  # Example alpha q factors for main and other lanes
 
         # Execute the function
-        result = create_udl_traffic_loads(
+        result = create_theoretical_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=length_bridgedeck,
             width_bridgedeck=width_bridgedeck,
@@ -550,7 +817,7 @@ class TestUniformlyDistributedLoads:
 
     def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
         """Test UDL traffic loads creation with edge cases."""
-        from src.integrations.scia_integration.scia_loads_helper import create_udl_traffic_loads
+        from src.integrations.scia_integration.scia_loads_helper import create_theoretical_udl_traffic_loads
 
         # Configure mock params to handle dictionary-style access
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
@@ -562,7 +829,7 @@ class TestUniformlyDistributedLoads:
         mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
 
         # Test with minimal bridge width (just enough for one lane)
-        result_narrow = create_udl_traffic_loads(
+        result_narrow = create_theoretical_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
             width_bridgedeck=5.5,  # Just enough for one lane + zones
@@ -576,7 +843,7 @@ class TestUniformlyDistributedLoads:
         assert len(result_narrow["BG4001"]["main"]) == 1, "Should have one main lane even with minimal width"
 
         # Test with zero load value (although unrealistic, should handle gracefully)
-        result_zero_load = create_udl_traffic_loads(
+        result_zero_load = create_theoretical_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
             width_bridgedeck=10.0,
