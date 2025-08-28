@@ -96,11 +96,21 @@ class TestStandardLoadCases:
         create_pedestrian_load_case(mock_builder)
         mock_builder.create_load_case.assert_called_once()
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_tandem_parameters_from_bridge")
+    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
     def test_create_service_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of service vehicle load case definitions with dynamic X positions."""
-        mock_extract.return_value = {"length_bridgedeck": 50.0, "thickness_bridgedeck": 0.5}
+        # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
+        from src.integrations.scia_integration.scia_bridge_geometry import BridgeDimensions
+        mock_extract.return_value = BridgeDimensions(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5
+        )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
 
@@ -136,11 +146,21 @@ class TestStandardLoadCases:
             duration="SHORT",
         )
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_tandem_parameters_from_bridge")
+    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
     def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of unintended vehicle load case definitions with bidirectional X positions."""
-        mock_extract.return_value = {"length_bridgedeck": 50.0, "thickness_bridgedeck": 0.5}
+        # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
+        from src.integrations.scia_integration.scia_bridge_geometry import BridgeDimensions
+        mock_extract.return_value = BridgeDimensions(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5
+        )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
 
@@ -235,7 +255,7 @@ class TestTandemLoadCases:
         with pytest.raises(ValueError, match="RS must be 1, 2, or 3"):
             create_tandem_rs_load_cases(mock_builder, 4, 50.0, 0.5)
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_tandem_parameters_from_bridge")
+    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.generate_theoretical_lane_positions")
     @patch("src.integrations.scia_integration.scia_load_cases.create_tandem_rs_load_cases")
     def test_create_dynamic_tandem_load_cases(

@@ -11,7 +11,7 @@ import pytest
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.scia_integration.scia_bridge_geometry import (
     align_bridge_coordinates_to_scia,
-    convert_tandem_data_to_scia_format,
+    convert_loads_to_scia_format,
     convert_wheel_coordinates_to_3d,
     extract_bridge_dimensions,
     extract_zone_boundaries,
@@ -177,7 +177,7 @@ class TestCoordinateConversion:
         expected = [(10.0, 3.0, 0.0), (10.4, 3.0, 0.0), (10.4, 3.4, 0.0), (10.0, 3.4, 0.0)]
         assert result == expected
 
-    def test_convert_tandem_data_to_scia_format(self) -> None:
+    def test_convert_loads_to_scia_format(self) -> None:
         """Test tandem data format conversion."""
         tandem_data = [
             {
@@ -191,7 +191,7 @@ class TestCoordinateConversion:
             }
         ]
 
-        result = convert_tandem_data_to_scia_format(tandem_data)
+        result = convert_loads_to_scia_format(tandem_data)
 
         assert len(result) == 1
         scia_load = result[0]

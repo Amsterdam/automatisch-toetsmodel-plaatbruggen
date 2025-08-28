@@ -10,7 +10,7 @@ from typing import Any
 from src.geometry.load_zone_geometry import get_bridge_geom_data
 
 from .scia_bridge_geometry import (
-    convert_tandem_data_to_scia_format,
+    convert_loads_to_scia_format,
     extract_bridge_dimensions,
     generate_tandem_loads,
 )
@@ -102,7 +102,7 @@ def add_theoretical_tandem_loads(
     raw_tandem_data = generate_tandem_loads(params, mode="theoretical")
 
     # 3. Convert tandem data to SCIA format for surface loads
-    scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
+    scia_tandem_data = convert_loads_to_scia_format(raw_tandem_data)
 
     # 4. Create surface loads using the builder, applying them to the correct load case
 

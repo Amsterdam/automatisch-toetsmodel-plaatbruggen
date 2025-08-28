@@ -6,7 +6,7 @@ This module provides a clean, simple interface for:
 2. Generating tandem loads (theoretical or actual lanes)
 3. Converting load data for SCIA format
 
-Easy to extend for new load types (UDL, wind, temperature, etc.).
+Easy to extend for new load types (UDL, etc.).
 
 HOW TO ADD NEW LOAD TYPES (e.g., UDL):
 ========================================
@@ -569,15 +569,6 @@ def _convert_udl_to_scia(load_data: list[dict[str, Any]]) -> list[dict[str, Any]
         )
 
     return scia_cases
-
-
-def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """
-    Legacy function name for backward compatibility.
-
-    DEPRECATED: Use convert_loads_to_scia_format() instead.
-    """
-    return convert_loads_to_scia_format(tandem_data)
 
 
 # =============================================================================
