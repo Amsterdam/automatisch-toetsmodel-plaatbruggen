@@ -51,8 +51,8 @@ class TestTheoreticalTandemLoads:
         mock_load_cases: dict[str, Any] = {}
         add_theoretical_tandem_loads(mock_builder, mock_params, mock_load_cases)
 
-        # Verify workflow
-        mock_generate.assert_called_once_with(mock_params, mode="theoretical")
+        # Verify workflow (mode parameter is now ignored, only params is passed)
+        mock_generate.assert_called_once_with(mock_params)
         mock_convert.assert_called_once_with(mock_generate.return_value)
 
         # Verify builder calls

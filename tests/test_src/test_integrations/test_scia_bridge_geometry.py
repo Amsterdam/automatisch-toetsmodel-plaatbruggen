@@ -130,12 +130,15 @@ class TestTandemLoadGeneration:
         mock_segment.dz = 1.8
         mock_segment.dz_2 = 2.0  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
+        
+        # Set berekeningsniveau to theoretical mode
+        params.berekeningsniveau = "Theoretische wegindeling"
 
         # Add required attributes for theoretical functions
         params.__getitem__ = Mock(return_value="NEN 8700")  # For params["design_code"]
 
-        # This should call the new clean function
-        result = generate_tandem_loads(params, mode="theoretical")
+        # This should call the new clean function (mode parameter is ignored)
+        result = generate_tandem_loads(params)
 
         # The result should be a list of load cases
         assert isinstance(result, list)
@@ -153,6 +156,9 @@ class TestTandemLoadGeneration:
         mock_segment.dz = 1.8
         mock_segment.dz_2 = 2.0  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
+        
+        # Set berekeningsniveau to actual mode
+        params.berekeningsniveau = "Werkelijke wegindeling"
 
         # Mock the load zones data that actual mode needs
         params.load_zones_data_array = []
@@ -161,21 +167,27 @@ class TestTandemLoadGeneration:
         with patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_road:
             mock_road.return_value = (10.0, 9.0)  # y_top=10.0, width=9.0
 
-            # This should call the new clean function
-            result = generate_tandem_loads(params, mode="actual")
+            # This should call the new clean function (mode parameter is ignored)
+            result = generate_tandem_loads(params)
 
         # The result should be a list of load cases
         assert isinstance(result, list)
 
-    def test_generate_tandem_loads_invalid_mode(self) -> None:
-        """Test error handling for invalid mode."""
+    def test_generate_tandem_loads_invalid_berekeningsniveau(self) -> None:
+        """Test error handling for invalid berekeningsniveau value."""
         params = Mock()
         params.bridge_segments_array = [
             Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
         ]
+        # Set an invalid berekeningsniveau value (should fallback to theoretical)
+        params.berekeningsniveau = "Invalid value"
 
-        with pytest.raises(ValueError, match="Invalid mode 'invalid'"):
-            generate_tandem_loads(params, mode="invalid")
+        # Mock the design_code access for theoretical mode
+        params.__getitem__ = Mock(return_value="NEN 8700 verbouw")
+
+        # Should not raise an error, but fallback to theoretical mode
+        result = generate_tandem_loads(params)
+        assert isinstance(result, list)
 
 
 class TestCoordinateConversion:
