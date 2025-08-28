@@ -298,7 +298,7 @@ def convert_tandem_data_to_scia_format(tandem_data: list[dict[str, Any]]) -> lis
     return scia_load_cases
 
 
-def get_bridge_deck_zone_coordinates(params: Any) -> dict[str, list[list[float]]]:  # noqa: ANN401
+def get_bridge_deck_zone_coordinates(params: Any) -> dict[str, list[tuple[float, float, float]]]:  # noqa: ANN401
     """
     Get coordinates of bridge deck zones spanning between segment boundaries.
 
@@ -309,8 +309,8 @@ def get_bridge_deck_zone_coordinates(params: Any) -> dict[str, list[list[float]]
 
     :param params: Bridge parameters containing bridge_segments_array
     :returns: Dictionary with zone names (zone_1_{n}, zone_2_{n}, zone_3_{n}) as keys
-              and list of 4 corner coordinates [[x,y,z], ...] as values
-    :rtype: dict[str, list[list[float]]]
+              and list of 4 corner coordinates [(x, y, z), ...] as values
+    :rtype: dict[str, list[tuple[float, float, float]]]
     :raises IndexError: When no bridge segments are provided
     """
     if not params.bridge_segments_array:
@@ -352,30 +352,30 @@ def get_bridge_deck_zone_coordinates(params: Any) -> dict[str, list[list[float]]
         # Zone 1 (rightmost zone)
         zone1_name = f"zone_1_{zone_num}"
         zone1_corners = [
-            [x_start, prev_z1_y_plus, z_coord],  # Top-left
-            [x_end, z1_y_plus, z_coord],  # Top-right
-            [x_end, z1_y_minus, z_coord],  # Bottom-right
-            [x_start, prev_z1_y_minus, z_coord],  # Bottom-left
+            (x_start, prev_z1_y_plus, z_coord),
+            (x_end, z1_y_plus, z_coord),
+            (x_end, z1_y_minus, z_coord),
+            (x_start, prev_z1_y_minus, z_coord),
         ]
         zone_coordinates[zone1_name] = zone1_corners
 
         # Zone 2 (middle zone)
         zone2_name = f"zone_2_{zone_num}"
         zone2_corners = [
-            [x_start, prev_z1_y_minus, z_coord],  # Top-left
-            [x_end, z1_y_minus, z_coord],  # Top-right
-            [x_end, z3_y_plus, z_coord],  # Bottom-right
-            [x_start, prev_z3_y_plus, z_coord],  # Bottom-left
+            (x_start, prev_z1_y_minus, z_coord),
+            (x_end, z1_y_minus, z_coord),
+            (x_end, z3_y_plus, z_coord),
+            (x_start, prev_z3_y_plus, z_coord),
         ]
         zone_coordinates[zone2_name] = zone2_corners
 
         # Zone 3 (leftmost zone)
         zone3_name = f"zone_3_{zone_num}"
         zone3_corners = [
-            [x_start, prev_z3_y_plus, z_coord],  # Top-left
-            [x_end, z3_y_plus, z_coord],  # Top-right
-            [x_end, z3_y_minus, z_coord],  # Bottom-right
-            [x_start, prev_z3_y_minus, z_coord],  # Bottom-left
+            (x_start, prev_z3_y_plus, z_coord),
+            (x_end, z3_y_plus, z_coord),
+            (x_end, z3_y_minus, z_coord),
+            (x_start, prev_z3_y_minus, z_coord),
         ]
         zone_coordinates[zone3_name] = zone3_corners
 
@@ -453,7 +453,7 @@ def get_bridge_deck_zone_materials_and_thickness(params: Any) -> dict[str, dict[
     return zone_materials_thickness
 
 
-def get_bridge_load_zone_coordinates(params: Any) -> dict[str, list[list[float]]]:  # noqa: ANN401
+def get_bridge_load_zone_coordinates(params: Any) -> dict[str, list[tuple[float, float, float]]]:  # noqa: ANN401
     """
     Get coordinates of bridge load zones spanning between segment boundaries.
 
@@ -463,8 +463,8 @@ def get_bridge_load_zone_coordinates(params: Any) -> dict[str, list[list[float]]
     quadrilateral that transitions between different zone widths across segments.
 
     :param params: Bridge parameters containing bridge_segments_array and load_zones_data_array
-    :returns: Dictionary with load zone names as keys and list of 4 corner coordinates [[x,y,z], ...] as values
-    :rtype: dict[str, list[list[float]]]
+    :returns: Dictionary with load zone names as keys and list of 4 corner coordinates [(x, y, z), ...] as values
+    :rtype: dict[str, list[tuple[float, float, float]]]
     :raises IndexError: When no bridge segments or load zones are provided
     """
     if not params.bridge_segments_array:
@@ -530,10 +530,10 @@ def get_bridge_load_zone_coordinates(params: Any) -> dict[str, list[list[float]]
 
             # Create zone polygon with 4 corner points in clockwise order
             zone_corners = [
-                [x_start, prev_y_start, z_coord],  # Top-left (start of segment, upper boundary)
-                [x_end, curr_y_start, z_coord],  # Top-right (end of segment, upper boundary)
-                [x_end, curr_y_end, z_coord],  # Bottom-right (end of segment, lower boundary)
-                [x_start, prev_y_end, z_coord],  # Bottom-left (start of segment, lower boundary)
+                (x_start, prev_y_start, z_coord),
+                (x_end, curr_y_start, z_coord),
+                (x_end, curr_y_end, z_coord),
+                (x_start, prev_y_end, z_coord),
             ]
             load_zone_coordinates[zone_name] = zone_corners
 
@@ -584,13 +584,13 @@ def get_bridge_load_zone_materials_and_thickness(params: Any) -> dict[str, dict[
     return load_zone_materials_thickness
 
 
-def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list[float]]) -> bool:
+def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[tuple[float, float, float]]) -> bool:
     """
     Check if a point is inside a polygon using ray casting algorithm.
 
     :param point_x: X coordinate of the point
     :param point_y: Y coordinate of the point
-    :param polygon_corners: List of polygon corner coordinates [[x,y,z], ...]
+    :param polygon_corners: List of polygon corner coordinates [(x, y, z), ...]
     :returns: True if point is inside polygon, False otherwise
     :rtype: bool
     """
@@ -610,17 +610,18 @@ def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list
     return inside
 
 
-def get_deck_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[Any, float | None]:  # noqa: ANN401
+def get_deck_mat_and_thick_at_coord(params: Any, coord: tuple[float, float, float]) -> tuple[Any, float | None]:  # noqa: ANN401
     """
     Get the deck zone material and interpolated thickness at the given coordinate.
 
-    This function takes a 3D coordinate [x, y, z] and returns the deck zone material and
+    This function takes a 3D coordinate (x, y, z) and returns the deck zone material and
     interpolated thickness at that location. The thickness is linearly interpolated based
     on the x-coordinate position between the start and end D-lines of the zone. Since all
     zones are at deck level (z=0), only the x and y coordinates are used for the search.
 
     :param params: Bridge parameters containing bridge_segments_array
-    :param coord: 3D coordinate [x, y, z] to search for (z-coordinate is ignored)
+    :param coord: 3D coordinate (x, y, z) to search for (z-coordinate is ignored)
+    :type coord: tuple[float, float, float]
     :returns: Tuple of (material, interpolated_thickness) or (None, None) if not found
     :rtype: tuple[Any, float | None]
     :raises IndexError: When no bridge segments are provided
@@ -629,8 +630,8 @@ def get_deck_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
     if not params.bridge_segments_array:
         raise IndexError("No bridge segments provided")
 
-    if not isinstance(coord, list) or len(coord) != 3:
-        raise ValueError("Coordinate must be a list of 3 values [x, y, z]")
+    if not (isinstance(coord, tuple) and len(coord) == 3):
+        raise ValueError("Coordinate must be a tuple of 3 values (x, y, z)")
 
     x, y, z = coord
     # Note: z-coordinate is ignored since all zones are at deck level (z=0)
@@ -645,7 +646,7 @@ def get_deck_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
             zone_data = deck_zones_materials[zone_name]
 
             # Extract the start and end x-coordinates from zone corners
-            # Zone corners are: [x_start, y, z], [x_end, y, z], [x_end, y, z], [x_start, y, z]
+            # Zone corners are: (x_start, y, z), (x_end, y, z), (x_end, y, z), (x_start, y, z)
             x_start = zone_corners[0][0]  # x-coordinate of start D-line
             x_end = zone_corners[1][0]  # x-coordinate of end D-line
 
@@ -673,16 +674,17 @@ def get_deck_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
     return (None, None)
 
 
-def get_load_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[Any, float | None]:  # noqa: ANN401
+def get_load_mat_and_thick_at_coord(params: Any, coord: tuple[float, float, float]) -> tuple[Any, float | None]:  # noqa: ANN401
     """
     Get the load zone material and thickness at the given coordinate.
 
-    This function takes a 3D coordinate [x, y, z] and returns the load zone material and
+    This function takes a 3D coordinate (x, y, z) and returns the load zone material and
     thickness at that location. Since all zones are at deck level (z=0), only the x and y
     coordinates are used for the search.
 
     :param params: Bridge parameters containing bridge_segments_array and load_zones_data_array
-    :param coord: 3D coordinate [x, y, z] to search for (z-coordinate is ignored)
+    :param coord: 3D coordinate (x, y, z) to search for (z-coordinate is ignored)
+    :type coord: tuple[float, float, float]
     :returns: Tuple of (material, thickness) or (None, None) if not found
     :rtype: tuple[Any, float | None]
     :raises IndexError: When no bridge segments or load zones are provided
@@ -693,8 +695,8 @@ def get_load_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
     if not params.load_zones_data_array:
         raise IndexError("No bridge load zones provided")
 
-    if not isinstance(coord, list) or len(coord) != 3:
-        raise ValueError("Coordinate must be a list of 3 values [x, y, z]")
+    if not (isinstance(coord, tuple) and len(coord) == 3):
+        raise ValueError("Coordinate must be a tuple of 3 values (x, y, z)")
 
     x, y, z = coord
     # Note: z-coordinate is ignored since all zones are at deck level (z=0)
@@ -715,21 +717,17 @@ def get_load_mat_and_thick_at_coord(params: Any, coord: list[float]) -> tuple[An
     return (None, None)
 
 
-def get_dispersion_at_coord(params: Any, coord: list[float]) -> dict[str, float | None]:  # noqa: ANN401
+def get_dispersion_at_coord(params: Any, coord: tuple[float, float, float]) -> dict[str, float | None]:  # noqa: ANN401
     """
     Calculate horizontal dispersion distances for deck and load zones at a coordinate.
 
-    The function checks both deck and load zones for the specified materials and returns
+    The function checks both deck and load zones at the specified coordinate and returns
     the horizontal dispersion distance for each zone type (if found).
 
     :param params: Bridge parameters
     :type params: Any
-    :param coord: 3D coordinate [x, y, z]
-    :type coord: list[float]
-    :param dispersion_angle_deg: Dispersion angle in degrees
-    :type dispersion_angle_deg: float
-    :param materials: Sequence of material names for which to calculate dispersion
-    :type materials: Sequence[str]
+    :param coord: 3D coordinate as a tuple (x, y, z)
+    :type coord: tuple[float, float, float]
     :returns: Dictionary with keys 'deck_zone' and 'load_zone', values are horizontal dispersion distances or None
     :rtype: dict[str, float | None]
     """
