@@ -596,13 +596,47 @@ def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[tupl
     n = len(polygon_corners)
     inside = False
 
+    def _point_on_segment(px: float, py: float, x1: float, y1: float, x2: float, y2: float, eps: float = 1e-9) -> bool:
+        """
+        Check if point (px, py) is on the segment from (x1, y1) to (x2, y2).
+        """
+        # Check collinearity and bounding box
+        dx = x2 - x1
+        dy = y2 - y1
+        if abs(dx) < eps and abs(dy) < eps:
+            # Segment is a point
+            return abs(px - x1) < eps and abs(py - y1) < eps
+        # Parametric t for projection
+        t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy) if (dx * dx + dy * dy) > eps else 0.0
+        if t < -eps or t > 1.0 + eps:
+            return False
+        # Projected point
+        proj_x = x1 + t * dx
+        proj_y = y1 + t * dy
+        return abs(px - proj_x) < eps and abs(py - proj_y) < eps
+
+    # Check if point is a vertex
+    for vx, vy, _ in polygon_corners:
+        if abs(point_x - vx) < 1e-9 and abs(point_y - vy) < 1e-9:
+            return True
+
+    # Check if point is on any edge
+    for i in range(n):
+        x1, y1 = polygon_corners[i][0], polygon_corners[i][1]
+        x2, y2 = polygon_corners[(i + 1) % n][0], polygon_corners[(i + 1) % n][1]
+        if _point_on_segment(point_x, point_y, x1, y1, x2, y2):
+            return True
+
+    # Standard ray casting (exclusive)
     p1x, p1y = polygon_corners[0][0], polygon_corners[0][1]
     for i in range(1, n + 1):
         p2x, p2y = polygon_corners[i % n][0], polygon_corners[i % n][1]
-        if point_y > min(p1y, p2y) and point_y <= max(p1y, p2y) and point_x <= max(p1x, p2x):
+        if min(p1y, p2y) < point_y <= max(p1y, p2y) or abs(point_y - min(p1y, p2y)) < 1e-9:
             if p1y != p2y:
                 xinters = (point_y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-            if p1x == p2x or point_x <= xinters:
+            else:
+                xinters = p1x
+            if point_x <= xinters or abs(point_x - xinters) < 1e-9:
                 inside = not inside
         p1x, p1y = p2x, p2y
 
@@ -663,7 +697,7 @@ def get_deck_mat_and_thick_at_coord(params: Any, coord: tuple[float, float, floa
 
             # Linear interpolation between start and end thickness
             interpolated_thickness = thickness_start + interpolation_factor * (thickness_end - thickness_start)
-            
+
             return (
                 zone_data["material"],
                 interpolated_thickness,
@@ -733,7 +767,7 @@ def get_dispersion_at_coord(params: Any, coord: tuple[float, float, float]) -> d
     # Define dispersion angles per material (degrees)
     material_dispersion_angles: dict[str, int] = {
         "beton": 45,
-        "asphalt": 45,
+        "asfalt": 45,
         "klinkers": 45,
         "grind": 35,
         "tegels": 45,
@@ -782,6 +816,12 @@ def get_dispersion_at_coord(params: Any, coord: tuple[float, float, float]) -> d
     # Get load zone material and thickness at the coordinate
     load_mat, load_thick = get_load_mat_and_thick_at_coord(params, coord)
     result["load_zone"] = get_dispersion(load_mat, load_thick)
+
+    # If no material or thickness is found, set dispersion to 0
+    if deck_mat or deck_thick is None:
+        result["deck_zone"] = 0.0  # No dispersion if no deck zone found
+    if load_mat or load_thick is None:
+        result["load_zone"] = 0.0  # No dispersion if no load zone found
 
     return result
 

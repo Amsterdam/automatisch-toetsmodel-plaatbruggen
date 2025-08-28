@@ -1023,11 +1023,12 @@ def _calculate_wheel_corners_vehicle(center_x: float, center_y: float, wheel_con
     :returns: List of corner coordinates as (x, y, z) tuples (clockwise from top_left)
     """
     half_area = wheel_contact_area / 2
+    # Order: bottom-right, top-right, top-left, bottom-left
     return [
-        (center_x - half_area, center_y + half_area, 0.0),  # top_left
-        (center_x + half_area, center_y + half_area, 0.0),  # top_right
-        (center_x + half_area, center_y - half_area, 0.0),  # bottom_right
-        (center_x - half_area, center_y - half_area, 0.0),  # bottom_left
+        (center_x + half_area, center_y - half_area, 0.0),  # bottom-right
+        (center_x + half_area, center_y + half_area, 0.0),  # top-right
+        (center_x - half_area, center_y + half_area, 0.0),  # top-left
+        (center_x - half_area, center_y - half_area, 0.0),  # bottom-left
     ]
 
 
@@ -1069,12 +1070,12 @@ def calc_vehicle_load_locations(
     top_right_center = (x_coord + vehicle_length, y_coord)
     bottom_right_center = (x_coord + vehicle_length, y_coord - vehicle_width)
 
-    # Calculate wheel footprint corners for each wheel
+    # Calculate wheel footprint corners for each wheel in the correct order
     return {
-        "top_left_wheel_corners": _calculate_wheel_corners_vehicle(top_left_center[0], top_left_center[1], wheel_contact_area),
-        "top_right_wheel_corners": _calculate_wheel_corners_vehicle(top_right_center[0], top_right_center[1], wheel_contact_area),
-        "bottom_left_wheel_corners": _calculate_wheel_corners_vehicle(bottom_left_center[0], bottom_left_center[1], wheel_contact_area),
         "bottom_right_wheel_corners": _calculate_wheel_corners_vehicle(bottom_right_center[0], bottom_right_center[1], wheel_contact_area),
+        "top_right_wheel_corners": _calculate_wheel_corners_vehicle(top_right_center[0], top_right_center[1], wheel_contact_area),
+        "top_left_wheel_corners": _calculate_wheel_corners_vehicle(top_left_center[0], top_left_center[1], wheel_contact_area),
+        "bottom_left_wheel_corners": _calculate_wheel_corners_vehicle(bottom_left_center[0], bottom_left_center[1], wheel_contact_area),
     }
 
 

@@ -64,7 +64,7 @@ def add_udl_loads(
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                 params=params, corner_points=main_load["polygon"], load_value=main_load["load"], load_case_type="udl"
                 )
-                
+
                 builder.create_surface_load(
                     name=f"udl_{key}_main_{i + 1}",
                     load_case_name=scia_case.name,
@@ -225,7 +225,6 @@ def dispersal_function(
                 expanded_coords.append((x - dispersion_x_tot, y - dispersion_y_tot, z))
         return expanded_coords
 
-    
     dispersed_load_coords = _expand_corners_with_dispersion(params=params, coords=corner_points, load_case_type=load_case_type)
     initial_load_area = _calculate_quadrilateral_area(coords=corner_points)
     dispersed_load_area = _calculate_quadrilateral_area(coords=dispersed_load_coords)
@@ -603,6 +602,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
         # Create surface loads for each wheel
         for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
+            
 
             # Take into account load dispersion
             corner_points_dispersed, load_value_dispersed = dispersal_function(
