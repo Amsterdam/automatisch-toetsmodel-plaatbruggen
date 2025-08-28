@@ -661,8 +661,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
 # Generation of tandem systems for real lane distribution
 # ========================================================================
 
+
 def obtain_y_coordinates_road(
-        params: BridgeParametrization,
+    params: BridgeParametrization,
 ) -> tuple[float, float]:
     """
     A helper function to obtain the top y-coordinate and width of the road section from the load zones data.
@@ -696,14 +697,15 @@ def obtain_y_coordinates_road(
             # Get y-coordinates, ensure we have a valid list and first value
             y_coords = zone.get("y_coords_top_current_zone", [])
             y_coord = float(y_coords[0]) if y_coords else 0.0
-            
+
             # Get d1_width, ensure it's a valid number
             width_value = zone.get("d1_width")
             d1_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
-            
+
             return y_coord, d1_width
 
     return 0.0, 0.0
+
 
 def generate_real_lane_positions_bg8000(
     params: BridgeParametrization,
@@ -747,6 +749,7 @@ def generate_real_lane_positions_bg8000(
         lane_centers.append(y_bottom + lane_center)
 
     return lane_centers
+
 
 def tandem_systems_real_lanes_bg8000(
     params: BridgeParametrization,
@@ -852,6 +855,7 @@ def tandem_systems_real_lanes_bg8000(
 
     return results
 
+
 def generate_real_lane_positions_bg9000(
     params: BridgeParametrization,
     lane_width: float = 3.0,
@@ -894,6 +898,7 @@ def generate_real_lane_positions_bg9000(
         lane_centers.append(y_bottom + lane_center)
 
     return lane_centers
+
 
 def tandem_systems_real_lanes_bg9000(
     params: BridgeParametrization,
@@ -998,6 +1003,7 @@ def tandem_systems_real_lanes_bg9000(
             results.append(load_case)
 
     return results
+
 
 def generate_real_lane_positions_bg10000(
     params: BridgeParametrization,
@@ -1171,6 +1177,7 @@ def tandem_systems_real_lanes_bg10000(
         results.append(load_case_b)
         idx += 1
     return results
+
 
 # ========================================================================
 # ORIGINAL EUROCODE FUNCTIONS (PRESERVED FOR COMPLIANCE)

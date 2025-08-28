@@ -13,10 +13,9 @@ from src.integrations.scia_integration.scia_bridge_geometry import (
     align_bridge_coordinates_to_scia,
     convert_tandem_data_to_scia_format,
     convert_wheel_coordinates_to_3d,
-    determine_tandem_function_for_bridge,
     extract_bridge_dimensions,
-    extract_tandem_parameters_from_bridge,
     extract_zone_boundaries,
+    generate_tandem_loads,
 )
 
 
@@ -114,62 +113,46 @@ class TestZoneBoundaryExtraction:
         assert seg2["z3_right"] == -17.0  # -14 - 3
 
 
-class TestTandemParameterExtraction:
-    """Test tandem parameter extraction for loadcase helper functions."""
+class TestTandemLoadGeneration:
+    """Test tandem load generation with the new clean interface."""
 
-    def test_extract_tandem_parameters_from_bridge_basic(self) -> None:
-        """Test basic tandem parameter extraction."""
+    def test_generate_tandem_loads_theoretical_mode(self) -> None:
+        """Test tandem load generation in theoretical mode."""
         params = Mock()
         params.bridge_segments_array = [
-            Mock(l=0, bz1=5.0, bz2=3.0, bz3=7.0, dz=1.8),
-            Mock(l=15, bz1=5.0, bz2=3.0, bz3=7.0, dz=1.9),
+            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
         ]
 
-        result = extract_tandem_parameters_from_bridge(params)
+        # This should call the new clean function
+        result = generate_tandem_loads(params, mode="theoretical")
 
-        assert result["length_bridgedeck"] == 15.0  # 0+15
-        assert result["width_bridgedeck"] == 15.0  # 5+3+7
-        assert result["thickness_bridgedeck"] == 1.8
+        # The result should be a list of load cases
+        assert isinstance(result, list)
+        # We can't test the exact content without mocking the helper functions,
+        # but we can test that it returns the expected structure
 
-    def test_extract_tandem_parameters_empty_segments(self) -> None:
-        """Test error handling with empty segments."""
+    def test_generate_tandem_loads_actual_mode(self) -> None:
+        """Test tandem load generation in actual mode."""
         params = Mock()
-        params.bridge_segments_array = []
+        params.bridge_segments_array = [
+            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
+        ]
 
-        with pytest.raises(IndexError, match="No bridge segments provided"):
-            extract_tandem_parameters_from_bridge(params)
+        # This should call the new clean function
+        result = generate_tandem_loads(params, mode="actual")
 
+        # The result should be a list of load cases
+        assert isinstance(result, list)
 
-class TestTandemFunctionDetermination:
-    """Test tandem function determination logic."""
-
-    def test_determine_tandem_function_theoretical_mode(self) -> None:
-        """Test tandem function determination in theoretical mode."""
-        bridge_dims = {"width_bridgedeck": 30.0}
-
-        result = determine_tandem_function_for_bridge(bridge_dims, mode="theoretical")
-
-        assert result["function_name"] == "tandem_systems_theoretical_lanes_BG8000"
-        assert result["lane_count"] == 10  # 30/3 = 10 lanes
-        assert result["mode"] == "theoretical"
-        assert "10 lanes across 30.0m" in result["description"]
-
-    def test_determine_tandem_function_actual_mode(self) -> None:
-        """Test tandem function determination in actual mode."""
-        bridge_dims = {"width_bridgedeck": 24.0}
-
-        result = determine_tandem_function_for_bridge(bridge_dims, mode="actual")
-
-        assert result["function_name"] == "tandem_systems_actual_lanes"
-        assert result["mode"] == "actual"
-        assert "Actual lanes" in result["description"]
-
-    def test_determine_tandem_function_invalid_mode(self) -> None:
+    def test_generate_tandem_loads_invalid_mode(self) -> None:
         """Test error handling for invalid mode."""
-        bridge_dims = {"width_bridgedeck": 30.0}
+        params = Mock()
+        params.bridge_segments_array = [
+            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
+        ]
 
-        with pytest.raises(ValueError, match="Unsupported mode: invalid"):
-            determine_tandem_function_for_bridge(bridge_dims, mode="invalid")
+        with pytest.raises(ValueError, match="Invalid mode 'invalid'"):
+            generate_tandem_loads(params, mode="invalid")
 
 
 class TestCoordinateConversion:

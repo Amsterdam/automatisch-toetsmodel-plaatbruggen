@@ -7,7 +7,7 @@ the SciaModelBuilder interface.
 
 from typing import Any, Literal
 
-from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
+from .scia_bridge_geometry import extract_bridge_dimensions
 from .scia_loads_helper import (
     generate_theoretical_lane_positions_bg8000 as generate_theoretical_lane_positions,
 )
@@ -187,10 +187,10 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     :returns: Dictionary of created service vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
-    # Extract bridge parameters needed for position calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions needed for position calculation
+    dims = extract_bridge_dimensions(params)
+    length = dims["length"]
+    thickness = dims["thickness"]
 
     # Get X positions using the same sequencer as tandem loads
     positions = tandem_system_sequencer(length, thickness)
@@ -242,10 +242,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     :returns: Dictionary of created unintended vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
-    # Extract bridge parameters needed for position calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions needed for position calculation
+    dims = extract_bridge_dimensions(params)
+    length = dims["length"]
+    thickness = dims["thickness"]
 
     # Get X positions using the same sequencer as tandem loads
     positions = tandem_system_sequencer(length, thickness)
@@ -333,11 +333,11 @@ def create_dynamic_tandem_load_cases(
     """
     load_cases = {}
 
-    # Extract bridge parameters needed for tandem load case generation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
-    width = bridge_params["width_bridgedeck"]
+    # Extract bridge dimensions needed for tandem load case generation
+    dims = extract_bridge_dimensions(params)
+    length = dims["length"]
+    thickness = dims["thickness"]
+    width = dims["width"]
 
     # Determine the number of theoretical lanes, with a maximum of 3
     # Use alias to allow tests to patch 'generate_theoretical_lane_positions'

@@ -11,8 +11,8 @@ from src.geometry.load_zone_geometry import get_bridge_geom_data
 
 from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
-    extract_tandem_parameters_from_bridge,
-    generate_tandem_loads_for_bridge,
+    extract_bridge_dimensions,
+    generate_tandem_loads,
 )
 from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, tandem_system_sequencer
 from .scia_model_interface import SciaModelBuilder
@@ -34,12 +34,12 @@ def add_udl_loads(
     :param params: VIKTOR parameters for the bridge.
     :param load_cases: Dictionary of created load cases.
     """
-    # Extract bridge parameters needed for load geometry calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    width = bridge_params["width_bridgedeck"]
-    width_firstsegment_zone3 = bridge_params["width_firstsegment_zone3"]
-    width_firstsegment_zone2 = bridge_params["width_firstsegment_zone2"]
+    # Extract bridge dimensions
+    dims = extract_bridge_dimensions(params)
+    length = dims["length"]
+    width = dims["width"]
+    width_firstsegment_zone3 = dims["zone3_width"]
+    width_firstsegment_zone2 = dims["zone2_width"]
 
     # Call the helper to get UDL polygons and loads
     udl_results = create_udl_traffic_loads(
@@ -98,11 +98,8 @@ def add_theoretical_tandem_loads(
     :param params: VIKTOR parameters for the bridge.
     :param load_cases: Dictionary of created load cases.
     """
-    # 1. Extract bridge parameters needed for load geometry calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-
-    # 2. Generate tandem loads based on theoretical lanes
-    raw_tandem_data = generate_tandem_loads_for_bridge(params, bridge_params, mode="theoretical")
+    # Generate tandem loads based on theoretical lanes
+    raw_tandem_data = generate_tandem_loads(params, mode="theoretical")
 
     # 3. Convert tandem data to SCIA format for surface loads
     scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
@@ -311,10 +308,10 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     if bridge_geom_data is None:
         return
 
-    # Extract bridge parameters and get X positions
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions and get X positions
+    dims = extract_bridge_dimensions(params)
+    length = dims["length"]
+    thickness = dims["thickness"]
     positions = tandem_system_sequencer(length, thickness)
 
     # Get geometry coordinates
@@ -433,10 +430,10 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     if bridge_geom_data is None:
         return
 
-    # Extract bridge parameters and get X positions
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions and get X positions
+    dims = extract_bridge_dimensions(params)
+    length = dims["length"]
+    thickness = dims["thickness"]
     positions = tandem_system_sequencer(length, thickness)
 
     # Get geometry coordinates
