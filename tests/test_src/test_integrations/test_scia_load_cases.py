@@ -102,14 +102,9 @@ class TestStandardLoadCases:
         """Test creation of service vehicle load case definitions with dynamic X positions."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
         from src.integrations.scia_integration.scia_bridge_geometry import BridgeDimensions
+
         mock_extract.return_value = BridgeDimensions(
-            total_length=50.0,
-            total_width=20.0,
-            thickness=0.5,
-            zone1_width=7.0,
-            zone2_width=6.0,
-            zone3_width=7.0,
-            first_segment_thickness=0.5
+            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
@@ -152,14 +147,9 @@ class TestStandardLoadCases:
         """Test creation of unintended vehicle load case definitions with bidirectional X positions."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
         from src.integrations.scia_integration.scia_bridge_geometry import BridgeDimensions
+
         mock_extract.return_value = BridgeDimensions(
-            total_length=50.0,
-            total_width=20.0,
-            thickness=0.5,
-            zone1_width=7.0,
-            zone2_width=6.0,
-            zone3_width=7.0,
-            first_segment_thickness=0.5
+            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()

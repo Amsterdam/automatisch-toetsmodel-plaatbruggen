@@ -14,7 +14,12 @@ from .scia_bridge_geometry import (
     extract_bridge_dimensions,
     generate_tandem_loads,
 )
-from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, tandem_system_sequencer
+from .scia_loads_helper import (
+    add_material_loads,
+    calc_vehicle_load_locations,
+    create_theoretical_udl_traffic_loads,
+    tandem_system_sequencer,
+)
 from .scia_model_interface import SciaModelBuilder
 
 # Type alias to avoid importing from app layer
@@ -42,7 +47,8 @@ def add_udl_loads(
     width_firstsegment_zone2 = dims.zone2_width
 
     # Call the helper to get UDL polygons and loads
-    udl_results = create_udl_traffic_loads(
+    udl_results = create_theoretical_udl_traffic_loads(
+        params,
         length,
         width,
         width_firstsegment_zone3,

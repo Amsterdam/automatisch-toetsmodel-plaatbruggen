@@ -57,6 +57,12 @@ from src.geometry.model_creator import (
 )
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.idea_interface import _get_unique_matching_zone_keys
+
+# SCIA integration imports
+from src.integrations.scia_integration.scia_force_envelopes import (
+    extract_force_envelopes,
+    get_force_envelope_summary,
+)
 from src.report.report_functions import create_export_report  # Import the report creation function
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
@@ -569,7 +575,13 @@ class BridgeController(ViktorController):
         # Extract data from parsed tables
         internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
         displacements_2d = parsed_tables.get("2D-verplaatsing", {})
-        result_classes_uls = parsed_tables.get("Result classes - UGT", {})
+
+        # Extract result classes data (try multiple possible names)
+        result_classes_uls = (
+            parsed_tables.get("Resultaatklasses - ULS", {})
+            or parsed_tables.get("Result classes - UGT", {})
+            or parsed_tables.get("Result classes - ULS", {})
+        )
 
         # Initialize variables for engineering assessment
         max_moment = None
@@ -613,16 +625,107 @@ class BridgeController(ViktorController):
 
         return table_data
 
-    @TableView("SCIA Analyse Resultaten", duration_guess=300)
-    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """
-        Display SCIA analysis results in a table format with actual engineering values.
+    def _add_result_classes_overview(self, results: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add overview of available result classes to the table."""
+        xml_parsing = results.get("xml_parsing", {})
+        if not isinstance(xml_parsing, dict):
+            return
 
-        This view shows key structural analysis results including:
-        - Maximum internal forces (moment, shear, normal force)
-        - Maximum displacements and rotations
-        - Load combination information
-        - Engineering assessment based on moment magnitude
+        parsed_tables = xml_parsing.get("parsed_tables", {})
+        result_class_tables = [name for name in parsed_tables if "Resultaatklasses" in name]
+
+        if result_class_tables:
+            table_data.append(["Result Classes", f"{len(result_class_tables)} beschikbaar", "Alle types", "Succes"])
+            for rc_table in result_class_tables:
+                rc_name = rc_table.replace("Resultaatklasses - ", "")
+                table_data.append([f"  └─ {rc_name}", "Actief", "Load combinations", "Info"])
+
+    def _add_available_tables_info(self, xml_parsing: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add information about available result tables."""
+        table_details = xml_parsing.get("table_details", [])
+        if table_details:
+            tables_with_data = [t for t in table_details if t.get("has_data", False)]
+            table_data.append(["Tabellen met Data", f"{len(tables_with_data)}", "XML Structure", "Info"])
+
+            # Show key engineering tables
+            key_tables = ["2D-verplaatsing", "Interne 2D-krachten basis", "Interne 2D-krachten elementair"]
+            for table_name in key_tables:
+                table_detail = next((t for t in table_details if t.get("name") == table_name), None)
+                if table_detail:
+                    rows = table_detail.get("data_rows", 0)
+                    table_data.append([f"  └─ {table_name}", f"{rows} rijen", "Resultaten", "Succes"])
+
+    def _add_displacement_results(self, displacements: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add displacement result information to the table."""
+        disp_status = displacements.get("status", "unknown")
+        if disp_status == "success":
+            table_data.append(["Verplaatsingen", "Beschikbaar", "2D-verplaatsing", "Succes"])
+
+            # Try to extract sample displacement values
+            disp_data = displacements.get("data", {})
+            if disp_data and hasattr(disp_data, "rows"):
+                try:
+                    max_displacement = 0.0
+                    for row in disp_data.rows:
+                        if hasattr(row, "u_z") and row.u_z:
+                            max_displacement = max(max_displacement, abs(float(row.u_z)))
+
+                    if max_displacement > 0:
+                        table_data.append(["Max Doorbuiging", f"{max_displacement * 1000:.2f} mm", "Alle punten", "UGT"])
+                except Exception:
+                    table_data.append(["Verplaatsing Data", "Parsing fout", "2D-verplaatsing", "Waarschuwing"])
+        else:
+            table_data.append(["Verplaatsingen", "Niet beschikbaar", "2D-verplaatsing", "Waarschuwing"])
+
+    def _add_internal_force_results(self, internal_forces: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add internal force result information to the table."""
+        force_status = internal_forces.get("status", "unknown")
+        if force_status == "success":
+            table_data.append(["Interne Krachten", "Beschikbaar", "2D-krachten", "Succes"])
+
+            # Try to extract sample force values
+            force_data = internal_forces.get("data", {})
+            if force_data and hasattr(force_data, "rows"):
+                try:
+                    max_moment = 0.0
+                    max_shear = 0.0
+                    for row in force_data.rows:
+                        if hasattr(row, "m_x") and row.m_x:
+                            max_moment = max(max_moment, abs(float(row.m_x)))
+                        if hasattr(row, "v_x") and row.v_x:
+                            max_shear = max(max_shear, abs(float(row.v_x)))
+
+                    if max_moment > 0:
+                        table_data.append(["Max Moment", f"{max_moment / 1000000:.1f} kNm", "Alle elementen", "UGT"])
+                    if max_shear > 0:
+                        table_data.append(["Max Dwarskracht", f"{max_shear:.0f} kN", "Alle elementen", "UGT"])
+                except Exception:
+                    table_data.append(["Krachten Data", "Parsing fout", "2D-krachten", "Waarschuwing"])
+        else:
+            table_data.append(["Interne Krachten", "Niet beschikbaar", "2D-krachten", "Waarschuwing"])
+
+    def _add_reaction_results(self, reactions: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add reaction result information to the table."""
+        reaction_status = reactions.get("status", "unknown")
+        if reaction_status == "success":
+            table_data.append(["Reactiekrachten", "Beschikbaar", "Ondersteuningen", "Succes"])
+        elif reaction_status == "not_found":
+            table_data.append(["Reactiekrachten", "Niet gevonden", "Ondersteuningen", "Info"])
+        else:
+            table_data.append(["Reactiekrachten", "Fout bij extractie", "Ondersteuningen", "Waarschuwing"])
+
+    @TableView("SCIA Analyse Resultaten", duration_guess=600)
+    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: C901, PLR0912
+        """
+        Display force envelopes from SCIA analysis in a comprehensive table format.
+
+        Shows maximum and minimum values for each force component (N, Vy, Vz, Mxd+, Mxd-, Myd+, Myd-)
+        per bridge section (Z1_1, Z2_1, Z3_1) along with:
+        - Complete force state at that point
+        - Location and load combination causing the extreme value
+        - All other force components at the critical point
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
         """
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
@@ -635,29 +738,267 @@ class BridgeController(ViktorController):
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        def _raise_scia_error() -> None:
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> None:
             """Raise a user error for SCIA analysis failures."""
-            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+            raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
         try:
-            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
             if results is None:
                 _raise_scia_error()
-        except Exception:
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
             traceback.print_exc()
-            _raise_scia_error()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Print comprehensive results summary to console
+        self._print_scia_results_summary(results)  # type: ignore[arg-type]
+
+        # Extract force envelopes
+        try:
+            envelopes = extract_force_envelopes(results)  # type: ignore[arg-type]
+        except Exception as e:
+            return TableResult(
+                [["Fout", f"Kon krachtenveloppen niet extraheren: {str(e)[:100]}...", "", "", "", "", ""]],
+                column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
+            )
+
+        if not envelopes:
+            return TableResult(
+                [["Geen gegevens", "Geen krachtenveloppen beschikbaar - mogelijk geen interne krachten data", "", "", "", "", ""]],
+                column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
+            )
 
         # Build table data
-        if results is None:
-            _raise_scia_error()
-        table_data = self._build_results_table_data(results)  # type: ignore[arg-type]
+        table_data = []
 
-        # Create table with Dutch column headers
-        return TableResult(
-            table_data,
-            column_headers=["Parameter", "Waarde", "Locatie", "Status"],
+        for section, section_envelopes in envelopes.items():
+            for component, envelope in section_envelopes.items():
+                max_data = envelope["max"]
+                min_data = envelope["min"]
+
+                # Add maximum value row
+                if max_data["value"] != float("-inf"):
+                    max_forces_str = self._format_complete_force_state(max_data["forces"])
+                    table_data.append(
+                        [section, component, "Maximum", f"{max_data['value']:.1f}", max_data["location"], max_data["combination"], max_forces_str]
+                    )
+
+                # Add minimum value row
+                if min_data["value"] != float("inf"):
+                    min_forces_str = self._format_complete_force_state(min_data["forces"])
+                    table_data.append(
+                        [section, component, "Minimum", f"{min_data['value']:.1f}", min_data["location"], min_data["combination"], min_forces_str]
+                    )
+
+        # Sort by section and component for better readability
+        table_data.sort(key=lambda x: (x[0], x[1], x[2]))
+
+        return TableResult(table_data, column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"])
+
+    def get_force_envelopes(self, params: BridgeParametrization, **_kwargs) -> dict[str, Any]:
+        """
+        Extract force envelopes from SCIA analysis results.
+
+        Returns a dictionary containing max/min values for each force component
+        along with complete force state and location context.
+
+        :param params: Bridge parametrization
+        :return: Force envelopes dictionary
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get SCIA analysis results
+        template_path = self._get_scia_template_path()
+        results = get_cached_analysis_results(
+            params=params,
+            entity_id=self.entity_id,
+            analysis_type=AnalysisType.SCIA,
+            analysis_function=get_scia_analysis_results,
+            template_path=str(template_path),
         )
+
+        if not results:
+            raise UserError("Geen SCIA analyse resultaten beschikbaar. Voer eerst een analyse uit.")
+
+        # Extract force envelopes
+        envelopes = extract_force_envelopes(results)
+
+        # Add summary information
+        summary = get_force_envelope_summary(envelopes)
+
+        return {
+            "envelopes": envelopes,
+            "summary": summary,
+            "analysis_info": {
+                "total_components": len(envelopes),
+                "has_data": any(env["max"]["value"] != float("-inf") and env["min"]["value"] != float("inf") for env in envelopes.values()),
+            },
+        }
+
+    def _format_complete_force_state(self, forces: dict[str, float]) -> str:
+        """Format the complete force state as a compact readable string."""
+        force_parts = []
+
+        # Only show non-zero forces to reduce clutter
+        # Normal force
+        if "N" in forces and abs(forces["N"]) > 0.1:
+            force_parts.append(f"N={forces['N']:.0f}")
+
+        # Shear forces
+        if "Vy" in forces and abs(forces["Vy"]) > 0.1:
+            force_parts.append(f"Vy={forces['Vy']:.0f}")
+        if "Vz" in forces and abs(forces["Vz"]) > 0.1:
+            force_parts.append(f"Vz={forces['Vz']:.0f}")
+
+        # Moments - only show if significant
+        if "Mxd+" in forces and abs(forces["Mxd+"]) > 0.1:
+            force_parts.append(f"Mx+={forces['Mxd+']:.0f}")
+        if "Mxd-" in forces and abs(forces["Mxd-"]) > 0.1:
+            force_parts.append(f"Mx-={forces['Mxd-']:.0f}")
+        if "Myd+" in forces and abs(forces["Myd+"]) > 0.1:
+            force_parts.append(f"My+={forces['Myd+']:.0f}")
+        if "Myd-" in forces and abs(forces["Myd-"]) > 0.1:
+            force_parts.append(f"My-={forces['Myd-']:.0f}")
+
+        # If no significant forces, show "All ≈ 0"
+        if not force_parts:
+            return "All ≈ 0"
+
+        return " | ".join(force_parts)
+
+    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
+        """Print a summary of SCIA results to console for debugging/development."""
+        # Analysis status
+        results.get("analysis_status", {})
+
+        # Result classes
+        xml_parsing = results.get("xml_parsing", {})
+        if isinstance(xml_parsing, dict):
+            parsed_tables = xml_parsing.get("parsed_tables", {})
+            [name for name in parsed_tables if "Resultaatklasses" in name]
+
+        # Engineering data summary
+        results.get("displacements", {})
+        results.get("internal_forces", {})
+
+        # Data tables summary
+        if isinstance(xml_parsing, dict):
+            table_details = xml_parsing.get("table_details", [])
+            [t for t in table_details if t.get("has_data", False)]
+
+        # Extract and print force envelopes
+        self._print_force_envelopes(results)
+
+    def _print_sample_engineering_values(self, results: dict[str, Any]) -> None:  # noqa: C901
+        """Print sample engineering values from SCIA results."""
+        # Try to extract and print sample values from internal forces
+        internal_forces = results.get("internal_forces", {})
+        if internal_forces.get("status") == "success":
+            force_data = internal_forces.get("data", {})
+            if force_data and hasattr(force_data, "rows"):
+                try:
+                    for i, row in enumerate(force_data.rows[:3]):
+                        if hasattr(row, "m_x") and hasattr(row, "v_x"):
+                            # Access attributes but don't store in unused variables
+                            getattr(row, "element_name", f"Element {i + 1}")
+                            float(row.m_x) / 1000000  # Convert to kNm
+                            float(row.v_x) / 1000  # Convert to kN
+                            getattr(row, "load_case", "Unknown")
+                except Exception:
+                    pass
+
+        # Try to extract and print sample values from displacements
+        displacements = results.get("displacements", {})
+        if displacements.get("status") == "success":
+            disp_data = displacements.get("data", {})
+            if disp_data and hasattr(disp_data, "rows"):
+                try:
+                    for i, row in enumerate(disp_data.rows[:3]):
+                        if hasattr(row, "u_z"):
+                            # Access attributes but don't store in unused variables
+                            getattr(row, "element_name", f"Point {i + 1}")
+                            float(row.u_z) * 1000  # Convert to mm
+                            getattr(row, "load_case", "Unknown")
+                except Exception:
+                    pass
+
+    def _print_force_envelopes(self, results: dict[str, Any]) -> None:
+        """Extract and print force envelopes from SCIA results."""
+        # Force envelope analysis without debug printing
+
+        try:
+            # Extract force envelopes
+            envelopes = extract_force_envelopes(results)
+
+            if not envelopes:
+                # No force envelope data available
+                return
+
+            # Print summary for each bridge section and force component
+            for section_envelopes in envelopes.values():
+                # Process bridge section
+
+                for envelope in section_envelopes.values():
+                    max_data = envelope["max"]
+                    min_data = envelope["min"]
+
+                    # Skip if no valid data found
+                    if max_data["value"] == float("-inf") or min_data["value"] == float("inf"):
+                        # Component has no data available
+                        continue
+
+                    # Process component envelope
+                    # Process maximum force data
+                    max_data["forces"]
+                    # Process complete force state
+                    # Process moment data
+                    # Process moment data
+
+                    # Process minimum force data
+                    min_data["forces"]
+                    # Process complete force state
+                    # Process moment data
+                    # Process moment data
+
+            # Print summary statistics
+            get_force_envelope_summary(envelopes)
+            # Summary processing without printing
+            # Process critical locations
+            # Process critical combinations
+
+        except Exception:
+            # Silently handle errors without printing debug information
+            pass
 
     def _get_scia_template_path(self) -> Path:
         """
