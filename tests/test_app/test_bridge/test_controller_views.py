@@ -286,12 +286,11 @@ class TestBridgeControllerViews(unittest.TestCase):
 
         # Critical test: Verify the result is NOT a string representation of the Styler object
         # This was the original bug - TableResult showing "<pandas.io.formats.style.Styler object at ...>"
-        if hasattr(result, "data") and isinstance(result.data, list):
-            if len(result.data) == 1 and len(result.data[0]) == 1:
-                cell_content = str(result.data[0][0])
-                assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
-                    f"TableResult contains Styler object string representation: {cell_content}"
-                )
+        if hasattr(result, "data") and isinstance(result.data, list) and len(result.data) == 1 and len(result.data[0]) == 1:
+            cell_content = str(result.data[0][0])
+            assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
+                f"TableResult contains Styler object string representation: {cell_content}"
+            )
 
         # The TableResult should be properly constructed from the Styler
         # VIKTOR handles the internal conversion, so we just verify it's not broken
@@ -309,12 +308,11 @@ class TestBridgeControllerViews(unittest.TestCase):
 
         # Test 1: Check that we don't have the broken single-cell string representation
         # This was the original issue - TableResult showing Styler object string instead of table
-        if hasattr(result, "data") and isinstance(result.data, list):
-            if len(result.data) == 1 and len(result.data[0]) == 1:
-                cell_content = str(result.data[0][0])
-                assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
-                    f"TableResult contains Styler object string representation: {cell_content}"
-                )
+        if hasattr(result, "data") and isinstance(result.data, list) and len(result.data) == 1 and len(result.data[0]) == 1:
+            cell_content = str(result.data[0][0])
+            assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
+                f"TableResult contains Styler object string representation: {cell_content}"
+            )
 
         # Test 2: Verify TableResult is not empty (should have load combinations)
         # If this fails, it means the load combination generation is broken
@@ -350,7 +348,8 @@ class TestBridgeControllerViews(unittest.TestCase):
             assert isinstance(result, TableResult), "Should return TableResult even with empty params"
         except Exception as e:
             # If it raises an exception, it should be a UserError with helpful message
-            assert "load combination" in str(e).lower() or "parameter" in str(e).lower(), f"Error message should be helpful: {e}"
+            error_message = str(e).lower()
+            assert "load combination" in error_message or "parameter" in error_message, f"Error message should be helpful: {e}"
 
         # Test with params that have info but no belastingcombinaties
         partial_params = Munch({"info": {"construction_year": "2020"}})
@@ -360,7 +359,8 @@ class TestBridgeControllerViews(unittest.TestCase):
             assert isinstance(result, TableResult), "Should return TableResult with partial params"
         except Exception as e:
             # Should handle gracefully or give helpful error
-            assert "load combination" in str(e).lower() or "parameter" in str(e).lower(), f"Error message should be helpful: {e}"
+            error_message = str(e).lower()
+            assert "load combination" in error_message or "parameter" in error_message, f"Error message should be helpful: {e}"
 
     def test_get_load_combinations_view_real_data_structure(self) -> None:
         """Test load combinations view with realistic data to check basic structure."""
@@ -375,12 +375,11 @@ class TestBridgeControllerViews(unittest.TestCase):
 
         # Check that we don't have the broken single-cell string representation
         # This was the original issue - TableResult showing Styler object string instead of table
-        if hasattr(result, "data") and isinstance(result.data, list):
-            if len(result.data) == 1 and len(result.data[0]) == 1:
-                cell_content = str(result.data[0][0])
-                assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
-                    f"Should not have Styler string representation: {cell_content}"
-                )
+        if hasattr(result, "data") and isinstance(result.data, list) and len(result.data) == 1 and len(result.data[0]) == 1:
+            cell_content = str(result.data[0][0])
+            assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
+                f"Should not have Styler string representation: {cell_content}"
+            )
 
         # The TableResult should be properly constructed
         # Note: When TableResult receives a Styler object, VIKTOR handles the conversion internally
@@ -405,12 +404,11 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert isinstance(result, TableResult)
 
         # Check that we don't have the broken single-cell string representation
-        if hasattr(result, "data") and isinstance(result.data, list):
-            if len(result.data) == 1 and len(result.data[0]) == 1:
-                cell_content = str(result.data[0][0])
-                assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
-                    f"Should not have Styler string representation: {cell_content}"
-                )
+        if hasattr(result, "data") and isinstance(result.data, list) and len(result.data) == 1 and len(result.data[0]) == 1:
+            cell_content = str(result.data[0][0])
+            assert not cell_content.startswith("<pandas.io.formats.style.Styler object at"), (
+                f"Should not have Styler string representation: {cell_content}"
+            )
 
     @patch("app.bridge.controller.api_sdk.API")
     @view_test_wrapper("get_bridge_map_view")
