@@ -1,20 +1,23 @@
 """
-Tests for SCIA bridge geometry module.
+Tests for SCIA bridge geometry functions.
 
-Tests for bridge parameter extraction, geometry calculations, and coordinate transformations.
+Tests for bridge parameter extraction, geometry calculations, and coordinate transformations
+from scia_load_generators.py and scia_coordinate_utils.py modules.
 """
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
-from src.integrations.scia_integration.scia_bridge_geometry import (
+from src.integrations.scia_integration.scia_coordinate_utils import (
     align_bridge_coordinates_to_scia,
     convert_loads_to_scia_format,
     convert_wheel_coordinates_to_3d,
-    extract_bridge_dimensions,
     extract_zone_boundaries,
+)
+from src.integrations.scia_integration.scia_load_generators import (
+    extract_bridge_dimensions,
     generate_tandem_loads,
 )
 
@@ -36,13 +39,13 @@ class TestBridgeDimensionExtraction:
 
         result = extract_bridge_dimensions(params)
 
-        assert result["total_length"] == 10.0
-        assert result["total_width"] == 24.0  # 8+4+12
-        assert result["zone_widths"]["bz1"] == 8.0
-        assert result["zone_widths"]["bz2"] == 4.0
-        assert result["zone_widths"]["bz3"] == 12.0
-        assert result["first_segment_thickness"] == 1.5
-        assert result["first_segment_thickness_2"] == 2.0
+        assert result.total_length == 10.0
+        assert result.total_width == 24.0  # 8+4+12
+        assert result.zone_widths["bz1"] == 8.0
+        assert result.zone_widths["bz2"] == 4.0
+        assert result.zone_widths["bz3"] == 12.0
+        assert result.first_segment_thickness == 1.5
+        assert result.first_segment_thickness_2 == 2.0
 
     def test_extract_bridge_dimensions_multiple_segments(self) -> None:
         """Test extracting dimensions from multiple segments."""
@@ -55,9 +58,9 @@ class TestBridgeDimensionExtraction:
 
         result = extract_bridge_dimensions(params)
 
-        assert result["total_length"] == 35.0  # 0+15+20
-        assert result["total_width"] == 15.0  # 5+3+7 (from first segment)
-        assert result["first_segment_thickness"] == 1.8
+        assert result.total_length == 35.0  # 0+15+20
+        assert result.total_width == 15.0  # 5+3+7 (from first segment)
+        assert result.first_segment_thickness == 1.8
 
     def test_extract_bridge_dimensions_empty_segments(self) -> None:
         """Test error handling with empty segments."""
@@ -119,9 +122,17 @@ class TestTandemLoadGeneration:
     def test_generate_tandem_loads_theoretical_mode(self) -> None:
         """Test tandem load generation in theoretical mode."""
         params = Mock()
-        params.bridge_segments_array = [
-            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
-        ]
+        mock_segment = Mock()
+        mock_segment.l = 50
+        mock_segment.bz1 = 8.0
+        mock_segment.bz2 = 4.0
+        mock_segment.bz3 = 12.0
+        mock_segment.dz = 1.8
+        mock_segment.dz_2 = 2.0  # Add missing attribute
+        params.bridge_segments_array = [mock_segment]
+
+        # Add required attributes for theoretical functions
+        params.__getitem__ = Mock(return_value="NEN 8700")  # For params["design_code"]
 
         # This should call the new clean function
         result = generate_tandem_loads(params, mode="theoretical")
@@ -134,12 +145,24 @@ class TestTandemLoadGeneration:
     def test_generate_tandem_loads_actual_mode(self) -> None:
         """Test tandem load generation in actual mode."""
         params = Mock()
-        params.bridge_segments_array = [
-            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
-        ]
+        mock_segment = Mock()
+        mock_segment.l = 50
+        mock_segment.bz1 = 8.0
+        mock_segment.bz2 = 4.0
+        mock_segment.bz3 = 12.0
+        mock_segment.dz = 1.8
+        mock_segment.dz_2 = 2.0  # Add missing attribute
+        params.bridge_segments_array = [mock_segment]
 
-        # This should call the new clean function
-        result = generate_tandem_loads(params, mode="actual")
+        # Mock the load zones data that actual mode needs
+        params.load_zones_data_array = []
+
+        # Mock the road geometry function to avoid the "Road width must be positive" error
+        with patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_road:
+            mock_road.return_value = (10.0, 9.0)  # y_top=10.0, width=9.0
+
+            # This should call the new clean function
+            result = generate_tandem_loads(params, mode="actual")
 
         # The result should be a list of load cases
         assert isinstance(result, list)
