@@ -12,15 +12,15 @@ Functions moved from:
 from typing import Any
 
 from .scia_loads_helper import (
-    tandem_systems_actual_lanes,
+    tandem_systems_real_lanes_bg8000,
+    tandem_systems_real_lanes_bg9000,
+    tandem_systems_real_lanes_bg10000,
     tandem_systems_theoretical_lanes_bg8000,
     tandem_systems_theoretical_lanes_bg9000,
     tandem_systems_theoretical_lanes_bg10000,
 )
 
-# Type alias to avoid importing from app layer
 BridgeParametrization = Any
-
 
 def extract_bridge_dimensions(params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
@@ -162,9 +162,12 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
 
     if mode == "actual":
         # Actual mode uses actual lane positions from bridge parametrization
-        tandem_function = tandem_systems_actual_lanes  # type: ignore[assignment]
-        function_name = "tandem_systems_actual_lanes"
-
+        tandem_function = tandem_systems_real_lanes_bg8000
+        function_name = "tandem_systems_real_lanes_BG8000"
+        tandem_function2 = tandem_systems_real_lanes_bg9000
+        function_name2 = "tandem_systems_real_lanes_BG9000"
+        tandem_function3 = tandem_systems_real_lanes_bg10000
+        function_name3 = "tandem_systems_real_lanes_BG10000"
         # Note: This will require actual lane positions from params.input.belastingzones
         # For now, return the function - actual lane positions will be extracted elsewhere
         return {
@@ -173,6 +176,10 @@ def determine_tandem_function_for_bridge(bridge_dims: dict[str, float], mode: st
             "mode": mode,
             "description": "Actual lanes: using real lane positions from bridge parametrization",
             "bridge_dimensions": bridge_dims,
+            "function2": tandem_function2,
+            "function_name2": function_name2,
+            "function3": tandem_function3,
+            "function_name3": function_name3,
         }
 
     # This should never be reached due to the mode validation at the beginning
@@ -208,27 +215,75 @@ def generate_tandem_loads_for_bridge(
     )
 
     # Generate tandem loads using the selected function
-    try:
-        tandem_loads_bg8000 = tandem_function(*tandem_loads_args)
-    except Exception as e:
-        raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
+    if mode == "theoretical":
+        try:
+            tandem_loads_bg8000 = tandem_function(
+                bridge_params["length_bridgedeck"],
+                bridge_params["width_bridgedeck"],
+                bridge_params["thickness_bridgedeck"],
+                bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
+                bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate theoretical tandem loads: {e!s}") from e
+        # Generate tandem loads for configuration with reversed lane order (9000 series)
+        try:
+            tandem_loads_bg9000 = tandem_function2(
+                bridge_params["length_bridgedeck"],
+                bridge_params["width_bridgedeck"],
+                bridge_params["thickness_bridgedeck"],
+                bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
+                bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate theoretical tandem loads: {e!s}") from e
+        tandem_loads_bg8000.extend(tandem_loads_bg9000)
+        # Generate tandem loads for configuration with middle lane order (10000 series)
+        try:
+            tandem_loads_bg10000 = tandem_function3(
+                bridge_params["length_bridgedeck"],
+                bridge_params["width_bridgedeck"],
+                bridge_params["thickness_bridgedeck"],
+                bridge_params["width_firstsegment_zone3"],  # Use bz3 from first segment for lane width
+                bridge_params["width_firstsegment_zone2"],  # Use bz2 from first segment for lane width
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate theoretical tandem loads: {e!s}") from e
+        tandem_loads_bg8000.extend(tandem_loads_bg10000)
 
-    # Generate tandem loads for configuration with reversed lane order (9000 series)
-    try:
-        tandem_loads_bg9000 = tandem_function2(*tandem_loads_args)
-    except Exception as e:
-        raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
-    tandem_loads_bg8000.extend(tandem_loads_bg9000)
+        return tandem_loads_bg8000
+    if mode == "actual":
+        try:
+            tandem_loads_bg8000 = tandem_function(
+                params,
+                bridge_params["length_bridgedeck"],
+                bridge_params["thickness_bridgedeck"],
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate real tandem loads: {e!s}") from e
+        # Generate tandem loads for configuration with reversed lane order (9000 series)
+        try:
+            tandem_loads_bg9000 = tandem_function2(
+                params,
+                bridge_params["length_bridgedeck"],
+                bridge_params["thickness_bridgedeck"],
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate real tandem loads: {e!s}") from e
+        tandem_loads_bg8000.extend(tandem_loads_bg9000)
+        # Generate tandem loads for configuration with middle lane order (10000 series)
+        try:
+            tandem_loads_bg10000 = tandem_function3(
+                params,
+                bridge_params["length_bridgedeck"],
+                bridge_params["thickness_bridgedeck"],
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate real tandem loads: {e!s}") from e
+        tandem_loads_bg8000.extend(tandem_loads_bg10000)
 
-    # Generate tandem loads for configuration with middle lane order (10000 series)
-    try:
-        tandem_loads_bg10000 = tandem_function3(*tandem_loads_args)
-    except Exception as e:
-        raise ValueError(f"Failed to generate tandem loads: {e!s}") from e
-    tandem_loads_bg8000.extend(tandem_loads_bg10000)
-
-    return tandem_loads_bg8000
-
+        return tandem_loads_bg8000
+    return []
 
 def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[float, float, float]]:
     """
