@@ -8,15 +8,13 @@ This module provides a clean, simple interface for:
 
 Easy to extend for new load types (UDL, etc.).
 
-HOW TO ADD NEW LOAD TYPES (e.g., UDL):
-========================================
-1. Add new load type to LoadType enum below
-2. Create load group enums if needed (e.g., UDLGroup)
-3. Add your load generation functions to the registry dictionaries
-4. Create a generate_[loadtype]_loads() function following the same pattern
-5. Optionally add to the unified generate_all_loads() function
-
-See the comments throughout this file for specific examples!
+ARCHITECTURE OVERVIEW:
+====================
+This module uses a clean, extensible architecture:
+- Dataclasses for structured data (BridgeDimensions)
+- Enums for type safety (LoadType, LoadGroup, LoadMode)
+- Strategy pattern with registries for easy extension
+- Unified interfaces that work for all load types
 """
 
 from dataclasses import dataclass
