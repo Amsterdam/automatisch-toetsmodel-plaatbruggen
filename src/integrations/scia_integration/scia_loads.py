@@ -36,10 +36,10 @@ def add_udl_loads(
     """
     # Extract bridge dimensions
     dims = extract_bridge_dimensions(params)
-    length = dims["length"]
-    width = dims["width"]
-    width_firstsegment_zone3 = dims["zone3_width"]
-    width_firstsegment_zone2 = dims["zone2_width"]
+    length = dims.total_length
+    width = dims.total_width
+    width_firstsegment_zone3 = dims.zone3_width
+    width_firstsegment_zone2 = dims.zone2_width
 
     # Call the helper to get UDL polygons and loads
     udl_results = create_udl_traffic_loads(
@@ -310,8 +310,8 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
     # Extract bridge dimensions and get X positions
     dims = extract_bridge_dimensions(params)
-    length = dims["length"]
-    thickness = dims["thickness"]
+    length = dims.total_length
+    thickness = dims.thickness
     positions = tandem_system_sequencer(length, thickness)
 
     # Get geometry coordinates
@@ -432,8 +432,8 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
     # Extract bridge dimensions and get X positions
     dims = extract_bridge_dimensions(params)
-    length = dims["length"]
-    thickness = dims["thickness"]
+    length = dims.total_length
+    thickness = dims.thickness
     positions = tandem_system_sequencer(length, thickness)
 
     # Get geometry coordinates

@@ -189,8 +189,8 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     """
     # Extract bridge dimensions needed for position calculation
     dims = extract_bridge_dimensions(params)
-    length = dims["length"]
-    thickness = dims["thickness"]
+    length = dims.total_length
+    thickness = dims.thickness
 
     # Get X positions using the same sequencer as tandem loads
     positions = tandem_system_sequencer(length, thickness)
@@ -244,8 +244,8 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     """
     # Extract bridge dimensions needed for position calculation
     dims = extract_bridge_dimensions(params)
-    length = dims["length"]
-    thickness = dims["thickness"]
+    length = dims.total_length
+    thickness = dims.thickness
 
     # Get X positions using the same sequencer as tandem loads
     positions = tandem_system_sequencer(length, thickness)
@@ -335,9 +335,9 @@ def create_dynamic_tandem_load_cases(
 
     # Extract bridge dimensions needed for tandem load case generation
     dims = extract_bridge_dimensions(params)
-    length = dims["length"]
-    thickness = dims["thickness"]
-    width = dims["width"]
+    length = dims.total_length
+    thickness = dims.thickness
+    width = dims.total_width
 
     # Determine the number of theoretical lanes, with a maximum of 3
     # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
