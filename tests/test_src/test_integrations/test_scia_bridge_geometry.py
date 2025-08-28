@@ -130,7 +130,7 @@ class TestTandemLoadGeneration:
         mock_segment.dz = 1.8
         mock_segment.dz_2 = 2.0  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
-        
+
         # Set berekeningsniveau to theoretical mode
         params.berekeningsniveau = "Theoretische wegindeling"
 
@@ -156,7 +156,7 @@ class TestTandemLoadGeneration:
         mock_segment.dz = 1.8
         mock_segment.dz_2 = 2.0  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
-        
+
         # Set berekeningsniveau to actual mode
         params.berekeningsniveau = "Werkelijke wegindeling"
 
