@@ -1,4 +1,12 @@
-## [`v0.0.11`] - 2025-xx-XX
+## [`v0.0.12`] - 2025-xx-xx
+### Added
+- **Traffic load cases**: Added tandem loads and udl for real road layout
+  - Added functionality dependent on radio button for road layout
+### Changed
+- **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
+### Fixed
+
+## [`v0.0.11`] - 2025-08-28
 ### Added
 - **Resource File Access Testing**: Added comprehensive test suite for resource file access patterns
   - Tests all resource paths use absolute paths consistently
@@ -17,25 +25,12 @@
   - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
   - Aims to ensure consistent behavior between development and production environments
   - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
-e- **Development Environment Portability**: Fixed user-specific paths in development tools
+- **Development Environment Portability**: Fixed user-specific paths in development tools
   - Added `.ruft_venv/` to `.gitignore` to prevent committing user-specific virtual environment paths
   - Removed existing `.ruft_venv` directory from git tracking to avoid path conflicts between developers
   - Quality check script already uses portable relative paths and cross-platform logic
   - Enhanced `setup_dev.py` to automatically create RUFT virtual environment and install all dependencies
   - Added clear IDE setup instructions with exact Python interpreter path for VS Code/Cursor
-
-## [`v0.0.10`] - 2025-08-14
-### Added
-- **Result Classes**: Added result classes to the SCIA model
-
-### Changed
--
-
-### Removed
--
-
-### Fixed
--
 
 ## [`v0.0.10`] - 2025-08-14
 ### Added
@@ -51,6 +46,7 @@ e- **Development Environment Portability**: Fixed user-specific paths in develop
   - Accidental vehicle impact scenarios
   - SCIA load combinations
 - Graceful error handling for XML parsing issues in IDEA results
+- **Result Classes**: Added result classes to the SCIA model
 
 ### Changed
 - **Performance Improvements**: Significant speedup for repeated calculations through caching
