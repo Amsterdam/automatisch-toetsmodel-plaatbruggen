@@ -8,9 +8,26 @@ from typing import Any
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.external import idea_rcs
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
+
 from app.bridge.analysis_cache import (
     AnalysisType,
     get_cached_analysis_results,
@@ -64,23 +81,6 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     get_force_envelope_summary,
 )
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
