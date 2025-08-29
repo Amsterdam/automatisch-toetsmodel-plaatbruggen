@@ -1,4 +1,19 @@
-## [`v0.0.11`] - 2025-xx-XX
+## [`v0.0.12`] - 2025-xx-xx
+
+### Added
+- **Comprehensive SCIA Units Testing**: Added extensive test coverage for SCIA units handling
+  - 13 tests for `build_units_mapping()` function covering 1D/2D table detection and edge cases
+  - 11 tests for `_format_complete_force_state()` method verifying proper unit application in formatted strings
+  - Tests cover 2D plate units (kN/m, kNm/m) vs 1D beam units (kN, kNm)
+  - Edge case handling: missing data, non-dict structures, partial units mapping
+- **SCIA Units Infrastructure**: Enhanced units mapping and error handling
+  - Improved `get_result_summary()` to handle non-dict section data gracefully
+  - Units are consistently applied from data extraction through user interface display
+
+### Fixed
+
+
+## [`v0.0.11`] - 2025-08-26
 ### Added
 - **Resource File Access Testing**: Added comprehensive test suite for resource file access patterns
   - Tests all resource paths use absolute paths consistently
