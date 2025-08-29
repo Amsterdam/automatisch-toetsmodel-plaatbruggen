@@ -5,11 +5,14 @@ import unittest
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
+import pandas as pd
 import pytest
 
 from app.bridge.controller import BridgeController
+from app.bridge.parametrization import BridgeParametrization
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import view_test_wrapper
+from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 
 class TestBridgeControllerViews(unittest.TestCase):
@@ -43,8 +46,6 @@ class TestBridgeControllerViews(unittest.TestCase):
 
     def test_controller_has_parametrization(self) -> None:
         """Test that the controller has the correct parametrization."""
-        from app.bridge.parametrization import BridgeParametrization
-
         assert self.controller.parametrization == BridgeParametrization
 
     def test_controller_label(self) -> None:
@@ -72,8 +73,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import GeometryResult
-
         assert isinstance(result, GeometryResult)
         mock_create_3d.assert_called_once_with(self.default_params, section_planes=True)
         mock_export_glb.assert_called_once_with(mock_scene)
@@ -100,8 +99,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
         mock_create_2d.assert_called_once_with(self.default_params)
         mock_build_figure.assert_called_once()
@@ -127,8 +124,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
         mock_create_horizontal.assert_called_once_with(self.default_params, self.default_params.input.dimensions.horizontal_section_loc)
 
@@ -152,8 +147,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
         mock_create_longitudinal.assert_called_once_with(self.default_params, self.default_params.input.dimensions.longitudinal_section_loc)
 
@@ -173,8 +166,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
         mock_create_cross.assert_called_once_with(self.default_params, self.default_params.input.dimensions.cross_section_loc)
 
@@ -194,8 +185,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
 
         # Verify JSON result
@@ -217,8 +206,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, params_no_zones)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
 
         # Should return a figure with appropriate message
@@ -230,8 +217,6 @@ class TestBridgeControllerViews(unittest.TestCase):
     def test_get_load_combinations_view_execution(self, mock_create_table: MagicMock) -> None:
         """Test actual execution of get_load_combinations_view."""
         # Arrange
-        import pandas as pd
-
         # Create a mock DataFrame with typical load combination data
         mock_df = pd.DataFrame(
             {
@@ -250,8 +235,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params)
 
         # Assert
-        from viktor.views import TableResult
-
         assert isinstance(result, TableResult)
         mock_create_table.assert_called_once()
 
@@ -264,6 +247,244 @@ class TestBridgeControllerViews(unittest.TestCase):
         # Check first row data
         assert result.data[0] == ["ULS_1", 1.35, 1.5, "Ultimate Limit State 1"]
 
+    @patch("app.bridge.controller.create_load_combination_table")
+    @view_test_wrapper("get_load_combinations_view")
+    def test_get_load_combinations_view_styler_object_handling(self, mock_create_table: MagicMock) -> None:
+        """Test that load combinations view properly handles Styler objects returned by create_load_combination_table."""
+        # Arrange
+        # Create a DataFrame and return its Styler object (which is what the real function returns)
+        mock_df = pd.DataFrame(
+            {
+                "Permanent": [1.35, 1.0, 1.35],
+                "TS": [1.5, 0.0, 1.5],
+                "UDL": [1.5, 1.0, 0.0],
+            },
+            index=["6.10a Perm", "6.10a gr1a", "6.10a gr2"],
+        )
+
+        # Create a proper Styler object with correct styling function
+        def highlight_function(df: pd.DataFrame) -> pd.DataFrame:
+            # Return a DataFrame with styling strings, not a list
+            styling = pd.DataFrame("", index=df.index, columns=df.columns)
+            # Add some highlighting for testing
+            styling.iloc[0, 0] = "background-color: lightgreen"
+            styling.iloc[1, 1] = "background-color: lightgreen"
+            return styling
+
+        mock_styler = mock_df.style.apply(highlight_function, axis=None)
+        mock_create_table.return_value = mock_styler
+
+        # Access the original method directly
+        original_method = self.controller.__class__.get_load_combinations_view
+
+        # Act - call bypassing decorator
+        result = original_method(self.controller, self.default_params)
+
+        # Assert
+        assert isinstance(result, TableResult)
+        mock_create_table.assert_called_once()
+
+        # Critical test: Verify the table has the expected structure and contains meaningful data
+        # Since we're mocking with a 3x3 DataFrame, expect that size
+        assert hasattr(result, "data"), "TableResult should have data attribute"
+        assert isinstance(result.data, list), "TableResult data should be a list"
+        assert len(result.data) == 3, f"Expected 3 rows from mocked data, got {len(result.data)}"
+        assert len(result.data[0]) == 3, f"Expected 3 columns from mocked data, got {len(result.data[0])}"
+
+        # Check that cells contain actual values, not object string representations
+        for row in range(3):
+            for col in range(3):
+                cell_value = result.data[row][col]
+
+                # Cell should not be empty
+                assert cell_value is not None, f"Cell at [{row}][{col}] should not be None"
+
+                # Cell should either be a direct value or a VIKTOR TableCell object
+                # Both are valid - VIKTOR converts DataFrame cells to TableCell objects
+                if hasattr(cell_value, "__class__") and "TableCell" in str(type(cell_value)):
+                    # This is a valid VIKTOR TableCell object - check it's not empty
+                    cell_str = str(cell_value)
+                    assert len(cell_str) > 0, f"TableCell at [{row}][{col}] should not be empty"
+                else:
+                    # This is a direct value - check it's not empty and not a problematic object
+                    cell_str = str(cell_value)
+                    assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
+                    assert not cell_str.startswith("pandas.io.formats.style.Styler"), (
+                        f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
+                    )
+
+        # The TableResult should be properly constructed from the Styler
+        # VIKTOR handles the internal conversion, so we just verify it's not broken
+
+    def test_get_load_combinations_view_comprehensive_validation(self) -> None:
+        """Comprehensive test to catch various issues with the load combinations table."""
+        # Access the original method directly
+        original_method = self.controller.__class__.get_load_combinations_view
+
+        # Act - call bypassing decorator with real params
+        result = original_method(self.controller, self.default_params)
+
+        # Assert basic structure
+        assert isinstance(result, TableResult), "Should return a TableResult object"
+
+        # Test 1: Verify the table has the expected structure and contains meaningful data
+        # We expect 56 rows and 8 columns for load combinations
+        assert hasattr(result, "data"), "TableResult should have data attribute"
+        assert isinstance(result.data, list), "TableResult data should be a list"
+        assert len(result.data) == 56, f"Expected 56 rows, got {len(result.data)}"
+        assert len(result.data[0]) == 8, f"Expected 8 columns, got {len(result.data[0])}"
+
+        # Check random cells to ensure they contain actual values, not object representations
+        import random
+
+        random.seed(42)  # For reproducible testing
+
+        # Check 5 random cells
+        for _ in range(5):
+            row = random.randint(0, 55)
+            col = random.randint(0, 7)
+            cell_value = result.data[row][col]
+
+            # Cell should not be empty or contain object string representations
+            assert cell_value is not None, f"Cell at [{row}][{col}] should not be None"
+            cell_str = str(cell_value)
+            assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
+            assert not cell_str.startswith("<"), f"Cell at [{row}][{col}] should not be object representation: {cell_str}"
+            assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
+
+        # Test 2: Verify TableResult is not empty (should have load combinations)
+        # If this fails, it means the load combination generation is broken
+        if hasattr(result, "data"):
+            assert result.data is not None, "TableResult data should not be None"
+            if isinstance(result.data, list):
+                assert len(result.data) > 0, "TableResult should have at least one row of load combinations"
+
+        # Test 3: Check for proper error handling - no exceptions should be raised
+        # The method should handle missing parameters gracefully with defaults
+        try:
+            # This should not raise any exceptions
+            str(result)  # Force string conversion to catch any hidden errors
+        except Exception as e:
+            self.fail(f"TableResult should be properly serializable, but got error: {e}")
+
+        # Test 4: Verify the result is a proper VIKTOR TableResult, not some other type
+        # This ensures we're not accidentally returning raw pandas objects
+        assert hasattr(result, "__class__"), "Result should have a proper class"
+        assert "TableResult" in str(type(result)), f"Should be TableResult, got: {type(result)}"
+
+    def test_get_load_combinations_view_error_conditions(self) -> None:
+        """Test load combinations view handles various error conditions gracefully."""
+        original_method = self.controller.__class__.get_load_combinations_view
+
+        # Test with completely empty params
+        from munch import Munch
+
+        empty_params = Munch()
+
+        try:
+            result = original_method(self.controller, empty_params)
+            assert isinstance(result, TableResult), "Should return TableResult even with empty params"
+        except Exception as e:
+            # If it raises an exception, it should be a UserError with helpful message
+            error_message = str(e).lower()
+            if not ("load combination" in error_message or "parameter" in error_message):
+                self.fail(f"Error message should be helpful: {e}")
+
+        # Test with params that have info but no belastingcombinaties
+        partial_params = Munch({"info": {"construction_year": "2020"}})
+
+        try:
+            result = original_method(self.controller, partial_params)
+            assert isinstance(result, TableResult), "Should return TableResult with partial params"
+        except Exception as e:
+            # Should handle gracefully or give helpful error
+            error_message = str(e).lower()
+            if not ("load combination" in error_message or "parameter" in error_message):
+                self.fail(f"Error message should be helpful: {e}")
+
+    def test_get_load_combinations_view_real_data_structure(self) -> None:
+        """Test load combinations view with realistic data to check basic structure."""
+        # Access the original method directly
+        original_method = self.controller.__class__.get_load_combinations_view
+
+        # Act - call bypassing decorator with real params
+        result = original_method(self.controller, self.default_params)
+
+        # Assert basic structure
+        assert isinstance(result, TableResult)
+
+        # Check that the table has the expected structure and contains meaningful data
+        # We expect 56 rows and 8 columns for load combinations
+        assert hasattr(result, "data"), "TableResult should have data attribute"
+        assert isinstance(result.data, list), "TableResult data should be a list"
+        assert len(result.data) == 56, f"Expected 56 rows, got {len(result.data)}"
+        assert len(result.data[0]) == 8, f"Expected 8 columns, got {len(result.data[0])}"
+
+        # Check random cells to ensure they contain actual values, not object representations
+        import random
+
+        random.seed(42)  # For reproducible testing
+
+        # Check 5 random cells
+        for _ in range(5):
+            row = random.randint(0, 55)
+            col = random.randint(0, 7)
+            cell_value = result.data[row][col]
+
+            # Cell should not be empty or contain object string representations
+            assert cell_value is not None, f"Cell at [{row}][{col}] should not be None"
+            cell_str = str(cell_value)
+            assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
+            assert not cell_str.startswith("<"), f"Cell at [{row}][{col}] should not be object representation: {cell_str}"
+            assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
+
+        # The TableResult should be properly constructed
+        # Note: When TableResult receives a Styler object, VIKTOR handles the conversion internally
+        # We don't need to test the internal structure as that's handled by VIKTOR
+
+    def test_get_load_combinations_view_missing_parameters_fallback(self) -> None:
+        """Test load combinations view with missing parameters uses default values."""
+        # Create params with missing belastingcombinaties
+        incomplete_params = self.default_params.copy()
+
+        # Remove the belastingcombinaties section to simulate incomplete parametrization
+        if hasattr(incomplete_params.input, "belastingcombinaties"):
+            delattr(incomplete_params.input, "belastingcombinaties")
+
+        # Access the original method directly
+        original_method = self.controller.__class__.get_load_combinations_view
+
+        # Act - should NOT raise an error but use default values
+        result = original_method(self.controller, incomplete_params)
+
+        # Assert - should return a valid TableResult with default load combinations
+        assert isinstance(result, TableResult)
+
+        # Check that the table has the expected structure and contains meaningful data
+        # We expect 56 rows and 8 columns for load combinations
+        assert hasattr(result, "data"), "TableResult should have data attribute"
+        assert isinstance(result.data, list), "TableResult data should be a list"
+        assert len(result.data) == 56, f"Expected 56 rows, got {len(result.data)}"
+        assert len(result.data[0]) == 8, f"Expected 8 columns, got {len(result.data[0])}"
+
+        # Check random cells to ensure they contain actual values, not object representations
+        import random
+
+        random.seed(42)  # For reproducible testing
+
+        # Check 5 random cells
+        for _ in range(5):
+            row = random.randint(0, 55)
+            col = random.randint(0, 7)
+            cell_value = result.data[row][col]
+
+            # Cell should not be empty or contain object string representations
+            assert cell_value is not None, f"Cell at [{row}][{col}] should not be None"
+            cell_str = str(cell_value)
+            assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
+            assert not cell_str.startswith("<"), f"Cell at [{row}][{col}] should not be object representation: {cell_str}"
+            assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
+
     @patch("app.bridge.controller.api_sdk.API")
     @view_test_wrapper("get_bridge_map_view")
     def test_get_bridge_map_view_execution_invalid_entity(self, _mock_api_class: MagicMock) -> None:
@@ -275,8 +496,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, self.default_params, entity_id=None)
 
         # Assert
-        from viktor.views import MapResult
-
         assert isinstance(result, MapResult)
         assert len(result.features) > 0
 
@@ -321,8 +540,6 @@ class TestBridgeControllerViews(unittest.TestCase):
         result = original_method(self.controller, params_invalid)
 
         # Assert
-        from viktor.views import PlotlyResult
-
         assert isinstance(result, PlotlyResult)
 
         # Should return error figure
