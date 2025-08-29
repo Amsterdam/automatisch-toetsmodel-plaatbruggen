@@ -7,7 +7,14 @@ to eliminate circular imports. It only depends on scia_loads_helper for the actu
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
+
+# Type alias to avoid importing from app layer
+BridgeParams = Any
+
+# Type aliases for different function signatures
+TheoreticalTandemFunc = Callable[[BridgeParams, float, float, float, float, float], list[dict[str, Any]]]
+ActualTandemFunc = Callable[[BridgeParams, float, float], list[dict[str, Any]]]
 
 
 class LoadType(Enum):
@@ -40,7 +47,17 @@ class LoadMode(Enum):
     ACTUAL = "actual"
 
 
-def get_load_mode_from_params(params: Any) -> LoadMode:
+def _raise_unsupported_mode_error(mode: LoadMode) -> None:
+    """Helper function to raise unsupported mode error."""
+    raise ValueError(f"Unsupported load mode: {mode}")
+
+
+def _raise_unsupported_udl_mode_error(mode: LoadMode) -> None:
+    """Helper function to raise unsupported UDL mode error."""
+    raise ValueError(f"Unsupported UDL load mode: {mode}")
+
+
+def get_load_mode_from_params(params: BridgeParams) -> LoadMode:
     """
     Extract load mode from bridge parameters based on berekeningsniveau.
 
@@ -82,7 +99,7 @@ class BridgeDimensions:
         }
 
 
-def extract_bridge_dimensions(params: Any) -> BridgeDimensions:
+def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensions:
     """
     Extract key bridge dimensions from parametrization.
 
@@ -112,7 +129,7 @@ def extract_bridge_dimensions(params: Any) -> BridgeDimensions:
     )
 
 
-def generate_tandem_loads(params: Any, mode: LoadMode | str | None = None) -> list[dict[str, Any]]:
+def generate_tandem_loads(params: BridgeParams, mode: LoadMode | str | None = None) -> list[dict[str, Any]]:
     """
     Generate all tandem loads for a bridge.
 
@@ -143,14 +160,14 @@ def generate_tandem_loads(params: Any, mode: LoadMode | str | None = None) -> li
     # Extract bridge dimensions
     dims = extract_bridge_dimensions(params)
 
-    # Function registries
-    theoretical_functions = {
+    # Function registries with proper typing
+    theoretical_functions: dict[LoadGroup, TheoreticalTandemFunc] = {
         LoadGroup.BG8000: tandem_systems_theoretical_lanes_bg8000,
         LoadGroup.BG9000: tandem_systems_theoretical_lanes_bg9000,
         LoadGroup.BG10000: tandem_systems_theoretical_lanes_bg10000,
     }
 
-    actual_functions = {
+    actual_functions: dict[LoadGroup, ActualTandemFunc] = {
         LoadGroup.BG8000: tandem_systems_real_lanes_bg8000,
         LoadGroup.BG9000: tandem_systems_real_lanes_bg9000,
         LoadGroup.BG10000: tandem_systems_real_lanes_bg10000,
@@ -159,12 +176,12 @@ def generate_tandem_loads(params: Any, mode: LoadMode | str | None = None) -> li
     # Generate loads for all load groups
     all_loads = []
 
-    for load_group in LoadGroup:
-        try:
+    try:
+        for load_group in LoadGroup:
             if mode == LoadMode.THEORETICAL:
-                func = theoretical_functions[load_group]
+                theoretical_func = theoretical_functions[load_group]
                 # Theoretical functions need 6 parameters (including params)
-                loads = func(
+                loads = theoretical_func(
                     params,
                     dims.total_length,
                     dims.total_width,
@@ -173,24 +190,26 @@ def generate_tandem_loads(params: Any, mode: LoadMode | str | None = None) -> li
                     dims.zone2_width,
                 )
             elif mode == LoadMode.ACTUAL:
-                func = actual_functions[load_group]
-                # Actual functions need 3 parameters + params object
-                loads = func(
+                actual_func = actual_functions[load_group]
+                # Actual functions need 3 parameters + params object (lane_width has default)
+                loads = actual_func(
                     params,
                     dims.total_length,
                     dims.thickness,
                 )
             else:
-                raise ValueError(f"Unsupported load mode: {mode}")
+                _raise_unsupported_mode_error(mode)
 
             all_loads.extend(loads)
-        except Exception as e:
-            raise ValueError(f"Failed to generate {mode.value} loads for {load_group.value}: {e}") from e
+    except Exception as e:
+        # Determine which load group failed if possible
+        load_group_name = load_group.value if "load_group" in locals() else "unknown"
+        raise ValueError(f"Failed to generate {mode.value} loads for {load_group_name}: {e}") from e
 
     return all_loads
 
 
-def generate_udl_loads(params: Any, mode: LoadMode | str | None = None, udl_value: float = 9000.0) -> list[dict[str, Any]]:
+def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None, udl_value: float = 9000.0) -> list[dict[str, Any]]:
     """
     Generate all UDL loads for a bridge.
 
@@ -224,29 +243,32 @@ def generate_udl_loads(params: Any, mode: LoadMode | str | None = None, udl_valu
         elif mode == LoadMode.ACTUAL:
             udl_results = create_real_udl_traffic_loads(params, dims.total_length, udl_value)
         else:
-            raise ValueError(f"Unsupported UDL load mode: {mode}")
+            _raise_unsupported_udl_mode_error(mode)
 
         # Convert to our standard format
         all_loads = []
         for group_name, group_data in udl_results.items():
             for load_type, polygons in group_data.items():
-                for polygon_data in polygons:
-                    all_loads.append(
+                all_loads.extend(
+                    [
                         {
                             "load_case": f"{group_name}_{load_type}",
                             "load_type": "udl",
                             "polygon": polygon_data["polygon"],
                             "load_value": polygon_data["load"],
                         }
-                    )
+                        for polygon_data in polygons
+                    ]
+                )
 
-        return all_loads
     except Exception as e:
         raise ValueError(f"Failed to generate UDL loads: {e}") from e
+    else:
+        return all_loads
 
 
 def generate_all_loads(
-    params: Any, load_types: list[LoadType] | None = None, mode: LoadMode | str | None = None, udl_value: float = 9000.0
+    params: BridgeParams, load_types: list[LoadType] | None = None, mode: LoadMode | str | None = None, udl_value: float = 9000.0
 ) -> dict[str, list[dict[str, Any]]]:
     """
     Generate all types of loads for a bridge.
@@ -265,13 +287,15 @@ def generate_all_loads(
 
     results = {}
 
-    for load_type in load_types:
-        try:
+    try:
+        for load_type in load_types:
             if load_type == LoadType.TANDEM:
                 results["tandem"] = generate_tandem_loads(params, mode)
             elif load_type == LoadType.UDL:
                 results["udl"] = generate_udl_loads(params, mode, udl_value)
-        except Exception as e:
-            raise ValueError(f"Failed to generate {load_type.value} loads: {e}") from e
+    except Exception as e:
+        # Determine which load type failed if possible
+        load_type_name = load_type.value if "load_type" in locals() else "unknown"
+        raise ValueError(f"Failed to generate {load_type_name} loads: {e}") from e
 
     return results

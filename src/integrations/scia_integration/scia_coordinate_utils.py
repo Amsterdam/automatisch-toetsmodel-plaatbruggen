@@ -114,7 +114,7 @@ def _convert_udl_to_scia(load_data: list[dict[str, Any]]) -> list[dict[str, Any]
     return scia_cases
 
 
-def extract_zone_boundaries(params: Any) -> dict[str, dict[str, float]]:
+def extract_zone_boundaries(params: Any) -> dict[str, dict[str, float]]:  # noqa: ANN401
     """
     Extract zone boundaries for each segment.
 

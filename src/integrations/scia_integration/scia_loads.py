@@ -32,13 +32,6 @@ def add_udl_loads(
     :param params: VIKTOR parameters for the bridge.
     :param load_cases: Dictionary of created load cases.
     """
-    # Extract bridge dimensions
-    dims = extract_bridge_dimensions(params)
-    length = dims.total_length
-    width = dims.total_width
-    width_firstsegment_zone3 = dims.zone3_width
-    width_firstsegment_zone2 = dims.zone2_width
-
     # Use the mode-aware UDL generation function
     from .scia_load_generators import generate_udl_loads
 
@@ -46,7 +39,7 @@ def add_udl_loads(
     udl_load_list = generate_udl_loads(params)
 
     # Convert from our standard format back to the expected format
-    udl_results = {}
+    udl_results: dict[str, dict[str, Any]] = {}
     for load_data in udl_load_list:
         load_case = load_data["load_case"]
         # Extract the BG group from load_case (e.g., "BG4001_main" -> "BG4001")

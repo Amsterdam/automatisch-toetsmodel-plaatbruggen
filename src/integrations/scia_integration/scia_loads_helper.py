@@ -218,7 +218,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     return results
 
 
-def create_real_udl_traffic_loads(
+def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     params: BridgeParametrization,
     length_bridgedeck: float,
     udl_value: float = 9000.0,
@@ -399,11 +399,12 @@ def create_real_udl_traffic_loads(
 
     return results
 
-    # ========================================================================
-    # THEORETICAL TRAFFIC LANE INTEGRATION
-    # ========================================================================
-    # These functions connect tandem loads to theoretical traffic lanes from
-    # src.geometry.load_zone_geometry for proper structural engineering analysis.
+
+# ========================================================================
+# THEORETICAL TRAFFIC LANE INTEGRATION
+# ========================================================================
+# These functions connect tandem loads to theoretical traffic lanes from
+# src.geometry.load_zone_geometry for proper structural engineering analysis.
 
 
 def generate_theoretical_lane_positions_bg8000(
@@ -1116,7 +1117,6 @@ def generate_real_lane_positions_bg9000(
 
     # Calculate number of complete lanes
     y_top, width_road = obtain_y_coordinates_road(params)
-    y_bottom = y_top - width_road
     num_lanes = int(width_road // lane_width)
 
     if width_road <= 0:
