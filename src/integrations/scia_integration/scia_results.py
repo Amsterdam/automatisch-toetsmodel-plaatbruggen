@@ -33,6 +33,14 @@ def extract_analysis_results(builder: SciaModelBuilder, analysis: SciaAnalysis) 
         # Add summary
         results["result_summary"] = get_result_summary(results)
 
+        # Attach units mapping for downstream consumers
+        units_mapping = build_units_mapping(results)
+        results["units"] = units_mapping
+
+        # Also place units inside individual sections when present (convenience)
+        if isinstance(results.get("internal_forces"), dict):
+            results["internal_forces"].setdefault("units", units_mapping.get("internal_forces", {}))
+
     except Exception as e:
         raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
     else:
@@ -47,12 +55,19 @@ def get_result_summary(results: dict[str, Any]) -> dict[str, Any]:
     :returns: Summary of key results and statistics
     :rtype: dict[str, Any]
     """
+
+    # Helper function to safely get status from result sections
+    def _get_status(section_data: object) -> str:
+        if isinstance(section_data, dict):
+            return section_data.get("status", "unknown")
+        return "unknown"
+
     summary = {
         "analysis_successful": results.get("analysis_status", {}).get("executed", False),
-        "has_displacements": results.get("displacements", {}).get("status") != "not_implemented",
-        "has_internal_forces": results.get("internal_forces", {}).get("status") != "not_implemented",
-        "has_reactions": results.get("reactions", {}).get("status") != "not_implemented",
-        "has_stresses": results.get("stresses", {}).get("status") != "not_implemented",
+        "has_displacements": _get_status(results.get("displacements")) != "not_implemented",
+        "has_internal_forces": _get_status(results.get("internal_forces")) != "not_implemented",
+        "has_reactions": _get_status(results.get("reactions")) != "not_implemented",
+        "has_stresses": _get_status(results.get("stresses")) != "not_implemented",
     }
 
     # Add error information if available
@@ -86,6 +101,103 @@ def validate_analysis_results(results: dict[str, Any]) -> tuple[bool, list[str]]
 
     is_valid = len(validation_messages) == 0
     return is_valid, validation_messages
+
+
+def build_units_mapping(results: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """
+    Build a best-effort units mapping for SCIA results.
+
+    The mapping is returned under a top-level structure keyed by result category
+    (e.g. "internal_forces", "reactions", "stresses"). For internal forces,
+    units depend on whether the selected table represents 1D (beam) or 2D (plate)
+    forces. This is inferred from the table name when available.
+
+    :param results: The complete results dictionary from extract_analysis_results
+    :returns: Mapping from category -> { result_component: unit_string }
+    :rtype: dict[str, dict[str, str]]
+    """
+    # Determine internal force units based on table type (1D vs 2D)
+    internal_forces_entry = results.get("internal_forces")
+    table_name = None
+    if isinstance(internal_forces_entry, dict):
+        table_name = internal_forces_entry.get("table_name")
+
+    # Units for the actual force components extracted from SCIA XML headers
+    internal_forces_units_2d = {
+        # Bending moments per unit length (2D plates)
+        "m_x": "kNm/m",
+        "m_y": "kNm/m",
+        "m_xy": "kNm/m",
+        # Shear forces per unit length (2D plates)
+        "v_x": "kN/m",
+        "v_y": "kN/m",
+        # Membrane forces per unit length (2D plates)
+        "n_x": "kN/m",
+        "n_y": "kN/m",
+        "n_xy": "kN/m",
+        # Envelope components for 2D plates
+        "m_xD+": "kNm/m",
+        "m_xD-": "kNm/m",
+        "m_yD+": "kNm/m",
+        "m_yD-": "kNm/m",
+        "m_cD+": "kNm/m",
+        "m_cD-": "kNm/m",
+        "n_xD": "kN/m",
+        "n_yD": "kN/m",
+        "n_cD": "kN/m",
+    }
+
+    # For 1D elements (if any), use standard beam force units
+    internal_forces_units_1d = {
+        # Standard 1D beam forces (fallback if 1D tables are encountered)
+        "N": "kN",
+        "Vy": "kN",
+        "Vz": "kN",
+        "Mx": "kNm",
+        "My": "kNm",
+        "Mz": "kNm",
+    }
+
+    # Heuristic: consider any table name containing "2D" as plate forces; "1D" as beam forces
+    # If none is present, fall back to the 1D convention commonly used for line/beam results.
+    internal_forces_units: dict[str, str]
+    if isinstance(table_name, str) and ("2D" in table_name or "2d" in table_name.lower()):
+        # 2D plates: include both raw SCIA field keys and envelope component keys used downstream
+        internal_forces_units = {
+            **internal_forces_units_2d,
+            # Envelope component names used by force envelopes / views
+            "N": "kN/m",
+            "Vy": "kN/m",
+            "Vz": "kN/m",
+            "Mxd+": "kNm/m",
+            "Mxd-": "kNm/m",
+            "Myd+": "kNm/m",
+            "Myd-": "kNm/m",
+        }
+    elif isinstance(table_name, str) and ("1D" in table_name or "1d" in table_name.lower()):
+        # 1D beams: include envelope-style moment keys as well
+        internal_forces_units = {
+            **internal_forces_units_1d,
+            "Mxd+": "kNm",
+            "Mxd-": "kNm",
+            "Myd+": "kNm",
+            "Myd-": "kNm",
+        }
+    else:
+        internal_forces_units = {
+            **internal_forces_units_1d,
+            "Mxd+": "kNm",
+            "Mxd-": "kNm",
+            "Myd+": "kNm",
+            "Myd-": "kNm",
+        }
+
+    # Compose final mapping
+    units: dict[str, dict[str, str]] = {
+        "internal_forces": internal_forces_units,
+    }
+
+    return units
 
 
 def _extract_combinations_by_type(load_combinations: dict[str, Any], combo_type: str) -> list[Any]:
