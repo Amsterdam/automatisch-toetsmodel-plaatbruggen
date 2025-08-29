@@ -385,22 +385,37 @@ class BridgeController(ViktorController):
         :returns: TableResult containing the load combinations.
         :rtype: TableResult
         """
-        combination_table = create_load_combination_table(params)
-
-        # Convert DataFrame to list of lists for TableResult
-        data_rows: list[list[Any]] | None = None
+        # Prepare parameters in the format expected by create_load_combination_table
+        # Use defensive programming with default values for incomplete parametrization
         try:
-            if hasattr(combination_table, "values") and hasattr(combination_table, "columns"):
-                data_rows = combination_table.values.tolist()  # type: ignore[attr-defined]
-                column_headers = [str(c) for c in list(combination_table.columns)]  # type: ignore[attr-defined]
-                return TableResult(data_rows, column_headers=column_headers)
-        except Exception:
-            data_rows = None
+            cc_class = getattr(params.input.belastingcombinaties, "cc_class", "CC2")
+            design_code = getattr(params.input.belastingcombinaties, "design_code", "NEN 8700 verbouw")
+        except AttributeError:
+            # If belastingcombinaties section doesn't exist, use defaults
+            cc_class = "CC2"
+            design_code = "NEN 8700 verbouw"
 
-        if isinstance(combination_table, list):
-            return TableResult(combination_table)
+        try:
+            construction_year = getattr(params.info, "construction_year", "2000")
+        except AttributeError:
+            construction_year = "2000"
 
-        return TableResult([[str(combination_table)]])
+        # Ensure construction_year is not empty
+        if not construction_year or str(construction_year).strip() == "":
+            construction_year = "2000"
+
+        load_combination_params = {
+            "cc_class": cc_class,
+            "design_code": design_code,
+            "info": {
+                "construction_year": construction_year,
+            },
+        }
+
+        combination_table = create_load_combination_table(load_combination_params)
+
+        # VIKTOR TableResult can handle Styler objects directly with proper styling
+        return TableResult(combination_table)
 
     # ============================================================================================================
     # SCIA Integration
