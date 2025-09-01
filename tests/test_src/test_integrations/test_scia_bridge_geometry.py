@@ -160,6 +160,10 @@ class TestTandemLoadGeneration:
         # Set berekeningsniveau to actual mode
         params.berekeningsniveau = "Werkelijke wegindeling"
 
+        # Configure dictionary-style access for design_code
+        params.__getitem__ = Mock(side_effect=lambda x: "NEN 8700 afkeur" if x == "design_code" else None)
+        params.__contains__ = Mock(return_value=True)  # For 'in' operator
+
         # Mock the load zones data that actual mode needs
         params.load_zones_data_array = []
 

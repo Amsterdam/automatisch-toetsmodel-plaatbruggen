@@ -497,8 +497,15 @@ class TestUniformlyDistributedLoads:
         length_bridgedeck = 20.0  # 20m long bridge
         udl_value = 9000.0  # 9 kN/m²
 
-        # Configure mock params
+        # Configure mock params and reference period
         mock_params.reference_period = 50  # years
+        mock_ref_period = Mock()
+        mock_ref_period.return_value = 50
+
+        # Configure load factors before they are used
+        mock_psi.return_value = 1.0  # Example psi factor
+        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
+        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Add bridge segments data that get_bridge_geom_data needs
         mock_segment = Mock()
@@ -520,11 +527,7 @@ class TestUniformlyDistributedLoads:
         mock_params.load_zones_data_array = [mock_zone]
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
         mock_params.__contains__ = Mock(return_value=True)
-
-        # Mock the load factors
-        mock_psi.return_value = 1.0  # Example psi factor
-        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
-        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
+        mock_params.berekeningsniveau = "Werkelijke wegindeling"  # Set the calculation mode explicitly
 
         # Mock obtain_y_coordinates_road to return valid road geometry
         mock_obtain_y.return_value = (6.5, 10.5)  # (y_top, width_road)
@@ -568,14 +571,35 @@ class TestUniformlyDistributedLoads:
         assert abs(main_polygon["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}"
 
     @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road")
-    def test_create_real_udl_traffic_loads_edge_cases(self, mock_obtain_y: Mock, mock_params: Mock) -> None:
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_reference_period")
+    def test_create_real_udl_traffic_loads_edge_cases(
+        self,
+        mock_ref_period: Mock,
+        mock_alpha_q: Mock,
+        mock_alpha_trend: Mock,
+        mock_psi: Mock,
+        mock_obtain_y: Mock,
+        mock_params: Mock,
+    ) -> None:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
 
-        # Configure mock params
+        # Configure mock params and reference period
+        mock_params.reference_period = 50  # years
+        mock_ref_period.return_value = 50
+
+        # Configure load factors
+        mock_psi.return_value = 1.0  # Example psi factor
+        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
+        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
+
+        # Configure mock params access
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
         mock_params.__contains__ = Mock(return_value=True)
-        mock_params.reference_period = 50
+        mock_params.berekeningsniveau = "Werkelijke wegindeling"
 
         # Add bridge segments data that get_bridge_geom_data needs
         mock_segment = Mock()
