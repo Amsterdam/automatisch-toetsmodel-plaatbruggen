@@ -152,6 +152,7 @@ def extract_zone_boundaries(params: Any) -> dict[str, dict[str, float]]:  # noqa
 # Deck zone geometry (between D-lines)
 # ------------------------------
 
+
 def get_bridge_deck_zone_coordinates(params: object) -> dict[str, list[list[float]]]:
     """
     Get coordinates of bridge deck zones spanning between segment boundaries.
@@ -295,6 +296,7 @@ def get_bridge_deck_zone_materials_and_thickness(params: object) -> dict[str, di
 # Load zone geometry (within deck zones)
 # ------------------------------
 
+
 def get_bridge_load_zone_coordinates(params: object) -> dict[str, list[list[float]]]:
     """
     Get coordinates of bridge load zones spanning between segment boundaries.
@@ -422,6 +424,7 @@ def get_bridge_load_zone_materials_and_thickness(params: object) -> dict[str, di
 # ------------------------------
 # Point-in-polygon helper and property queries at coordinate
 # ------------------------------
+
 
 def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list[float]]) -> bool:
     """
