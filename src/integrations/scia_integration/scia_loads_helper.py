@@ -247,7 +247,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    #Choose correct alpha_q_factor based on calculation level
+    # Choose correct alpha_q_factor based on calculation level
     if params.berekeningsniveau == "Werkelijke wegindeling":
         alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
         # Obtain load values
@@ -1036,7 +1036,7 @@ def tandem_systems_real_lanes_bg8000(
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
-    #Determine correct alpha q factor based on calculation level
+    # Determine correct alpha q factor based on calculation level
     if params.berekeningsniveau == "Werkelijke wegindeling":
         alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
@@ -1197,7 +1197,7 @@ def tandem_systems_real_lanes_bg9000(
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
-    #Determine correct alpha q factor based on calculation level
+    # Determine correct alpha q factor based on calculation level
     if params.berekeningsniveau == "Werkelijke wegindeling":
         alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
@@ -1337,8 +1337,8 @@ def tandem_systems_real_lanes_bg10000(
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    
-    #Determine correct alpha q factor based on calculation level
+
+    # Determine correct alpha q factor based on calculation level
     if params.berekeningsniveau == "Werkelijke wegindeling":
         alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
