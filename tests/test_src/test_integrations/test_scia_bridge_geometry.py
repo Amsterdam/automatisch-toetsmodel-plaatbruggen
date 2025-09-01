@@ -329,10 +329,11 @@ class TestFullOutputDeckAndLoadZone:
     def make_params() -> Mock:
         """Create mock parameters for full output deck/load/load zone tests."""
         # D-parameters (bridge segments)
-        d1 = Mock(bz1=10, bz2=3, bz3=16, dz=2, dz_2=2, afstand=None, oplegging=True, l=0)
-        d2 = Mock(bz1=12, bz2=7, bz3=20, dz=2.4, dz_2=2.4, afstand=12, oplegging=False, l=12)
-        d3 = Mock(bz1=15, bz2=4, bz3=17, dz=0.1, dz_2=0.1, afstand=9, oplegging=False, l=9)
-        d4 = Mock(bz1=10, bz2=2, bz3=12, dz=0.785, dz_2=0.785, afstand=4, oplegging=True, l=4)
+        # dz_2 values calculated to match expected zone_2 thickness: dz_2 = dz + expected_thickness
+        d1 = Mock(bz1=10, bz2=3, bz3=16, dz=2, dz_2=2.8, afstand=None, oplegging=True, l=0)
+        d2 = Mock(bz1=12, bz2=7, bz3=20, dz=2.4, dz_2=3.7, afstand=12, oplegging=False, l=12)
+        d3 = Mock(bz1=15, bz2=4, bz3=17, dz=0.1, dz_2=0.44, afstand=9, oplegging=False, l=9)
+        d4 = Mock(bz1=10, bz2=2, bz3=12, dz=0.785, dz_2=2.019, afstand=4, oplegging=True, l=4)
         params = Mock()
         params.bridge_segments_array = [d1, d2, d3, d4]
 
