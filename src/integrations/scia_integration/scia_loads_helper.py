@@ -247,11 +247,18 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
-    # Obtain load values
-    main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    #Choose correct alpha_q_factor based on calculation level
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+        # Obtain load values
+        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factors = 1.35, 1.0
+        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
 
     y_top, width_road = obtain_y_coordinates_road(params)
@@ -1025,6 +1032,19 @@ def tandem_systems_real_lanes_bg8000(
     lane_y_positions = generate_real_lane_positions_bg8000(params, lane_width)
 
     results = []
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+
+    #Determine correct alpha q factor based on calculation level
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factor = 0.8
+    # Obtain load values
+    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG8 (first lane position)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -1079,9 +1099,9 @@ def tandem_systems_real_lanes_bg8000(
                     wheels_100.append(wheel_coords)
 
             load_case["loads"] = [
-                {"wheels": wheels_main, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_200, "load": 200000 / (0.4 * 0.4)},
-                {"wheels": wheels_100, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_main, "load": load_main},
+                {"wheels": wheels_200, "load": load_second},
+                {"wheels": wheels_100, "load": load_third},
             ]
 
             results.append(load_case)
@@ -1173,6 +1193,20 @@ def tandem_systems_real_lanes_bg9000(
     lane_y_positions = generate_real_lane_positions_bg9000(params, lane_width)
 
     results = []
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+
+    #Determine correct alpha q factor based on calculation level
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factor = 0.8
+
+    # Obtain load values
+    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG9 (first lane position)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -1227,9 +1261,9 @@ def tandem_systems_real_lanes_bg9000(
                     wheels_100.append(wheel_coords)
 
             load_case["loads"] = [
-                {"wheels": wheels_main, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_200, "load": 200000 / (0.4 * 0.4)},
-                {"wheels": wheels_100, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_main, "load": load_main},
+                {"wheels": wheels_200, "load": load_second},
+                {"wheels": wheels_100, "load": load_third},
             ]
 
             results.append(load_case)
@@ -1300,6 +1334,21 @@ def tandem_systems_real_lanes_bg10000(
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
     lane_y_positions = generate_real_lane_positions_bg10000(params, lane_width)
 
+    # Obtain required factors for vertical traffic loading (LM1 and LM2)
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    
+    #Determine correct alpha q factor based on calculation level
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factor = 0.8
+
+    # Obtain load values
+    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+
     # Order: center (300 kN), left/right (200/100 kN)
     y_center, y_left, y_right = lane_y_positions
     prefix = "BG10"
@@ -1349,9 +1398,9 @@ def tandem_systems_real_lanes_bg10000(
         load_case_a = {
             "load_case": f"{prefix}{idx:03d}",
             "loads": [
-                {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_200_left, "load": 200000 / (0.4 * 0.4)},
-                {"wheels": wheels_100_right, "load": 100000 / (0.4 * 0.4)},
+                {"wheels": wheels_300, "load": load_main},
+                {"wheels": wheels_200_left, "load": load_second},
+                {"wheels": wheels_100_right, "load": load_third},
             ],
         }
         results.append(load_case_a)
@@ -1401,9 +1450,9 @@ def tandem_systems_real_lanes_bg10000(
         load_case_b = {
             "load_case": f"{prefix}{idx:03d}",
             "loads": [
-                {"wheels": wheels_300, "load": 300000 / (0.4 * 0.4)},
-                {"wheels": wheels_100_left, "load": 100000 / (0.4 * 0.4)},
-                {"wheels": wheels_200_right, "load": 200000 / (0.4 * 0.4)},
+                {"wheels": wheels_300, "load": load_main},
+                {"wheels": wheels_100_left, "load": load_third},
+                {"wheels": wheels_200_right, "load": load_second},
             ],
         }
         results.append(load_case_b)
