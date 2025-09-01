@@ -297,7 +297,7 @@ def get_bridge_deck_zone_materials_and_thickness(params: object) -> dict[str, di
 # ------------------------------
 
 
-def get_bridge_load_zone_coordinates(params: object) -> dict[str, list[list[float]]]:
+def get_bridge_load_zone_coordinates(params: object) -> dict[str, list[list[float]]]:  # noqa: C901
     """
     Get coordinates of bridge load zones spanning between segment boundaries.
 
@@ -426,7 +426,7 @@ def get_bridge_load_zone_materials_and_thickness(params: object) -> dict[str, di
 # ------------------------------
 
 
-def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list[float]]) -> bool:
+def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list[float]]) -> bool:  # noqa: C901
     """
     Check if a point is inside a polygon using ray casting algorithm.
 
@@ -439,7 +439,7 @@ def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list
     n = len(polygon_corners)
     inside = False
 
-    def _point_on_segment(px: float, py: float, x1: float, y1: float, x2: float, y2: float, eps: float = 1e-9) -> bool:
+    def _point_on_segment(px: float, py: float, x1: float, y1: float, x2: float, y2: float, eps: float = 1e-9) -> bool:  # noqa: PLR0913
         dx = x2 - x1
         dy = y2 - y1
         if abs(dx) < eps and abs(dy) < eps:
