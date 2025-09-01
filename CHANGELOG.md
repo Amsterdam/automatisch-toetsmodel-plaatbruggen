@@ -1,9 +1,19 @@
 ## [`v0.0.12`] - 2025-xx-xx
 ### Added
+- **Comprehensive SCIA Units Testing**: Added extensive test coverage for SCIA units handling
+  - 13 tests for `build_units_mapping()` function covering 1D/2D table detection and edge cases
+  - 11 tests for `_format_complete_force_state()` method verifying proper unit application in formatted strings
+  - Tests cover 2D plate units (kN/m, kNm/m) vs 1D beam units (kN, kNm)
+  - Edge case handling: missing data, non-dict structures, partial units mapping
+- **SCIA Units Infrastructure**: Enhanced units mapping and error handling
+  - Improved `get_result_summary()` to handle non-dict section data gracefully
+  - Units are consistently applied from data extraction through user interface display
 - **Traffic load cases**: Added tandem loads and udl for real road layout
   - Added functionality dependent on radio button for road layout
+
 ### Changed
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
+
 ### Fixed
 
 ## [`v0.0.11`] - 2025-08-28
