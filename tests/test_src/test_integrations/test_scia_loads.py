@@ -10,6 +10,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.integrations.scia_integration.scia_loads_helper import (
+    calculate_real_tandem_values,
+    calculate_real_udl_values,
+)
+
 BridgeParametrization: Any
 
 
@@ -27,6 +32,48 @@ def mock_params() -> Mock:
     mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
     mock_params.__contains__ = Mock(return_value=True)
     return mock_params
+
+
+class TestRealTandemLoads:
+    """Tests for calculate_real_tandem_values function."""
+
+    @pytest.mark.parametrize(
+        "berekeningsniveau,signage",
+        [
+            ("Werkelijke wegindeling", None),
+            ("Werkelijke wegindeling onderliggend wegennet", None),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "50 ton"),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "30 ton"),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "20 ton"),
+        ],
+    )
+    def test_calculate_real_tandem_values(self, berekeningsniveau: str, signage: str | None) -> None:
+        """Test that calculate_real_tandem_values returns correct number of values for all berekeningsniveau options."""
+        # Arrange
+        params = Mock()
+        params.berekeningsniveau = berekeningsniveau
+        if signage:
+            params.signage = signage
+        
+        length_bridgedeck = 25.0
+        psi_factor = 1.0
+        alpha_factor = 1.0
+
+        # Act
+        load_main, load_second, load_third = calculate_real_tandem_values(
+            params, length_bridgedeck, psi_factor, alpha_factor
+        )
+
+        # Assert
+        assert isinstance(load_main, (int, float))
+        assert isinstance(load_second, (int, float))
+        assert isinstance(load_third, (int, float))
+        # The values should be positive
+        assert load_main > 0
+        assert load_second > 0
+        assert load_third > 0
+        # Main load should be larger than second, which should be larger than third
+        assert load_main > load_second > load_third
 
 
 class TestTheoreticalTandemLoads:
@@ -405,6 +452,44 @@ class TestLoadErrorHandling:
 
 class TestUniformlyDistributedLoads:
     """Test generation and application of uniformly distributed loads (UDL)."""
+
+    @pytest.mark.parametrize(
+        "berekeningsniveau,signage,udl_value",
+        [
+            ("Werkelijke wegindeling", None, 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "50 ton", 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "30 ton", 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "20 ton", 9000.0),
+        ],
+    )
+    def test_calculate_real_udl_values(self, berekeningsniveau: str, signage: str | None, udl_value: float) -> None:
+        """Test that calculate_real_udl_values returns correct number of values for all berekeningsniveau options."""
+        # Arrange
+        params = Mock()
+        params.berekeningsniveau = berekeningsniveau
+        if signage:
+            params.signage = signage
+        
+        length_bridgedeck = 25.0
+        psi_factor = 1.0
+        alpha_factor = 1.0
+
+        # Act
+        main_value, other_value, rest_value = calculate_real_udl_values(
+            params, length_bridgedeck, udl_value, psi_factor, alpha_factor
+        )
+
+        # Assert
+        assert isinstance(main_value, (int, float))
+        assert isinstance(other_value, (int, float))
+        assert isinstance(rest_value, (int, float))
+        # The values should be positive
+        assert main_value > 0
+        assert other_value > 0
+        assert rest_value > 0
+        # Main value should use the udl_value as base
+        assert main_value != 0  # Main value should be modified by factors but not zero
 
     def test_amount_of_notional_lanes(self) -> None:
         """
