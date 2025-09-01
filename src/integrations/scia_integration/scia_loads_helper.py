@@ -17,6 +17,7 @@ from src.geometry.model_creator import LoadZoneGeometryData
 
 signage_options = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
 
+
 def get_reference_period(params: BridgeParametrization) -> int:
     """
     Return the reference period (in years) based on the veiligheidsniveau input.

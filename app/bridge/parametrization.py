@@ -576,11 +576,11 @@ Below you will find important information about this bridge structure."""
         "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
     )
     input.belastingcombinaties.signage = OptionField(
-        "Bebording", 
-        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"], 
-        name="signage", 
+        "Bebording",
+        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
+        name="signage",
         default="50 ton",
-        visible=_show_signage_field
+        visible=_show_signage_field,
     )
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
