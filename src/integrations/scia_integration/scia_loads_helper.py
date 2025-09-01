@@ -1310,7 +1310,7 @@ def generate_real_lane_positions_bg10000(
     return [y_center, y_left, y_right]
 
 
-def tandem_systems_real_lanes_bg10000(
+def tandem_systems_real_lanes_bg10000( # noqa: C901
     params: BridgeParametrization,
     length_bridgedeck: float,
     thickness_bridgedeck: float,
