@@ -123,36 +123,40 @@ def build_units_mapping(results: dict[str, Any]) -> dict[str, dict[str, str]]:
         table_name = internal_forces_entry.get("table_name")
 
     # Units for the actual force components extracted from SCIA XML headers
+    # Note: Values are converted from N to kN and from Nmm to kNm during extraction
     internal_forces_units_2d = {
-        # Bending moments per unit length (2D plates)
+        # Bending moments per unit length (2D plates) - converted from Nmm to kNm
         "m_x": "kNm/m",
         "m_y": "kNm/m",
         "m_xy": "kNm/m",
-        # Shear forces per unit length (2D plates)
+        # Shear forces per unit length (2D plates) - converted from N to kN
         "v_x": "kN/m",
         "v_y": "kN/m",
-        # Membrane forces per unit length (2D plates)
+        # Membrane forces per unit length (2D plates) - converted from N to kN
         "n_x": "kN/m",
         "n_y": "kN/m",
         "n_xy": "kN/m",
-        # Envelope components for 2D plates
+        # Envelope components for 2D plates - converted from Nmm to kNm
         "m_xD+": "kNm/m",
         "m_xD-": "kNm/m",
         "m_yD+": "kNm/m",
         "m_yD-": "kNm/m",
         "m_cD+": "kNm/m",
         "m_cD-": "kNm/m",
+        # Envelope components for 2D plates - converted from N to kN
         "n_xD": "kN/m",
         "n_yD": "kN/m",
         "n_cD": "kN/m",
     }
 
     # For 1D elements (if any), use standard beam force units
+    # Note: Values are converted from N to kN and from Nmm to kNm during extraction
     internal_forces_units_1d = {
-        # Standard 1D beam forces (fallback if 1D tables are encountered)
+        # Standard 1D beam forces (fallback if 1D tables are encountered) - converted from N to kN
         "N": "kN",
         "Vy": "kN",
         "Vz": "kN",
+        # Standard 1D beam moments - converted from Nmm to kNm
         "Mx": "kNm",
         "My": "kNm",
         "Mz": "kNm",
