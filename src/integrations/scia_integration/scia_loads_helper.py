@@ -1117,9 +1117,7 @@ def tandem_systems_real_lanes_bg8000(
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
     # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(
-        params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor
-    )
+    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
 
     # Only generate for BG8 (first lane position)
     if lane_y_positions:
@@ -1274,9 +1272,7 @@ def tandem_systems_real_lanes_bg9000(
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
     # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(
-        params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor
-    )
+    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
 
     # Only generate for BG9 (first lane position)
     if lane_y_positions:
@@ -1410,9 +1406,7 @@ def tandem_systems_real_lanes_bg10000(
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
     # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(
-        params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor
-    )
+    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
 
     # Order: center (300 kN), left/right (200/100 kN)
     y_center, y_left, y_right = lane_y_positions
