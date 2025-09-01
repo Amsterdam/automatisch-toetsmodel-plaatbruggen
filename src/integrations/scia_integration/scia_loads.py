@@ -9,13 +9,10 @@ from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
 
-from .scia_bridge_geometry import (
-    convert_tandem_data_to_scia_format,
-    extract_tandem_parameters_from_bridge,
-    generate_tandem_loads_for_bridge,
-    get_dispersion_at_coord,
-)
-from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, tandem_system_sequencer
+from .scia_coordinate_utils import convert_loads_to_scia_format
+from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+
+# Import functions at runtime to avoid circular imports
 from .scia_model_interface import SciaModelBuilder
 
 # Type alias to avoid importing from app layer
@@ -35,21 +32,24 @@ def add_udl_loads(
     :param params: VIKTOR parameters for the bridge.
     :param load_cases: Dictionary of created load cases.
     """
-    # Extract bridge parameters needed for load geometry calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    width = bridge_params["width_bridgedeck"]
-    width_firstsegment_zone3 = bridge_params["width_firstsegment_zone3"]
-    width_firstsegment_zone2 = bridge_params["width_firstsegment_zone2"]
+    # Use the mode-aware UDL generation function
+    from .scia_load_generators import generate_udl_loads
 
-    # Call the helper to get UDL polygons and loads
-    udl_results = create_udl_traffic_loads(
-        params,
-        length,
-        width,
-        width_firstsegment_zone3,
-        width_firstsegment_zone2,
-    )
+    # Generate UDL loads - this will auto-detect mode from berekeningsniveau
+    udl_load_list = generate_udl_loads(params)
+
+    # Convert from our standard format back to the expected format
+    udl_results: dict[str, dict[str, Any]] = {}
+    for load_data in udl_load_list:
+        load_case = load_data["load_case"]
+        # Extract the BG group from load_case (e.g., "BG4001_main" -> "BG4001")
+        bg_group = load_case.split("_")[0]
+        load_type = load_case.split("_")[1] if "_" in load_case else "main"
+
+        if bg_group not in udl_results:
+            udl_results[bg_group] = {"main": [], "other": [], "rest": []}
+
+        udl_results[bg_group][load_type].append({"polygon": load_data["polygon"], "load": load_data["load_value"]})
 
     bg_to_rs = {"BG4001": "rs_1", "BG4002": "rs_2", "BG4003": "rs_3"}
     for key, udl in udl_results.items():
@@ -100,16 +100,13 @@ def add_theoretical_tandem_loads(
     :param params: VIKTOR parameters for the bridge.
     :param load_cases: Dictionary of created load cases.
     """
-    # 1. Extract bridge parameters needed for load geometry calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
+    # Generate tandem loads based on theoretical lanes
+    raw_tandem_data = generate_tandem_loads(params)  # Auto-detects mode from berekeningsniveau
 
-    # 2. Generate tandem loads based on theoretical lanes
-    raw_tandem_data = generate_tandem_loads_for_bridge(params, bridge_params, mode="theoretical")
+    # Convert tandem data to SCIA format for surface loads
+    scia_tandem_data = convert_loads_to_scia_format(raw_tandem_data)
 
-    # 3. Convert tandem data to SCIA format for surface loads
-    scia_tandem_data = convert_tandem_data_to_scia_format(raw_tandem_data)
-
-    # 4. Create surface loads using the builder, applying them to the correct load case
+    # Create surface loads using the builder, applying them to the correct load case
     for tandem in scia_tandem_data:
         load_case_name = tandem["load_case"]
         for i, patch_load in enumerate(tandem["patch_loads"]):
@@ -175,6 +172,9 @@ def dispersal_function(  # noqa: C901
         expanded_coords = []
         for i in range(4):
             x, y, z = coords[i]
+            # Import at runtime to avoid circular imports
+            from .scia_coordinate_utils import get_dispersion_at_coord
+
             dispersion_deck_zone = get_dispersion_at_coord(params=params, coord=coords[i])["deck_zone"]
             dispersion_load_zone = get_dispersion_at_coord(params=params, coord=coords[i])["load_zone"]
 
@@ -312,6 +312,8 @@ def add_asfalt_loads(
     load_case_name = asphalt_load_case.name
 
     material_config = {"Asfalt": load_case_name}
+    from .scia_loads_helper import add_material_loads
+
     add_material_loads(builder, params, material_config)
     return []
 
@@ -330,6 +332,8 @@ def add_concrete_fill_loads(
         "Beton (normaal)": load_case_name,
         "Beton (gewapend)": load_case_name,
     }
+    from .scia_loads_helper import add_material_loads
+
     add_material_loads(builder, params, material_config)
     return []
 
@@ -349,6 +353,8 @@ def add_pavement_loads(
         "Grind": load_case_name,
         "Tegels": load_case_name,
     }
+    from .scia_loads_helper import add_material_loads
+
     add_material_loads(builder, params, material_config)
     return []
 
@@ -410,10 +416,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     if bridge_geom_data is None:
         return
 
-    # Extract bridge parameters and get X positions
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions and get X positions
+    dims = extract_bridge_dimensions(params)
+    length = dims.total_length
+    thickness = dims.thickness
+    from .scia_loads_helper import tandem_system_sequencer
+
     positions = tandem_system_sequencer(length, thickness)
 
     # Get geometry coordinates
@@ -459,6 +467,8 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         rear_wheel_load = rear_wheel_force / wheel_area  # N/m²
 
         # Use the same helper function as service vehicle for front axle (80 kN total)
+        from .scia_loads_helper import calc_vehicle_load_locations
+
         front_axle_locations = calc_vehicle_load_locations(
             x_coord=front_axle_x,
             y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
@@ -542,10 +552,12 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     if bridge_geom_data is None:
         return
 
-    # Extract bridge parameters and get X positions
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions and get X positions
+    dims = extract_bridge_dimensions(params)
+    length = dims.total_length
+    thickness = dims.thickness
+    from .scia_loads_helper import tandem_system_sequencer
+
     positions = tandem_system_sequencer(length, thickness)
 
     # Get geometry coordinates
@@ -580,6 +592,8 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         load_per_area = force_per_wheel / wheel_area  # N/m²
 
         # Use the helper function to calculate wheel positions
+        from .scia_loads_helper import calc_vehicle_load_locations
+
         wheel_locations = calc_vehicle_load_locations(
             x_coord=x_pos,
             y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
