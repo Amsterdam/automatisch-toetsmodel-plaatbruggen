@@ -8,9 +8,26 @@ from typing import Any, NoReturn
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.external import idea_rcs
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
+
 from app.bridge.analysis_cache import (
     AnalysisType,
     get_cached_analysis_results,
@@ -64,23 +81,6 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     get_force_envelope_summary,
 )
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -375,7 +375,7 @@ class BridgeController(ViktorController):
 
         return PlotlyResult(fig.to_json())
 
-    @TableView("Belastingscombinaties")
+    @TableView("Belastingscombinaties", duration_guess=1)
     def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
         """
         Display the table of load combinations for the bridge.
@@ -387,17 +387,27 @@ class BridgeController(ViktorController):
         """
         # Prepare parameters in the format expected by create_load_combination_table
         # Use defensive programming with default values for incomplete parametrization
+        # Prefer top-level fields when OptionField(name=...) exposes them, fallback to nested structure
         try:
-            cc_class = getattr(params.input.belastingcombinaties, "cc_class", "CC2")
-            design_code = getattr(params.input.belastingcombinaties, "design_code", "NEN 8700 verbouw")
-        except AttributeError:
-            # If belastingcombinaties section doesn't exist, use defaults
+            cc_class = (
+                getattr(params, "cc_class", None)
+                or getattr(getattr(getattr(params, "input", None), "belastingcombinaties", None), "cc_class", None)
+                or "CC2"
+            )
+            design_code = (
+                getattr(params, "design_code", None)
+                or getattr(getattr(getattr(params, "input", None), "belastingcombinaties", None), "design_code", None)
+                or "NEN 8700 verbouw"
+            )
+        except Exception:
             cc_class = "CC2"
             design_code = "NEN 8700 verbouw"
 
         try:
-            construction_year = getattr(params.info, "construction_year", "2000")
-        except AttributeError:
+            construction_year = (
+                getattr(getattr(params, "info", None), "construction_year", None) or getattr(params, "construction_year", None) or "2000"
+            )
+        except Exception:
             construction_year = "2000"
 
         # Ensure construction_year is not empty
@@ -413,8 +423,7 @@ class BridgeController(ViktorController):
         }
 
         combination_table = create_load_combination_table(load_combination_params)
-
-        # VIKTOR TableResult can handle Styler objects directly with proper styling
+        # Return the Styler object to preserve colors and formatting
         return TableResult(combination_table)
 
     # ============================================================================================================
