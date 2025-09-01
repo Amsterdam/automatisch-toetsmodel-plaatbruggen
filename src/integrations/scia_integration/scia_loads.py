@@ -121,8 +121,11 @@ def add_theoretical_tandem_loads(
             )
 
 
-def dispersal_function(
-    params: Any, corner_points: list[tuple[float, float, float]], load_value: float, load_case_type: str
+def dispersal_function(  # noqa: C901
+    params: object,
+    corner_points: list[tuple[float, float, float]],
+    load_value: float,
+    load_case_type: str,
 ) -> tuple[list[tuple[float, float, float]], float]:
     """
     Disperse the load value across the corners based on bridge parameters.
@@ -160,7 +163,7 @@ def dispersal_function(
         return abs(area) * 0.5
 
     def _expand_corners_with_dispersion(
-        params: Any, coords: list[tuple[float, float, float]], load_case_type: str
+        params: object, coords: list[tuple[float, float, float]], load_case_type: str
     ) -> list[tuple[float, float, float]]:
         """
         Expands the quadrilateral defined by four coordinates to include dispersion in x and y directions for each corner.
@@ -180,10 +183,7 @@ def dispersal_function(
             deck_half = (dispersion_deck_zone / 2) if isinstance(dispersion_deck_zone, (int, float)) else 0.0
             load_full = dispersion_load_zone if isinstance(dispersion_load_zone, (int, float)) else 0.0
             dispersion_tot = deck_half + load_full
-            if load_case_type == "axle_load":
-                dispersion_x_tot = dispersion_tot
-            else:
-                dispersion_x_tot = 0.0
+            dispersion_x_tot = dispersion_tot if load_case_type == "axle_load" else 0.0
             dispersion_y_tot = dispersion_tot
 
             # Expand in the correct direction for each corner based on its position
@@ -202,14 +202,14 @@ def dispersal_function(
     if (
         not hasattr(params, "bridge_segments_array")
         or not isinstance(getattr(params, "bridge_segments_array"), list)
-        or not params.bridge_segments_array
+        or not getattr(params, "bridge_segments_array")
     ):
         return corner_points, load_value
     # For axle loads we also allow skipping dispersion if load zones are not defined
     if load_case_type == "axle_load" and (
         not hasattr(params, "load_zones_data_array")
         or not isinstance(getattr(params, "load_zones_data_array"), list)
-        or not params.load_zones_data_array
+        or not getattr(params, "load_zones_data_array")
     ):
         return corner_points, load_value
 

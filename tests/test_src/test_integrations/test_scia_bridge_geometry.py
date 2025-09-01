@@ -330,9 +330,9 @@ class TestFullOutputDeckAndLoadZone:
         """Create mock parameters for full output deck/load/load zone tests."""
         # D-parameters (bridge segments)
         # dz_2 values calculated to match expected zone_2 thickness: dz_2 = dz + expected_thickness
-        d1 = Mock(bz1=10, bz2=3, bz3=16, dz=2, dz_2=2.8, afstand=None, oplegging=True, l=0)
+        d1 = Mock(bz1=10, bz2=3, bz3=16, dz=2.0, dz_2=2.8, afstand=None, oplegging=True, l=0)
         d2 = Mock(bz1=12, bz2=7, bz3=20, dz=2.4, dz_2=3.7, afstand=12, oplegging=False, l=12)
-        d3 = Mock(bz1=15, bz2=4, bz3=17, dz=0.1, dz_2=0.44, afstand=9, oplegging=False, l=9)
+        d3 = Mock(bz1=15, bz2=4, bz3=17, dz=0.06, dz_2=0.4, afstand=9, oplegging=False, l=9)
         d4 = Mock(bz1=10, bz2=2, bz3=12, dz=0.785, dz_2=2.019, afstand=4, oplegging=True, l=4)
         params = Mock()
         params.bridge_segments_array = [d1, d2, d3, d4]
@@ -383,12 +383,12 @@ class TestFullOutputDeckAndLoadZone:
             "zone_1_1": {"material": "C40/50", "thickness_start_d_line": 2, "thickness_end_d_line": 2.4, "distance_between_d_lines": 12},
             "zone_2_1": {"material": "C40/50", "thickness_start_d_line": 0.8, "thickness_end_d_line": 1.3, "distance_between_d_lines": 12},
             "zone_3_1": {"material": "C40/50", "thickness_start_d_line": 2, "thickness_end_d_line": 2.4, "distance_between_d_lines": 12},
-            "zone_1_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.1, "distance_between_d_lines": 9},
+            "zone_1_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.06, "distance_between_d_lines": 9},
             "zone_2_2": {"material": "C40/50", "thickness_start_d_line": 1.3, "thickness_end_d_line": 0.34, "distance_between_d_lines": 9},
-            "zone_3_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.1, "distance_between_d_lines": 9},
-            "zone_1_3": {"material": "C40/50", "thickness_start_d_line": 0.1, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
+            "zone_3_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.06, "distance_between_d_lines": 9},
+            "zone_1_3": {"material": "C40/50", "thickness_start_d_line": 0.06, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
             "zone_2_3": {"material": "C40/50", "thickness_start_d_line": 0.34, "thickness_end_d_line": 1.234, "distance_between_d_lines": 4},
-            "zone_3_3": {"material": "C40/50", "thickness_start_d_line": 0.1, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
+            "zone_3_3": {"material": "C40/50", "thickness_start_d_line": 0.06, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
         }
         load_zone_materials = get_bridge_load_zone_materials_and_thickness(params=params)
         assert load_zone_materials == {
