@@ -18,6 +18,50 @@ from src.geometry.model_creator import LoadZoneGeometryData
 signage_options = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
 
 
+def calculate_real_udl_values(
+    params: BridgeParametrization,
+    length_bridgedeck: float,
+    udl_value: float,
+    psi_nen_8701_factor: float,
+    alpha_trend_factor: float,
+) -> tuple[float, float, float]:
+    """
+    Calculate UDL values based on berekeningsniveau and other factors.
+
+    :param params: Bridge parameters containing berekeningsniveau and signage settings
+    :param length_bridgedeck: Length of the bridge deck
+    :param udl_value: Base UDL value
+    :param psi_nen_8701_factor: NEN 8701 factor
+    :param alpha_trend_factor: Alpha trend factor from NEN 8701
+    :returns: Tuple of (main_value, other_value, rest_value)
+    """
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factors = [1.35, 1.0]
+        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
+        # Get the selected signage option and map to load factor
+        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
+        signage_index = signage_options_list.index(params.signage)
+        load_factor = signage_options[signage_index]
+        # Apply the load factor to all values
+        main_value = udl_value * load_factor
+        other_value = 2500.0
+        rest_value = 2500.0
+    else:  # Fallback for safety
+        main_value = udl_value
+        other_value = 2500.0
+        rest_value = 2500.0
+
+    return main_value, other_value, rest_value
+
+
 def get_reference_period(params: BridgeParametrization) -> int:
     """
     Return the reference period (in years) based on the veiligheidsniveau input.
@@ -249,31 +293,8 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    # Choose correct alpha_q_factor based on calculation level
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
-        # Obtain load values
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [1.35, 1.0]
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
-        # Get the selected signage option (e.g., "50 ton", "45 ton", etc.)
-        signage_selection = params.signage
-        # Map signage selection to index (e.g., "50 ton" -> 0, "45 ton" -> 1, etc.)
-        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-        signage_index = signage_options_list.index(signage_selection)
-        # Get corresponding load factor
-        load_factor = signage_options[signage_index]
-        # Apply the load factor to the values
-        main_value = udl_value * load_factor
-        other_value = 2500.0 * load_factor
-        rest_value = 2500.0 * load_factor
-        print("Load factor UDL:", load_factor)
+    # Calculate UDL values based on berekeningsniveau
+    main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_nen_8701_factor, alpha_trend_factor)
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
 
     y_top, width_road = obtain_y_coordinates_road(params)
