@@ -13,7 +13,7 @@ from .scia_bridge_geometry import (
     convert_tandem_data_to_scia_format,
     extract_tandem_parameters_from_bridge,
     generate_tandem_loads_for_bridge,
-    get_dispersion_at_coord
+    get_dispersion_at_coord,
 )
 from .scia_loads_helper import add_material_loads, calc_vehicle_load_locations, create_udl_traffic_loads, tandem_system_sequencer
 from .scia_model_interface import SciaModelBuilder
@@ -59,10 +59,9 @@ def add_udl_loads(
 
             # Create surface loads for main notional lane(s)
             for i, main_load in enumerate(udl["main"]):
-
                 # Take into account load dispersion
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
-                params=params, corner_points=main_load["polygon"], load_value=main_load["load"], load_case_type="udl"
+                    params=params, corner_points=main_load["polygon"], load_value=main_load["load"], load_case_type="udl"
                 )
 
                 builder.create_surface_load(
@@ -74,7 +73,6 @@ def add_udl_loads(
 
             # Create surface loads for other notional lanes
             for i, other_load in enumerate(udl["other"]):
-
                 # Take into account load dispersion
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                     params=params, corner_points=other_load["polygon"], load_value=other_load["load"], load_case_type="udl"
@@ -89,7 +87,6 @@ def add_udl_loads(
 
             # Create surface loads for remaining areas
             for i, rest_load in enumerate(udl["rest"]):
-
                 # Take into account load dispersion
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                     params=params, corner_points=rest_load["polygon"], load_value=rest_load["load"], load_case_type="udl"
@@ -131,7 +128,6 @@ def add_theoretical_tandem_loads(
     for tandem in scia_tandem_data:
         load_case_name = tandem["load_case"]
         for i, patch_load in enumerate(tandem["patch_loads"]):
-
             # Take into account load dispersion
             corner_points_dispersed, load_value_dispersed = dispersal_function(
                 params=params, corner_points=patch_load["corners"], load_value=patch_load["load_value"], load_case_type="axle_load"
@@ -147,10 +143,7 @@ def add_theoretical_tandem_loads(
 
 
 def dispersal_function(
-    params: Any,  # noqa: ARG001
-    corner_points: list[tuple[float, float, float]],
-    load_value: float,
-    load_case_type: str
+    params: Any, corner_points: list[tuple[float, float, float]], load_value: float, load_case_type: str
 ) -> tuple[list[tuple[float, float, float]], float]:
     """
     Disperse the load value across the corners based on bridge parameters.
@@ -187,11 +180,8 @@ def dispersal_function(
             area += x1 * y2 - x2 * y1
         return abs(area) * 0.5
 
-
     def _expand_corners_with_dispersion(
-        params: Any,  # noqa: ARG001
-        coords: list[tuple[float, float, float]],
-        load_case_type: str
+        params: Any, coords: list[tuple[float, float, float]], load_case_type: str
     ) -> list[tuple[float, float, float]]:
         """
         Expands the quadrilateral defined by four coordinates to include dispersion in x and y directions for each corner.
@@ -208,7 +198,7 @@ def dispersal_function(
 
             # Add half the deck zone dispersion and the full load zone dispersion for each corner. Distinguish in x- and y-direction
             dispersion_tot = dispersion_deck_zone / 2 + dispersion_load_zone
-            if load_case_type == 'axle_load':
+            if load_case_type == "axle_load":
                 dispersion_x_tot = dispersion_tot
             else:
                 dispersion_x_tot = 0
@@ -602,8 +592,6 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
         # Create surface loads for each wheel
         for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-            
-
             # Take into account load dispersion
             corner_points_dispersed, load_value_dispersed = dispersal_function(
                 params=params, corner_points=wheel_corners, load_value=load_per_area, load_case_type="axle_load"
