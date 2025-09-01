@@ -38,7 +38,7 @@ class TestRealTandemLoads:
     """Tests for calculate_real_tandem_values function."""
 
     @pytest.mark.parametrize(
-        "berekeningsniveau,signage",
+        ("berekeningsniveau", "signage"),
         [
             ("Werkelijke wegindeling", None),
             ("Werkelijke wegindeling onderliggend wegennet", None),
@@ -452,7 +452,7 @@ class TestUniformlyDistributedLoads:
     """Test generation and application of uniformly distributed loads (UDL)."""
 
     @pytest.mark.parametrize(
-        "berekeningsniveau,signage,udl_value",
+        ("berekeningsniveau", "signage", "udl_value"),
         [
             ("Werkelijke wegindeling", None, 9000.0),
             ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
