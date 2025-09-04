@@ -60,25 +60,12 @@ README_CONTENT = """
 # Parametrization Constants
 # ===================================================================================================================
 
+# Import from src layer to maintain single source of truth
+
 MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
 MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
-# Import from src layer to maintain single source of truth
-from src.common.constants import (
-    CC_CLASS_OPTIONS,
-    DESIGN_CODE_OPTIONS,
-    LOAD_ZONE_TYPES,
-)
-from src.common.constants import (
-    PAVEMENT_MATERIAL_OPTIONS as SRC_PAVEMENT_MATERIAL_OPTIONS,
-)
 
-# Re-export for app layer usage
-LOAD_ZONE_TYPES = LOAD_ZONE_TYPES
-CC_CLASS_OPTIONS = CC_CLASS_OPTIONS
-DESIGN_CODE_OPTIONS = DESIGN_CODE_OPTIONS
-
-# Use pavement materials from src layer (single source of truth)
-PAVEMENT_MATERIAL_OPTIONS = SRC_PAVEMENT_MATERIAL_OPTIONS
+# Re-export constants for app layer usage (no self-assignment needed, they're already imported)
 
 # TODO: Load pavement material properties from CSV file according to Eurocode 1
 # TODO: Implement material density lookup and kN/m² calculation
