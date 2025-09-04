@@ -301,7 +301,7 @@ def add_crowd_loads(
     return []  # Placeholder return to match function signature
 
 
-def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
+def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None: #noqa: C901, PLR0915
     """Add accidental vehicle loads to the SCIA model using sequenced X positions."""
     # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
     vehicle_width = 1.30  # From diagram: 1.30 m between wheel centers

@@ -10,6 +10,7 @@
   - Units are consistently applied from data extraction through user interface display
 - **Traffic load cases**: Added tandem loads and udl for real road layout
   - Added functionality dependent on radio button for road layout
+  - Added accidental vehicle according to TAB, parallel and perpendicular to driving direction
 
 ### Changed
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions

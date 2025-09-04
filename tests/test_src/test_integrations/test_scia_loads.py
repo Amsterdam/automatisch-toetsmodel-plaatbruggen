@@ -373,14 +373,12 @@ class TestAccidentalVehicleLoads:
 
             # Verify that surface loads were created at all Amsterdam vehicle positions
             load_positions = sorted(
-                set(
+                {
                     call.kwargs["corner_points"][0][0]  # X coordinate of first corner
                     for call in mock_builder.create_surface_load.call_args_list
                     if "amsterdam" in call.kwargs["name"]
-                )
-            )
-
-            # Should match the positions from mock_sequencer_single
+                }
+            )            # Should match the positions from mock_sequencer_single
             assert load_positions == [2.0, 4.0, 6.0, 8.0]
 
 
