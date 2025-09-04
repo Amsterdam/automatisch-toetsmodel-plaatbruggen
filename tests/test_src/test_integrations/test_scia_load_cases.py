@@ -143,39 +143,60 @@ class TestStandardLoadCases:
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
-        """Test creation of unintended vehicle load case definitions with bidirectional X positions."""
+    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
+    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
+    def test_create_unintended_vehicle_load_cases(
+        self, mock_sequencer_rotated: Mock, mock_sequencer_single: Mock, 
+        mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
+    ) -> None:
+        """Test creation of unintended vehicle load case definitions for standard and Amsterdam vehicles."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
         from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
-        mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
+        # Set up all sequencers to return the same test positions
+        test_positions = [2.5, 25.0, 47.5]  # 3 X positions
+        mock_sequencer.return_value = test_positions
+        mock_sequencer_single.return_value = test_positions
+        mock_sequencer_rotated.return_value = test_positions
         mock_params = Mock()
 
         cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
 
-        # Should create 12 cases: 3 positions × 2 edges × 2 directions
-        assert mock_builder.create_load_case.call_count == 12
-        assert len(cases) == 12
+        # Verify sequencers were called correctly
+        mock_sequencer.assert_called_once_with(50.0, 0.5, length_vehicle=1.2)  # Standard vehicle
+        mock_sequencer_single.assert_called_once_with(50.0, 0.5)  # Amsterdam vehicle
+        mock_sequencer_rotated.assert_called_once_with(50.0, 0.5, length_vehicle=2.0)  # Amsterdam vehicle rotated
 
-        # Check keys follow bidirectional pattern
-        expected_keys = [
-            "rs_1_x2.5_forward",
-            "rs_1_x25.0_forward",
-            "rs_1_x47.5_forward",
-            "rs_1_x2.5_reverse",
-            "rs_1_x25.0_reverse",
-            "rs_1_x47.5_reverse",
-            "rs_3_x2.5_forward",
-            "rs_3_x25.0_forward",
-            "rs_3_x47.5_forward",
-            "rs_3_x2.5_reverse",
-            "rs_3_x25.0_reverse",
-            "rs_3_x47.5_reverse",
+        # Should create:
+        # - Standard vehicle: 3 positions × 2 edges × 2 directions = 12 cases
+        # - Amsterdam vehicle: 3 positions × 2 edges = 6 cases
+        # - Amsterdam vehicle rotated: 3 positions × 2 edges = 6 cases
+        # Total: 24 cases
+        assert mock_builder.create_load_case.call_count == 24
+        assert len(cases) == 24
+
+        # Check keys follow expected pattern
+        expected_standard_keys = [
+            "rs_1_x2.5_forward", "rs_1_x25.0_forward", "rs_1_x47.5_forward",
+            "rs_1_x2.5_reverse", "rs_1_x25.0_reverse", "rs_1_x47.5_reverse",
+            "rs_3_x2.5_forward", "rs_3_x25.0_forward", "rs_3_x47.5_forward",
+            "rs_3_x2.5_reverse", "rs_3_x25.0_reverse", "rs_3_x47.5_reverse"
         ]
-        assert list(cases.keys()) == expected_keys
+        expected_amsterdam_keys = [
+            f"rs_1_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]
+        ] + [
+            f"rs_3_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]
+        ]
+        expected_amsterdam_rotated_keys = [
+            f"rs_1_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]
+        ] + [
+            f"rs_3_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]
+        ]
+        expected_keys = expected_standard_keys + expected_amsterdam_keys + expected_amsterdam_rotated_keys
+        assert sorted(cases.keys()) == sorted(expected_keys)
 
         # Check first RS1 forward case
         mock_builder.create_load_case.assert_any_call(
