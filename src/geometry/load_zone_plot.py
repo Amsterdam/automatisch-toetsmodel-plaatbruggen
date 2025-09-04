@@ -1,60 +1,24 @@
 """Module for creating the Plotly Figure for the Load Zones view."""
 
-from typing import Any, TypedDict
+from typing import Any
 
 import plotly.graph_objects as go
 from plotly.colors import qualitative as qual_colors  # For default colors
 
 from src.data_models.load_models import LoadZoneData
+from src.data_models.plotting_models import (
+    BridgeBaseGeometry,
+    PlotPresentationDetails,
+    ZoneBoundaryLineStyle,
+    ZonePlottingGeometry,
+    ZoneStylingDefaults,
+)
 from src.geometry.load_zone_geometry import calculate_zone_bottom_y_coords
 
 DEFAULT_PLOTLY_COLORS = qual_colors.Plotly
 
 
-# --- TypedDicts for Argument Grouping ---
-class BridgeBaseGeometry(TypedDict):
-    """TypedDict for basic bridge geometric data used in plotting."""
-
-    x_coords_d_points: list[float]
-    y_coords_bridge_top_edge: list[float]
-    y_coords_bridge_bottom_edge: list[list[float]]
-    num_defined_d_points: int
-
-
-class ZoneStylingDefaults(TypedDict):
-    """TypedDict for zone styling defaults (appearance map and colors)."""
-
-    zone_appearance_map: dict[str, dict[str, Any]]
-    default_plotly_colors: list[str]
-
-
-class ZoneBoundaryLineStyle(TypedDict):
-    """TypedDict for styling parameters of zone boundary lines."""
-
-    line_color: str
-    sbs_line_thickness: float
-    sbs_offset: float
-    absolute_edge_thickness: float
-
-
-class ZonePlottingGeometry(TypedDict):
-    """TypedDict for common geometric data used in plotting individual zone components."""
-
-    x_coords: list[float]  # Can be x_coords_d_points or specific zone x_coords
-    y_coords_top: list[float]
-    y_coords_bottom: list[float]
-    # num_defined_d_points can be added if consistently needed by all users of this
-
-
-class PlotPresentationDetails(TypedDict):
-    """TypedDict for ancillary details related to plot presentation."""
-
-    base_traces: list[go.Scatter] | None
-    validation_messages: list[str] | None
-    figure_title: str
-
-
-# --- End TypedDicts ---
+# TypedDict definitions moved to src/data_models/plotting_models.py
 
 DEFAULT_ZONE_APPEARANCE_MAP: dict[str, dict[str, Any]] = {
     "Voetgangers": {
@@ -181,33 +145,31 @@ def create_zone_boundary_line_traces(
     """
     traces = []
     line_common = {"mode": "lines", "hoverinfo": "skip", "showlegend": False}
-    x_coords = geometry["x_coords"]
-    y_coords_top = geometry["y_coords_top"]
-    y_coords_bottom = geometry["y_coords_bottom"]
+    x_coords = geometry.x_coords
+    y_coords_top = geometry.y_coords_top
+    y_coords_bottom = geometry.y_coords_bottom
 
     if zone_idx == 0:
-        traces.append(
-            go.Scatter(x=x_coords, y=y_coords_top, line={"color": style["line_color"], "width": style["absolute_edge_thickness"]}, **line_common)
-        )
+        traces.append(go.Scatter(x=x_coords, y=y_coords_top, line={"color": style.line_color, "width": style.absolute_edge_thickness}, **line_common))
     else:
         traces.append(
             go.Scatter(
                 x=x_coords,
-                y=[y - style["sbs_offset"] for y in y_coords_top],
-                line={"color": style["line_color"], "width": style["sbs_line_thickness"]},
+                y=[y - style.sbs_offset for y in y_coords_top],
+                line={"color": style.line_color, "width": style.sbs_line_thickness},
                 **line_common,
             )
         )
     if zone_idx == num_load_zones - 1:
         traces.append(
-            go.Scatter(x=x_coords, y=y_coords_bottom, line={"color": style["line_color"], "width": style["absolute_edge_thickness"]}, **line_common)
+            go.Scatter(x=x_coords, y=y_coords_bottom, line={"color": style.line_color, "width": style.absolute_edge_thickness}, **line_common)
         )
     else:
         traces.append(
             go.Scatter(
                 x=x_coords,
-                y=[y + style["sbs_offset"] for y in y_coords_bottom],
-                line={"color": style["line_color"], "width": style["sbs_line_thickness"]},
+                y=[y + style.sbs_offset for y in y_coords_bottom],
+                line={"color": style.line_color, "width": style.sbs_line_thickness},
                 **line_common,
             )
         )
@@ -223,9 +185,9 @@ def create_zone_main_label_annotation(
     """Creates the main label annotation for a load zone (e.g., 'bz1: Type')."""
     # Unpack relevant coordinates from geometry
     # Assuming x_coords in ZonePlottingGeometry corresponds to x_coords_d_points for this label
-    x_coord_at_end = geometry["x_coords"][-1]
-    y_top_end = geometry["y_coords_top"][-1]
-    y_bottom_end = geometry["y_coords_bottom"][-1]
+    x_coord_at_end = geometry.x_coords[-1]
+    y_top_end = geometry.y_coords_top[-1]
+    y_bottom_end = geometry.y_coords_bottom[-1]
 
     return go.layout.Annotation(
         x=x_coord_at_end + x_offset,
@@ -249,9 +211,9 @@ def create_zone_width_annotations(
     annotations = []
     is_last_zone = zone_idx == num_load_zones - 1
     # Unpack geometry
-    x_coords_d_points = geometry["x_coords"]  # Assuming x_coords in ZonePlottingGeometry is x_coords_d_points here
-    y_coords_top_current_zone = geometry["y_coords_top"]
-    y_coords_bottom_current_zone = geometry["y_coords_bottom"]
+    x_coords_d_points = geometry.x_coords  # Assuming x_coords in ZonePlottingGeometry is x_coords_d_points here
+    y_coords_top_current_zone = geometry.y_coords_top
+    y_coords_bottom_current_zone = geometry.y_coords_bottom
 
     for d_idx in range(num_defined_d_points):
         raw_width_val = getattr(zone_param_data, f"d{d_idx + 1}_width", None)
@@ -287,9 +249,9 @@ def build_load_zones_figure(
 ) -> go.Figure:
     """Builds the Plotly Figure for the Load Zones view."""
     # Unpack presentation_details
-    base_traces = presentation_details.get("base_traces")  # Use .get for optional keys if not all are required
-    validation_messages = presentation_details.get("validation_messages")
-    figure_title = presentation_details.get("figure_title", "Belastingzones")  # Provide default if get is used
+    base_traces = presentation_details.base_traces  # Direct attribute access for Pydantic models
+    validation_messages = presentation_details.validation_messages
+    figure_title = presentation_details.figure_title
 
     fig = go.Figure()
     if base_traces:
@@ -298,19 +260,19 @@ def build_load_zones_figure(
 
     all_annotations: list[go.layout.Annotation] = []
     # Unpack bridge_geom for easier access
-    x_coords_d_points = bridge_geom["x_coords_d_points"]
-    y_coords_bridge_bottom_edge: list[list[float]] = bridge_geom["y_coords_bridge_bottom_edge"]
-    num_defined_d_points = bridge_geom["num_defined_d_points"]
-    y_coords_bridge_top_edge = bridge_geom["y_coords_bridge_top_edge"]
+    x_coords_d_points = bridge_geom.x_coords_d_points
+    y_coords_bridge_bottom_edge: list[list[float]] = bridge_geom.y_coords_bridge_bottom_edge
+    num_defined_d_points = bridge_geom.num_defined_d_points
+    y_coords_bridge_top_edge = bridge_geom.y_coords_bridge_top_edge
 
     # Unpack styling_defaults
-    zone_appearance_map = styling_defaults["zone_appearance_map"]
-    default_plotly_colors = styling_defaults["default_plotly_colors"]
+    zone_appearance_map = styling_defaults.zone_appearance_map
+    default_plotly_colors = styling_defaults.default_plotly_colors
 
     # Unpack presentation details
-    base_traces = presentation_details.get("base_traces")
-    validation_messages = presentation_details.get("validation_messages")
-    figure_title = presentation_details.get("figure_title", "Belastingzones")
+    base_traces = presentation_details.base_traces
+    validation_messages = presentation_details.validation_messages
+    figure_title = presentation_details.figure_title
 
     # Style for shared boundary lines
     sbs_line_thickness = 0.7
@@ -355,11 +317,11 @@ def build_load_zones_figure(
             zone_type_text, zone_idx, zone_appearance_map, default_plotly_colors, is_exceeding_limits=current_zone_exceeds_limits
         )
 
-        current_zone_geom_for_plotting: ZonePlottingGeometry = {
-            "x_coords": x_coords_d_points,
-            "y_coords_top": y_coords_top_of_current_zone,
-            "y_coords_bottom": y_coords_bottom_of_current_zone,
-        }
+        current_zone_geom_for_plotting = ZonePlottingGeometry(
+            x_coords=x_coords_d_points,
+            y_coords_top=y_coords_top_of_current_zone,
+            y_coords_bottom=y_coords_bottom_of_current_zone,
+        )
 
         fill_trace = create_zone_fill_trace(
             x_coords_d_points,  # Or current_zone_geom_for_plotting["x_coords"] if strictly adhering
@@ -370,12 +332,12 @@ def build_load_zones_figure(
         if fill_trace:
             fig.add_trace(fill_trace)
 
-        boundary_style: ZoneBoundaryLineStyle = {
-            "line_color": appearance_props["line_color"],
-            "sbs_line_thickness": sbs_line_thickness,
-            "sbs_offset": sbs_offset,
-            "absolute_edge_thickness": absolute_edge_thickness,
-        }
+        boundary_style = ZoneBoundaryLineStyle(
+            line_color=appearance_props["line_color"],
+            sbs_line_thickness=sbs_line_thickness,
+            sbs_offset=sbs_offset,
+            absolute_edge_thickness=absolute_edge_thickness,
+        )
         boundary_traces = create_zone_boundary_line_traces(
             zone_idx,
             len(load_zones_data_params),

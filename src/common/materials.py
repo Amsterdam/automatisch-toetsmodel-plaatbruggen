@@ -7,7 +7,10 @@ ensuring consistency across SCIA, IDEA StatiCa, and other integrations.
 
 import csv
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.data_models.material_models import MaterialConfig
 
 # Material data paths
 MATERIALS_DIR = Path(__file__).parent.parent.parent / "resources" / "data" / "materials"
@@ -194,11 +197,36 @@ def normalize_material_name(material_name: str) -> str:
     return normalized
 
 
+def validate_material_config(concrete_type: str, reinforcement_type: str, prestress_type: str | None = None) -> "MaterialConfig":
+    """
+    Validate material configuration using Pydantic model.
+
+    Args:
+        concrete_type: Concrete quality designation
+        reinforcement_type: Reinforcement steel quality
+        prestress_type: Optional prestressing steel quality
+
+    Returns:
+        Validated MaterialConfig object
+
+    Raises:
+        ValidationError: If any material is invalid
+
+    """
+    # Import here to avoid circular import
+    from src.data_models.material_models import MaterialConfig
+
+    return MaterialConfig(concrete_type=concrete_type, reinforcement_type=reinforcement_type, prestress_type=prestress_type)
+
+
 def validate_material_exists(material_name: str, material_type: str) -> bool:
     """
     Check if a material exists in the project database.
 
     Handles decimal separator normalization to support both "B37.5" and "B37,5" formats.
+
+    .. deprecated::
+        Use validate_material_config() with Pydantic models instead for better validation and error messages.
 
     :param material_name: Material name to check
     :type material_name: str

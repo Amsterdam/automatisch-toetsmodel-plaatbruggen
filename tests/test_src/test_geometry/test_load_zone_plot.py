@@ -217,7 +217,7 @@ class TestBuildLoadZonesFigure(unittest.TestCase):
             "pavement_thickness": 0.05,  # Default 5cm
             "pavement_material": "Asfalt",  # Default material
             # Add calculated fields
-            "y_coords_top_current_zone": [1.0] * (len(d_widths) + 1),  # Mock top coordinates
+            "y_coords_top_current_zone": [1.0] * len(d_widths),  # Mock top coordinates
             "zone_widths_per_d": d_widths[:],  # Copy of d_widths list
         }
 
@@ -321,7 +321,7 @@ class TestBuildLoadZonesFigure(unittest.TestCase):
         assert mock_create_width_annots.return_value[0] in fig.layout.annotations
 
         # Check layout
-        assert fig.layout.title.text == presentation["figure_title"]
+        assert fig.layout.title.text == presentation.figure_title
         # ... other layout checks as needed
 
     @patch("src.geometry.load_zone_plot.calculate_zone_bottom_y_coords")

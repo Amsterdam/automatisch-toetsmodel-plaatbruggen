@@ -812,16 +812,21 @@ class TestUniformlyDistributedLoads:
             assert width == 0.0, "Should return 0.0 when no Auto zone"
 
             # Test case: Empty y_coords list
-            mock_load_zones.return_value = [{"zone_type": "Auto", "y_coords_top_current_zone": []}]
+            mock_zone_auto_empty = LoadZoneData(zone_type="Auto", pavement_thickness=0.1, pavement_material="Asfalt", y_coords_top_current_zone=[])
+            mock_load_zones.return_value = [mock_zone_auto_empty]
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
             assert y_coord == 0.0, "Should return 0.0 when y_coords is empty"
 
-            # Test case: Invalid d1_width (non-numeric)
-            mock_load_zones.return_value = [{"zone_type": "Auto", "d1_width": "invalid", "y_coords_top_current_zone": [5.0]}]
+            # Test case: Valid Auto zone with coordinates
+            mock_zone_auto_valid = LoadZoneData(
+                zone_type="Auto", pavement_thickness=0.1, pavement_material="Asfalt", d1_width=3.5, y_coords_top_current_zone=[5.0]
+            )
+            mock_load_zones.return_value = [mock_zone_auto_valid]
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
-            assert width == 0.0, "Should return 0.0 when d1_width is invalid"
+            assert y_coord == 5.0, "Should return correct y-coordinate"
+            assert width == 3.5, "Should return correct width"
 
     def test_generate_real_lane_positions_bg8000(self, mock_params: Mock) -> None:
         """Test generation of lane positions for BG8000 load group."""

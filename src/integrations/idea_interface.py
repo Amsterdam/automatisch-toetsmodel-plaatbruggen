@@ -12,18 +12,17 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.bridge.parametrization import (
-    BridgeParametrization,
-)
+if TYPE_CHECKING:
+    from app.bridge.parametrization import BridgeParametrization
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
 from viktor.external import idea_rcs
 
 
 def _get_unique_matching_zone_keys(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
 ) -> tuple[
     list[tuple[float, str]],
     dict[float, list[str]],
@@ -107,7 +106,7 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
 
 
 def _get_rebar_config(
-    rebar_config: dict, params: BridgeParametrization, slab_thickness: float
+    rebar_config: dict, params: "BridgeParametrization", slab_thickness: float
 ) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
     """Get reinforcement configuration based on the provided viktor parameters."""
     # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
@@ -204,7 +203,7 @@ def _get_rebar_config(
     return main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances
 
 
-def create_bridge_idea_model(params: BridgeParametrization) -> Any:  # noqa: ANN401
+def create_bridge_idea_model(params: "BridgeParametrization") -> Any:  # noqa: ANN401
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 

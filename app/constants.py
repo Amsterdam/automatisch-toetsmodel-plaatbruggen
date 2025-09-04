@@ -5,6 +5,15 @@
 
 from pathlib import Path
 
+from src.common.constants import (
+    CC_CLASS_OPTIONS,
+    DESIGN_CODE_OPTIONS,
+    LOAD_ZONE_TYPES,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SIGNAGE_LOAD_FACTORS,
+)
+
 # ===================================================================================================================
 # Paths
 # ===================================================================================================================
@@ -61,19 +70,23 @@ README_CONTENT = """
 # ===================================================================================================================
 
 # Import from src layer to maintain single source of truth
-
 MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
 
-# Re-export constants for app layer usage (no self-assignment needed, they're already imported)
+# Re-export constants for app layer usage
+__all__ = [
+    "CC_CLASS_OPTIONS",
+    "DESIGN_CODE_OPTIONS",
+    "LOAD_ZONE_TYPES",
+    "MAX_DIMENSION_SEGMENTS",
+    "MAX_LOAD_ZONE_SEGMENT_FIELDS",
+    "PAVEMENT_MATERIAL_OPTIONS",
+    "SIGNAGE_LOAD_FACTORS",
+]
 
 # TODO: Load pavement material properties from CSV file according to Eurocode 1
 # TODO: Implement material density lookup and kN/m² calculation
 # TODO: Create materials.csv with specific masses for different pavement types
 
-# Signage load factors for "Werkelijke wegindeling onderliggend wegennet met bebording"
-# Maps to signage options: ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-SIGNAGE_LOAD_FACTORS = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
 
 LOAD_ZONES_INFO_TEXT = """Definieer hier de werkelijke wegindeling op de brug, de belastingen worden hier automatisch van afgeleid.
 De belastingen volgens de theoretische wegindeling worden automatisch gegenereerd op de achtergrond, hier hoef je niets voor in te vullen.

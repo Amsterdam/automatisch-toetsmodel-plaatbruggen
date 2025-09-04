@@ -21,3 +21,7 @@ PAVEMENT_MATERIAL_OPTIONS = [
     "Grind",
     "Tegels",
 ]
+
+# Signage load factors for "Werkelijke wegindeling onderliggend wegennet met bebording"
+# Maps to signage options: ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
+SIGNAGE_LOAD_FACTORS = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]

@@ -8,17 +8,17 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
-# Type alias to avoid importing from app layer
-from app.bridge.parametrization import BridgeParametrization
-from app.constants import SIGNAGE_LOAD_FACTORS
+if TYPE_CHECKING:
+    from app.bridge.parametrization import BridgeParametrization
 from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
+from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
 
 
 def calculate_real_tandem_values(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     psi_nen_8701_factor: float,
     alpha_trend_factor: float,
@@ -62,7 +62,7 @@ def calculate_real_tandem_values(
 
 
 def calculate_real_udl_values(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     udl_value: float,
     psi_nen_8701_factor: float,
@@ -105,7 +105,7 @@ def calculate_real_udl_values(
     return main_value, other_value, rest_value
 
 
-def get_reference_period(params: BridgeParametrization) -> int:
+def get_reference_period(params: "BridgeParametrization") -> int:
     """
     Return the reference period (in years) based on the veiligheidsniveau input.
 
@@ -128,7 +128,7 @@ if TYPE_CHECKING:
 
 
 def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
@@ -308,7 +308,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
 
 
 def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     udl_value: float = 9000.0,
 ) -> dict[str, dict[str, Any]]:
@@ -543,7 +543,7 @@ TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
 def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -696,7 +696,7 @@ def generate_theoretical_lane_positions_bg9000(
 
 
 def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -830,7 +830,7 @@ def generate_theoretical_lane_positions_bg10000(
 
 
 def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -982,7 +982,7 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
 
 
 def obtain_y_coordinates_road(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
 ) -> tuple[float, float]:
     """
     A helper function to obtain the top y-coordinate and width of the road section from the load zones data.
@@ -1027,7 +1027,7 @@ def obtain_y_coordinates_road(
 
 
 def generate_real_lane_positions_bg8000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     lane_width: float = 3.0,
 ) -> list[float]:
     """
@@ -1071,7 +1071,7 @@ def generate_real_lane_positions_bg8000(
 
 
 def tandem_systems_real_lanes_bg8000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
     lane_width: float = 3.0,
@@ -1183,7 +1183,7 @@ def tandem_systems_real_lanes_bg8000(
 
 
 def generate_real_lane_positions_bg9000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     lane_width: float = 3.0,
 ) -> list[float]:
     """
@@ -1226,7 +1226,7 @@ def generate_real_lane_positions_bg9000(
 
 
 def tandem_systems_real_lanes_bg9000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
     lane_width: float = 3.0,
@@ -1338,7 +1338,7 @@ def tandem_systems_real_lanes_bg9000(
 
 
 def generate_real_lane_positions_bg10000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     lane_width: float = 3.0,
 ) -> list[float]:
     """
@@ -1377,7 +1377,7 @@ def generate_real_lane_positions_bg10000(
 
 
 def tandem_systems_real_lanes_bg10000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
     lane_width: float = 3.0,
@@ -1747,7 +1747,7 @@ def create_material_surface_load(
 # This function is used to create the load cases 2001/2002/2003
 def add_material_loads(
     builder: "SciaModelBuilder",
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     material_config: dict[str, str],
 ) -> None:
     """
