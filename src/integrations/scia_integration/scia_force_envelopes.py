@@ -242,32 +242,33 @@ def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, fl
                 except (ValueError, TypeError):
                     continue
         if n_values:
-            force_values["N"] = max(n_values, key=abs)  # Use component with largest magnitude
+            # Convert from N to kN
+            force_values["N"] = max(n_values, key=abs) / 1000.0  # Use component with largest magnitude
 
         # Extract shear forces
         # Vy = v_y (shear force in Y direction)
         val = get_row_value(row, "v_y")
         if val is not None and val != "":
             with contextlib.suppress(ValueError, TypeError):
-                force_values["Vy"] = float(val)
+                force_values["Vy"] = float(val) / 1000.0  # Convert from N to kN
 
         # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
         val = get_row_value(row, "v_x")
         if val is not None and val != "":
             with contextlib.suppress(ValueError, TypeError):
-                force_values["Vz"] = float(val)
+                force_values["Vz"] = float(val) / 1000.0  # Convert from N to kN
 
         # Extract moments - try design quantities first, then basic quantities
         # Mxd+ and Mxd- (design moments in X direction)
         val = get_row_value(row, "m_xD+")
         if val is not None and val != "":
             with contextlib.suppress(ValueError, TypeError):
-                force_values["Mxd+"] = float(val)
+                force_values["Mxd+"] = float(val) / 1000000.0  # Convert from Nmm to kNm
         else:
             val = get_row_value(row, "m_x")
             if val is not None and val != "":
                 try:
-                    moment_x = float(val)
+                    moment_x = float(val) / 1000000.0  # Convert from Nmm to kNm
                     force_values["Mxd+"] = max(0, moment_x)  # Positive part
                 except (ValueError, TypeError):
                     pass
@@ -275,12 +276,12 @@ def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, fl
         val = get_row_value(row, "m_xD-")
         if val is not None and val != "":
             with contextlib.suppress(ValueError, TypeError):
-                force_values["Mxd-"] = float(val)
+                force_values["Mxd-"] = float(val) / 1000000.0  # Convert from Nmm to kNm
         elif "Mxd+" not in force_values:
             val = get_row_value(row, "m_x")
             if val is not None and val != "":
                 try:
-                    moment_x = float(val)
+                    moment_x = float(val) / 1000000.0  # Convert from Nmm to kNm
                     force_values["Mxd-"] = min(0, moment_x)  # Negative part
                 except (ValueError, TypeError):
                     pass
@@ -289,12 +290,12 @@ def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, fl
         val = get_row_value(row, "m_yD+")
         if val is not None and val != "":
             with contextlib.suppress(ValueError, TypeError):
-                force_values["Myd+"] = float(val)
+                force_values["Myd+"] = float(val) / 1000000.0  # Convert from Nmm to kNm
         else:
             val = get_row_value(row, "m_y")
             if val is not None and val != "":
                 try:
-                    moment_y = float(val)
+                    moment_y = float(val) / 1000000.0  # Convert from Nmm to kNm
                     force_values["Myd+"] = max(0, moment_y)  # Positive part
                 except (ValueError, TypeError):
                     pass
@@ -302,12 +303,12 @@ def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, fl
         val = get_row_value(row, "m_yD-")
         if val is not None and val != "":
             with contextlib.suppress(ValueError, TypeError):
-                force_values["Myd-"] = float(val)
+                force_values["Myd-"] = float(val) / 1000000.0  # Convert from Nmm to kNm
         elif "Myd+" not in force_values:
             val = get_row_value(row, "m_y")
             if val is not None and val != "":
                 try:
-                    moment_y = float(val)
+                    moment_y = float(val) / 1000000.0  # Convert from Nmm to kNm
                     force_values["Myd-"] = min(0, moment_y)  # Negative part
                 except (ValueError, TypeError):
                     pass

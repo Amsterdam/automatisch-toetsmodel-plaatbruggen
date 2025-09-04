@@ -4,7 +4,7 @@ import traceback
 import zipfile
 from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
-from typing import Any
+from typing import Any, NoReturn
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
@@ -762,7 +762,7 @@ class BridgeController(ViktorController):
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> None:
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> NoReturn:
             """Raise a user error for SCIA analysis failures."""
             raise UserError(error_msg)
 
@@ -821,6 +821,9 @@ class BridgeController(ViktorController):
                 column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
             )
 
+        # Get units mapping from results
+        units_mapping = results.get("units", {}).get("internal_forces", {})  # type: ignore[arg-type]
+
         # Build table data
         table_data = []
 
@@ -829,18 +832,38 @@ class BridgeController(ViktorController):
                 max_data = envelope["max"]
                 min_data = envelope["min"]
 
+                # Get unit for this component
+                component_unit = units_mapping.get(component, "")
+                unit_suffix = f" {component_unit}" if component_unit else ""
+
                 # Add maximum value row
                 if max_data["value"] != float("-inf"):
-                    max_forces_str = self._format_complete_force_state(max_data["forces"])
+                    max_forces_str = self._format_complete_force_state(max_data["forces"], units_mapping)
                     table_data.append(
-                        [section, component, "Maximum", f"{max_data['value']:.1f}", max_data["location"], max_data["combination"], max_forces_str]
+                        [
+                            section,
+                            component,
+                            "Maximum",
+                            f"{max_data['value']:.1f}{unit_suffix}",
+                            max_data["location"],
+                            max_data["combination"],
+                            max_forces_str,
+                        ]
                     )
 
                 # Add minimum value row
                 if min_data["value"] != float("inf"):
-                    min_forces_str = self._format_complete_force_state(min_data["forces"])
+                    min_forces_str = self._format_complete_force_state(min_data["forces"], units_mapping)
                     table_data.append(
-                        [section, component, "Minimum", f"{min_data['value']:.1f}", min_data["location"], min_data["combination"], min_forces_str]
+                        [
+                            section,
+                            component,
+                            "Minimum",
+                            f"{min_data['value']:.1f}{unit_suffix}",
+                            min_data["location"],
+                            min_data["combination"],
+                            min_forces_str,
+                        ]
                     )
 
         # Sort by section and component for better readability
@@ -889,30 +912,45 @@ class BridgeController(ViktorController):
             },
         }
 
-    def _format_complete_force_state(self, forces: dict[str, float]) -> str:
+    def _format_complete_force_state(self, forces: dict[str, float], units_mapping: dict[str, str] | None = None) -> str:
         """Format the complete force state as a compact readable string."""
         force_parts = []
+        units_mapping = units_mapping or {}
 
         # Only show non-zero forces to reduce clutter
         # Normal force
         if "N" in forces and abs(forces["N"]) > 0.1:
-            force_parts.append(f"N={forces['N']:.0f}")
+            unit = units_mapping.get("N", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"N={forces['N']:.0f}{unit_suffix}")
 
         # Shear forces
         if "Vy" in forces and abs(forces["Vy"]) > 0.1:
-            force_parts.append(f"Vy={forces['Vy']:.0f}")
+            unit = units_mapping.get("Vy", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Vy={forces['Vy']:.0f}{unit_suffix}")
         if "Vz" in forces and abs(forces["Vz"]) > 0.1:
-            force_parts.append(f"Vz={forces['Vz']:.0f}")
+            unit = units_mapping.get("Vz", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Vz={forces['Vz']:.0f}{unit_suffix}")
 
         # Moments - only show if significant
         if "Mxd+" in forces and abs(forces["Mxd+"]) > 0.1:
-            force_parts.append(f"Mx+={forces['Mxd+']:.0f}")
+            unit = units_mapping.get("Mxd+", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Mx+={forces['Mxd+']:.0f}{unit_suffix}")
         if "Mxd-" in forces and abs(forces["Mxd-"]) > 0.1:
-            force_parts.append(f"Mx-={forces['Mxd-']:.0f}")
+            unit = units_mapping.get("Mxd-", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Mx-={forces['Mxd-']:.0f}{unit_suffix}")
         if "Myd+" in forces and abs(forces["Myd+"]) > 0.1:
-            force_parts.append(f"My+={forces['Myd+']:.0f}")
+            unit = units_mapping.get("Myd+", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"My+={forces['Myd+']:.0f}{unit_suffix}")
         if "Myd-" in forces and abs(forces["Myd-"]) > 0.1:
-            force_parts.append(f"My-={forces['Myd-']:.0f}")
+            unit = units_mapping.get("Myd-", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"My-={forces['Myd-']:.0f}{unit_suffix}")
 
         # If no significant forces, show "All ≈ 0"
         if not force_parts:

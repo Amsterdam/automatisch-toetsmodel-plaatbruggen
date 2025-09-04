@@ -403,7 +403,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             xml_output_file = analysis.get_xml_output_file()
 
             # Extract various result types
-            return {
+            results = {
                 "xml_output_file": xml_output_file,
                 "displacements": self.get_displacement_results(analysis),
                 "internal_forces": self.get_internal_force_results(analysis),
@@ -413,8 +413,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "xml_parsing": self.parse_xml_results(xml_output_file),
             }
 
+            # Add units mapping for downstream consumers
+            from src.integrations.scia_integration.scia_results import build_units_mapping
+
+            units_mapping = build_units_mapping(results)
+            results["units"] = units_mapping
+
         except Exception as e:
             raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
+        else:
+            return results
 
     def _try_get_table_result(self, xml_output_file: File, table_name: str) -> dict[str, object] | None:
         """Try to get a table result from the XML output file."""
