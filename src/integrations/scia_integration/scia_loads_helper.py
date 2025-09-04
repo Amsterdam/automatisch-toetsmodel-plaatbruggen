@@ -10,12 +10,11 @@ from typing import TYPE_CHECKING, Any
 
 # Type alias to avoid importing from app layer
 from app.bridge.parametrization import BridgeParametrization
+from app.constants import SIGNAGE_LOAD_FACTORS
 from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
-
-signage_options = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
 
 
 def calculate_real_tandem_values(
@@ -50,7 +49,7 @@ def calculate_real_tandem_values(
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
         signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
         signage_index = signage_options_list.index(params.signage)
-        load_factor = signage_options[signage_index]
+        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
         load_main = base_main * load_factor
         load_second = base_second * load_factor
         load_third = base_third * load_factor
@@ -93,7 +92,7 @@ def calculate_real_udl_values(
         # Get the selected signage option and map to load factor
         signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
         signage_index = signage_options_list.index(params.signage)
-        load_factor = signage_options[signage_index]
+        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
         # Apply the load factor to all values
         main_value = udl_value * load_factor
         other_value = 2500.0
