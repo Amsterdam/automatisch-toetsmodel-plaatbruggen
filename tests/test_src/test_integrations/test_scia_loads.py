@@ -378,7 +378,7 @@ class TestAccidentalVehicleLoads:
                     for call in mock_builder.create_surface_load.call_args_list
                     if "amsterdam" in call.kwargs["name"]
                 }
-            )            # Should match the positions from mock_sequencer_single
+            )  # Should match the positions from mock_sequencer_single
             assert load_positions == [2.0, 4.0, 6.0, 8.0]
 
 
