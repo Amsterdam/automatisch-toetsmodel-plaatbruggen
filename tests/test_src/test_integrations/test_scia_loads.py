@@ -281,10 +281,18 @@ class TestAccidentalVehicleLoads:
                 x_coord = kwargs["x_coord"]
                 wheel_contact_area = kwargs.get("wheel_contact_area", 0.2)  # Default 0.2 for normal vehicle
                 return {
-                    "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + wheel_contact_area, 0.0, 0.0), 
-                                             (x_coord + wheel_contact_area, wheel_contact_area, 0.0), (x_coord, wheel_contact_area, 0.0)],
-                    "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + wheel_contact_area, -1.3, 0.0), 
-                                                (x_coord + wheel_contact_area, -1.3 + wheel_contact_area, 0.0), (x_coord, -1.3 + wheel_contact_area, 0.0)],
+                    "top_left_wheel_corners": [
+                        (x_coord, 0.0, 0.0),
+                        (x_coord + wheel_contact_area, 0.0, 0.0),
+                        (x_coord + wheel_contact_area, wheel_contact_area, 0.0),
+                        (x_coord, wheel_contact_area, 0.0),
+                    ],
+                    "bottom_left_wheel_corners": [
+                        (x_coord, -1.3, 0.0),
+                        (x_coord + wheel_contact_area, -1.3, 0.0),
+                        (x_coord + wheel_contact_area, -1.3 + wheel_contact_area, 0.0),
+                        (x_coord, -1.3 + wheel_contact_area, 0.0),
+                    ],
                 }
 
             mock_calc_locations.side_effect = mock_calc_locations_side_effect
@@ -341,9 +349,7 @@ class TestAccidentalVehicleLoads:
             from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
             mock_extract.return_value = BridgeDimensions(
-                total_length=10.0, total_width=6.0, thickness=0.5, 
-                zone1_width=2.0, zone2_width=2.0, zone3_width=2.0, 
-                first_segment_thickness=0.5
+                total_length=10.0, total_width=6.0, thickness=0.5, zone1_width=2.0, zone2_width=2.0, zone3_width=2.0, first_segment_thickness=0.5
             )
 
             # Mock single-axis and normal vehicle positions
@@ -357,10 +363,7 @@ class TestAccidentalVehicleLoads:
 
             # Create mock load cases for Amsterdam vehicle positions
             mock_load_cases = {
-                "unintended_vehicle_cases": {
-                    f"rs_1_x{pos}_amsterdam": Mock(name=f"BG7{i+1:03d}")
-                    for i, pos in enumerate([2.0, 4.0, 6.0, 8.0])
-                }
+                "unintended_vehicle_cases": {f"rs_1_x{pos}_amsterdam": Mock(name=f"BG7{i + 1:03d}") for i, pos in enumerate([2.0, 4.0, 6.0, 8.0])}
             }
 
             add_accidental_vehicle_loads(mock_builder, mock_params, mock_load_cases)
@@ -369,11 +372,13 @@ class TestAccidentalVehicleLoads:
             mock_sequencer_single.assert_called_once_with(10.0, 0.5)  # Should be called with bridge length and thickness
 
             # Verify that surface loads were created at all Amsterdam vehicle positions
-            load_positions = sorted(set(
-                call.kwargs["corner_points"][0][0]  # X coordinate of first corner
-                for call in mock_builder.create_surface_load.call_args_list
-                if "amsterdam" in call.kwargs["name"]
-            ))
+            load_positions = sorted(
+                set(
+                    call.kwargs["corner_points"][0][0]  # X coordinate of first corner
+                    for call in mock_builder.create_surface_load.call_args_list
+                    if "amsterdam" in call.kwargs["name"]
+                )
+            )
 
             # Should match the positions from mock_sequencer_single
             assert load_positions == [2.0, 4.0, 6.0, 8.0]

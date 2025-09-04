@@ -345,7 +345,7 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             duration="SHORT",
         )
         case_counter += 1
-    
+
     # Create load cases for Amsterdam vehicle on RS 1 and RS 3 - Rotated
     for pos in positions_amsterdam_rotated:
         case_name = f"BG7{case_counter:03d}"
@@ -360,7 +360,7 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             duration="SHORT",
         )
         case_counter += 1
-    
+
     for pos in positions_amsterdam_rotated:
         case_name = f"BG7{case_counter:03d}"
         key = f"rs_3_x{pos}_amsterdam_rotated"

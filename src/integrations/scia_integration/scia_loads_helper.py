@@ -1533,6 +1533,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
 
     return sorted(set(tandem_systems))
 
+
 def tandem_system_sequencer_single_axis(length_bridgedeck: float, thickness_bridgedeck: float) -> list[float]:
     """
     Calculate the x-positions of the tandem system consisting of a single axis in a notional lane along the length of the bridge deck.
@@ -1565,6 +1566,7 @@ def tandem_system_sequencer_single_axis(length_bridgedeck: float, thickness_brid
         tandem_systems.append(round(mid_span_position, 6))
 
     return sorted(set(tandem_systems))
+
 
 def tandem_system_sequencer_single_axis_rotated(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
     """
@@ -1599,6 +1601,7 @@ def tandem_system_sequencer_single_axis_rotated(length_bridgedeck: float, thickn
         tandem_systems.append(round(mid_span_position, 6))
 
     return sorted(set(tandem_systems))
+
 
 def calculate_pavement_load_from_dynamic_array(
     load_zones_array: list[dict[str, Any]],
