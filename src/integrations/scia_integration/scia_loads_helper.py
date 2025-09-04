@@ -10,10 +10,99 @@ from typing import TYPE_CHECKING, Any
 
 # Type alias to avoid importing from app layer
 from app.bridge.parametrization import BridgeParametrization
+from app.constants import SIGNAGE_LOAD_FACTORS
 from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
+
+
+def calculate_real_tandem_values(
+    params: BridgeParametrization,
+    length_bridgedeck: float,
+    psi_nen_8701_factor: float,
+    alpha_trend_factor: float,
+) -> tuple[float, float, float]:
+    """
+    Calculate tandem values based on berekeningsniveau and other factors.
+
+    :param params: Bridge parameters containing berekeningsniveau and signage settings
+    :param length_bridgedeck: Length of the bridge deck
+    :param psi_nen_8701_factor: NEN 8701 factor
+    :param alpha_trend_factor: Alpha trend factor from NEN 8701
+    :returns: Tuple of (load_main, load_second, load_third)
+    """
+    base_main = 300000 / (0.4 * 0.4)
+    base_second = 200000 / (0.4 * 0.4)
+    base_third = 100000 / (0.4 * 0.4)
+
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factor = 0.8
+        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
+        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
+        signage_index = signage_options_list.index(params.signage)
+        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
+        load_main = base_main * load_factor
+        load_second = base_second * load_factor
+        load_third = base_third * load_factor
+    else:  # Fallback for safety
+        load_main = base_main
+        load_second = base_second
+        load_third = base_third
+
+    return load_main, load_second, load_third
+
+
+def calculate_real_udl_values(
+    params: BridgeParametrization,
+    length_bridgedeck: float,
+    udl_value: float,
+    psi_nen_8701_factor: float,
+    alpha_trend_factor: float,
+) -> tuple[float, float, float]:
+    """
+    Calculate UDL values based on berekeningsniveau and other factors.
+
+    :param params: Bridge parameters containing berekeningsniveau and signage settings
+    :param length_bridgedeck: Length of the bridge deck
+    :param udl_value: Base UDL value
+    :param psi_nen_8701_factor: NEN 8701 factor
+    :param alpha_trend_factor: Alpha trend factor from NEN 8701
+    :returns: Tuple of (main_value, other_value, rest_value)
+    """
+    if params.berekeningsniveau == "Werkelijke wegindeling":
+        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        alpha_q_factors = [1.35, 1.0]
+        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
+        # Get the selected signage option and map to load factor
+        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
+        signage_index = signage_options_list.index(params.signage)
+        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
+        # Apply the load factor to all values
+        main_value = udl_value * load_factor
+        other_value = 2500.0
+        rest_value = 2500.0
+    else:  # Fallback for safety
+        main_value = udl_value
+        other_value = 2500.0
+        rest_value = 2500.0
+
+    return main_value, other_value, rest_value
 
 
 def get_reference_period(params: BridgeParametrization) -> int:
@@ -247,18 +336,8 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    # Choose correct alpha_q_factor based on calculation level
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
-        # Obtain load values
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [1.35, 1.0]
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    # Calculate UDL values based on berekeningsniveau
+    main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_nen_8701_factor, alpha_trend_factor)
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
 
     y_top, width_road = obtain_y_coordinates_road(params)
@@ -1036,15 +1115,9 @@ def tandem_systems_real_lanes_bg8000(
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
-    # Determine correct alpha q factor based on calculation level
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = 0.8
-    # Obtain load values
-    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    # Calculate loads based on berekeningsniveau
+    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
+
     # Only generate for BG8 (first lane position)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -1197,16 +1270,9 @@ def tandem_systems_real_lanes_bg9000(
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
-    # Determine correct alpha q factor based on calculation level
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = 0.8
+    # Calculate loads based on berekeningsniveau
+    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
 
-    # Obtain load values
-    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG9 (first lane position)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -1310,7 +1376,7 @@ def generate_real_lane_positions_bg10000(
     return [y_center, y_left, y_right]
 
 
-def tandem_systems_real_lanes_bg10000(  # noqa: C901
+def tandem_systems_real_lanes_bg10000(
     params: BridgeParametrization,
     length_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -1338,16 +1404,8 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
 
-    # Determine correct alpha q factor based on calculation level
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = 0.8
-
-    # Obtain load values
-    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    # Calculate loads based on berekeningsniveau
+    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
 
     # Order: center (300 kN), left/right (200/100 kN)
     y_center, y_left, y_right = lane_y_positions
