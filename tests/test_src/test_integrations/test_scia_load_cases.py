@@ -146,8 +146,7 @@ class TestStandardLoadCases:
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
     def test_create_unintended_vehicle_load_cases(
-        self, mock_sequencer_rotated: Mock, mock_sequencer_single: Mock, 
-        mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
+        self, mock_sequencer_rotated: Mock, mock_sequencer_single: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
     ) -> None:
         """Test creation of unintended vehicle load case definitions for standard and Amsterdam vehicles."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
@@ -180,19 +179,21 @@ class TestStandardLoadCases:
 
         # Check keys follow expected pattern
         expected_standard_keys = [
-            "rs_1_x2.5_forward", "rs_1_x25.0_forward", "rs_1_x47.5_forward",
-            "rs_1_x2.5_reverse", "rs_1_x25.0_reverse", "rs_1_x47.5_reverse",
-            "rs_3_x2.5_forward", "rs_3_x25.0_forward", "rs_3_x47.5_forward",
-            "rs_3_x2.5_reverse", "rs_3_x25.0_reverse", "rs_3_x47.5_reverse"
+            "rs_1_x2.5_forward",
+            "rs_1_x25.0_forward",
+            "rs_1_x47.5_forward",
+            "rs_1_x2.5_reverse",
+            "rs_1_x25.0_reverse",
+            "rs_1_x47.5_reverse",
+            "rs_3_x2.5_forward",
+            "rs_3_x25.0_forward",
+            "rs_3_x47.5_forward",
+            "rs_3_x2.5_reverse",
+            "rs_3_x25.0_reverse",
+            "rs_3_x47.5_reverse",
         ]
-        expected_amsterdam_keys = [
-            f"rs_1_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]
-        ] + [
-            f"rs_3_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]
-        ]
-        expected_amsterdam_rotated_keys = [
-            f"rs_1_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]
-        ] + [
+        expected_amsterdam_keys = [f"rs_1_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]] + [f"rs_3_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]]
+        expected_amsterdam_rotated_keys = [f"rs_1_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]] + [
             f"rs_3_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]
         ]
         expected_keys = expected_standard_keys + expected_amsterdam_keys + expected_amsterdam_rotated_keys
