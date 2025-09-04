@@ -63,19 +63,26 @@ README_CONTENT = """
 MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
 MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
 # Import from src layer to maintain single source of truth
-LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
+from src.common.constants import (
+    CC_CLASS_OPTIONS,
+    DESIGN_CODE_OPTIONS,
+    LOAD_ZONE_TYPES,
+)
+from src.common.constants import (
+    PAVEMENT_MATERIAL_OPTIONS as SRC_PAVEMENT_MATERIAL_OPTIONS,
+)
+
+# Re-export for app layer usage
+LOAD_ZONE_TYPES = LOAD_ZONE_TYPES
+CC_CLASS_OPTIONS = CC_CLASS_OPTIONS
+DESIGN_CODE_OPTIONS = DESIGN_CODE_OPTIONS
+
+# Use pavement materials from src layer (single source of truth)
+PAVEMENT_MATERIAL_OPTIONS = SRC_PAVEMENT_MATERIAL_OPTIONS
 
 # TODO: Load pavement material properties from CSV file according to Eurocode 1
 # TODO: Implement material density lookup and kN/m² calculation
 # TODO: Create materials.csv with specific masses for different pavement types
-PAVEMENT_MATERIAL_OPTIONS = [
-    "Asfalt",  # TODO: Add density value (typical: ~23 kN/m³)
-    "Beton (normaal)",  # TODO: Add density value (typical: ~24 kN/m³)
-    "Beton (gewapend)",  # TODO: Add density value (typical: ~24 kN/m³)
-    "Klinkers",  # TODO: Add density value (typical: ~22 kN/m³)
-    "Grind",  # TODO: Add density value (typical: ~18 kN/m³)
-    "Tegels",  # TODO: Add density value (typical: ~20 kN/m³)
-]
 
 # Signage load factors for "Werkelijke wegindeling onderliggend wegennet met bebording"
 # Maps to signage options: ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]

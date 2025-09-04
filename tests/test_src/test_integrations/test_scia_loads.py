@@ -753,8 +753,17 @@ class TestUniformlyDistributedLoads:
         mock_bridge_geom_data = Mock()
         mock_bridge_geom.return_value = mock_bridge_geom_data
 
-        # Setup mock load zones data
-        mock_load_zones.return_value = [{"zone_type": "Auto", "d1_width": 10.5, "y_coords_top_current_zone": [6.5]}]
+        # Setup mock load zones data - create LoadZoneData instances
+        from src.data_models.load_models import LoadZoneData
+
+        mock_zone = LoadZoneData(
+            zone_type="Auto",
+            pavement_thickness=0.1,
+            pavement_material="Asfalt",
+            d1_width=10.5,
+            y_coords_top_current_zone=[6.5],
+        )
+        mock_load_zones.return_value = [mock_zone]
         mock_calc_geom.return_value = mock_load_zones.return_value
 
         # Execute function
@@ -789,7 +798,14 @@ class TestUniformlyDistributedLoads:
             mock_bridge_geom.return_value = Mock()
 
             # Test case: No Auto zone
-            mock_load_zones.return_value = [{"zone_type": "Voetgangers"}]
+            from src.data_models.load_models import LoadZoneData
+
+            mock_zone_pedestrian = LoadZoneData(
+                zone_type="Voetgangers",
+                pavement_thickness=0.05,
+                pavement_material="Tegels",
+            )
+            mock_load_zones.return_value = [mock_zone_pedestrian]
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
             assert y_coord == 0.0, "Should return 0.0 when no Auto zone"

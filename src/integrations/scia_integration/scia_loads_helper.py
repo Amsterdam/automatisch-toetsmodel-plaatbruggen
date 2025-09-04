@@ -1012,13 +1012,13 @@ def obtain_y_coordinates_road(
 
     # Find the 'Auto' zone and get its y-coordinates and width
     for zone in load_zones_data_params:
-        if zone["zone_type"] == "Auto":
+        if zone.zone_type == "Auto":
             # Get y-coordinates, ensure we have a valid list and first value
-            y_coords = zone.get("y_coords_top_current_zone", [])
+            y_coords = getattr(zone, "y_coords_top_current_zone", [])
             y_coord = float(y_coords[0]) if y_coords else 0.0
 
             # Get d1_width, ensure it's a valid number
-            width_value = zone.get("d1_width")
+            width_value = getattr(zone, "d1_width", None)
             d1_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
 
             return y_coord, d1_width
@@ -1722,10 +1722,10 @@ def create_material_surface_load(
     load_case_name = load_config["load_case_name"]
 
     # Calculate coordinates for the surface load
-    y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-    y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-    y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-    y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
+    y_coord_top_left = round(getattr(load_zone, "y_coords_top_current_zone", [])[span], 2)
+    y_coord_top_right = round(getattr(load_zone, "y_coords_top_current_zone", [])[span + 1], 2)
+    y_coord_bottom_left = round(y_coord_top_left - getattr(load_zone, "zone_widths_per_d", [])[span], 2)
+    y_coord_bottom_right = round(y_coord_top_right - getattr(load_zone, "zone_widths_per_d", [])[span + 1], 2)
     x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
     x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
 
@@ -1770,7 +1770,7 @@ def add_material_loads(
 
     # Iterate through load zones and apply loads for specified materials
     for i, load_zone in enumerate(load_zones_data_params):
-        pavement_material = load_zone.get("pavement_material", "")
+        pavement_material = getattr(load_zone, "pavement_material", "")
 
         if pavement_material in material_config:
             load_case_name = material_config[pavement_material]
@@ -1778,7 +1778,7 @@ def add_material_loads(
             material_name = pavement_material.replace(" ", "_").replace("(", "").replace(")", "").lower()
 
             # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
+            for span in range(len(getattr(load_zone, "y_coords_top_current_zone", [])) - 1):
                 load_config = {
                     "load_zone": load_zone,
                     "zone_index": i,

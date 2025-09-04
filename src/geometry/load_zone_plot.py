@@ -5,7 +5,8 @@ from typing import Any, TypedDict
 import plotly.graph_objects as go
 from plotly.colors import qualitative as qual_colors  # For default colors
 
-from src.geometry.load_zone_geometry import LoadZoneDataRow, calculate_zone_bottom_y_coords
+from src.data_models.load_models import LoadZoneData
+from src.geometry.load_zone_geometry import calculate_zone_bottom_y_coords
 
 DEFAULT_PLOTLY_COLORS = qual_colors.Plotly
 
@@ -238,7 +239,7 @@ def create_zone_main_label_annotation(
 
 
 def create_zone_width_annotations(
-    zone_param_data: LoadZoneDataRow,
+    zone_param_data: LoadZoneData,
     geometry: ZonePlottingGeometry,  # Using the new TypedDict
     num_defined_d_points: int,  # Still needed if not in ZonePlottingGeometry or differs
     zone_idx: int,
@@ -253,7 +254,7 @@ def create_zone_width_annotations(
     y_coords_bottom_current_zone = geometry["y_coords_bottom"]
 
     for d_idx in range(num_defined_d_points):
-        raw_width_val = zone_param_data.get(f"d{d_idx + 1}_width")
+        raw_width_val = getattr(zone_param_data, f"d{d_idx + 1}_width", None)
         width_val: float = raw_width_val if isinstance(raw_width_val, int | float) else 0.0
 
         current_zone_calculated_width = abs(y_coords_top_current_zone[d_idx] - y_coords_bottom_current_zone[d_idx])
@@ -279,7 +280,7 @@ def create_zone_width_annotations(
 
 
 def build_load_zones_figure(
-    load_zones_data_params: list[LoadZoneDataRow],
+    load_zones_data_params: list[LoadZoneData],
     bridge_geom: BridgeBaseGeometry,
     styling_defaults: ZoneStylingDefaults,
     presentation_details: PlotPresentationDetails,  # New grouped argument
@@ -317,10 +318,10 @@ def build_load_zones_figure(
     absolute_edge_thickness = 1.5
 
     for zone_idx, zone_param_data in enumerate(load_zones_data_params):
-        zone_type_text = zone_param_data.get("zone_type", f"Zone {zone_idx + 1}")
-        # Ensure access via get for TypedDict compatibility
-        zone_widths_per_d: list[float] = zone_param_data.get("zone_widths_per_d", [])  # type: ignore[assignment]
-        y_coords_top_of_current_zone: list[float] = zone_param_data.get("y_coords_top_current_zone", [])  # type: ignore[assignment]
+        zone_type_text = getattr(zone_param_data, "zone_type", f"Zone {zone_idx + 1}")
+        # Access Pydantic model attributes directly
+        zone_widths_per_d: list[float] = zone_param_data.zone_widths_per_d
+        y_coords_top_of_current_zone: list[float] = zone_param_data.y_coords_top_current_zone
 
         if not zone_widths_per_d or not y_coords_top_of_current_zone:
             # Skip this zone if essential data is missing
