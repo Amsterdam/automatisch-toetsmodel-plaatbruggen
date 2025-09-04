@@ -305,9 +305,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     """Add accidental vehicle loads to the SCIA model using sequenced X positions."""
     # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
     vehicle_width = 1.30  # From diagram: 1.30 m between wheel centers
+    vehicle_width_amsterdam = 2.0  # From diagram: 2.0 m between wheel centers
     force_axle_1 = 80 * 1000  # Q_sv1 = 80 kN, convert to N
     force_axle_2 = 40 * 1000  # Q_sv2 = 40 kN, convert to N
+    force_axle_amsterdam = 240 * 1000  # Q_sv = 240 kN, convert to N
     wheel_contact_area = 0.20  # From diagram: 0.20 m contact area
+    wheel_contact_area_amsterdam = 0.4  # From diagram: 0.4 m contact area
     axle_spacing = 1.2  # Derived from 3.0m total - wheel contact areas
     inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
 
@@ -320,9 +323,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     dims = extract_bridge_dimensions(params)
     length = dims.total_length
     thickness = dims.thickness
-    from .scia_loads_helper import tandem_system_sequencer
+    from .scia_loads_helper import tandem_system_sequencer, tandem_system_sequencer_single_axis, tandem_system_sequencer_single_axis_rotated
 
-    positions = tandem_system_sequencer(length, thickness)
+    # Obtain different x positions for the accidental vehicles
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
+    positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
+    positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
 
     # Get geometry coordinates
     y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -331,6 +337,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     # Get load cases dictionary
     accidental_vehicle_cases = load_cases["unintended_vehicle_cases"]
 
+    # Create the regular accidental vehicle loads from eurocode
     def create_accidental_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], direction: str) -> None:
         """Create accidental vehicle loads at a specific X position and direction."""
         # Get the appropriate load case for this position, edge, and direction
@@ -416,6 +423,99 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             corner_points=rear_axle_locations["bottom_left_wheel_corners"],
             load_value=-rear_wheel_load,
         )
+    
+    # Create the amsterdam accidental vehicle loads, a single axis along the bridge deck
+    def create_accidental_vehicle_amsterdam(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
+        """Create amsterdam accidental vehicle loads at a specific X position and direction."""
+        
+        # Get the load case keys
+        load_case_key = f"{edge_type}_x{x_pos}_amsterdam"
+        if load_case_key not in accidental_vehicle_cases:
+            return
+        load_case_name = accidental_vehicle_cases[load_case_key].name
+    
+        # Calculate vehicle top edge position with 0.5m inset from bridge edge
+        # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
+        if edge_type == "rs_1":
+            # For rs_1: top edge should be inward from bridge edge
+            vehicle_top_edge = y_coords[0] - inset_distance
+        else:  # rs_3
+            # For rs_3: bottom edge should be inward, so top edge = bottom edge + vehicle_width
+            vehicle_bottom_edge = y_coords[0] + inset_distance
+            vehicle_top_edge = vehicle_bottom_edge + vehicle_width_amsterdam    
+        wheel_load = force_axle_amsterdam / (2 * (wheel_contact_area_amsterdam ** 2))  # N/m² per wheel
+
+
+        # Use the same helper function as service vehicle for front axle
+        from .scia_loads_helper import calc_vehicle_load_locations
+
+        axle_locations = calc_vehicle_load_locations(
+            x_coord=x_pos,  # Fix: Use single x_pos value instead of positions_amsterdam list
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
+            vehicle_length=wheel_contact_area_amsterdam,
+            vehicle_width=vehicle_width_amsterdam,
+            wheel_contact_area=wheel_contact_area_amsterdam,
+        )
+
+        # Create surface loads for rear axle wheels (240 kN total = 120 kN per wheel)
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_amsterdam_left",
+            load_case_name=load_case_name,
+            corner_points=axle_locations["bottom_left_wheel_corners"],
+            load_value=-wheel_load,
+        )
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_amsterdam_right",
+            load_case_name=load_case_name,
+            corner_points=axle_locations["top_left_wheel_corners"],
+            load_value=-wheel_load,
+        )
+    
+    # Create the rotated amsterdam accidental vehicle loads, a single axis perpendicular on the bridge deck, on the outer edges
+    def create_accidental_vehicle_amsterdam_rotated(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
+        """Create rotated amsterdam accidental vehicle loads at a specific X position and direction."""
+        
+        # Get the load case keys
+        load_case_key = f"{edge_type}_x{x_pos}_amsterdam_rotated"
+        if load_case_key not in accidental_vehicle_cases:
+            return
+        load_case_name = accidental_vehicle_cases[load_case_key].name
+    
+        # Calculate vehicle top edge position with 0.5m inset from bridge edge
+        # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
+        if edge_type == "rs_1":
+            # For rs_1: top edge should be inward from bridge edge
+            vehicle_top_edge = y_coords[0] - inset_distance
+        else:  # rs_3
+            # For rs_3: In this case we want the loads to be next to the bottom edge of the plate
+            vehicle_bottom_edge = y_coords[0] + inset_distance
+            vehicle_top_edge = vehicle_bottom_edge   
+        wheel_load = force_axle_amsterdam / (2 * (wheel_contact_area_amsterdam ** 2))  # N/m² per wheel
+
+        # Use the same helper function as service vehicle for front axle (80 kN total)
+        from .scia_loads_helper import calc_vehicle_load_locations
+
+        axle_locations = calc_vehicle_load_locations(
+            x_coord=x_pos,  # Fix: Use single x_pos value instead of positions_amsterdam list
+            y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
+            vehicle_length=vehicle_width_amsterdam,
+            vehicle_width=wheel_contact_area_amsterdam,
+            wheel_contact_area=wheel_contact_area_amsterdam,
+        )
+
+        # Create surface loads for rotated system
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_amsterdam_rotated_bottom",
+            load_case_name=load_case_name,
+            corner_points=axle_locations["top_left_wheel_corners"],
+            load_value=-wheel_load,
+        )
+        builder.create_surface_load(
+            name=f"accidental_vehicle_{edge_type}_x{x_pos}_amsterdam_rotated_top",
+            load_case_name=load_case_name,
+            corner_points=axle_locations["top_right_wheel_corners"],
+            load_value=-wheel_load,
+        )
 
     # Create loads for each X position on both edges (RS 1 and RS 3) in both directions
     for x_pos in positions:
@@ -423,10 +523,24 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         create_accidental_vehicle_at_position(x_pos, "rs_1", y_top_structural_edge_at_d_points, "forward")
         create_accidental_vehicle_at_position(x_pos, "rs_1", y_top_structural_edge_at_d_points, "reverse")
 
+
         # RS 3 (bottom edge) - both directions
         create_accidental_vehicle_at_position(x_pos, "rs_3", y_bridge_bottom_at_d_points, "forward")
         create_accidental_vehicle_at_position(x_pos, "rs_3", y_bridge_bottom_at_d_points, "reverse")
 
+    # Create amsterdam vehicle loads
+    for x_pos in positions_amsterdam:
+        # RS 1 (top edge) - amsterdam vehicle
+        create_accidental_vehicle_amsterdam(x_pos, "rs_1", y_top_structural_edge_at_d_points)
+        # RS 3 (bottom edge) - amsterdam vehicle
+        create_accidental_vehicle_amsterdam(x_pos, "rs_3", y_bridge_bottom_at_d_points)
+    
+    # Create rotated amsterdam vehicle loads
+    for x_pos in positions_amsterdam_rotated:
+        # RS 1 (top edge) - amsterdam vehicle rotated
+        create_accidental_vehicle_amsterdam_rotated(x_pos, "rs_1", y_top_structural_edge_at_d_points)
+        # RS 3 (bottom edge) - amsterdam vehicle rotated
+        create_accidental_vehicle_amsterdam_rotated(x_pos, "rs_3", y_bridge_bottom_at_d_points)
 
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """Add service vehicle loads to the SCIA model using sequenced X positions."""
@@ -448,7 +562,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     thickness = dims.thickness
     from .scia_loads_helper import tandem_system_sequencer
 
-    positions = tandem_system_sequencer(length, thickness)
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
 
     # Get geometry coordinates
     y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
