@@ -11,6 +11,7 @@
 - **Traffic load cases**: Added tandem loads and udl for real road layout
   - Added functionality dependent on radio button for road layout
   - Added accidental vehicle according to TAB, parallel and perpendicular to driving direction
+- **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
 
 ### Changed
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions

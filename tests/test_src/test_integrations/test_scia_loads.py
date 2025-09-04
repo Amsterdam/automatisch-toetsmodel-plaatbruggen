@@ -10,6 +10,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.integrations.scia_integration.scia_loads_helper import (
+    calculate_real_tandem_values,
+    calculate_real_udl_values,
+)
+
 BridgeParametrization: Any
 
 
@@ -27,6 +32,46 @@ def mock_params() -> Mock:
     mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
     mock_params.__contains__ = Mock(return_value=True)
     return mock_params
+
+
+class TestRealTandemLoads:
+    """Tests for calculate_real_tandem_values function."""
+
+    @pytest.mark.parametrize(
+        ("berekeningsniveau", "signage"),
+        [
+            ("Werkelijke wegindeling", None),
+            ("Werkelijke wegindeling onderliggend wegennet", None),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "50 ton"),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "30 ton"),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "20 ton"),
+        ],
+    )
+    def test_calculate_real_tandem_values(self, berekeningsniveau: str, signage: str | None) -> None:
+        """Test that calculate_real_tandem_values returns correct number of values for all berekeningsniveau options."""
+        # Arrange
+        params = Mock()
+        params.berekeningsniveau = berekeningsniveau
+        if signage:
+            params.signage = signage
+
+        length_bridgedeck = 25.0
+        psi_factor = 1.0
+        alpha_factor = 1.0
+
+        # Act
+        load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_factor, alpha_factor)
+
+        # Assert
+        assert isinstance(load_main, (int, float))
+        assert isinstance(load_second, (int, float))
+        assert isinstance(load_third, (int, float))
+        # The values should be positive
+        assert load_main > 0
+        assert load_second > 0
+        assert load_third > 0
+        # Main load should be larger than second, which should be larger than third
+        assert load_main > load_second > load_third
 
 
 class TestTheoreticalTandemLoads:
@@ -476,6 +521,42 @@ class TestLoadErrorHandling:
 class TestUniformlyDistributedLoads:
     """Test generation and application of uniformly distributed loads (UDL)."""
 
+    @pytest.mark.parametrize(
+        ("berekeningsniveau", "signage", "udl_value"),
+        [
+            ("Werkelijke wegindeling", None, 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "50 ton", 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "30 ton", 9000.0),
+            ("Werkelijke wegindeling onderliggend wegennet met bebording", "20 ton", 9000.0),
+        ],
+    )
+    def test_calculate_real_udl_values(self, berekeningsniveau: str, signage: str | None, udl_value: float) -> None:
+        """Test that calculate_real_udl_values returns correct number of values for all berekeningsniveau options."""
+        # Arrange
+        params = Mock()
+        params.berekeningsniveau = berekeningsniveau
+        if signage:
+            params.signage = signage
+
+        length_bridgedeck = 25.0
+        psi_factor = 1.0
+        alpha_factor = 1.0
+
+        # Act
+        main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_factor, alpha_factor)
+
+        # Assert
+        assert isinstance(main_value, (int, float))
+        assert isinstance(other_value, (int, float))
+        assert isinstance(rest_value, (int, float))
+        # The values should be positive
+        assert main_value > 0
+        assert other_value > 0
+        assert rest_value > 0
+        # Main value should use the udl_value as base
+        assert main_value != 0  # Main value should be modified by factors but not zero
+
     def test_amount_of_notional_lanes(self) -> None:
         """
         Test calculation of number of notional lanes and lane width for different bridge widths.
@@ -567,8 +648,15 @@ class TestUniformlyDistributedLoads:
         length_bridgedeck = 20.0  # 20m long bridge
         udl_value = 9000.0  # 9 kN/m²
 
-        # Configure mock params
+        # Configure mock params and reference period
         mock_params.reference_period = 50  # years
+        mock_ref_period = Mock()
+        mock_ref_period.return_value = 50
+
+        # Configure load factors before they are used
+        mock_psi.return_value = 1.0  # Example psi factor
+        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
+        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Add bridge segments data that get_bridge_geom_data needs
         mock_segment = Mock()
@@ -590,11 +678,7 @@ class TestUniformlyDistributedLoads:
         mock_params.load_zones_data_array = [mock_zone]
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
         mock_params.__contains__ = Mock(return_value=True)
-
-        # Mock the load factors
-        mock_psi.return_value = 1.0  # Example psi factor
-        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
-        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
+        mock_params.berekeningsniveau = "Werkelijke wegindeling"  # Set the calculation mode explicitly
 
         # Mock obtain_y_coordinates_road to return valid road geometry
         mock_obtain_y.return_value = (6.5, 10.5)  # (y_top, width_road)
@@ -638,14 +722,29 @@ class TestUniformlyDistributedLoads:
         assert abs(main_polygon["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}"
 
     @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road")
-    def test_create_real_udl_traffic_loads_edge_cases(self, mock_obtain_y: Mock, mock_params: Mock) -> None:
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_reference_period")
+    def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
+        self, mock_ref_period: Mock, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y: Mock, mock_params: Mock
+    ) -> None:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
 
-        # Configure mock params
+        # Configure mock params and reference period
+        mock_params.reference_period = 50  # years
+        mock_ref_period.return_value = 50
+
+        # Configure load factors
+        mock_psi.return_value = 1.0  # Example psi factor
+        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
+        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
+
+        # Configure mock params access
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
         mock_params.__contains__ = Mock(return_value=True)
-        mock_params.reference_period = 50
+        mock_params.berekeningsniveau = "Werkelijke wegindeling"
 
         # Add bridge segments data that get_bridge_geom_data needs
         mock_segment = Mock()
