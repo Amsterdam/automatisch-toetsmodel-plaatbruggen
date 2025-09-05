@@ -424,7 +424,7 @@ class TestAccidentalVehicleLoads:
                     if "amsterdam" in call.kwargs["name"]
                 }
             )  # Should match the positions from mock_sequencer_single
-            assert load_positions == [1.8, 3.8, 5.8, 7.8]
+            assert load_positions == [2.2, 4.2, 6.2, 8.2]  # Front axle positions (0.2m offset for wheel contact area)
 
 
 class TestAllLoads:
