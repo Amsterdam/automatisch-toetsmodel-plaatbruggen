@@ -129,6 +129,8 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
 
     # Process SCIA results using the dedicated function returned DataFrame
+    if results is None:
+        raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
     return process_scia_results_for_idea(results)
 
 

@@ -872,7 +872,7 @@ class BridgeController(ViktorController):
 
         return TableResult(table_data, column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"])
 
-    def get_force_envelopes(self, params: BridgeParametrization, **_kwargs) -> dict[str, Any]:
+    def get_force_envelopes(self, params: BridgeParametrization, **kwargs) -> dict[str, Any]:
         """
         Extract force envelopes from SCIA analysis results.
 
@@ -885,11 +885,17 @@ class BridgeController(ViktorController):
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
+        # Get entity_id from kwargs
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID is vereist voor analyse resultaten")
+
         # Get SCIA analysis results
         template_path = self._get_scia_template_path()
         results = get_cached_analysis_results(
             params=params,
             analysis_type=AnalysisType.SCIA,
+            entity_id=entity_id,
             analysis_function=get_scia_analysis_results,
             template_path=str(template_path),
         )

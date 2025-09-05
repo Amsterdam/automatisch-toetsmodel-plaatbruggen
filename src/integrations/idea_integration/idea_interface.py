@@ -84,12 +84,12 @@ def _get_unique_matching_zone_keys(
                         matching_zone_keys.append((thickness, str(config), thickness_zone))  # noqa: PERF401
 
     # Filter matching_zone_keys to only unique (thickness, config) pairs and collect corresponding zones
-    unique_combinations = {}
-    for thickness, config, zone in matching_zone_keys:
-        key = (thickness, config)
-        if key not in unique_combinations:
-            unique_combinations[key] = []
-        unique_combinations[key].append(zone)
+    unique_combinations: dict[tuple[float, str], list[str]] = {}
+    for match_thickness, match_config, match_zone in matching_zone_keys:
+        combination_key = (match_thickness, match_config)
+        if combination_key not in unique_combinations:
+            unique_combinations[combination_key] = []
+        unique_combinations[combination_key].append(match_zone)
 
     # Create tuples with zones as the third element
     unique_matching_zone_keys = [(thickness, config, zones) for (thickness, config), zones in unique_combinations.items()]
@@ -455,6 +455,8 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
         # Apply loads for each direction
         for direction in ["langs", "dwars"]:
             slab = slab_data.get(f"slab_{direction}")
+            if slab is None:
+                continue
 
             if direction == "langs":
                 # Use Y-axis for longitudinal direction
