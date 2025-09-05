@@ -432,6 +432,7 @@ Below you will find important information about this bridge structure."""
         "Betonsterkteklasse",
         options=_get_concrete_quality_options_dynamic,
         default="",
+        name="concrete_strength_class",
         description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
 
