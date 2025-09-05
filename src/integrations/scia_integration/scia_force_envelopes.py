@@ -9,45 +9,6 @@ import contextlib
 from typing import Any
 
 
-def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
-    """
-    Extract force envelopes (max/min values with context) from SCIA analysis results.
-
-    For each bridge section and force component, finds:
-    - Maximum value + complete force state + location + load combination
-    - Minimum value + complete force state + location + load combination
-
-    :param results: SCIA analysis results dictionary
-    :return: Force envelopes dictionary with structure:
-        {
-            "Z1_1": {
-                "N": {
-                    "max": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str},
-                    "min": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str}
-                },
-                "Vy": { ... },
-                # ... etc for all force components
-            },
-            "Z2_1": { ... },
-            "Z3_1": { ... }
-        }
-    """
-    # Initialize envelope structure per bridge section
-    force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
-    bridge_sections = ["Z1_1", "Z2_1", "Z3_1"]
-
-    envelopes = {}
-    for section in bridge_sections:
-        envelopes[section] = {
-            component: {
-                "max": {"value": float("-inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
-                "min": {"value": float("inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
-            }
-            for component in force_components
-        }
-    return envelopes
-
-
 def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | None:
     """Extract internal forces data from SCIA results."""
     xml_parsing = results.get("xml_parsing", {})
@@ -167,7 +128,18 @@ def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict
         }
     """
     # Initialize envelope structure
-    envelopes = _initialize_envelopes()
+    force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
+    bridge_sections = ["Z1_1", "Z2_1", "Z3_1"]
+
+    envelopes = {}
+    for section in bridge_sections:
+        envelopes[section] = {
+            component: {
+                "max": {"value": float("-inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
+                "min": {"value": float("inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
+            }
+            for component in force_components
+        }
 
     # Extract internal forces data
     internal_forces_data = _extract_internal_forces_data(results)

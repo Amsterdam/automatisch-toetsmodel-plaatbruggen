@@ -1,6 +1,4 @@
-"""
-Functions for processing SCIA results data for IDEA StatiCa integration.
-"""
+"""Functions for processing SCIA results data for IDEA StatiCa integration."""
 
 from typing import Any
 
@@ -71,7 +69,7 @@ def get_unique_coords_xyz_dataframe(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.
     return pd.DataFrame({"coords_xyz": unique_coords_list})
 
 
-def get_name_for_coords(coords_value: Any, df_elementaire: pd.DataFrame, df_basis: pd.DataFrame) -> str:
+def get_name_for_coords(coords_value: tuple[float, float, float] | list[float], df_elementaire: pd.DataFrame, df_basis: pd.DataFrame) -> str:
     """
     Find the name for given coordinates by searching in both elementaire and basis DataFrames.
 
@@ -93,16 +91,16 @@ def get_name_for_coords(coords_value: Any, df_elementaire: pd.DataFrame, df_basi
             return str(elementaire_matches.iloc[0]["Naam"])
 
     # If not found, try df_basis
-    elif "coords_xyz" in df_basis.columns and "Naam" in df_basis.columns:
+    if "coords_xyz" in df_basis.columns and "Naam" in df_basis.columns:
         coords_str = str(coords_value)
         basis_matches = df_basis[df_basis["coords_xyz"].astype(str) == coords_str]
         if not basis_matches.empty:
             return str(basis_matches.iloc[0]["Naam"])
-    else:
-        return "zone name not found"
+
+    return "zone name not found"
 
 
-def get_max_abs_for_column(coords_value: Any, df: pd.DataFrame, col: str) -> float:
+def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float], df: pd.DataFrame, col: str) -> float:
     """
     Get the original value that has the maximum absolute value for a specific column matching the given coordinates.
 

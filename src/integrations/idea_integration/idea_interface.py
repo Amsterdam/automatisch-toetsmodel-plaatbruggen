@@ -12,7 +12,8 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from viktor.external import idea_rcs
@@ -20,6 +21,21 @@ from viktor.external import idea_rcs
 from app.bridge.parametrization import BridgeParametrization
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_integration.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
+
+if TYPE_CHECKING:
+    from viktor.core import File
+    from viktor.external.idea_rcs import ConcreteMaterial, Model, OneWaySlab, ReinforcementMaterial
+
+
+@dataclass
+class ReinforcementConfig:
+    """Configuration class for reinforcement parameters."""
+
+    main_reinf_ctc_distances: dict[str, float]
+    main_reinf_diameters: dict[str, float]
+    reinf_heights: dict[str, float]
+    extra_reinf_diameter: dict[str, float]
+    rebar_config: dict
 
 
 def _get_unique_matching_zone_keys(
@@ -216,14 +232,14 @@ def _get_rebar_config(
     return main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances
 
 
-def _create_idea_model_with_materials(params: BridgeParametrization) -> tuple[Any, Any, Any]:
+def _create_idea_model_with_materials(params: BridgeParametrization) -> tuple["Model", "ConcreteMaterial", "ReinforcementMaterial"]:
     """
     Create IDEA model with concrete and reinforcement materials.
 
     :param params: Bridge parametrization
     :type params: BridgeParametrization
     :returns: Tuple of (model, concrete_material, reinforcement_material)
-    :rtype: tuple[Any, Any, Any]
+    :rtype: tuple[Model, ConcreteMaterial, ReinforcementMaterial]
     """
     # Prepare the IDEA model with project information
     project_data = idea_rcs.ProjectData(
@@ -250,65 +266,62 @@ def _create_idea_model_with_materials(params: BridgeParametrization) -> tuple[An
 
 
 def _create_reinforcement_bars(
-    slab: Any,
+    slab: "OneWaySlab",
     direction: str,
-    main_reinf_ctc_distances: dict[str, float],
-    main_reinf_diameters: dict[str, float],
-    reinf_heights: dict[str, float],
-    extra_reinf_diameter: dict[str, float],
-    rebar_config: dict,
-    mat_reinf: Any,
+    config: ReinforcementConfig,
+    mat_reinf: "ReinforcementMaterial",
 ) -> None:
     """
     Create reinforcement bars for a slab in a specific direction.
 
     :param slab: IDEA slab object
+    :type slab: OneWaySlab
     :param direction: Direction ("langs" or "dwars")
-    :param main_reinf_ctc_distances: Main reinforcement center-to-center distances
-    :param main_reinf_diameters: Main reinforcement diameters
-    :param reinf_heights: Reinforcement heights
-    :param extra_reinf_diameter: Extra reinforcement diameters
-    :param rebar_config: Rebar configuration dictionary
+    :type direction: str
+    :param config: Reinforcement configuration containing all parameters
+    :type config: ReinforcementConfig
     :param mat_reinf: Reinforcement material
+    :type mat_reinf: ReinforcementMaterial
     """
     for location in ["top", "bottom"]:
         # Create main reinforcement bars
-        bar_locations_x = [x / 1000 for x in calculate_rebar_positions(1000, main_reinf_ctc_distances[f"{location}_{direction}"])]  # Convert mm to m
-        bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert height from mm to m
-        bar_diameters = [main_reinf_diameters[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert diameter from mm to m
+        bar_locations_x = [
+            x / 1000 for x in calculate_rebar_positions(1000, config.main_reinf_ctc_distances[f"{location}_{direction}"])
+        ]  # Convert mm to m
+        bar_locations_y = [config.reinf_heights[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert height from mm to m
+        bar_diameters = [config.main_reinf_diameters[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert diameter from mm to m
         bar_locations = list(zip(bar_locations_x, bar_locations_y))
 
         for coords, diameter in zip(bar_locations, bar_diameters):
             slab.create_bar(coords, diameter, mat_reinf)
 
         # Create additional reinforcement if needed
-        if rebar_config.get("heeft_bijlegwapening"):
+        if config.rebar_config.get("heeft_bijlegwapening"):
             _create_additional_reinforcement(
-                slab, location, direction, bar_locations_x, main_reinf_ctc_distances, reinf_heights, extra_reinf_diameter, mat_reinf
+                slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf
             )
 
 
 def _create_additional_reinforcement(
-    slab: Any,
-    location: str,
-    direction: str,
+    slab: "OneWaySlab",
+    location_direction: str,  # Combined "top_langs", "bottom_dwars", etc.
     main_bar_locations_x: list[float],
-    main_reinf_ctc_distances: dict[str, float],
-    reinf_heights: dict[str, float],
-    extra_reinf_diameter: dict[str, float],
-    mat_reinf: Any,
+    config: ReinforcementConfig,
+    mat_reinf: "ReinforcementMaterial",
 ) -> None:
     """
     Create additional reinforcement bars (bijlegwapening).
 
     :param slab: IDEA slab object
-    :param location: Location ("top" or "bottom")
-    :param direction: Direction ("langs" or "dwars")
+    :type slab: OneWaySlab
+    :param location_direction: Combined location and direction ("top_langs", "bottom_dwars", etc.)
+    :type location_direction: str
     :param main_bar_locations_x: X coordinates of main reinforcement bars
-    :param main_reinf_ctc_distances: Main reinforcement center-to-center distances
-    :param reinf_heights: Reinforcement heights
-    :param extra_reinf_diameter: Extra reinforcement diameters
+    :type main_bar_locations_x: list[float]
+    :param config: Reinforcement configuration containing all parameters
+    :type config: ReinforcementConfig
     :param mat_reinf: Reinforcement material
+    :type mat_reinf: ReinforcementMaterial
     """
     # Create additional reinforcement bars
     extra_bar_locations_x = calculate_bijleg_positions(main_bar_locations_x)
@@ -316,7 +329,7 @@ def _create_additional_reinforcement(
     # Check if extra bar can fit at the beginning and end of the slab
     loc_max_main_bar = float(max(main_bar_locations_x)) if main_bar_locations_x else 0.0
     loc_min_main_bar = float(min(main_bar_locations_x)) if main_bar_locations_x else 0.0
-    ctc_dist_main_bar = float(main_reinf_ctc_distances[f"{location}_{direction}"]) / 1000 or 0.0  # Convert mm to m
+    ctc_dist_main_bar = float(config.main_reinf_ctc_distances[location_direction]) / 1000 or 0.0  # Convert mm to m
     remaining_space = 0.5 - loc_max_main_bar  # Remaining space at the end of the slab
 
     # Add extra bars at the beginning and end of the slab if there is enough space
@@ -324,22 +337,28 @@ def _create_additional_reinforcement(
         extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar / 2)  # Insert at end
         extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar / 2)  # Insert at beginning
 
-    extra_bar_locations_y = [reinf_heights[f"{location}_{direction}"] / 1000] * len(extra_bar_locations_x)
-    extra_bar_diameters = [extra_reinf_diameter[f"{location}_{direction}"] / 1000] * len(extra_bar_locations_x)
+    extra_bar_locations_y = [config.reinf_heights[location_direction] / 1000] * len(extra_bar_locations_x)
+    extra_bar_diameters = [config.extra_reinf_diameter[location_direction] / 1000] * len(extra_bar_locations_x)
     extra_bar_locations = list(zip(extra_bar_locations_x, extra_bar_locations_y))
 
     for coords, diameter in zip(extra_bar_locations, extra_bar_diameters):
         slab.create_bar(coords, diameter, mat_reinf)
 
 
-def _create_slabs_with_reinforcement(params: BridgeParametrization, model: Any, cs_mat: Any, mat_reinf: Any) -> dict[str, dict]:
+def _create_slabs_with_reinforcement(
+    params: BridgeParametrization, model: "Model", cs_mat: "ConcreteMaterial", mat_reinf: "ReinforcementMaterial"
+) -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
 
     :param params: Bridge parametrization
+    :type params: BridgeParametrization
     :param model: IDEA model
+    :type model: Model
     :param cs_mat: Concrete material
+    :type cs_mat: ConcreteMaterial
     :param mat_reinf: Reinforcement material
+    :type mat_reinf: ReinforcementMaterial
     :returns: Dictionary of created slabs
     :rtype: dict[str, dict]
     """
@@ -357,13 +376,20 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: Any, 
             continue  # Skip if slab already created
         created_slabs[slab_key] = {"zones": zones}
 
-        print(f"Creating slab with thickness {slab_thickness} m, config {config}, zones {zones}")
-
         # Get reinforcement configuration
         config_idx = int(config) - 1
         rebar_config = params.reinforcement_zones_array[config_idx]
         main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, _ = _get_rebar_config(
             rebar_config, params, slab_thickness
+        )
+
+        # Create reinforcement configuration object
+        reinf_config = ReinforcementConfig(
+            main_reinf_ctc_distances=main_reinf_ctc_distances,
+            main_reinf_diameters=main_reinf_diameters,
+            reinf_heights=reinf_heights,
+            extra_reinf_diameter=extra_reinf_diameter,
+            rebar_config=rebar_config
         )
 
         # Create slab for each direction
@@ -374,9 +400,7 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: Any, 
             created_slabs[slab_key][f"slab_{direction}"] = slab
 
             # Create reinforcement bars for this slab
-            _create_reinforcement_bars(
-                slab, direction, main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, rebar_config, mat_reinf
-            )
+            _create_reinforcement_bars(slab, direction, reinf_config, mat_reinf)
 
     return created_slabs
 
@@ -408,18 +432,12 @@ def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.Data
     df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["name", "coords_xyz"] else x)
     df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["name", "coords_xyz"] else x)
 
-    # # Save dataframes for debugging
-    # df_uls.to_csv("df_uls.csv", index=False)
-    # df_sls_kar.to_csv("df_sls_kar.csv", index=False)
-    # df_sls_freq.to_csv("df_sls_freq.csv", index=False)
-
     # Merge dataframes
     df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
     df_all = df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
 
     # Save merged dataframe for debugging
     df_all.to_csv("df_all.csv", index=False)
-    print("df all \n", df_all)
 
     return df_all
 
@@ -435,8 +453,6 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
         # Filter SCIA results for the current slab
         zones = slab_data.get("zones", [])
         df_slab = df_all[df_all["name"].isin(zones)]
-        print("slab key", slab_key)
-        print("df slab \n", df_slab)
 
         # Apply loads for each direction
         for direction in ["langs", "dwars"]:
@@ -453,10 +469,7 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                     name = row.get("name", "Unknown")
                     coords = row.get("coords_xyz")
                     if coords is not None:
-                        if isinstance(coords, (list, tuple)):
-                            coords_str = f"({', '.join(map(str, coords))})"
-                        else:
-                            coords_str = str(coords)
+                        coords_str = f"({', '.join(map(str, coords))})" if isinstance(coords, (list, tuple)) else str(coords)
                     else:
                         coords_str = "No coords"
 
@@ -474,10 +487,7 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                     name = row.get("name", "Unknown")
                     coords = row.get("coords_xyz")
                     if coords is not None:
-                        if isinstance(coords, (list, tuple)):
-                            coords_str = f"({', '.join(map(str, coords))})"
-                        else:
-                            coords_str = str(coords)
+                        coords_str = f"({', '.join(map(str, coords))})" if isinstance(coords, (list, tuple)) else str(coords)
                     else:
                         coords_str = "No coords"
 
@@ -486,7 +496,7 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                     slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> Any:  # noqa: ANN401
+def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 
@@ -497,7 +507,7 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     :param scia_results_dict: Pre-computed SCIA results, if None will fetch from cache
     :type scia_results_dict: dict[str, pd.DataFrame] | None
     :returns: IDEA RCS model object
-    :rtype: Any
+    :rtype: Model
     :raises ValueError: If parameters are invalid
     :raises ImportError: If VIKTOR IDEA module is not available
     """
@@ -523,16 +533,16 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     return model
 
 
-def run_idea_analysis(model: Any, timeout: int = 300) -> Any:  # noqa: ANN401
+def run_idea_analysis(model: "Model", timeout: int = 300) -> "File":
     """
     Run IDEA StatiCa analysis on the provided model.
 
     :param model: IDEA RCS model object
-    :type model: Any
+    :type model: Model
     :param timeout: Analysis timeout in seconds
     :type timeout: int
     :returns: Analysis output file object
-    :rtype: Any
+    :rtype: File
     :raises ImportError: If VIKTOR IDEA module is not available
     :raises RuntimeError: If analysis execution fails
     """

@@ -495,10 +495,8 @@ def get_cached_analysis_results(
     # Run analysis if not cached
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
-        print("DEBUG: Running SCIA analysis...")
         results = analysis_function(params, template_path)
     elif analysis_type == AnalysisType.IDEA:
-        print("DEBUG: Running IDEA analysis...")
         results = analysis_function(params, entity_id)
     else:
         # Fallback: try calling with just params
