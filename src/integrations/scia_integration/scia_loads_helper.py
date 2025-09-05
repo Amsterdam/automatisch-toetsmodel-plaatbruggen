@@ -1737,10 +1737,10 @@ def create_material_surface_load(
     ]
 
     builder.create_surface_load(
-        name=f"{load_zone['zone_type']}_{zone_index}_{material_name}_{span}_d{load_zone['pavement_thickness']}",
+        name=f"{load_zone.zone_type}_{zone_index}_{material_name}_{span}_d{load_zone.pavement_thickness}",
         load_case_name=load_case_name,
         corner_points=corners,
-        load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"]) * 1000,  # Convert to kN/m²
+        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material) * 1000,  # Convert to kN/m²
     )
 
 

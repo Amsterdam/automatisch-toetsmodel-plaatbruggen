@@ -13,6 +13,7 @@ import pytest
 from src.integrations.scia_integration.scia_loads_helper import (
     calculate_real_tandem_values,
     calculate_real_udl_values,
+    create_material_surface_load,
 )
 
 BridgeParametrization: Any
@@ -998,6 +999,66 @@ class TestUniformlyDistributedLoads:
 
         assert "BG4001" in result_zero_load
         assert result_zero_load["BG4001"]["main"][0]["load"] == 0.0, "Should handle zero load value"
+
+
+class TestMaterialSurfaceLoad:
+    """Tests for material surface load creation with Pydantic LoadZoneData."""
+
+    def test_create_material_surface_load_with_pydantic_model(self, mock_builder: Mock) -> None:
+        """Test that create_material_surface_load works with Pydantic LoadZoneData objects."""
+        from src.data_models.load_models import LoadZoneData
+        from src.geometry.model_creator import LoadZoneGeometryData
+
+        # Create a real Pydantic LoadZoneData object
+        load_zone = LoadZoneData(
+            zone_type="Auto",
+            pavement_thickness=0.1,
+            pavement_material="Asfalt",
+            d1_width=3.5,
+            zone_widths_per_d=[3.5, 3.5],
+            y_coords_top_current_zone=[5.0, 10.0],
+        )
+
+        # Create mock bridge geometry data
+        bridge_geom_data = LoadZoneGeometryData(
+            x_coords_d_points=[0.0, 10.0],
+            y_top_structural_edge_at_d_points=[5.0, 5.0],
+            total_widths_at_d_points=[10.0, 10.0],
+            y_bridge_bottom_at_d_points=[0.0, 0.0],
+            num_defined_d_points=2,
+            d_point_label_data=[],
+        )
+
+        # Create load config
+        load_config = {
+            "load_zone": load_zone,
+            "zone_index": 0,
+            "span": 0,
+            "material_name": "asfalt",
+            "load_case_name": "LC_Asfalt",
+        }
+
+        # This should NOT raise "'LoadZoneData' object is not subscriptable" error
+        try:
+            create_material_surface_load(mock_builder, load_config, bridge_geom_data)
+            success = True
+        except TypeError as e:
+            if "not subscriptable" in str(e):
+                success = False
+                pytest.fail(f"LoadZoneData accessed with dictionary syntax: {e}")
+            else:
+                raise
+
+        assert success, "create_material_surface_load should work with Pydantic LoadZoneData objects"
+
+        # Verify the builder was called correctly
+        mock_builder.create_surface_load.assert_called_once()
+        call_args = mock_builder.create_surface_load.call_args
+
+        # Check that the name contains the expected values from the Pydantic model
+        assert "Auto" in call_args.kwargs["name"], "Load name should contain zone_type"
+        assert "0.1" in call_args.kwargs["name"], "Load name should contain pavement_thickness"
+        assert call_args.kwargs["load_case_name"] == "LC_Asfalt", "Load case name should be preserved"
 
 
 if __name__ == "__main__":
