@@ -37,12 +37,6 @@ class ReinforcementConfig:
     extra_reinf_diameter: dict[str, float]
     extra_reinf_ctc_distances: dict[str, float]
     has_extra_reinforcement: bool
-    """Configuration class for reinforcement parameters."""
-
-    main_reinf_ctc_distances: dict[str, float]
-    main_reinf_diameters: dict[str, float]
-    reinf_heights: dict[str, float]
-    extra_reinf_diameter: dict[str, float]
     rebar_config: dict
 
 
@@ -383,7 +377,7 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
         # Get reinforcement configuration
         config_idx = int(config) - 1
         rebar_config = params.reinforcement_zones_array[config_idx]
-        main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, _ = _get_rebar_config(
+        main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances = _get_rebar_config(
             rebar_config, params, slab_thickness
         )
 
@@ -393,6 +387,8 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
             main_reinf_diameters=main_reinf_diameters,
             reinf_heights=reinf_heights,
             extra_reinf_diameter=extra_reinf_diameter,
+            extra_reinf_ctc_distances=extra_reinf_ctc_distances,
+            has_extra_reinforcement=rebar_config.get("heeft_bijlegwapening", False),
             rebar_config=rebar_config,
         )
 
