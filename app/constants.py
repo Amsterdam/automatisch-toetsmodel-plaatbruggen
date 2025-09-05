@@ -77,6 +77,10 @@ PAVEMENT_MATERIAL_OPTIONS = [
     "Tegels",  # TODO: Add density value (typical: ~20 kN/m³)
 ]
 
+# Signage load factors for "Werkelijke wegindeling onderliggend wegennet met bebording"
+# Maps to signage options: ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
+SIGNAGE_LOAD_FACTORS = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
+
 LOAD_ZONES_INFO_TEXT = """Definieer hier de werkelijke wegindeling op de brug, de belastingen worden hier automatisch van afgeleid.
 De belastingen volgens de theoretische wegindeling worden automatisch gegenereerd op de achtergrond, hier hoef je niets voor in te vullen.
 

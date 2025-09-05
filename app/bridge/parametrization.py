@@ -101,6 +101,21 @@ def _bridge_field_is_empty(objectnumm: str, field_name: str) -> bool:
     return not _bridge_field_has_value(objectnumm, field_name)
 
 
+# --- Helper functions for visibility callbacks ---
+
+
+def _show_signage_field(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
+    """
+    Determine if the signage field should be visible based on berekeningsniveau.
+    Only show when "Werkelijke wegindeling onderliggend wegennet met bebording" is selected.
+
+    :param params: Parameters containing berekeningsniveau setting
+    :returns: True if signage field should be visible, False otherwise
+    :rtype: bool
+    """
+    return params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording"
+
+
 # --- Helper functions for DynamicArray Default Rows ---
 
 
@@ -550,6 +565,7 @@ Below you will find important information about this bridge structure."""
             "Theoretische wegindeling",
             "Werkelijke wegindeling",
             "Werkelijke wegindeling onderliggend wegennet",
+            "Werkelijke wegindeling onderliggend wegennet met bebording",
         ],
         variant="radio",
         name="berekeningsniveau",
@@ -559,7 +575,13 @@ Below you will find important information about this bridge structure."""
     input.belastingcombinaties.design_code = OptionField(
         "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
     )
-
+    input.belastingcombinaties.signage = OptionField(
+        "Bebording",
+        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
+        name="signage",
+        default="50 ton",
+        visible=_show_signage_field,
+    )
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
