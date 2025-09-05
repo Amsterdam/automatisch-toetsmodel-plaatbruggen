@@ -367,7 +367,7 @@ class TestCreateLoadCombinationTable(unittest.TestCase):
         }
 
         # Act & Assert
-        with pytest.raises(KeyError, match="Missing required parameters: cc_class and/or design_code"):
+        with pytest.raises(KeyError, match="Missing required parameter: cc_class"):
             create_load_combination_table(params)
 
     def test_create_load_combination_table_missing_construction_year(self) -> None:

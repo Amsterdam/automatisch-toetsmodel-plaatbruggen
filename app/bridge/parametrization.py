@@ -7,7 +7,9 @@ from typing import Any
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    CC_CLASS_OPTIONS,
     CONCRETEQUALITY_CSV_PATH,
+    DESIGN_CODE_OPTIONS,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONE_TYPES,
@@ -556,9 +558,7 @@ Below you will find important information about this bridge structure."""
     input.belastingcombinaties = Tab("Belastingcombinaties")
 
     # --- Load Combinations (in belastingcombinaties tab) ---
-    input.belastingcombinaties.cc_class = OptionField(
-        "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
-    )
+    input.belastingcombinaties.cc_class = OptionField("Gevolgklasse", options=CC_CLASS_OPTIONS, variant="radio", name="cc_class", default="CC2")
     input.belastingcombinaties.berekeningsniveau = OptionField(
         "Berekeningsniveau",
         options=[
@@ -573,7 +573,7 @@ Below you will find important information about this bridge structure."""
     )
     input.belastingcombinaties.lb = LineBreak()
     input.belastingcombinaties.design_code = OptionField(
-        "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
+        "Veiligheidsniveau", options=DESIGN_CODE_OPTIONS, name="design_code", default="NEN 8700 verbouw"
     )
     input.belastingcombinaties.signage = OptionField(
         "Bebording",

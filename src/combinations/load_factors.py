@@ -20,6 +20,8 @@ import pandas as pd
 from pandas.io.formats.style import Styler
 from scipy.interpolate import RegularGridInterpolator  # type: ignore[import-untyped]
 
+from src.data_models.combination_models import LoadCombinationConfig
+
 # ===================================================================================================================
 # Paths
 # ===================================================================================================================
@@ -218,6 +220,8 @@ def validate_combination_params(params: dict) -> tuple[str, str, str]:
     """
     Validate and extract required parameters for load combination generation.
 
+    This function is deprecated. Use LoadCombinationConfig.from_params_dict() instead.
+
     Args:
         params: Parameter dictionary containing configuration values
 
@@ -226,14 +230,12 @@ def validate_combination_params(params: dict) -> tuple[str, str, str]:
 
     Raises:
         KeyError: If required parameters are missing
+        ValidationError: If parameter values are invalid
 
     """
-    if not all(key in params for key in ["cc_class", "design_code"]):
-        raise KeyError("Missing required parameters: cc_class and/or design_code")
-    if "info" not in params or "construction_year" not in params["info"]:
-        raise KeyError("Missing required parameter: info.construction_year")
-
-    return str(params["cc_class"]), str(params["design_code"]), str(params["info"]["construction_year"])
+    # Use Pydantic model for validation
+    config = LoadCombinationConfig.from_params_dict(params)
+    return config.to_tuple()
 
 
 def get_initial_combination_table() -> pd.DataFrame:
@@ -258,8 +260,9 @@ def prepare_combination_table(params: dict) -> pd.DataFrame:
         DataFrame with gamma factors applied to the psi factors
 
     """
-    # Validate parameters
-    cc_class, design_code, construction_year = validate_combination_params(params)
+    # Validate parameters using Pydantic model
+    config = LoadCombinationConfig.from_params_dict(params)
+    cc_class, design_code, construction_year = config.cc_class, config.design_code, str(config.construction_year)
 
     # Get initial table
     df_combination_table_psi = get_initial_combination_table()
