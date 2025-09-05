@@ -14,6 +14,9 @@
 
 ### Changed
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
+- **Input tab for calculation settings**: Added explanatory text and changed the tab name from "Belastingcombinaties" to
+"Berekeningsinstellingen", since the user input on this tab controls settings for the model calculation in general,
+not only for load combinations.
 
 ### Fixed
 
