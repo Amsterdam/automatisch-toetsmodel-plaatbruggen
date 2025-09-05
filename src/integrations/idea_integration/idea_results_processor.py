@@ -16,16 +16,7 @@ class IdeaResultsProcessor:
         :returns: List of column headers for IDEA results table
         :rtype: list[str]
         """
-        return [
-            "Sectie",
-            "Capaciteit",
-            "Schuifkracht",
-            "Torsie",
-            "Interactie",
-            "Scheurwijdte",
-            "Detailing",
-            "Spanningslimieten"
-        ]
+        return ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
 
     @staticmethod
     def create_error_row(error_msg: str) -> list[str]:
@@ -177,18 +168,14 @@ class IdeaResultsProcessor:
                     "success": False,
                     "data": [IdeaResultsProcessor.create_error_row(error_msg)],
                     "headers": IdeaResultsProcessor.get_table_headers(),
-                    "error": error_msg
+                    "error": error_msg,
                 }
 
             # Try pre-parsed results first
             section_results = cached_results.get("section_results")
             if section_results is not None:
                 data = IdeaResultsProcessor.process_preparsed_results(section_results)
-                return {
-                    "success": True,
-                    "data": data,
-                    "headers": IdeaResultsProcessor.get_table_headers()
-                }
+                return {"success": True, "data": data, "headers": IdeaResultsProcessor.get_table_headers()}
 
             # Fallback to raw parsing
             output_content = cached_results.get("output_content")
@@ -197,15 +184,11 @@ class IdeaResultsProcessor:
                     "success": False,
                     "data": [IdeaResultsProcessor.create_error_row("Gecachte IDEA resultaten zijn incompleet - geen output content.")],
                     "headers": IdeaResultsProcessor.get_table_headers(),
-                    "error": "Missing output content"
+                    "error": "Missing output content",
                 }
 
             data = IdeaResultsProcessor.process_raw_results(output_content)
-            return {
-                "success": True,
-                "data": data,
-                "headers": IdeaResultsProcessor.get_table_headers()
-            }
+            return {"success": True, "data": data, "headers": IdeaResultsProcessor.get_table_headers()}
 
         except Exception as e:
             # Log the error for debugging
@@ -216,5 +199,5 @@ class IdeaResultsProcessor:
                 "success": False,
                 "data": [IdeaResultsProcessor.create_processing_error_row(error_msg)],
                 "headers": IdeaResultsProcessor.get_table_headers(),
-                "error": error_msg
+                "error": error_msg,
             }

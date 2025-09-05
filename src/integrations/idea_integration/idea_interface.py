@@ -297,9 +297,7 @@ def _create_reinforcement_bars(
 
         # Create additional reinforcement if needed
         if config.rebar_config.get("heeft_bijlegwapening"):
-            _create_additional_reinforcement(
-                slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf
-            )
+            _create_additional_reinforcement(slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf)
 
 
 def _create_additional_reinforcement(
@@ -389,7 +387,7 @@ def _create_slabs_with_reinforcement(
             main_reinf_diameters=main_reinf_diameters,
             reinf_heights=reinf_heights,
             extra_reinf_diameter=extra_reinf_diameter,
-            rebar_config=rebar_config
+            rebar_config=rebar_config,
         )
 
         # Create slab for each direction

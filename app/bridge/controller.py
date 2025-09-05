@@ -1356,9 +1356,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
         # Get cached results
-        cached_results = get_cached_analysis_results(
-            params, AnalysisType.IDEA, entity_id, get_idea_analysis_results
-        )
+        cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
 
