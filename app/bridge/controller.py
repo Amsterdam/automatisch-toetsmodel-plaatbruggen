@@ -2,23 +2,38 @@
 
 import traceback
 import zipfile
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
-from datetime import datetime
 from typing import Any, NoReturn
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-import pandas as pd  # Import pandas for data manipulation
-
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
+from viktor.core import File, ViktorController
+from viktor.errors import UserError  # Add UserError
+from viktor.external import idea_rcs
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
+
 from app.bridge.analysis_cache import (
     get_cached_analysis_results,
     get_idea_analysis_results,
     get_idea_model_only,
 )
-from src.common.constants import AnalysisType
 from app.bridge.scia_model_builder import (
     generate_bridge_xml_files,
     get_scia_analysis_results,
@@ -35,6 +50,7 @@ from app.common.map_utils import (
 # Params for load combinations are in app.constants
 from app.constants import SCIA_TEMPLATE_PATH
 from src.combinations.load_factors import create_load_combination_table
+from src.common.constants import AnalysisType
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
@@ -59,13 +75,6 @@ from src.geometry.model_creator import (
 )
 from src.geometry.top_view_plot import build_top_view_figure
 from src.integrations.idea_integration.idea_interface import _get_unique_matching_zone_keys
-from src.integrations.idea_integration.scia_to_idea_functions import (
-    merge_xyz_to_coords_xyz, 
-    get_unique_coords_xyz_dataframe, 
-    get_name_for_coords, 
-    get_max_abs_for_column,
-    process_scia_results_for_idea,
-)
 
 # SCIA integration imports
 from src.integrations.scia_integration.scia_force_envelopes import (
@@ -73,23 +82,6 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     get_force_envelope_summary,
 )
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -966,7 +958,7 @@ class BridgeController(ViktorController):
 
         return " | ".join(force_parts)
 
-    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:  # noqa: C901, PLR0912
+    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
         """Print a summary of SCIA results to console for debugging/development."""
         # Analysis status
         results.get("analysis_status", {})
@@ -1394,7 +1386,7 @@ class BridgeController(ViktorController):
                         if isinstance(value, dict):
                             return value.get("Result", "N/A")
                         return str(value)
-                    
+
                     data.append(
                         [
                             section_data.get("id", "Onbekend"),
@@ -1464,11 +1456,12 @@ class BridgeController(ViktorController):
             # Enhanced error handling with more informative messages
             if isinstance(e, UserError):
                 raise
-            
+
             # Log the error for debugging
             import traceback
+
             traceback.print_exc()
-            
+
             # Return error in table format for user
             return TableResult(
                 [["Fout bij verwerking", f"Kon IDEA resultaten niet verwerken: {e!s}", "", "", "", "", "", ""]],
@@ -1517,11 +1510,17 @@ class BridgeController(ViktorController):
 
             # Validate content
             assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-            xml_content = idea_xml_input_bytes.getvalue() if hasattr(idea_xml_input_bytes, "getvalue") else idea_xml_input_bytes.read() if hasattr(idea_xml_input_bytes, "read") else b""
+            xml_content = (
+                idea_xml_input_bytes.getvalue()
+                if hasattr(idea_xml_input_bytes, "getvalue")
+                else idea_xml_input_bytes.read()
+                if hasattr(idea_xml_input_bytes, "read")
+                else b""
+            )
 
             if not xml_content:
                 self._raise_empty_idea_xml_error()
-            
+
             # Add analysis datetime to filename for uniqueness
             analysis_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -1567,7 +1566,13 @@ class BridgeController(ViktorController):
 
         # Validate content
         assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-        idea_input_xml_content = idea_xml_input_bytes.getvalue() if hasattr(idea_xml_input_bytes, "getvalue") else idea_xml_input_bytes.read() if hasattr(idea_xml_input_bytes, "read") else b""
+        idea_input_xml_content = (
+            idea_xml_input_bytes.getvalue()
+            if hasattr(idea_xml_input_bytes, "getvalue")
+            else idea_xml_input_bytes.read()
+            if hasattr(idea_xml_input_bytes, "read")
+            else b""
+        )
 
         if not idea_input_xml_content:
             self._raise_empty_idea_xml_error()
@@ -1582,10 +1587,24 @@ class BridgeController(ViktorController):
             z.writestr(f"IDEA_rcs_model_input_{params.info.bridge_objectnumm}_{analysis_datetime}.xml", idea_input_xml_content)
 
             # Add IDEA RCS model file
-            z.writestr(f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs", idea_rcs_model.getvalue() if hasattr(idea_rcs_model, "getvalue") else idea_rcs_model.read() if hasattr(idea_rcs_model, "read") else b"")
+            z.writestr(
+                f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs",
+                idea_rcs_model.getvalue()
+                if hasattr(idea_rcs_model, "getvalue")
+                else idea_rcs_model.read()
+                if hasattr(idea_rcs_model, "read")
+                else b"",
+            )
 
             # Add analysis output results
-            z.writestr(f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml", idea_xml_output_bytes.getvalue() if hasattr(idea_xml_output_bytes, "getvalue") else idea_xml_output_bytes.read() if hasattr(idea_xml_output_bytes, "read") else b"")
+            z.writestr(
+                f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml",
+                idea_xml_output_bytes.getvalue()
+                if hasattr(idea_xml_output_bytes, "getvalue")
+                else idea_xml_output_bytes.read()
+                if hasattr(idea_xml_output_bytes, "read")
+                else b"",
+            )
 
         return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}_{analysis_datetime}.zip")
 

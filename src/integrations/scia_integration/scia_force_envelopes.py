@@ -9,7 +9,7 @@ import contextlib
 from typing import Any
 
 
-def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:  # noqa: C901, PLR0912, PLR0915
+def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
     """
     Extract force envelopes (max/min values with context) from SCIA analysis results.
 

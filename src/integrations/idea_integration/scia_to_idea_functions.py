@@ -1,6 +1,7 @@
 """
 Functions for processing SCIA results data for IDEA StatiCa integration.
 """
+
 from typing import Any
 
 import pandas as pd
@@ -53,27 +54,27 @@ def get_unique_coords_xyz_dataframe(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.
     # Get coordinates from both DataFrames
     coords1 = df1["coords_xyz"].dropna() if "coords_xyz" in df1.columns else pd.Series([], dtype=object)
     coords2 = df2["coords_xyz"].dropna() if "coords_xyz" in df2.columns else pd.Series([], dtype=object)
-    
+
     # Combine all coordinates
     all_coords = pd.concat([coords1, coords2], ignore_index=True)
-    
+
     # Remove duplicates by converting tuples to strings for comparison, then back to tuples
     unique_coords_set = set()
     unique_coords_list = []
-    
+
     for coord in all_coords:
         coord_str = str(coord)
         if coord_str not in unique_coords_set:
             unique_coords_set.add(coord_str)
             unique_coords_list.append(coord)
-    
+
     return pd.DataFrame({"coords_xyz": unique_coords_list})
 
 
 def get_name_for_coords(coords_value: Any, df_elementaire: pd.DataFrame, df_basis: pd.DataFrame) -> str:
     """
     Find the name for given coordinates by searching in both elementaire and basis DataFrames.
-    
+
     :param coords_value: The coordinate tuple to search for
     :type coords_value: Any
     :param df_elementaire: DataFrame with elementaire ontwerpgrootheden
@@ -90,7 +91,7 @@ def get_name_for_coords(coords_value: Any, df_elementaire: pd.DataFrame, df_basi
         elementaire_matches = df_elementaire[df_elementaire["coords_xyz"].astype(str) == coords_str]
         if not elementaire_matches.empty:
             return str(elementaire_matches.iloc[0]["Naam"])
-    
+
     # If not found, try df_basis
     elif "coords_xyz" in df_basis.columns and "Naam" in df_basis.columns:
         coords_str = str(coords_value)
@@ -104,10 +105,10 @@ def get_name_for_coords(coords_value: Any, df_elementaire: pd.DataFrame, df_basi
 def get_max_abs_for_column(coords_value: Any, df: pd.DataFrame, col: str) -> float:
     """
     Get the original value that has the maximum absolute value for a specific column matching the given coordinates.
-    
+
     This function finds the value with the largest absolute magnitude but returns the original value
     with its sign preserved (e.g., if values are [2, -5, 3], it returns -5 because |-5| = 5 is maximum).
-    
+
     :param coords_value: The coordinate tuple to search for
     :type coords_value: Any
     :param df: DataFrame to search in
@@ -119,16 +120,16 @@ def get_max_abs_for_column(coords_value: Any, df: pd.DataFrame, col: str) -> flo
     """
     if "coords_xyz" not in df.columns or col not in df.columns:
         return float("nan")
-    
+
     # Use string comparison for more reliable matching
     coords_str = str(coords_value)
     matches = df[df["coords_xyz"].astype(str) == coords_str]
-    
+
     if matches.empty:
         return float("nan")
-    
+
     # Convert to numeric, handling any non-numeric values as NaN, then find the value with maximum absolute value
-    numeric_values = pd.to_numeric(matches[col], errors='coerce')
+    numeric_values = pd.to_numeric(matches[col], errors="coerce")
     if numeric_values.isna().all():
         return float("nan")
     # Find the original value that has the maximum absolute value
@@ -139,17 +140,16 @@ def get_max_abs_for_column(coords_value: Any, df: pd.DataFrame, col: str) -> flo
 def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """
     Process SCIA analysis results to create a DataFrame suitable for IDEA StatiCa integration.
-    
+
     This function extracts force and displacement data from SCIA results, processes coordinates,
     and creates a comprehensive DataFrame with unique coordinate locations and their corresponding
     maximum force/moment values.
-    
+
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
     :returns: DataFrame containing unique coordinates with force results
     :rtype: pd.DataFrame
     """
-
     # Setting to read SCIA xml
     selected_result_tables = ["ULS", "SLS kar", "SLS freq"]
     selected_data_scia = {}
