@@ -188,11 +188,7 @@ class TestAnalysisCache(unittest.TestCase):
         cached_results = {"test": "data", "analysis_status": "completed"}
         pickled_data = pickle.dumps(cached_results)
         encoded_data = base64.b64encode(pickled_data).decode("utf-8")
-
-        # Mock File object that returns the encoded data
-        mock_file = Mock()
-        mock_file.getvalue.return_value = encoded_data
-        mock_storage_instance.get.return_value = mock_file
+        mock_storage_instance.get.return_value = encoded_data
 
         with patch("app.bridge.analysis_cache.Storage", return_value=mock_storage_instance):
             cache = AnalysisCache()

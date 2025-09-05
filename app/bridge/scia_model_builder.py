@@ -403,7 +403,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             xml_output_file = analysis.get_xml_output_file()
 
             # Extract various result types
-            return {
+            results = {
                 "xml_output_file": xml_output_file,
                 "displacements": self.get_displacement_results(analysis),
                 "internal_forces": self.get_internal_force_results(analysis),
@@ -413,8 +413,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "xml_parsing": self.parse_xml_results(xml_output_file),
             }
 
+            # Add units mapping for downstream consumers
+            from src.integrations.scia_integration.scia_results import build_units_mapping
+
+            units_mapping = build_units_mapping(results)
+            results["units"] = units_mapping
+
         except Exception as e:
             raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
+        else:
+            return results
 
     def _try_get_table_result(self, xml_output_file: File, table_name: str) -> dict[str, object] | None:
         """Try to get a table result from the XML output file."""
@@ -432,15 +440,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def _try_parse_table(self, fresh_xml_content: File, table_name: str) -> dict[str, object]:
         """Try to parse a specific table from the XML content."""
-        # Debug: Log which table we're trying to parse
-        print(f"DEBUG: _try_parse_table called for '{table_name}'")  # noqa: T201
-
         # Check if this is a result class table that needs custom parsing
         if "Resultaatklasses" in table_name:
-            print(f"DEBUG: Dispatching to custom parser for '{table_name}'")  # noqa: T201
             return self._parse_result_class_table(fresh_xml_content, table_name)
-
-        print(f"DEBUG: Using standard OutputFileParser for '{table_name}'")  # noqa: T201
         try:
             table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
         except Exception as e:
@@ -763,7 +765,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         """Custom parser for result class tables with obj/p2 structure."""
         try:
             # Debug: Log that we're entering the custom parser
-            print(f"DEBUG: Entering custom parser for {table_name}")  # noqa: T201
+            # Entering custom parser for result class table
 
             # Read XML content
             xml_bytes = self._read_xml_content(xml_content)
@@ -847,18 +849,17 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 }
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
-
-            return {  # noqa: TRY300
-                "status": "success",
-                "data": result_data,
-                "message": f"Successfully parsed result class table {table_name}",
-            }
-
         except Exception as e:
             return {
                 "status": "error",
                 "message": f"Failed to parse result class table {table_name}",
                 "error": str(e),
+            }
+        else:
+            return {
+                "status": "success",
+                "data": result_data,
+                "message": f"Successfully parsed result class table {table_name}",
             }
 
     def _extract_result_class_data(self, table_element: ET.Element) -> dict[str, Any]:  # noqa: C901, PLR0912
@@ -948,11 +949,11 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
     def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, Any]:
         """Parses the XML output file to extract structured results."""
-        print("DEBUG: parse_xml_results method called")  # noqa: T201
+        # parse_xml_results method called
         try:
             # Discover available tables
             available_tables, table_details = self._discover_available_tables(xml_output_file)
-            print(f"DEBUG: Discovered {len(available_tables)} available tables")  # noqa: T201
+            # Discovered available tables
 
             # Get result table names
             result_tables = self._get_result_table_names(available_tables)
@@ -962,9 +963,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # Parse all tables
             parsed_results = {}
-            print(f"DEBUG: parse_xml_results processing {len(result_tables)} tables")  # noqa: T201
+            # Processing result tables
             for table_name in result_tables:
-                print(f"DEBUG: About to parse table: '{table_name}'")  # noqa: T201
+                # About to parse table
                 parsed_results[table_name] = self._try_parse_table(fresh_xml_content, table_name)
 
             return {

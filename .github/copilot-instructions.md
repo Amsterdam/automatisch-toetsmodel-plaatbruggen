@@ -407,5 +407,5 @@ When working within the `viktor/` layer, refer to the official VIKTOR documentat
 *   Data from the core logic layer (`src/`) should be retrieved by calling functions/methods in `src/` from within the `viktor/` controller methods.
 *   Results for views are returned by the corresponding view methods in the controller.
 
-
-
+*   When writing new code, make use of comments and docstrings to explain the purpose and functionality of your code.
+*   When modifying code, don't delete existing comments or docstrings.

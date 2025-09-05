@@ -157,12 +157,16 @@ class AnalysisCache:
         }
 
         if analysis_type == AnalysisType.SCIA:
-            # For SCIA, only extract the parameters that actually affect the analysis
+            # For SCIA, extract the parameters that actually affect the analysis
             extracted_params.update(
                 {
                     "bridge_segments": self._extract_bridge_segments(params),
                     "load_combinations": self._extract_scia_load_combinations(params),
                     "load_zones": self._extract_scia_load_zones(params),
+                    "materials": self._extract_materials(params),
+                    "reinforcement_zones": self._extract_reinforcement_zones(params),
+                    "reinforcement_materials": self._extract_reinforcement_materials(params),
+                    "reinforcement_geometry": self._extract_reinforcement_geometry(params),
                 }
             )
         elif analysis_type == AnalysisType.IDEA:
@@ -381,7 +385,6 @@ class AnalysisCache:
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
                 return pickle.loads(cached_data)
-
         except Exception:
             pass
 
@@ -405,7 +408,6 @@ class AnalysisCache:
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             cached_file = File.from_data(encoded_data)
             self.storage.set(cache_key, data=cached_file, scope="entity")
-
         except Exception:
             pass
 

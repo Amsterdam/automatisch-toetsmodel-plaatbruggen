@@ -512,17 +512,17 @@ def get_load_zones_data_from_params(params: "BridgeParametrization") -> list[Loa
     rows = getattr(params, "load_zones_data_array", None)
     if isinstance(rows, list | tuple) and rows:
         for row_param in rows:
-            # Construct a dictionary that matches LoadZoneDataRow fields
+            # Construct a dictionary that matches LoadZoneDataRow fields with explicit type conversion
             temp_row_data: dict[str, Any] = {
-                "zone_type": row_param.zone_type,
-                "pavement_thickness": getattr(row_param, "pavement_thickness", 0.05),  # Default 5cm
-                "pavement_material": getattr(row_param, "pavement_material", "Asfalt"),  # Default Asfalt
+                "zone_type": str(row_param.zone_type),
+                "pavement_thickness": float(getattr(row_param, "pavement_thickness", 0.05)),  # Default 5cm
+                "pavement_material": str(getattr(row_param, "pavement_material", "Asfalt")),  # Default Asfalt
             }
             for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
                 field_name = f"d{i}_width"
                 value = getattr(row_param, field_name, None)
-                # LoadZoneDataRow has dX_width as float | None, so store None if getattr returns None
-                temp_row_data[field_name] = value
+                # Ensure width is float or None
+                temp_row_data[field_name] = float(value) if isinstance(value, (int, float)) else None
 
             row_data = cast(LoadZoneDataRow, temp_row_data)
             load_zones_data_params.append(row_data)
