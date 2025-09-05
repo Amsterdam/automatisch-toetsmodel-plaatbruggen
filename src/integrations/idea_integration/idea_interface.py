@@ -436,9 +436,6 @@ def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.Data
     df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
     df_all = df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
 
-    # Save merged dataframe for debugging
-    df_all.to_csv("df_all.csv", index=False)
-
     return df_all
 
 
