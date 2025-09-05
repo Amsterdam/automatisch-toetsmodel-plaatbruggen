@@ -202,8 +202,8 @@ class AnalysisCache:
         scia_params = {}
 
         # Try to get load combination parameters from the nested structure
-        if hasattr(params, "input") and hasattr(params.input, "belastingcombinaties"):
-            belasting = params.input.belastingcombinaties
+        if hasattr(params, "input") and hasattr(params.input, "berekeningsinstellingen"):
+            belasting = params.input.berekeningsinstellingen
             scia_params.update(
                 {
                     "cc_class": getattr(belasting, "cc_class", None),
