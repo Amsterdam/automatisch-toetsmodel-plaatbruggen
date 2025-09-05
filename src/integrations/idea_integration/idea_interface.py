@@ -351,9 +351,7 @@ def _create_additional_reinforcement(
         slab.create_bar(coords, diameter, mat_reinf)
 
 
-def _create_slabs_with_reinforcement(
-    params: BridgeParametrization, model: "Model", cs_mat: "Material", mat_reinf: "Material"
-) -> dict[str, dict]:
+def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Model", cs_mat: "Material", mat_reinf: "Material") -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
 
