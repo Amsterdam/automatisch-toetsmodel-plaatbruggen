@@ -37,7 +37,7 @@ def create_export_report(params: Munch) -> File:
     # Load the template
     doc = DocxTemplate(OUTPUT_REPORT_PATH)  # Create the context dict for the template
     context = {
-        "BRIDGE_ID": params.info.bridge_objectnumm,
+        "BRIDGE_ID": getattr(params.info, "bridge_objectnumm", None) or "Unknown",
         "DATE": datetime.now(tz=ZoneInfo("Europe/Amsterdam")).strftime("%d-%m-%Y"),
         # Add more template variables as needed
     }

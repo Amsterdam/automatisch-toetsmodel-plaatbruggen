@@ -8,6 +8,8 @@ along with the complete force state and location context for each extreme value.
 import contextlib
 from typing import Any
 
+from ..idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
+
 
 def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | None:
     """Extract internal forces data from SCIA results."""
@@ -17,7 +19,49 @@ def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | N
 
     parsed_tables = xml_parsing.get("parsed_tables", {})
 
-    # Try different internal forces table names
+    # Following process_scia_results_for_idea pattern, extract both basis and elementaire data
+    combined_data = {}
+    
+    # Try to get "Basis grootheden" data for forces like v_x, v_y, n_x
+    for table_name in ["Interne 2D-krachten basis ULS", "Interne 2D-krachten basis"]:
+        table_data = parsed_tables.get(table_name, {})
+        if table_data.get("status") == "success":
+            data = table_data.get("data", {})
+            if "Basis grootheden" in data:
+                basis_data = data.get("Basis grootheden")
+                if basis_data:
+                    combined_data.update(basis_data)
+                    break
+    
+    # Try to get "Elementaire ontwerpgrootheden" data for moments like m_xD+, m_xD-, etc.
+    for table_name in ["Interne 2D-krachten elementair ULS", "Interne 2D-krachten elementair"]:
+        table_data = parsed_tables.get(table_name, {})
+        if table_data.get("status") == "success":
+            data = table_data.get("data", {})
+            if "Elementaire ontwerpgrootheden" in data:
+                elementaire_data = data.get("Elementaire ontwerpgrootheden")
+                if elementaire_data:
+                    # Merge elementaire data into combined data
+                    for key, value in elementaire_data.items():
+                        if key not in combined_data:
+                            combined_data[key] = value
+                        elif key in ["x", "y", "z", "Naam"]:
+                            # For coordinate and name fields, prefer elementaire if lengths match
+                            if (isinstance(combined_data[key], list) and isinstance(value, list) 
+                                and len(combined_data[key]) == len(value)):
+                                continue  # Keep the existing data
+                            else:
+                                combined_data[key] = value
+                        else:
+                            # For other fields, add elementaire data
+                            combined_data[key] = value
+                    break
+    
+    # Return combined data if we found anything, otherwise try fallback
+    if combined_data:
+        return combined_data
+    
+    # Fallback: try older structure
     for table_name in ["Interne 2D-krachten basis", "Interne 2D-krachten elementair", "Internal forces"]:
         table_data = parsed_tables.get(table_name, {})
         if table_data.get("status") == "success":
@@ -50,8 +94,19 @@ def _extract_rows_from_internal_forces(internal_forces_data: dict[str, Any]) -> 
 
 def _extract_column_data_from_internal_forces(internal_forces_data: dict[str, Any]) -> dict[str, Any] | None:
     """Extract column-based data structure from internal forces."""
+    # Check if the data itself is already in the correct format (following process_scia_results_for_idea pattern)
+    if isinstance(internal_forces_data, dict) and any(
+        force_field in internal_forces_data 
+        for force_field in ["m_xD+", "m_xD-", "m_yD+", "m_yD-", "v_x", "v_y", "n_x", "n_y", "Naam"]
+    ):
+        return internal_forces_data
+    
+    # Fallback: check nested values
     for value in internal_forces_data.values():
-        if isinstance(value, dict) and any(force_field in value for force_field in ["m_x", "m_y", "v_x", "v_y", "n_x", "n_y"]):
+        if isinstance(value, dict) and any(
+            force_field in value 
+            for force_field in ["m_xD+", "m_xD-", "m_yD+", "m_yD-", "v_x", "v_y", "n_x", "n_y", "m_x", "m_y"]
+        ):
             return value
     return None
 
@@ -145,6 +200,10 @@ def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict
     internal_forces_data = _extract_internal_forces_data(results)
     if not internal_forces_data:
         return envelopes
+
+    # Merge x, y, z coordinates into coords_xyz (following process_scia_results_for_idea pattern)
+    if isinstance(internal_forces_data, dict):
+        internal_forces_data = merge_xyz_to_coords_xyz(internal_forces_data)
 
     # Process force data rows - handle nested structure
     rows = _extract_rows_from_internal_forces(internal_forces_data)
@@ -350,8 +409,27 @@ def _extract_row_metadata(row: dict[str, Any] | object, combination_mapping: dic
                 metadata["location"] = "Z3_1"
             else:
                 # Try to derive from coordinates if available
+                coords_xyz = get_row_value(row, "coords_xyz")
                 x_coord = get_row_value(row, "x")
-                if x_coord is not None:
+                
+                if coords_xyz is not None:
+                    try:
+                        # coords_xyz is a tuple (x, y, z)
+                        if isinstance(coords_xyz, (tuple, list)) and len(coords_xyz) >= 1:
+                            x_val = float(coords_xyz[0])
+                        else:
+                            x_val = float(coords_xyz)
+                        
+                        # Rough mapping based on X coordinate (adjust as needed)
+                        if x_val < 10:
+                            metadata["location"] = "Z1_1"
+                        elif x_val < 20:
+                            metadata["location"] = "Z2_1"
+                        else:
+                            metadata["location"] = "Z3_1"
+                    except (ValueError, TypeError, IndexError):
+                        metadata["location"] = "Z1_1"  # Default fallback
+                elif x_coord is not None:
                     try:
                         x_val = float(x_coord)
                         # Rough mapping based on X coordinate (adjust as needed)
