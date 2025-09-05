@@ -8,7 +8,7 @@ along with the complete force state and location context for each extreme value.
 import contextlib
 from typing import Any
 
-from ..idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
+from src.integrations.idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
 
 
 def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | None:
@@ -411,10 +411,7 @@ def _extract_row_metadata(row: dict[str, Any] | object, combination_mapping: dic
                 if coords_xyz is not None:
                     try:
                         # coords_xyz is a tuple (x, y, z)
-                        if isinstance(coords_xyz, (tuple, list)) and len(coords_xyz) >= 1:
-                            x_val = float(coords_xyz[0])
-                        else:
-                            x_val = float(coords_xyz)
+                        x_val = float(coords_xyz[0]) if isinstance(coords_xyz, (tuple, list)) and len(coords_xyz) >= 1 else float(coords_xyz)
 
                         # Rough mapping based on X coordinate (adjust as needed)
                         if x_val < 10:

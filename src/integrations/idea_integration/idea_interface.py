@@ -24,11 +24,19 @@ from src.integrations.idea_integration.idea_material_mapping import get_idea_con
 
 if TYPE_CHECKING:
     from viktor.core import File
-    from viktor.external.idea_rcs import ConcreteMaterial, Model, OneWaySlab, ReinforcementMaterial
+    from viktor.external.idea_rcs import ConcreteMaterial, Material, Model, OneWaySlab, ReinforcementMaterial
 
 
 @dataclass
 class ReinforcementConfig:
+    """Configuration for reinforcement parameters."""
+
+    main_reinf_ctc_distances: dict[str, float]
+    main_reinf_diameters: dict[str, float]
+    reinf_heights: dict[str, float]
+    extra_reinf_diameter: dict[str, float]
+    extra_reinf_ctc_distances: dict[str, float]
+    has_extra_reinforcement: bool
     """Configuration class for reinforcement parameters."""
 
     main_reinf_ctc_distances: dict[str, float]
@@ -344,7 +352,7 @@ def _create_additional_reinforcement(
 
 
 def _create_slabs_with_reinforcement(
-    params: BridgeParametrization, model: "Model", cs_mat: "ConcreteMaterial", mat_reinf: "ReinforcementMaterial"
+    params: BridgeParametrization, model: "Model", cs_mat: "Material", mat_reinf: "Material"
 ) -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
