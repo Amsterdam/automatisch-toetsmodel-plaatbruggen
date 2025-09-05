@@ -434,9 +434,7 @@ def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.Data
 
     # Merge dataframes
     df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
-    df_all = df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
-
-    return df_all
+    return df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
 
 
 def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
