@@ -599,6 +599,14 @@ Below you will find important information about this bridge structure."""
         default="50 ton",
         visible=_show_signage_field,
     )
+
+    input.berekeningsinstellingen.lb1 = LineBreak()
+
+    input.berekeningsinstellingen.spreiding = BooleanField(
+        "Spreiding van verkeersbelasting",
+        default=True,
+        description="Indien aangevinkt, wordt de verticale verkeersbelasting van BG6000 tot en met BG10000, uitgespreid over een breder vlak",
+    )
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
