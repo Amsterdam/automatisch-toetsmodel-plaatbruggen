@@ -180,10 +180,10 @@ class TestBridgeController(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations
-        assert hasattr(self.default_params.input, "belastingcombinaties")
-        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.default_params.input, "berekeningsinstellingen")
+        assert isinstance(self.default_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "design_code")
 
         # Reinforcement cover split
         assert hasattr(self.default_params.input.geometrie_wapening, "dekking_boven")
@@ -213,10 +213,10 @@ class TestBridgeController(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations
-        assert hasattr(self.complex_params.input, "belastingcombinaties")
-        assert isinstance(self.complex_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.complex_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.complex_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.complex_params.input, "berekeningsinstellingen")
+        assert isinstance(self.complex_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "design_code")
 
         # Reinforcement cover split
         assert hasattr(self.complex_params.input.geometrie_wapening, "dekking_boven")
