@@ -242,12 +242,14 @@ def _create_lookup_dictionaries(df: pd.DataFrame, columns: list[str]) -> tuple[d
         value_lookups[column] = _create_value_lookup_for_column(df, column)
 
     return name_lookup, value_lookups
+
+
 def _populate_dataframe_from_lookups(
     unique_coords_df: pd.DataFrame,
     elementaire_name_lookup: dict[tuple, str],
     basis_name_lookup: dict[tuple, str],
     elementaire_lookup: dict[str, dict[tuple, list[float]]],
-    basis_lookup: dict[str, dict[tuple, list[float]]]
+    basis_lookup: dict[str, dict[tuple, list[float]]],
 ) -> pd.DataFrame:
     """
     Populate DataFrame with values from lookup dictionaries.
@@ -356,20 +358,12 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
             continue
 
         # Create lookup dictionaries for faster coordinate-based access
-        elementaire_name_lookup, elementaire_lookup = _create_lookup_dictionaries(
-            df_elementaire, ["m_xD+", "m_xD-", "m_yD+", "m_yD-"]
-        )
-        basis_name_lookup, basis_lookup = _create_lookup_dictionaries(
-            df_basis, ["v_x", "v_y"]
-        )
+        elementaire_name_lookup, elementaire_lookup = _create_lookup_dictionaries(df_elementaire, ["m_xD+", "m_xD-", "m_yD+", "m_yD-"])
+        basis_name_lookup, basis_lookup = _create_lookup_dictionaries(df_basis, ["v_x", "v_y"])
 
         # Populate the DataFrame efficiently using the lookup dictionaries
         unique_coords_df = _populate_dataframe_from_lookups(
-            unique_coords_df,
-            elementaire_name_lookup,
-            basis_name_lookup,
-            elementaire_lookup,
-            basis_lookup
+            unique_coords_df, elementaire_name_lookup, basis_name_lookup, elementaire_lookup, basis_lookup
         )
 
         # Store unique results in the dictionary
