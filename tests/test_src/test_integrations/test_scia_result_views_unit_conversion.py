@@ -94,7 +94,7 @@ class TestSciaTableDataUnitConversion:
             "m_yD+_max": [8000.0, 15000.0],  # Values in Nm (should become 8.0 kNm and 15.0 kNm)
             "m_yD-_max": [-4000.0, -9000.0],  # Values in Nm (should become -4.0 kNm and -9.0 kNm)
         }
-        df = pd.DataFrame(mock_data)
+        test_df = pd.DataFrame(mock_data)
 
         # Mock units mapping
         units_mapping = {
@@ -107,7 +107,7 @@ class TestSciaTableDataUnitConversion:
         }
 
         # Test the function
-        table_data, headers = create_scia_table_data(df, "ULS", units_mapping)
+        table_data, headers = create_scia_table_data(test_df, "ULS", units_mapping)
 
         # Verify headers contain units
         expected_headers = [
@@ -208,10 +208,10 @@ class TestSciaTableDataUnitConversion:
             "name": ["Zone1"],
             "v_x_max": [1000.0],
         }
-        df = pd.DataFrame(mock_data)
+        test_dataframe = pd.DataFrame(mock_data)
 
         # Test without units mapping
-        table_data, headers = create_scia_table_data(df, "ULS", None)
+        table_data, headers = create_scia_table_data(test_dataframe, "ULS", None)
 
         # Should still work, using default units (kN, kNm)
         assert len(table_data) == 1

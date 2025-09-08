@@ -6,7 +6,7 @@ to ensure they stay in sync.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass
@@ -34,7 +34,7 @@ class SciaUnitConverter:
     """
 
     # Define conversions for 2D plate elements (forces/moments per unit length)
-    _CONVERSIONS_2D = {
+    _CONVERSIONS_2D: ClassVar[dict[str, UnitConversion]] = {
         # Bending moments per unit length (2D plates) - from Nm to kNm
         "m_x": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
         "m_y": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
@@ -68,7 +68,7 @@ class SciaUnitConverter:
     }
 
     # Define conversions for 1D beam elements (absolute forces/moments)
-    _CONVERSIONS_1D = {
+    _CONVERSIONS_1D: ClassVar[dict[str, UnitConversion]] = {
         # Standard 1D beam forces - from N to kN
         "N": UnitConversion("kN", 1 / 1000, "N"),
         "Vy": UnitConversion("kN", 1 / 1000, "N"),
@@ -115,7 +115,7 @@ class SciaUnitConverter:
         # Default to force units
         return "kN/m" if self.element_type == "2D" else "kN"
 
-    def convert_value(self, value: Any, force_component: str) -> float:
+    def convert_value(self, value: str | float, force_component: str) -> float:
         """
         Convert a value from raw SCIA units to display units.
 
@@ -140,7 +140,7 @@ class SciaUnitConverter:
         # Default to force conversion
         return float_value / 1000.0  # N to kN
 
-    def format_value_with_unit(self, value: Any, force_component: str, decimals: int = 1, default: str = "N/A") -> str:
+    def format_value_with_unit(self, value: str | float, force_component: str, decimals: int = 1, default: str = "N/A") -> str:
         """
         Convert and format a value with its unit.
 
@@ -153,9 +153,10 @@ class SciaUnitConverter:
         try:
             converted_value = self.convert_value(value, force_component)
             unit = self.get_display_unit(force_component)
-            return f"{converted_value:.{decimals}f} {unit}"
         except (ValueError, TypeError):
             return default
+        else:
+            return f"{converted_value:.{decimals}f} {unit}"
 
     def get_units_mapping(self) -> dict[str, str]:
         """
@@ -200,15 +201,13 @@ def build_units_mapping(results: dict[str, Any]) -> dict[str, dict[str, str]]:
     converter = SciaUnitConverter.create_for_table_type(table_name)
 
     # Build the units mapping
-    units = {
+    return {
         "internal_forces": converter.get_units_mapping(),
     }
 
-    return units
-
 
 # Backward compatibility functions
-def safe_float_format(value: Any, unit: str = "", default: str = "N/A") -> str:
+def safe_float_format(value: str | float, unit: str = "", default: str = "N/A") -> str:
     """
     Safely format a value as a float with unit conversion.
 
@@ -236,14 +235,15 @@ def safe_float_format(value: Any, unit: str = "", default: str = "N/A") -> str:
         float_value = float(value)
 
         # Apply unit conversion based on target unit
-        if unit == "kN" or unit == "kN/m":
+        if unit in {"kN", "kN/m"}:
             # Convert from N to kN
             float_value = float_value / 1000.0
-        elif unit == "kNm" or unit == "kNm/m":
+        elif unit in {"kNm", "kNm/m"}:
             # Convert from Nm to kNm
             float_value = float_value / 1000.0
 
         unit_suffix = f" {unit}" if unit else ""
-        return f"{float_value:.1f}{unit_suffix}"
     except (ValueError, TypeError):
         return default
+    else:
+        return f"{float_value:.1f}{unit_suffix}"

@@ -11,12 +11,12 @@ from src.integrations.idea_integration.scia_to_idea_functions import process_sci
 
 # Simple cache for processed results to avoid reprocessing the same data
 @functools.lru_cache(maxsize=32)
-def _cached_process_scia_results(results_hash: int) -> dict[str, pd.DataFrame] | None:
+def _cached_process_scia_results(_results_hash: int) -> dict[str, pd.DataFrame] | None:
     """
     Cached wrapper for process_scia_results_for_idea.
 
-    :param results_hash: Hash of the results dictionary for caching
-    :type results_hash: int
+    :param _results_hash: Hash of the results dictionary for caching
+    :type _results_hash: int
     :returns: Processed results or None if failed
     :rtype: dict[str, pd.DataFrame] | None
     """
@@ -55,7 +55,7 @@ def _get_results_hash(results: dict[str, Any]) -> int:
         return hash(str(results)[:200])
 
 
-def safe_float_format(value: Any, unit: str = "", default: str = "N/A") -> str:
+def safe_float_format(value: str | float, unit: str = "", default: str = "N/A") -> str:
     """
     Safely format a value as a float with one decimal place and optional unit.
     Automatically converts force values from N to kN and moment values from Nm to kNm.
@@ -79,12 +79,12 @@ def safe_float_format(value: Any, unit: str = "", default: str = "N/A") -> str:
     return safe_float_format_centralized(value, unit, default)
 
 
-def format_coordinates_safe(coords: Any) -> str:
+def format_coordinates_safe(coords: tuple[float, ...] | list[float] | str | None) -> str:
     """
     Safely format coordinates as a string.
 
     :param coords: Coordinate data (tuple, list, or other)
-    :type coords: Any
+    :type coords: tuple[float, ...] | list[float] | str | None
     :returns: Formatted coordinate string
     :rtype: str
     """
@@ -232,10 +232,10 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
 
         # Extract the specific DataFrame from the processed results
         if processed_results and isinstance(processed_results, dict):
-            df = processed_results.get(result_type)
+            result_df = processed_results.get(result_type)
 
-            if df is not None and not df.empty:
-                table_data, headers = create_scia_table_data(df, result_type, units_mapping)
+            if result_df is not None and not result_df.empty:
+                table_data, headers = create_scia_table_data(result_df, result_type, units_mapping)
                 return TableResult(table_data, column_headers=headers)
             # DataFrame not found or empty - use default headers with units
             default_headers = [
