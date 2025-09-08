@@ -15,6 +15,7 @@ from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loa
 # Import functions at runtime to avoid circular imports
 from .scia_model_interface import SciaModelBuilder
 
+
 # Type definitions for wheel configurations
 class WheelConfig(TypedDict):
     """Type definition for standard vehicle wheel configuration."""
