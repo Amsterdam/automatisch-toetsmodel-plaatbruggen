@@ -5,7 +5,22 @@ This module provides functions for creating SCIA loads by calling the SciaModelB
 These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
-from typing import Any
+from typing import Any, Dict, List, TypedDict
+
+# Type definitions for wheel configurations
+class WheelConfig(TypedDict):
+    """Type definition for standard vehicle wheel configuration."""
+    position: str
+    side: str
+    corners_key: str
+    load: float
+    axle_locations: Dict[str, List[tuple[float, float, float]]]
+
+class AmsterdamWheelConfig(TypedDict):
+    """Type definition for Amsterdam vehicle wheel configuration."""
+    position: str
+    corners_key: str
+    load: float
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
 
@@ -505,7 +520,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area,
         )
         # Define wheel configurations
-        wheel_configs = [
+        wheel_configs: List[WheelConfig] = [
             # front axle
             {
                 "position": "front",
@@ -590,7 +605,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area_amsterdam,
         )
         # Define wheel configurations for Amsterdam vehicle (240 kN total = 120 kN per wheel)
-        wheel_configs = [
+        wheel_configs: List[AmsterdamWheelConfig] = [
             {
                 "position": "left",
                 "corners_key": "bottom_left_wheel_corners",
@@ -655,7 +670,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area_amsterdam,
         )
         # Define wheel configurations for rotated Amsterdam vehicle (240 kN total = 120 kN per wheel)
-        wheel_configs = [
+        wheel_configs: List[AmsterdamWheelConfig] = [
             {
                 "position": "bottom",
                 "corners_key": "top_left_wheel_corners",
