@@ -8,17 +8,17 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
-# Type alias to avoid importing from app layer
-from app.bridge.parametrization import BridgeParametrization
-from app.constants import SIGNAGE_LOAD_FACTORS
+if TYPE_CHECKING:
+    from app.bridge.parametrization import BridgeParametrization
 from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
+from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
 
 
 def calculate_real_tandem_values(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     psi_nen_8701_factor: float,
     alpha_trend_factor: float,
@@ -62,7 +62,7 @@ def calculate_real_tandem_values(
 
 
 def calculate_real_udl_values(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     udl_value: float,
     psi_nen_8701_factor: float,
@@ -105,7 +105,7 @@ def calculate_real_udl_values(
     return main_value, other_value, rest_value
 
 
-def get_reference_period(params: BridgeParametrization) -> int:
+def get_reference_period(params: "BridgeParametrization") -> int:
     """
     Return the reference period (in years) based on the veiligheidsniveau input.
 
@@ -128,7 +128,7 @@ if TYPE_CHECKING:
 
 
 def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
@@ -308,7 +308,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
 
 
 def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     udl_value: float = 9000.0,
 ) -> dict[str, dict[str, Any]]:
@@ -543,7 +543,7 @@ TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
 
 def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -696,7 +696,7 @@ def generate_theoretical_lane_positions_bg9000(
 
 
 def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -830,7 +830,7 @@ def generate_theoretical_lane_positions_bg10000(
 
 
 def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -982,7 +982,7 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
 
 
 def obtain_y_coordinates_road(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
 ) -> tuple[float, float]:
     """
     A helper function to obtain the top y-coordinate and width of the road section from the load zones data.
@@ -1012,13 +1012,13 @@ def obtain_y_coordinates_road(
 
     # Find the 'Auto' zone and get its y-coordinates and width
     for zone in load_zones_data_params:
-        if zone["zone_type"] == "Auto":
+        if zone.zone_type == "Auto":
             # Get y-coordinates, ensure we have a valid list and first value
-            y_coords = zone.get("y_coords_top_current_zone", [])
+            y_coords = getattr(zone, "y_coords_top_current_zone", [])
             y_coord = float(y_coords[0]) if y_coords else 0.0
 
             # Get d1_width, ensure it's a valid number
-            width_value = zone.get("d1_width")
+            width_value = getattr(zone, "d1_width", None)
             d1_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
 
             return y_coord, d1_width
@@ -1027,7 +1027,7 @@ def obtain_y_coordinates_road(
 
 
 def generate_real_lane_positions_bg8000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     lane_width: float = 3.0,
 ) -> list[float]:
     """
@@ -1071,7 +1071,7 @@ def generate_real_lane_positions_bg8000(
 
 
 def tandem_systems_real_lanes_bg8000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
     lane_width: float = 3.0,
@@ -1183,7 +1183,7 @@ def tandem_systems_real_lanes_bg8000(
 
 
 def generate_real_lane_positions_bg9000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     lane_width: float = 3.0,
 ) -> list[float]:
     """
@@ -1226,7 +1226,7 @@ def generate_real_lane_positions_bg9000(
 
 
 def tandem_systems_real_lanes_bg9000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
     lane_width: float = 3.0,
@@ -1338,7 +1338,7 @@ def tandem_systems_real_lanes_bg9000(
 
 
 def generate_real_lane_positions_bg10000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     lane_width: float = 3.0,
 ) -> list[float]:
     """
@@ -1377,7 +1377,7 @@ def generate_real_lane_positions_bg10000(
 
 
 def tandem_systems_real_lanes_bg10000(
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
     lane_width: float = 3.0,
@@ -1722,10 +1722,10 @@ def create_material_surface_load(
     load_case_name = load_config["load_case_name"]
 
     # Calculate coordinates for the surface load
-    y_coord_top_left = round(load_zone["y_coords_top_current_zone"][span], 2)
-    y_coord_top_right = round(load_zone["y_coords_top_current_zone"][span + 1], 2)
-    y_coord_bottom_left = round(y_coord_top_left - load_zone["zone_widths_per_d"][span], 2)
-    y_coord_bottom_right = round(y_coord_top_right - load_zone["zone_widths_per_d"][span + 1], 2)
+    y_coord_top_left = round(getattr(load_zone, "y_coords_top_current_zone", [])[span], 2)
+    y_coord_top_right = round(getattr(load_zone, "y_coords_top_current_zone", [])[span + 1], 2)
+    y_coord_bottom_left = round(y_coord_top_left - getattr(load_zone, "zone_widths_per_d", [])[span], 2)
+    y_coord_bottom_right = round(y_coord_top_right - getattr(load_zone, "zone_widths_per_d", [])[span + 1], 2)
     x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
     x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
 
@@ -1737,17 +1737,17 @@ def create_material_surface_load(
     ]
 
     builder.create_surface_load(
-        name=f"{load_zone['zone_type']}_{zone_index}_{material_name}_{span}_d{load_zone['pavement_thickness']}",
+        name=f"{load_zone.zone_type}_{zone_index}_{material_name}_{span}_d{load_zone.pavement_thickness}",
         load_case_name=load_case_name,
         corner_points=corners,
-        load_value=-calculate_pavement_load_from_material(load_zone["pavement_thickness"], load_zone["pavement_material"]) * 1000,  # Convert to kN/m²
+        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material) * 1000,  # Convert to kN/m²
     )
 
 
 # This function is used to create the load cases 2001/2002/2003
 def add_material_loads(
     builder: "SciaModelBuilder",
-    params: BridgeParametrization,
+    params: "BridgeParametrization",
     material_config: dict[str, str],
 ) -> None:
     """
@@ -1770,7 +1770,7 @@ def add_material_loads(
 
     # Iterate through load zones and apply loads for specified materials
     for i, load_zone in enumerate(load_zones_data_params):
-        pavement_material = load_zone.get("pavement_material", "")
+        pavement_material = getattr(load_zone, "pavement_material", "")
 
         if pavement_material in material_config:
             load_case_name = material_config[pavement_material]
@@ -1778,7 +1778,7 @@ def add_material_loads(
             material_name = pavement_material.replace(" ", "_").replace("(", "").replace(")", "").lower()
 
             # Iterate through spans
-            for span in range(len(load_zone["y_coords_top_current_zone"]) - 1):
+            for span in range(len(getattr(load_zone, "y_coords_top_current_zone", [])) - 1):
                 load_config = {
                     "load_zone": load_zone,
                     "zone_index": i,

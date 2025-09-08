@@ -1,30 +1,11 @@
-"""Constants used throughout the application."""
-# ===================================================================================================================
-# Imports
-# ===================================================================================================================
+"""
+UI text constants for help texts, explanations, and content.
 
-from pathlib import Path
+These constants contain all the text content displayed in the VIKTOR
+application interface, including help texts, explanations, and documentation.
+"""
 
-# ===================================================================================================================
-# Paths
-# ===================================================================================================================
-
-PROJECT_PATH = Path(__file__).parent.parent
-README_PATH = PROJECT_PATH / "README.md"
-CHANGELOG_PATH = PROJECT_PATH / "CHANGELOG.md"
-CSS_PATH = PROJECT_PATH / "resources" / "styles" / "style.css"
-OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindrapport.docx"
-SCIA_TEMPLATE_PATH = PROJECT_PATH / "resources" / "templates" / "model.esa"
-REINFORCEMENT_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonstaalkwaliteit.csv"
-BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"
-CONCRETEQUALITY_CSV_PATH = PROJECT_PATH / "resources" / "data" / "materials" / "betonkwaliteit.csv"
-
-# Note: Material paths are now managed by src.common.materials module
-
-# ===================================================================================================================
-# Docs - Readme
-# ===================================================================================================================
-
+# README content for the application
 README_CONTENT = """
     html, body {
         height: 100%;
@@ -56,31 +37,7 @@ README_CONTENT = """
         <div class="iframe-wrapper">
 """
 
-# ===================================================================================================================
-# Parametrization Constants
-# ===================================================================================================================
-
-MAX_DIMENSION_SEGMENTS = 20  # Define how many segments we can have in the model
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
-# Import from src layer to maintain single source of truth
-LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
-
-# TODO: Load pavement material properties from CSV file according to Eurocode 1
-# TODO: Implement material density lookup and kN/m² calculation
-# TODO: Create materials.csv with specific masses for different pavement types
-PAVEMENT_MATERIAL_OPTIONS = [
-    "Asfalt",  # TODO: Add density value (typical: ~23 kN/m³)
-    "Beton (normaal)",  # TODO: Add density value (typical: ~24 kN/m³)
-    "Beton (gewapend)",  # TODO: Add density value (typical: ~24 kN/m³)
-    "Klinkers",  # TODO: Add density value (typical: ~22 kN/m³)
-    "Grind",  # TODO: Add density value (typical: ~18 kN/m³)
-    "Tegels",  # TODO: Add density value (typical: ~20 kN/m³)
-]
-
-# Signage load factors for "Werkelijke wegindeling onderliggend wegennet met bebording"
-# Maps to signage options: ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-SIGNAGE_LOAD_FACTORS = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
-
+# Load zones explanation text
 LOAD_ZONES_INFO_TEXT = """Definieer hier de werkelijke wegindeling op de brug, de belastingen worden hier automatisch van afgeleid.
 De belastingen volgens de theoretische wegindeling worden automatisch gegenereerd op de achtergrond, hier hoef je niets voor in te vullen.
 
@@ -96,10 +53,7 @@ wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
 
 De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
 
-# ===================================================================================================================
-# SCIA zip readme content
-# ===================================================================================================================
-
+# SCIA ZIP readme content
 SCIA_ZIP_README_CONTENT = """SCIA Engineer XML Bestanden - Brugmodel
 
 Deze ZIP bevat de gegenereerde SCIA model bestanden:
@@ -130,10 +84,7 @@ Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebr
 
 """
 
-# ===================================================================================================================
-# SCIA info text
-# ===================================================================================================================
-
+# SCIA integration info text
 SCIA_INFO_TEXT = """## SCIA Engineer Integration
 
 Deze pagina toont een preview van het SCIA model en biedt download opties voor SCIA Engineer bestanden.
@@ -166,10 +117,7 @@ Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
 - Geavanceerde materiaal eigenschappen
         """
 
-# ===================================================================================================================
-# Invoer Page dimensions segments explanation
-# ===================================================================================================================
-
+# Dimensions segments explanation
 DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) van de brug.
 Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 - Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
@@ -181,10 +129,7 @@ Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
 Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen."""
 
-# ===================================================================================================================
-# IDEA StatiCa info text
-# ===================================================================================================================
-
+# IDEA StatiCa integration info text
 IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integration
 
 Deze pagina toont een preview van het IDEA RCS model en biedt download opties voor dwarsdoorsnede analyse.

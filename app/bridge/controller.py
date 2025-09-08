@@ -53,15 +53,17 @@ from src.common.constants import AnalysisType
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
+from src.data_models.plotting_models import (
+    BridgeBaseGeometry,  # Pydantic model for bridge_geom argument
+    PlotPresentationDetails,  # Pydantic model for presentation details
+    ZoneStylingDefaults,  # Pydantic model for styling_defaults argument
+)
 from src.geometry.cross_section import create_cross_section_view
 from src.geometry.horizontal_section import create_horizontal_section_view
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.load_zone_plot import (
     DEFAULT_PLOTLY_COLORS,  # Import for styling defaults
     DEFAULT_ZONE_APPEARANCE_MAP,  # Import for styling defaults
-    BridgeBaseGeometry,  # TypedDict for bridge_geom argument
-    PlotPresentationDetails,  # TypedDict for presentation details
-    ZoneStylingDefaults,  # TypedDict for styling_defaults argument
     build_load_zones_figure,
 )
 from src.geometry.longitudinal_section import create_longitudinal_section
@@ -350,22 +352,22 @@ class BridgeController(ViktorController):
             base_traces.extend(create_bridge_outline_traces(bridge_outline_data))
 
         # 5. Call build_load_zones_figure
-        bridge_geom_arg: BridgeBaseGeometry = {
-            "x_coords_d_points": bridge_geom_data.x_coords_d_points,
-            "y_coords_bridge_top_edge": bridge_geom_data.y_top_structural_edge_at_d_points,
-            "y_coords_bridge_bottom_edge": [[y_bottom, y_bottom] for y_bottom in bridge_geom_data.y_bridge_bottom_at_d_points],
-            "num_defined_d_points": bridge_geom_data.num_defined_d_points,
-        }
-        styling_defaults_arg: ZoneStylingDefaults = {
-            "zone_appearance_map": DEFAULT_ZONE_APPEARANCE_MAP,
-            "default_plotly_colors": DEFAULT_PLOTLY_COLORS,
-        }
+        bridge_geom_arg = BridgeBaseGeometry(
+            x_coords_d_points=bridge_geom_data.x_coords_d_points,
+            y_coords_bridge_top_edge=bridge_geom_data.y_top_structural_edge_at_d_points,
+            y_coords_bridge_bottom_edge=[[y_bottom, y_bottom] for y_bottom in bridge_geom_data.y_bridge_bottom_at_d_points],
+            num_defined_d_points=bridge_geom_data.num_defined_d_points,
+        )
+        styling_defaults_arg = ZoneStylingDefaults(
+            zone_appearance_map=DEFAULT_ZONE_APPEARANCE_MAP,
+            default_plotly_colors=DEFAULT_PLOTLY_COLORS,
+        )
 
-        presentation_details_arg: PlotPresentationDetails = {
-            "base_traces": base_traces,
-            "validation_messages": validation_messages,
-            "figure_title": "Belastingzones",
-        }
+        presentation_details_arg = PlotPresentationDetails(
+            base_traces=base_traces,
+            validation_messages=validation_messages,
+            figure_title="Belastingzones",
+        )
 
         fig = build_load_zones_figure(
             load_zones_data_params=load_zones_data_params,
