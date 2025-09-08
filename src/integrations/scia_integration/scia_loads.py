@@ -7,20 +7,25 @@ These functions are pure Python and can be used by the app layer to construct th
 
 from typing import Any, Dict, List, TypedDict
 
+
 # Type definitions for wheel configurations
 class WheelConfig(TypedDict):
     """Type definition for standard vehicle wheel configuration."""
+
     position: str
     side: str
     corners_key: str
     load: float
     axle_locations: Dict[str, List[tuple[float, float, float]]]
 
+
 class AmsterdamWheelConfig(TypedDict):
     """Type definition for Amsterdam vehicle wheel configuration."""
+
     position: str
     corners_key: str
     load: float
+
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
 
