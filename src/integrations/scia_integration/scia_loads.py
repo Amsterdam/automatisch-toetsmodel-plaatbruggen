@@ -7,6 +7,13 @@ These functions are pure Python and can be used by the app layer to construct th
 
 from typing import Any, TypedDict
 
+from src.geometry.load_zone_geometry import get_bridge_geom_data
+
+from .scia_coordinate_utils import convert_loads_to_scia_format
+from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+
+# Import functions at runtime to avoid circular imports
+from .scia_model_interface import SciaModelBuilder
 
 # Type definitions for wheel configurations
 class WheelConfig(TypedDict):
@@ -26,14 +33,6 @@ class AmsterdamWheelConfig(TypedDict):
     corners_key: str
     load: float
 
-
-from src.geometry.load_zone_geometry import get_bridge_geom_data
-
-from .scia_coordinate_utils import convert_loads_to_scia_format
-from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
-
-# Import functions at runtime to avoid circular imports
-from .scia_model_interface import SciaModelBuilder
 
 # Type alias to avoid importing from app layer
 BridgeParametrization = Any
