@@ -5,7 +5,7 @@ This module provides functions for creating SCIA loads by calling the SciaModelB
 These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
-from typing import Any, Dict, List, TypedDict
+from typing import Any, dict, list, TypedDict
 
 
 # Type definitions for wheel configurations
@@ -16,7 +16,7 @@ class WheelConfig(TypedDict):
     side: str
     corners_key: str
     load: float
-    axle_locations: Dict[str, List[tuple[float, float, float]]]
+    axle_locations: dict[str, list[tuple[float, float, float]]]
 
 
 class AmsterdamWheelConfig(TypedDict):
@@ -161,7 +161,7 @@ def dispersal_function(  # noqa: C901
 
     :param params: Bridge parameters used for dispersion logic.
     :type params: Any
-    :param corner_points: List of corner points for the load (each as (x, y, z)).
+    :param corner_points: list of corner points for the load (each as (x, y, z)).
     :type corner_points: list[tuple[float, float, float]]
     :param load_value: Load value to be dispersed.
     :type load_value: float
@@ -173,7 +173,7 @@ def dispersal_function(  # noqa: C901
         """
         Calculates the area spanned by four coordinates (assumed to be a planar quadrilateral).
 
-        :param coords: List of four (x, y, z) tuples representing the vertices in order.
+        :param coords: list of four (x, y, z) tuples representing the vertices in order.
         :type coords: list[tuple[float, float, float]]
         :returns: Area of the quadrilateral in the XY plane.
         :rtype: float
@@ -525,7 +525,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area,
         )
         # Define wheel configurations
-        wheel_configs: List[WheelConfig] = [
+        wheel_configs: list[WheelConfig] = [
             # front axle
             {
                 "position": "front",
@@ -610,7 +610,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area_amsterdam,
         )
         # Define wheel configurations for Amsterdam vehicle (240 kN total = 120 kN per wheel)
-        wheel_configs: List[AmsterdamWheelConfig] = [
+        wheel_configs: list[AmsterdamWheelConfig] = [
             {
                 "position": "left",
                 "corners_key": "bottom_left_wheel_corners",
@@ -675,7 +675,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area_amsterdam,
         )
         # Define wheel configurations for rotated Amsterdam vehicle (240 kN total = 120 kN per wheel)
-        wheel_configs: List[AmsterdamWheelConfig] = [
+        wheel_configs: list[AmsterdamWheelConfig] = [
             {
                 "position": "bottom",
                 "corners_key": "top_left_wheel_corners",
