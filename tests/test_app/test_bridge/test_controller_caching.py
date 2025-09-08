@@ -48,6 +48,7 @@ class TestControllerCaching(unittest.TestCase):
         try:
             from app.bridge.analysis_cache import get_cached_analysis_results
             from src.common.constants.technical import AnalysisType
+
             assert callable(get_cached_analysis_results)
             assert AnalysisType.SCIA.value == "scia"
             assert AnalysisType.IDEA.value == "idea"
