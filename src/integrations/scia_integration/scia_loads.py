@@ -483,7 +483,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
         )
-
+        #print("vooras", front_axle_locations)
         # Use the same helper function for rear axle (40 kN total)
         rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
         rear_axle_locations = calc_vehicle_load_locations(
@@ -494,44 +494,50 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_contact_area=wheel_contact_area,
         )
 
+        # de dispersion function verandert de output van de coordinaten. waardoor de builder opzet nu niet meer de front wheelprints genereert.
         # Take into account load dispersion for the front axle wheels
-        corner_points_dispersed_front, load_value_dispersed_front = dispersal_function(
+        corner_points_dispersed_front_left, load_value_dispersed_front_left = dispersal_function(
             params=params, corner_points=front_axle_locations["top_left_wheel_corners"], load_value=front_wheel_load, load_case_type="axle_load"
         )
-        print("voorkant", corner_points_dispersed_front, load_value_dispersed_front)
         # Take into account load dispersion for the rear axle wheels
-        corner_points_dispersed_rear, load_value_dispersed_rear = dispersal_function(
+        corner_points_dispersed_front_right, load_value_dispersed_front_right = dispersal_function(
+            params=params, corner_points=front_axle_locations["bottom_left_wheel_corners"], load_value=front_wheel_load, load_case_type="axle_load"
+        )
+        corner_points_dispersed_rear_left, load_value_dispersed_rear_left = dispersal_function(
             params=params, corner_points=rear_axle_locations["top_left_wheel_corners"], load_value=rear_wheel_load, load_case_type="axle_load"
         )
-        print("achterkant", corner_points_dispersed_rear, load_value_dispersed_rear)
+        corner_points_dispersed_rear_right, load_value_dispersed_rear_right = dispersal_function(
+            params=params, corner_points=rear_axle_locations["bottom_left_wheel_corners"], load_value=rear_wheel_load, load_case_type="axle_load"
+        )
+
         # Create surface loads for front axle wheels (80 kN total = 40 kN per wheel)
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_left",
             load_case_name=load_case_name,
-            corner_points=corner_points_dispersed_front,
-            load_value=-load_value_dispersed_front,
+            corner_points=corner_points_dispersed_front_left,
+            load_value=-load_value_dispersed_front_left,
         )
 
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_right",
             load_case_name=load_case_name,
-            corner_points=corner_points_dispersed_front,
-            load_value=-load_value_dispersed_front,
+            corner_points=corner_points_dispersed_front_right,
+            load_value=-load_value_dispersed_front_right,
         )
 
         # Create surface loads for rear axle wheels (40 kN total = 20 kN per wheel)
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_left",
             load_case_name=load_case_name,
-            corner_points=corner_points_dispersed_rear,
-            load_value=-load_value_dispersed_rear,
+            corner_points=corner_points_dispersed_rear_left,
+            load_value=-load_value_dispersed_rear_left,
         )
 
         builder.create_surface_load(
             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_rear_right",
             load_case_name=load_case_name,
-            corner_points=corner_points_dispersed_rear,
-            load_value=-load_value_dispersed_rear,
+            corner_points=corner_points_dispersed_rear_right,
+            load_value=-load_value_dispersed_rear_right,
         )
 
     # Create the amsterdam accidental vehicle loads, a single axis along the bridge deck
