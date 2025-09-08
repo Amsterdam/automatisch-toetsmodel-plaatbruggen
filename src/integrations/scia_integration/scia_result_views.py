@@ -60,6 +60,9 @@ def safe_float_format(value: Any, unit: str = "", default: str = "N/A") -> str:
     Safely format a value as a float with one decimal place and optional unit.
     Automatically converts force values from N to kN and moment values from Nm to kNm.
     
+    This function now uses the centralized unit conversion system to ensure
+    consistent conversion logic.
+    
     :param value: Value to format
     :type value: Any
     :param unit: Unit to append to the formatted value
@@ -69,24 +72,11 @@ def safe_float_format(value: Any, unit: str = "", default: str = "N/A") -> str:
     :returns: Formatted string with unit or default value
     :rtype: str
     """
-    try:
-        if pd.isna(value):
-            return default
-        
-        float_value = float(value)
-        
-        # Apply unit conversion for forces and moments
-        if unit == "kN":
-            # Convert from N to kN
-            float_value = float_value / 1000.0
-        elif unit == "kNm":
-            # Convert from Nm to kNm
-            float_value = float_value / 1000.0
-        
-        unit_suffix = f" {unit}" if unit else ""
-        return f"{float_value:.1f}{unit_suffix}"
-    except (ValueError, TypeError):
-        return default
+    # Import the centralized conversion function
+    from .scia_unit_conversion import safe_float_format as safe_float_format_centralized
+    
+    # Use the centralized system
+    return safe_float_format_centralized(value, unit, default)
 
 
 def format_coordinates_safe(coords: Any) -> str:
@@ -118,6 +108,9 @@ def create_scia_table_data(df: pd.DataFrame, result_type: str, units_mapping: di
     """
     Create table data and headers from a SCIA results DataFrame.
     
+    This function uses the centralized unit conversion system to ensure
+    consistent formatting and unit conversion.
+    
     :param df: DataFrame with SCIA results
     :type df: pd.DataFrame
     :param result_type: Type of results (SLS kar, SLS freq, ULS)
@@ -127,17 +120,24 @@ def create_scia_table_data(df: pd.DataFrame, result_type: str, units_mapping: di
     :returns: Tuple of (table_data, headers)
     :rtype: tuple[list[list[str]], list[str]]
     """
+    from .scia_unit_conversion import SciaUnitConverter
+    
     units_mapping = units_mapping or {}
     
-    # Create headers with units where available
-    force_units = {
-        "v_x": units_mapping.get("v_x", "kN"),
-        "v_y": units_mapping.get("v_y", "kN"), 
-        "m_xD+": units_mapping.get("m_xD+", "kNm"),
-        "m_xD-": units_mapping.get("m_xD-", "kNm"),
-        "m_yD+": units_mapping.get("m_yD+", "kNm"),
-        "m_yD-": units_mapping.get("m_yD-", "kNm"),
-    }
+    # Create a converter to handle the formatting consistently
+    # Determine element type from units mapping (presence of "/m" indicates 2D)
+    has_per_meter_units = any("/m" in unit for unit in units_mapping.values())
+    element_type = "2D" if has_per_meter_units else "1D"
+    converter = SciaUnitConverter(element_type)
+    
+    # Create headers with units where available - use converter for consistency
+    force_units = {}
+    for component in ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-"]:
+        # Use provided units mapping if available, otherwise get from converter
+        if component in units_mapping:
+            force_units[component] = units_mapping[component]
+        else:
+            force_units[component] = converter.get_display_unit(component)
     
     headers = [
         "Coordinates", 
@@ -157,9 +157,9 @@ def create_scia_table_data(df: pd.DataFrame, result_type: str, units_mapping: di
     # Format coordinates
     coords_formatted = df['coords_xyz'].apply(format_coordinates_safe)
     
-    # Format numeric columns with their respective units
+    # Format numeric columns with their respective units using the converter
     numeric_columns = ['v_x_max', 'v_y_max', 'm_xD+_max', 'm_xD-_max', 'm_yD+_max', 'm_yD-_max']
-    column_to_unit_key = {
+    column_to_component = {
         'v_x_max': 'v_x',
         'v_y_max': 'v_y',
         'm_xD+_max': 'm_xD+',
@@ -171,9 +171,11 @@ def create_scia_table_data(df: pd.DataFrame, result_type: str, units_mapping: di
     formatted_cols = {}
     for col in numeric_columns:
         if col in df.columns:
-            unit_key = column_to_unit_key.get(col, "")
-            unit = force_units.get(unit_key, "")
-            formatted_cols[col] = df[col].apply(lambda x: safe_float_format(x, unit))
+            component = column_to_component.get(col, "")
+            # Use converter to format values with consistent conversion
+            formatted_cols[col] = df[col].apply(
+                lambda x: converter.format_value_with_unit(x, component, decimals=1, default="N/A")
+            )
         else:
             formatted_cols[col] = pd.Series(["N/A"] * len(df))
     
