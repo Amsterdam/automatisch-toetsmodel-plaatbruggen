@@ -5,7 +5,7 @@ This module provides functions for creating SCIA loads by calling the SciaModelB
 These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
-from typing import Any, TypedDict, dict, list
+from typing import Any, TypedDict
 
 
 # Type definitions for wheel configurations
