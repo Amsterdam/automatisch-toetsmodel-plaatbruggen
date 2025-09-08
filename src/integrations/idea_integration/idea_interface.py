@@ -482,23 +482,29 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
             if slab is None:
                 continue
 
-            axis = cfg["axis"]          # "x" or "y"
-            mkey = cfg["moment"]        # "Mx" or "My"
+            axis = cfg["axis"]  # "x" or "y"
+            mkey = cfg["moment"]  # "Mx" or "My"
 
             for _, row in df_slab.iterrows():
                 # Build internal forces with dynamic moment component (Mx/My)
-                char = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(
-                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                    **{mkey: row.get(f"SLS_kar_{mkey}", 0)},
-                ))
-                freq = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(
-                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                    **{mkey: row.get(f"SLS_freq_{mkey}", 0)},
-                ))
-                fund = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(
-                    Qz=row.get(f"ULS_v_{axis}_max", 0),
-                    **{mkey: row.get(f"ULS_{mkey}", 0)},
-                ))
+                char = idea_rcs.LoadingSLS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
+                        **{mkey: row.get(f"SLS_kar_{mkey}", 0)},
+                    )
+                )
+                freq = idea_rcs.LoadingSLS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
+                        **{mkey: row.get(f"SLS_freq_{mkey}", 0)},
+                    )
+                )
+                fund = idea_rcs.LoadingULS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"ULS_v_{axis}_max", 0),
+                        **{mkey: row.get(f"ULS_{mkey}", 0)},
+                    )
+                )
 
                 name = row.get("name", "Unknown")
                 coords_str = _format_coords(row.get("coords_xyz"))

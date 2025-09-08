@@ -6,8 +6,8 @@ along with the complete force state and location context for each extreme value.
 """
 
 import contextlib
-from typing import Any
 from collections.abc import Mapping
+from typing import Any
 
 from src.integrations.idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
 
