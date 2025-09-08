@@ -13,15 +13,13 @@ from src.integrations.idea_integration.scia_to_idea_functions import merge_xyz_t
 
 
 def _extract_basis_data(parsed_tables: Mapping[str, Any], section_key: str = "Basis grootheden") -> dict[str, Any]:
-    """
-    Return the first non-empty 'Basis grootheden' dict from preferred tables; {} if not found.
-    """
-    _TABLE_CANDIDATES = (
+    """Return the first non-empty 'Basis grootheden' dict from preferred tables; {} if not found."""
+    table_candidates = (
         "Interne 2D-krachten basis ULS",
         "Interne 2D-krachten basis",
     )
 
-    for name in _TABLE_CANDIDATES:
+    for name in table_candidates:
         table = parsed_tables.get(name) or {}
         if str(table.get("status")).lower() != "success":
             continue

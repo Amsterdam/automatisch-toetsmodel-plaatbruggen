@@ -14,7 +14,7 @@ Future enhancements needed:
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
 from viktor.external import idea_rcs
@@ -454,12 +454,12 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                    - SLS_kar_M{y|x},     SLS_freq_M{y|x},     ULS_M{y|x}
     """
     # Direction → axis + corresponding moment component
-    ORIENT = {
+    orient = {
         "langs": {"axis": "y", "moment": "My"},
         "dwars": {"axis": "x", "moment": "Mx"},
     }
 
-    def _format_coords(coords) -> str:
+    def _format_coords(coords: Optional[None, list, tuple, str, float]) -> str:
         if coords is None:
             return "No coords"
         if isinstance(coords, (list, tuple)):
@@ -477,7 +477,7 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
 
         desc_prefix = slab_key.replace(".", "_")
 
-        for direction, cfg in ORIENT.items():
+        for direction, cfg in orient.items():
             slab = slab_data.get(f"slab_{direction}")
             if slab is None:
                 continue
