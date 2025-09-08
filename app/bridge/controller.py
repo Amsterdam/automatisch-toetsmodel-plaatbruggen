@@ -49,7 +49,7 @@ from app.common.map_utils import (
 # Params for load combinations are in app.constants
 from app.constants import SCIA_TEMPLATE_PATH
 from src.combinations.load_factors import create_load_combination_table
-from src.common.constants import AnalysisType
+from src.common.constants.technical import AnalysisType
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )

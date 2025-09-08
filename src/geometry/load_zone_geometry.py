@@ -17,9 +17,6 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 
-# Avoid circular import by defining constant locally
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
-
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
