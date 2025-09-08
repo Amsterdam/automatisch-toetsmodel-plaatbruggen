@@ -5,19 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CC_CLASS_OPTIONS,
-    CONCRETEQUALITY_CSV_PATH,
-    DESIGN_CODE_OPTIONS,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -37,6 +24,20 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
+)
+
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -555,11 +556,30 @@ Below you will find important information about this bridge structure."""
     input.dimensions = Tab("Dimensies")
     input.geometrie_wapening = Tab("Wapening")
     input.belastingzones = Tab("Belastingzones")
-    input.belastingcombinaties = Tab("Belastingcombinaties")
+    input.berekeningsinstellingen = Tab("Berekeningsinstellingen")
 
-    # --- Load Combinations (in belastingcombinaties tab) ---
-    input.belastingcombinaties.cc_class = OptionField("Gevolgklasse", options=CC_CLASS_OPTIONS, variant="radio", name="cc_class", default="CC2")
-    input.belastingcombinaties.berekeningsniveau = OptionField(
+    input.berekeningsinstellingen.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
+
+    # --- Load Combinations (in berekeningsinstellingen tab) ---
+    input.berekeningsinstellingen.cc_class = OptionField(
+        "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
+    )
+
+    input.berekeningsinstellingen.design_code = OptionField(
+        "Veiligheidsniveau",
+        options=[
+            "NEN 8700 verbouw",
+            "NEN 8700 gebruik",
+            "NEN 8700 afkeur",
+        ],
+        variant="radio",
+        name="design_code",
+        default="NEN 8700 verbouw",
+    )
+
+    input.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
+
+    input.berekeningsinstellingen.berekeningsniveau = OptionField(
         "Berekeningsniveau",
         options=[
             "Theoretische wegindeling",
@@ -571,16 +591,21 @@ Below you will find important information about this bridge structure."""
         name="berekeningsniveau",
         default="Theoretische wegindeling",
     )
-    input.belastingcombinaties.lb = LineBreak()
-    input.belastingcombinaties.design_code = OptionField(
-        "Veiligheidsniveau", options=DESIGN_CODE_OPTIONS, name="design_code", default="NEN 8700 verbouw"
-    )
-    input.belastingcombinaties.signage = OptionField(
+
+    input.berekeningsinstellingen.signage = OptionField(
         "Bebording",
         options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
         name="signage",
         default="50 ton",
         visible=_show_signage_field,
+    )
+
+    input.berekeningsinstellingen.lb1 = LineBreak()
+
+    input.berekeningsinstellingen.spreiding = BooleanField(
+        "Spreiding van verkeersbelasting",
+        default=True,
+        description="Indien aangevinkt, wordt de verticale verkeersbelasting van BG6000 tot en met BG10000, uitgespreid over een breder vlak",
     )
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---

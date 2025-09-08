@@ -14,9 +14,10 @@ from enum import Enum
 from io import BytesIO
 from typing import Any
 
-from src.integrations.idea_interface import create_bridge_idea_model
 from viktor.core import File, Storage
 from viktor.external import idea_rcs
+
+from src.integrations.idea_interface import create_bridge_idea_model
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -201,8 +202,8 @@ class AnalysisCache:
         scia_params = {}
 
         # Try to get load combination parameters from the nested structure
-        if hasattr(params, "input") and hasattr(params.input, "belastingcombinaties"):
-            belasting = params.input.belastingcombinaties
+        if hasattr(params, "input") and hasattr(params.input, "berekeningsinstellingen"):
+            belasting = params.input.berekeningsinstellingen
             scia_params.update(
                 {
                     "cc_class": getattr(belasting, "cc_class", None),

@@ -143,10 +143,10 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
         design_code = getattr(params_obj, "design_code", None)
 
         # If not found directly, try to get from nested structure
-        if cc_class is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "belastingcombinaties"):
-            cc_class = getattr(params_obj.input.belastingcombinaties, "cc_class", None)
-        if design_code is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "belastingcombinaties"):
-            design_code = getattr(params_obj.input.belastingcombinaties, "design_code", None)
+        if cc_class is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "berekeningsinstellingen"):
+            cc_class = getattr(params_obj.input.berekeningsinstellingen, "cc_class", None)
+        if design_code is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "berekeningsinstellingen"):
+            design_code = getattr(params_obj.input.berekeningsinstellingen, "design_code", None)
 
         return {
             "cc_class": cc_class,

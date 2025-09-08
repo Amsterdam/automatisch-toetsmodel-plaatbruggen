@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
+from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 from app.bridge.controller import BridgeController
 from app.bridge.parametrization import BridgeParametrization
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import view_test_wrapper
-from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 
 class TestBridgeControllerViews(unittest.TestCase):
@@ -390,7 +390,7 @@ class TestBridgeControllerViews(unittest.TestCase):
             if not ("load combination" in error_message or "parameter" in error_message):
                 self.fail(f"Error message should be helpful: {e}")
 
-        # Test with params that have info but no belastingcombinaties
+        # Test with params that have info but no berekeningsinstellingen
         partial_params = Munch({"info": {"construction_year": "2020"}})
 
         try:
@@ -444,12 +444,12 @@ class TestBridgeControllerViews(unittest.TestCase):
 
     def test_get_load_combinations_view_missing_parameters_fallback(self) -> None:
         """Test load combinations view with missing parameters uses default values."""
-        # Create params with missing belastingcombinaties
+        # Create params with missing berekeningsinstellingen
         incomplete_params = self.default_params.copy()
 
-        # Remove the belastingcombinaties section to simulate incomplete parametrization
-        if hasattr(incomplete_params.input, "belastingcombinaties"):
-            delattr(incomplete_params.input, "belastingcombinaties")
+        # Remove the berekeningsinstellingen section to simulate incomplete parametrization
+        if hasattr(incomplete_params.input, "berekeningsinstellingen"):
+            delattr(incomplete_params.input, "berekeningsinstellingen")
 
         # Access the original method directly
         original_method = self.controller.__class__.get_load_combinations_view
@@ -569,10 +569,10 @@ class TestBridgeControllerViews(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations present and typed
-        assert hasattr(self.default_params.input, "belastingcombinaties")
-        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.default_params.input, "berekeningsinstellingen")
+        assert isinstance(self.default_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "design_code")
 
         # Guardrail line load present
         assert hasattr(self.default_params.input, "belastingzones")

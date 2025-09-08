@@ -65,7 +65,7 @@ def get_load_mode_from_params(params: BridgeParams) -> LoadMode:
     :returns: Corresponding LoadMode enum value
     :rtype: LoadMode
     """
-    # The berekeningsniveau parameter is directly under params, not under params.input.belastingcombinaties
+    # The berekeningsniveau parameter is directly under params, not under params.input.berekeningsinstellingen
     berekeningsniveau = params.berekeningsniveau
 
     if berekeningsniveau == "Theoretische wegindeling":

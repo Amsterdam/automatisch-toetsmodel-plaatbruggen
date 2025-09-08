@@ -3,7 +3,12 @@
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
+from viktor.errors import UserError
 
+from app.bridge.parametrization import (
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
+    BridgeParametrization,
+)
 from src.data_models.bridge_models import BridgeSegmentDimensions  # Import the Pydantic data model
 from src.data_models.geometry_models import TheoreticalLaneResult
 from src.data_models.load_models import LoadZoneData
@@ -11,10 +16,6 @@ from src.geometry.model_creator import (
     LoadZoneGeometryData,  # Import the dataclass
     prepare_load_zone_geometry_data,
 )
-from viktor.errors import UserError
-
-# Avoid circular import by defining constant locally
-MAX_LOAD_ZONE_SEGMENT_FIELDS = 15  # Maximum number of D-fields (width fields) per load zone
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:

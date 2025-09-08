@@ -4,13 +4,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
+from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
 from src.geometry.load_zone_geometry import _create_bridge_segment_dimensions_from_params, _prepare_bridge_geometry_for_plotting
 from src.geometry.model_creator import BridgeSegmentDimensions
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import controller_test_wrapper
-from viktor.errors import UserError
 
 
 class TestBridgeController(unittest.TestCase):
@@ -180,10 +180,10 @@ class TestBridgeController(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations
-        assert hasattr(self.default_params.input, "belastingcombinaties")
-        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.default_params.input, "berekeningsinstellingen")
+        assert isinstance(self.default_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "design_code")
 
         # Reinforcement cover split
         assert hasattr(self.default_params.input.geometrie_wapening, "dekking_boven")
@@ -213,10 +213,10 @@ class TestBridgeController(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations
-        assert hasattr(self.complex_params.input, "belastingcombinaties")
-        assert isinstance(self.complex_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.complex_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.complex_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.complex_params.input, "berekeningsinstellingen")
+        assert isinstance(self.complex_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "design_code")
 
         # Reinforcement cover split
         assert hasattr(self.complex_params.input.geometrie_wapening, "dekking_boven")
