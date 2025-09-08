@@ -483,7 +483,6 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
         )
-        # print("vooras", front_axle_locations)
         # Use the same helper function for rear axle (40 kN total)
         rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
         rear_axle_locations = calc_vehicle_load_locations(
