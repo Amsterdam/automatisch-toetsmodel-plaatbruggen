@@ -121,7 +121,7 @@ def build_units_mapping(results: dict[str, Any]) -> dict[str, dict[str, str]]:
     """
     # Import the centralized unit conversion system
     from .scia_unit_conversion import build_units_mapping as build_units_mapping_centralized
-    
+
     # Use the centralized system
     return build_units_mapping_centralized(results)
 

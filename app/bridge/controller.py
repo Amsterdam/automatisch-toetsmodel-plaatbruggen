@@ -7,7 +7,6 @@ from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, NoReturn
 
-import pandas as pd
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
@@ -812,7 +811,6 @@ class BridgeController(ViktorController):
 
         # Use the new module function to create the table
         return create_scia_result_table(results, "SLS kar")
-
 
     # Tableview for SLS freq results
     @TableView("SCIA SLS freq", duration_guess=600)

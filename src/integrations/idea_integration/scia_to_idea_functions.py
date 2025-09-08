@@ -85,7 +85,7 @@ def get_name_for_coords(coords_value: tuple[float, float, float] | list[float], 
     # Convert coords_value to tuple for consistent comparison
     if isinstance(coords_value, list):
         coords_value = tuple(coords_value)
-    
+
     # Try to find the name in df_elementaire first
     if "coords_xyz" in df_elementaire.columns and "Naam" in df_elementaire.columns:
         # Use direct equality comparison which is much faster than string conversion
@@ -211,7 +211,7 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
                     coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
                     if coord not in elementaire_name_lookup:
                         elementaire_name_lookup[coord] = str(row["Naam"])
-            
+
             # Create value lookups for moment columns
             for col in ["m_xD+", "m_xD-", "m_yD+", "m_yD-"]:
                 if col in df_elementaire.columns:
@@ -236,7 +236,7 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
                     coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
                     if coord not in basis_name_lookup:
                         basis_name_lookup[coord] = str(row["Naam"])
-            
+
             # Create value lookups for shear columns
             for col in ["v_x", "v_y"]:
                 if col in df_basis.columns:
@@ -254,7 +254,7 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
 
         # Now populate the DataFrame efficiently using vectorized operations
         coords_list = unique_coords_df["coords_xyz"].tolist()
-        
+
         # Populate names
         names = []
         for coord in coords_list:
@@ -264,8 +264,7 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
         unique_coords_df["name"] = names
 
         # Populate force/moment values
-        for col_name, lookup_dict in [("v_x_max", basis_lookup.get("v_x", {})), 
-                                      ("v_y_max", basis_lookup.get("v_y", {}))]:
+        for col_name, lookup_dict in [("v_x_max", basis_lookup.get("v_x", {})), ("v_y_max", basis_lookup.get("v_y", {}))]:
             values = []
             for coord in coords_list:
                 coord_tuple = tuple(coord) if isinstance(coord, list) else coord
@@ -278,8 +277,7 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
                     values.append(float("nan"))
             unique_coords_df[col_name] = values
 
-        for col_name, orig_col in [("m_xD+_max", "m_xD+"), ("m_xD-_max", "m_xD-"), 
-                                   ("m_yD+_max", "m_yD+"), ("m_yD-_max", "m_yD-")]:
+        for col_name, orig_col in [("m_xD+_max", "m_xD+"), ("m_xD-_max", "m_xD-"), ("m_yD+_max", "m_yD+"), ("m_yD-_max", "m_yD-")]:
             lookup_dict = elementaire_lookup.get(orig_col, {})
             values = []
             for coord in coords_list:

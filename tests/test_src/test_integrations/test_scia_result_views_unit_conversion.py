@@ -5,13 +5,12 @@ This module tests the automatic conversion of force values from Newtons (N) to k
 and moment values from Newton-meters (Nm) to kiloNewton-meters (kNm) in SCIA result formatting.
 """
 
-import pytest
 import pandas as pd
 
 from src.integrations.scia_integration.scia_result_views import (
-    safe_float_format,
-    create_scia_table_data,
     create_scia_result_table,
+    create_scia_table_data,
+    safe_float_format,
 )
 
 
@@ -23,11 +22,11 @@ class TestSafeFloatFormatUnitConversion:
         # Test standard force value
         result = safe_float_format(1000.0, "kN")
         assert result == "1.0 kN"
-        
+
         # Test larger force value
         result = safe_float_format(123456.0, "kN")
         assert result == "123.5 kN"
-        
+
         # Test small force value
         result = safe_float_format(500.0, "kN")
         assert result == "0.5 kN"
@@ -37,11 +36,11 @@ class TestSafeFloatFormatUnitConversion:
         # Test standard moment value
         result = safe_float_format(5000.0, "kNm")
         assert result == "5.0 kNm"
-        
+
         # Test larger moment value
         result = safe_float_format(987654.0, "kNm")
         assert result == "987.7 kNm"
-        
+
         # Test small moment value
         result = safe_float_format(2500.0, "kNm")
         assert result == "2.5 kNm"
@@ -51,7 +50,7 @@ class TestSafeFloatFormatUnitConversion:
         # Negative force
         result = safe_float_format(-1000.0, "kN")
         assert result == "-1.0 kN"
-        
+
         # Negative moment
         result = safe_float_format(-5000.0, "kNm")
         assert result == "-5.0 kNm"
@@ -60,10 +59,10 @@ class TestSafeFloatFormatUnitConversion:
         """Test that non-force/moment units are not converted."""
         result = safe_float_format(123.45, "mm")
         assert result == "123.5 mm"
-        
+
         result = safe_float_format(100.0, "m")
         assert result == "100.0 m"
-        
+
         result = safe_float_format(50.0, "")
         assert result == "50.0"
 
@@ -71,10 +70,10 @@ class TestSafeFloatFormatUnitConversion:
         """Test that invalid values return default."""
         result = safe_float_format(None, "kN")
         assert result == "N/A"
-        
+
         result = safe_float_format("invalid", "kNm")
         assert result == "N/A"
-        
+
         result = safe_float_format(pd.NA, "kN", "Custom Default")
         assert result == "Custom Default"
 
@@ -86,46 +85,46 @@ class TestSciaTableDataUnitConversion:
         """Test that create_scia_table_data applies unit conversion correctly."""
         # Mock DataFrame with raw SCIA data (values in N and Nm)
         mock_data = {
-            'coords_xyz': [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)],
-            'name': ['Zone1', 'Zone2'],
-            'v_x_max': [1000.5, 2500.3],  # Values in N (should become 1.0 kN and 2.5 kN)
-            'v_y_max': [1500.2, 3200.1],  # Values in N (should become 1.5 kN and 3.2 kN)
-            'm_xD+_max': [5000.0, 12000.0],  # Values in Nm (should become 5.0 kNm and 12.0 kNm)
-            'm_xD-_max': [-2500.0, -7500.0],  # Values in Nm (should become -2.5 kNm and -7.5 kNm)
-            'm_yD+_max': [8000.0, 15000.0],  # Values in Nm (should become 8.0 kNm and 15.0 kNm)
-            'm_yD-_max': [-4000.0, -9000.0],  # Values in Nm (should become -4.0 kNm and -9.0 kNm)
+            "coords_xyz": [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)],
+            "name": ["Zone1", "Zone2"],
+            "v_x_max": [1000.5, 2500.3],  # Values in N (should become 1.0 kN and 2.5 kN)
+            "v_y_max": [1500.2, 3200.1],  # Values in N (should become 1.5 kN and 3.2 kN)
+            "m_xD+_max": [5000.0, 12000.0],  # Values in Nm (should become 5.0 kNm and 12.0 kNm)
+            "m_xD-_max": [-2500.0, -7500.0],  # Values in Nm (should become -2.5 kNm and -7.5 kNm)
+            "m_yD+_max": [8000.0, 15000.0],  # Values in Nm (should become 8.0 kNm and 15.0 kNm)
+            "m_yD-_max": [-4000.0, -9000.0],  # Values in Nm (should become -4.0 kNm and -9.0 kNm)
         }
         df = pd.DataFrame(mock_data)
-        
+
         # Mock units mapping
         units_mapping = {
-            'v_x': 'kN',
-            'v_y': 'kN',
-            'm_xD+': 'kNm',
-            'm_xD-': 'kNm',
-            'm_yD+': 'kNm',
-            'm_yD-': 'kNm',
+            "v_x": "kN",
+            "v_y": "kN",
+            "m_xD+": "kNm",
+            "m_xD-": "kNm",
+            "m_yD+": "kNm",
+            "m_yD-": "kNm",
         }
-        
+
         # Test the function
         table_data, headers = create_scia_table_data(df, "ULS", units_mapping)
-        
+
         # Verify headers contain units
         expected_headers = [
-            "Coordinates", 
-            "Name", 
-            "Vx Max (kN)", 
-            "Vy Max (kN)", 
-            "MxD+ Max (kNm)", 
-            "MxD- Max (kNm)", 
-            "MyD+ Max (kNm)", 
-            "MyD- Max (kNm)"
+            "Coordinates",
+            "Name",
+            "Vx Max (kN)",
+            "Vy Max (kN)",
+            "MxD+ Max (kNm)",
+            "MxD- Max (kNm)",
+            "MyD+ Max (kNm)",
+            "MyD- Max (kNm)",
         ]
         assert headers == expected_headers
-        
+
         # Verify data values are converted correctly
         assert len(table_data) == 2
-        
+
         # Check first row - values should be converted from N to kN and Nm to kNm
         row1 = table_data[0]
         assert "1.0 kN" in row1[2]  # v_x_max: 1000.5 N -> 1.0 kN
@@ -134,7 +133,7 @@ class TestSciaTableDataUnitConversion:
         assert "-2.5 kNm" in row1[5]  # m_xD-_max: -2500.0 Nm -> -2.5 kNm
         assert "8.0 kNm" in row1[6]  # m_yD+_max: 8000.0 Nm -> 8.0 kNm
         assert "-4.0 kNm" in row1[7]  # m_yD-_max: -4000.0 Nm -> -4.0 kNm
-        
+
         # Check second row
         row2 = table_data[1]
         assert "2.5 kN" in row2[2]  # v_x_max: 2500.3 N -> 2.5 kN
@@ -150,12 +149,12 @@ class TestSciaTableDataUnitConversion:
         mock_results = {
             "units": {
                 "internal_forces": {
-                    'v_x': 'kN',
-                    'v_y': 'kN',
-                    'm_xD+': 'kNm',
-                    'm_xD-': 'kNm',
-                    'm_yD+': 'kNm',
-                    'm_yD-': 'kNm',
+                    "v_x": "kN",
+                    "v_y": "kN",
+                    "m_xD+": "kNm",
+                    "m_xD-": "kNm",
+                    "m_yD+": "kNm",
+                    "m_yD-": "kNm",
                 }
             },
             "xml_parsing": {
@@ -181,20 +180,20 @@ class TestSciaTableDataUnitConversion:
                                 "m_yD-": [-8000.0],  # -8000 Nm should become -8.0 kNm
                             }
                         }
-                    }
+                    },
                 }
-            }
+            },
         }
-        
+
         # Test the function
         result_table = create_scia_result_table(mock_results, "ULS")
         headers = result_table.column_headers
         data = result_table.data
-        
+
         # Check that headers contain units
         unit_found = any("(" in header and ")" in header for header in headers[2:])  # Skip first 2 non-unit headers
         assert unit_found, f"No units found in headers: {headers}"
-        
+
         # Check that data contains converted values (spot check)
         if len(data) > 0:
             data_str = str(data)
@@ -205,19 +204,19 @@ class TestSciaTableDataUnitConversion:
     def test_table_without_units_mapping(self) -> None:
         """Test that tables work correctly without units mapping (uses defaults)."""
         mock_data = {
-            'coords_xyz': [(0.0, 0.0, 0.0)],
-            'name': ['Zone1'],
-            'v_x_max': [1000.0],
+            "coords_xyz": [(0.0, 0.0, 0.0)],
+            "name": ["Zone1"],
+            "v_x_max": [1000.0],
         }
         df = pd.DataFrame(mock_data)
-        
+
         # Test without units mapping
         table_data, headers = create_scia_table_data(df, "ULS", None)
-        
+
         # Should still work, using default units (kN, kNm)
         assert len(table_data) == 1
         assert len(headers) >= 3  # At least Coordinates, Name, Vx Max
-        
+
         # Values should be formatted and converted using default units
         row1 = table_data[0]
         assert "1.0 kN" in row1[2]  # 1000.0 N converted to 1.0 kN using default unit
