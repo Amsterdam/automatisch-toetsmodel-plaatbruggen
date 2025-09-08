@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from app.bridge.analysis_cache import AnalysisCache
-from src.common.constants import AnalysisType
+from src.common.constants.technical import AnalysisType
 from tests.test_data.seed_loader import load_bridge_default_params
 
 
