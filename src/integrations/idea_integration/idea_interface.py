@@ -12,6 +12,7 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,7 @@ import pandas as pd
 from viktor.external import idea_rcs
 
 from app.bridge.parametrization import BridgeParametrization
+from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_integration.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
 
@@ -45,7 +47,7 @@ def _get_unique_matching_zone_keys(
 ) -> tuple[
     list[tuple[float, str, list[str]]],
     dict[float, list[str]],
-    dict[float, list[str]],
+    dict[int, list[str]],
 ]:
     """
     Extract unique matching zone keys from bridge parameters.
@@ -59,42 +61,43 @@ def _get_unique_matching_zone_keys(
         - List of (thickness, config, zones) tuples for unique matching combinations
         - Dictionary grouping thickness zones by thickness value
         - Dictionary grouping reinforcement zones by configuration number
-    :rtype: tuple[list[tuple[float, str, list[str]]], dict[float, list[str]], dict[float, list[str]]]
+    :rtype: tuple[list[tuple[float, str, list[str]]], dict[float, list[str]], dict[int, list[str]]]
     """
-    # Extract zone thickness data from bridge parameters
+    # --- 1) Build grouped_thickness: thickness -> [zone] (normalized) -----------------
     nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
-
-    # Group thickness_dict keys [zones] by their value [thickness] -> dict[thickness, list[zones]]
     grouped_thickness: dict[float, list[str]] = {}
-    for key, value in thickness_dict.items():
-        grouped_thickness.setdefault(value, []).append(key[1:].replace("_", "-"))  # to get zone format from Z1_1 to 1-1
+    for zone_key, thickness in thickness_dict.items():
+        # original zone format Z1_1 -> normalized "1-1"
+        norm_zone = zone_key[1:].replace("_", "-")
+        grouped_thickness.setdefault(thickness, []).append(norm_zone)
 
-    # Group reinforcement zones by their zone number
-    grouped_rebar_configs: dict[float, list[str]] = {}
-    i = 1
-    for rebar_config in params.reinforcement_zones_array:
-        grouped_rebar_configs[i] = rebar_config.get("zone_number")
-        i += 1
+    # --- 2) Build grouped_rebar_configs: config_idx -> [zone] (as given) --------------
+    grouped_rebar_configs: dict[int, list[str]] = {}
+    for i, rebar_config in enumerate(params.reinforcement_zones_array, start=1):
+        zones = rebar_config.get("zone_number") or []
+        # ensure strings and trim whitespace; keep original semantics
+        grouped_rebar_configs[i] = [str(z).strip() for z in zones]
 
-    # Find matching thickness and reinforcement zone numbers
-    matching_zone_keys: list[tuple[float, str, str]] = []
-    for thickness, thickness_zones in grouped_thickness.items():
-        for thickness_zone in thickness_zones:
-            for config, rebar_zones in grouped_rebar_configs.items():
-                for rebar_zone in rebar_zones:  # ignore PERF401
-                    if thickness_zone == rebar_zone:
-                        matching_zone_keys.append((thickness, str(config), thickness_zone))  # noqa: PERF401
+    # --- 3) Match zones via set intersection ------------------------------------------
+    # Build (thickness, config) -> set[zones] directly to avoid duplicates while matching
+    combo_to_zones: defaultdict[tuple[float, int], set[str]] = defaultdict(set)
 
-    # Filter matching_zone_keys to only unique (thickness, config) pairs and collect corresponding zones
-    unique_combinations: dict[tuple[float, str], list[str]] = {}
-    for match_thickness, match_config, match_zone in matching_zone_keys:
-        combination_key = (match_thickness, match_config)
-        if combination_key not in unique_combinations:
-            unique_combinations[combination_key] = []
-        unique_combinations[combination_key].append(match_zone)
+    for thickness, t_zones_list in grouped_thickness.items():
+        t_zones = set(t_zones_list)  # unique per thickness
+        for config, r_zones_list in grouped_rebar_configs.items():
+            if not r_zones_list:
+                continue
+            # intersection is O(n) in smaller set
+            for z in t_zones.intersection(r_zones_list):
+                combo_to_zones[(thickness, config)].add(z)
 
-    # Create tuples with zones as the third element
-    unique_matching_zone_keys = [(thickness, config, zones) for (thickness, config), zones in unique_combinations.items()]
+    # --- 4) Convert to requested output shape -----------------------------------------
+    # (thickness, config:str, zones:list[str])
+    unique_matching_zone_keys: list[tuple[float, str, list[str]]] = []
+    for (thickness, config), zones_set in combo_to_zones.items():
+        zones = sorted(zones_set)  # sort for deterministic output
+        unique_matching_zone_keys.append((thickness, str(config), zones))
+
     return unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs
 
 
@@ -288,10 +291,10 @@ def _create_reinforcement_bars(
     for location in ["top", "bottom"]:
         # Create main reinforcement bars
         bar_locations_x = [
-            x / 1000 for x in calculate_rebar_positions(1000, config.main_reinf_ctc_distances[f"{location}_{direction}"])
-        ]  # Convert mm to m
-        bar_locations_y = [config.reinf_heights[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert height from mm to m
-        bar_diameters = [config.main_reinf_diameters[f"{location}_{direction}"] / 1000] * len(bar_locations_x)  # Convert diameter from mm to m
+            x / MM_TO_M for x in calculate_rebar_positions(1000, config.main_reinf_ctc_distances[f"{location}_{direction}"])
+        ]  # Convert positions from mm to m
+        bar_locations_y = [config.reinf_heights[f"{location}_{direction}"] / MM_TO_M] * len(bar_locations_x)  # Convert heights from mm to m
+        bar_diameters = [config.main_reinf_diameters[f"{location}_{direction}"] / MM_TO_M] * len(bar_locations_x)  # Convert diameters from mm to m
         bar_locations = list(zip(bar_locations_x, bar_locations_y))
 
         for coords, diameter in zip(bar_locations, bar_diameters):
@@ -329,7 +332,7 @@ def _create_additional_reinforcement(
     # Check if extra bar can fit at the beginning and end of the slab
     loc_max_main_bar = float(max(main_bar_locations_x)) if main_bar_locations_x else 0.0
     loc_min_main_bar = float(min(main_bar_locations_x)) if main_bar_locations_x else 0.0
-    ctc_dist_main_bar = float(config.main_reinf_ctc_distances[location_direction]) / 1000 or 0.0  # Convert mm to m
+    ctc_dist_main_bar = float(config.main_reinf_ctc_distances[location_direction]) / MM_TO_M or 0.0  # Convert mm to m
     remaining_space = 0.5 - loc_max_main_bar  # Remaining space at the end of the slab
 
     # Add extra bars at the beginning and end of the slab if there is enough space
@@ -337,8 +340,8 @@ def _create_additional_reinforcement(
         extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar / 2)  # Insert at end
         extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar / 2)  # Insert at beginning
 
-    extra_bar_locations_y = [config.reinf_heights[location_direction] / 1000] * len(extra_bar_locations_x)
-    extra_bar_diameters = [config.extra_reinf_diameter[location_direction] / 1000] * len(extra_bar_locations_x)
+    extra_bar_locations_y = [config.reinf_heights[location_direction] / MM_TO_M] * len(extra_bar_locations_x)  # Convert heights from mm to m
+    extra_bar_diameters = [config.extra_reinf_diameter[location_direction] / MM_TO_M] * len(extra_bar_locations_x)  # Convert diameters from mm to m
     extra_bar_locations = list(zip(extra_bar_locations_x, extra_bar_locations_y))
 
     for coords, diameter in zip(extra_bar_locations, extra_bar_diameters):
@@ -441,56 +444,67 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
     """
     Apply load cases from SCIA results to each slab.
 
-    :param created_slabs: Dictionary of created slabs
-    :param df_all: Merged dataframe with all load cases
+    :param created_slabs: Dictionary of created slabs. Expected keys per slab:
+                          - "zones": list[str]
+                          - "slab_langs" (optional)
+                          - "slab_dwars" (optional)
+    :param df_all: Merged dataframe with all load cases. Expected columns include:
+                   - name, coords_xyz
+                   - SLS_kar_v_{x|y}_max, SLS_freq_v_{x|y}_max, ULS_v_{x|y}_max
+                   - SLS_kar_M{y|x},     SLS_freq_M{y|x},     ULS_M{y|x}
     """
-    for slab_key, slab_data in created_slabs.items():
-        # Filter SCIA results for the current slab
-        zones = slab_data.get("zones", [])
-        df_slab = df_all[df_all["name"].isin(zones)]
+    # Direction → axis + corresponding moment component
+    ORIENT = {
+        "langs": {"axis": "y", "moment": "My"},
+        "dwars": {"axis": "x", "moment": "Mx"},
+    }
 
-        # Apply loads for each direction
-        for direction in ["langs", "dwars"]:
+    def _format_coords(coords) -> str:
+        if coords is None:
+            return "No coords"
+        if isinstance(coords, (list, tuple)):
+            return f"({', '.join(map(str, coords))})"
+        return str(coords)
+
+    for slab_key, slab_data in created_slabs.items():
+        zones = slab_data.get("zones") or []
+        if not zones:
+            continue
+
+        df_slab = df_all[df_all["name"].isin(zones)]
+        if df_slab.empty:
+            continue
+
+        desc_prefix = slab_key.replace(".", "_")
+
+        for direction, cfg in ORIENT.items():
             slab = slab_data.get(f"slab_{direction}")
             if slab is None:
                 continue
 
-            if direction == "langs":
-                # Use Y-axis for longitudinal direction
-                for _, row in df_slab.iterrows():
-                    char = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(Qz=row.get("SLS_kar_v_y_max", 0), My=row.get("SLS_kar_My", 0)))
-                    freq = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(Qz=row.get("SLS_freq_v_y_max", 0), My=row.get("SLS_freq_My", 0)))
-                    fund = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(Qz=row.get("ULS_v_y_max", 0), My=row.get("ULS_My", 0)))
+            axis = cfg["axis"]          # "x" or "y"
+            mkey = cfg["moment"]        # "Mx" or "My"
 
-                    # Create a robust description including slab key, name and coords
-                    name = row.get("name", "Unknown")
-                    coords = row.get("coords_xyz")
-                    if coords is not None:
-                        coords_str = f"({', '.join(map(str, coords))})" if isinstance(coords, (list, tuple)) else str(coords)
-                    else:
-                        coords_str = "No coords"
+            for _, row in df_slab.iterrows():
+                # Build internal forces with dynamic moment component (Mx/My)
+                char = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(
+                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
+                    **{mkey: row.get(f"SLS_kar_{mkey}", 0)},
+                ))
+                freq = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(
+                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
+                    **{mkey: row.get(f"SLS_freq_{mkey}", 0)},
+                ))
+                fund = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(
+                    Qz=row.get(f"ULS_v_{axis}_max", 0),
+                    **{mkey: row.get(f"ULS_{mkey}", 0)},
+                ))
 
-                    description = f"{slab_key.replace('.', '_')} - {name} - {coords_str}"
+                name = row.get("name", "Unknown")
+                coords_str = _format_coords(row.get("coords_xyz"))
+                description = f"{desc_prefix} - {name} - {coords_str}"
 
-                    slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
-            elif direction == "dwars":
-                # Use X-axis for transverse direction
-                for _, row in df_slab.iterrows():
-                    char = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(Qz=row.get("SLS_kar_v_x_max", 0), My=row.get("SLS_kar_Mx", 0)))
-                    freq = idea_rcs.LoadingSLS(idea_rcs.ResultOfInternalForces(Qz=row.get("SLS_freq_v_x_max", 0), My=row.get("SLS_freq_Mx", 0)))
-                    fund = idea_rcs.LoadingULS(idea_rcs.ResultOfInternalForces(Qz=row.get("ULS_v_x_max", 0), My=row.get("ULS_Mx", 0)))
-
-                    # Create a robust description including slab key, name and coords
-                    name = row.get("name", "Unknown")
-                    coords = row.get("coords_xyz")
-                    if coords is not None:
-                        coords_str = f"({', '.join(map(str, coords))})" if isinstance(coords, (list, tuple)) else str(coords)
-                    else:
-                        coords_str = "No coords"
-
-                    description = f"{slab_key.replace('.', '_')} - {name} - {coords_str}"
-
-                    slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
+                slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
 def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":

@@ -7,20 +7,32 @@ along with the complete force state and location context for each extreme value.
 
 import contextlib
 from typing import Any
+from collections.abc import Mapping
 
 from src.integrations.idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
 
 
-def _extract_basis_data(parsed_tables: dict[str, Any]) -> dict[str, Any]:
-    """Extract basis grootheden data from parsed tables."""
-    for table_name in ["Interne 2D-krachten basis ULS", "Interne 2D-krachten basis"]:
-        table_data = parsed_tables.get(table_name, {})
-        if table_data.get("status") == "success":
-            data = table_data.get("data", {})
-            if "Basis grootheden" in data:
-                basis_data = data.get("Basis grootheden")
-                if basis_data:
-                    return basis_data
+def _extract_basis_data(parsed_tables: Mapping[str, Any], section_key: str = "Basis grootheden") -> dict[str, Any]:
+    """
+    Return the first non-empty 'Basis grootheden' dict from preferred tables; {} if not found.
+    """
+    _TABLE_CANDIDATES = (
+        "Interne 2D-krachten basis ULS",
+        "Interne 2D-krachten basis",
+    )
+
+    for name in _TABLE_CANDIDATES:
+        table = parsed_tables.get(name) or {}
+        if str(table.get("status")).lower() != "success":
+            continue
+
+        data = table.get("data") or {}
+        basis = data.get(section_key)
+
+        # Keep original behavior: only return when truthy
+        if isinstance(basis, dict) and basis:
+            return basis
+
     return {}
 
 
