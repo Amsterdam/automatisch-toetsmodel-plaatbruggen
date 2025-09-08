@@ -14,7 +14,7 @@ Future enhancements needed:
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from viktor.external import idea_rcs
@@ -459,7 +459,7 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
         "dwars": {"axis": "x", "moment": "Mx"},
     }
 
-    def _format_coords(coords: Optional[None, list, tuple, str, float]) -> str:
+    def _format_coords(coords: list | tuple | str | float | None) -> str:
         if coords is None:
             return "No coords"
         if isinstance(coords, (list, tuple)):
