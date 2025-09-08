@@ -3,6 +3,7 @@
 mypy==1.15.0
 ruff==0.11.7
 pytest
+pydantic==2.10.3
 
 #mypy type libs
 types-shapely

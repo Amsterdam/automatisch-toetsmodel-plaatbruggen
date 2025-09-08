@@ -13,6 +13,7 @@ import pytest
 from src.integrations.scia_integration.scia_loads_helper import (
     calculate_real_tandem_values,
     calculate_real_udl_values,
+    create_material_surface_load,
 )
 
 BridgeParametrization: Any
@@ -823,8 +824,17 @@ class TestUniformlyDistributedLoads:
         mock_bridge_geom_data = Mock()
         mock_bridge_geom.return_value = mock_bridge_geom_data
 
-        # Setup mock load zones data
-        mock_load_zones.return_value = [{"zone_type": "Auto", "d1_width": 10.5, "y_coords_top_current_zone": [6.5]}]
+        # Setup mock load zones data - create LoadZoneData instances
+        from src.data_models.load_models import LoadZoneData
+
+        mock_zone = LoadZoneData(
+            zone_type="Auto",
+            pavement_thickness=0.1,
+            pavement_material="Asfalt",
+            d1_width=10.5,
+            y_coords_top_current_zone=[6.5],
+        )
+        mock_load_zones.return_value = [mock_zone]
         mock_calc_geom.return_value = mock_load_zones.return_value
 
         # Execute function
@@ -859,23 +869,35 @@ class TestUniformlyDistributedLoads:
             mock_bridge_geom.return_value = Mock()
 
             # Test case: No Auto zone
-            mock_load_zones.return_value = [{"zone_type": "Voetgangers"}]
+            from src.data_models.load_models import LoadZoneData
+
+            mock_zone_pedestrian = LoadZoneData(
+                zone_type="Voetgangers",
+                pavement_thickness=0.05,
+                pavement_material="Tegels",
+            )
+            mock_load_zones.return_value = [mock_zone_pedestrian]
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
             assert y_coord == 0.0, "Should return 0.0 when no Auto zone"
             assert width == 0.0, "Should return 0.0 when no Auto zone"
 
             # Test case: Empty y_coords list
-            mock_load_zones.return_value = [{"zone_type": "Auto", "y_coords_top_current_zone": []}]
+            mock_zone_auto_empty = LoadZoneData(zone_type="Auto", pavement_thickness=0.1, pavement_material="Asfalt", y_coords_top_current_zone=[])
+            mock_load_zones.return_value = [mock_zone_auto_empty]
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
             assert y_coord == 0.0, "Should return 0.0 when y_coords is empty"
 
-            # Test case: Invalid d1_width (non-numeric)
-            mock_load_zones.return_value = [{"zone_type": "Auto", "d1_width": "invalid", "y_coords_top_current_zone": [5.0]}]
+            # Test case: Valid Auto zone with coordinates
+            mock_zone_auto_valid = LoadZoneData(
+                zone_type="Auto", pavement_thickness=0.1, pavement_material="Asfalt", d1_width=3.5, y_coords_top_current_zone=[5.0]
+            )
+            mock_load_zones.return_value = [mock_zone_auto_valid]
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
-            assert width == 0.0, "Should return 0.0 when d1_width is invalid"
+            assert y_coord == 5.0, "Should return correct y-coordinate"
+            assert width == 3.5, "Should return correct width"
 
     def test_generate_real_lane_positions_bg8000(self, mock_params: Mock) -> None:
         """Test generation of lane positions for BG8000 load group."""
@@ -1047,6 +1069,66 @@ class TestUniformlyDistributedLoads:
 
         assert "BG4001" in result_zero_load
         assert result_zero_load["BG4001"]["main"][0]["load"] == 0.0, "Should handle zero load value"
+
+
+class TestMaterialSurfaceLoad:
+    """Tests for material surface load creation with Pydantic LoadZoneData."""
+
+    def test_create_material_surface_load_with_pydantic_model(self, mock_builder: Mock) -> None:
+        """Test that create_material_surface_load works with Pydantic LoadZoneData objects."""
+        from src.data_models.load_models import LoadZoneData
+        from src.geometry.model_creator import LoadZoneGeometryData
+
+        # Create a real Pydantic LoadZoneData object
+        load_zone = LoadZoneData(
+            zone_type="Auto",
+            pavement_thickness=0.1,
+            pavement_material="Asfalt",
+            d1_width=3.5,
+            zone_widths_per_d=[3.5, 3.5],
+            y_coords_top_current_zone=[5.0, 10.0],
+        )
+
+        # Create mock bridge geometry data
+        bridge_geom_data = LoadZoneGeometryData(
+            x_coords_d_points=[0.0, 10.0],
+            y_top_structural_edge_at_d_points=[5.0, 5.0],
+            total_widths_at_d_points=[10.0, 10.0],
+            y_bridge_bottom_at_d_points=[0.0, 0.0],
+            num_defined_d_points=2,
+            d_point_label_data=[],
+        )
+
+        # Create load config
+        load_config = {
+            "load_zone": load_zone,
+            "zone_index": 0,
+            "span": 0,
+            "material_name": "asfalt",
+            "load_case_name": "LC_Asfalt",
+        }
+
+        # This should NOT raise "'LoadZoneData' object is not subscriptable" error
+        try:
+            create_material_surface_load(mock_builder, load_config, bridge_geom_data)
+            success = True
+        except TypeError as e:
+            if "not subscriptable" in str(e):
+                success = False
+                pytest.fail(f"LoadZoneData accessed with dictionary syntax: {e}")
+            else:
+                raise
+
+        assert success, "create_material_surface_load should work with Pydantic LoadZoneData objects"
+
+        # Verify the builder was called correctly
+        mock_builder.create_surface_load.assert_called_once()
+        call_args = mock_builder.create_surface_load.call_args
+
+        # Check that the name contains the expected values from the Pydantic model
+        assert "Auto" in call_args.kwargs["name"], "Load name should contain zone_type"
+        assert "0.1" in call_args.kwargs["name"], "Load name should contain pavement_thickness"
+        assert call_args.kwargs["load_case_name"] == "LC_Asfalt", "Load case name should be preserved"
 
 
 if __name__ == "__main__":
