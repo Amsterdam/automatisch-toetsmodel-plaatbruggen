@@ -17,7 +17,6 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 
-
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
