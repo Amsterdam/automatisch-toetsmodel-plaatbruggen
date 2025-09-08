@@ -483,7 +483,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             vehicle_width=vehicle_width,
             wheel_contact_area=wheel_contact_area,
         )
-        #print("vooras", front_axle_locations)
+        # print("vooras", front_axle_locations)
         # Use the same helper function for rear axle (40 kN total)
         rear_axle_x = front_axle_x + axle_spacing if direction == "forward" else front_axle_x - axle_spacing
         rear_axle_locations = calc_vehicle_load_locations(
@@ -501,7 +501,10 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             )
             # Take into account load dispersion for the rear axle wheels
             corner_points_dispersed_front_right, load_value_dispersed_front_right = dispersal_function(
-                params=params, corner_points=front_axle_locations["bottom_left_wheel_corners"], load_value=front_wheel_load, load_case_type="axle_load"
+                params=params,
+                corner_points=front_axle_locations["bottom_left_wheel_corners"],
+                load_value=front_wheel_load,
+                load_case_type="axle_load",
             )
             corner_points_dispersed_rear_left, load_value_dispersed_rear_left = dispersal_function(
                 params=params, corner_points=rear_axle_locations["top_left_wheel_corners"], load_value=rear_wheel_load, load_case_type="axle_load"
@@ -540,7 +543,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 load_value=-load_value_dispersed_rear_right,
             )
         else:
-                        # Create surface loads for front axle wheels (80 kN total = 40 kN per wheel)
+            # Create surface loads for front axle wheels (80 kN total = 40 kN per wheel)
             builder.create_surface_load(
                 name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_front_left",
                 load_case_name=load_case_name,
@@ -569,7 +572,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 corner_points=rear_axle_locations["bottom_left_wheel_corners"],
                 load_value=-rear_wheel_load,
             )
-            
+
     # Create the amsterdam accidental vehicle loads, a single axis along the bridge deck
     def create_accidental_vehicle_amsterdam(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
         """Create amsterdam accidental vehicle loads at a specific X position and direction."""
