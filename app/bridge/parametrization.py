@@ -470,7 +470,7 @@ Below you will find important information about this bridge structure."""
     info.width_properties_header = Text("### Breedteverdeling")
     info.roadway_width = TextField("Rijwegbreedte", default="", suffix="m", description="Breedte toegewezen aan voertuigverkeer")
     info.tram_width = TextField("Breedte trambaan", default="", suffix="m", description="Breedte van de trambaan")
-    info.bicycle_path_width = TextField("Fietspaadbreedte", default="", suffix="m", description="Breedte van fietspaden")
+    info.bicycle_path_width = TextField("Fietspadbreedte", default="", suffix="m", description="Breedte van fietspaden")
     info.sidewalk_north_east_width = TextField(
         "Trottoirbreedte (Noord/Oost)", default="", suffix="m", description="Breedte van trottoir aan noord/oost zijde"
     )
