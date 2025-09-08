@@ -82,18 +82,20 @@ def get_name_for_coords(coords_value: tuple[float, float, float] | list[float], 
     :returns: The name corresponding to the coordinates, or "zone name not found" if not found
     :rtype: str
     """
+    # Convert coords_value to tuple for consistent comparison
+    if isinstance(coords_value, list):
+        coords_value = tuple(coords_value)
+    
     # Try to find the name in df_elementaire first
     if "coords_xyz" in df_elementaire.columns and "Naam" in df_elementaire.columns:
-        # Use string comparison for more reliable matching
-        coords_str = str(coords_value)
-        elementaire_matches = df_elementaire[df_elementaire["coords_xyz"].astype(str) == coords_str]
+        # Use direct equality comparison which is much faster than string conversion
+        elementaire_matches = df_elementaire[df_elementaire["coords_xyz"] == coords_value]
         if not elementaire_matches.empty:
             return str(elementaire_matches.iloc[0]["Naam"])
 
     # If not found, try df_basis
     if "coords_xyz" in df_basis.columns and "Naam" in df_basis.columns:
-        coords_str = str(coords_value)
-        basis_matches = df_basis[df_basis["coords_xyz"].astype(str) == coords_str]
+        basis_matches = df_basis[df_basis["coords_xyz"] == coords_value]
         if not basis_matches.empty:
             return str(basis_matches.iloc[0]["Naam"])
 
@@ -119,9 +121,12 @@ def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float
     if "coords_xyz" not in df.columns or col not in df.columns:
         return float("nan")
 
-    # Use string comparison for more reliable matching
-    coords_str = str(coords_value)
-    matches = df[df["coords_xyz"].astype(str) == coords_str]
+    # Convert coords_value to tuple for consistent comparison
+    if isinstance(coords_value, list):
+        coords_value = tuple(coords_value)
+
+    # Use direct equality comparison which is much faster than string conversion
+    matches = df[df["coords_xyz"] == coords_value]
 
     if matches.empty:
         return float("nan")
@@ -191,18 +196,102 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
         # Create a DataFrame containing all unique values from the 'coords_xyz' column in both DataFrames
         unique_coords_df = get_unique_coords_xyz_dataframe(df_elementaire, df_basis)
 
-        # Add a 'name' column to unique_coords_df by matching 'coords_xyz' in df_elementaire and df_basis
-        unique_coords_df["name"] = unique_coords_df["coords_xyz"].apply(lambda c: get_name_for_coords(c, df_elementaire, df_basis))
+        if unique_coords_df.empty:
+            unique_results[selected_table] = unique_coords_df
+            continue
 
-        # Add v_x_max and v_y_max columns to unique_coords_df by matching coords_xyz in df_basis
-        unique_coords_df["v_x_max"] = unique_coords_df["coords_xyz"].apply(lambda c: get_max_abs_for_column(c, df_basis, "v_x"))
-        unique_coords_df["v_y_max"] = unique_coords_df["coords_xyz"].apply(lambda c: get_max_abs_for_column(c, df_basis, "v_y"))
+        # Optimize by creating lookup dictionaries instead of using apply() with repeated DataFrame searches
+        # Create lookup dictionaries for faster coordinate-based access
+        elementaire_name_lookup = {}
+        elementaire_lookup = {}
+        if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
+            # Create name lookup
+            if "Naam" in df_elementaire.columns:
+                for _, row in df_elementaire.iterrows():
+                    coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
+                    if coord not in elementaire_name_lookup:
+                        elementaire_name_lookup[coord] = str(row["Naam"])
+            
+            # Create value lookups for moment columns
+            for col in ["m_xD+", "m_xD-", "m_yD+", "m_yD-"]:
+                if col in df_elementaire.columns:
+                    elementaire_lookup[col] = {}
+                    for _, row in df_elementaire.iterrows():
+                        coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
+                        if coord not in elementaire_lookup[col]:
+                            elementaire_lookup[col][coord] = []
+                        try:
+                            val = pd.to_numeric(row[col], errors="coerce")
+                            if not pd.isna(val):
+                                elementaire_lookup[col][coord].append(val)
+                        except (ValueError, TypeError):
+                            pass
 
-        # Add m_xD+, m_xD-, m_yD+, m_yD- columns to unique_coords_df by matching coords_xyz in df_elementaire
-        unique_coords_df["m_xD+_max"] = unique_coords_df["coords_xyz"].apply(lambda c: get_max_abs_for_column(c, df_elementaire, "m_xD+"))
-        unique_coords_df["m_xD-_max"] = unique_coords_df["coords_xyz"].apply(lambda c: get_max_abs_for_column(c, df_elementaire, "m_xD-"))
-        unique_coords_df["m_yD+_max"] = unique_coords_df["coords_xyz"].apply(lambda c: get_max_abs_for_column(c, df_elementaire, "m_yD+"))
-        unique_coords_df["m_yD-_max"] = unique_coords_df["coords_xyz"].apply(lambda c: get_max_abs_for_column(c, df_elementaire, "m_yD-"))
+        basis_name_lookup = {}
+        basis_lookup = {}
+        if not df_basis.empty and "coords_xyz" in df_basis.columns:
+            # Create name lookup
+            if "Naam" in df_basis.columns:
+                for _, row in df_basis.iterrows():
+                    coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
+                    if coord not in basis_name_lookup:
+                        basis_name_lookup[coord] = str(row["Naam"])
+            
+            # Create value lookups for shear columns
+            for col in ["v_x", "v_y"]:
+                if col in df_basis.columns:
+                    basis_lookup[col] = {}
+                    for _, row in df_basis.iterrows():
+                        coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
+                        if coord not in basis_lookup[col]:
+                            basis_lookup[col][coord] = []
+                        try:
+                            val = pd.to_numeric(row[col], errors="coerce")
+                            if not pd.isna(val):
+                                basis_lookup[col][coord].append(val)
+                        except (ValueError, TypeError):
+                            pass
+
+        # Now populate the DataFrame efficiently using vectorized operations
+        coords_list = unique_coords_df["coords_xyz"].tolist()
+        
+        # Populate names
+        names = []
+        for coord in coords_list:
+            coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+            name = elementaire_name_lookup.get(coord_tuple) or basis_name_lookup.get(coord_tuple, "zone name not found")
+            names.append(name)
+        unique_coords_df["name"] = names
+
+        # Populate force/moment values
+        for col_name, lookup_dict in [("v_x_max", basis_lookup.get("v_x", {})), 
+                                      ("v_y_max", basis_lookup.get("v_y", {}))]:
+            values = []
+            for coord in coords_list:
+                coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+                coord_values = lookup_dict.get(coord_tuple, [])
+                if coord_values:
+                    # Find value with maximum absolute value
+                    max_abs_val = max(coord_values, key=abs)
+                    values.append(max_abs_val)
+                else:
+                    values.append(float("nan"))
+            unique_coords_df[col_name] = values
+
+        for col_name, orig_col in [("m_xD+_max", "m_xD+"), ("m_xD-_max", "m_xD-"), 
+                                   ("m_yD+_max", "m_yD+"), ("m_yD-_max", "m_yD-")]:
+            lookup_dict = elementaire_lookup.get(orig_col, {})
+            values = []
+            for coord in coords_list:
+                coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+                coord_values = lookup_dict.get(coord_tuple, [])
+                if coord_values:
+                    # Find value with maximum absolute value
+                    max_abs_val = max(coord_values, key=abs)
+                    values.append(max_abs_val)
+                else:
+                    values.append(float("nan"))
+            unique_coords_df[col_name] = values
 
         # Store unique results in the dictionary
         unique_results[selected_table] = unique_coords_df

@@ -16,6 +16,8 @@
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
 
 ### Fixed
+- **SCIA Unit Conversion**: Fixed missing unit conversion from N to kN and Nm to kNm in three SCIA result tables
+- **SCIA Result Views**: Added proper units display in table headers and values for consistent engineering units
 
 ## [`v0.0.11`] - 2025-08-28
 ### Added
