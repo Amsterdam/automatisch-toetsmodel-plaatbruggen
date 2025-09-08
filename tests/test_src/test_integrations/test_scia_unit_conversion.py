@@ -4,6 +4,7 @@ Test the centralized SCIA unit conversion system.
 This module tests the new SciaUnitConverter class and ensures that
 units mapping and value conversion stay in sync.
 """
+from typing import Any
 
 import pytest
 
@@ -95,7 +96,7 @@ class TestSciaUnitConverter:
         assert result == "N/A"
 
         # Test custom default
-        result = converter.format_value_with_unit(None, "Vy", default="--")
+        result = converter.format_value_with_unit(None, "Vy", default="--")  # type: ignore[arg-type]
         assert result == "--"
 
     def test_units_mapping(self) -> None:
@@ -161,7 +162,7 @@ class TestSciaUnitConverter:
             converter.convert_value("invalid", "Vy")
 
         with pytest.raises(ValueError, match="Cannot convert value"):
-            converter.convert_value(None, "Vy")
+            converter.convert_value(None, "Vy")  # type: ignore[arg-type]
 
 
 class TestCentralizedBuildUnitsMapping:
@@ -195,7 +196,7 @@ class TestCentralizedBuildUnitsMapping:
 
     def test_missing_internal_forces(self) -> None:
         """Test behavior with missing internal forces."""
-        results: dict[str, any] = {}
+        results: dict[str, Any] = {}
         units = build_units_mapping(results)
 
         # Should default to 1D
@@ -221,7 +222,7 @@ class TestBackwardCompatibility:
         assert result == "123.5 mm"
 
         # Test error cases
-        result = safe_float_format(None, "kN")
+        result = safe_float_format(None, "kN")  # type: ignore[arg-type]
         assert result == "N/A"
 
         result = safe_float_format("invalid", "kNm", "CUSTOM")

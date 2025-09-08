@@ -84,7 +84,7 @@ def get_name_for_coords(coords_value: tuple[float, float, float] | list[float], 
     """
     # Convert coords_value to tuple for consistent comparison
     if isinstance(coords_value, list):
-        coords_value = tuple(coords_value)
+        coords_value = tuple(coords_value)  # type: ignore[assignment]
 
     # Try to find the name in df_elementaire first
     if "coords_xyz" in df_elementaire.columns and "Naam" in df_elementaire.columns:
@@ -123,7 +123,7 @@ def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float
 
     # Convert coords_value to tuple for consistent comparison
     if isinstance(coords_value, list):
-        coords_value = tuple(coords_value)
+        coords_value = tuple(coords_value)  # type: ignore[assignment]
 
     # Use direct equality comparison which is much faster than string conversion
     matches = df[df["coords_xyz"] == coords_value]
@@ -181,7 +181,7 @@ def _create_name_lookup(df: pd.DataFrame) -> dict[tuple, str]:
     :returns: Name lookup dictionary
     :rtype: dict[tuple, str]
     """
-    name_lookup = {}
+    name_lookup: dict[tuple, str] = {}
 
     if df.empty or "coords_xyz" not in df.columns or "Naam" not in df.columns:
         return name_lookup
@@ -205,7 +205,7 @@ def _create_value_lookup_for_column(df: pd.DataFrame, column: str) -> dict[tuple
     :returns: Value lookup dictionary
     :rtype: dict[tuple, list[float]]
     """
-    value_lookup = {}
+    value_lookup: dict[tuple, list[float]] = {}
 
     if df.empty or "coords_xyz" not in df.columns or column not in df.columns:
         return value_lookup

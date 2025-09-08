@@ -68,13 +68,13 @@ class TestSafeFloatFormatUnitConversion:
 
     def test_invalid_values_return_default(self) -> None:
         """Test that invalid values return default."""
-        result = safe_float_format(None, "kN")
+        result = safe_float_format(None, "kN")  # type: ignore[arg-type]
         assert result == "N/A"
 
         result = safe_float_format("invalid", "kNm")
         assert result == "N/A"
 
-        result = safe_float_format(pd.NA, "kN", "Custom Default")
+        result = safe_float_format(pd.NA, "kN", "Custom Default")  # type: ignore[arg-type]
         assert result == "Custom Default"
 
 
