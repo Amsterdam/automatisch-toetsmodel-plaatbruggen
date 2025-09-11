@@ -17,8 +17,8 @@ import pandas as pd
 import pytest
 
 # Mock the problematic imports to avoid circular import issues
-sys.modules['app.bridge.parametrization'] = MagicMock()
-sys.modules['app.bridge.analysis_cache'] = MagicMock()
+sys.modules["app.bridge.parametrization"] = MagicMock()
+sys.modules["app.bridge.analysis_cache"] = MagicMock()
 
 from src.integrations.idea_integration.idea_interface import _apply_loads_to_slabs
 
@@ -26,11 +26,11 @@ from src.integrations.idea_integration.idea_interface import _apply_loads_to_sla
 class TestApplyLoadsToSlabs:
     """
     Test cases for the _apply_loads_to_slabs function.
-    
+
     This function applies load cases from SCIA results to IDEA slab models.
-    It processes loads for both longitudinal ("langs") and transverse ("dwars") 
+    It processes loads for both longitudinal ("langs") and transverse ("dwars")
     directions, creating appropriate loading objects for SLS and ULS analysis.
-    
+
     Test coverage includes:
     - Basic functionality with valid data
     - Edge cases (empty zones, missing slabs, nonexistent zones)
@@ -42,31 +42,33 @@ class TestApplyLoadsToSlabs:
     @pytest.fixture
     def sample_scia_dataframe(self) -> pd.DataFrame:
         """Create a sample SCIA results dataframe for testing."""
-        return pd.DataFrame({
-            "name": ["1-1", "1-2", "2-1", "2-2", "3-1"],
-            "coords_xyz": [
-                (10.0, 5.0, 0.0),
-                (20.0, 5.0, 0.0),
-                (10.0, 15.0, 0.0),
-                (20.0, 15.0, 0.0),
-                (30.0, 25.0, 0.0),
-            ],
-            # SLS karakteristiek values
-            "SLS_kar_v_x_max": [100.0, 150.0, 200.0, 180.0, 120.0],
-            "SLS_kar_v_y_max": [80.0, 120.0, 160.0, 140.0, 90.0],
-            "SLS_kar_Mx": [50.0, 75.0, 100.0, 90.0, 60.0],
-            "SLS_kar_My": [40.0, 60.0, 80.0, 70.0, 45.0],
-            # SLS frequent values
-            "SLS_freq_v_x_max": [70.0, 105.0, 140.0, 126.0, 84.0],
-            "SLS_freq_v_y_max": [56.0, 84.0, 112.0, 98.0, 63.0],
-            "SLS_freq_Mx": [35.0, 52.5, 70.0, 63.0, 42.0],
-            "SLS_freq_My": [28.0, 42.0, 56.0, 49.0, 31.5],
-            # ULS values
-            "ULS_v_x_max": [140.0, 210.0, 280.0, 252.0, 168.0],
-            "ULS_v_y_max": [112.0, 168.0, 224.0, 196.0, 126.0],
-            "ULS_Mx": [70.0, 105.0, 140.0, 126.0, 84.0],
-            "ULS_My": [56.0, 84.0, 112.0, 98.0, 63.0],
-        })
+        return pd.DataFrame(
+            {
+                "name": ["1-1", "1-2", "2-1", "2-2", "3-1"],
+                "coords_xyz": [
+                    (10.0, 5.0, 0.0),
+                    (20.0, 5.0, 0.0),
+                    (10.0, 15.0, 0.0),
+                    (20.0, 15.0, 0.0),
+                    (30.0, 25.0, 0.0),
+                ],
+                # SLS karakteristiek values
+                "SLS_kar_v_x_max": [100.0, 150.0, 200.0, 180.0, 120.0],
+                "SLS_kar_v_y_max": [80.0, 120.0, 160.0, 140.0, 90.0],
+                "SLS_kar_Mx": [50.0, 75.0, 100.0, 90.0, 60.0],
+                "SLS_kar_My": [40.0, 60.0, 80.0, 70.0, 45.0],
+                # SLS frequent values
+                "SLS_freq_v_x_max": [70.0, 105.0, 140.0, 126.0, 84.0],
+                "SLS_freq_v_y_max": [56.0, 84.0, 112.0, 98.0, 63.0],
+                "SLS_freq_Mx": [35.0, 52.5, 70.0, 63.0, 42.0],
+                "SLS_freq_My": [28.0, 42.0, 56.0, 49.0, 31.5],
+                # ULS values
+                "ULS_v_x_max": [140.0, 210.0, 280.0, 252.0, 168.0],
+                "ULS_v_y_max": [112.0, 168.0, 224.0, 196.0, 126.0],
+                "ULS_Mx": [70.0, 105.0, 140.0, 126.0, 84.0],
+                "ULS_My": [56.0, 84.0, 112.0, 98.0, 63.0],
+            }
+        )
 
     @pytest.fixture
     def mock_slab_langs(self) -> MagicMock:
@@ -126,11 +128,11 @@ class TestApplyLoadsToSlabs:
 
             # Verify that create_extreme was called on both slabs for each matching zone
             # CS_d0.2_1: zones ["1-1", "1-2"] → 2 zones × 2 directions = 4 calls per slab type
-            # CS_d0.25_2: zones ["2-1", "2-2"] → 2 zones × 2 directions = 4 calls per slab type  
+            # CS_d0.25_2: zones ["2-1", "2-2"] → 2 zones × 2 directions = 4 calls per slab type
             # CS_d0.3_3: zones ["3-1"] → 1 zone × 2 directions = 2 calls per slab type
             # Total: 5 zones × 2 directions = 10 calls per slab type
             # But note: each call to create_extreme is made once per zone per direction
-            
+
             expected_calls = 5  # Total zones that exist in the dataframe
             assert mock_slab_langs.create_extreme.call_count == expected_calls
             assert mock_slab_dwars.create_extreme.call_count == expected_calls
@@ -240,7 +242,7 @@ class TestApplyLoadsToSlabs:
             # For 'dwars' direction: uses x-axis forces and Mx moments
 
             calls = mock_idea_rcs.ResultOfInternalForces.call_args_list
-            
+
             # Should have 6 calls total (3 load cases × 2 directions)
             assert len(calls) == 6
 
@@ -280,11 +282,13 @@ class TestApplyLoadsToSlabs:
 
     def test_apply_loads_with_missing_dataframe_columns(self) -> None:
         """Test _apply_loads_to_slabs with missing columns in dataframe."""
-        incomplete_dataframe = pd.DataFrame({
-            "name": ["1-1"],
-            "coords_xyz": [(10.0, 5.0, 0.0)],
-            # Missing most required columns
-        })
+        incomplete_dataframe = pd.DataFrame(
+            {
+                "name": ["1-1"],
+                "coords_xyz": [(10.0, 5.0, 0.0)],
+                # Missing most required columns
+            }
+        )
 
         mock_slab = MagicMock()
         created_slabs = {
@@ -349,7 +353,7 @@ class TestApplyLoadsToSlabs:
             # The function should handle empty dataframes gracefully
             # When the dataframe is empty, df_all["name"].isin(zones) will raise KeyError
             # because there's no "name" column in an empty dataframe
-            
+
             # This test verifies that the function doesn't crash when given empty data
             # but currently the function doesn't handle this case, so we expect a KeyError
             with pytest.raises(KeyError, match="name"):
