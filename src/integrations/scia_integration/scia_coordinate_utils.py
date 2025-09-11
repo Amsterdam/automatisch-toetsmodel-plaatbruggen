@@ -544,6 +544,37 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     return (None, None)
 
 
+def clip_polygon_to_bridge_boundaries(
+    corner_points: list[tuple[float, float, float]], 
+    bridge_geom_data: object
+) -> list[tuple[float, float, float]]:
+    """
+    Clip a polygon to stay within bridge boundaries.
+    
+    :param corner_points: List of 3D corner points [(x, y, z), ...]
+    :param bridge_geom_data: Bridge geometry data containing boundary information
+    :returns: Clipped corner points within bridge boundaries
+    """
+    if not corner_points:
+        return corner_points
+    
+    # Extract bridge boundaries
+    x_min = bridge_geom_data.x_coords_d_points[0]
+    x_max = bridge_geom_data.x_coords_d_points[-1]
+    y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]
+    y_max = bridge_geom_data.y_top_structural_edge_at_d_points[0]
+    
+    clipped_points = []
+    for x, y, z in corner_points:
+        # Clip X coordinates
+        clipped_x = max(x_min, min(x_max, x))
+        # Clip Y coordinates  
+        clipped_y = max(y_min, min(y_max, y))
+        clipped_points.append((clipped_x, clipped_y, z))
+    
+    return clipped_points
+
+
 def get_dispersion_at_coord(
     params: object,
     coord: tuple[float, float, float] | tuple[int, int, int] | list[float] | list[int],
