@@ -32,6 +32,8 @@ from .paths import (
 )
 from .technical import MAX_DIMENSION_SEGMENTS
 from .ui_texts import (
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
     LOAD_ZONES_INFO_TEXT,
@@ -43,6 +45,8 @@ from .ui_texts import (
 # Re-export all constants for backward compatibility
 __all__ = [
     "BRIDGE_DATA_PATH",
+    "CALCULATION_SETTINGS_INFO_TEXT",
+    "CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL",
     "CC_CLASS_OPTIONS",
     "CHANGELOG_PATH",
     "CONCRETEQUALITY_CSV_PATH",

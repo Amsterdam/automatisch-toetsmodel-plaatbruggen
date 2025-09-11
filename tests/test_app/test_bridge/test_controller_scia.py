@@ -58,7 +58,7 @@ class TestDownloadSciaXmlFiles:
                 "input": Munch(
                     {
                         "belastingzones": Munch({"lijnlast_leuning": 1.0}),
-                        "belastingcombinaties": Munch(
+                        "berekeningsinstellingen": Munch(
                             {
                                 "cc_class": "CC2",
                                 "berekeningsniveau": "Theoretische wegindeling",
