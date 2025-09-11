@@ -21,6 +21,7 @@
 not only for load combinations.
 
 ### Fixed
+- Typo on info tab in "fietspadbreedte".
 
 ## [`v0.0.11`] - 2025-08-28
 ### Added
