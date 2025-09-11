@@ -444,9 +444,18 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     info.geometric_properties_header = Text("### Geometrische eigenschappen")
     info.number_of_spans = NumberField("Aantal Velden", default=1, min=1, description="Aantal structurele overspanningen in de brug", visible=False)
-    info.static_system = TextField("Statisch Systeem", default="", description="Statisch systeemtype (bijv. statisch bepaald/onbepaald)", visible=False)
-    info.crossing_angle = NumberField("Kruisingshoek", default=90.0, suffix="°", description="Hoek waaronder de brug het obstakel kruist", visible=False)
-    info.theoretical_length = TextField("Theoretische lengte", default="", suffix="m", description="Theoretische overspanningslengte, dit is de afstand tussen de assen van de opleggingen")
+    info.static_system = TextField(
+        "Statisch Systeem", default="", description="Statisch systeemtype (bijv. statisch bepaald/onbepaald)", visible=False
+    )
+    info.crossing_angle = NumberField(
+        "Kruisingshoek", default=90.0, suffix="°", description="Hoek waaronder de brug het obstakel kruist", visible=False
+    )
+    info.theoretical_length = TextField(
+        "Theoretische lengte",
+        default="",
+        suffix="m",
+        description="Theoretische overspanningslengte, dit is de afstand tussen de assen van de opleggingen",
+    )
     info.deck_width = TextField("Brugdekbreedte", default="", suffix="m", description="Totale breedte van het brugdek")
     info.construction_height = NumberField("Constructiehoogte", default=0.0, suffix="mm", description="Hoogte van de dekconstructie", visible=False)
     info.slenderness = NumberField("Slankheidsverhouding", default=0.0, description="Slankheidsverhouding van de dekoverspanningen", visible=False)
