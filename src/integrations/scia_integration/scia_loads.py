@@ -214,7 +214,7 @@ def dispersal_function(  # noqa: C901
             # Handle None values robustly
             deck_half = (dispersion_deck_zone / 2) if isinstance(dispersion_deck_zone, (int, float)) else 0.0
             load_full = dispersion_load_zone if isinstance(dispersion_load_zone, (int, float)) else 0.0
-            dispersion_tot = deck_half + load_full
+            dispersion_tot = max((deck_half + load_full), 0.5)  # Ensure maximum dispersion of 0.5m to either side
             dispersion_x_tot = dispersion_tot if load_case_type == "axle_load" else 0.0
             dispersion_y_tot = dispersion_tot
 
