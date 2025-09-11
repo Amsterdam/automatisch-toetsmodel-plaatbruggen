@@ -7,12 +7,12 @@ the SciaModelBuilder interface.
 
 from typing import Any, Literal
 
-from .scia_bridge_geometry import extract_tandem_parameters_from_bridge
+from .scia_load_generators import extract_bridge_dimensions
 from .scia_loads_helper import (
-    generate_theoretical_lane_positions_bg8000 as generate_theoretical_lane_positions,
-)
-from .scia_loads_helper import (
+    generate_theoretical_lane_positions_bg8000,
     tandem_system_sequencer,
+    tandem_system_sequencer_single_axis,
+    tandem_system_sequencer_single_axis_rotated,
 )
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
@@ -187,13 +187,15 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     :returns: Dictionary of created service vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
-    # Extract bridge parameters needed for position calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions needed for position calculation
+    dims = extract_bridge_dimensions(params)
+    length = dims.total_length
+    thickness = dims.thickness
+    vehicle_length = 3.25
 
     # Get X positions using the same sequencer as tandem loads
-    positions = tandem_system_sequencer(length, thickness)
+
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length)
 
     cases = {}
 
@@ -242,13 +244,16 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     :returns: Dictionary of created unintended vehicle load cases.
     :rtype: dict[str, SciaLoadCase]
     """
-    # Extract bridge parameters needed for position calculation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
+    # Extract bridge dimensions needed for position calculation
+    dims = extract_bridge_dimensions(params)
+    length = dims.total_length
+    thickness = dims.thickness
 
     # Get X positions using the same sequencer as tandem loads
-    positions = tandem_system_sequencer(length, thickness)
+
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
+    positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
+    positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
 
     cases = {}
     case_counter = 1
@@ -313,6 +318,63 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         )
         case_counter += 1
 
+    # Create load cases for Amsterdam vehicle on RS 1 and RS 3
+    for pos in positions_amsterdam:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_1_x{pos}_amsterdam"
+        cases[key] = builder.create_load_case(
+            name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 1 Amsterdam - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+    for pos in positions_amsterdam:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_3_x{pos}_amsterdam"
+        cases[key] = builder.create_load_case(
+            name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 3 Amsterdam - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+
+    # Create load cases for Amsterdam vehicle on RS 1 and RS 3 - Rotated
+    for pos in positions_amsterdam_rotated:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_1_x{pos}_amsterdam_rotated"
+        cases[key] = builder.create_load_case(
+            name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 1 Amsterdam rotated - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+
+    for pos in positions_amsterdam_rotated:
+        case_name = f"BG7{case_counter:03d}"
+        key = f"rs_3_x{pos}_amsterdam_rotated"
+        cases[key] = builder.create_load_case(
+            name=case_name,
+            description=f"Verkeer, onbedoeld voertuig - RS 3 Amsterdam rotated - x = {pos:g} m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+        case_counter += 1
+
     return cases
 
 
@@ -333,15 +395,15 @@ def create_dynamic_tandem_load_cases(
     """
     load_cases = {}
 
-    # Extract bridge parameters needed for tandem load case generation
-    bridge_params = extract_tandem_parameters_from_bridge(params)
-    length = bridge_params["length_bridgedeck"]
-    thickness = bridge_params["thickness_bridgedeck"]
-    width = bridge_params["width_bridgedeck"]
+    # Extract bridge dimensions needed for tandem load case generation
+    dims = extract_bridge_dimensions(params)
+    length = dims.total_length
+    thickness = dims.thickness
+    width = dims.total_width
 
     # Determine the number of theoretical lanes, with a maximum of 3
     # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
-    num_lanes = len(generate_theoretical_lane_positions(width))
+    num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
     num_lanes = min(num_lanes, 3)
 
     # Create tandem load cases for each road system (RS)
@@ -381,7 +443,7 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck)
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
     cases = {}
     if rs == 3:
         # BG10000 series: double amount for both configurations

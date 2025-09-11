@@ -815,6 +815,36 @@ def main() -> int:
             if code != 0:
                 print(f"{Colors.YELLOW}[DEBUG] Dev deps install error: {output[:200]}...{Colors.RESET}")
 
+        # Verify critical tools are properly installed with executables
+        print(f"{Colors.CYAN}[>] Verifying tool installations in RUFT venv...{Colors.RESET}")
+
+        # Test ruff installation
+        ruff_test_code, ruff_test_output = run_command(f"{py_path} -m ruff --version")
+        if ruff_test_code != 0:
+            print(f"{Colors.YELLOW}[!] Ruff executable missing, attempting to reinstall...{Colors.RESET}")
+            # Force reinstall ruff to ensure executable is created
+            reinstall_code, reinstall_output = run_command(f"{py_path} -m pip install --force-reinstall --no-cache-dir ruff==0.11.7")
+            if reinstall_code != 0:
+                print(f"{Colors.YELLOW}[DEBUG] Ruff reinstall error: {reinstall_output[:200]}...{Colors.RESET}")
+                print(f"{Colors.YELLOW}[!] Falling back to system interpreter for ruff{Colors.RESET}")
+                return sys.executable
+            # Test again after reinstall
+            ruff_retest_code, _ = run_command(f"{py_path} -m ruff --version")
+            if ruff_retest_code != 0:
+                print(f"{Colors.YELLOW}[!] Ruff still not working after reinstall, falling back to system interpreter{Colors.RESET}")
+                return sys.executable
+
+        # Test mypy installation
+        mypy_test_code, mypy_test_output = run_command(f"{py_path} -m mypy --version")
+        if mypy_test_code != 0:
+            print(f"{Colors.YELLOW}[!] MyPy executable missing, attempting to reinstall...{Colors.RESET}")
+            # Force reinstall mypy to ensure executable is created
+            reinstall_code, reinstall_output = run_command(f"{py_path} -m pip install --force-reinstall --no-cache-dir mypy==1.15.0")
+            if reinstall_code != 0:
+                print(f"{Colors.YELLOW}[DEBUG] MyPy reinstall error: {reinstall_output[:200]}...{Colors.RESET}")
+                print(f"{Colors.YELLOW}[!] Falling back to system interpreter for mypy{Colors.RESET}")
+                return sys.executable
+
         # Verify the python path works
         test_code, test_output = run_command(f"{py_path} --version")
         if test_code != 0:

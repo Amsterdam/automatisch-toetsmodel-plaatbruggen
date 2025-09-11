@@ -28,6 +28,8 @@ from viktor.parametrization import (
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
     CONCRETEQUALITY_CSV_PATH,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
@@ -100,6 +102,21 @@ def _bridge_field_has_value(objectnumm: str, field_name: str) -> bool:
 def _bridge_field_is_empty(objectnumm: str, field_name: str) -> bool:
     """Check if a bridge field is empty or missing."""
     return not _bridge_field_has_value(objectnumm, field_name)
+
+
+# --- Helper functions for visibility callbacks ---
+
+
+def _show_signage_field(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
+    """
+    Determine if the signage field should be visible based on berekeningsniveau.
+    Only show when "Werkelijke wegindeling onderliggend wegennet met bebording" is selected.
+
+    :param params: Parameters containing berekeningsniveau setting
+    :returns: True if signage field should be visible, False otherwise
+    :rtype: bool
+    """
+    return params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording"
 
 
 # --- Helper functions for DynamicArray Default Rows ---
@@ -418,6 +435,7 @@ Below you will find important information about this bridge structure."""
         "Betonsterkteklasse",
         options=_get_concrete_quality_options_dynamic,
         default="",
+        name="concrete_strength_class",
         description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
 
@@ -452,7 +470,7 @@ Below you will find important information about this bridge structure."""
     info.width_properties_header = Text("### Breedteverdeling")
     info.roadway_width = TextField("Rijwegbreedte", default="", suffix="m", description="Breedte toegewezen aan voertuigverkeer")
     info.tram_width = TextField("Breedte trambaan", default="", suffix="m", description="Breedte van de trambaan")
-    info.bicycle_path_width = TextField("Fietspaadbreedte", default="", suffix="m", description="Breedte van fietspaden")
+    info.bicycle_path_width = TextField("Fietspadbreedte", default="", suffix="m", description="Breedte van fietspaden")
     info.sidewalk_north_east_width = TextField(
         "Trottoirbreedte (Noord/Oost)", default="", suffix="m", description="Breedte van trottoir aan noord/oost zijde"
     )
@@ -538,28 +556,57 @@ Below you will find important information about this bridge structure."""
     input.dimensions = Tab("Dimensies")
     input.geometrie_wapening = Tab("Wapening")
     input.belastingzones = Tab("Belastingzones")
-    input.belastingcombinaties = Tab("Belastingcombinaties")
+    input.berekeningsinstellingen = Tab("Berekeningsinstellingen")
 
-    # --- Load Combinations (in belastingcombinaties tab) ---
-    input.belastingcombinaties.cc_class = OptionField(
+    input.berekeningsinstellingen.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
+
+    # --- Load Combinations (in berekeningsinstellingen tab) ---
+    input.berekeningsinstellingen.cc_class = OptionField(
         "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
     )
-    input.belastingcombinaties.berekeningsniveau = OptionField(
+
+    input.berekeningsinstellingen.design_code = OptionField(
+        "Veiligheidsniveau",
+        options=[
+            "NEN 8700 verbouw",
+            "NEN 8700 gebruik",
+            "NEN 8700 afkeur",
+        ],
+        variant="radio",
+        name="design_code",
+        default="NEN 8700 verbouw",
+    )
+
+    input.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
+
+    input.berekeningsinstellingen.berekeningsniveau = OptionField(
         "Berekeningsniveau",
         options=[
             "Theoretische wegindeling",
             "Werkelijke wegindeling",
             "Werkelijke wegindeling onderliggend wegennet",
+            "Werkelijke wegindeling onderliggend wegennet met bebording",
         ],
         variant="radio",
         name="berekeningsniveau",
         default="Theoretische wegindeling",
     )
-    input.belastingcombinaties.lb = LineBreak()
-    input.belastingcombinaties.design_code = OptionField(
-        "Veiligheidsniveau", options=["NEN 8700 verbouw", "NEN 8700 gebruik", "NEN 8700 afkeur"], name="design_code", default="NEN 8700 verbouw"
+
+    input.berekeningsinstellingen.signage = OptionField(
+        "Bebording",
+        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
+        name="signage",
+        default="50 ton",
+        visible=_show_signage_field,
     )
 
+    input.berekeningsinstellingen.lb1 = LineBreak()
+
+    input.berekeningsinstellingen.spreiding = BooleanField(
+        "Spreiding van verkeersbelasting",
+        default=True,
+        description="Indien aangevinkt, wordt de verticale verkeersbelasting van BG6000 tot en met BG10000, uitgespreid over een breder vlak",
+    )
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
@@ -884,7 +931,16 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # --- SCIA Page ---
     # ----------------------------------
 
-    scia = Page("SCIA", views=["get_3d_view", "get_scia_results_table"])
+    scia = Page(
+        "SCIA",
+        views=[
+            "get_3d_view",
+            "get_scia_results_view_sls_kar",
+            "get_scia_results_view_sls_freq",
+            "get_scia_results_view_uls",
+            "get_scia_results_table",
+        ],
+    )
 
     scia.info_text = Text(SCIA_INFO_TEXT)
 

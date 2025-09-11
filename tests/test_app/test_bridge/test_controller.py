@@ -60,7 +60,7 @@ class TestBridgeController(unittest.TestCase):
         with pytest.raises(UserError) as context:
             _create_bridge_segment_dimensions_from_params(incomplete_segment)  # type: ignore[arg-type]
 
-        assert "brugsegmenten missen benodigde data" in str(context.value)
+        assert "mist benodigde data" in str(context.value)
 
     @patch("src.geometry.load_zone_geometry.prepare_load_zone_geometry_data")
     @controller_test_wrapper("BridgeController", "_prepare_bridge_geometry_for_plotting")
@@ -144,8 +144,8 @@ class TestBridgeController(unittest.TestCase):
         assert name is None
         assert error_result is not None
 
-    def test_bridge_segment_param_row_structure(self) -> None:
-        """Test BridgeSegmentParamRow structure validation using seed data."""
+    def test_bridge_segment_param_structure(self) -> None:
+        """Test bridge segment parameter structure validation using seed data."""
         # Act & Assert - test that our sample segment has the expected structure
         assert "bz1" in self.sample_segment_row
         assert "bz2" in self.sample_segment_row
@@ -180,10 +180,10 @@ class TestBridgeController(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations
-        assert hasattr(self.default_params.input, "belastingcombinaties")
-        assert isinstance(self.default_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.default_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.default_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.default_params.input, "berekeningsinstellingen")
+        assert isinstance(self.default_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "design_code")
 
         # Reinforcement cover split
         assert hasattr(self.default_params.input.geometrie_wapening, "dekking_boven")
@@ -213,10 +213,10 @@ class TestBridgeController(unittest.TestCase):
 
         # New structure checks (parametrization alignment)
         # Load combinations
-        assert hasattr(self.complex_params.input, "belastingcombinaties")
-        assert isinstance(self.complex_params.input.belastingcombinaties.cc_class, str)
-        assert hasattr(self.complex_params.input.belastingcombinaties, "berekeningsniveau")
-        assert hasattr(self.complex_params.input.belastingcombinaties, "design_code")
+        assert hasattr(self.complex_params.input, "berekeningsinstellingen")
+        assert isinstance(self.complex_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "berekeningsniveau")
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "design_code")
 
         # Reinforcement cover split
         assert hasattr(self.complex_params.input.geometrie_wapening, "dekking_boven")

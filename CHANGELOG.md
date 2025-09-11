@@ -1,4 +1,36 @@
-## [`v0.0.11`] - 2025-xx-XX
+## [`v0.0.12`] - 2025-xx-xx
+### Added
+- **Centralized SCIA Unit Conversion System**: Implemented centralized unit handling to ensure units mapping and value conversion stay synchronized
+  - Added `UnitConversion` dataclass to store display units, conversion factors, and raw units together
+  - Comprehensive test suite with 20+ tests ensuring conversion consistency and backward compatibility
+- **Comprehensive SCIA Units Testing**: Added extensive test coverage for SCIA units handling
+  - 13 tests for `build_units_mapping()` function covering 1D/2D table detection and edge cases
+  - 11 tests for `_format_complete_force_state()` method verifying proper unit application in formatted strings
+  - Tests cover 2D plate units (kN/m, kNm/m) vs 1D beam units (kN, kNm)
+  - Edge case handling: missing data, non-dict structures, partial units mapping
+- **SCIA Units Infrastructure**: Enhanced units mapping and error handling
+  - Improved `get_result_summary()` to handle non-dict section data gracefully
+  - Units are consistently applied from data extraction through user interface display
+- **Traffic load cases**: Added tandem loads and udl for real road layout
+  - Added functionality dependent on radio button for road layout
+  - Added accidental vehicle according to TAB, parallel and perpendicular to driving direction
+  - Added the dispersal function to all the vertical traffic load cases, with a maximum dispersion of 1.0 by 1.0 meters
+- **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
+
+### Changed
+- **Refactored SCIA Unit Handling**: Migrated existing unit conversion functions to use centralized system
+  - Maintained full backward compatibility - all existing tests continue to pass
+- **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
+- **Input tab for calculation settings**: Added explanatory text and changed the tab name from "Belastingcombinaties" to
+"Berekeningsinstellingen", since the user input on this tab controls settings for the model calculation in general,
+not only for load combinations.
+
+### Fixed
+- **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
+- **SCIA Unit Conversion**: Fixed missing unit conversion from N to kN and Nm to kNm in three SCIA result tables
+- **SCIA Result Views**: Added proper units display in table headers and values for consistent engineering units
+
+## [`v0.0.11`] - 2025-08-28
 ### Added
 - **Resource File Access Testing**: Added comprehensive test suite for resource file access patterns
   - Tests all resource paths use absolute paths consistently
@@ -17,25 +49,12 @@
   - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
   - Aims to ensure consistent behavior between development and production environments
   - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
-e- **Development Environment Portability**: Fixed user-specific paths in development tools
+- **Development Environment Portability**: Fixed user-specific paths in development tools
   - Added `.ruft_venv/` to `.gitignore` to prevent committing user-specific virtual environment paths
   - Removed existing `.ruft_venv` directory from git tracking to avoid path conflicts between developers
   - Quality check script already uses portable relative paths and cross-platform logic
   - Enhanced `setup_dev.py` to automatically create RUFT virtual environment and install all dependencies
   - Added clear IDE setup instructions with exact Python interpreter path for VS Code/Cursor
-
-## [`v0.0.10`] - 2025-08-14
-### Added
-- **Result Classes**: Added result classes to the SCIA model
-
-### Changed
--
-
-### Removed
--
-
-### Fixed
--
 
 ## [`v0.0.10`] - 2025-08-14
 ### Added
@@ -51,6 +70,7 @@ e- **Development Environment Portability**: Fixed user-specific paths in develop
   - Accidental vehicle impact scenarios
   - SCIA load combinations
 - Graceful error handling for XML parsing issues in IDEA results
+- **Result Classes**: Added result classes to the SCIA model
 
 ### Changed
 - **Performance Improvements**: Significant speedup for repeated calculations through caching

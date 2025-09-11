@@ -9,3 +9,4 @@ shapely
 trimesh
 networkx
 docxtpl
+pydantic==2.10.3

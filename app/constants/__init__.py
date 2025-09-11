@@ -1,0 +1,71 @@
+"""
+Constants package for the app layer (VIKTOR SDK).
+
+This package contains specialized constants files organized by purpose:
+- parametrization: Re-exported from src layer for UI consistency
+- paths: File and directory paths for resources
+- ui_texts: Help texts, explanations, and UI content
+- technical: App-specific technical constants
+"""
+
+# Import parametrization constants from src layer (single source of truth)
+from src.common.constants import (
+    CC_CLASS_OPTIONS,
+    DESIGN_CODE_OPTIONS,
+    LOAD_ZONE_TYPES,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SIGNAGE_LOAD_FACTORS,
+)
+
+# Import app-specific constants
+from .paths import (
+    BRIDGE_DATA_PATH,
+    CHANGELOG_PATH,
+    CONCRETEQUALITY_CSV_PATH,
+    CSS_PATH,
+    OUTPUT_REPORT_PATH,
+    PROJECT_PATH,
+    README_PATH,
+    REINFORCEMENT_PATH,
+    SCIA_TEMPLATE_PATH,
+)
+from .technical import MAX_DIMENSION_SEGMENTS
+from .ui_texts import (
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONES_INFO_TEXT,
+    README_CONTENT,
+    SCIA_INFO_TEXT,
+    SCIA_ZIP_README_CONTENT,
+)
+
+# Re-export all constants for backward compatibility
+__all__ = [
+    "BRIDGE_DATA_PATH",
+    "CALCULATION_SETTINGS_INFO_TEXT",
+    "CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL",
+    "CC_CLASS_OPTIONS",
+    "CHANGELOG_PATH",
+    "CONCRETEQUALITY_CSV_PATH",
+    "CSS_PATH",
+    "DESIGN_CODE_OPTIONS",
+    "DIMENSIONS_SEGMENTS_EXPLANATION",
+    "IDEA_INFO_TEXT",
+    "LOAD_ZONES_INFO_TEXT",
+    "LOAD_ZONE_TYPES",
+    "MAX_DIMENSION_SEGMENTS",
+    "MAX_LOAD_ZONE_SEGMENT_FIELDS",
+    "OUTPUT_REPORT_PATH",
+    "PAVEMENT_MATERIAL_OPTIONS",
+    "PROJECT_PATH",
+    "README_CONTENT",
+    "README_PATH",
+    "REINFORCEMENT_PATH",
+    "SCIA_INFO_TEXT",
+    "SCIA_TEMPLATE_PATH",
+    "SCIA_ZIP_README_CONTENT",
+    "SIGNAGE_LOAD_FACTORS",
+]

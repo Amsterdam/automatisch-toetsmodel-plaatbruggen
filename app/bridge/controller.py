@@ -2,9 +2,10 @@
 
 import traceback
 import zipfile
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
-from typing import Any
+from typing import Any, NoReturn
 
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
@@ -12,7 +13,6 @@ import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
     GeometryResult,
@@ -29,7 +29,6 @@ from viktor.views import (
 )
 
 from app.bridge.analysis_cache import (
-    AnalysisType,
     get_cached_analysis_results,
     get_idea_analysis_results,
     get_idea_model_only,
@@ -50,8 +49,14 @@ from app.common.map_utils import (
 # Params for load combinations are in app.constants
 from app.constants import SCIA_TEMPLATE_PATH
 from src.combinations.load_factors import create_load_combination_table
+from src.common.constants.technical import AnalysisType
 from src.common.plot_utils import (
     create_bridge_outline_traces,
+)
+from src.data_models.plotting_models import (
+    BridgeBaseGeometry,  # Pydantic model for bridge_geom argument
+    PlotPresentationDetails,  # Pydantic model for presentation details
+    ZoneStylingDefaults,  # Pydantic model for styling_defaults argument
 )
 from src.geometry.cross_section import create_cross_section_view
 from src.geometry.horizontal_section import create_horizontal_section_view
@@ -59,9 +64,6 @@ from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, 
 from src.geometry.load_zone_plot import (
     DEFAULT_PLOTLY_COLORS,  # Import for styling defaults
     DEFAULT_ZONE_APPEARANCE_MAP,  # Import for styling defaults
-    BridgeBaseGeometry,  # TypedDict for bridge_geom argument
-    PlotPresentationDetails,  # TypedDict for presentation details
-    ZoneStylingDefaults,  # TypedDict for styling_defaults argument
     build_load_zones_figure,
 )
 from src.geometry.longitudinal_section import create_longitudinal_section
@@ -73,7 +75,15 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-from src.integrations.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.idea_integration.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.idea_integration.idea_results_processor import IdeaResultsProcessor
+
+# SCIA integration imports
+from src.integrations.scia_integration.scia_force_envelopes import (
+    extract_force_envelopes,
+    get_force_envelope_summary,
+)
+from src.integrations.scia_integration.scia_result_views import create_scia_result_table
 from src.report.report_functions import create_export_report  # Import the report creation function
 
 # Import parametrization from the separate file
@@ -343,22 +353,22 @@ class BridgeController(ViktorController):
             base_traces.extend(create_bridge_outline_traces(bridge_outline_data))
 
         # 5. Call build_load_zones_figure
-        bridge_geom_arg: BridgeBaseGeometry = {
-            "x_coords_d_points": bridge_geom_data.x_coords_d_points,
-            "y_coords_bridge_top_edge": bridge_geom_data.y_top_structural_edge_at_d_points,
-            "y_coords_bridge_bottom_edge": [[y_bottom, y_bottom] for y_bottom in bridge_geom_data.y_bridge_bottom_at_d_points],
-            "num_defined_d_points": bridge_geom_data.num_defined_d_points,
-        }
-        styling_defaults_arg: ZoneStylingDefaults = {
-            "zone_appearance_map": DEFAULT_ZONE_APPEARANCE_MAP,
-            "default_plotly_colors": DEFAULT_PLOTLY_COLORS,
-        }
+        bridge_geom_arg = BridgeBaseGeometry(
+            x_coords_d_points=bridge_geom_data.x_coords_d_points,
+            y_coords_bridge_top_edge=bridge_geom_data.y_top_structural_edge_at_d_points,
+            y_coords_bridge_bottom_edge=[[y_bottom, y_bottom] for y_bottom in bridge_geom_data.y_bridge_bottom_at_d_points],
+            num_defined_d_points=bridge_geom_data.num_defined_d_points,
+        )
+        styling_defaults_arg = ZoneStylingDefaults(
+            zone_appearance_map=DEFAULT_ZONE_APPEARANCE_MAP,
+            default_plotly_colors=DEFAULT_PLOTLY_COLORS,
+        )
 
-        presentation_details_arg: PlotPresentationDetails = {
-            "base_traces": base_traces,
-            "validation_messages": validation_messages,
-            "figure_title": "Belastingzones",
-        }
+        presentation_details_arg = PlotPresentationDetails(
+            base_traces=base_traces,
+            validation_messages=validation_messages,
+            figure_title="Belastingzones",
+        )
 
         fig = build_load_zones_figure(
             load_zones_data_params=load_zones_data_params,
@@ -369,7 +379,7 @@ class BridgeController(ViktorController):
 
         return PlotlyResult(fig.to_json())
 
-    @TableView("Belastingscombinaties")
+    @TableView("Belastingscombinaties", duration_guess=1)
     def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
         """
         Display the table of load combinations for the bridge.
@@ -379,22 +389,46 @@ class BridgeController(ViktorController):
         :returns: TableResult containing the load combinations.
         :rtype: TableResult
         """
-        combination_table = create_load_combination_table(params)
-
-        # Convert DataFrame to list of lists for TableResult
-        data_rows: list[list[Any]] | None = None
+        # Prepare parameters in the format expected by create_load_combination_table
+        # Use defensive programming with default values for incomplete parametrization
+        # Prefer top-level fields when OptionField(name=...) exposes them, fallback to nested structure
         try:
-            if hasattr(combination_table, "values") and hasattr(combination_table, "columns"):
-                data_rows = combination_table.values.tolist()  # type: ignore[attr-defined]
-                column_headers = [str(c) for c in list(combination_table.columns)]  # type: ignore[attr-defined]
-                return TableResult(data_rows, column_headers=column_headers)
+            cc_class = (
+                getattr(params, "cc_class", None)
+                or getattr(getattr(getattr(params, "input", None), "berekeningsinstellingen", None), "cc_class", None)
+                or "CC2"
+            )
+            design_code = (
+                getattr(params, "design_code", None)
+                or getattr(getattr(getattr(params, "input", None), "berekeningsinstellingen", None), "design_code", None)
+                or "NEN 8700 verbouw"
+            )
         except Exception:
-            data_rows = None
+            cc_class = "CC2"
+            design_code = "NEN 8700 verbouw"
 
-        if isinstance(combination_table, list):
-            return TableResult(combination_table)
+        try:
+            construction_year = (
+                getattr(getattr(params, "info", None), "construction_year", None) or getattr(params, "construction_year", None) or "2000"
+            )
+        except Exception:
+            construction_year = "2000"
 
-        return TableResult([[str(combination_table)]])
+        # Ensure construction_year is not empty
+        if not construction_year or str(construction_year).strip() == "":
+            construction_year = "2000"
+
+        load_combination_params = {
+            "cc_class": cc_class,
+            "design_code": design_code,
+            "info": {
+                "construction_year": construction_year,
+            },
+        }
+
+        combination_table = create_load_combination_table(load_combination_params)
+        # Return the Styler object to preserve colors and formatting
+        return TableResult(combination_table)
 
     # ============================================================================================================
     # SCIA Integration
@@ -569,7 +603,13 @@ class BridgeController(ViktorController):
         # Extract data from parsed tables
         internal_forces_basis = parsed_tables.get("Interne 2D-krachten basis", {})
         displacements_2d = parsed_tables.get("2D-verplaatsing", {})
-        result_classes_uls = parsed_tables.get("Result classes - UGT", {})
+
+        # Extract result classes data (try multiple possible names)
+        result_classes_uls = (
+            parsed_tables.get("Resultaatklasses - ULS", {})
+            or parsed_tables.get("Result classes - UGT", {})
+            or parsed_tables.get("Result classes - ULS", {})
+        )
 
         # Initialize variables for engineering assessment
         max_moment = None
@@ -613,16 +653,175 @@ class BridgeController(ViktorController):
 
         return table_data
 
-    @TableView("SCIA Analyse Resultaten", duration_guess=300)
-    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """
-        Display SCIA analysis results in a table format with actual engineering values.
+    def _add_result_classes_overview(self, results: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add overview of available result classes to the table."""
+        xml_parsing = results.get("xml_parsing", {})
+        if not isinstance(xml_parsing, dict):
+            return
 
-        This view shows key structural analysis results including:
-        - Maximum internal forces (moment, shear, normal force)
-        - Maximum displacements and rotations
-        - Load combination information
-        - Engineering assessment based on moment magnitude
+        parsed_tables = xml_parsing.get("parsed_tables", {})
+        result_class_tables = [name for name in parsed_tables if "Resultaatklasses" in name]
+
+        if result_class_tables:
+            table_data.append(["Result Classes", f"{len(result_class_tables)} beschikbaar", "Alle types", "Succes"])
+            for rc_table in result_class_tables:
+                rc_name = rc_table.replace("Resultaatklasses - ", "")
+                table_data.append([f"  └─ {rc_name}", "Actief", "Load combinations", "Info"])
+
+    def _add_available_tables_info(self, xml_parsing: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add information about available result tables."""
+        table_details = xml_parsing.get("table_details", [])
+        if table_details:
+            tables_with_data = [t for t in table_details if t.get("has_data", False)]
+            table_data.append(["Tabellen met Data", f"{len(tables_with_data)}", "XML Structure", "Info"])
+
+            # Show key engineering tables
+            key_tables = ["2D-verplaatsing", "Interne 2D-krachten basis", "Interne 2D-krachten elementair"]
+            for table_name in key_tables:
+                table_detail = next((t for t in table_details if t.get("name") == table_name), None)
+                if table_detail:
+                    rows = table_detail.get("data_rows", 0)
+                    table_data.append([f"  └─ {table_name}", f"{rows} rijen", "Resultaten", "Succes"])
+
+    def _add_displacement_results(self, displacements: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add displacement result information to the table."""
+        disp_status = displacements.get("status", "unknown")
+        if disp_status == "success":
+            table_data.append(["Verplaatsingen", "Beschikbaar", "2D-verplaatsing", "Succes"])
+
+            # Try to extract sample displacement values
+            disp_data = displacements.get("data", {})
+            if disp_data and hasattr(disp_data, "rows"):
+                try:
+                    max_displacement = 0.0
+                    for row in disp_data.rows:
+                        if hasattr(row, "u_z") and row.u_z:
+                            max_displacement = max(max_displacement, abs(float(row.u_z)))
+
+                    if max_displacement > 0:
+                        table_data.append(["Max Doorbuiging", f"{max_displacement * 1000:.2f} mm", "Alle punten", "UGT"])
+                except Exception:
+                    table_data.append(["Verplaatsing Data", "Parsing fout", "2D-verplaatsing", "Waarschuwing"])
+        else:
+            table_data.append(["Verplaatsingen", "Niet beschikbaar", "2D-verplaatsing", "Waarschuwing"])
+
+    def _add_internal_force_results(self, internal_forces: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add internal force result information to the table."""
+        force_status = internal_forces.get("status", "unknown")
+        if force_status == "success":
+            table_data.append(["Interne Krachten", "Beschikbaar", "2D-krachten", "Succes"])
+
+            # Try to extract sample force values
+            force_data = internal_forces.get("data", {})
+            if force_data and hasattr(force_data, "rows"):
+                try:
+                    max_moment = 0.0
+                    max_shear = 0.0
+                    for row in force_data.rows:
+                        if hasattr(row, "m_x") and row.m_x:
+                            max_moment = max(max_moment, abs(float(row.m_x)))
+                        if hasattr(row, "v_x") and row.v_x:
+                            max_shear = max(max_shear, abs(float(row.v_x)))
+
+                    if max_moment > 0:
+                        table_data.append(["Max Moment", f"{max_moment / 1000000:.1f} kNm", "Alle elementen", "UGT"])
+                    if max_shear > 0:
+                        table_data.append(["Max Dwarskracht", f"{max_shear:.0f} kN", "Alle elementen", "UGT"])
+                except Exception:
+                    table_data.append(["Krachten Data", "Parsing fout", "2D-krachten", "Waarschuwing"])
+        else:
+            table_data.append(["Interne Krachten", "Niet beschikbaar", "2D-krachten", "Waarschuwing"])
+
+    def _add_reaction_results(self, reactions: dict[str, Any], table_data: list[list[str]]) -> None:
+        """Add reaction result information to the table."""
+        reaction_status = reactions.get("status", "unknown")
+        if reaction_status == "success":
+            table_data.append(["Reactiekrachten", "Beschikbaar", "Ondersteuningen", "Succes"])
+        elif reaction_status == "not_found":
+            table_data.append(["Reactiekrachten", "Niet gevonden", "Ondersteuningen", "Info"])
+        else:
+            table_data.append(["Reactiekrachten", "Fout bij extractie", "Ondersteuningen", "Waarschuwing"])
+
+    # Tableview for SLS kar results
+    @TableView("SCIA SLS kar", duration_guess=600)
+    def get_scia_results_view_sls_kar(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS kar results from SCIA analysis in a comprehensive table format.
+
+        Shows maximum and minimum values for each force component (N, Vy, Vz, Mxd+, Mxd-, Myd+, Myd-)
+        per bridge section (Z1_1, Z2_1, Z3_1) along with:
+        - Complete force state at that point
+        - Location and load combination causing the extreme value
+        - All other force components at the critical point
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+        """
+        print("Starting SCIA SLS kar results view...")  # noqa: T201
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> NoReturn:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError(error_msg)
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
+            traceback.print_exc()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Use the new module function to create the table
+        return create_scia_result_table(results, "SLS kar")
+
+    # Tableview for SLS freq results
+    @TableView("SCIA SLS freq", duration_guess=600)
+    def get_scia_results_view_sls_freq(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS freq results from SCIA analysis in a comprehensive table format.
+
+        Shows force and moment values for each coordinate location from SLS freq analysis.
+        Data is processed using IDEA StatiCa integration functions.
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
         """
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
@@ -635,29 +834,444 @@ class BridgeController(ViktorController):
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        def _raise_scia_error() -> None:
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> NoReturn:
             """Raise a user error for SCIA analysis failures."""
-            raise UserError("SCIA analyse resultaten konden niet worden opgehaald.")
+            raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
         try:
-            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
             if results is None:
                 _raise_scia_error()
-        except Exception:
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
             traceback.print_exc()
-            _raise_scia_error()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Use the new module function to create the table
+        return create_scia_result_table(results, "SLS freq")
+
+    # Tableview for ULS results
+    @TableView("SCIA ULS", duration_guess=600)
+    def get_scia_results_view_uls(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display ULS results from SCIA analysis in a comprehensive table format.
+
+        Shows force and moment values for each coordinate location from ULS analysis.
+        Data is processed using IDEA StatiCa integration functions.
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> NoReturn:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError(error_msg)
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
+            traceback.print_exc()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Use the new module function to create the table
+        return create_scia_result_table(results, "ULS")
+
+    @TableView("SCIA Analyse Resultaten", duration_guess=600)
+    def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: C901, PLR0912
+        """
+        Display force envelopes from SCIA analysis in a comprehensive table format.
+
+        Shows maximum and minimum values for each force component (N, Vy, Vz, Mxd+, Mxd-, Myd+, Myd-)
+        per bridge section (Z1_1, Z2_1, Z3_1) along with:
+        - Complete force state at that point
+        - Location and load combination causing the extreme value
+        - All other force components at the critical point
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA analyse resultaten konden niet worden opgehaald.") -> NoReturn:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError(error_msg)
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
+            traceback.print_exc()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Print comprehensive results summary to console
+        self._print_scia_results_summary(results)  # type: ignore[arg-type]
+
+        # Extract force envelopes
+        try:
+            envelopes = extract_force_envelopes(results)  # type: ignore[arg-type]
+        except Exception as e:
+            return TableResult(
+                [["Fout", f"Kon krachtenveloppen niet extraheren: {str(e)[:100]}...", "", "", "", "", ""]],
+                column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
+            )
+
+        if not envelopes:
+            return TableResult(
+                [["Geen gegevens", "Geen krachtenveloppen beschikbaar - mogelijk geen interne krachten data", "", "", "", "", ""]],
+                column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"],
+            )
+
+        # Get units mapping from results
+        units_mapping = results.get("units", {}).get("internal_forces", {})  # type: ignore[arg-type]
 
         # Build table data
-        if results is None:
-            _raise_scia_error()
-        table_data = self._build_results_table_data(results)  # type: ignore[arg-type]
+        table_data = []
 
-        # Create table with Dutch column headers
-        return TableResult(
-            table_data,
-            column_headers=["Parameter", "Waarde", "Locatie", "Status"],
+        for section, section_envelopes in envelopes.items():
+            for component, envelope in section_envelopes.items():
+                max_data = envelope["max"]
+                min_data = envelope["min"]
+
+                # Get unit for this component
+                component_unit = units_mapping.get(component, "")
+                unit_suffix = f" {component_unit}" if component_unit else ""
+
+                # Add maximum value row
+                if max_data["value"] != float("-inf"):
+                    max_forces_str = self._format_complete_force_state(max_data["forces"], units_mapping)
+                    table_data.append(
+                        [
+                            section,
+                            component,
+                            "Maximum",
+                            f"{max_data['value']:.1f}{unit_suffix}",
+                            max_data["location"],
+                            max_data["combination"],
+                            max_forces_str,
+                        ]
+                    )
+
+                # Add minimum value row
+                if min_data["value"] != float("inf"):
+                    min_forces_str = self._format_complete_force_state(min_data["forces"], units_mapping)
+                    table_data.append(
+                        [
+                            section,
+                            component,
+                            "Minimum",
+                            f"{min_data['value']:.1f}{unit_suffix}",
+                            min_data["location"],
+                            min_data["combination"],
+                            min_forces_str,
+                        ]
+                    )
+
+        # Sort by section and component for better readability
+        table_data.sort(key=lambda x: (x[0], x[1], x[2]))
+
+        return TableResult(table_data, column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"])
+
+    def get_force_envelopes(self, params: BridgeParametrization, **kwargs) -> dict[str, Any]:
+        """
+        Extract force envelopes from SCIA analysis results.
+
+        Returns a dictionary containing max/min values for each force component
+        along with complete force state and location context.
+
+        :param params: Bridge parametrization
+        :return: Force envelopes dictionary
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get entity_id from kwargs
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID is vereist voor analyse resultaten")
+
+        # Get SCIA analysis results
+        template_path = self._get_scia_template_path()
+        results = get_cached_analysis_results(
+            params=params,
+            analysis_type=AnalysisType.SCIA,
+            entity_id=entity_id,
+            analysis_function=get_scia_analysis_results,
+            template_path=str(template_path),
         )
+
+        if not results:
+            raise UserError("Geen SCIA analyse resultaten beschikbaar. Voer eerst een analyse uit.")
+
+        # Extract force envelopes
+        envelopes = extract_force_envelopes(results)
+
+        # Add summary information
+        summary = get_force_envelope_summary(envelopes)
+
+        return {
+            "envelopes": envelopes,
+            "summary": summary,
+            "analysis_info": {
+                "total_components": len(envelopes),
+                "has_data": any(env["max"]["value"] != float("-inf") and env["min"]["value"] != float("inf") for env in envelopes.values()),
+            },
+        }
+
+    def _format_complete_force_state(self, forces: dict[str, float], units_mapping: dict[str, str] | None = None) -> str:
+        """Format the complete force state as a compact readable string."""
+        force_parts = []
+        units_mapping = units_mapping or {}
+
+        # Only show non-zero forces to reduce clutter
+        # Normal force
+        if "N" in forces and abs(forces["N"]) > 0.1:
+            unit = units_mapping.get("N", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"N={forces['N']:.0f}{unit_suffix}")
+
+        # Shear forces
+        if "Vy" in forces and abs(forces["Vy"]) > 0.1:
+            unit = units_mapping.get("Vy", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Vy={forces['Vy']:.0f}{unit_suffix}")
+        if "Vz" in forces and abs(forces["Vz"]) > 0.1:
+            unit = units_mapping.get("Vz", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Vz={forces['Vz']:.0f}{unit_suffix}")
+
+        # Moments - only show if significant
+        if "Mxd+" in forces and abs(forces["Mxd+"]) > 0.1:
+            unit = units_mapping.get("Mxd+", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Mx+={forces['Mxd+']:.0f}{unit_suffix}")
+        if "Mxd-" in forces and abs(forces["Mxd-"]) > 0.1:
+            unit = units_mapping.get("Mxd-", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"Mx-={forces['Mxd-']:.0f}{unit_suffix}")
+        if "Myd+" in forces and abs(forces["Myd+"]) > 0.1:
+            unit = units_mapping.get("Myd+", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"My+={forces['Myd+']:.0f}{unit_suffix}")
+        if "Myd-" in forces and abs(forces["Myd-"]) > 0.1:
+            unit = units_mapping.get("Myd-", "")
+            unit_suffix = f" {unit}" if unit else ""
+            force_parts.append(f"My-={forces['Myd-']:.0f}{unit_suffix}")
+
+        # If no significant forces, show "All ≈ 0"
+        if not force_parts:
+            return "All ≈ 0"
+
+        return " | ".join(force_parts)
+
+    def _print_scia_results_summary(self, results: dict[str, Any]) -> None:
+        """Print a summary of SCIA results to console for debugging/development."""
+        # Analysis status
+        results.get("analysis_status", {})
+
+        # Result classes
+        xml_parsing = results.get("xml_parsing", {})
+        if isinstance(xml_parsing, dict):
+            parsed_tables = xml_parsing.get("parsed_tables", {})
+            [name for name in parsed_tables if "Resultaatklasses" in name]
+
+        # Engineering data summary
+        results.get("displacements", {})
+        results.get("internal_forces", {})
+
+        # Data tables summary
+        if isinstance(xml_parsing, dict):
+            table_details = xml_parsing.get("table_details", [])
+            [t for t in table_details if t.get("has_data", False)]
+
+        # Extract and print force envelopes
+        self._print_force_envelopes(results)
+
+    def _print_sample_engineering_values(self, results: dict[str, Any]) -> None:  # noqa: C901
+        """Print sample engineering values from SCIA results."""
+        # Try to extract and print sample values from internal forces
+        internal_forces = results.get("internal_forces", {})
+        if internal_forces.get("status") == "success":
+            force_data = internal_forces.get("data", {})
+            if force_data and hasattr(force_data, "rows"):
+                try:
+                    for i, row in enumerate(force_data.rows[:3]):
+                        if hasattr(row, "m_x") and hasattr(row, "v_x"):
+                            # Access attributes but don't store in unused variables
+                            getattr(row, "element_name", f"Element {i + 1}")
+                            float(row.m_x) / 1000000  # Convert to kNm
+                            float(row.v_x) / 1000  # Convert to kN
+                            getattr(row, "load_case", "Unknown")
+                except Exception:
+                    pass
+
+        # Try to extract and print sample values from displacements
+        displacements = results.get("displacements", {})
+        if displacements.get("status") == "success":
+            disp_data = displacements.get("data", {})
+            if disp_data and hasattr(disp_data, "rows"):
+                try:
+                    for i, row in enumerate(disp_data.rows[:3]):
+                        if hasattr(row, "u_z"):
+                            # Access attributes but don't store in unused variables
+                            getattr(row, "element_name", f"Point {i + 1}")
+                            float(row.u_z) * 1000  # Convert to mm
+                            getattr(row, "load_case", "Unknown")
+                except Exception:
+                    pass
+
+    def _print_force_envelopes(self, results: dict[str, Any]) -> None:
+        """Extract and print force envelopes from SCIA results."""
+        # Force envelope analysis without debug printing
+
+        try:
+            # Extract force envelopes
+            envelopes = extract_force_envelopes(results)
+
+            if not envelopes:
+                # No force envelope data available
+                return
+
+            # Print summary for each bridge section and force component
+            for section_envelopes in envelopes.values():
+                # Process bridge section
+
+                for envelope in section_envelopes.values():
+                    max_data = envelope["max"]
+                    min_data = envelope["min"]
+
+                    # Skip if no valid data found
+                    if max_data["value"] == float("-inf") or min_data["value"] == float("inf"):
+                        # Component has no data available
+                        continue
+
+                    # Process component envelope
+                    # Process maximum force data
+                    max_data["forces"]
+                    # Process complete force state
+                    # Process moment data
+                    # Process moment data
+
+                    # Process minimum force data
+                    min_data["forces"]
+                    # Process complete force state
+                    # Process moment data
+                    # Process moment data
+
+            # Print summary statistics
+            get_force_envelope_summary(envelopes)
+            # Summary processing without printing
+            # Process critical locations
+            # Process critical combinations
+
+        except Exception:
+            # Silently handle errors without printing debug information
+            pass
 
     def _get_scia_template_path(self) -> Path:
         """
@@ -927,9 +1541,9 @@ class BridgeController(ViktorController):
         unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
 
         # If no unique keys found, return empty table
-        data = [[value[0], value[1]] for value in unique_matching_zone_keys]
+        data = [[value[0], value[1], str(value[2])] for value in unique_matching_zone_keys]
 
-        columns = ["Zone_dikte", "Wapeningsconfiguratie"]
+        columns = ["Zone_dikte", "Wapeningsconfiguratie", "Zones"]
 
         return TableResult(data, column_headers=columns)
 
@@ -940,74 +1554,35 @@ class BridgeController(ViktorController):
 
         :param params: Bridge parametrization
         :type params: BridgeParametrization
-        :returns: TableResult met unieke zone keys
+        :returns: TableResult met IDEA RCS analyse resultaten
         :rtype: TableResult
         """
-        # Get entity ID from kwargs
+        # Validate bridge segments
+        if not hasattr(params, "bridge_segments_array") or not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get entity ID
         entity_id = kwargs.get("entity_id")
         if entity_id is None:
-            raise UserError("Entity ID not found in kwargs")
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        # Get cached IDEA analysis results
+        # Get cached results
         cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
-            raise UserError("IDEA analysis failed or no cached results available")
+            raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
 
-        # Extract results from cache
-        output_content = cached_results.get("output_content")
-        if output_content is None:
-            raise UserError("Cached IDEA results are incomplete")
+        # Process results using core logic
+        result = IdeaResultsProcessor.process_idea_results(cached_results)
 
-        # Create a BytesIO object from the cached content for parsing
-        output_file_obj = BytesIO(output_content)
+        # Handle errors from core processing
+        if not result["success"] and "error" in result:
+            # Re-raise as UserError if it's a user-facing error
+            error_msg = result["error"]
+            if "geen gecachte resultaten" in error_msg or "Entity ID" in error_msg:
+                raise UserError(error_msg)
 
-        # Check if the analysis failed
-        if cached_results.get("analysis_status") == "failed":
-            error_msg = cached_results.get("error", "Unknown error")
-            return TableResult(
-                [["Analyse gefaald", error_msg, "", "", "", "", "", ""]],
-                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
-            )
-
-        # Try to parse the results
-        try:
-            # Obtain the results for specific or all section(s).
-            parser = idea_rcs.RcsOutputFileParser(output_file_obj)
-
-            # Prepare data for the table
-            data = []
-            columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
-
-            for section in parser.section_results():
-                capacity_results = section.capacity()[0]
-                shear_results = section.shear()[0]
-                torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
-                interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
-                crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
-                detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
-                stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
-
-                data.append(
-                    [
-                        section.id_,
-                        capacity_results.get("Result"),
-                        shear_results.get("Result"),
-                        torsion_results.get("Result"),
-                        interaction_results.get("Result"),
-                        crack_width_results.get("Result"),
-                        detailing_results.get("Result"),
-                        stress_limitations_results.get("Result"),
-                    ]
-                )
-
-            return TableResult(data, column_headers=columns)
-
-        except Exception as e:
-            # If parsing fails, return an error message
-            return TableResult(
-                [["Parsing fout", f"Kon resultaten niet parsen: {e!s}", "", "", "", "", "", ""]],
-                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
-            )
+        # Return VIKTOR TableResult
+        return TableResult(result["data"], column_headers=result["headers"])
 
     def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
@@ -1045,21 +1620,30 @@ class BridgeController(ViktorController):
 
             # Extract XML input from cache
             assert cached_results is not None  # type: ignore[unreachable]
-            xml_input = cached_results.get("xml_input")
-            if xml_input is None:
+            idea_xml_input_bytes = cached_results.get("idea_xml_input_bytes")
+            if idea_xml_input_bytes is None:
                 _raise_incomplete_model_error()
 
             # Validate content
-            assert xml_input is not None  # type: ignore[unreachable]
-            xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
+            assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
+            xml_content = (
+                idea_xml_input_bytes.getvalue()
+                if hasattr(idea_xml_input_bytes, "getvalue")
+                else idea_xml_input_bytes.read()
+                if hasattr(idea_xml_input_bytes, "read")
+                else b""
+            )
 
             if not xml_content:
                 self._raise_empty_idea_xml_error()
 
-            return DownloadResult(xml_input, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
+            # Add analysis datetime to filename for uniqueness
+            analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+            return DownloadResult(idea_xml_input_bytes, f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
 
         except Exception as e:
-            raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
+            raise UserError(f"IDEA RCS model input XML generatie gefaald: {e!s}")
 
     def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
@@ -1088,29 +1672,57 @@ class BridgeController(ViktorController):
         # Extract results from cache
         assert cached_results is not None  # type: ignore[unreachable]
         model = cached_results.get("model")
-        xml_input = cached_results.get("xml_input")
+        idea_xml_input_bytes = cached_results.get("idea_xml_input_bytes")
+        idea_rcs_model = cached_results.get("idea_rcs_model")
+        idea_xml_output_bytes = cached_results.get("idea_xml_output_bytes")
         output_content = cached_results.get("output_content")
 
-        if model is None or xml_input is None or output_content is None:
+        if model is None or idea_xml_input_bytes is None or idea_rcs_model is None or idea_xml_output_bytes is None or output_content is None:
             raise UserError("Cached IDEA results are incomplete")
 
         # Validate content
-        assert xml_input is not None  # type: ignore[unreachable]
-        xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
+        assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
+        idea_input_xml_content = (
+            idea_xml_input_bytes.getvalue()
+            if hasattr(idea_xml_input_bytes, "getvalue")
+            else idea_xml_input_bytes.read()
+            if hasattr(idea_xml_input_bytes, "read")
+            else b""
+        )
 
-        if not xml_content:
+        if not idea_input_xml_content:
             self._raise_empty_idea_xml_error()
+
+        # Add analysis datetime to filename for uniqueness
+        analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         # Create ZIP with XML input and analysis results
         zip_file_obj = File()
         with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
             # Add input XML model
-            z.writestr(f"IDEA_rcs_input_model_{params.info.bridge_objectnumm}.xml", xml_content)
+            z.writestr(f"IDEA_rcs_model_input_{params.info.bridge_objectnumm}_{analysis_datetime}.xml", idea_input_xml_content)
+
+            # Add IDEA RCS model file
+            z.writestr(
+                f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs",
+                idea_rcs_model.getvalue()
+                if hasattr(idea_rcs_model, "getvalue")
+                else idea_rcs_model.read()
+                if hasattr(idea_rcs_model, "read")
+                else b"",
+            )
 
             # Add analysis output results
-            z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
+            z.writestr(
+                f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml",
+                idea_xml_output_bytes.getvalue()
+                if hasattr(idea_xml_output_bytes, "getvalue")
+                else idea_xml_output_bytes.read()
+                if hasattr(idea_xml_output_bytes, "read")
+                else b"",
+            )
 
-        return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
+        return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}_{analysis_datetime}.zip")
 
     # ============================================================================================================
     # output - Rapport
