@@ -19,7 +19,7 @@ class TestBasicCache(unittest.TestCase):
 
     def test_analysis_type_enum(self) -> None:
         """Test AnalysisType enum values."""
-        from app.bridge.analysis_cache import AnalysisType
+        from src.common.constants.technical import AnalysisType
 
         assert AnalysisType.SCIA.value == "scia"
         assert AnalysisType.IDEA.value == "idea"

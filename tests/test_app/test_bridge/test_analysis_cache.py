@@ -5,7 +5,8 @@ import pickle
 import unittest
 from unittest.mock import Mock, patch
 
-from app.bridge.analysis_cache import AnalysisCache, AnalysisType
+from app.bridge.analysis_cache import AnalysisCache
+from src.common.constants.technical import AnalysisType
 from tests.test_data.seed_loader import load_bridge_default_params
 
 
@@ -102,16 +103,16 @@ class TestAnalysisCache(unittest.TestCase):
         template_path = "/path/to/template"
         params = cache._extract_params(self.default_params, AnalysisType.SCIA, template_path)
         assert isinstance(params, dict)
-        # Should include all parameters (current implementation includes reinforcement for both)
+        # SCIA analysis only includes specific parameters that affect the analysis
         assert "bridge_segments" in params
         assert "load_zones" in params
         assert "load_combinations" in params
-        assert "materials" in params
         assert "template_path" in params
-        # Current implementation includes reinforcement parameters for both SCIA and IDEA
-        assert "reinforcement_zones" in params
-        assert "reinforcement_materials" in params
-        assert "reinforcement_geometry" in params
+        # SCIA analysis does not include materials or reinforcement parameters
+        assert "materials" not in params
+        assert "reinforcement_zones" not in params
+        assert "reinforcement_materials" not in params
+        assert "reinforcement_geometry" not in params
 
     def test_extract_idea_parameters(self) -> None:
         """Test IDEA parameter extraction."""

@@ -2,6 +2,7 @@
 
 import traceback
 import zipfile
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, NoReturn
@@ -12,7 +13,6 @@ import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
 from viktor.core import File, ViktorController
 from viktor.errors import UserError  # Add UserError
-from viktor.external import idea_rcs
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
     GeometryResult,
@@ -29,7 +29,6 @@ from viktor.views import (
 )
 
 from app.bridge.analysis_cache import (
-    AnalysisType,
     get_cached_analysis_results,
     get_idea_analysis_results,
     get_idea_model_only,
@@ -50,6 +49,7 @@ from app.common.map_utils import (
 # Params for load combinations are in app.constants
 from app.constants import SCIA_TEMPLATE_PATH
 from src.combinations.load_factors import create_load_combination_table
+from src.common.constants.technical import AnalysisType
 from src.common.plot_utils import (
     create_bridge_outline_traces,
 )
@@ -75,7 +75,8 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
-from src.integrations.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.idea_integration.idea_interface import _get_unique_matching_zone_keys
+from src.integrations.idea_integration.idea_results_processor import IdeaResultsProcessor
 
 # SCIA integration imports
 from src.integrations.scia_integration.scia_force_envelopes import (
@@ -873,7 +874,7 @@ class BridgeController(ViktorController):
 
         return TableResult(table_data, column_headers=["Sectie", "Component", "Type", "Waarde", "Locatie", "Combinatie", "Andere Krachten"])
 
-    def get_force_envelopes(self, params: BridgeParametrization, **_kwargs) -> dict[str, Any]:
+    def get_force_envelopes(self, params: BridgeParametrization, **kwargs) -> dict[str, Any]:
         """
         Extract force envelopes from SCIA analysis results.
 
@@ -886,12 +887,17 @@ class BridgeController(ViktorController):
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
+        # Get entity_id from kwargs
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID is vereist voor analyse resultaten")
+
         # Get SCIA analysis results
         template_path = self._get_scia_template_path()
         results = get_cached_analysis_results(
             params=params,
-            entity_id=self.entity_id,
             analysis_type=AnalysisType.SCIA,
+            entity_id=entity_id,
             analysis_function=get_scia_analysis_results,
             template_path=str(template_path),
         )
@@ -1332,9 +1338,9 @@ class BridgeController(ViktorController):
         unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
 
         # If no unique keys found, return empty table
-        data = [[value[0], value[1]] for value in unique_matching_zone_keys]
+        data = [[value[0], value[1], str(value[2])] for value in unique_matching_zone_keys]
 
-        columns = ["Zone_dikte", "Wapeningsconfiguratie"]
+        columns = ["Zone_dikte", "Wapeningsconfiguratie", "Zones"]
 
         return TableResult(data, column_headers=columns)
 
@@ -1345,74 +1351,35 @@ class BridgeController(ViktorController):
 
         :param params: Bridge parametrization
         :type params: BridgeParametrization
-        :returns: TableResult met unieke zone keys
+        :returns: TableResult met IDEA RCS analyse resultaten
         :rtype: TableResult
         """
-        # Get entity ID from kwargs
+        # Validate bridge segments
+        if not hasattr(params, "bridge_segments_array") or not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get entity ID
         entity_id = kwargs.get("entity_id")
         if entity_id is None:
-            raise UserError("Entity ID not found in kwargs")
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        # Get cached IDEA analysis results
+        # Get cached results
         cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
-            raise UserError("IDEA analysis failed or no cached results available")
+            raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
 
-        # Extract results from cache
-        output_content = cached_results.get("output_content")
-        if output_content is None:
-            raise UserError("Cached IDEA results are incomplete")
+        # Process results using core logic
+        result = IdeaResultsProcessor.process_idea_results(cached_results)
 
-        # Create a BytesIO object from the cached content for parsing
-        output_file_obj = BytesIO(output_content)
+        # Handle errors from core processing
+        if not result["success"] and "error" in result:
+            # Re-raise as UserError if it's a user-facing error
+            error_msg = result["error"]
+            if "geen gecachte resultaten" in error_msg or "Entity ID" in error_msg:
+                raise UserError(error_msg)
 
-        # Check if the analysis failed
-        if cached_results.get("analysis_status") == "failed":
-            error_msg = cached_results.get("error", "Unknown error")
-            return TableResult(
-                [["Analyse gefaald", error_msg, "", "", "", "", "", ""]],
-                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
-            )
-
-        # Try to parse the results
-        try:
-            # Obtain the results for specific or all section(s).
-            parser = idea_rcs.RcsOutputFileParser(output_file_obj)
-
-            # Prepare data for the table
-            data = []
-            columns = ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
-
-            for section in parser.section_results():
-                capacity_results = section.capacity()[0]
-                shear_results = section.shear()[0]
-                torsion_results = section.torsion()[0] if section.torsion() else {"Result": "N/A"}
-                interaction_results = section.interaction()[0] if section.interaction() else {"Result": "N/A"}
-                crack_width_results = section.crack_width()[0] if section.crack_width() else {"Result": "N/A"}
-                detailing_results = section.detailing()[0] if section.detailing() else {"Result": "N/A"}
-                stress_limitations_results = section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"}
-
-                data.append(
-                    [
-                        section.id_,
-                        capacity_results.get("Result"),
-                        shear_results.get("Result"),
-                        torsion_results.get("Result"),
-                        interaction_results.get("Result"),
-                        crack_width_results.get("Result"),
-                        detailing_results.get("Result"),
-                        stress_limitations_results.get("Result"),
-                    ]
-                )
-
-            return TableResult(data, column_headers=columns)
-
-        except Exception as e:
-            # If parsing fails, return an error message
-            return TableResult(
-                [["Parsing fout", f"Kon resultaten niet parsen: {e!s}", "", "", "", "", "", ""]],
-                column_headers=["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"],
-            )
+        # Return VIKTOR TableResult
+        return TableResult(result["data"], column_headers=result["headers"])
 
     def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
@@ -1450,21 +1417,30 @@ class BridgeController(ViktorController):
 
             # Extract XML input from cache
             assert cached_results is not None  # type: ignore[unreachable]
-            xml_input = cached_results.get("xml_input")
-            if xml_input is None:
+            idea_xml_input_bytes = cached_results.get("idea_xml_input_bytes")
+            if idea_xml_input_bytes is None:
                 _raise_incomplete_model_error()
 
             # Validate content
-            assert xml_input is not None  # type: ignore[unreachable]
-            xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
+            assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
+            xml_content = (
+                idea_xml_input_bytes.getvalue()
+                if hasattr(idea_xml_input_bytes, "getvalue")
+                else idea_xml_input_bytes.read()
+                if hasattr(idea_xml_input_bytes, "read")
+                else b""
+            )
 
             if not xml_content:
                 self._raise_empty_idea_xml_error()
 
-            return DownloadResult(xml_input, f"IDEA_rcs_{params.info.bridge_objectnumm}.xml")
+            # Add analysis datetime to filename for uniqueness
+            analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+            return DownloadResult(idea_xml_input_bytes, f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
 
         except Exception as e:
-            raise UserError(f"IDEA RCS XML generatie gefaald: {e!s}")
+            raise UserError(f"IDEA RCS model input XML generatie gefaald: {e!s}")
 
     def download_idea_analysis_results(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
         """
@@ -1493,29 +1469,57 @@ class BridgeController(ViktorController):
         # Extract results from cache
         assert cached_results is not None  # type: ignore[unreachable]
         model = cached_results.get("model")
-        xml_input = cached_results.get("xml_input")
+        idea_xml_input_bytes = cached_results.get("idea_xml_input_bytes")
+        idea_rcs_model = cached_results.get("idea_rcs_model")
+        idea_xml_output_bytes = cached_results.get("idea_xml_output_bytes")
         output_content = cached_results.get("output_content")
 
-        if model is None or xml_input is None or output_content is None:
+        if model is None or idea_xml_input_bytes is None or idea_rcs_model is None or idea_xml_output_bytes is None or output_content is None:
             raise UserError("Cached IDEA results are incomplete")
 
         # Validate content
-        assert xml_input is not None  # type: ignore[unreachable]
-        xml_content = xml_input.getvalue() if hasattr(xml_input, "getvalue") else xml_input.read() if hasattr(xml_input, "read") else b""
+        assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
+        idea_input_xml_content = (
+            idea_xml_input_bytes.getvalue()
+            if hasattr(idea_xml_input_bytes, "getvalue")
+            else idea_xml_input_bytes.read()
+            if hasattr(idea_xml_input_bytes, "read")
+            else b""
+        )
 
-        if not xml_content:
+        if not idea_input_xml_content:
             self._raise_empty_idea_xml_error()
+
+        # Add analysis datetime to filename for uniqueness
+        analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         # Create ZIP with XML input and analysis results
         zip_file_obj = File()
         with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
             # Add input XML model
-            z.writestr(f"IDEA_rcs_input_model_{params.info.bridge_objectnumm}.xml", xml_content)
+            z.writestr(f"IDEA_rcs_model_input_{params.info.bridge_objectnumm}_{analysis_datetime}.xml", idea_input_xml_content)
+
+            # Add IDEA RCS model file
+            z.writestr(
+                f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs",
+                idea_rcs_model.getvalue()
+                if hasattr(idea_rcs_model, "getvalue")
+                else idea_rcs_model.read()
+                if hasattr(idea_rcs_model, "read")
+                else b"",
+            )
 
             # Add analysis output results
-            z.writestr(f"IDEA_rcs_analysis_results_{params.info.bridge_objectnumm}.ideaRcs", output_content)
+            z.writestr(
+                f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml",
+                idea_xml_output_bytes.getvalue()
+                if hasattr(idea_xml_output_bytes, "getvalue")
+                else idea_xml_output_bytes.read()
+                if hasattr(idea_xml_output_bytes, "read")
+                else b"",
+            )
 
-        return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}.zip")
+        return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}_{analysis_datetime}.zip")
 
     # ============================================================================================================
     # output - Rapport

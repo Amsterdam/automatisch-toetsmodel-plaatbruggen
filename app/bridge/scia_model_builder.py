@@ -390,7 +390,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
         scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-        scia_analysis.execute(timeout=1200)
+        scia_analysis.execute(timeout=1800)
         return scia_analysis
 
     def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
@@ -847,7 +847,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     "message": f"Table '{table_name}' not found in XML",
                     "error": f"Cannot find table '{table_name}' in output XML. Found tables: {found_tables[:10]}",
                 }
-
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
         except Exception as e:
@@ -1030,7 +1029,7 @@ def run_scia_analysis(params: Any, template_path: Path) -> SciaAnalysis:  # noqa
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
     xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
     scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-    scia_analysis.execute(timeout=1200)
+    scia_analysis.execute(timeout=1800)
     return scia_analysis
 
 

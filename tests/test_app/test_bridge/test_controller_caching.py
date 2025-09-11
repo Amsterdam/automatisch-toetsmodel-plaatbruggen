@@ -46,7 +46,8 @@ class TestControllerCaching(unittest.TestCase):
     def test_caching_function_availability(self) -> None:
         """Test that caching functions are available."""
         try:
-            from app.bridge.analysis_cache import AnalysisType, get_cached_analysis_results
+            from app.bridge.analysis_cache import get_cached_analysis_results
+            from src.common.constants.technical import AnalysisType
 
             assert callable(get_cached_analysis_results)
             assert AnalysisType.SCIA.value == "scia"
