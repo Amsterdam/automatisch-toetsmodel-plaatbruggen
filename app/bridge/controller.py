@@ -395,12 +395,12 @@ class BridgeController(ViktorController):
         try:
             cc_class = (
                 getattr(params, "cc_class", None)
-                or getattr(getattr(getattr(params, "input", None), "belastingcombinaties", None), "cc_class", None)
+                or getattr(getattr(getattr(params, "input", None), "berekeningsinstellingen", None), "cc_class", None)
                 or "CC2"
             )
             design_code = (
                 getattr(params, "design_code", None)
-                or getattr(getattr(getattr(params, "input", None), "belastingcombinaties", None), "design_code", None)
+                or getattr(getattr(getattr(params, "input", None), "berekeningsinstellingen", None), "design_code", None)
                 or "NEN 8700 verbouw"
             )
         except Exception:

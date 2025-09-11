@@ -166,3 +166,15 @@ Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:
 - Realistische belastinggevallen uit bruggeometrie
 - Uitbreiding van materiaalintegratie met Info pagina parameters
         """
+CALCULATION_SETTINGS_INFO_TEXT = """Hier kunnen de berekeningsinstellingen voor het model worden opgegeven.
+Eerst wordt gevraagd om de gevolgklasse en het veiligheidsniveau te selecteren. Deze bepalen de factoren in de belastingcombinaties.
+De factoren worden automatisch geupdate in de belastingcombinatie tabel aan de rechterkant van het scherm."""
+
+CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL = """Hieronder kan het gewenste berekeningsniveau worden geselecteerd.
+Ten eerste moet een keuze worden gemaakt tussen de theoretische wegindeling of de werkelijke wegindeling.
+Bij de theoretische wegindeling worden de standaard verkeersbelastingen uit de norm toegepast over de volledige breedte van de brug.
+Bij de werkelijke wegindeling worden de verkeersbelastingen verdeeld over de verschillende zones zoals opgegeven in het tabblad 'Belastingzones'.
+Wanneer de brug hierop niet voldoet, kan er gekozen worden om de brug te berekenen op het onderliggend wegennet, met eventuele bebording.
+Hierbij wordt de grootte van de verkeersbelasting aangepast.
+De aanpassingen van de verkeersbelastingen zijn niet te zien in de viktor app, maar worden direct doorgestuurd naar het SCIA model.
+Vergeet de pagina niet op te slaan na het maken van wijzigingen, voordat je het SCIA model aanmaakt."""

@@ -13,12 +13,17 @@
   - Units are consistently applied from data extraction through user interface display
 - **Traffic load cases**: Added tandem loads and udl for real road layout
   - Added functionality dependent on radio button for road layout
+  - Added accidental vehicle according to TAB, parallel and perpendicular to driving direction
+  - Added the dispersal function to all the vertical traffic load cases, with a maximum dispersion of 1.0 by 1.0 meters
 - **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
 
 ### Changed
 - **Refactored SCIA Unit Handling**: Migrated existing unit conversion functions to use centralized system
   - Maintained full backward compatibility - all existing tests continue to pass
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
+- **Input tab for calculation settings**: Added explanatory text and changed the tab name from "Belastingcombinaties" to
+"Berekeningsinstellingen", since the user input on this tab controls settings for the model calculation in general,
+not only for load combinations.
 
 ### Fixed
 - **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
