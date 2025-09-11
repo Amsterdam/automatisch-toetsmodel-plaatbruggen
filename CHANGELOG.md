@@ -29,6 +29,11 @@ not only for load combinations.
 - **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
 - **SCIA Unit Conversion**: Fixed missing unit conversion from N to kN and Nm to kNm in three SCIA result tables
 - **SCIA Result Views**: Added proper units display in table headers and values for consistent engineering units
+- **Load Boundary Compliance**: Fixed dispersed loads extending beyond bridge dimensions
+  - Added `clip_polygon_to_bridge_boundaries()` function to constrain load areas within bridge boundaries
+  - Integrated clipping into `dispersal_function()` to automatically clip all dispersed coordinates
+  - Prevents wheel loads and other dispersed loads from extending beyond bridge structure
+  - Comprehensive test suite verifies load boundary compliance with real bridge data
 
 ## [`v0.0.11`] - 2025-08-28
 ### Added
