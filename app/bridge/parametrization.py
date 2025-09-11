@@ -339,12 +339,12 @@ class BridgeParametrization(Parametrization):
     # ----------------------------------
     # --- Info Page ---
     # ----------------------------------
-    info = Page("Info", views=["get_bridge_map_view"])
+    info = Page("Paspoortinformatie", views=["get_bridge_map_view"])
 
     # Bridge identification section
     info.bridge_info_section = Text(
-        """# Bridge Details
-Below you will find important information about this bridge structure."""
+        """# Paspoortinformatie
+Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     # Saved bridge identifiers (now visible and with better labels)
@@ -355,7 +355,7 @@ Below you will find important information about this bridge structure."""
 
     info.lb1 = LineBreak()
 
-    info.bridge_location_header = Text("## Locatie Informatie")
+    info.bridge_location_header = Text("## Locatie")
 
     info.stadsdeel = TextField(
         "Stadsdeel",
@@ -369,7 +369,7 @@ Below you will find important information about this bridge structure."""
         description="Straat of waterweg waar de brug zich bevindt",
     )
 
-    info.waterway = TextField("Waterweg/Kruising", default="", description="Waterweg of obstakel dat de brug kruist")
+    info.waterway = TextField("Water/kruising", default="", description="Water of obstakel waar de brug overheen gaat")
 
     info.lb2 = LineBreak()
 
@@ -378,7 +378,7 @@ Below you will find important information about this bridge structure."""
     info.bridge_type = TextField(
         "Brugtype",
         default="",
-        description="Structurele type classificatie van de brug",
+        description="Constructie type classificatie van de brug",
     )
 
     info.construction_year = TextField(
@@ -387,9 +387,10 @@ Below you will find important information about this bridge structure."""
         description="Jaar waarin de brug is gebouwd",
     )
 
-    info.usage = TextField(
+    info.usage = OptionField(
         "Gebruik",
-        default="",
+        default="Wegverkeer",
+        options=["Wegverkeer", "Wegverkeer en tram", "Voetpad", "Trambaan", "Fietspad/voetpad"],
         description="Primaire functie van de brug (bijv. wegverkeer, voetgangers)",
     )
 
@@ -439,47 +440,35 @@ Below you will find important information about this bridge structure."""
         description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
 
-    info.steel_quality_reinforcement = TextField("Staalkwaliteit (Wapening)", default="", description="Kwaliteitsklasse van betonstaal (bijv. B500)")
-    info.deck_layer = TextField("Deklaag", default="", description="Type van het dekoppervlak (bijv. Asfalt, Beton)")
-
     info.lb2a = LineBreak()
 
-    info.geometric_properties_header = Text("### Geometrische Eigenschappen")
-    info.number_of_spans = NumberField("Aantal Velden", default=1, min=1, description="Aantal structurele overspanningen in de brug")
-    info.static_system = TextField("Statisch Systeem", default="", description="Statisch systeemtype (bijv. statisch bepaald/onbepaald)")
-    info.crossing_angle = NumberField("Kruisingshoek", default=90.0, suffix="°", description="Hoek waaronder de brug het obstakel kruist")
-    info.theoretical_length = TextField("Theoretische Lengte", default="", suffix="m", description="Theoretische overspanningslengte")
+    info.geometric_properties_header = Text("### Geometrische eigenschappen")
+    info.number_of_spans = NumberField("Aantal Velden", default=1, min=1, description="Aantal structurele overspanningen in de brug", visible=False)
+    info.static_system = TextField("Statisch Systeem", default="", description="Statisch systeemtype (bijv. statisch bepaald/onbepaald)", visible=False)
+    info.crossing_angle = NumberField("Kruisingshoek", default=90.0, suffix="°", description="Hoek waaronder de brug het obstakel kruist", visible=False)
+    info.theoretical_length = TextField("Theoretische lengte", default="", suffix="m", description="Theoretische overspanningslengte, dit is de afstand tussen de assen van de opleggingen")
     info.deck_width = TextField("Brugdekbreedte", default="", suffix="m", description="Totale breedte van het brugdek")
-    info.construction_height = NumberField("Constructiehoogte", default=0.0, suffix="mm", description="Hoogte van de dekconstuctie")
-    info.slenderness = NumberField("Slankheidsverhouding", default=0.0, description="Slankheidsverhouding van de dekoverspanningen")
+    info.construction_height = NumberField("Constructiehoogte", default=0.0, suffix="mm", description="Hoogte van de dekconstructie", visible=False)
+    info.slenderness = NumberField("Slankheidsverhouding", default=0.0, description="Slankheidsverhouding van de dekoverspanningen", visible=False)
     info.daily_length = TextField(
-        "Ldag", default="", suffix="m", description="Lengte van de brug tussen de steunpunten, waar krachten worden afgelezen"
+        "Ldag", default="", suffix="m", description="Lengte van de brug tussen de steunpunten, waar krachten worden afgelezen", visible=False
     )
 
     info.lb2c = LineBreak()
 
-    info.structural_properties_header = Text("### Structurele Eigenschappen")
-    info.bearing_type = TextField("Opleggingen", default="", description="Type van de opleggingen/lagers")
-    info.orthotropy = TextField("Orthotropie/Isotropie", default="", description="Orthotropisch of isotropisch gedrag van het dek")
-    info.beams_in_slab = OptionField(
-        "Liggers in plaat", default="Onbekend", options=["Onbekend", "Ja", "Nee"], description="Aanwezigheid van liggers in de plaat"
-    )
-
-    info.lb2b = LineBreak()
-
-    info.width_properties_header = Text("### Breedteverdeling")
-    info.roadway_width = TextField("Rijwegbreedte", default="", suffix="m", description="Breedte toegewezen aan voertuigverkeer")
-    info.tram_width = TextField("Breedte trambaan", default="", suffix="m", description="Breedte van de trambaan")
-    info.bicycle_path_width = TextField("Fietspadbreedte", default="", suffix="m", description="Breedte van fietspaden")
+    info.width_properties_header = Text("### Breedteverdeling", visible=False)
+    info.roadway_width = TextField("Rijwegbreedte", default="", suffix="m", description="Breedte toegewezen aan voertuigverkeer", visible=False)
+    info.tram_width = TextField("Breedte trambaan", default="", suffix="m", description="Breedte van de trambaan", visible=False)
+    info.bicycle_path_width = TextField("Fietspadbreedte", default="", suffix="m", description="Breedte van fietspaden", visible=False)
     info.sidewalk_north_east_width = TextField(
-        "Trottoirbreedte (Noord/Oost)", default="", suffix="m", description="Breedte van trottoir aan noord/oost zijde"
+        "Trottoirbreedte (Noord/Oost)", default="", suffix="m", description="Breedte van trottoir aan noord/oost zijde", visible=False
     )
     info.sidewalk_south_west_width = TextField(
-        "Trottoirbreedte (Zuid/West)", default="", suffix="m", description="Breedte van trottoir aan zuid/west zijde"
+        "Trottoirbreedte (Zuid/West)", default="", suffix="m", description="Breedte van trottoir aan zuid/west zijde", visible=False
     )
-    info.edge_beam_thickness = TextField("Dikte schampkant", default="", suffix="mm", description="Dikte van de schampkant/randdrager")
+    info.edge_beam_thickness = TextField("Dikte schampkant", default="", suffix="mm", description="Dikte van de schampkant/randdrager", visible=False)
     info.edge_loading = OptionField(
-        "Randbelasting", default="Onbekend", options=["Onbekend", "Ja", "Nee"], description="Aanwezigheid van randbelasting op de brug"
+        "Randbelasting", default="Onbekend", options=["Onbekend", "Ja", "Nee"], description="Aanwezigheid van randbelasting op de brug", visible=False
     )
 
     info.lb3 = LineBreak()
@@ -504,37 +493,7 @@ Below you will find important information about this bridge structure."""
         "Opdrachtnemer IHA", default="", description="Opdrachtnemer verantwoordelijk voor individuele gezondheidsbeoordeling"
     )
     info.assessment_notes = TextAreaField("Beoordelingsnotities", default="", description="Aanvullende opmerkingen over de brugbeoordeling")
-
-    info.lb4 = LineBreak()
-
-    info.reinforcement_header = Text("## Wapeningsgegevens")
-    info.support_reinforcement_diameter = TextField(
-        "Steunpuntswapening diameter", default="", suffix="mm", description="Diameter van steunpuntswapening in langsrichting"
-    )
-    info.support_reinforcement_spacing = TextField(
-        "Steunpuntswapening h.o.h.-afstand", default="", suffix="mm", description="Hart-op-hart afstand van steunpuntswapening"
-    )
-    info.support_reinforcement_layer = TextField("Steunpuntswapening laag", default="", description="Laag nummer van steunpuntswapening")
-    info.field_reinforcement_diameter = TextField(
-        "Veldwapening diameter", default="", suffix="mm", description="Diameter van veldwapening in langsrichting"
-    )
-    info.field_reinforcement_spacing = TextField(
-        "Veldwapening h.o.h.-afstand", default="", suffix="mm", description="Hart-op-hart afstand van veldwapening"
-    )
-    info.field_reinforcement_layer = TextField("Veldwapening laag", default="", description="Laag nummer van veldwapening")
-    info.field_reinforcement_transverse_diameter = TextField(
-        "Veldwapening dwarsrichting diameter", default="", suffix="mm", description="Diameter van veldwapening in dwarsrichting"
-    )
-    info.field_reinforcement_transverse_spacing = TextField(
-        "Veldwapening dwarsrichting h.o.h.-afstand", default="", suffix="mm", description="Hart-op-hart afstand van veldwapening dwarsrichting"
-    )
-    info.field_reinforcement_transverse_layer = TextField(
-        "Veldwapening dwarsrichting laag", default="", description="Laag nummer van veldwapening dwarsrichting"
-    )
-    info.concrete_cover = TextField(
-        "Dekking buitenkant wapening", default="", suffix="mm", description="Betondekking aan de buitenkant van de wapening"
-    )
-
+    info.last_calculation = TextField("Datum laatste berekening", default="", description="Datum van de laatste berekening van deze brug in Viktor")
     # ----------------------------------
     # --- Invoer Page ---
     # ----------------------------------
