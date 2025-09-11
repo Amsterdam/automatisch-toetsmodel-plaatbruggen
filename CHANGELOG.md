@@ -1,5 +1,8 @@
 ## [`v0.0.12`] - 2025-xx-xx
 ### Added
+- **Centralized SCIA Unit Conversion System**: Implemented centralized unit handling to ensure units mapping and value conversion stay synchronized
+  - Added `UnitConversion` dataclass to store display units, conversion factors, and raw units together
+  - Comprehensive test suite with 20+ tests ensuring conversion consistency and backward compatibility
 - **Comprehensive SCIA Units Testing**: Added extensive test coverage for SCIA units handling
   - 13 tests for `build_units_mapping()` function covering 1D/2D table detection and edge cases
   - 11 tests for `_format_complete_force_state()` method verifying proper unit application in formatted strings
@@ -15,12 +18,17 @@
 - **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
 
 ### Changed
+- **Refactored SCIA Unit Handling**: Migrated existing unit conversion functions to use centralized system
+  - Maintained full backward compatibility - all existing tests continue to pass
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
 - **Input tab for calculation settings**: Added explanatory text and changed the tab name from "Belastingcombinaties" to
 "Berekeningsinstellingen", since the user input on this tab controls settings for the model calculation in general,
 not only for load combinations.
 
 ### Fixed
+- **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
+- **SCIA Unit Conversion**: Fixed missing unit conversion from N to kN and Nm to kNm in three SCIA result tables
+- **SCIA Result Views**: Added proper units display in table headers and values for consistent engineering units
 
 ## [`v0.0.11`] - 2025-08-28
 ### Added

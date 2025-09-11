@@ -112,96 +112,18 @@ def build_units_mapping(results: dict[str, Any]) -> dict[str, dict[str, str]]:
     units depend on whether the selected table represents 1D (beam) or 2D (plate)
     forces. This is inferred from the table name when available.
 
+    This function now uses the centralized unit conversion system to ensure
+    units mapping and value conversion stay in sync.
+
     :param results: The complete results dictionary from extract_analysis_results
     :returns: Mapping from category -> { result_component: unit_string }
     :rtype: dict[str, dict[str, str]]
     """
-    # Determine internal force units based on table type (1D vs 2D)
-    internal_forces_entry = results.get("internal_forces")
-    table_name = None
-    if isinstance(internal_forces_entry, dict):
-        table_name = internal_forces_entry.get("table_name")
+    # Import the centralized unit conversion system
+    from .scia_unit_conversion import build_units_mapping as build_units_mapping_centralized
 
-    # Units for the actual force components extracted from SCIA XML headers
-    # Note: Values are converted from N to kN and from Nmm to kNm during extraction
-    internal_forces_units_2d = {
-        # Bending moments per unit length (2D plates) - converted from Nmm to kNm
-        "m_x": "kNm/m",
-        "m_y": "kNm/m",
-        "m_xy": "kNm/m",
-        # Shear forces per unit length (2D plates) - converted from N to kN
-        "v_x": "kN/m",
-        "v_y": "kN/m",
-        # Membrane forces per unit length (2D plates) - converted from N to kN
-        "n_x": "kN/m",
-        "n_y": "kN/m",
-        "n_xy": "kN/m",
-        # Envelope components for 2D plates - converted from Nmm to kNm
-        "m_xD+": "kNm/m",
-        "m_xD-": "kNm/m",
-        "m_yD+": "kNm/m",
-        "m_yD-": "kNm/m",
-        "m_cD+": "kNm/m",
-        "m_cD-": "kNm/m",
-        # Envelope components for 2D plates - converted from N to kN
-        "n_xD": "kN/m",
-        "n_yD": "kN/m",
-        "n_cD": "kN/m",
-    }
-
-    # For 1D elements (if any), use standard beam force units
-    # Note: Values are converted from N to kN and from Nmm to kNm during extraction
-    internal_forces_units_1d = {
-        # Standard 1D beam forces (fallback if 1D tables are encountered) - converted from N to kN
-        "N": "kN",
-        "Vy": "kN",
-        "Vz": "kN",
-        # Standard 1D beam moments - converted from Nmm to kNm
-        "Mx": "kNm",
-        "My": "kNm",
-        "Mz": "kNm",
-    }
-
-    # Heuristic: consider any table name containing "2D" as plate forces; "1D" as beam forces
-    # If none is present, fall back to the 1D convention commonly used for line/beam results.
-    internal_forces_units: dict[str, str]
-    if isinstance(table_name, str) and ("2D" in table_name or "2d" in table_name.lower()):
-        # 2D plates: include both raw SCIA field keys and envelope component keys used downstream
-        internal_forces_units = {
-            **internal_forces_units_2d,
-            # Envelope component names used by force envelopes / views
-            "N": "kN/m",
-            "Vy": "kN/m",
-            "Vz": "kN/m",
-            "Mxd+": "kNm/m",
-            "Mxd-": "kNm/m",
-            "Myd+": "kNm/m",
-            "Myd-": "kNm/m",
-        }
-    elif isinstance(table_name, str) and ("1D" in table_name or "1d" in table_name.lower()):
-        # 1D beams: include envelope-style moment keys as well
-        internal_forces_units = {
-            **internal_forces_units_1d,
-            "Mxd+": "kNm",
-            "Mxd-": "kNm",
-            "Myd+": "kNm",
-            "Myd-": "kNm",
-        }
-    else:
-        internal_forces_units = {
-            **internal_forces_units_1d,
-            "Mxd+": "kNm",
-            "Mxd-": "kNm",
-            "Myd+": "kNm",
-            "Myd-": "kNm",
-        }
-
-    # Compose final mapping
-    units: dict[str, dict[str, str]] = {
-        "internal_forces": internal_forces_units,
-    }
-
-    return units
+    # Use the centralized system
+    return build_units_mapping_centralized(results)
 
 
 def _extract_combinations_by_type(load_combinations: dict[str, Any], combo_type: str) -> list[Any]:
