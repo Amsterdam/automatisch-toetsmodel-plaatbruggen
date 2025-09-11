@@ -11,16 +11,17 @@ Key test coverage:
 """
 
 import sys
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
+from src.integrations.idea_integration.idea_interface import _apply_loads_to_slabs
+
 # Mock the problematic imports to avoid circular import issues
 sys.modules["app.bridge.parametrization"] = MagicMock()
 sys.modules["app.bridge.analysis_cache"] = MagicMock()
-
-from src.integrations.idea_integration.idea_interface import _apply_loads_to_slabs
 
 
 class TestApplyLoadsToSlabs:
@@ -139,7 +140,7 @@ class TestApplyLoadsToSlabs:
 
     def test_apply_loads_with_empty_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
         """Test _apply_loads_to_slabs with empty zones."""
-        created_slabs_empty_zones = {
+        created_slabs_empty_zones: dict[str, dict[str, Any]] = {
             "CS_d0.2_1": {
                 "zones": [],  # Empty zones
                 "slab_langs": MagicMock(),
@@ -152,12 +153,16 @@ class TestApplyLoadsToSlabs:
             _apply_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe)
 
             # Verify no create_extreme calls were made
-            assert created_slabs_empty_zones["CS_d0.2_1"]["slab_langs"].create_extreme.call_count == 0
-            assert created_slabs_empty_zones["CS_d0.2_1"]["slab_dwars"].create_extreme.call_count == 0
+            slab_langs = created_slabs_empty_zones["CS_d0.2_1"]["slab_langs"]
+            slab_dwars = created_slabs_empty_zones["CS_d0.2_1"]["slab_dwars"]
+            assert isinstance(slab_langs, MagicMock)
+            assert isinstance(slab_dwars, MagicMock)
+            assert slab_langs.create_extreme.call_count == 0
+            assert slab_dwars.create_extreme.call_count == 0
 
     def test_apply_loads_with_missing_slab_direction(self, sample_scia_dataframe: pd.DataFrame) -> None:
         """Test _apply_loads_to_slabs with missing slab direction."""
-        created_slabs_missing_direction = {
+        created_slabs_missing_direction: dict[str, dict[str, Any]] = {
             "CS_d0.2_1": {
                 "zones": ["1-1"],
                 "slab_langs": MagicMock(),
@@ -170,7 +175,9 @@ class TestApplyLoadsToSlabs:
             _apply_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe)
 
             # Verify only slab_langs was called
-            assert created_slabs_missing_direction["CS_d0.2_1"]["slab_langs"].create_extreme.call_count == 1
+            slab_langs = created_slabs_missing_direction["CS_d0.2_1"]["slab_langs"]
+            assert isinstance(slab_langs, MagicMock)
+            assert slab_langs.create_extreme.call_count == 1
 
     def test_apply_loads_with_nonexistent_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
         """Test _apply_loads_to_slabs with zones not present in SCIA dataframe."""
@@ -349,15 +356,14 @@ class TestApplyLoadsToSlabs:
             }
         }
 
-        with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
+        with patch("src.integrations.idea_integration.idea_interface.idea_rcs"), pytest.raises(KeyError, match="name"):
             # The function should handle empty dataframes gracefully
             # When the dataframe is empty, df_all["name"].isin(zones) will raise KeyError
             # because there's no "name" column in an empty dataframe
 
             # This test verifies that the function doesn't crash when given empty data
             # but currently the function doesn't handle this case, so we expect a KeyError
-            with pytest.raises(KeyError, match="name"):
-                _apply_loads_to_slabs(created_slabs, empty_dataframe)
+            _apply_loads_to_slabs(created_slabs, empty_dataframe)
 
 
 if __name__ == "__main__":
