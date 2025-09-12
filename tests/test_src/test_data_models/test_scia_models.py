@@ -124,7 +124,7 @@ class TestWheelLoadConfig(unittest.TestCase):
                 side="left",
                 corners_key="test",
                 load=50.0,
-                axle_locations={"axle1": [(0.0, 0.0)]},  # Only 2 coordinates, should be 3
+                axle_locations={"axle1": [(0.0, 0.0)]},  # type: ignore[list-item] # Only 2 coordinates, should be 3
             )
 
         error = exc_info.value
