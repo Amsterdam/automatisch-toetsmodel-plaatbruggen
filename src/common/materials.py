@@ -388,18 +388,6 @@ def get_material_densities() -> list[tuple[str, float]]:
         raise FileNotFoundError(f"Material density file not found: {MATERIAL_DENSITY_PATH}") from e
 
 
-# Legacy compatibility functions (to be deprecated)
-def get_steel_qualities() -> list[str]:
-    """
-    Legacy function for backward compatibility.
-
-    :deprecated: Use get_reinforcement_qualities() instead
-    :returns: List of steel quality names
-    :rtype: list[str]
-    """
-    return get_reinforcement_qualities()
-
-
 def get_material_compatibility_info(material_name: str) -> dict[str, str]:
     """
     Get compatibility information for a specific material across integrations.
