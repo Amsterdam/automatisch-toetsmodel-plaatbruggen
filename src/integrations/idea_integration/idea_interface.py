@@ -395,12 +395,16 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
             rebar_config=rebar_config,
         )
 
-        # Create slab for each direction
+        # Create slab for each rebar direction
         for direction in ["langs", "dwars"]:
             # Create rectangular cross-section for the slab
+            # cs_dwars should be paired with rebar_langs and vice versa so we use opposite_direction here
+            opposite_direction = "dwars" if direction == "langs" else "langs"
             cs = idea_rcs.RectSection(1.0, slab_thickness)
-            slab = model.create_one_way_slab(cs, cs_mat, name=f"CS_d{slab_thickness}_{direction}_{config}", rcs_name=f"rcs_{direction}_{config}")
-            created_slabs[slab_key][f"slab_{direction}"] = slab
+            slab = model.create_one_way_slab(
+                cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
+            )
+            created_slabs[slab_key][f"slab_{opposite_direction}"] = slab
 
             # Create reinforcement bars for this slab
             _create_reinforcement_bars(slab, direction, reinf_config, mat_reinf)
@@ -453,6 +457,8 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                    - SLS_kar_v_{x|y}_max, SLS_freq_v_{x|y}_max, ULS_v_{x|y}_max
                    - SLS_kar_M{y|x},     SLS_freq_M{y|x},     ULS_M{y|x}
     """
+    # For langs cs link IDEA vz to scia vy and IDEA My to scia My
+    # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
     # Direction → axis + corresponding moment component
     orient = {
         "langs": {"axis": "y", "moment": "My"},
