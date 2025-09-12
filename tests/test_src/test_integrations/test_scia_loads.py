@@ -460,6 +460,7 @@ class TestAllLoads:
             "service_vehicle_cases": {"y_plus_x10.0": Mock(name="BG6001")},
             "unintended_vehicle_cases": {"rs_1_x10.0_forward": Mock(name="BG7001")},
             "udl_traffic_cases": {"rs_1": Mock(name="BG4001"), "rs_2": Mock(name="BG4002"), "rs_3": Mock(name="BG4003")},
+            "tandem_cases": {"tandem_1": Mock(name="BG3001")},
         }
 
         # Configure mock params to handle dictionary-style access
