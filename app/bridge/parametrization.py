@@ -3,8 +3,21 @@
 import csv
 import json
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, ClassVar
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -21,26 +34,88 @@ from viktor.parametrization import (
     Parametrization,
     RowLookup,
     Tab,
+    Table,
     Text,
     TextAreaField,
     TextField,
 )
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
-
 from .geometry_functions import get_steel_qualities
+
+
+def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
+    """
+    Calculate the number of load cases that would be generated for each load type.
+
+    :param params: Bridge parameters for dynamic calculations.
+    :return: Dictionary mapping load type names to their load case counts.
+    :rtype: dict[str, int]
+    """
+    counts = {
+        "Eigen gewicht": 1,  # BG1001
+        "Permanente belastingen": 5,  # BG2001-BG2005
+        "Temperatuurbelastingen": 4,  # BG3001-BG3004
+        "Verkeersbelastingen UDL": 3,  # BG4001-BG4003
+        "Voetgangersbelastingen": 1,  # BG5001
+    }
+
+    try:
+        # For dynamic load cases, we need to calculate based on bridge geometry
+        from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions
+        from src.integrations.scia_integration.scia_loads_helper import (
+            generate_theoretical_lane_positions_bg8000,
+            tandem_system_sequencer,
+            tandem_system_sequencer_single_axis,
+            tandem_system_sequencer_single_axis_rotated,
+        )
+
+        dims = extract_bridge_dimensions(params)
+        length = dims.total_length
+        thickness = dims.thickness
+        width = dims.total_width
+
+        # Service vehicle load cases: 2 × number of positions (y_plus and y_minus)
+        service_positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
+        counts["Dienstvoertuig belastingen"] = len(service_positions) * 2
+
+        # Unintended vehicle load cases: complex calculation
+        unintended_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
+        amsterdam_positions = tandem_system_sequencer_single_axis(length, thickness)
+        amsterdam_rotated_positions = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+
+        # Standard vehicle: 2 edges × 2 directions × positions
+        standard_cases = len(unintended_positions) * 2 * 2  # RS1 and RS3, forward and reverse
+        # Amsterdam vehicle: 2 edges × positions
+        amsterdam_cases = len(amsterdam_positions) * 2
+        # Amsterdam rotated: 2 edges × positions
+        amsterdam_rotated_cases = len(amsterdam_rotated_positions) * 2
+
+        counts["Onbedoeld voertuig belastingen"] = standard_cases + amsterdam_cases + amsterdam_rotated_cases
+
+        # Tandem system load cases: depends on number of theoretical lanes
+        num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
+        num_lanes = min(num_lanes, 3)  # Maximum 3 lanes
+
+        tandem_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.6)
+        tandem_cases = 0
+
+        for rs in range(1, num_lanes + 1):
+            if rs == 3:
+                # RS3 has double the cases (2 configurations)
+                tandem_cases += len(tandem_positions) * 2
+            else:
+                tandem_cases += len(tandem_positions)
+
+        counts["Tandem systeem belastingen"] = tandem_cases
+
+    except Exception:
+        # Fallback to estimated values if calculation fails
+        counts["Dienstvoertuig belastingen"] = 20  # Estimated
+        counts["Onbedoeld voertuig belastingen"] = 50  # Estimated
+        counts["Tandem systeem belastingen"] = 30  # Estimated
+
+    return counts
+
 
 # --- Helper functions for Bridge Data Loading ---
 
@@ -910,15 +985,110 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
         ],
     )
 
-    scia.info_text = Text(SCIA_INFO_TEXT)
+    # Downloads tab
+    scia.downloads = Tab("Downloads")
+
+    scia.downloads.info_text = Text(SCIA_INFO_TEXT)
 
     # Download buttons - use DownloadButton instead of ActionButton
-    scia.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
+    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
 
-    scia.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
+    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
 
     # Analysis button
-    scia.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+    scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+
+    # Berekening tab
+    scia.berekening = Tab("Berekening")
+
+    # Load case selection for controlling calculation time
+    scia.berekening.load_case_selection_header = Text(
+        """## Belastingselectie
+Selecteer welke belastingen worden gegenereerd in het SCIA model.
+Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen."""
+    )
+
+    scia.berekening.lb_load_case_selection = LineBreak()
+
+    # Default content for load case selection table (static values)
+    _load_case_selection_default: ClassVar[list[dict[str, Any]]] = [
+        {
+            "include": True,
+            "load_type": "Eigen gewicht",
+            "load_case_range": "BG1001",
+            "load_case_count": 1,
+        },
+        {
+            "include": True,
+            "load_type": "Permanent",
+            "load_case_range": "BG2001-BG2005",
+            "load_case_count": 5,
+        },
+        {
+            "include": True,
+            "load_type": "Temperatuur",
+            "load_case_range": "BG3001-BG3004",
+            "load_case_count": 4,
+        },
+        {
+            "include": True,
+            "load_type": "UDL",
+            "load_case_range": "BG4001-BG4003",
+            "load_case_count": 3,
+        },
+        {
+            "include": True,
+            "load_type": "Voetgangers",
+            "load_case_range": "BG5001",
+            "load_case_count": 1,
+        },
+        {
+            "include": True,
+            "load_type": "Dienstvoertuig",
+            "load_case_range": "BG6001-BG6xxx",
+            "load_case_count": 20,  # Estimated default
+        },
+        {
+            "include": True,
+            "load_type": "Onbedoeld voertuig",
+            "load_case_range": "BG7001-BG7xxx",
+            "load_case_count": 50,  # Estimated default
+        },
+        {
+            "include": True,
+            "load_type": "TS",
+            "load_case_range": "BG8001-BG10xxx",
+            "load_case_count": 30,  # Estimated default
+        },
+    ]
+
+    scia.berekening.load_case_selection_table = Table(
+        "Belastingselectie",
+        name="load_case_selection_table",
+        default=_load_case_selection_default,
+    )
+
+    # Define table columns (order determines display order)
+    scia.berekening.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
+    scia.berekening.load_case_selection_table.load_type = TextField(
+        "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
+    )
+    scia.berekening.load_case_selection_table.load_case_range = TextField(
+        "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
+    )
+    scia.berekening.load_case_selection_table.load_case_count = NumberField(
+        "Aantal belastinggevallen",
+        suffix="",
+        visible=True,
+        description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
+    )
+
+    scia.berekening.lb_traffic_loads = LineBreak()
+
+    scia.berekening.load_case_selection_note = Text(
+        """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,
+maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoeleinden."""
+    )
 
     # ----------------------------------
     # --- IDEA StatiCa Page ---
@@ -931,12 +1101,6 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # Add download buttons as page attributes below the explanation
     idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file")
     idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results")
-
-    # ----------------------------------
-    # --- Calculations Page ---
-    # ----------------------------------
-
-    berekening = Page("Berekening")
 
     # ----------------------------------
     # --- Report Page ---

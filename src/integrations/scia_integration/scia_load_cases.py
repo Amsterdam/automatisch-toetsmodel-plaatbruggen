@@ -495,26 +495,94 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     return cases
 
 
+def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa: ANN401
+    """
+    Extract load case selection from the parametrization table.
+
+    :param params: Bridge parameters containing load_case_selection_table.
+    :return: Dictionary mapping load type names to boolean inclusion status.
+    :rtype: dict[str, bool]
+    """
+    # Default selection (all enabled) for backward compatibility
+    default_selection = {
+        "Eigen gewicht": True,
+        "Permanent": True,
+        "Temperatuur": True,
+        "UDL": True,
+        "Voetgangers": True,
+        "Dienstvoertuig": True,
+        "Onbedoeld voertuig": True,
+        "TS": True,
+    }
+
+    try:
+        # Try to get the table from params
+        table = getattr(params, "load_case_selection_table", None)
+        if table is None:
+            return default_selection
+
+        # Extract selection from table rows
+        selection = {}
+        for row in table:
+            load_type = row.get("load_type", "")
+            include = row.get("include", True)
+            selection[load_type] = include
+    except (AttributeError, TypeError, KeyError):
+        # Fallback to default if table is not available or malformed
+        return default_selection
+    else:
+        return selection
+
+
 def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, Any]:  # noqa: ANN401
     """
     Create a nested dictionary of all standard and dynamic load cases for the bridge model.
 
     This function aggregates all individual load case creation helpers into a single,
     structured dictionary where top-level keys represent load case categories.
+    Load cases are created conditionally based on user selection in the parametrization table.
 
     :param builder: The SCIA model builder instance.
-    :param params: Bridge parameters, used for dynamic load case generation.
+    :param params: Bridge parameters, used for dynamic load case generation and load case selection.
     :return: A nested dictionary containing all created SciaLoadCase objects.
     :rtype: dict[str, dict]
     """
-    # Create a structured dictionary of all load cases
-    return {
-        "self_weight": create_self_weight_load_case(builder),
-        "dead_load_cases": create_dead_load_cases(builder),
-        "temperature_cases": create_temperature_load_cases(builder),
-        "udl_traffic_cases": create_udl_traffic_load_cases(builder),
-        "pedestrian": create_pedestrian_load_case(builder),
-        "service_vehicle_cases": create_service_vehicle_load_cases(builder, params),
-        "unintended_vehicle_cases": create_unintended_vehicle_load_cases(builder, params),
-        "tandem_cases": create_dynamic_tandem_load_cases(builder, params),
-    }
+    # Get load case selection from table
+    load_selection = _get_load_case_selection_from_table(params)
+
+    # Initialize the load cases dictionary
+    load_cases = {}
+
+    # Self-weight load case (BG1001)
+    if load_selection.get("Eigen gewicht", True):
+        load_cases["self_weight"] = create_self_weight_load_case(builder)
+
+    # Dead load cases (BG2001-BG2005)
+    if load_selection.get("Permanent", True):
+        load_cases["dead_load_cases"] = create_dead_load_cases(builder)
+
+    # Temperature load cases (BG3001-BG3004)
+    if load_selection.get("Temperatuur", True):
+        load_cases["temperature_cases"] = create_temperature_load_cases(builder)
+
+    # UDL traffic load cases (BG4001-BG4003)
+    if load_selection.get("UDL", True):
+        load_cases["udl_traffic_cases"] = create_udl_traffic_load_cases(builder)
+
+    # Pedestrian load case (BG5001)
+    if load_selection.get("Voetgangers", True):
+        load_cases["pedestrian"] = create_pedestrian_load_case(builder)
+
+    # Service vehicle load cases (BG6001-BG6xxx)
+    if load_selection.get("Dienstvoertuig", True):
+        load_cases["service_vehicle_cases"] = create_service_vehicle_load_cases(builder, params)
+
+    # Unintended vehicle load cases (BG7001-BG7xxx)
+    if load_selection.get("Onbedoeld voertuig", True):
+        load_cases["unintended_vehicle_cases"] = create_unintended_vehicle_load_cases(builder, params)
+
+    # Tandem system load cases (BG8001-BG10xxx)
+    if load_selection.get("TS", True):
+        load_cases["tandem_cases"] = create_dynamic_tandem_load_cases(builder, params)
+
+    return load_cases
