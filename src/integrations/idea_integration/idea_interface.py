@@ -425,10 +425,10 @@ def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.Data
     for df in [df_uls, df_sls_kar, df_sls_freq]:
         df["name"] = df["name"].str[1:].str.replace("_", "-")
 
-    # Add moment columns
+    # Add moment columns - select value with maximum absolute magnitude while preserving sign
     for df in [df_uls, df_sls_kar, df_sls_freq]:
-        df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].abs().max(axis=1)
-        df["My"] = df[["m_yD+_max", "m_yD-_max"]].max(axis=1)
+        df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+        df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
     # Rename columns to prevent clashes
     df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["name", "coords_xyz"] else x)
@@ -483,26 +483,25 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                 continue
 
             axis = cfg["axis"]  # "x" or "y"
-            mkey = cfg["moment"]  # "Mx" or "My"
 
             for _, row in df_slab.iterrows():
-                # Build internal forces with dynamic moment component (Mx/My)
+                # Build internal forces with dynamic moment component (vx/y and Mx/My)
                 char = idea_rcs.LoadingSLS(
                     idea_rcs.ResultOfInternalForces(
                         Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                        **{mkey: row.get(f"SLS_kar_{mkey}", 0)},
+                        My=row.get(f"SLS_kar_M{axis}", 0),
                     )
                 )
                 freq = idea_rcs.LoadingSLS(
                     idea_rcs.ResultOfInternalForces(
                         Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                        **{mkey: row.get(f"SLS_freq_{mkey}", 0)},
+                        My=row.get(f"SLS_freq_M{axis}", 0),
                     )
                 )
                 fund = idea_rcs.LoadingULS(
                     idea_rcs.ResultOfInternalForces(
                         Qz=row.get(f"ULS_v_{axis}_max", 0),
-                        **{mkey: row.get(f"ULS_{mkey}", 0)},
+                        My=row.get(f"ULS_M{axis}", 0),
                     )
                 )
 
