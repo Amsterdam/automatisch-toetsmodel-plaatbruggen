@@ -556,7 +556,7 @@ def clip_polygon_to_bridge_boundaries(corner_points: list[tuple[float, float, fl
         return corner_points
 
     # Extract bridge boundaries
-    if not hasattr(bridge_geom_data, 'x_coords_d_points'):
+    if not hasattr(bridge_geom_data, "x_coords_d_points"):
         return corner_points  # Return original if no geometry data
     x_min = bridge_geom_data.x_coords_d_points[0]
     x_max = bridge_geom_data.x_coords_d_points[-1]
