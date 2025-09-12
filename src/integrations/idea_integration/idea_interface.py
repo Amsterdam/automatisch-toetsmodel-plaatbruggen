@@ -401,7 +401,9 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
             # cs_dwars should be paired with rebar_langs and vice versa so we use opposite_direction here
             opposite_direction = "dwars" if direction == "langs" else "langs"
             cs = idea_rcs.RectSection(1.0, slab_thickness)
-            slab = model.create_one_way_slab(cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}")
+            slab = model.create_one_way_slab(
+                cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
+            )
             created_slabs[slab_key][f"slab_{opposite_direction}"] = slab
 
             # Create reinforcement bars for this slab
