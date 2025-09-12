@@ -24,6 +24,7 @@
 - **Input tab for calculation settings**: Added explanatory text and changed the tab name from "Belastingcombinaties" to
 "Berekeningsinstellingen", since the user input on this tab controls settings for the model calculation in general,
 not only for load combinations.
+- **Info tab**: Changed and removed irrelevant input fields on the info tab, and changed name of tab to "Paspoortinformatie".
 
 ### Fixed
 - **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
