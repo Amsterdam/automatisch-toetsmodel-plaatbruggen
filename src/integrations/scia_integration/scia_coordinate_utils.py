@@ -6,9 +6,17 @@ zone geometry extraction, and load format conversions without circular dependenc
 """
 
 from math import radians, tan
-from typing import Any
+from typing import Any, Protocol
 
 from .scia_load_generators import LoadType
+
+
+class BridgeGeometryData(Protocol):
+    """Protocol for bridge geometry data structure."""
+
+    x_coords_d_points: list[float]
+    y_bridge_bottom_at_d_points: list[float]
+    y_top_structural_edge_at_d_points: list[float]
 
 
 def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[float, float, float]]:
@@ -544,7 +552,9 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     return (None, None)
 
 
-def clip_polygon_to_bridge_boundaries(corner_points: list[tuple[float, float, float]], bridge_geom_data: Any) -> list[tuple[float, float, float]]:
+def clip_polygon_to_bridge_boundaries(
+    corner_points: list[tuple[float, float, float]], bridge_geom_data: BridgeGeometryData
+) -> list[tuple[float, float, float]]:
     """
     Clip a polygon to stay within bridge boundaries.
 
