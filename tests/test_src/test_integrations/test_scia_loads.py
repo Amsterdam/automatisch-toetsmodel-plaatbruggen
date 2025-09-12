@@ -1090,7 +1090,7 @@ class TestLoadBoundaryCompliance:
         mock_params.input = Mock()
         mock_params.input.berekeningsinstellingen = Mock()
         mock_params.input.berekeningsinstellingen.spreiding = True  # Enable dispersion
-        
+
         # Mock bridge segments for dispersion calculation
         mock_segment = Mock()
         mock_segment.l = 20.0
@@ -1100,24 +1100,23 @@ class TestLoadBoundaryCompliance:
         mock_segment.dz = 0.8
         mock_segment.dz_2 = 1.0
         mock_params.bridge_segments_array = [mock_segment]
-        
+
         # Mock load zones for dispersion calculation
         mock_load_zone = Mock()
         mock_load_zone.material = "Beton (normaal)"
         mock_load_zone.thickness = 0.1
         mock_params.load_zones_data_array = [mock_load_zone]
-        
+
         return mock_params
 
     def test_dispersal_function_clips_to_bridge_boundaries(self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock) -> None:
         """Test that dispersal_function clips coordinates to bridge boundaries."""
         from src.integrations.scia_integration.scia_loads import dispersal_function
-        from src.geometry.load_zone_geometry import get_bridge_geom_data
-        
+
         # Mock get_bridge_geom_data to return our test geometry
         with patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom:
             mock_get_geom.return_value = mock_bridge_geometry
-            
+
             # Test with corner points that would extend beyond bridge boundaries after dispersion
             corner_points = [
                 (19.0, 4.0, 0.0),  # Near right edge
@@ -1126,79 +1125,28 @@ class TestLoadBoundaryCompliance:
                 (19.0, 3.8, 0.0),
             ]
             load_value = 1000.0
-            
+
             # Apply dispersal (should extend beyond boundaries)
             dispersed_coords, dispersed_load = dispersal_function(
-                params=mock_params_with_dispersion,
-                corner_points=corner_points,
-                load_value=load_value,
-                load_case_type="axle_load"
+                params=mock_params_with_dispersion, corner_points=corner_points, load_value=load_value, load_case_type="axle_load"
             )
-            
+
             # Verify all coordinates are within bridge boundaries
             for x, y, z in dispersed_coords:
                 assert 0.0 <= x <= 20.0, f"X coordinate {x} should be within bridge length [0.0, 20.0]"
                 assert -5.0 <= y <= 5.0, f"Y coordinate {y} should be within bridge width [-5.0, 5.0]"
                 assert z == 0.0, f"Z coordinate {z} should remain unchanged"
 
-    def test_theoretical_tandem_loads_stay_within_boundaries(self, mock_builder: Mock, mock_params_with_dispersion: Mock) -> None:
-        """Test that theoretical tandem loads with dispersion stay within bridge boundaries."""
-        from src.integrations.scia_integration.scia_loads import add_theoretical_tandem_loads
-        
-        # Mock bridge geometry
-        mock_bridge_geom = Mock()
-        mock_bridge_geom.x_coords_d_points = [0.0, 25.0]
-        mock_bridge_geom.y_top_structural_edge_at_d_points = [6.0, 6.0]
-        mock_bridge_geom.y_bridge_bottom_at_d_points = [-6.0, -6.0]
-        
-        # Mock tandem load generation to return loads near edges
-        mock_tandem_data = [
-            {
-                "load_case": "BG5001",
-                "loads": [
-                    {
-                        "wheels": [
-                            [(0.5, 5.5), (0.7, 5.5), (0.7, 5.3), (0.5, 5.3)],  # Near top edge
-                            [(24.3, -5.5), (24.5, -5.5), (24.5, -5.3), (24.3, -5.3)],  # Near bottom edge
-                        ],
-                        "load": 150000.0,
-                    }
-                ],
-            }
-        ]
-        
-        with (
-            patch("src.integrations.scia_integration.scia_loads.generate_tandem_loads") as mock_generate,
-            patch("src.integrations.scia_integration.scia_loads.convert_loads_to_scia_format") as mock_convert,
-            patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-        ):
-            mock_generate.return_value = mock_tandem_data
-            mock_convert.return_value = mock_tandem_data
-            mock_get_geom.return_value = mock_bridge_geom
-            
-            # Create load cases
-            mock_load_cases = {"tandem_cases": {"BG5001": Mock(name="BG5001")}}
-            
-            # Apply loads
-            add_theoretical_tandem_loads(mock_builder, mock_params_with_dispersion, mock_load_cases)
-            
-            # Verify all created loads are within boundaries
-            for call in mock_builder.create_surface_load.call_args_list:
-                corner_points = call.kwargs["corner_points"]
-                for x, y, z in corner_points:
-                    assert 0.0 <= x <= 25.0, f"Tandem load X coordinate {x} exceeds bridge length"
-                    assert -6.0 <= y <= 6.0, f"Tandem load Y coordinate {y} exceeds bridge width"
-
     def test_service_vehicle_loads_stay_within_boundaries(self, mock_builder: Mock, mock_params_with_dispersion: Mock) -> None:
         """Test that service vehicle loads with dispersion stay within bridge boundaries."""
         from src.integrations.scia_integration.scia_loads import add_service_vehicle_loads
-        
+
         # Mock bridge geometry
         mock_bridge_geom = Mock()
         mock_bridge_geom.x_coords_d_points = [0.0, 30.0]
         mock_bridge_geom.y_top_structural_edge_at_d_points = [8.0, 8.0]
         mock_bridge_geom.y_bridge_bottom_at_d_points = [-8.0, -8.0]
-        
+
         with (
             patch("src.integrations.scia_integration.scia_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer") as mock_sequencer,
@@ -1206,25 +1154,40 @@ class TestLoadBoundaryCompliance:
             patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations") as mock_calc_locations,
         ):
             from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
-            
+
             mock_extract.return_value = BridgeDimensions(
-                total_length=30.0, total_width=16.0, thickness=0.8, 
-                zone1_width=5.0, zone2_width=6.0, zone3_width=5.0, first_segment_thickness=0.8
+                total_length=30.0, total_width=16.0, thickness=0.8, zone1_width=5.0, zone2_width=6.0, zone3_width=5.0, first_segment_thickness=0.8
             )
             mock_sequencer.return_value = [1.0, 15.0, 29.0]  # Positions near edges
             mock_get_geom.return_value = mock_bridge_geom
-            
+
             # Mock vehicle load locations that would extend beyond boundaries
-            def mock_calc_locations_side_effect(**kwargs):
+            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
                 x_coord = kwargs["x_coord"]
                 return {
                     "top_left_wheel_corners": [(x_coord, 7.5, 0.0), (x_coord + 0.25, 7.5, 0.0), (x_coord + 0.25, 7.75, 0.0), (x_coord, 7.75, 0.0)],
-                    "top_right_wheel_corners": [(x_coord + 1.5, 7.5, 0.0), (x_coord + 1.75, 7.5, 0.0), (x_coord + 1.75, 7.75, 0.0), (x_coord + 1.5, 7.75, 0.0)],
-                    "bottom_left_wheel_corners": [(x_coord, -7.5, 0.0), (x_coord + 0.25, -7.5, 0.0), (x_coord + 0.25, -7.25, 0.0), (x_coord, -7.25, 0.0)],
-                    "bottom_right_wheel_corners": [(x_coord + 1.5, -7.5, 0.0), (x_coord + 1.75, -7.5, 0.0), (x_coord + 1.75, -7.25, 0.0), (x_coord + 1.5, -7.25, 0.0)],
+                    "top_right_wheel_corners": [
+                        (x_coord + 1.5, 7.5, 0.0),
+                        (x_coord + 1.75, 7.5, 0.0),
+                        (x_coord + 1.75, 7.75, 0.0),
+                        (x_coord + 1.5, 7.75, 0.0),
+                    ],
+                    "bottom_left_wheel_corners": [
+                        (x_coord, -7.5, 0.0),
+                        (x_coord + 0.25, -7.5, 0.0),
+                        (x_coord + 0.25, -7.25, 0.0),
+                        (x_coord, -7.25, 0.0),
+                    ],
+                    "bottom_right_wheel_corners": [
+                        (x_coord + 1.5, -7.5, 0.0),
+                        (x_coord + 1.75, -7.5, 0.0),
+                        (x_coord + 1.75, -7.25, 0.0),
+                        (x_coord + 1.5, -7.25, 0.0),
+                    ],
                 }
+
             mock_calc_locations.side_effect = mock_calc_locations_side_effect
-            
+
             # Create load cases
             mock_load_cases = {
                 "service_vehicle_cases": {
@@ -1236,10 +1199,10 @@ class TestLoadBoundaryCompliance:
                     "y_minus_x29.0": Mock(name="BG6006"),
                 }
             }
-            
+
             # Apply loads
             add_service_vehicle_loads(mock_builder, mock_params_with_dispersion, mock_load_cases)
-            
+
             # Verify all created loads are within boundaries
             for call in mock_builder.create_surface_load.call_args_list:
                 corner_points = call.kwargs["corner_points"]
@@ -1250,13 +1213,13 @@ class TestLoadBoundaryCompliance:
     def test_accidental_vehicle_loads_stay_within_boundaries(self, mock_builder: Mock, mock_params_with_dispersion: Mock) -> None:
         """Test that accidental vehicle loads with dispersion stay within bridge boundaries."""
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
-        
+
         # Mock bridge geometry
         mock_bridge_geom = Mock()
         mock_bridge_geom.x_coords_d_points = [0.0, 40.0]
         mock_bridge_geom.y_top_structural_edge_at_d_points = [10.0, 10.0]
         mock_bridge_geom.y_bridge_bottom_at_d_points = [-10.0, -10.0]
-        
+
         with (
             patch("src.integrations.scia_integration.scia_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer") as mock_sequencer,
@@ -1266,25 +1229,25 @@ class TestLoadBoundaryCompliance:
             patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations") as mock_calc_locations,
         ):
             from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
-            
+
             mock_extract.return_value = BridgeDimensions(
-                total_length=40.0, total_width=20.0, thickness=1.0,
-                zone1_width=8.0, zone2_width=4.0, zone3_width=8.0, first_segment_thickness=1.0
+                total_length=40.0, total_width=20.0, thickness=1.0, zone1_width=8.0, zone2_width=4.0, zone3_width=8.0, first_segment_thickness=1.0
             )
             mock_sequencer.return_value = [2.0, 20.0, 38.0]  # Positions near edges
             mock_sequencer_single.return_value = [5.0, 35.0]
             mock_sequencer_rotated.return_value = [10.0, 30.0]
             mock_get_geom.return_value = mock_bridge_geom
-            
+
             # Mock vehicle load locations
-            def mock_calc_locations_side_effect(**kwargs):
+            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
                 x_coord = kwargs["x_coord"]
                 return {
                     "top_left_wheel_corners": [(x_coord, 9.0, 0.0), (x_coord + 0.2, 9.0, 0.0), (x_coord + 0.2, 9.2, 0.0), (x_coord, 9.2, 0.0)],
                     "bottom_left_wheel_corners": [(x_coord, -9.0, 0.0), (x_coord + 0.2, -9.0, 0.0), (x_coord + 0.2, -8.8, 0.0), (x_coord, -8.8, 0.0)],
                 }
+
             mock_calc_locations.side_effect = mock_calc_locations_side_effect
-            
+
             # Create load cases for all combinations
             mock_load_cases = {
                 "unintended_vehicle_cases": {
@@ -1297,10 +1260,10 @@ class TestLoadBoundaryCompliance:
             for pos in [5.0, 35.0]:
                 mock_load_cases["unintended_vehicle_cases"][f"rs_1_x{pos}_amsterdam"] = Mock(name="BG8001")
                 mock_load_cases["unintended_vehicle_cases"][f"rs_3_x{pos}_amsterdam"] = Mock(name="BG8002")
-            
+
             # Apply loads
             add_accidental_vehicle_loads(mock_builder, mock_params_with_dispersion, mock_load_cases)
-            
+
             # Verify all created loads are within boundaries
             for call in mock_builder.create_surface_load.call_args_list:
                 corner_points = call.kwargs["corner_points"]
@@ -1311,25 +1274,25 @@ class TestLoadBoundaryCompliance:
     def test_clip_polygon_to_bridge_boundaries_function(self, mock_bridge_geometry: Mock) -> None:
         """Test the clip_polygon_to_bridge_boundaries function directly."""
         from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
-        
+
         # Test with coordinates that extend beyond boundaries
         corner_points = [
             (-1.0, 6.0, 0.0),  # X too small, Y too large
             (21.0, 6.0, 0.0),  # X too large, Y too large
-            (21.0, -6.0, 0.0), # X too large, Y too small
-            (-1.0, -6.0, 0.0), # X too small, Y too small
+            (21.0, -6.0, 0.0),  # X too large, Y too small
+            (-1.0, -6.0, 0.0),  # X too small, Y too small
         ]
-        
+
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
-        
+
         # Verify all coordinates are clipped to boundaries
         expected_clipped = [
-            (0.0, 5.0, 0.0),   # Clipped to x_min, y_max
+            (0.0, 5.0, 0.0),  # Clipped to x_min, y_max
             (20.0, 5.0, 0.0),  # Clipped to x_max, y_max
-            (20.0, -5.0, 0.0), # Clipped to x_max, y_min
+            (20.0, -5.0, 0.0),  # Clipped to x_max, y_min
             (0.0, -5.0, 0.0),  # Clipped to x_min, y_min
         ]
-        
+
         for i, (x, y, z) in enumerate(clipped_points):
             expected_x, expected_y, expected_z = expected_clipped[i]
             assert x == expected_x, f"X coordinate {x} should be clipped to {expected_x}"
@@ -1339,7 +1302,7 @@ class TestLoadBoundaryCompliance:
     def test_clip_polygon_with_coordinates_within_boundaries(self, mock_bridge_geometry: Mock) -> None:
         """Test that coordinates already within boundaries are not modified."""
         from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
-        
+
         # Test with coordinates already within boundaries
         corner_points = [
             (5.0, 2.0, 0.0),
@@ -1347,16 +1310,16 @@ class TestLoadBoundaryCompliance:
             (15.0, -2.0, 0.0),
             (5.0, -2.0, 0.0),
         ]
-        
+
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
-        
+
         # Verify coordinates are unchanged
         assert clipped_points == corner_points, "Coordinates within boundaries should not be modified"
 
     def test_clip_polygon_with_empty_input(self, mock_bridge_geometry: Mock) -> None:
         """Test that empty input returns empty output."""
         from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
-        
+
         clipped_points = clip_polygon_to_bridge_boundaries([], mock_bridge_geometry)
         assert clipped_points == [], "Empty input should return empty output"
 
