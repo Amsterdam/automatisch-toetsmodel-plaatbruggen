@@ -159,7 +159,7 @@ class TestBridgeBaseGeometry(unittest.TestCase):
         assert geometry.num_defined_d_points == 1
 
         # Maximum value
-        coords_15 = list(range(15))
+        coords_15 = [float(i) for i in range(15)]
         geometry = BridgeBaseGeometry(
             x_coords_d_points=coords_15, y_coords_bridge_top_edge=coords_15, y_coords_bridge_bottom_edge=[[1.0, 1.5]] * 15, num_defined_d_points=15
         )

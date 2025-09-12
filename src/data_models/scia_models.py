@@ -129,7 +129,8 @@ class BridgeDimensionsData(BaseModel):
         # Validate second thickness is not greater than first thickness
         if self.first_segment_thickness_2 > self.first_segment_thickness:
             raise ValueError(
-                f"Second segment thickness {self.first_segment_thickness_2}m cannot be greater than first segment thickness {self.first_segment_thickness}m"
+                f"Second segment thickness {self.first_segment_thickness_2}m cannot be greater than "
+                f"first segment thickness {self.first_segment_thickness}m"
             )
 
         # Validate that zone widths don't exceed total width

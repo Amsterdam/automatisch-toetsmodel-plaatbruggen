@@ -80,7 +80,8 @@ class LoadZoneGeometryData(BaseModel):
 
         if len(self.y_top_structural_edge_at_d_points) != expected_length:
             raise ValueError(
-                f"y_top_structural_edge_at_d_points length {len(self.y_top_structural_edge_at_d_points)} doesn't match x_coords_d_points length {expected_length}"
+                f"y_top_structural_edge_at_d_points length {len(self.y_top_structural_edge_at_d_points)} "
+                f"doesn't match x_coords_d_points length {expected_length}"
             )
 
         if len(self.total_widths_at_d_points) != expected_length:
@@ -123,10 +124,6 @@ class LoadZoneGeometryData(BaseModel):
         """Validate coordinate values are within reasonable ranges."""
         for i, coord in enumerate(v):
             if not (-1000 <= coord <= 1000):
-                field_name = "coordinate"
-                if hasattr(cls, "__annotations__"):
-                    # Try to get field name from context
-                    pass
                 raise ValueError(f"Coordinate {coord} at index {i} is unrealistic (must be between -1000 and 1000)")
         return v
 
