@@ -7,6 +7,7 @@ dispersed loads are properly clipped to stay within the bridge structure.
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -299,7 +300,7 @@ class TestLoadBoundaryCompliance:
 
     def test_load_boundary_compliance_with_multiple_bridge_sizes(self) -> None:
         """Test load boundary compliance with various bridge sizes from test data."""
-        test_cases = [
+        test_cases: list[dict[str, Any]] = [
             {"name": "Default Bridge", "length": 10.0, "width": 30.0, "test_coords": [(-1.0, 16.0, 0.0), (11.0, -16.0, 0.0)]},
             {"name": "Complex Bridge", "length": 25.0, "width": 40.0, "test_coords": [(-2.0, 21.0, 0.0), (27.0, -21.0, 0.0)]},
         ]

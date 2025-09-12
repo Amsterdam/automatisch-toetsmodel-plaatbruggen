@@ -544,7 +544,7 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     return (None, None)
 
 
-def clip_polygon_to_bridge_boundaries(corner_points: list[tuple[float, float, float]], bridge_geom_data: object) -> list[tuple[float, float, float]]:
+def clip_polygon_to_bridge_boundaries(corner_points: list[tuple[float, float, float]], bridge_geom_data: Any) -> list[tuple[float, float, float]]:
     """
     Clip a polygon to stay within bridge boundaries.
 
@@ -556,6 +556,8 @@ def clip_polygon_to_bridge_boundaries(corner_points: list[tuple[float, float, fl
         return corner_points
 
     # Extract bridge boundaries
+    if not hasattr(bridge_geom_data, 'x_coords_d_points'):
+        return corner_points  # Return original if no geometry data
     x_min = bridge_geom_data.x_coords_d_points[0]
     x_max = bridge_geom_data.x_coords_d_points[-1]
     y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]

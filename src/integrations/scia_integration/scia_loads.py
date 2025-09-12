@@ -252,7 +252,7 @@ def dispersal_function(  # noqa: C901
 
     from .scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
-    bridge_geom_data = get_bridge_geom_data(params)
+    bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
     if bridge_geom_data is not None:
         dispersed_load_coords = clip_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
 
