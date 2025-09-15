@@ -3,11 +3,12 @@
 from typing import Any
 from typing import Protocol as TypingProtocol
 
+import viktor as vkt
+
 # Import for validate_load_zone_widths - ensure this path is correct
 from src.geometry.model_creator import (
     LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
 )
-from viktor import InputViolation
 from viktor.errors import UserError
 
 # All plotting helper functions below have been moved to src/geometry/load_zone_plot.py or src/common/plot_utils.py
@@ -132,7 +133,7 @@ def _collect_zone_selections(params: ParamsForReinforcementZones) -> dict[str, l
     return zone_to_configs
 
 
-def _build_input_violations(duplicate_zones: list[tuple[str, list[int]]]) -> list[InputViolation]:
+def _build_input_violations(duplicate_zones: list[tuple[str, list[int]]]) -> list[vkt.InputViolation]:
     """Build InputViolation objects for duplicate zone selections."""
     violations = []
 
@@ -151,7 +152,7 @@ def _build_input_violations(duplicate_zones: list[tuple[str, list[int]]]) -> lis
     # Create single violation with all conflicting zones and all affected fields
     if duplicate_zone_names:
         zones_text = ", ".join(duplicate_zone_names)
-        violation = InputViolation(f"{zones_text} is al geselecteerd.", fields=all_field_paths)
+        violation = vkt.InputViolation(f"{zones_text} is al geselecteerd.", fields=all_field_paths)
         violations.append(violation)
 
     return violations
