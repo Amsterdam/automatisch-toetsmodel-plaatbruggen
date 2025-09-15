@@ -23,6 +23,29 @@ class SegmentGeometry:
     bottom_y: float  # Bottom y-coordinate (z3_right)
 
 
+def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:
+    """
+    Determine the zone index based on the y-coordinate position.
+
+    Args:
+        y_coord: The y-coordinate to check
+        geom: The segment geometry containing boundary coordinates
+
+    Returns:
+        int: Zone index (1, 2, or 3)
+    """
+    if geom.top_y >= y_coord >= geom.mid_upper_y:
+        return 1
+    if geom.mid_upper_y >= y_coord >= geom.mid_lower_y:
+        return 2
+    if geom.mid_lower_y >= y_coord >= geom.bottom_y:
+        return 3
+    # If y_coord is outside any zone, default to closest zone
+    if y_coord > geom.top_y:
+        return 1
+    return 3
+
+
 def _get_segment_geometry(segment: Any, segment_idx: int, x_start: float) -> SegmentGeometry:
     """
     Extract geometry data for a bridge segment.
@@ -123,29 +146,6 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
     )
 
     # Create longitudinal strips
-    def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:
-        """
-        Determine the zone index based on the y-coordinate position.
-
-        Args:
-            y_coord: The y-coordinate to check
-            geom: The segment geometry containing boundary coordinates
-
-        Returns:
-            int: Zone index (1, 2, or 3)
-
-        """
-        if geom.top_y >= y_coord >= geom.mid_upper_y:
-            return 1
-        if geom.mid_upper_y >= y_coord >= geom.mid_lower_y:
-            return 2
-        if geom.mid_lower_y >= y_coord >= geom.bottom_y:
-            return 3
-        # If y_coord is outside any zone, default to closest zone
-        if y_coord > geom.top_y:
-            return 1
-        return 3
-
     for idx, geom in enumerate(segments_geom[1:]):
         # Create one longitudinal strip with dynamic zone detection
         y_middle = (geom.top_y + geom.bottom_y) / 2  # Calculate the y-coordinate
