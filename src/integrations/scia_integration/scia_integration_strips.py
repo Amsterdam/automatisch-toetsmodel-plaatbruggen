@@ -77,7 +77,6 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
         geom = _get_segment_geometry(segment, idx, x_pos)
         segments_geom.append(geom)
         x_pos += segment.l
-        print(segments_geom)
     
     # Find segment containing the midpoint
     mid_segment_geom = None
@@ -115,11 +114,6 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
     })
     
     # Create longitudinal strips
-    # One strip per segment, in middle of each zone
-    print("Creating longitudinal integration strips...")
-    print("Segment geometries:", segments_geom)
-
-
     def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:
         """
         Determine the zone index based on the y-coordinate position.
@@ -144,25 +138,33 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
             return 3
 
     for idx, geom in enumerate(segments_geom[1:]):
-        print(geom)
-        print(f"Processing segment {geom.index} from x={geom.x_start} to x={geom.x_end}")
-        
         # Create one longitudinal strip with dynamic zone detection
-        y_constant = (geom.top_y + geom.mid_upper_y) / 2  # Calculate the y-coordinate
-        zone_index = determine_zone_index(y_constant, geom)
-        print(f"  Creating strip for Zone {zone_index} at y={y_constant}")
-        
+        y_middle = (geom.top_y + geom.bottom_y) / 2  # Calculate the y-coordinate
+        y_top = geom.top_y - 0.5  # Slightly below top edge
+        y_bottom = geom.bottom_y + 0.5  # Slightly above bottom edge
+        zone_index_middle = determine_zone_index(y_middle, geom)
+        zone_index_top_edge = determine_zone_index(y_top, geom)
+        zone_index_bottom_edge = determine_zone_index(y_bottom, geom)
+
         strip_definitions.append({
-            "plane": f"Z{zone_index}_{geom.index}",  # Unique name for longitudinal strip
-            "point_1": (geom.x_start, y_constant, 0),  # Start at current segment's start
-            "point_2": (geom.x_end, y_constant, 0),    # End at current segment's end
+            "plane": f"Z{zone_index_middle}_{geom.index}",  # Unique name for longitudinal strip
+            "point_1": (geom.x_start, y_middle, 0),  # Start at current segment's start
+            "point_2": (geom.x_end, y_middle, 0),    # End at current segment's end
             "width": strip_width
         })
-        print(strip_definitions[-1])
-    
-    print(f"Created {len(strip_definitions)} integration strip definitions.")
-    print("Integration strip definitions:", strip_definitions)
-    
+        strip_definitions.append({
+            "plane": f"Z{zone_index_top_edge}_{geom.index}",  # Unique name for top edge strip
+            "point_1": (geom.x_start, y_top, 0),  # Start at current segment's start
+            "point_2": (geom.x_end, y_top, 0),    # End at current segment's end
+            "width": strip_width
+        })
+        strip_definitions.append({
+            "plane": f"Z{zone_index_bottom_edge}_{geom.index}",  # Unique name for bottom edge strip
+            "point_1": (geom.x_start, y_bottom, 0),  # Start at current segment's start
+            "point_2": (geom.x_end, y_bottom, 0),    # End at current segment's end
+            "width": strip_width
+        })
+
     return strip_definitions
 
 

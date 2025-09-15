@@ -109,14 +109,13 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         plane_name = plane
         if plane_name not in self.plates:
             raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
-        print(f"Creating integration strip for plate: {plane_name}")
         plane = self.plates[plane_name]
 
         strip = self.model.create_integration_strip(
-            plane,
-            point_1,
-            point_2,
-            width
+            plane=plane,
+            point_1=point_1,
+            point_2=point_2,
+            width=width
         )
         self.integration_strips[f"strip_{plane_name}"] = strip
         return strip

@@ -183,11 +183,11 @@ class SciaModelBuilder(Protocol):
         ...
     
     def create_integration_strip(
-            self,
-            name: str,
-            point_1: tuple[float, float, float],
-            point_2: tuple[float, float, float],
-            width: float,
+        self,
+        plane: str,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        width: float,
     ) -> SciaIntegrationStrip:
         """Creates an integration strip in the SCIA model."""
         ...
