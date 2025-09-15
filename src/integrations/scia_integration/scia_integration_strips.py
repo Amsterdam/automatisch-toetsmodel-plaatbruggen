@@ -33,6 +33,7 @@ def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:
 
     Returns:
         int: Zone index (1, 2, or 3)
+
     """
     if geom.top_y >= y_coord >= geom.mid_upper_y:
         return 1
