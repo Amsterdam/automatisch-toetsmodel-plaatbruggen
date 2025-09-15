@@ -23,7 +23,7 @@ from app.bridge.scia_model_builder import (
 )
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
-from app.bridge.utils import validate_load_zone_widths
+from app.bridge.utils import validate_load_zone_widths, validate_reinforcement_zone_duplicates
 from app.common.map_utils import (
     load_and_filter_bridge_shapefile,  # Import the new function
     process_bridge_geometries,
@@ -191,6 +191,13 @@ class BridgeController(ViktorController):
     @GeometryView("3D Model", duration_guess=1, x_axis_to_right=False)
     def get_3d_view(self, params: BridgeParametrization, **kwargs) -> GeometryResult:  # noqa: ARG002
         """Generates a 3D representation of the bridge deck."""
+        # Validate reinforcement zone duplicates before generating 3D model
+        validation_errors = validate_reinforcement_zone_duplicates(params)
+        if validation_errors:
+            # Raise UserError with all validation messages
+            error_message = "Ongeldige wapeningsconfiguratie:\n" + "\n".join(validation_errors)
+            raise UserError(error_message)
+
         combined_scene = create_3d_model(params, section_planes=True)
         # Export the scene as a GLTF file and return it as a GeometryResult
         geometry = File()
@@ -1538,6 +1545,13 @@ class BridgeController(ViktorController):
         :returns: TableResult met unieke zone keys
         :rtype: TableResult
         """
+        # Validate reinforcement zone duplicates before generating IDEA cross sections
+        validation_errors = validate_reinforcement_zone_duplicates(params)
+        if validation_errors:
+            # Raise UserError with all validation messages
+            error_message = "Ongeldige wapeningsconfiguratie:\n" + "\n".join(validation_errors)
+            raise UserError(error_message)
+
         unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
 
         # If no unique keys found, return empty table
@@ -1557,6 +1571,13 @@ class BridgeController(ViktorController):
         :returns: TableResult met IDEA RCS analyse resultaten
         :rtype: TableResult
         """
+        # Validate reinforcement zone duplicates before showing IDEA RCS results
+        validation_errors = validate_reinforcement_zone_duplicates(params)
+        if validation_errors:
+            # Raise UserError with all validation messages
+            error_message = "Ongeldige wapeningsconfiguratie:\n" + "\n".join(validation_errors)
+            raise UserError(error_message)
+
         # Validate bridge segments
         if not hasattr(params, "bridge_segments_array") or not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
