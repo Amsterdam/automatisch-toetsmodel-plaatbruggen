@@ -236,7 +236,6 @@ def create_real_integration_strips(params: BridgeParametrization) -> list[dict[s
 
     # Get car traffic zone data
     y_top, road_width = obtain_y_coordinates_road(params)
-    print(y_top, road_width)
     # Calculate y-coordinates for strips
     y_middle = (geom.top_y + geom.bottom_y) / 2  # Middle of the bridge width
     y_top_road = y_top - EDGE_OFFSET  # 0.5m inward from top road edge
