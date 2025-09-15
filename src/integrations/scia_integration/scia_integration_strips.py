@@ -3,11 +3,12 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from src.data_models.bridge_models import BridgeSegmentDimensions
 from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
-    pass
+    from app.bridge.parametrization import BridgeParametrization
 
 
 @dataclass
@@ -47,18 +48,17 @@ def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:
     return 3
 
 
-def _get_segment_geometry(segment: Any, segment_idx: int, x_start: float) -> SegmentGeometry:
+def _get_segment_geometry(segment: BridgeSegmentDimensions, segment_idx: int, x_start: float) -> SegmentGeometry:
     """
     Extract geometry data for a bridge segment.
 
     Args:
-        segment: Bridge segment containing geometry data
+        segment: Bridge segment containing geometry data with zone widths and dimensions
         segment_idx: 1-based index of the segment
         x_start: x-coordinate where this segment starts
 
     Returns:
         SegmentGeometry object with all coordinates
-
     """
     return SegmentGeometry(
         index=segment_idx,
@@ -196,19 +196,15 @@ def create_integration_strips(
                               'name', 'point_1', 'point_2', and 'width'.
     :return: A list of the created IntegrationStrip objects.
     """
-    strip_objects = []
-
-    for strip_def in strip_definitions:
-        strip_objects.append(
-            builder.create_integration_strip(
-                plane=strip_def["plane"],
-                point_1=strip_def["point_1"],
-                point_2=strip_def["point_2"],
-                width=strip_def["width"],
-            )
+    return [
+        builder.create_integration_strip(
+            plane=strip_def["plane"],
+            point_1=strip_def["point_1"],
+            point_2=strip_def["point_2"],
+            width=strip_def["width"],
         )
-
-    return strip_objects
+        for strip_def in strip_definitions
+    ]
 
 
 def create_all_integration_strips(builder: SciaModelBuilder, strip_definitions: list[dict]) -> list[SciaIntegrationStrip]:
