@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from src.common.constants.technical import EDGE_OFFSET, INTEGRATION_STRIP_WIDTH
-from src.data_models.bridge_models import BridgeSegmentDimensions
 
 from .scia_loads_helper import obtain_y_coordinates_road
 from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
@@ -53,12 +52,12 @@ def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:
     return 3
 
 
-def _get_segment_geometry(segment: BridgeSegmentDimensions, segment_idx: int, x_start: float) -> SegmentGeometry:
+def _get_segment_geometry(segment: dict[str, Any], segment_idx: int, x_start: float) -> SegmentGeometry:
     """
-    Extract geometry data for a bridge segment.
+    Extract geometry data for a bridge segment from the raw form data.
 
     Args:
-        segment: Bridge segment containing geometry data with zone widths and dimensions
+        segment: Raw segment data from params.bridge_segments_array containing .l attribute
         segment_idx: 1-based index of the segment
         x_start: x-coordinate where this segment starts
 
@@ -69,11 +68,11 @@ def _get_segment_geometry(segment: BridgeSegmentDimensions, segment_idx: int, x_
     return SegmentGeometry(
         index=segment_idx,
         x_start=x_start,
-        x_end=x_start + segment.l,
-        top_y=segment.bz1 + segment.bz2 / 2,  # z1_left
-        mid_upper_y=segment.bz2 / 2,  # z1_right/z2_left
-        mid_lower_y=-segment.bz2 / 2,  # z2_right/z3_left
-        bottom_y=-(segment.bz3 + segment.bz2 / 2),  # z3_right
+        x_end=x_start + segment["l"],  # Raw form data uses .l attribute
+        top_y=segment["bz1"] + segment["bz2"] / 2,  # z1_left
+        mid_upper_y=segment["bz2"] / 2,  # z1_right/z2_left
+        mid_lower_y=-segment["bz2"] / 2,  # z2_right/z3_left
+        bottom_y=-(segment["bz3"] + segment["bz2"] / 2),  # z3_right
     )
 
 
