@@ -99,10 +99,10 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     
     def create_integration_strip(
             self,
-            plane: scia.Plane,
+            plane: str,
             point_1: tuple[float, float, float],
             point_2: tuple[float, float, float],
-            width: float
+            width: float,
     ) -> scia.IntegrationStrip:
         """Creates an integration strip and stores it."""
         strip = self.model.create_integration_strip(

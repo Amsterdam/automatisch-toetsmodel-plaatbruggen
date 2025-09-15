@@ -188,7 +188,7 @@ class SciaModelBuilder(Protocol):
             point_1: tuple[float, float, float],
             point_2: tuple[float, float, float],
             width: float,
-    ) -> SciaObject:
+    ) -> SciaIntegrationStrip:
         """Creates an integration strip in the SCIA model."""
         ...
 
