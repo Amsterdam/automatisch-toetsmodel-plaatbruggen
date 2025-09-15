@@ -288,9 +288,7 @@ def get_concrete_material_from_csv(material_name: str) -> dict[str, Any]:
     material_prefix = material_name[0]
 
     if material_prefix == "C":
-        raise ValueError(
-            f"Modern Eurocode material '{material_name}' should use IDEA RCS built-in materials, not CSV data"
-        )
+        raise ValueError(f"Modern Eurocode material '{material_name}' should use IDEA RCS built-in materials, not CSV data")
 
     # Base path to CSV files
     csv_base_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials"

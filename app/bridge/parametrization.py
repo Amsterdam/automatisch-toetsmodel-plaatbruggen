@@ -412,21 +412,33 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         # Import here to avoid circular imports between app and src layers
         try:
             from src.integrations.idea_integration.idea_material_mapping import get_all_supported_reinforcement_materials
+
             all_supported = get_all_supported_reinforcement_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
         except ImportError:
             # Fallback to hardcoded list if import fails
             historical_materials = [
                 # GBV 1940 materials
-                "HK", "St. 37",
+                "HK",
+                "St. 37",
                 # GBV 1950 materials
-                "QR22", "QR24", "QR30", "QR36", "QR42",
+                "QR22",
+                "QR24",
+                "QR30",
+                "QR36",
+                "QR42",
                 # GBV 1962 materials
-                "QR32", "QR40", "QR48",
+                "QR32",
+                "QR40",
+                "QR48",
                 # NEN 6720 materials
-                "FeB500 HWL, HK", "FeB400 HWL, HK", "FeB220 HWL",
+                "FeB500 HWL, HK",
+                "FeB400 HWL, HK",
+                "FeB220 HWL",
                 # VB 74+84 materials
-                "FeB500 HW", "FeB400 HW", "FeB220 HW",
+                "FeB500 HW",
+                "FeB400 HW",
+                "FeB220 HW",
             ]
 
         # Combine: modern materials first, then historical materials
@@ -487,26 +499,55 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         except (FileNotFoundError, KeyError):
             # Fallback to standard Eurocode materials if CSV is not available
             modern_materials = [
-                "C12/15", "C16/20", "C20/25", "C25/30", "C30/37", "C35/45",
-                "C40/50", "C45/55", "C50/60", "C55/67", "C60/75", "C70/85",
-                "C80/95", "C90/105"
+                "C12/15",
+                "C16/20",
+                "C20/25",
+                "C25/30",
+                "C30/37",
+                "C35/45",
+                "C40/50",
+                "C45/55",
+                "C50/60",
+                "C55/67",
+                "C60/75",
+                "C70/85",
+                "C80/95",
+                "C90/105",
             ]
 
         # Add historical materials from IDEA integration
         # Import here to avoid circular imports between app and src layers
         try:
             from src.integrations.idea_integration.idea_material_mapping import get_all_supported_materials
+
             all_supported = get_all_supported_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
         except ImportError:
             # Fallback to hardcoded list if import fails
             historical_materials = [
                 # Historical materials from GBV 1940/1950/1962
-                "K150", "K200", "K250", "K160", "K225", "K300", "K400", "K450",
+                "K150",
+                "K200",
+                "K250",
+                "K160",
+                "K225",
+                "K300",
+                "K400",
+                "K450",
                 # NEN 6720 materials (B-class)
-                "B25", "B35", "B45", "B55", "B65",
+                "B25",
+                "B35",
+                "B45",
+                "B55",
+                "B65",
                 # VB 74+84 materials (B-class with decimals)
-                "B12,5", "B17,5", "B22,5", "B30", "B37,5", "B52,5", "B60",
+                "B12,5",
+                "B17,5",
+                "B22,5",
+                "B30",
+                "B37,5",
+                "B52,5",
+                "B60",
             ]
 
         # Combine: modern materials first, then historical materials

@@ -10,9 +10,9 @@ Key test coverage:
 - Error handling for missing materials and malformed data
 """
 
-import pytest
 from pathlib import Path
-from typing import Dict, Any
+
+import pytest
 
 from src.integrations.idea_integration.idea_material_generator import get_concrete_material_from_csv
 
@@ -23,16 +23,16 @@ class TestConcreteMaterialFromCSV:
     def test_read_k200_material_success(self) -> None:
         """Test successfully reading K200 material from CSV."""
         material_data = get_concrete_material_from_csv("K200")
-        
+
         # Verify we got data back
         assert isinstance(material_data, dict)
         assert len(material_data) > 0
-        
+
         # Verify key material properties are present
         required_keys = ["Fck", "UnitMass", "StoneDiameter", "CementClass", "AggregateType"]
         for key in required_keys:
             assert key in material_data, f"Required key '{key}' not found in material data"
-        
+
         # Verify specific values for K200
         assert material_data["Fck"] == 11.0, f"Expected Fck=11.0, got {material_data['Fck']}"
         assert material_data["UnitMass"] == 2450.0, f"Expected UnitMass=2450.0, got {material_data['UnitMass']}"
@@ -41,11 +41,11 @@ class TestConcreteMaterialFromCSV:
     def test_read_k150_material_success(self) -> None:
         """Test successfully reading K150 material from CSV."""
         material_data = get_concrete_material_from_csv("K150")
-        
+
         # Verify we got data back
         assert isinstance(material_data, dict)
         assert len(material_data) > 0
-        
+
         # Verify key material properties are present
         assert "Fck" in material_data
         assert material_data["Fck"] == 8.0, f"Expected Fck=8.0 for K150, got {material_data['Fck']}"
@@ -53,11 +53,11 @@ class TestConcreteMaterialFromCSV:
     def test_read_k250_material_success(self) -> None:
         """Test successfully reading K250 material from CSV."""
         material_data = get_concrete_material_from_csv("K250")
-        
+
         # Verify we got data back
         assert isinstance(material_data, dict)
         assert len(material_data) > 0
-        
+
         # Verify key material properties are present
         assert "Fck" in material_data
         assert material_data["Fck"] == 13.5, f"Expected Fck=13.5 for K250, got {material_data['Fck']}"
@@ -75,15 +75,15 @@ class TestConcreteMaterialFromCSV:
     def test_material_data_numeric_conversion(self) -> None:
         """Test that numeric values are properly converted from string format."""
         material_data = get_concrete_material_from_csv("K200")
-        
+
         # Test that decimal comma values are converted to float
         assert isinstance(material_data["Poisson"], float)
         assert material_data["Poisson"] == 0.2
-        
+
         # Test that scientific notation is handled
         assert isinstance(material_data["ThermalExpansion"], float)
         assert material_data["ThermalExpansion"] == 1.2e-05
-        
+
         # Test that boolean values are converted
         assert isinstance(material_data["PlainConcreteDiagram"], (bool, str))
         if isinstance(material_data["PlainConcreteDiagram"], str):
@@ -92,17 +92,40 @@ class TestConcreteMaterialFromCSV:
     def test_material_data_completeness(self) -> None:
         """Test that all expected columns are present in material data."""
         material_data = get_concrete_material_from_csv("K200")
-        
+
         # Expected columns based on CSV header
         expected_columns = [
-            "Header", "ElementID", "E", "G", "Poisson", "UnitMass", "SpecificHeat",
-            "ThermalExpansion", "ThermalConductivity", "Ecm", "Fck", "Fcm", "Fctm",
-            "Fctk_0_05", "Fctk_0_95", "NFactor", "Epsc1", "Epsc2", "Epsc3",
-            "Epscu1", "Epscu2", "Epscu3", "StoneDiameter", "CementClass",
-            "AggregateType", "DiagramType", "PlainConcreteDiagram", "SilicaFume",
-            "CalculateDependentValues"
+            "Header",
+            "ElementID",
+            "E",
+            "G",
+            "Poisson",
+            "UnitMass",
+            "SpecificHeat",
+            "ThermalExpansion",
+            "ThermalConductivity",
+            "Ecm",
+            "Fck",
+            "Fcm",
+            "Fctm",
+            "Fctk_0_05",
+            "Fctk_0_95",
+            "NFactor",
+            "Epsc1",
+            "Epsc2",
+            "Epsc3",
+            "Epscu1",
+            "Epscu2",
+            "Epscu3",
+            "StoneDiameter",
+            "CementClass",
+            "AggregateType",
+            "DiagramType",
+            "PlainConcreteDiagram",
+            "SilicaFume",
+            "CalculateDependentValues",
         ]
-        
+
         for column in expected_columns:
             assert column in material_data, f"Expected column '{column}' not found in material data"
 
@@ -118,10 +141,10 @@ class TestCSVFileStructure:
     def test_csv_file_readable(self) -> None:
         """Test that the CSV file is readable and has expected structure."""
         csv_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials" / "Beton_GBV 1950.csv"
-        
-        with open(csv_path, 'r', encoding='utf-8') as file:
+
+        with open(csv_path, encoding="utf-8") as file:
             content = file.read()
-            
+
             # Check for expected structural elements
             assert '"Header"' in content, "CSV should contain Header line"
             assert '"Data"' in content, "CSV should contain Data marker"
