@@ -23,7 +23,7 @@ from app.bridge.scia_model_builder import (
 )
 
 # ParamsForLoadZones protocol and validate_load_zone_widths are in app.bridge.utils
-from app.bridge.utils import validate_load_zone_widths, validate_reinforcement_zone_duplicates
+from app.bridge.utils import validate_load_zone_widths, validate_reinforcement_zone_selections
 from app.common.map_utils import (
     load_and_filter_bridge_shapefile,  # Import the new function
     process_bridge_geometries,
@@ -191,12 +191,8 @@ class BridgeController(ViktorController):
     @GeometryView("3D Model", duration_guess=1, x_axis_to_right=False)
     def get_3d_view(self, params: BridgeParametrization, **kwargs) -> GeometryResult:  # noqa: ARG002
         """Generates a 3D representation of the bridge deck."""
-        # Validate reinforcement zone duplicates before generating 3D model
-        validation_errors = validate_reinforcement_zone_duplicates(params)
-        if validation_errors:
-            # Raise UserError with all validation messages
-            error_message = "Ongeldige wapeningsconfiguratie:\n" + "\n".join(validation_errors)
-            raise UserError(error_message)
+        # Validate reinforcement zone selections before generating 3D model
+        validate_reinforcement_zone_selections(params)
 
         combined_scene = create_3d_model(params, section_planes=True)
         # Export the scene as a GLTF file and return it as a GeometryResult
@@ -211,6 +207,9 @@ class BridgeController(ViktorController):
         Generates a 2D top view of the bridge deck with dimensions by calling the src layer.
         Also performs validation of load zone widths against bridge dimensions.
         """
+        # Validate reinforcement zone selections before generating top view
+        validate_reinforcement_zone_selections(params)
+
         # 1. Prepare bridge geometry data (needed for validation)
         bridge_segments_params = params.bridge_segments_array
         bridge_geom_data: LoadZoneGeometryData | None = None  # Ensure type hint for clarity
@@ -1545,12 +1544,8 @@ class BridgeController(ViktorController):
         :returns: TableResult met unieke zone keys
         :rtype: TableResult
         """
-        # Validate reinforcement zone duplicates before generating IDEA cross sections
-        validation_errors = validate_reinforcement_zone_duplicates(params)
-        if validation_errors:
-            # Raise UserError with all validation messages
-            error_message = "Ongeldige wapeningsconfiguratie:\n" + "\n".join(validation_errors)
-            raise UserError(error_message)
+        # Validate reinforcement zone selections before processing
+        validate_reinforcement_zone_selections(params)
 
         unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
 
@@ -1571,12 +1566,8 @@ class BridgeController(ViktorController):
         :returns: TableResult met IDEA RCS analyse resultaten
         :rtype: TableResult
         """
-        # Validate reinforcement zone duplicates before showing IDEA RCS results
-        validation_errors = validate_reinforcement_zone_duplicates(params)
-        if validation_errors:
-            # Raise UserError with all validation messages
-            error_message = "Ongeldige wapeningsconfiguratie:\n" + "\n".join(validation_errors)
-            raise UserError(error_message)
+        # Validate reinforcement zone selections before processing
+        validate_reinforcement_zone_selections(params)
 
         # Validate bridge segments
         if not hasattr(params, "bridge_segments_array") or not params.bridge_segments_array:
@@ -1617,6 +1608,8 @@ class BridgeController(ViktorController):
         :returns: XML file download for IDEA RCS
         :rtype: DownloadResult
         """
+        # Validate reinforcement zone selections before processing
+        validate_reinforcement_zone_selections(params)
 
         def _raise_entity_id_error() -> None:
             raise UserError("Entity ID not found in kwargs")
@@ -1680,6 +1673,9 @@ class BridgeController(ViktorController):
         :returns: ZIP with analysis input and results
         :rtype: DownloadResult
         """
+        # Validate reinforcement zone selections before processing
+        validate_reinforcement_zone_selections(params)
+
         # Get entity ID from kwargs
         entity_id = kwargs.get("entity_id")
         if entity_id is None:

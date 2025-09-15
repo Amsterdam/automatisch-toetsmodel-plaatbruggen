@@ -1,15 +1,15 @@
 """Utility functions specific to the Bridge entity's UI or Plotly views."""
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from typing import Protocol as TypingProtocol
+
+import viktor as vkt
 
 # Import for validate_load_zone_widths - ensure this path is correct
 from src.geometry.model_creator import (
     LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
 )
-
-if TYPE_CHECKING:
-    from app.bridge.parametrization import BridgeParametrization
+from viktor.errors import UserError
 
 # All plotting helper functions below have been moved to src/geometry/load_zone_plot.py or src/common/plot_utils.py
 # get_zone_appearance_properties
@@ -28,6 +28,12 @@ class ParamsForLoadZones(TypingProtocol):
 
     load_zones_data_array: Any  # List of load zone rows - accessed directly on params due to 'name' property
     # Add other top-level param attributes if needed by validation in the future.
+
+
+class ParamsForReinforcementZones(TypingProtocol):
+    """Protocol defining the expected structure of params for reinforcement zone data."""
+
+    reinforcement_zones_array: Any  # List of reinforcement zone rows - accessed directly on params due to 'name' property
 
 
 def validate_load_zone_widths(params: ParamsForLoadZones, geometry_data: LoadZoneGeometryData) -> list[str]:
@@ -105,42 +111,80 @@ def validate_load_zone_widths(params: ParamsForLoadZones, geometry_data: LoadZon
     return warning_messages
 
 
-def validate_reinforcement_zone_duplicates(params: "BridgeParametrization") -> list[str]:
-    """
-    Validates that each zone is only selected in one reinforcement configuration.
-
-    Args:
-        params: The VIKTOR params object containing reinforcement_zones_array
-
-    Returns:
-        A list of error message strings if any validation fails, otherwise an empty list.
-
-    """
-    error_messages: list[str] = []
-
-    if not hasattr(params, "reinforcement_zones_array") or not params.reinforcement_zones_array:
-        return error_messages
-
-    # Track which zones are selected and in which configurations
+def _collect_zone_selections(params: ParamsForReinforcementZones) -> dict[str, list[int]]:
+    """Collect zone selections from all reinforcement configurations."""
     zone_to_configs: dict[str, list[int]] = {}
 
-    for config_idx, config in enumerate(params.reinforcement_zones_array):
-        if hasattr(config, "zone_number") and config.zone_number:
-            # Handle both single strings and lists
-            zones = config.zone_number if isinstance(config.zone_number, list) else [config.zone_number]
+    for config_idx, config_row in enumerate(params.reinforcement_zones_array):
+        selected_zones = getattr(config_row, "zone_number", []) or []
 
-            for zone in zones:
-                if zone not in zone_to_configs:
-                    zone_to_configs[zone] = []
-                zone_to_configs[zone].append(config_idx + 1)  # 1-based for user display
+        # Ensure we have a list of strings
+        if isinstance(selected_zones, str):
+            selected_zones = [selected_zones]
+
+        # Track which configuration each zone belongs to
+        for zone in selected_zones:
+            zone_str = str(zone).strip()
+            if zone_str:  # Only process non-empty zones
+                if zone_str not in zone_to_configs:
+                    zone_to_configs[zone_str] = []
+                zone_to_configs[zone_str].append(config_idx + 1)  # 1-based config numbering for user display
+
+    return zone_to_configs
+
+
+def _build_input_violations(duplicate_zones: list[tuple[str, list[int]]]) -> list[vkt.InputViolation]:
+    """Build InputViolation objects for duplicate zone selections."""
+    violations = []
+
+    # Collect all field paths that have duplicate zones
+    all_field_paths = []
+    duplicate_zone_names = []
+
+    for zone, configs in duplicate_zones:
+        duplicate_zone_names.append(zone)
+        # Add field paths for each configuration that has the duplicate zone
+        for config_idx in configs:
+            field_path = f"input.geometrie_wapening.zones[{config_idx-1}].zone_number"
+            if field_path not in all_field_paths:
+                all_field_paths.append(field_path)
+
+    # Create single violation with all conflicting zones and all affected fields
+    if duplicate_zone_names:
+        zones_text = ", ".join(duplicate_zone_names)
+        violation = vkt.InputViolation(
+            f"{zones_text} is al geselecteerd.",
+            fields=all_field_paths
+        )
+        violations.append(violation)
+
+    return violations
+
+
+def validate_reinforcement_zone_selections(params: ParamsForReinforcementZones) -> None:
+    """
+    Validates that each reinforcement zone is selected in only one configuration.
+
+    Raises UserError with InputViolations if any zone appears in multiple reinforcement configurations.
+
+    Args:
+        params: The VIKTOR params object, expected to have reinforcement_zones_array directly.
+
+    Raises:
+        UserError: If duplicate zone selections are found across configurations.
+
+    """
+    if not hasattr(params, "reinforcement_zones_array") or not params.reinforcement_zones_array:
+        return  # No reinforcement zones to validate
+
+    zone_to_configs = _collect_zone_selections(params)
 
     # Check for duplicates
-    for zone, config_indices in zone_to_configs.items():
-        if len(config_indices) > 1:
-            configs_str = ", ".join(map(str, config_indices))
-            error_msg = (
-                f"Zone '{zone}' is selected in multiple wapeningsconfiguraties: {configs_str}. Elke zone kan maar één keer worden geselecteerd."
-            )
-            error_messages.append(error_msg)
+    duplicate_zones = [(zone, configs) for zone, configs in zone_to_configs.items() if len(configs) > 1]
 
-    return error_messages
+    if duplicate_zones:
+        violations = _build_input_violations(duplicate_zones)
+        error_message = (
+            "Er mag per zone maar één wapeningsconfiguratie worden toegepast. "
+        )
+        raise UserError(error_message, input_violations=violations)
