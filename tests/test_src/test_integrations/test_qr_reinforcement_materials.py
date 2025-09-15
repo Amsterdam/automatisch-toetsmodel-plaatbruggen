@@ -28,7 +28,7 @@ class TestQRReinforcementMaterials:
         assert is_historical_reinforcement_material(material), f"QR material {material} from GBV 1962 should be historical"
 
     @pytest.mark.parametrize(
-        "material,expected_fyk",
+        ("material", "expected_fyk"),
         [
             ("QR22", 220.0),
             ("QR24", 240.0),
