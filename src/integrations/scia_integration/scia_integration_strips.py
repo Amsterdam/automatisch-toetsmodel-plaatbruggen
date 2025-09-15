@@ -73,7 +73,7 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
     # Get geometry data for all segments
     segments_geom = []
     x_pos = 0
-    for idx, segment in enumerate(params.bridge_segments_array, start=2):
+    for idx, segment in enumerate(params.bridge_segments_array, start=0):
         geom = _get_segment_geometry(segment, idx, x_pos)
         segments_geom.append(geom)
         x_pos += segment.l
@@ -115,6 +115,8 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
     
     # Create longitudinal strips
     # One strip per segment, in middle of each zone
+    print("Creating longitudinal integration strips...")
+    print("Segment geometries:", segments_geom)
     for idx, geom in enumerate(segments_geom[:-1]):  # Skip last segment as it's the end
         next_geom = segments_geom[idx + 1]
         
@@ -147,6 +149,9 @@ def create_strip_definitions(params: Any) -> list[dict[str, Any]]:  # noqa: ANN4
             "point_2": (geom.x_end, y_mid_next, 0),
             "width": strip_width
         })
+    
+    print(f"Created {len(strip_definitions)} integration strip definitions.")
+    print("Integration strip definitions:", strip_definitions)
     
     return strip_definitions
 
