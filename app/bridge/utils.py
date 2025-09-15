@@ -145,17 +145,14 @@ def _build_input_violations(duplicate_zones: list[tuple[str, list[int]]]) -> lis
         duplicate_zone_names.append(zone)
         # Add field paths for each configuration that has the duplicate zone
         for config_idx in configs:
-            field_path = f"input.geometrie_wapening.zones[{config_idx-1}].zone_number"
+            field_path = f"input.geometrie_wapening.zones[{config_idx - 1}].zone_number"
             if field_path not in all_field_paths:
                 all_field_paths.append(field_path)
 
     # Create single violation with all conflicting zones and all affected fields
     if duplicate_zone_names:
         zones_text = ", ".join(duplicate_zone_names)
-        violation = vkt.InputViolation(
-            f"{zones_text} is al geselecteerd.",
-            fields=all_field_paths
-        )
+        violation = vkt.InputViolation(f"{zones_text} is al geselecteerd.", fields=all_field_paths)
         violations.append(violation)
 
     return violations
@@ -184,7 +181,5 @@ def validate_reinforcement_zone_selections(params: ParamsForReinforcementZones) 
 
     if duplicate_zones:
         violations = _build_input_violations(duplicate_zones)
-        error_message = (
-            "Er mag per zone maar één wapeningsconfiguratie worden toegepast. "
-        )
+        error_message = "Er mag per zone maar één wapeningsconfiguratie worden toegepast. "
         raise UserError(error_message, input_violations=violations)
