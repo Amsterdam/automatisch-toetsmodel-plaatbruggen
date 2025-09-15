@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from src.data_models.bridge_models import BridgeSegmentDimensions
+
 from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
-    from app.bridge.parametrization import BridgeParametrization
+    pass
 
 
 @dataclass
@@ -59,6 +60,7 @@ def _get_segment_geometry(segment: BridgeSegmentDimensions, segment_idx: int, x_
 
     Returns:
         SegmentGeometry object with all coordinates
+
     """
     return SegmentGeometry(
         index=segment_idx,
