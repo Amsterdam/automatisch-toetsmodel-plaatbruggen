@@ -51,6 +51,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
+        self.strips: dict[int, scia.IntegrationStrip] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
@@ -95,6 +96,23 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
         self.plates[name] = plate
         return plate
+    
+    def create_integration_strip(
+            self,
+            plane: scia.Plane,
+            point_1: tuple[float, float, float],
+            point_2: tuple[float, float, float],
+            width: float
+    ) -> scia.IntegrationStrip:
+        """Creates an integration strip and stores it."""
+        strip = self.model.create_integration_strip(
+            plane,
+            point_1,
+            point_2,
+            width
+        )
+        self.integration_strips[strip.id] = strip
+        return strip
 
     def create_load_group(
         self,

@@ -28,6 +28,7 @@ SciaFreeLineLoad = Any
 SciaAnalysis = Any
 SciaResults = Any
 SciaResultClass = Any
+SciaIntegrationStrip = Any
 
 # Type aliases for file objects
 SciaFile = BytesIO | bytes
@@ -179,6 +180,16 @@ class SciaModelBuilder(Protocol):
         stiffness: dict[str, float],
     ) -> SciaLineSupport:
         """Creates a line support on a plane edge in the SCIA model."""
+        ...
+    
+    def create_integration_strip(
+            self,
+            name: str,
+            point_1: tuple[float, float, float],
+            point_2: tuple[float, float, float],
+            width: float,
+    ) -> SciaObject:
+        """Creates an integration strip in the SCIA model."""
         ...
 
     def get_model(self) -> SciaModel:
