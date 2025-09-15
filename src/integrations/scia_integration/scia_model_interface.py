@@ -181,7 +181,7 @@ class SciaModelBuilder(Protocol):
     ) -> SciaLineSupport:
         """Creates a line support on a plane edge in the SCIA model."""
         ...
-    
+
     def create_integration_strip(
         self,
         plane: str,

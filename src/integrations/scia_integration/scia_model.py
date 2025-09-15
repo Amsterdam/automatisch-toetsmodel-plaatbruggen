@@ -9,6 +9,7 @@ from typing import Any
 
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 
+from .scia_integration_strips import create_all_integration_strips, create_strip_definitions
 from .scia_load_cases import (
     create_all_load_cases,
 )
@@ -18,7 +19,6 @@ from .scia_loads import create_all_loads
 from .scia_model_interface import SciaModelBuilder
 from .scia_result_classes import create_all_result_classes
 from .scia_supports import create_all_supports
-from .scia_integration_strips import create_strip_definitions, create_all_integration_strips
 
 
 def create_bridge_geometry(builder: SciaModelBuilder, params: Any) -> list[str]:  # noqa: ANN401

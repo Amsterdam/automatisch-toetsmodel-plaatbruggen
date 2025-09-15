@@ -96,13 +96,13 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
         self.plates[name] = plate
         return plate
-    
+
     def create_integration_strip(
-            self,
-            plane: str,
-            point_1: tuple[float, float, float],
-            point_2: tuple[float, float, float],
-            width: float,
+        self,
+        plane: str,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        width: float,
     ) -> scia.IntegrationStrip:
         """Creates an integration strip and stores it."""
         # get the plate by name
@@ -111,12 +111,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
         plane = self.plates[plane_name]
 
-        strip = self.model.create_integration_strip(
-            plane=plane,
-            point_1=point_1,
-            point_2=point_2,
-            width=width
-        )
+        strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
         self.integration_strips[f"strip_{plane_name}"] = strip
         return strip
 
