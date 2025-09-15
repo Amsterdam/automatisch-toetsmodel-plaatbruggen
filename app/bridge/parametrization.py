@@ -5,6 +5,19 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -24,20 +37,6 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
-)
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
 )
 
 from .geometry_functions import get_steel_qualities
@@ -298,6 +297,42 @@ def define_options_numbering(params: Mapping, **kwargs) -> list:  # noqa: ARG001
             zone_number = f"{zone + 1}-{segment + 1}"
             option_list.append(zone_number)
     return option_list
+
+
+def create_zone_options_excluding_others(exclude_current_row: bool = True) -> Callable[..., list]:
+    """
+    Factory function to create zone options that exclude zones selected in other configurations.
+
+    This prevents users from selecting the same zone in multiple reinforcement configurations,
+    ensuring each zone can only have one reinforcement configuration applied.
+
+    Args:
+        exclude_current_row: Whether to exclude zones from the current row being edited.
+                           Set to False if you want to allow keeping current selections.
+
+    Returns:
+        Callable function that can be used as options provider for MultiSelectField
+
+    """
+
+    def zone_options_function(params: Mapping, **kwargs) -> list:
+        # Get all possible zones based on bridge segments
+        all_zones = define_options_numbering(params, **kwargs)
+
+        # Get currently selected zones from all reinforcement configurations
+        selected_zones = set()
+        if hasattr(params, "reinforcement_zones_array") and params.reinforcement_zones_array:
+            for config in params.reinforcement_zones_array:
+                if hasattr(config, "zone_number") and config.zone_number:
+                    # Handle both single strings and lists
+                    zones = config.zone_number if isinstance(config.zone_number, list) else [config.zone_number]
+                    selected_zones.update(zones)
+
+        # Return only zones that haven't been selected yet
+        available_zones = [zone for zone in all_zones if zone not in selected_zones]
+        return available_zones
+
+    return zone_options_function
 
 
 # --- Helper function to get min and max values of the model ---
@@ -721,9 +756,9 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # Zone number selection
     input.geometrie_wapening.zones.zone_number = MultiSelectField(
         "Zones",
-        options=define_options_numbering,  # Use dynamic options based on number of segments
+        options=create_zone_options_excluding_others(),  # Prevent duplicate zone selections
         default=["1-1", "2-1", "3-1"],  # Default to all zones for the first configuration
-        description="Selecteer de zones waar deze wapeningsconfiguratie moet worden toegepast.",
+        description="Selecteer de zones waar deze wapeningsconfiguratie moet worden toegepast. Elke zone kan maar één keer worden geselecteerd.",
     )
 
     input.geometrie_wapening.zones.lb2 = LineBreak()
