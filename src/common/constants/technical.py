@@ -20,6 +20,7 @@ SIGNAGE_LOAD_FACTORS = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
 INTEGRATION_STRIP_WIDTH = 1.0  # Width of integration strips in meters
 EDGE_OFFSET = 0.5  # Offset from the edge of the road for strip placement in meters
 
+
 # Enumeration of supported analysis types
 class AnalysisType(Enum):
     """Enumeration of supported analysis types."""

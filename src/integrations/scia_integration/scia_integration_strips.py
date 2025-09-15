@@ -3,17 +3,19 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from src.common.constants.technical import EDGE_OFFSET, INTEGRATION_STRIP_WIDTH
 from src.data_models.bridge_models import BridgeSegmentDimensions
 
-from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
 from .scia_loads_helper import obtain_y_coordinates_road
+from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
 
-from src.common.constants.technical import EDGE_OFFSET, INTEGRATION_STRIP_WIDTH
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
     pass
 
 BridgeParametrization = Any  # Replace with actual BridgeParametrization type if available
+
+
 @dataclass
 class SegmentGeometry:
     """Class to hold segment geometry data for easier access."""
@@ -75,7 +77,7 @@ def _get_segment_geometry(segment: BridgeSegmentDimensions, segment_idx: int, x_
     )
 
 
-def create_theoretical_integration_strips(params: BridgeParametrization) -> list[dict[str, Any]]:  # noqa: ANN401
+def create_theoretical_integration_strips(params: BridgeParametrization) -> list[dict[str, Any]]:
     """
     Create integration strip definitions for analyzing bridge deck forces.
 
@@ -186,6 +188,7 @@ def create_theoretical_integration_strips(params: BridgeParametrization) -> list
 
     return strip_definitions
 
+
 def create_real_integration_strips(params: BridgeParametrization) -> list[dict[str, Any]]:
     """
     Create integration strip definitions based on the real road layout.
@@ -205,6 +208,7 @@ def create_real_integration_strips(params: BridgeParametrization) -> list[dict[s
             - point_1: Start coordinates (x, y, z) in [m]
             - point_2: End coordinates (x, y, z) in [m]
             - width: Width of the integration strip in [m]
+
     """
     strip_definitions = []
 
@@ -229,12 +233,12 @@ def create_real_integration_strips(params: BridgeParametrization) -> list[dict[s
 
     if mid_segment_geom is None:
         raise ValueError("Could not find segment containing bridge midpoint")
-    
+
     # Get car traffic zone data
     y_top, road_width = obtain_y_coordinates_road(params)
     print(y_top, road_width)
     # Calculate y-coordinates for strips
-    y_middle = (geom.top_y + geom.bottom_y) / 2   # Middle of the bridge width
+    y_middle = (geom.top_y + geom.bottom_y) / 2  # Middle of the bridge width
     y_top_road = y_top - EDGE_OFFSET  # 0.5m inward from top road edge
     y_bottom_road = y_top - road_width + EDGE_OFFSET  # 0.5m inward from bottom road edge
     zone_index_middle = determine_zone_index(y_middle, mid_segment_geom)
@@ -273,7 +277,6 @@ def create_real_integration_strips(params: BridgeParametrization) -> list[dict[s
     )
     # Create longitudinal strips
     for idx, geom in enumerate(segments_geom[1:]):
-        
         # Middle strip
         strip_definitions.append(
             {
@@ -302,6 +305,7 @@ def create_real_integration_strips(params: BridgeParametrization) -> list[dict[s
 
     return strip_definitions
 
+
 def create_strip_definitions(params: BridgeParametrization) -> list[dict[str, Any]]:
     """
     Create integration strip definitions based on the calculation level setting.
@@ -314,13 +318,13 @@ def create_strip_definitions(params: BridgeParametrization) -> list[dict[str, An
 
     Returns:
         List of strip definitions appropriate for the selected calculation level
+
     """
     is_theoretical = params.berekeningsniveau == "Theoretische wegindeling"
-    
+
     if is_theoretical:
         return create_theoretical_integration_strips(params)
-    else:
-        return create_real_integration_strips(params)
+    return create_real_integration_strips(params)
 
 
 def create_integration_strips(
