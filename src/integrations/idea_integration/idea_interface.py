@@ -395,12 +395,16 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
             rebar_config=rebar_config,
         )
 
-        # Create slab for each direction
+        # Create slab for each rebar direction
         for direction in ["langs", "dwars"]:
             # Create rectangular cross-section for the slab
+            # cs_dwars should be paired with rebar_langs and vice versa so we use opposite_direction here
+            opposite_direction = "dwars" if direction == "langs" else "langs"
             cs = idea_rcs.RectSection(1.0, slab_thickness)
-            slab = model.create_one_way_slab(cs, cs_mat, name=f"CS_d{slab_thickness}_{direction}_{config}", rcs_name=f"rcs_{direction}_{config}")
-            created_slabs[slab_key][f"slab_{direction}"] = slab
+            slab = model.create_one_way_slab(
+                cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
+            )
+            created_slabs[slab_key][f"slab_{opposite_direction}"] = slab
 
             # Create reinforcement bars for this slab
             _create_reinforcement_bars(slab, direction, reinf_config, mat_reinf)
@@ -425,10 +429,10 @@ def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.Data
     for df in [df_uls, df_sls_kar, df_sls_freq]:
         df["name"] = df["name"].str[1:].str.replace("_", "-")
 
-    # Add moment columns
+    # Add moment columns - select value with maximum absolute magnitude while preserving sign
     for df in [df_uls, df_sls_kar, df_sls_freq]:
-        df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].abs().max(axis=1)
-        df["My"] = df[["m_yD+_max", "m_yD-_max"]].max(axis=1)
+        df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+        df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
     # Rename columns to prevent clashes
     df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["name", "coords_xyz"] else x)
@@ -453,6 +457,8 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                    - SLS_kar_v_{x|y}_max, SLS_freq_v_{x|y}_max, ULS_v_{x|y}_max
                    - SLS_kar_M{y|x},     SLS_freq_M{y|x},     ULS_M{y|x}
     """
+    # For langs cs link IDEA vz to scia vy and IDEA My to scia My
+    # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
     # Direction → axis + corresponding moment component
     orient = {
         "langs": {"axis": "y", "moment": "My"},
@@ -483,26 +489,25 @@ def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) 
                 continue
 
             axis = cfg["axis"]  # "x" or "y"
-            mkey = cfg["moment"]  # "Mx" or "My"
 
             for _, row in df_slab.iterrows():
-                # Build internal forces with dynamic moment component (Mx/My)
+                # Build internal forces with dynamic moment component (vx/y and Mx/My)
                 char = idea_rcs.LoadingSLS(
                     idea_rcs.ResultOfInternalForces(
                         Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                        **{mkey: row.get(f"SLS_kar_{mkey}", 0)},
+                        My=row.get(f"SLS_kar_M{axis}", 0),
                     )
                 )
                 freq = idea_rcs.LoadingSLS(
                     idea_rcs.ResultOfInternalForces(
                         Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                        **{mkey: row.get(f"SLS_freq_{mkey}", 0)},
+                        My=row.get(f"SLS_freq_M{axis}", 0),
                     )
                 )
                 fund = idea_rcs.LoadingULS(
                     idea_rcs.ResultOfInternalForces(
                         Qz=row.get(f"ULS_v_{axis}_max", 0),
-                        **{mkey: row.get(f"ULS_{mkey}", 0)},
+                        My=row.get(f"ULS_M{axis}", 0),
                     )
                 )
 
