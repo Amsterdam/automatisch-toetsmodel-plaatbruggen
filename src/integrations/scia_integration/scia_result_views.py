@@ -1,7 +1,7 @@
 """Functions for creating SCIA result views for VIKTOR tables."""
 
 import functools
-from typing import Any
+from typing import Any, Callable, Union
 
 import pandas as pd
 from viktor.views import TableResult
@@ -107,17 +107,17 @@ def _abs_max_aggregator(series: pd.Series) -> float:
     return series_clean.loc[abs_max_idx]
 
 
-def _create_aggregation_functions(df_columns: list[str]) -> dict[str, Any]:
+def _create_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
     """
     Create aggregation functions for DataFrame grouping.
 
     :param df_columns: List of DataFrame column names
     :type df_columns: list[str]
     :returns: Dictionary of aggregation functions
-    :rtype: dict[str, Any]
+    :rtype: dict[str, Union[str, Callable[[pd.Series], Any]]]
     """
     numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    agg_functions = {}
+    agg_functions: dict[str, Union[str, Callable[[pd.Series], Any]]] = {}
 
     for col in df_columns:
         if col == "Belasting":
