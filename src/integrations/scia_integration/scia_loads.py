@@ -246,6 +246,16 @@ def dispersal_function(  # noqa: C901
         return corner_points, load_value
 
     dispersed_load_coords = _expand_corners_with_dispersion(params=params, coords=corner_points, load_case_type=load_case_type)
+
+    # Clip dispersed coordinates to bridge boundaries
+    from src.geometry.load_zone_geometry import get_bridge_geom_data
+
+    from .scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+
+    bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
+    if bridge_geom_data is not None:
+        dispersed_load_coords = clip_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
+
     initial_load_area = _calculate_quadrilateral_area(coords=corner_points)
     dispersed_load_area = _calculate_quadrilateral_area(coords=dispersed_load_coords)
     dispersed_load_value = load_value * (initial_load_area / dispersed_load_area)
