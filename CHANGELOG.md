@@ -1,4 +1,4 @@
-## [`v0.0.12`] - 2025-xx-xx
+## [`v0.0.12`] - 2025-09-18
 ### Added
 - **Load Case Selection System**: Added load case selection table in SCIA → Berekening tab for controlling calculation times
   - Users can enable/disable specific load types (Eigen gewicht, Permanent, UDL, TS, etc.)
