@@ -592,11 +592,16 @@ def _get_header_with_unit(col: str, converter: Any) -> str:  # noqa: ANN401
     # Define mapping for force/moment columns
     unit_mapping = {
         "n": "N",
-        "v_y": "Vy", "vy": "Vy",
-        "v_z": "Vz", "vz": "Vz",
-        "m_x": "Mx", "mx": "Mx",
-        "m_y": "My", "my": "My",
-        "m_z": "Mz", "mz": "Mz",
+        "v_y": "Vy",
+        "vy": "Vy",
+        "v_z": "Vz",
+        "vz": "Vz",
+        "m_x": "Mx",
+        "mx": "Mx",
+        "m_y": "My",
+        "my": "My",
+        "m_z": "Mz",
+        "mz": "Mz",
     }
 
     # Check direct mappings first
@@ -670,11 +675,16 @@ def _format_numeric_with_units(numeric_value: float, col: str, converter: Any) -
     # Define mapping for force/moment columns
     unit_mapping = {
         "n": "N",
-        "v_y": "Vy", "vy": "Vy",
-        "v_z": "Vz", "vz": "Vz",
-        "m_x": "Mx", "mx": "Mx",
-        "m_y": "My", "my": "My",
-        "m_z": "Mz", "mz": "Mz",
+        "v_y": "Vy",
+        "vy": "Vy",
+        "v_z": "Vz",
+        "vz": "Vz",
+        "m_x": "Mx",
+        "mx": "Mx",
+        "m_y": "My",
+        "my": "My",
+        "m_z": "Mz",
+        "mz": "Mz",
     }
 
     # Check direct mappings first
@@ -794,6 +804,5 @@ def create_scia_1d_result_table(results: dict[str, Any], result_type: str) -> Ta
     except Exception as e:
         error_message = f"Error processing 1D results: {e!s}"
         return TableResult(
-            [["Verwerkingsfout", error_message, "N/A", "N/A", "N/A"]],
-            column_headers=["Error", "Details", "Extra1", "Extra2", "Extra3"]
+            [["Verwerkingsfout", error_message, "N/A", "N/A", "N/A"]], column_headers=["Error", "Details", "Extra1", "Extra2", "Extra3"]
         )
