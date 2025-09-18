@@ -83,7 +83,7 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     extract_force_envelopes,
     get_force_envelope_summary,
 )
-from src.integrations.scia_integration.scia_result_views import create_scia_result_table
+from src.integrations.scia_integration.scia_result_views import create_scia_1d_result_table, create_scia_result_table
 from src.report.report_functions import create_export_report  # Import the report creation function
 
 # Import parametrization from the separate file
@@ -749,7 +749,7 @@ class BridgeController(ViktorController):
             table_data.append(["Reactiekrachten", "Fout bij extractie", "Ondersteuningen", "Waarschuwing"])
 
     # Tableview for SLS kar results
-    @TableView("SCIA SLS kar", duration_guess=600)
+    @TableView("SCIA SLS kar 2D", duration_guess=600)
     def get_scia_results_view_sls_kar(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS kar results from SCIA analysis in a comprehensive table format.
@@ -819,7 +819,7 @@ class BridgeController(ViktorController):
         return create_scia_result_table(results, "SLS kar")
 
     # Tableview for SLS freq results
-    @TableView("SCIA SLS freq", duration_guess=600)
+    @TableView("SCIA SLS freq 2D", duration_guess=600)
     def get_scia_results_view_sls_freq(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS freq results from SCIA analysis in a comprehensive table format.
@@ -885,7 +885,7 @@ class BridgeController(ViktorController):
         return create_scia_result_table(results, "SLS freq")
 
     # Tableview for ULS results
-    @TableView("SCIA ULS", duration_guess=600)
+    @TableView("SCIA ULS 2D", duration_guess=600)
     def get_scia_results_view_uls(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results from SCIA analysis in a comprehensive table format.
@@ -949,6 +949,208 @@ class BridgeController(ViktorController):
 
         # Use the new module function to create the table
         return create_scia_result_table(results, "ULS")
+
+    # Tableview for SLS kar 1D results
+    @TableView("SCIA SLS kar 1D", duration_guess=600)
+    def get_scia_1d_results_view_sls_kar(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS kar 1D results from SCIA analysis in a comprehensive table format.
+
+        Shows 1D beam force and moment values for each coordinate location from SLS kar analysis.
+        Includes normal forces, shear forces, and bending/torsional moments.
+        Data is processed using IDEA StatiCa integration functions.
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+        """
+        print("Starting SCIA SLS kar 1D results view...")  # noqa: T201
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA 1D analyse resultaten konden niet worden opgehaald.") -> NoReturn:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError(error_msg)
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA 1D analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
+            traceback.print_exc()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA 1D analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Use the new module function to create the 1D table
+        return create_scia_1d_result_table(results, "SLS kar")
+
+    # Tableview for SLS freq 1D results
+    @TableView("SCIA SLS freq 1D", duration_guess=600)
+    def get_scia_1d_results_view_sls_freq(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS freq 1D results from SCIA analysis in a comprehensive table format.
+
+        Shows 1D beam force and moment values for each coordinate location from SLS freq analysis.
+        Includes normal forces, shear forces, and bending/torsional moments.
+        Data is processed using IDEA StatiCa integration functions.
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA 1D analyse resultaten konden niet worden opgehaald.") -> NoReturn:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError(error_msg)
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA 1D analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
+            traceback.print_exc()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA 1D analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Use the new module function to create the 1D table
+        return create_scia_1d_result_table(results, "SLS freq")
+
+    # Tableview for ULS 1D results
+    @TableView("SCIA ULS 1D", duration_guess=600)
+    def get_scia_1d_results_view_uls(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display ULS 1D results from SCIA analysis in a comprehensive table format.
+
+        Shows 1D beam force and moment values for each coordinate location from ULS analysis.
+        Includes normal forces, shear forces, and bending/torsional moments.
+        Data is processed using IDEA StatiCa integration functions.
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get the ESA template path
+        template_path = self._get_scia_template_path()
+
+        # Get entity ID for caching
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA 1D analyse resultaten konden niet worden opgehaald.") -> NoReturn:
+            """Raise a user error for SCIA analysis failures."""
+            raise UserError(error_msg)
+
+        # Get cached or run new SCIA analysis
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+        except TimeoutError:
+            _raise_scia_error(
+                "⏱️ SCIA 1D analyse time-out na 10 minuten.\n\n"
+                "Mogelijke oplossingen:\n"
+                "• Verminder het aantal brugsegmenten\n"
+                "• Vereenvoudig de belastingzones\n"
+                "• Download de XML bestanden en analyseer handmatig in SCIA\n"
+                "• Probeer het later opnieuw als de server minder belast is\n\n"
+                "Als het probleem aanhoudt, neem contact op met support."
+            )
+        except Exception as e:
+            traceback.print_exc()
+            # Provide more specific error messages based on exception type
+            if "timeout" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA 1D analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
+                )
+            elif "license" in str(e).lower():
+                _raise_scia_error("SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft.")
+            elif "worker" in str(e).lower():
+                _raise_scia_error(
+                    "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
+                )
+            else:
+                _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
+
+        # Use the new module function to create the 1D table
+        return create_scia_1d_result_table(results, "ULS")
 
     @TableView("SCIA Analyse Resultaten", duration_guess=600)
     def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: C901, PLR0912
