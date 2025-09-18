@@ -1,0 +1,16 @@
+﻿"MPRL table v3.0"
+"TableName";;"VB 74+84"
+"TableID";"c459afe1-1f56-42a8-80c8-f3364d0856a1"
+"TableType";"Material"
+"Group";"#LNG082"
+"TableParam1";"Reinforcement"
+"TableParam2";"ECEN"
+"TableParam3";""
+;;
+"Header";"ElementID";"E";"G";"Poisson";"UnitMass";"SpecificHeat";"ThermalExpansion";"ThermalConductivity";"Fyk";"CoeffFtkByFyk";"Epsuk";"Ftk";"Class";"Type";"Fabrication";"DiagramType";"BarSurface"
+"Unit";;"MPa";"MPa";"-";"kg/m3";"K";"-";"10e-6/K";"MPa";"-";"1e-4";"MPa";"-";"-";"-";"-";"-"
+"UnitCoeff";;1000000;1000000;1;1;1;1;1,00E-006;1000000;1;0,0001;1000000;;;;;
+"Data"
+"FeB220 HW";"{ef5134ea-bc1f-4bef-ae56-68a35b973122}";200000;83333,33333;0,2;7850;0,49;1E-05;50200000;220;1;500;220;"B";"Bars";"HotRolled";"BilinerWithOutAnInclinedTopBranch";"Ribbed"
+"FeB400 HW";"{28ecb4bc-213f-4daf-8a52-8dddfdc7ea19}";200000;83333,33333;0,2;7850;0,49;1E-05;50200000;400;1;400;400;"B";"Bars";"HotRolled";"BilinerWithOutAnInclinedTopBranch";"Ribbed"
+"FeB500 HW";"{98de1c92-8268-4e18-ac55-ae109e93ea49}";200000;83333,33333;0,2;7850;0,49;1E-05;50200000;500;1;325;500;"B";"Bars";"HotRolled";"BilinerWithOutAnInclinedTopBranch";"Ribbed"

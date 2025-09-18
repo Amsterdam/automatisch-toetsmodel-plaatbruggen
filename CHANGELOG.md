@@ -4,6 +4,8 @@
   - Users can enable/disable specific load types (Eigen gewicht, Permanent, UDL, TS, etc.)
   - Table shows load case count per type as calculation time indicator
   - Conditional load case creation based on user selection
+- **Historical Materials for IDEA Integration**: Added support for historical material classes in IDEA StatiCa integration
+  - Extended material compatibility to include legacy concrete and steel grades
 - **Centralized SCIA Unit Conversion System**: Implemented centralized unit handling to ensure units mapping and value conversion stay synchronized
   - Added `UnitConversion` dataclass to store display units, conversion factors, and raw units together
   - Comprehensive test suite with 20+ tests ensuring conversion consistency and backward compatibility
