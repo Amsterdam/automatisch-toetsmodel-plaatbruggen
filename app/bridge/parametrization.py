@@ -5,19 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any, ClassVar
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -40,8 +27,21 @@ from viktor.parametrization import (
     TextField,
 )
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from src.common.materials import get_reinforcement_qualities
-from .geometry_functions import get_steel_qualities
+
 from .utils import validate_reinforcement_zone_selections
 
 

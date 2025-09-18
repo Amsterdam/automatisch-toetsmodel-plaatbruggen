@@ -3,6 +3,7 @@
 from typing import Any
 
 from pydantic import ValidationError
+from viktor.errors import UserError
 
 from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
 from src.data_models.bridge_models import BridgeSegmentDimensions  # Import the Pydantic data model
@@ -12,11 +13,10 @@ from src.geometry.model_creator import (
     LoadZoneGeometryData,  # Import the dataclass
     prepare_load_zone_geometry_data,
 )
-from viktor.errors import UserError
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
-    from app.bridge.parametrization import BridgeParametrization
+    pass
 
 # TheoreticalLaneResult is now imported from src.data_models.geometry_models
 
