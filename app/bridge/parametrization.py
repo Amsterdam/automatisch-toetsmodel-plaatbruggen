@@ -5,6 +5,19 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    PAVEMENT_MATERIAL_OPTIONS,
+    SCIA_INFO_TEXT,
+)
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -26,20 +39,9 @@ from viktor.parametrization import (
     TextField,
 )
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    SCIA_INFO_TEXT,
-)
 from src.common.materials import get_reinforcement_qualities
+from .geometry_functions import get_steel_qualities
+from .utils import validate_reinforcement_zone_selections
 
 # --- Helper functions for Bridge Data Loading ---
 
@@ -272,6 +274,25 @@ def _calculate_support_positions(params, **kwargs) -> list[bool]:  # noqa: ANN00
 
 # Generate the visibility callbacks using a dictionary comprehension
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
+
+
+def _validate_reinforcement_zones_callback(params, **kwargs) -> None:  # noqa: ANN001, ARG001
+    """
+    Validation callback for reinforcement zone selections.
+
+    Validates that each zone is selected in only one configuration.
+    Raises UserError if duplicates are found.
+
+    Args:
+        params: Parameters containing reinforcement_zones_array
+        **kwargs: Additional keyword arguments (unused)
+
+    Raises:
+        UserError: If duplicate zone selections are found
+
+    """
+    validate_reinforcement_zone_selections(params)
+
 
 # --- Functions for dynamic reinforcement zones ---
 

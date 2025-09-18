@@ -6,9 +6,17 @@ zone geometry extraction, and load format conversions without circular dependenc
 """
 
 from math import radians, tan
-from typing import Any
+from typing import Any, Protocol
 
 from .scia_load_generators import LoadType
+
+
+class BridgeGeometryData(Protocol):
+    """Protocol for bridge geometry data structure."""
+
+    x_coords_d_points: list[float]
+    y_bridge_bottom_at_d_points: list[float]
+    y_top_structural_edge_at_d_points: list[float]
 
 
 def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[float, float, float]]:
@@ -542,6 +550,38 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
             )
 
     return (None, None)
+
+
+def clip_polygon_to_bridge_boundaries(
+    corner_points: list[tuple[float, float, float]], bridge_geom_data: BridgeGeometryData
+) -> list[tuple[float, float, float]]:
+    """
+    Clip a polygon to stay within bridge boundaries.
+
+    :param corner_points: List of 3D corner points [(x, y, z), ...]
+    :param bridge_geom_data: Bridge geometry data containing boundary information
+    :returns: Clipped corner points within bridge boundaries
+    """
+    if not corner_points:
+        return corner_points
+
+    # Extract bridge boundaries
+    if not hasattr(bridge_geom_data, "x_coords_d_points"):
+        return corner_points  # Return original if no geometry data
+    x_min = bridge_geom_data.x_coords_d_points[0]
+    x_max = bridge_geom_data.x_coords_d_points[-1]
+    y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]
+    y_max = bridge_geom_data.y_top_structural_edge_at_d_points[0]
+
+    clipped_points = []
+    for x, y, z in corner_points:
+        # Clip X coordinates
+        clipped_x = max(x_min, min(x_max, x))
+        # Clip Y coordinates
+        clipped_y = max(y_min, min(y_max, y))
+        clipped_points.append((clipped_x, clipped_y, z))
+
+    return clipped_points
 
 
 def get_dispersion_at_coord(
