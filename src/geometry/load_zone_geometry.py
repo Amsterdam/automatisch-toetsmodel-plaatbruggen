@@ -1,6 +1,6 @@
 """Module for geometric calculations related to load zones."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 from viktor.errors import UserError
