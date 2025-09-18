@@ -26,7 +26,6 @@ from src.common.materials import (
     get_prestress_qualities,
     get_reinforcement_material_properties,
     get_reinforcement_qualities,
-    get_steel_qualities,
     get_supported_idea_materials,
     get_supported_scia_materials,
     normalize_material_name,
@@ -479,24 +478,6 @@ class TestGetMaterialDensities(unittest.TestCase):
         # Act & Assert
         with pytest.raises(FileNotFoundError, match="Material density file not found"):
             get_material_densities()
-
-
-class TestGetSteelQualities(unittest.TestCase):
-    """Test cases for get_steel_qualities function."""
-
-    @patch("src.common.materials.get_reinforcement_qualities")
-    def test_get_steel_qualities_calls_reinforcement_function(self, mock_get_reinforcement: MagicMock) -> None:
-        """Test that get_steel_qualities delegates to get_reinforcement_qualities."""
-        # Arrange
-        expected_result = ["B500A", "B500B"]
-        mock_get_reinforcement.return_value = expected_result
-
-        # Act
-        result = get_steel_qualities()
-
-        # Assert
-        assert result == expected_result
-        mock_get_reinforcement.assert_called_once()
 
 
 class TestGetMaterialCompatibilityInfo(unittest.TestCase):

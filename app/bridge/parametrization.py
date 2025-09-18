@@ -39,6 +39,7 @@ from viktor.parametrization import (
     TextField,
 )
 
+from src.common.materials import get_reinforcement_qualities
 from .geometry_functions import get_steel_qualities
 from .utils import validate_reinforcement_zone_selections
 
@@ -414,17 +415,174 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     @staticmethod
-    def _get_concrete_quality_options() -> list[str]:
+    def _get_steel_quality_options() -> list[str]:
         """
-        Load concrete quality options from resources/data/materials/betonkwaliteit.csv.
+        Get comprehensive list of steel qualities including modern and historical materials.
 
-        :returns: List of concrete quality keys
+        :returns: Complete list of supported steel qualities
         :rtype: list[str]
         """
+        # Get modern materials from CSV (if available)
+        try:
+            modern_materials = get_reinforcement_qualities()
+        except Exception:
+            # Fallback to basic modern materials if CSV reading fails
+            modern_materials = ["B400A", "B400B", "B400C", "B500A", "B500B", "B500C"]
+
+        # Add historical materials from IDEA integration
+        # Import here to avoid circular imports between app and src layers
+        try:
+            from src.integrations.idea_integration.idea_material_mapping import get_all_supported_reinforcement_materials
+
+            all_supported = get_all_supported_reinforcement_materials()
+            historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
+        except ImportError:
+            # Fallback to hardcoded list if import fails
+            historical_materials = [
+                # GBV 1940 materials
+                "HK",
+                "St. 37",
+                # GBV 1950 materials
+                "QR22",
+                "QR24",
+                "QR30",
+                "QR36",
+                "QR42",
+                # GBV 1962 materials
+                "QR32",
+                "QR40",
+                "QR48",
+                # NEN 6720 materials
+                "FeB500 HWL, HK",
+                "FeB400 HWL, HK",
+                "FeB220 HWL",
+                # VB 74+84 materials
+                "FeB500 HW",
+                "FeB400 HW",
+                "FeB220 HW",
+            ]
+
+        # Combine: modern materials first, then historical materials
+        all_materials = modern_materials + historical_materials
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_materials = []
+        for material in all_materials:
+            if material not in seen:
+                seen.add(material)
+                unique_materials.append(material)
+
+        return unique_materials
+
+    @staticmethod
+    def _get_steel_quality_options_dynamic(params, **kwargs) -> list[str]:  # noqa: ANN001, ARG004
+        """
+        Dynamic options provider for Staalsoort.
+
+        Ensures legacy/default values already stored in older entities are included
+        so loading does not fail when value is not in the standard modern material list.
+
+        :param params: Current parameters (may contain a stored value)
+        :returns: Options list including any stored legacy value
+        :rtype: list[str]
+        """
+        options = BridgeParametrization._get_steel_quality_options()
+
+        try:
+            current_value = getattr(getattr(params, "input", None), "geometrie_wapening", None)
+            if current_value:
+                steel_value = getattr(current_value, "staalsoort", None)
+                if isinstance(steel_value, str) and steel_value and steel_value not in options:
+                    options.append(steel_value)
+        except Exception:
+            # If params is not fully initialized yet, just return base options
+            pass
+
+        return options
+
+    @staticmethod
+    def _get_concrete_quality_options() -> list[str]:
+        """
+        Load concrete quality options from resources/data/materials/betonkwaliteit.csv
+        and include historical materials from IDEA integration.
+
+        :returns: List of concrete quality keys (modern + historical)
+        :rtype: list[str]
+        """
+        # Load modern materials from CSV
+        modern_materials = []
         csv_path = CONCRETEQUALITY_CSV_PATH
-        with csv_path.open(encoding="utf-8") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            return [row["Betonkwaliteit"].strip('"') for row in reader]
+        try:
+            with csv_path.open(encoding="utf-8") as f:
+                reader = csv.DictReader(f, delimiter=";")
+                modern_materials = [row["Betonkwaliteit"].strip('"') for row in reader]
+        except (FileNotFoundError, KeyError):
+            # Fallback to standard Eurocode materials if CSV is not available
+            modern_materials = [
+                "C12/15",
+                "C16/20",
+                "C20/25",
+                "C25/30",
+                "C30/37",
+                "C35/45",
+                "C40/50",
+                "C45/55",
+                "C50/60",
+                "C55/67",
+                "C60/75",
+                "C70/85",
+                "C80/95",
+                "C90/105",
+            ]
+
+        # Add historical materials from IDEA integration
+        # Import here to avoid circular imports between app and src layers
+        try:
+            from src.integrations.idea_integration.idea_material_mapping import get_all_supported_materials
+
+            all_supported = get_all_supported_materials()
+            historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
+        except ImportError:
+            # Fallback to hardcoded list if import fails
+            historical_materials = [
+                # Historical materials from GBV 1940/1950/1962
+                "K150",
+                "K200",
+                "K250",
+                "K160",
+                "K225",
+                "K300",
+                "K400",
+                "K450",
+                # NEN 6720 materials (B-class)
+                "B25",
+                "B35",
+                "B45",
+                "B55",
+                "B65",
+                # VB 74+84 materials (B-class with decimals)
+                "B12,5",
+                "B17,5",
+                "B22,5",
+                "B30",
+                "B37,5",
+                "B52,5",
+                "B60",
+            ]
+
+        # Combine: modern materials first, then historical materials
+        all_materials = modern_materials + historical_materials
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_materials = []
+        for material in all_materials:
+            if material not in seen:
+                seen.add(material)
+                unique_materials.append(material)
+
+        return unique_materials
 
     @staticmethod
     def _get_concrete_quality_options_dynamic(params, **kwargs) -> list[str]:  # noqa: ANN001, ARG004
@@ -682,9 +840,12 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # General reinforcement parameters
     input.geometrie_wapening.staalsoort = OptionField(
         "Staalsoort",
-        options=get_steel_qualities(),
+        options=_get_steel_quality_options_dynamic,
         default="B500B",
-        description=("Kwaliteit van het betonstaal. SCIA: alle materialen. IDEA: alleen B500A/B/C. Oude staalsoorten worden automatisch omgezet."),
+        description=(
+            "Kwaliteit van het betonstaal. SCIA: alle materialen. IDEA: moderne en historische materialen. "
+            "Oude staalsoorten worden automatisch ondersteund."
+        ),
     )
 
     input.geometrie_wapening.langswapening_buiten = BooleanField(

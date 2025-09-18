@@ -272,9 +272,15 @@ class AnalysisCache:
 
     def _extract_materials(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
         """Extract materials data from params."""
-        return {
+        materials_data = {
             "materials": getattr(params, "materials", {}),
         }
+
+        # Extract concrete strength class from params directly (uses name attribute)
+        # This parameter affects the concrete material properties in IDEA RCS analysis
+        materials_data["concrete_strength_class"] = getattr(params, "concrete_strength_class", "")
+
+        return materials_data
 
     def _extract_reinforcement_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Extract reinforcement zones data from params."""
