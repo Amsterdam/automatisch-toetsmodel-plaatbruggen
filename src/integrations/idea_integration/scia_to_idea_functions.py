@@ -172,6 +172,38 @@ def _extract_scia_table_data(results: dict[str, Any], selected_table: str) -> tu
     return basis_data, elementaire_data
 
 
+def _extract_scia_1d_table_data(results: dict[str, Any], selected_table: str) -> dict[str, Any] | None:
+    """
+    Extract 1D forces data for a specific table from SCIA results.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param selected_table: Table name to extract
+    :type selected_table: str
+    :returns: 1D forces data or None
+    :rtype: dict[str, Any] | None
+    """
+    # Read 1D forces data
+    table_data = (
+        results.get("xml_parsing", {})
+        .get("parsed_tables", {})
+        .get(f"Interne 1D-krachten {selected_table}", {})
+        .get("data", None)
+    )
+    
+    # If we found table data, try to extract the actual results
+    if table_data and isinstance(table_data, dict):
+        # Check if the data is under "Resultaten over integratiestroken:"
+        integration_results = table_data.get("Resultaten over integratiestroken:")
+        if integration_results:
+            return integration_results
+        
+        # Otherwise return the data as-is
+        return table_data
+
+    return None
+
+
 def _create_name_lookup(df: pd.DataFrame) -> dict[tuple, str]:
     """
     Create name lookup dictionary from DataFrame.
@@ -310,6 +342,65 @@ def _populate_dataframe_from_lookups(
     return unique_coords_df
 
 
+def _populate_1d_dataframe_from_lookup(
+    unique_coords_df: pd.DataFrame,
+    name_lookup: dict[tuple, str],
+    data_lookup: dict[str, dict[tuple, list[float]]],
+) -> pd.DataFrame:
+    """
+    Populate DataFrame with 1D force values from lookup dictionaries.
+
+    :param unique_coords_df: DataFrame with unique coordinates
+    :type unique_coords_df: pd.DataFrame
+    :param name_lookup: Name lookup for data
+    :type name_lookup: dict[tuple, str]
+    :param data_lookup: Value lookups for 1D force data
+    :type data_lookup: dict[str, dict[tuple, list[float]]]
+    :returns: Populated DataFrame
+    :rtype: pd.DataFrame
+    """
+    coords_list = unique_coords_df["coords_xyz"].tolist()
+    print(f"DEBUG: _populate_1d_dataframe_from_lookup received {len(coords_list)} coordinates")  # noqa: T201
+    print(f"DEBUG: Sample coordinates: {coords_list[:3] if coords_list else 'None'}")  # noqa: T201
+
+    # Populate names
+    names = []
+    for coord in coords_list:
+        coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+        name = name_lookup.get(coord_tuple, "zone name not found")
+        names.append(name)
+    unique_coords_df["name"] = names
+    print(f"DEBUG: Populated {len(names)} names, sample: {names[:3] if names else 'None'}")  # noqa: T201
+
+    # Populate 1D force values (normal force, shear forces, bending moments)
+    force_columns = [
+        ("n_max", "N"),        # Normal force
+        ("v_y_max", "V_y"),    # Shear force Y
+        ("v_z_max", "V_z"),    # Shear force Z
+        ("m_y_max", "M_y"),    # Bending moment Y
+        ("m_z_max", "M_z"),    # Bending moment Z
+        ("m_x_max", "M_x"),    # Torsional moment X
+    ]
+
+    for col_name, orig_col in force_columns:
+        lookup_dict = data_lookup.get(orig_col, {})
+        print(f"DEBUG: Processing column {col_name} (from {orig_col}), lookup_dict has {len(lookup_dict)} entries")  # noqa: T201
+        values = []
+        for coord in coords_list:
+            coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+            coord_values = lookup_dict.get(coord_tuple, [])
+            if coord_values:
+                # Find value with maximum absolute value
+                max_abs_val = max(coord_values, key=abs)
+                values.append(max_abs_val)
+            else:
+                values.append(float("nan"))
+        unique_coords_df[col_name] = values
+        print(f"DEBUG: Populated {col_name} with {len([v for v in values if not pd.isna(v)])} non-NaN values out of {len(values)}")  # noqa: T201
+
+    return unique_coords_df
+
+
 def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """
     Process SCIA analysis results to create a DataFrame suitable for IDEA StatiCa integration.
@@ -370,3 +461,82 @@ def process_scia_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataF
         unique_results[selected_table] = unique_coords_df
 
     return unique_results
+
+
+def process_scia_1d_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
+    """
+    Process SCIA 1D force analysis results to create DataFrames suitable for IDEA StatiCa integration.
+
+    This function extracts 1D force data from SCIA results, processes coordinates,
+    and creates comprehensive DataFrames with unique coordinate locations and their corresponding
+    maximum force/moment values for beam elements.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :returns: Dictionary containing DataFrames for each 1D result table
+    :rtype: dict[str, pd.DataFrame]
+    """
+    # Setting to read SCIA xml for 1D forces
+    selected_result_tables = ["ULS", "SLS kar", "SLS freq"]
+    selected_data_scia_1d = {}
+
+    # Read the 1D force data from the "results" into a new dict
+    for selected_table in selected_result_tables:
+        data_1d = _extract_scia_1d_table_data(results, selected_table)
+        print(f"DEBUG: 1D data for {selected_table}: {type(data_1d)} with keys {list(data_1d.keys()) if isinstance(data_1d, dict) else 'Not a dict'}")  # noqa: T201
+        selected_data_scia_1d[f"Interne 1D-krachten {selected_table}"] = data_1d
+
+    # Merge x, y, z into coords_xyz for 1D force tables
+    for key, data in selected_data_scia_1d.items():
+        if data is not None and isinstance(data, dict):
+            selected_data_scia_1d[key] = merge_xyz_to_coords_xyz(data)
+
+    # Create empty dict for storing unique results on coords_xyz for each selected table
+    unique_results_1d = {}
+
+    # Create DataFrames for each selected 1D result class table
+    for selected_table in selected_result_tables:
+        data_1d = selected_data_scia_1d.get(f"Interne 1D-krachten {selected_table}", None)
+        print(f"DEBUG: Raw data_1d for {selected_table}: {type(data_1d)}")  # noqa: T201
+        if isinstance(data_1d, dict) and data_1d:
+            print(f"DEBUG: data_1d keys: {list(data_1d.keys())}")  # noqa: T201
+            print(f"DEBUG: Sample data_1d entries: {dict(list(data_1d.items())[:3])}")  # noqa: T201
+
+        # Convert 1D data to DataFrame
+        df_1d = pd.DataFrame(data_1d) if data_1d is not None else pd.DataFrame()
+        print(f"DEBUG: DataFrame for {selected_table}: shape = {df_1d.shape}, columns = {list(df_1d.columns) if not df_1d.empty else 'Empty'}")  # noqa: T201
+
+        if df_1d.empty:
+            unique_results_1d[selected_table] = df_1d
+            continue
+
+        # Create a DataFrame containing all unique values from the 'coords_xyz' column
+        if "coords_xyz" in df_1d.columns:
+            unique_coords = df_1d["coords_xyz"].drop_duplicates().tolist()
+            unique_coords_df = pd.DataFrame({"coords_xyz": unique_coords})
+            print(f"DEBUG: Created unique_coords_df with {len(unique_coords)} unique coordinates for {selected_table}")  # noqa: T201
+        else:
+            print(f"DEBUG: No 'coords_xyz' column found in DataFrame for {selected_table}")  # noqa: T201
+            unique_coords_df = pd.DataFrame()
+
+        if unique_coords_df.empty:
+            unique_results_1d[selected_table] = unique_coords_df
+            continue
+
+        # Create lookup dictionaries for faster coordinate-based access for 1D forces
+        # 1D beam forces include: normal force (N), shear forces (V_y, V_z), moments (M_x, M_y, M_z)
+        name_lookup, data_lookup = _create_lookup_dictionaries(df_1d, ["N", "V_y", "V_z", "M_x", "M_y", "M_z"])
+        print(f"DEBUG: name_lookup has {len(name_lookup)} entries for {selected_table}")  # noqa: T201
+        print(f"DEBUG: data_lookup keys: {list(data_lookup.keys())} for {selected_table}")  # noqa: T201
+        print(f"DEBUG: Sample name_lookup entries: {dict(list(name_lookup.items())[:3])}")  # noqa: T201
+        print(f"DEBUG: Sample data_lookup entries for N: {dict(list(data_lookup.get('N', {}).items())[:3])}")  # noqa: T201
+
+        # Populate the DataFrame efficiently using the lookup dictionaries
+        unique_coords_df = _populate_1d_dataframe_from_lookup(unique_coords_df, name_lookup, data_lookup)
+        print(f"DEBUG: Final DataFrame for {selected_table}: shape = {unique_coords_df.shape}, columns = {list(unique_coords_df.columns)}")  # noqa: T201
+
+        # Store unique results in the dictionary
+        unique_results_1d[selected_table] = unique_coords_df
+
+    print(f"DEBUG: Final unique_results_1d keys: {list(unique_results_1d.keys())}")  # noqa: T201
+    return unique_results_1d

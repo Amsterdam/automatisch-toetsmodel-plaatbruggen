@@ -1162,6 +1162,9 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
             "get_scia_results_view_sls_kar",
             "get_scia_results_view_sls_freq",
             "get_scia_results_view_uls",
+            "get_scia_1d_results_view_sls_kar",
+            "get_scia_1d_results_view_sls_freq",
+            "get_scia_1d_results_view_uls",
             "get_scia_results_table",
         ],
     )
