@@ -246,6 +246,16 @@ def dispersal_function(  # noqa: C901
         return corner_points, load_value
 
     dispersed_load_coords = _expand_corners_with_dispersion(params=params, coords=corner_points, load_case_type=load_case_type)
+
+    # Clip dispersed coordinates to bridge boundaries
+    from src.geometry.load_zone_geometry import get_bridge_geom_data
+
+    from .scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+
+    bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
+    if bridge_geom_data is not None:
+        dispersed_load_coords = clip_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
+
     initial_load_area = _calculate_quadrilateral_area(coords=corner_points)
     dispersed_load_area = _calculate_quadrilateral_area(coords=dispersed_load_coords)
     dispersed_load_value = load_value * (initial_load_area / dispersed_load_area)
@@ -830,25 +840,39 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
     Create and apply all load types to the bridge model.
 
     This function orchestrates the application of all loads, including:
-    - Tandem system loads
-    - Railing loads (placeholder)
+    - Material loads (asphalt, concrete fill, pavement, parapet, crowd)
+    - Traffic loads (UDL, tandem system, service vehicle, accidental vehicle)
     - Pedestrian loads (placeholder)
+
+    Loads are applied conditionally based on which load cases exist in the load_cases dictionary.
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
-    :param load_cases: Dictionary of created load cases.
+    :param load_cases: Dictionary of created load cases (may be empty for some categories).
     """
-    # Apply theoretical tandem loads
-    add_asfalt_loads(builder, params, load_cases)
-    add_concrete_fill_loads(builder, params, load_cases)
-    add_pavement_loads(builder, params, load_cases)
-    add_parapet_loads(builder, params, load_cases)
-    add_crowd_loads(builder, params, load_cases)
-    add_udl_loads(builder, params, load_cases)
-    add_theoretical_tandem_loads(builder, params, load_cases)
+    # Apply material loads (these depend on dead_load_cases)
+    if "dead_load_cases" in load_cases:
+        add_asfalt_loads(builder, params, load_cases)
+        add_concrete_fill_loads(builder, params, load_cases)
+        add_pavement_loads(builder, params, load_cases)
+        add_parapet_loads(builder, params, load_cases)
+        add_crowd_loads(builder, params, load_cases)
 
-    add_service_vehicle_loads(builder, params, load_cases)
-    add_accidental_vehicle_loads(builder, params, load_cases)
+    # Apply UDL traffic loads
+    if "udl_traffic_cases" in load_cases:
+        add_udl_loads(builder, params, load_cases)
+
+    # Apply tandem system loads
+    if "tandem_cases" in load_cases:
+        add_theoretical_tandem_loads(builder, params, load_cases)
+
+    # Apply service vehicle loads
+    if "service_vehicle_cases" in load_cases:
+        add_service_vehicle_loads(builder, params, load_cases)
+
+    # Apply unintended vehicle loads
+    if "unintended_vehicle_cases" in load_cases:
+        add_accidental_vehicle_loads(builder, params, load_cases)
 
     # TODO: Add calls to other load functions when they are implemented
     # add_actual_tandem_loads(builder, params, load_cases)  # noqa: ERA001

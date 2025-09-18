@@ -5,10 +5,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 from viktor.errors import UserError
 
-from app.bridge.parametrization import (
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,  # Import the constant
-    BridgeParametrization,
-)
+from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
 from src.data_models.bridge_models import BridgeSegmentDimensions  # Import the Pydantic data model
 from src.data_models.geometry_models import TheoreticalLaneResult
 from src.data_models.load_models import LoadZoneData
@@ -19,8 +16,7 @@ from src.geometry.model_creator import (
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
-    from app.bridge.parametrization import BridgeParametrization
-
+    pass
 
 # TheoreticalLaneResult is now imported from src.data_models.geometry_models
 
@@ -298,7 +294,7 @@ def _prepare_bridge_geometry_for_plotting(bridge_segments_params: list) -> LoadZ
         raise UserError("Fout bij voorbereiden bruggeometrie. Controleer de Dimensies tab.") from e
 
 
-def get_bridge_geom_data(params: "BridgeParametrization") -> LoadZoneGeometryData | None:
+def get_bridge_geom_data(params: Any) -> LoadZoneGeometryData | None:  # noqa: ANN401
     """
     Extract and prepare bridge geometry data from bridge parametrization.
 
@@ -361,7 +357,7 @@ def calculate_zone_geometry_properties(
     return updated_zones
 
 
-def get_load_zones_data_from_params(params: "BridgeParametrization") -> list[LoadZoneData]:
+def get_load_zones_data_from_params(params: Any) -> list[LoadZoneData]:  # noqa: ANN401
     """
     Extract load zone data from bridge parametrization and convert to LoadZoneData format.
 

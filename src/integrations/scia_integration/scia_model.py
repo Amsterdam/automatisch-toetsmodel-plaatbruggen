@@ -9,6 +9,7 @@ from typing import Any
 
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 
+from .scia_integration_strips import create_all_integration_strips, create_strip_definitions
 from .scia_load_cases import (
     create_all_load_cases,
 )
@@ -117,21 +118,25 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     """
     # 1. Build Geometry and get back the ordered list of plate names
     plate_names = create_bridge_geometry(builder, params)
+    strip_definitions = create_strip_definitions(params)
 
     # 2. Build Line Supports
     create_all_supports(builder, plate_names)
 
-    # 3. Build Load Groups
+    # 3. Build Integration Strips
+    create_all_integration_strips(builder, strip_definitions)
+
+    # 4. Build Load Groups
     create_all_load_groups(builder)
 
-    # 4. Build ALL Load Cases (standard and dynamic)
+    # 5. Build ALL Load Cases (standard and dynamic)
     all_load_cases = create_all_load_cases(builder, params)
 
-    # 5. Apply all loads to the now-existing cases
+    # 6. Apply all loads to the now-existing cases
     create_all_loads(builder, params, all_load_cases)
 
-    # 6. Build Load Combinations (after loads are applied)
+    # 7. Build Load Combinations (after loads are applied)
     all_load_combinations = create_all_load_combinations(params, builder, all_load_cases)
 
-    # 7. Create Result Classes to tell SCIA which combinations to analyze
+    # 8. Create Result Classes to tell SCIA which combinations to analyze
     create_all_result_classes(params, builder, all_load_combinations)

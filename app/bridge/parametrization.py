@@ -3,7 +3,7 @@
 import csv
 import json
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, ClassVar
 
 from viktor.parametrization import (
     BooleanField,
@@ -21,6 +21,7 @@ from viktor.parametrization import (
     Parametrization,
     RowLookup,
     Tab,
+    Table,
     Text,
     TextAreaField,
     TextField,
@@ -39,8 +40,84 @@ from app.constants import (
     PAVEMENT_MATERIAL_OPTIONS,
     SCIA_INFO_TEXT,
 )
+from src.common.materials import get_reinforcement_qualities
 
-from .geometry_functions import get_steel_qualities
+from .utils import validate_reinforcement_zone_selections
+
+
+def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
+    """
+    Calculate the number of load cases that would be generated for each load type.
+
+    :param params: Bridge parameters for dynamic calculations.
+    :return: Dictionary mapping load type names to their load case counts.
+    :rtype: dict[str, int]
+    """
+    counts = {
+        "Eigen gewicht": 1,  # BG1001
+        "Permanente belastingen": 5,  # BG2001-BG2005
+        "Temperatuurbelastingen": 4,  # BG3001-BG3004
+        "Verkeersbelastingen UDL": 3,  # BG4001-BG4003
+        "Voetgangersbelastingen": 1,  # BG5001
+    }
+
+    try:
+        # For dynamic load cases, we need to calculate based on bridge geometry
+        from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions
+        from src.integrations.scia_integration.scia_loads_helper import (
+            generate_theoretical_lane_positions_bg8000,
+            tandem_system_sequencer,
+            tandem_system_sequencer_single_axis,
+            tandem_system_sequencer_single_axis_rotated,
+        )
+
+        dims = extract_bridge_dimensions(params)
+        length = dims.total_length
+        thickness = dims.thickness
+        width = dims.total_width
+
+        # Service vehicle load cases: 2 × number of positions (y_plus and y_minus)
+        service_positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
+        counts["Dienstvoertuig belastingen"] = len(service_positions) * 2
+
+        # Unintended vehicle load cases: complex calculation
+        unintended_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
+        amsterdam_positions = tandem_system_sequencer_single_axis(length, thickness)
+        amsterdam_rotated_positions = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+
+        # Standard vehicle: 2 edges × 2 directions × positions
+        standard_cases = len(unintended_positions) * 2 * 2  # RS1 and RS3, forward and reverse
+        # Amsterdam vehicle: 2 edges × positions
+        amsterdam_cases = len(amsterdam_positions) * 2
+        # Amsterdam rotated: 2 edges × positions
+        amsterdam_rotated_cases = len(amsterdam_rotated_positions) * 2
+
+        counts["Onbedoeld voertuig belastingen"] = standard_cases + amsterdam_cases + amsterdam_rotated_cases
+
+        # Tandem system load cases: depends on number of theoretical lanes
+        num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
+        num_lanes = min(num_lanes, 3)  # Maximum 3 lanes
+
+        tandem_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.6)
+        tandem_cases = 0
+
+        for rs in range(1, num_lanes + 1):
+            if rs == 3:
+                # RS3 has double the cases (2 configurations)
+                tandem_cases += len(tandem_positions) * 2
+            else:
+                tandem_cases += len(tandem_positions)
+
+        counts["Tandem systeem belastingen"] = tandem_cases
+
+    except Exception:
+        # Fallback to estimated values if calculation fails
+        counts["Dienstvoertuig belastingen"] = 20  # Estimated
+        counts["Onbedoeld voertuig belastingen"] = 50  # Estimated
+        counts["Tandem systeem belastingen"] = 30  # Estimated
+
+    return counts
+
 
 # --- Helper functions for Bridge Data Loading ---
 
@@ -274,6 +351,25 @@ def _calculate_support_positions(params, **kwargs) -> list[bool]:  # noqa: ANN00
 # Generate the visibility callbacks using a dictionary comprehension
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
 
+
+def _validate_reinforcement_zones_callback(params, **kwargs) -> None:  # noqa: ANN001, ARG001
+    """
+    Validation callback for reinforcement zone selections.
+
+    Validates that each zone is selected in only one configuration.
+    Raises UserError if duplicates are found.
+
+    Args:
+        params: Parameters containing reinforcement_zones_array
+        **kwargs: Additional keyword arguments (unused)
+
+    Raises:
+        UserError: If duplicate zone selections are found
+
+    """
+    validate_reinforcement_zone_selections(params)
+
+
 # --- Functions for dynamic reinforcement zones ---
 
 
@@ -395,17 +491,174 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     @staticmethod
-    def _get_concrete_quality_options() -> list[str]:
+    def _get_steel_quality_options() -> list[str]:
         """
-        Load concrete quality options from resources/data/materials/betonkwaliteit.csv.
+        Get comprehensive list of steel qualities including modern and historical materials.
 
-        :returns: List of concrete quality keys
+        :returns: Complete list of supported steel qualities
         :rtype: list[str]
         """
+        # Get modern materials from CSV (if available)
+        try:
+            modern_materials = get_reinforcement_qualities()
+        except Exception:
+            # Fallback to basic modern materials if CSV reading fails
+            modern_materials = ["B400A", "B400B", "B400C", "B500A", "B500B", "B500C"]
+
+        # Add historical materials from IDEA integration
+        # Import here to avoid circular imports between app and src layers
+        try:
+            from src.integrations.idea_integration.idea_material_mapping import get_all_supported_reinforcement_materials
+
+            all_supported = get_all_supported_reinforcement_materials()
+            historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
+        except ImportError:
+            # Fallback to hardcoded list if import fails
+            historical_materials = [
+                # GBV 1940 materials
+                "HK",
+                "St. 37",
+                # GBV 1950 materials
+                "QR22",
+                "QR24",
+                "QR30",
+                "QR36",
+                "QR42",
+                # GBV 1962 materials
+                "QR32",
+                "QR40",
+                "QR48",
+                # NEN 6720 materials
+                "FeB500 HWL, HK",
+                "FeB400 HWL, HK",
+                "FeB220 HWL",
+                # VB 74+84 materials
+                "FeB500 HW",
+                "FeB400 HW",
+                "FeB220 HW",
+            ]
+
+        # Combine: modern materials first, then historical materials
+        all_materials = modern_materials + historical_materials
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_materials = []
+        for material in all_materials:
+            if material not in seen:
+                seen.add(material)
+                unique_materials.append(material)
+
+        return unique_materials
+
+    @staticmethod
+    def _get_steel_quality_options_dynamic(params, **kwargs) -> list[str]:  # noqa: ANN001, ARG004
+        """
+        Dynamic options provider for Staalsoort.
+
+        Ensures legacy/default values already stored in older entities are included
+        so loading does not fail when value is not in the standard modern material list.
+
+        :param params: Current parameters (may contain a stored value)
+        :returns: Options list including any stored legacy value
+        :rtype: list[str]
+        """
+        options = BridgeParametrization._get_steel_quality_options()
+
+        try:
+            current_value = getattr(getattr(params, "input", None), "geometrie_wapening", None)
+            if current_value:
+                steel_value = getattr(current_value, "staalsoort", None)
+                if isinstance(steel_value, str) and steel_value and steel_value not in options:
+                    options.append(steel_value)
+        except Exception:
+            # If params is not fully initialized yet, just return base options
+            pass
+
+        return options
+
+    @staticmethod
+    def _get_concrete_quality_options() -> list[str]:
+        """
+        Load concrete quality options from resources/data/materials/betonkwaliteit.csv
+        and include historical materials from IDEA integration.
+
+        :returns: List of concrete quality keys (modern + historical)
+        :rtype: list[str]
+        """
+        # Load modern materials from CSV
+        modern_materials = []
         csv_path = CONCRETEQUALITY_CSV_PATH
-        with csv_path.open(encoding="utf-8") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            return [row["Betonkwaliteit"].strip('"') for row in reader]
+        try:
+            with csv_path.open(encoding="utf-8") as f:
+                reader = csv.DictReader(f, delimiter=";")
+                modern_materials = [row["Betonkwaliteit"].strip('"') for row in reader]
+        except (FileNotFoundError, KeyError):
+            # Fallback to standard Eurocode materials if CSV is not available
+            modern_materials = [
+                "C12/15",
+                "C16/20",
+                "C20/25",
+                "C25/30",
+                "C30/37",
+                "C35/45",
+                "C40/50",
+                "C45/55",
+                "C50/60",
+                "C55/67",
+                "C60/75",
+                "C70/85",
+                "C80/95",
+                "C90/105",
+            ]
+
+        # Add historical materials from IDEA integration
+        # Import here to avoid circular imports between app and src layers
+        try:
+            from src.integrations.idea_integration.idea_material_mapping import get_all_supported_materials
+
+            all_supported = get_all_supported_materials()
+            historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
+        except ImportError:
+            # Fallback to hardcoded list if import fails
+            historical_materials = [
+                # Historical materials from GBV 1940/1950/1962
+                "K150",
+                "K200",
+                "K250",
+                "K160",
+                "K225",
+                "K300",
+                "K400",
+                "K450",
+                # NEN 6720 materials (B-class)
+                "B25",
+                "B35",
+                "B45",
+                "B55",
+                "B65",
+                # VB 74+84 materials (B-class with decimals)
+                "B12,5",
+                "B17,5",
+                "B22,5",
+                "B30",
+                "B37,5",
+                "B52,5",
+                "B60",
+            ]
+
+        # Combine: modern materials first, then historical materials
+        all_materials = modern_materials + historical_materials
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_materials = []
+        for material in all_materials:
+            if material not in seen:
+                seen.add(material)
+                unique_materials.append(material)
+
+        return unique_materials
 
     @staticmethod
     def _get_concrete_quality_options_dynamic(params, **kwargs) -> list[str]:  # noqa: ANN001, ARG004
@@ -663,9 +916,12 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # General reinforcement parameters
     input.geometrie_wapening.staalsoort = OptionField(
         "Staalsoort",
-        options=get_steel_qualities(),
+        options=_get_steel_quality_options_dynamic,
         default="B500B",
-        description=("Kwaliteit van het betonstaal. SCIA: alle materialen. IDEA: alleen B500A/B/C. Oude staalsoorten worden automatisch omgezet."),
+        description=(
+            "Kwaliteit van het betonstaal. SCIA: alle materialen. IDEA: moderne en historische materialen. "
+            "Oude staalsoorten worden automatisch ondersteund."
+        ),
     )
 
     input.geometrie_wapening.langswapening_buiten = BooleanField(
@@ -910,15 +1166,110 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
         ],
     )
 
-    scia.info_text = Text(SCIA_INFO_TEXT)
+    # Downloads tab
+    scia.downloads = Tab("Downloads")
+
+    scia.downloads.info_text = Text(SCIA_INFO_TEXT)
 
     # Download buttons - use DownloadButton instead of ActionButton
-    scia.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
+    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
 
-    scia.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
+    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
 
     # Analysis button
-    scia.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+    scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+
+    # Berekening tab
+    scia.berekening = Tab("Berekening")
+
+    # Load case selection for controlling calculation time
+    scia.berekening.load_case_selection_header = Text(
+        """## Belastingselectie
+Selecteer welke belastingen worden gegenereerd in het SCIA model.
+Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen."""
+    )
+
+    scia.berekening.lb_load_case_selection = LineBreak()
+
+    # Default content for load case selection table (static values)
+    _load_case_selection_default: ClassVar[list[dict[str, Any]]] = [
+        {
+            "include": True,
+            "load_type": "Eigen gewicht",
+            "load_case_range": "BG1001",
+            "load_case_count": 1,
+        },
+        {
+            "include": True,
+            "load_type": "Permanent",
+            "load_case_range": "BG2001-BG2005",
+            "load_case_count": 5,
+        },
+        {
+            "include": True,
+            "load_type": "Temperatuur",
+            "load_case_range": "BG3001-BG3004",
+            "load_case_count": 4,
+        },
+        {
+            "include": True,
+            "load_type": "UDL",
+            "load_case_range": "BG4001-BG4003",
+            "load_case_count": 3,
+        },
+        {
+            "include": True,
+            "load_type": "Voetgangers",
+            "load_case_range": "BG5001",
+            "load_case_count": 1,
+        },
+        {
+            "include": True,
+            "load_type": "Dienstvoertuig",
+            "load_case_range": "BG6001-BG6xxx",
+            "load_case_count": 20,  # Estimated default
+        },
+        {
+            "include": True,
+            "load_type": "Onbedoeld voertuig",
+            "load_case_range": "BG7001-BG7xxx",
+            "load_case_count": 50,  # Estimated default
+        },
+        {
+            "include": True,
+            "load_type": "TS",
+            "load_case_range": "BG8001-BG10xxx",
+            "load_case_count": 30,  # Estimated default
+        },
+    ]
+
+    scia.berekening.load_case_selection_table = Table(
+        "Belastingselectie",
+        name="load_case_selection_table",
+        default=_load_case_selection_default,
+    )
+
+    # Define table columns (order determines display order)
+    scia.berekening.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
+    scia.berekening.load_case_selection_table.load_type = TextField(
+        "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
+    )
+    scia.berekening.load_case_selection_table.load_case_range = TextField(
+        "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
+    )
+    scia.berekening.load_case_selection_table.load_case_count = NumberField(
+        "Aantal belastinggevallen",
+        suffix="",
+        visible=True,
+        description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
+    )
+
+    scia.berekening.lb_traffic_loads = LineBreak()
+
+    scia.berekening.load_case_selection_note = Text(
+        """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,
+maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoeleinden."""
+    )
 
     # ----------------------------------
     # --- IDEA StatiCa Page ---
@@ -931,12 +1282,6 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # Add download buttons as page attributes below the explanation
     idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file")
     idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results")
-
-    # ----------------------------------
-    # --- Calculations Page ---
-    # ----------------------------------
-
-    berekening = Page("Berekening")
 
     # ----------------------------------
     # --- Report Page ---

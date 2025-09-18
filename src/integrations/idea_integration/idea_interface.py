@@ -22,7 +22,10 @@ from viktor.external import idea_rcs
 from app.bridge.parametrization import BridgeParametrization
 from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
-from src.integrations.idea_integration.idea_material_mapping import get_idea_concrete_material, get_idea_reinforcement_material
+from src.integrations.idea_integration.idea_material_mapping import (
+    create_concrete_material_for_idea,
+    create_reinforcement_material_for_idea,
+)
 
 if TYPE_CHECKING:
     from viktor.core import File
@@ -237,9 +240,13 @@ def _get_rebar_config(
     return main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances
 
 
-def _create_idea_model_with_materials(params: BridgeParametrization) -> tuple["Model", "ConcreteMaterial", "ReinforcementMaterial"]:
+def _create_idea_model_with_concrete_and_reinforcement_materials(
+    params: BridgeParametrization,
+) -> tuple["Model", "ConcreteMaterial", "ReinforcementMaterial"]:
     """
-    Create IDEA model with concrete and reinforcement materials.
+    Create IDEA model with concrete and reinforcement materials from bridge parameters.
+
+    Supports both modern Eurocode materials and historical materials from CSV data.
 
     :param params: Bridge parametrization
     :type params: BridgeParametrization
@@ -258,14 +265,19 @@ def _create_idea_model_with_materials(params: BridgeParametrization) -> tuple["M
     model = idea_rcs.Model(project_data=project_data)
 
     # Create concrete material using parameter from user input
-    concrete_quality = getattr(params.info, "concrete_strength_class", None) or "C30/37"  # Default fallback
-    concrete_material_enum = get_idea_concrete_material(concrete_quality)
-    cs_mat = model.create_concrete_material(concrete_material_enum)
+    # Get concrete strength class - use the name attribute to access it directly on params
+    concrete_strength_value = getattr(params, "concrete_strength_class", "")
+
+    # Use C30/37 as default if field is None, empty string, or whitespace only
+    concrete_quality = concrete_strength_value.strip() if concrete_strength_value else "C30/37"
+    if not concrete_quality:  # Handle case where strip() results in empty string
+        concrete_quality = "C30/37"
+
+    cs_mat = create_concrete_material_for_idea(model, concrete_quality)
 
     # Create reinforcement material using parameter from user input
     steel_quality = getattr(params.input.geometrie_wapening, "staalsoort", None) or "B500B"  # Default fallback
-    reinforcement_material_enum = get_idea_reinforcement_material(steel_quality)
-    mat_reinf = model.create_reinforcement_material(reinforcement_material_enum)
+    mat_reinf = create_reinforcement_material_for_idea(model, steel_quality)
 
     return model, cs_mat, mat_reinf
 
@@ -541,7 +553,7 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
         scia_results_dict = get_scia_results_for_idea(params, entity_id=entity_id)
 
     # Create IDEA model with materials
-    model, cs_mat, mat_reinf = _create_idea_model_with_materials(params)
+    model, cs_mat, mat_reinf = _create_idea_model_with_concrete_and_reinforcement_materials(params)
 
     # Create slabs with reinforcement
     created_slabs = _create_slabs_with_reinforcement(params, model, cs_mat, mat_reinf)
