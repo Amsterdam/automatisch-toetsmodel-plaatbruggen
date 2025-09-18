@@ -1,0 +1,18 @@
+﻿"MPRL table v3.0"
+"TableName";;"NEN 6720"
+"TableID";"e5b6a771-bfc4-4a49-b337-16be237fac6d"
+"TableType";"Material"
+"Group";"Concrete"
+"TableParam1";"Concrete"
+"TableParam2";"ECEN"
+"TableParam3";""
+;;
+"Header";"ElementID";"E";"G";"Poisson";"UnitMass";"SpecificHeat";"ThermalExpansion";"ThermalConductivity";"Ecm";"Fck";"Fcm";"Fctm";"Fctk_0_05";"Fctk_0_95";"NFactor";"Epsc1";"Epsc2";"Epsc3";"Epscu1";"Epscu2";"Epscu3";"StoneDiameter";"CementClass";"AggregateType";"DiagramType";"PlainConcreteDiagram";"SilicaFume";"CalculateDependentValues"
+"Unit";;"MPa";"MPa";"-";"kg/m3";"K";"-";"10e-6/K";"MPa";"MPa";"MPa";"MPa";"MPa";"MPa";"-";"1e-4";"1e-4";"1e-4";"1e-4";"1e-4";"1e-4";"mm";"-";"-";"-";"-";"boolean";"boolean"
+"UnitCoeff";;1000000;1000000;1;1;1;1;1,00E-006;1000000;1000000;1000000;1000000;1000000;1000000;1;0,0001;0,0001;0,0001;0,0001;0,0001;0,0001;0,001;;;;;;;
+"Data"
+"B25";"{fcf6451a-a798-496f-90ca-85259a7a743f}";28500;12577;0,2;2450;0,75;1,2E-05;800000;28500;25;28;2,3;1,15;3,45;2;21,6187686973548;17,5;17,5;35;35;35;16;1;0;1;"False";"False";"True"
+"B35";"{665bc392-113c-49d0-a08f-381283bb1a4f}";31000;13681;0,2;2450;0,75;1,2E-05;800000;31000;35;38;2,8;1,4;4,2;2;21,6187686973548;17,5;17,5;35;35;35;16;1;0;1;"False";"False";"True"
+"B45";"{93b41393-7998-4cc5-b8f4-36a2e0ee8230}";33500;14784;0,2;2450;0,75;1,2E-05;800000;33500;45;43;3,3;1,65;4,95;2;21,6187686973548;17,5;17,5;35;35;35;16;1;0;1;"False";"False";"True"
+"B55";"{b1cbc923-e7d8-4e46-bbdc-28b23d5d1ded}";36000;15887;0,2;2450;0,75;1,2E-05;800000;36000;55;53;3,8;1,9;5,7;2;21,6187686973548;17,5;17,5;35;35;35;16;1;0;1;"False";"False";"True"
+"B65";"{0886a8ce-dc24-455b-af6c-9d8eaa495ed2}";38500;16990;0,2;2450;0,75;1,2E-05;800000;38500;65;63;4,3;2,15;6,45;2;21,6187686973548;17,5;17,5;35;35;35;16;1;0;1;"False";"False";"True"
