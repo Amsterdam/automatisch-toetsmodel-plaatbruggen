@@ -14,6 +14,10 @@ from src.geometry.model_creator import (
 )
 from viktor.errors import UserError
 
+# Use string annotation to avoid circular import
+if TYPE_CHECKING:
+    from app.bridge.parametrization import BridgeParametrization
+
 # TheoreticalLaneResult is now imported from src.data_models.geometry_models
 
 
