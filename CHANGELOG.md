@@ -1,5 +1,9 @@
 ## [`v0.0.12`] - 2025-xx-xx
 ### Added
+- **Load Case Selection System**: Added load case selection table in SCIA → Berekening tab for controlling calculation times
+  - Users can enable/disable specific load types (Eigen gewicht, Permanent, UDL, TS, etc.)
+  - Table shows load case count per type as calculation time indicator
+  - Conditional load case creation based on user selection
 - **Historical Materials for IDEA Integration**: Added support for historical material classes in IDEA StatiCa integration
   - Extended material compatibility to include legacy concrete and steel grades
 - **Centralized SCIA Unit Conversion System**: Implemented centralized unit handling to ensure units mapping and value conversion stay synchronized
@@ -20,6 +24,9 @@
 - **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
 
 ### Changed
+- **SCIA Page Structure**: Restructured SCIA page with Downloads and Berekening tabs
+- **Load Type Naming**: Shortened names (Permanent, UDL, TS, etc.) for better readability
+- **Load Case Selection Interface**: Optimized table layout with checkbox-first design and tooltips
 - **Refactored SCIA Unit Handling**: Migrated existing unit conversion functions to use centralized system
   - Maintained full backward compatibility - all existing tests continue to pass
 - **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
@@ -29,6 +36,8 @@ not only for load combinations.
 - **Info tab**: Changed and removed irrelevant input fields on the info tab, and changed name of tab to "Paspoortinformatie".
 
 ### Fixed
+- **VIKTOR Tab Structure Compliance**: Fixed parametrization structure by moving all fields inside tabs
+- **JSON Serialization Error**: Fixed load case selection table default values to be JSON-serializable
 - **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
 - **SCIA Unit Conversion**: Fixed missing unit conversion from N to kN and Nm to kNm in three SCIA result tables
 - **SCIA Result Views**: Added proper units display in table headers and values for consistent engineering units

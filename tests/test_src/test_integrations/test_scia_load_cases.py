@@ -341,3 +341,146 @@ class TestCreateAllLoadCases:
             "tandem_cases",
         ]
         assert list(all_cases.keys()) == expected_keys
+
+
+class TestConditionalLoadCaseCreation:
+    """Tests for conditional load case creation based on user selection."""
+
+    def test_create_all_load_cases_with_all_enabled(self, mock_builder: Mock) -> None:
+        """Test create_all_load_cases when all load types are enabled (default behavior)."""
+        params = Mock()
+        # Mock the table with all load types enabled
+        params.load_case_selection_table = [
+            {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
+            {"include": True, "load_type": "Permanent", "load_case_count": 5},
+            {"include": True, "load_type": "Temperatuur", "load_case_count": 4},
+            {"include": True, "load_type": "UDL", "load_case_count": 3},
+            {"include": True, "load_type": "Voetgangers", "load_case_count": 1},
+            {"include": True, "load_type": "Dienstvoertuig", "load_case_count": 20},
+            {"include": True, "load_type": "Onbedoeld voertuig", "load_case_count": 50},
+            {"include": True, "load_type": "TS", "load_case_count": 30},
+        ]
+
+        # We patch here because we don't care about the return values, just the structure
+        with (
+            patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case") as mock_self_weight,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases") as mock_dead_loads,
+            patch("src.integrations.scia_integration.scia_load_cases.create_temperature_load_cases") as mock_temperature,
+            patch("src.integrations.scia_integration.scia_load_cases.create_udl_traffic_load_cases") as mock_udl,
+            patch("src.integrations.scia_integration.scia_load_cases.create_pedestrian_load_case") as mock_pedestrian,
+            patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
+            patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+        ):
+            all_cases = create_all_load_cases(mock_builder, params)
+
+        # All functions should be called
+        mock_self_weight.assert_called_once_with(mock_builder)
+        mock_dead_loads.assert_called_once_with(mock_builder)
+        mock_temperature.assert_called_once_with(mock_builder)
+        mock_udl.assert_called_once_with(mock_builder)
+        mock_pedestrian.assert_called_once_with(mock_builder)
+        mock_service.assert_called_once_with(mock_builder, params)
+        mock_unintended.assert_called_once_with(mock_builder, params)
+        mock_tandem.assert_called_once_with(mock_builder, params)
+
+        # All expected keys should be present
+        expected_keys = [
+            "self_weight",
+            "dead_load_cases",
+            "temperature_cases",
+            "udl_traffic_cases",
+            "pedestrian",
+            "service_vehicle_cases",
+            "unintended_vehicle_cases",
+            "tandem_cases",
+        ]
+        assert list(all_cases.keys()) == expected_keys
+
+    def test_create_all_load_cases_with_some_disabled(self, mock_builder: Mock) -> None:
+        """Test create_all_load_cases when some load types are disabled."""
+        params = Mock()
+        # Mock the table with some load types disabled
+        params.load_case_selection_table = [
+            {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
+            {"include": False, "load_type": "Permanent", "load_case_count": 5},  # Disabled
+            {"include": True, "load_type": "Temperatuur", "load_case_count": 4},
+            {"include": False, "load_type": "UDL", "load_case_count": 3},  # Disabled
+            {"include": True, "load_type": "Voetgangers", "load_case_count": 1},
+            {"include": False, "load_type": "Dienstvoertuig", "load_case_count": 20},  # Disabled
+            {"include": True, "load_type": "Onbedoeld voertuig", "load_case_count": 50},
+            {"include": False, "load_type": "TS", "load_case_count": 30},  # Disabled
+        ]
+
+        # We patch here because we don't care about the return values, just the structure
+        with (
+            patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case") as mock_self_weight,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases") as mock_dead_loads,
+            patch("src.integrations.scia_integration.scia_load_cases.create_temperature_load_cases") as mock_temperature,
+            patch("src.integrations.scia_integration.scia_load_cases.create_udl_traffic_load_cases") as mock_udl,
+            patch("src.integrations.scia_integration.scia_load_cases.create_pedestrian_load_case") as mock_pedestrian,
+            patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
+            patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+        ):
+            all_cases = create_all_load_cases(mock_builder, params)
+
+        # Only enabled functions should be called
+        mock_self_weight.assert_called_once_with(mock_builder)
+        mock_dead_loads.assert_not_called()  # Disabled
+        mock_temperature.assert_called_once_with(mock_builder)
+        mock_udl.assert_not_called()  # Disabled
+        mock_pedestrian.assert_called_once_with(mock_builder)
+        mock_service.assert_not_called()  # Disabled
+        mock_unintended.assert_called_once_with(mock_builder, params)
+        mock_tandem.assert_not_called()  # Disabled
+
+        # Only enabled keys should be present
+        expected_keys = [
+            "self_weight",
+            "temperature_cases",
+            "pedestrian",
+            "unintended_vehicle_cases",
+        ]
+        assert list(all_cases.keys()) == expected_keys
+
+    def test_create_all_load_cases_with_missing_table(self, mock_builder: Mock) -> None:
+        """Test create_all_load_cases when params object doesn't have load case selection table (defaults to True)."""
+        params = Mock()
+        # Don't set load_case_selection_table - should default to all enabled
+
+        # We patch here because we don't care about the return values, just the structure
+        with (
+            patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case") as mock_self_weight,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases") as mock_dead_loads,
+            patch("src.integrations.scia_integration.scia_load_cases.create_temperature_load_cases") as mock_temperature,
+            patch("src.integrations.scia_integration.scia_load_cases.create_udl_traffic_load_cases") as mock_udl,
+            patch("src.integrations.scia_integration.scia_load_cases.create_pedestrian_load_case") as mock_pedestrian,
+            patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
+            patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+        ):
+            all_cases = create_all_load_cases(mock_builder, params)
+
+        # All functions should be called (default behavior)
+        mock_self_weight.assert_called_once_with(mock_builder)
+        mock_dead_loads.assert_called_once_with(mock_builder)
+        mock_temperature.assert_called_once_with(mock_builder)
+        mock_udl.assert_called_once_with(mock_builder)
+        mock_pedestrian.assert_called_once_with(mock_builder)
+        mock_service.assert_called_once_with(mock_builder, params)
+        mock_unintended.assert_called_once_with(mock_builder, params)
+        mock_tandem.assert_called_once_with(mock_builder, params)
+
+        # All expected keys should be present
+        expected_keys = [
+            "self_weight",
+            "dead_load_cases",
+            "temperature_cases",
+            "udl_traffic_cases",
+            "pedestrian",
+            "service_vehicle_cases",
+            "unintended_vehicle_cases",
+            "tandem_cases",
+        ]
+        assert list(all_cases.keys()) == expected_keys
