@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
+from viktor.errors import UserError
 
 from app.bridge.controller import BridgeController
-from viktor.errors import UserError
 
 
 # Patch DownloadResult at the module level to use our mock
@@ -58,7 +58,7 @@ class TestDownloadSciaXmlFiles:
                 "input": Munch(
                     {
                         "belastingzones": Munch({"lijnlast_leuning": 1.0}),
-                        "belastingcombinaties": Munch(
+                        "berekeningsinstellingen": Munch(
                             {
                                 "cc_class": "CC2",
                                 "berekeningsniveau": "Theoretische wegindeling",

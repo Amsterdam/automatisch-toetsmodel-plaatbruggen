@@ -10,13 +10,18 @@ import hashlib
 import json
 import pickle
 from collections.abc import Callable
-from enum import Enum
 from io import BytesIO
 from typing import Any
 
-from src.integrations.idea_interface import create_bridge_idea_model
 from viktor.core import File, Storage
+from viktor.errors import UserError
 from viktor.external import idea_rcs
+
+from app.bridge.scia_model_builder import get_scia_analysis_results
+from app.constants import SCIA_TEMPLATE_PATH
+from src.common.constants.technical import AnalysisType
+from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
+from src.integrations.idea_integration.scia_to_idea_functions import process_scia_results_for_idea
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -33,15 +38,24 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
     """Run IDEA analysis and extract results."""
-    model = create_bridge_idea_model(params)
-    xml_input = model.generate_xml_input()
+    # First get SCIA results needed for IDEA
+    scia_results_dict = get_scia_results_for_idea(params, entity_id)
 
-    analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
-    analysis.execute(120)
+    # Create IDEA model with the SCIA results
+    model = create_bridge_idea_model(params, entity_id, scia_results_dict)
+    idea_xml_input_bytes = model.generate_xml_input()
 
-    idea_output_xml_bytes = analysis.get_output_file(as_file=True)
+    # Run IDEA analysis
+    analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
+    analysis.execute(600)
+
+    # Get the IDEA RCS model and output XML
+    idea_rcs_model = analysis.get_idea_rcs_file(as_file=False)
+    idea_output_xml_bytes = analysis.get_output_file(as_file=False)
+
+    # Extract output content for parsing
     output_content = _extract_file_content(idea_output_xml_bytes)
 
     results: dict[str, Any] = {}
@@ -66,7 +80,9 @@ def get_idea_analysis_results(params: Any) -> dict[str, Any]:  # noqa: ANN401
                 "section_results": section_results,
                 "analysis_status": "completed",
                 "model": model,
-                "xml_input": xml_input,
+                "idea_xml_input_bytes": idea_xml_input_bytes,
+                "idea_rcs_model": idea_rcs_model,
+                "idea_xml_output_bytes": idea_output_xml_bytes,
                 "output_content": output_content,
             }
         )
@@ -76,7 +92,9 @@ def get_idea_analysis_results(params: Any) -> dict[str, Any]:  # noqa: ANN401
                 "analysis_status": "failed",
                 "error": str(e),
                 "model": model,
-                "xml_input": xml_input,
+                "idea_xml_input_bytes": idea_xml_input_bytes,
+                "idea_rcs_model": idea_rcs_model,
+                "idea_xml_output_bytes": idea_output_xml_bytes,
                 "output_content": output_content,
             }
         )
@@ -84,21 +102,46 @@ def get_idea_analysis_results(params: Any) -> dict[str, Any]:  # noqa: ANN401
     return results
 
 
-def get_idea_model_only(params: Any) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+    """
+    Get SCIA results that are needed for IDEA analysis.
+
+    :param params: Bridge parametrization
+    :type params: Any
+    :param entity_id: Entity ID for caching
+    :type entity_id: int
+    :returns: Dictionary containing processed SCIA results for IDEA
+    :rtype: dict[str, Any]
+    :raises UserError: If bridge segments are missing or analysis fails
+    """
+    # Get entity ID for caching
+    if not isinstance(entity_id, int):
+        raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+    try:
+        # Get the ESA template path
+        template_path = SCIA_TEMPLATE_PATH
+
+        # Use cached SCIA analysis results instead of calling directly
+        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+
+    except Exception as e:
+        raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
+
+    # Process SCIA results using the dedicated function returned DataFrame
+    if results is None:
+        raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
+    return process_scia_results_for_idea(results)
+
+
+def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
     """Create IDEA model only (without running analysis)."""
-    model = create_bridge_idea_model(params)
+    model = create_bridge_idea_model(params, entity_id)
     return {
         "model": model,
-        "xml_input": model.generate_xml_input(),
+        "idea_xml_input_bytes": model.generate_xml_input(),
         "analysis_status": "model_created",
     }
-
-
-class AnalysisType(Enum):
-    """Enumeration of supported analysis types."""
-
-    SCIA = "scia"
-    IDEA = "idea"
 
 
 class AnalysisCache:
@@ -116,16 +159,12 @@ class AnalysisCache:
         }
 
         if analysis_type == AnalysisType.SCIA:
-            # For SCIA, extract the parameters that actually affect the analysis
+            # For SCIA, extract only the parameters that actually affect the SCIA analysis
             extracted_params.update(
                 {
                     "bridge_segments": self._extract_bridge_segments(params),
                     "load_combinations": self._extract_scia_load_combinations(params),
                     "load_zones": self._extract_scia_load_zones(params),
-                    "materials": self._extract_materials(params),
-                    "reinforcement_zones": self._extract_reinforcement_zones(params),
-                    "reinforcement_materials": self._extract_reinforcement_materials(params),
-                    "reinforcement_geometry": self._extract_reinforcement_geometry(params),
                 }
             )
         elif analysis_type == AnalysisType.IDEA:
@@ -164,26 +203,21 @@ class AnalysisCache:
         return segments
 
     def _extract_load_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
-        """Extract load zones data from params."""
+        """Extract load zones data from params (non-reinforcement parameters)."""
         zones: list[dict[str, Any]] = []
         zones_array = getattr(params, "load_zones_data_array", None)
         if zones_array:
             zones.extend(
                 {
-                    "zone_number": getattr(zone, "zone_number", []),
-                    "hoofdwapening_langs_boven_diameter": getattr(zone, "hoofdwapening_langs_boven_diameter", 0.0),
-                    "hoofdwapening_langs_boven_hart_op_hart": getattr(zone, "hoofdwapening_langs_boven_hart_op_hart", 0.0),
-                    "hoofdwapening_langs_onder_diameter": getattr(zone, "hoofdwapening_langs_onder_diameter", 0.0),
-                    "hoofdwapening_langs_onder_hart_op_hart": getattr(zone, "hoofdwapening_langs_onder_hart_op_hart", 0.0),
-                    "hoofdwapening_dwars_boven_diameter": getattr(zone, "hoofdwapening_dwars_boven_diameter", 0.0),
-                    "hoofdwapening_dwars_boven_hart_op_hart": getattr(zone, "hoofdwapening_dwars_boven_hart_op_hart", 0.0),
-                    "hoofdwapening_dwars_onder_diameter": getattr(zone, "hoofdwapening_dwars_onder_diameter", 0.0),
-                    "hoofdwapening_dwars_onder_hart_op_hart": getattr(zone, "hoofdwapening_dwars_onder_hart_op_hart", 0.0),
-                    "heeft_bijlegwapening": getattr(zone, "heeft_bijlegwapening", False),
-                    "bijlegwapening_langs_boven_diameter": getattr(zone, "bijlegwapening_langs_boven_diameter", 0.0),
-                    "bijlegwapening_langs_onder_diameter": getattr(zone, "bijlegwapening_langs_onder_diameter", 0.0),
-                    "bijlegwapening_dwars_boven_diameter": getattr(zone, "bijlegwapening_dwars_boven_diameter", 0.0),
-                    "bijlegwapening_dwars_onder_diameter": getattr(zone, "bijlegwapening_dwars_onder_diameter", 0.0),
+                    "zone_type": getattr(zone, "zone_type", ""),
+                    "pavement_thickness": getattr(zone, "pavement_thickness", 0.0),
+                    "pavement_material": getattr(zone, "pavement_material", ""),
+                    # Extract d{X}_width fields that affect load geometry
+                    **{
+                        f"d{i}_width": getattr(zone, f"d{i}_width", 0.0)
+                        for i in range(1, 16)  # D1 to D15 width fields
+                        if hasattr(zone, f"d{i}_width")
+                    },
                 }
                 for zone in zones_array
             )
@@ -201,8 +235,8 @@ class AnalysisCache:
         scia_params = {}
 
         # Try to get load combination parameters from the nested structure
-        if hasattr(params, "input") and hasattr(params.input, "belastingcombinaties"):
-            belasting = params.input.belastingcombinaties
+        if hasattr(params, "input") and hasattr(params.input, "berekeningsinstellingen"):
+            belasting = params.input.berekeningsinstellingen
             scia_params.update(
                 {
                     "cc_class": getattr(belasting, "cc_class", None),
@@ -239,9 +273,15 @@ class AnalysisCache:
 
     def _extract_materials(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
         """Extract materials data from params."""
-        return {
+        materials_data = {
             "materials": getattr(params, "materials", {}),
         }
+
+        # Extract concrete strength class from params directly (uses name attribute)
+        # This parameter affects the concrete material properties in IDEA RCS analysis
+        materials_data["concrete_strength_class"] = getattr(params, "concrete_strength_class", "")
+
+        return materials_data
 
     def _extract_reinforcement_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         """Extract reinforcement zones data from params."""
@@ -268,9 +308,54 @@ class AnalysisCache:
 
     def _extract_reinforcement_geometry(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
         """Extract reinforcement geometry data from params."""
-        return {
-            "reinforcement_geometry": getattr(params, "reinforcement_geometry", {}),
-        }
+        reinforcement_data: dict[str, Any] = {}
+
+        # Extract general reinforcement parameters
+        if hasattr(params, "input") and hasattr(params.input, "geometrie_wapening"):
+            geom_wap = params.input.geometrie_wapening
+            reinforcement_data.update(
+                {
+                    "staalsoort": getattr(geom_wap, "staalsoort", ""),
+                    "dekking_boven": getattr(geom_wap, "dekking_boven", 0.0),
+                    "dekking_onder": getattr(geom_wap, "dekking_onder", 0.0),
+                    "langswapening_buiten": getattr(geom_wap, "langswapening_buiten", False),
+                }
+            )
+
+        # Extract reinforcement zone data - this is where the actual reinforcement geometry is stored
+        zones_array = getattr(params, "reinforcement_zones_array", None)
+        if zones_array:
+            zones_data = []
+            for zone in zones_array:
+                zone_data = {
+                    "zone_number": getattr(zone, "zone_number", []),
+                    "hoofdwapening_langs_boven_diameter": getattr(zone, "hoofdwapening_langs_boven_diameter", 0.0),
+                    "hoofdwapening_langs_boven_hart_op_hart": getattr(zone, "hoofdwapening_langs_boven_hart_op_hart", 0.0),
+                    "hoofdwapening_langs_onder_diameter": getattr(zone, "hoofdwapening_langs_onder_diameter", 0.0),
+                    "hoofdwapening_langs_onder_hart_op_hart": getattr(zone, "hoofdwapening_langs_onder_hart_op_hart", 0.0),
+                    "hoofdwapening_dwars_boven_diameter": getattr(zone, "hoofdwapening_dwars_boven_diameter", 0.0),
+                    "hoofdwapening_dwars_boven_hart_op_hart": getattr(zone, "hoofdwapening_dwars_boven_hart_op_hart", 0.0),
+                    "hoofdwapening_dwars_onder_diameter": getattr(zone, "hoofdwapening_dwars_onder_diameter", 0.0),
+                    "hoofdwapening_dwars_onder_hart_op_hart": getattr(zone, "hoofdwapening_dwars_onder_hart_op_hart", 0.0),
+                    "heeft_bijlegwapening": getattr(zone, "heeft_bijlegwapening", False),
+                }
+
+                # Add bijlegwapening fields if present
+                if getattr(zone, "heeft_bijlegwapening", False):
+                    zone_data.update(
+                        {
+                            "bijlegwapening_langs_boven_diameter": getattr(zone, "bijlegwapening_langs_boven_diameter", 0.0),
+                            "bijlegwapening_langs_onder_diameter": getattr(zone, "bijlegwapening_langs_onder_diameter", 0.0),
+                            "bijlegwapening_dwars_boven_diameter": getattr(zone, "bijlegwapening_dwars_boven_diameter", 0.0),
+                            "bijlegwapening_dwars_onder_diameter": getattr(zone, "bijlegwapening_dwars_onder_diameter", 0.0),
+                        }
+                    )
+
+                zones_data.append(zone_data)
+
+            reinforcement_data["reinforcement_zones"] = zones_data
+
+        return reinforcement_data
 
     def _generate_input_hash(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> str:  # noqa: ANN401
         """Generate a hash of the input parameters for caching."""
@@ -412,7 +497,14 @@ def get_cached_analysis_results(
         return cached_results
 
     # Run analysis if not cached
-    results = analysis_function(params, template_path) if template_path else analysis_function(params)
+    # Call the analysis function based on analysis type
+    if analysis_type == AnalysisType.SCIA:
+        results = analysis_function(params, template_path)
+    elif analysis_type == AnalysisType.IDEA:
+        results = analysis_function(params, entity_id)
+    else:
+        # Fallback: try calling with just params
+        raise UserError("Unsupported analysis type for caching.")
 
     # Cache the results
     if results is not None:

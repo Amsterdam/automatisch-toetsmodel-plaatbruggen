@@ -11,6 +11,9 @@ import numpy as np
 import trimesh
 from munch import Munch  # type: ignore[import-untyped]
 
+# Import Pydantic data models from dedicated data_models package
+from src.data_models.bridge_models import BridgeSegmentDimensions
+
 
 # Function to create a box by specifying its vertices and faces
 def create_box(vertices: np.ndarray, color: list) -> trimesh.Trimesh:
@@ -1079,15 +1082,7 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
 
 
 # Define dataclasses for structured data
-@dataclass
-class BridgeSegmentDimensions:
-    """Represents the dimensions of a single bridge segment cross-section."""
-
-    bz1: float
-    bz2: float
-    bz3: float
-    segment_length: float  # Length to previous segment (0 for the first segment)
-    # Add is_first_segment if it becomes necessary for validation logic here
+# Note: BridgeSegmentDimensions has been moved to src/models/bridge_models.py
 
 
 @dataclass

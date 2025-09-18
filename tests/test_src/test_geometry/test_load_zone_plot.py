@@ -11,9 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import plotly.graph_objects as go
-from munch import Munch  # type: ignore[import-untyped]
 
-from src.geometry.load_zone_geometry import LoadZoneDataRow  # For constructing test data
+from src.data_models.load_models import LoadZoneData  # For constructing test data
 from src.geometry.load_zone_plot import (
     DEFAULT_PLOTLY_COLORS,
     DEFAULT_ZONE_APPEARANCE_MAP,
@@ -190,53 +189,46 @@ class TestLoadZonePlotHelpers(unittest.TestCase):
         # Width differences are too small (< 0.01m), so no annotations should be created
         assert len(annotations) == 0
 
-    def _create_dummy_load_zone_data_row(self, d_widths: list[float]) -> LoadZoneDataRow:
-        """Creates a LoadZoneDataRow-like dictionary for testing width annotations."""
-        row_dict: dict[str, Any] = {
-            "zone_type": "Dummy",  # zone_type not used by create_zone_width_annotations
-            # Add new pavement fields
+    def _create_dummy_load_zone_data_row(self, d_widths: list[float]) -> LoadZoneData:
+        """Creates a LoadZoneData object for testing width annotations."""
+        kwargs: dict[str, Any] = {
+            "zone_type": "Auto",  # Valid zone type
             "pavement_thickness": 0.05,  # Default 5cm
             "pavement_material": "Asfalt",  # Default material
         }
         for i, width in enumerate(d_widths):
-            row_dict[f"d{i + 1}_width"] = width  # Store raw float, not Munch(value=width)
-        # Fill remaining up to 15 with 0.0 if not provided
+            kwargs[f"d{i + 1}_width"] = width  # Store raw float, not Munch(value=width)
+        # Fill remaining up to 15 with None if not provided
         for i in range(len(d_widths) + 1, 16):
-            row_dict[f"d{i}_width"] = 0.0
-        return row_dict  # type: ignore[return-value]
+            kwargs[f"d{i}_width"] = None
+        return LoadZoneData(**kwargs)  # type: ignore[arg-type]
 
 
 class TestBuildLoadZonesFigure(unittest.TestCase):
     """Tests for the main build_load_zones_figure function."""
 
-    def _create_minimal_load_zone_data_row(self, zone_type: str = "Auto", d_widths: list[float] | None = None) -> LoadZoneDataRow:
+    def _create_minimal_load_zone_data_row(self, zone_type: str = "Auto", d_widths: list[float] | None = None) -> LoadZoneData:
         if d_widths is None:
             # Ensure d_widths matches num_defined_d_points in BridgeBaseGeometry for simplicity
             d_widths = [1.0, 1.1, 1.2, 1.3, 1.4]  # 5 widths by default
 
-        row_dict = {
-            "zone_type": Munch(value=zone_type),
-            "d1_width": d_widths[0] if len(d_widths) > 0 else 0.0,
-            "d2_width": d_widths[1] if len(d_widths) > 1 else 0.0,
-            "d3_width": d_widths[2] if len(d_widths) > 2 else 0.0,
-            "d4_width": d_widths[3] if len(d_widths) > 3 else 0.0,
-            "d5_width": d_widths[4] if len(d_widths) > 4 else 0.0,
-            # Add the missing y_coords_top_current_zone field that build_load_zones_figure expects
-            "y_coords_top_current_zone": [1.0] * len(d_widths),  # Mock top coordinates
-            # Add the missing zone_widths_per_d field that build_load_zones_figure expects
-            "zone_widths_per_d": d_widths[:],  # Copy of d_widths list
-            # Add new pavement fields
+        kwargs = {
+            "zone_type": zone_type,
             "pavement_thickness": 0.05,  # Default 5cm
             "pavement_material": "Asfalt",  # Default material
+            # Add calculated fields
+            "y_coords_top_current_zone": [1.0] * len(d_widths),  # Mock top coordinates
+            "zone_widths_per_d": d_widths[:],  # Copy of d_widths list
         }
 
-        # Add d6 to d15 as 0.0
-        for i in range(6, 16):
-            row_dict[f"d{i}_width"] = 0.0
+        # Add d1 to d15 width fields
+        for i in range(1, 16):
+            if i - 1 < len(d_widths):
+                kwargs[f"d{i}_width"] = d_widths[i - 1]
+            else:
+                kwargs[f"d{i}_width"] = None
 
-        # This step is more for type checking during test writing;
-        # the function itself will receive a list of such dictionaries (or Munch objects)
-        return row_dict  # type: ignore[return-value]
+        return LoadZoneData(**kwargs)  # type: ignore[arg-type]
 
     def _get_default_bridge_base_geometry(self, num_d_points: int = 5) -> BridgeBaseGeometry:
         # y_coords_bridge_bottom_edge should be list[list[float]], e.g., [[y_min, y_max], ...]
@@ -329,7 +321,7 @@ class TestBuildLoadZonesFigure(unittest.TestCase):
         assert mock_create_width_annots.return_value[0] in fig.layout.annotations
 
         # Check layout
-        assert fig.layout.title.text == presentation["figure_title"]
+        assert fig.layout.title.text == presentation.figure_title
         # ... other layout checks as needed
 
     @patch("src.geometry.load_zone_plot.calculate_zone_bottom_y_coords")

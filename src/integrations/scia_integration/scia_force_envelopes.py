@@ -6,140 +6,147 @@ along with the complete force state and location context for each extreme value.
 """
 
 import contextlib
+from collections.abc import Mapping
 from typing import Any
 
+from src.integrations.idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
 
-def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:  # noqa: C901, PLR0912, PLR0915
-    """
-    Extract force envelopes (max/min values with context) from SCIA analysis results.
 
-    For each bridge section and force component, finds:
-    - Maximum value + complete force state + location + load combination
-    - Minimum value + complete force state + location + load combination
+def _extract_basis_data(parsed_tables: Mapping[str, Any], section_key: str = "Basis grootheden") -> dict[str, Any]:
+    """Return the first non-empty 'Basis grootheden' dict from preferred tables; {} if not found."""
+    table_candidates = (
+        "Interne 2D-krachten basis ULS",
+        "Interne 2D-krachten basis",
+    )
 
-    :param results: SCIA analysis results dictionary
-    :return: Force envelopes dictionary with structure:
-        {
-            "Z1_1": {
-                "N": {
-                    "max": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str},
-                    "min": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str}
-                },
-                "Vy": { ... },
-                # ... etc for all force components
-            },
-            "Z2_1": { ... },
-            "Z3_1": { ... }
-        }
-    """
-    # Initialize envelope structure per bridge section
-    force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
-    bridge_sections = ["Z1_1", "Z2_1", "Z3_1"]
+    for name in table_candidates:
+        table = parsed_tables.get(name) or {}
+        if str(table.get("status")).lower() != "success":
+            continue
 
-    envelopes = {}
-    for section in bridge_sections:
-        envelopes[section] = {
-            component: {
-                "max": {"value": float("-inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
-                "min": {"value": float("inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
-            }
-            for component in force_components
-        }
+        data = table.get("data") or {}
+        basis = data.get(section_key)
 
-    # Extract internal forces data
-    xml_parsing = results.get("xml_parsing", {})
-    if not isinstance(xml_parsing, dict):
-        return envelopes
+        # Keep original behavior: only return when truthy
+        if isinstance(basis, dict) and basis:
+            return basis
 
-    parsed_tables = xml_parsing.get("parsed_tables", {})
+    return {}
 
-    # Try different internal forces table names
-    internal_forces_data = None
+
+def _extract_elementaire_data(parsed_tables: dict[str, Any]) -> dict[str, Any]:
+    """Extract elementaire ontwerpgrootheden data from parsed tables."""
+    for table_name in ["Interne 2D-krachten elementair ULS", "Interne 2D-krachten elementair"]:
+        table_data = parsed_tables.get(table_name, {})
+        if table_data.get("status") == "success":
+            data = table_data.get("data", {})
+            if "Elementaire ontwerpgrootheden" in data:
+                elementaire_data = data.get("Elementaire ontwerpgrootheden")
+                if elementaire_data:
+                    return elementaire_data
+    return {}
+
+
+def _merge_basis_and_elementaire_data(basis_data: dict[str, Any], elementaire_data: dict[str, Any]) -> dict[str, Any]:
+    """Merge basis and elementaire data, with priority rules for specific fields."""
+    combined_data = basis_data.copy()
+
+    for key, value in elementaire_data.items():
+        if key not in combined_data:
+            combined_data[key] = value
+        elif key in ["x", "y", "z", "Naam"]:
+            # For coordinate and name fields, prefer elementaire if lengths match
+            if isinstance(combined_data[key], list) and isinstance(value, list) and len(combined_data[key]) == len(value):
+                continue  # Keep the existing data
+            combined_data[key] = value
+        else:
+            # For other fields, add elementaire data
+            combined_data[key] = value
+
+    return combined_data
+
+
+def _extract_fallback_data(parsed_tables: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract data using fallback table names for older structures."""
     for table_name in ["Interne 2D-krachten basis", "Interne 2D-krachten elementair", "Internal forces"]:
         table_data = parsed_tables.get(table_name, {})
         if table_data.get("status") == "success":
-            internal_forces_data = table_data.get("data", {})
-            break
+            return table_data.get("data", {})
+    return None
 
-    if not internal_forces_data:
-        return envelopes
 
+def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract internal forces data from SCIA results."""
+    xml_parsing = results.get("xml_parsing", {})
+    if not isinstance(xml_parsing, dict):
+        return None
+
+    parsed_tables = xml_parsing.get("parsed_tables", {})
+
+    # Following process_scia_results_for_idea pattern, extract both basis and elementaire data
+    basis_data = _extract_basis_data(parsed_tables)
+    elementaire_data = _extract_elementaire_data(parsed_tables)
+
+    # Combine the data if we have any
+    if basis_data or elementaire_data:
+        combined_data = _merge_basis_and_elementaire_data(basis_data, elementaire_data)
+        if combined_data:
+            return combined_data
+
+    # Fallback: try older structure
+    return _extract_fallback_data(parsed_tables)
+
+
+def _extract_rows_from_internal_forces(internal_forces_data: dict[str, Any]) -> list[Any] | None:
+    """Extract rows from internal forces data, handling various nested structures."""
     # Process force data rows - handle nested structure
     rows = None
 
     if hasattr(internal_forces_data, "rows"):
         rows = internal_forces_data.rows
-        print(f"DEBUG: Found {len(rows)} rows in internal forces data")  # noqa: T201
     elif isinstance(internal_forces_data, dict) and "rows" in internal_forces_data:
         rows = internal_forces_data["rows"]
-        print(f"DEBUG: Found {len(rows)} rows in internal forces dict")  # noqa: T201
     elif isinstance(internal_forces_data, dict):
-        # Check for nested structure like {'Basis grootheden': {...}}
-        print(f"DEBUG: Internal forces data keys: {list(internal_forces_data.keys())}")  # noqa: T201
-
         # Try to find rows in nested structures
-        for key, value in internal_forces_data.items():
-            print(f"DEBUG: Checking key '{key}', type: {type(value)}")  # noqa: T201
-
+        for value in internal_forces_data.values():
             if hasattr(value, "rows"):
                 rows = value.rows
-                print(f"DEBUG: Found {len(rows)} rows under key '{key}'")  # noqa: T201
                 break
             if isinstance(value, dict) and "rows" in value:
                 rows = value["rows"]
-                print(f"DEBUG: Found {len(rows)} rows in dict under key '{key}'")  # noqa: T201
-                break
-            if hasattr(value, "__dict__"):
-                print(f"DEBUG: Key '{key}' attributes: {list(value.__dict__.keys())[:10]}")  # noqa: T201
-            elif isinstance(value, dict):
-                print(f"DEBUG: Key '{key}' sub-keys: {list(value.keys())[:10]}")  # noqa: T201
-
-    if rows is None:
-        # Try to handle column-based data structure
-        column_data = None
-        for key, value in internal_forces_data.items():
-            if isinstance(value, dict) and any(force_field in value for force_field in ["m_x", "m_y", "v_x", "v_y", "n_x", "n_y"]):
-                column_data = value
-                print(f"DEBUG: Found column data under key '{key}' with fields: {list(value.keys())}")  # noqa: T201
                 break
 
-        if column_data is None:
-            print("DEBUG: No column data found in internal forces structure")  # noqa: T201
-            return envelopes
+    return rows
 
-        # Convert column data to row-like structure for processing
-        rows = _convert_columns_to_rows(column_data)
-        print(f"DEBUG: Converted {len(rows)} rows from column data")  # noqa: T201
 
-    # Extract load combination mapping from result classes
-    combination_mapping = _extract_combination_mapping(results)
+def _extract_column_data_from_internal_forces(internal_forces_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract column-based data structure from internal forces."""
+    # Check if the data itself is already in the correct format (following process_scia_results_for_idea pattern)
+    if isinstance(internal_forces_data, dict) and any(
+        force_field in internal_forces_data for force_field in ["m_xD+", "m_xD-", "m_yD+", "m_yD-", "v_x", "v_y", "n_x", "n_y", "Naam"]
+    ):
+        return internal_forces_data
 
-    # Process each row of force data
-    print(f"DEBUG: Processing {len(rows)} rows of force data")  # noqa: T201
+    # Fallback: check nested values
+    for value in internal_forces_data.values():
+        if isinstance(value, dict) and any(
+            force_field in value for force_field in ["m_xD+", "m_xD-", "m_yD+", "m_yD-", "v_x", "v_y", "n_x", "n_y", "m_x", "m_y"]
+        ):
+            return value
+    return None
 
-    # Debug: Show available fields in first row
-    if rows:
-        first_row = rows[0]
-        if isinstance(first_row, dict):
-            available_fields = list(first_row.keys())
-        elif hasattr(first_row, "__dict__"):
-            available_fields = list(first_row.__dict__.keys())
-        else:
-            available_fields = [attr for attr in dir(first_row) if not attr.startswith("_")]
-        print(f"DEBUG: Available fields in first row: {available_fields[:20]}")  # noqa: T201
 
-    processed_count = 0
-    for i, row in enumerate(rows):
+def _process_force_data_rows(
+    rows: list[Any], envelopes: dict[str, dict[str, dict[str, dict[str, Any]]]], combination_mapping: dict[str, str]
+) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
+    """Process force data rows and update envelopes with max/min values."""
+    force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
+
+    for row in rows:
         # Extract force values and metadata
         force_values = _extract_force_values_from_row(row)
         if not force_values:
-            if i < 3:  # Debug first few rows
-                print(f"DEBUG: Row {i} - No force values extracted")  # noqa: T201
             continue
-
-        processed_count += 1
-        if processed_count <= 3:  # Debug first few successful extractions
-            print(f"DEBUG: Row {i} - Extracted forces: {force_values}")  # noqa: T201
 
         metadata = _extract_row_metadata(row, combination_mapping)
 
@@ -177,6 +184,71 @@ def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict
     return envelopes
 
 
+def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict[str, dict[str, Any]]]]:
+    """
+    Extract force envelopes (max/min values with context) from SCIA analysis results.
+
+    For each bridge section and force component, finds:
+    - Maximum value + complete force state + location + load combination
+    - Minimum value + complete force state + location + load combination
+
+    :param results: SCIA analysis results dictionary
+    :return: Force envelopes dictionary with structure:
+        {
+            "Z1_1": {
+                "N": {
+                    "max": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str},
+                    "min": {"value": float, "forces": dict, "location": str, "combination": str, "element_id": str}
+                },
+                "Vy": { ... },
+                # ... etc for all force components
+            },
+            "Z2_1": { ... },
+            "Z3_1": { ... }
+        }
+    """
+    # Initialize envelope structure
+    force_components = ["N", "Vy", "Vz", "Myd+", "Myd-", "Mxd+", "Mxd-"]
+    bridge_sections = ["Z1_1", "Z2_1", "Z3_1"]
+
+    envelopes = {}
+    for section in bridge_sections:
+        envelopes[section] = {
+            component: {
+                "max": {"value": float("-inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
+                "min": {"value": float("inf"), "forces": {}, "location": "", "combination": "", "element_id": ""},
+            }
+            for component in force_components
+        }
+
+    # Extract internal forces data
+    internal_forces_data = _extract_internal_forces_data(results)
+    if not internal_forces_data:
+        return envelopes
+
+    # Merge x, y, z coordinates into coords_xyz (following process_scia_results_for_idea pattern)
+    if isinstance(internal_forces_data, dict):
+        internal_forces_data = merge_xyz_to_coords_xyz(internal_forces_data)
+
+    # Process force data rows - handle nested structure
+    rows = _extract_rows_from_internal_forces(internal_forces_data)
+
+    if rows is None:
+        # Try to handle column-based data structure
+        column_data = _extract_column_data_from_internal_forces(internal_forces_data)
+        if column_data is None:
+            return envelopes
+
+        # Convert column data to row-like structure for processing
+        rows = _convert_columns_to_rows(column_data)
+
+    # Extract load combination mapping from result classes
+    combination_mapping = _extract_combination_mapping(results)
+
+    # Process force data rows and update envelopes
+    return _process_force_data_rows(rows, envelopes, combination_mapping)
+
+
 def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Convert column-based data structure to row-based structure.
@@ -209,7 +281,104 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
     return rows
 
 
-def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, float]:  # noqa: C901, PLR0912, PLR0915
+def _get_row_value(row_obj: dict[str, Any] | object, field_name: str) -> float | str | None:
+    """Helper function to get value from row (handles both dict and object)."""
+    if isinstance(row_obj, dict):
+        return row_obj.get(field_name)
+    return getattr(row_obj, field_name, None)
+
+
+def _extract_normal_forces(row: dict[str, Any] | object) -> dict[str, float]:
+    """Extract normal force values from a row."""
+    force_values = {}
+    n_values = []
+
+    for field in ["n_x", "n_y", "n_xy", "n_xD", "n_yD", "n_cD"]:
+        val = _get_row_value(row, field)
+        if val is not None and val != "":
+            try:
+                n_values.append(float(val))
+            except (ValueError, TypeError):
+                continue
+
+    if n_values:
+        # Convert from N to kN, use component with largest magnitude
+        force_values["N"] = max(n_values, key=abs) / 1000.0
+
+    return force_values
+
+
+def _extract_shear_forces(row: dict[str, Any] | object) -> dict[str, float]:
+    """Extract shear force values from a row."""
+    force_values = {}
+
+    # Vy = v_y (shear force in Y direction)
+    val = _get_row_value(row, "v_y")
+    if val is not None and val != "":
+        with contextlib.suppress(ValueError, TypeError):
+            force_values["Vy"] = float(val) / 1000.0  # Convert from N to kN
+
+    # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
+    val = _get_row_value(row, "v_x")
+    if val is not None and val != "":
+        with contextlib.suppress(ValueError, TypeError):
+            force_values["Vz"] = float(val) / 1000.0  # Convert from N to kN
+
+    return force_values
+
+
+def _extract_moment_component(row: dict[str, Any] | object, design_pos: str, design_neg: str, basic: str) -> dict[str, float]:
+    """Extract moment component (positive and negative) from a row."""
+    force_values = {}
+
+    # Try design quantities first
+    val = _get_row_value(row, design_pos)
+    if val is not None and val != "":
+        with contextlib.suppress(ValueError, TypeError):
+            force_values[design_pos.replace("m_", "M")] = float(val) / 1000000.0  # Convert from Nmm to kNm
+    else:
+        # Fallback to basic quantity for positive part
+        val = _get_row_value(row, basic)
+        if val is not None and val != "":
+            try:
+                moment = float(val) / 1000000.0  # Convert from Nmm to kNm
+                force_values[design_pos.replace("m_", "M")] = max(0, moment)  # Positive part
+            except (ValueError, TypeError):
+                pass
+
+    val = _get_row_value(row, design_neg)
+    if val is not None and val != "":
+        with contextlib.suppress(ValueError, TypeError):
+            force_values[design_neg.replace("m_", "M")] = float(val) / 1000000.0  # Convert from Nmm to kNm
+    elif design_pos.replace("m_", "M") not in force_values:
+        # Fallback to basic quantity for negative part
+        val = _get_row_value(row, basic)
+        if val is not None and val != "":
+            try:
+                moment = float(val) / 1000000.0  # Convert from Nmm to kNm
+                force_values[design_neg.replace("m_", "M")] = min(0, moment)  # Negative part
+            except (ValueError, TypeError):
+                pass
+
+    return force_values
+
+
+def _extract_moments(row: dict[str, Any] | object) -> dict[str, float]:
+    """Extract moment values from a row."""
+    force_values = {}
+
+    # Extract X-direction moments
+    x_moments = _extract_moment_component(row, "m_xD+", "m_xD-", "m_x")
+    force_values.update(x_moments)
+
+    # Extract Y-direction moments
+    y_moments = _extract_moment_component(row, "m_yD+", "m_yD-", "m_y")
+    force_values.update(y_moments)
+
+    return force_values
+
+
+def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, float]:
     """
     Extract force values from a SCIA results row.
 
@@ -219,176 +388,120 @@ def _extract_force_values_from_row(row: dict[str, Any] | object) -> dict[str, fl
     force_values = {}
 
     try:
-        # Debug: Check what fields are actually available
-        available_force_fields = []
-        for field in ["n_x", "n_y", "n_xy", "n_xD", "n_yD", "n_cD", "v_x", "v_y", "m_x", "m_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-"]:
-            if hasattr(row, field):
-                val = getattr(row, field)
-                available_force_fields.append(f"{field}={val}")
-
-        # Helper function to get value from row (handles both dict and object)
-        def get_row_value(row_obj: dict[str, Any] | object, field_name: str) -> float | str | None:
-            if isinstance(row_obj, dict):
-                return row_obj.get(field_name)
-            return getattr(row_obj, field_name, None)
-
-        # Extract normal forces (use dominant component from n_x, n_y, n_xy)
-        n_values = []
-        for field in ["n_x", "n_y", "n_xy", "n_xD", "n_yD", "n_cD"]:
-            val = get_row_value(row, field)
-            if val is not None and val != "":
-                try:
-                    n_values.append(float(val))
-                except (ValueError, TypeError):
-                    continue
-        if n_values:
-            force_values["N"] = max(n_values, key=abs)  # Use component with largest magnitude
-
-        # Extract shear forces
-        # Vy = v_y (shear force in Y direction)
-        val = get_row_value(row, "v_y")
-        if val is not None and val != "":
-            with contextlib.suppress(ValueError, TypeError):
-                force_values["Vy"] = float(val)
-
-        # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
-        val = get_row_value(row, "v_x")
-        if val is not None and val != "":
-            with contextlib.suppress(ValueError, TypeError):
-                force_values["Vz"] = float(val)
-
-        # Extract moments - try design quantities first, then basic quantities
-        # Mxd+ and Mxd- (design moments in X direction)
-        val = get_row_value(row, "m_xD+")
-        if val is not None and val != "":
-            with contextlib.suppress(ValueError, TypeError):
-                force_values["Mxd+"] = float(val)
-        else:
-            val = get_row_value(row, "m_x")
-            if val is not None and val != "":
-                try:
-                    moment_x = float(val)
-                    force_values["Mxd+"] = max(0, moment_x)  # Positive part
-                except (ValueError, TypeError):
-                    pass
-
-        val = get_row_value(row, "m_xD-")
-        if val is not None and val != "":
-            with contextlib.suppress(ValueError, TypeError):
-                force_values["Mxd-"] = float(val)
-        elif "Mxd+" not in force_values:
-            val = get_row_value(row, "m_x")
-            if val is not None and val != "":
-                try:
-                    moment_x = float(val)
-                    force_values["Mxd-"] = min(0, moment_x)  # Negative part
-                except (ValueError, TypeError):
-                    pass
-
-        # Myd+ and Myd- (design moments in Y direction)
-        val = get_row_value(row, "m_yD+")
-        if val is not None and val != "":
-            with contextlib.suppress(ValueError, TypeError):
-                force_values["Myd+"] = float(val)
-        else:
-            val = get_row_value(row, "m_y")
-            if val is not None and val != "":
-                try:
-                    moment_y = float(val)
-                    force_values["Myd+"] = max(0, moment_y)  # Positive part
-                except (ValueError, TypeError):
-                    pass
-
-        val = get_row_value(row, "m_yD-")
-        if val is not None and val != "":
-            with contextlib.suppress(ValueError, TypeError):
-                force_values["Myd-"] = float(val)
-        elif "Myd+" not in force_values:
-            val = get_row_value(row, "m_y")
-            if val is not None and val != "":
-                try:
-                    moment_y = float(val)
-                    force_values["Myd-"] = min(0, moment_y)  # Negative part
-                except (ValueError, TypeError):
-                    pass
+        # Extract different force components
+        force_values.update(_extract_normal_forces(row))
+        force_values.update(_extract_shear_forces(row))
+        force_values.update(_extract_moments(row))
 
     except (ValueError, TypeError, AttributeError):
         # Skip rows with invalid data
         pass
 
-    # Debug: Show what was found (only for first few rows)
-    if len(available_force_fields) > 0 and not force_values:
-        # Only show debug for rows that have fields but no extracted values
-        pass  # Will be logged by calling function
-
     return force_values
 
 
-def _extract_row_metadata(row: dict[str, Any] | object, combination_mapping: dict[str, str]) -> dict[str, str]:  # noqa: C901, PLR0912
+def _extract_element_name(row: dict[str, Any] | object) -> str:
+    """Extract element name from a row."""
+    element_name = (
+        _get_row_value(row, "element_name")
+        or _get_row_value(row, "element_id")
+        or _get_row_value(row, "plate_name")
+        or _get_row_value(row, "Naam")  # Dutch name field
+        or "Unknown"
+    )
+    return str(element_name)
+
+
+def _derive_location_from_element_name(element_name: str) -> str:
+    """Derive location from element name."""
+    if "Z1" in element_name:
+        return "Z1_1"
+    if "Z2" in element_name:
+        return "Z2_1"
+    if "Z3" in element_name:
+        return "Z3_1"
+    return "Unknown"
+
+
+def _derive_location_from_coordinates(row: dict[str, Any] | object) -> str:
+    """Derive location from coordinate information."""
+    coords_xyz = _get_row_value(row, "coords_xyz")
+    x_coord = _get_row_value(row, "x")
+
+    if coords_xyz is not None:
+        try:
+            # coords_xyz is a tuple (x, y, z)
+            x_val = float(coords_xyz[0]) if isinstance(coords_xyz, (tuple, list)) and len(coords_xyz) >= 1 else float(coords_xyz)
+            return _map_x_coordinate_to_zone(x_val)
+        except (ValueError, TypeError, IndexError):
+            return "Z1_1"  # Default fallback
+    elif x_coord is not None:
+        try:
+            x_val = float(x_coord)
+            return _map_x_coordinate_to_zone(x_val)
+        except (ValueError, TypeError):
+            return "Z1_1"  # Default fallback
+
+    return "Z1_1"  # Default fallback
+
+
+def _map_x_coordinate_to_zone(x_val: float) -> str:
+    """Map X coordinate to bridge zone."""
+    if x_val < 10:
+        return "Z1_1"
+    if x_val < 20:
+        return "Z2_1"
+    return "Z3_1"
+
+
+def _extract_location_info(row: dict[str, Any] | object, element_name: str) -> str:
+    """Extract location information from a row."""
+    # Try direct location fields first
+    location = _get_row_value(row, "location") or _get_row_value(row, "zone")
+
+    if location:
+        return str(location)
+
+    # Try to derive from element name
+    derived_location = _derive_location_from_element_name(element_name)
+    if derived_location != "Unknown":
+        return derived_location
+
+    # Try to derive from coordinates
+    return _derive_location_from_coordinates(row)
+
+
+def _extract_combination_info(row: dict[str, Any] | object, combination_mapping: dict[str, str]) -> str:
+    """Extract load combination information from a row."""
+    combination_id = (
+        _get_row_value(row, "load_combination")
+        or _get_row_value(row, "load_case")
+        or _get_row_value(row, "combination_id")
+        or _get_row_value(row, "Belasting")  # Dutch load field
+    )
+
+    if combination_id is not None:
+        combination_id = str(combination_id)
+        # Try to map ID to combination name
+        return combination_mapping.get(combination_id, combination_id)
+
+    return "Unknown"
+
+
+def _extract_row_metadata(row: dict[str, Any] | object, combination_mapping: dict[str, str]) -> dict[str, str]:
     """Extract metadata (location, combination, element) from a SCIA results row."""
     metadata = {"location": "Unknown", "combination": "Unknown", "element_id": "Unknown"}
 
-    # Helper function to get value from row (handles both dict and object)
-    def get_row_value(row_obj: dict[str, Any] | object, field_name: str) -> str | None:
-        if isinstance(row_obj, dict):
-            return row_obj.get(field_name)
-        return getattr(row_obj, field_name, None)
-
     try:
-        # Extract element/location information
-        element_name = (
-            get_row_value(row, "element_name")
-            or get_row_value(row, "element_id")
-            or get_row_value(row, "plate_name")
-            or get_row_value(row, "Naam")  # Dutch name field
-            or "Unknown"
-        )
-        metadata["element_id"] = str(element_name)
+        # Extract element information
+        element_name = _extract_element_name(row)
+        metadata["element_id"] = element_name
 
-        # Extract location/zone information
-        location = get_row_value(row, "location") or get_row_value(row, "zone")
+        # Extract location information
+        metadata["location"] = _extract_location_info(row, element_name)
 
-        if location:
-            metadata["location"] = str(location)
-        else:
-            # Try to derive location from element name or coordinates
-            element_name_str = str(element_name)
-            if "Z1" in element_name_str:
-                metadata["location"] = "Z1_1"
-            elif "Z2" in element_name_str:
-                metadata["location"] = "Z2_1"
-            elif "Z3" in element_name_str:
-                metadata["location"] = "Z3_1"
-            else:
-                # Try to derive from coordinates if available
-                x_coord = get_row_value(row, "x")
-                if x_coord is not None:
-                    try:
-                        x_val = float(x_coord)
-                        # Rough mapping based on X coordinate (adjust as needed)
-                        if x_val < 10:
-                            metadata["location"] = "Z1_1"
-                        elif x_val < 20:
-                            metadata["location"] = "Z2_1"
-                        else:
-                            metadata["location"] = "Z3_1"
-                    except (ValueError, TypeError):
-                        metadata["location"] = "Z1_1"  # Default fallback
-                else:
-                    metadata["location"] = "Z1_1"  # Default fallback
-
-        # Extract load combination information
-        combination_id = (
-            get_row_value(row, "load_combination")
-            or get_row_value(row, "load_case")
-            or get_row_value(row, "combination_id")
-            or get_row_value(row, "Belasting")
-        )  # Dutch load field
-
-        if combination_id is not None:
-            combination_id = str(combination_id)
-            # Try to map ID to combination name
-            metadata["combination"] = combination_mapping.get(combination_id, combination_id)
+        # Extract combination information
+        metadata["combination"] = _extract_combination_info(row, combination_mapping)
 
     except (AttributeError, TypeError):
         pass

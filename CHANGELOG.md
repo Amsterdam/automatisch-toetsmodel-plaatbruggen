@@ -1,4 +1,54 @@
-## [`v0.0.11`] - 2025-xx-XX
+## [`v0.0.12`] - 2025-09-18
+### Added
+- **Load Case Selection System**: Added load case selection table in SCIA → Berekening tab for controlling calculation times
+  - Users can enable/disable specific load types (Eigen gewicht, Permanent, UDL, TS, etc.)
+  - Table shows load case count per type as calculation time indicator
+  - Conditional load case creation based on user selection
+- **Historical Materials for IDEA Integration**: Added support for historical material classes in IDEA StatiCa integration
+  - Extended material compatibility to include legacy concrete and steel grades
+- **Centralized SCIA Unit Conversion System**: Implemented centralized unit handling to ensure units mapping and value conversion stay synchronized
+  - Added `UnitConversion` dataclass to store display units, conversion factors, and raw units together
+  - Comprehensive test suite with 20+ tests ensuring conversion consistency and backward compatibility
+- **Comprehensive SCIA Units Testing**: Added extensive test coverage for SCIA units handling
+  - 13 tests for `build_units_mapping()` function covering 1D/2D table detection and edge cases
+  - 11 tests for `_format_complete_force_state()` method verifying proper unit application in formatted strings
+  - Tests cover 2D plate units (kN/m, kNm/m) vs 1D beam units (kN, kNm)
+  - Edge case handling: missing data, non-dict structures, partial units mapping
+- **SCIA Units Infrastructure**: Enhanced units mapping and error handling
+  - Improved `get_result_summary()` to handle non-dict section data gracefully
+  - Units are consistently applied from data extraction through user interface display
+- **Traffic load cases**: Added tandem loads and udl for real road layout
+  - Added functionality dependent on radio button for road layout
+  - Added accidental vehicle according to TAB, parallel and perpendicular to driving direction
+  - Added the dispersal function to all the vertical traffic load cases, with a maximum dispersion of 1.0 by 1.0 meters
+- **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
+- **Integration strips**: Added four integration strips to the model for both the theoretical and real road layout. One in cross direction at half-span and three longitudinal, one in the middle of the bridge deck, and one at either side of the bridge or road, 0.5 meters inward.
+
+### Changed
+- **SCIA Page Structure**: Restructured SCIA page with Downloads and Berekening tabs
+- **Load Type Naming**: Shortened names (Permanent, UDL, TS, etc.) for better readability
+- **Load Case Selection Interface**: Optimized table layout with checkbox-first design and tooltips
+- **Refactored SCIA Unit Handling**: Migrated existing unit conversion functions to use centralized system
+  - Maintained full backward compatibility - all existing tests continue to pass
+- **Refactoring code SCIA load generation**: Refactored code for the loads helper functions
+- **Input tab for calculation settings**: Added explanatory text and changed the tab name from "Belastingcombinaties" to
+"Berekeningsinstellingen", since the user input on this tab controls settings for the model calculation in general,
+not only for load combinations.
+- **Info tab**: Changed and removed irrelevant input fields on the info tab, and changed name of tab to "Paspoortinformatie".
+
+### Fixed
+- **VIKTOR Tab Structure Compliance**: Fixed parametrization structure by moving all fields inside tabs
+- **JSON Serialization Error**: Fixed load case selection table default values to be JSON-serializable
+- **SCIA Unit Synchronization Risk**: Eliminated risk of units mapping and value conversion getting out of sync
+- **SCIA Unit Conversion**: Fixed missing unit conversion from N to kN and Nm to kNm in three SCIA result tables
+- **SCIA Result Views**: Added proper units display in table headers and values for consistent engineering units
+- **Load Boundary Compliance**: Fixed dispersed loads extending beyond bridge dimensions
+  - Added `clip_polygon_to_bridge_boundaries()` function to constrain load areas within bridge boundaries
+  - Integrated clipping into `dispersal_function()` to automatically clip all dispersed coordinates
+  - Prevents wheel loads and other dispersed loads from extending beyond bridge structure
+  - Comprehensive test suite verifies load boundary compliance with real bridge data
+
+## [`v0.0.11`] - 2025-08-28
 ### Added
 - **Resource File Access Testing**: Added comprehensive test suite for resource file access patterns
   - Tests all resource paths use absolute paths consistently
@@ -17,25 +67,12 @@
   - Added `SCIA_TEMPLATE_PATH` constant to `app/constants.py` for consistency with other resource paths
   - Aims to ensure consistent behavior between development and production environments
   - May resolve error: "SCIA template file niet gevonden: resources/templates/model.esa" in production
-e- **Development Environment Portability**: Fixed user-specific paths in development tools
+- **Development Environment Portability**: Fixed user-specific paths in development tools
   - Added `.ruft_venv/` to `.gitignore` to prevent committing user-specific virtual environment paths
   - Removed existing `.ruft_venv` directory from git tracking to avoid path conflicts between developers
   - Quality check script already uses portable relative paths and cross-platform logic
   - Enhanced `setup_dev.py` to automatically create RUFT virtual environment and install all dependencies
   - Added clear IDE setup instructions with exact Python interpreter path for VS Code/Cursor
-
-## [`v0.0.10`] - 2025-08-14
-### Added
-- **Result Classes**: Added result classes to the SCIA model
-
-### Changed
--
-
-### Removed
--
-
-### Fixed
--
 
 ## [`v0.0.10`] - 2025-08-14
 ### Added
@@ -51,6 +88,7 @@ e- **Development Environment Portability**: Fixed user-specific paths in develop
   - Accidental vehicle impact scenarios
   - SCIA load combinations
 - Graceful error handling for XML parsing issues in IDEA results
+- **Result Classes**: Added result classes to the SCIA model
 
 ### Changed
 - **Performance Improvements**: Significant speedup for repeated calculations through caching

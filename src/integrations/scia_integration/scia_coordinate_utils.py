@@ -1,0 +1,645 @@
+"""
+Coordinate transformation and geometry utilities for SCIA integration.
+
+This module provides pure utility functions for coordinate transformations,
+zone geometry extraction, and load format conversions without circular dependencies.
+"""
+
+from math import radians, tan
+from typing import Any, Protocol
+
+from .scia_load_generators import LoadType
+
+
+class BridgeGeometryData(Protocol):
+    """Protocol for bridge geometry data structure."""
+
+    x_coords_d_points: list[float]
+    y_bridge_bottom_at_d_points: list[float]
+    y_top_structural_edge_at_d_points: list[float]
+
+
+def convert_wheel_coordinates_to_3d(wheel_2d: list[list[float]]) -> list[tuple[float, float, float]]:
+    """
+    Convert 2D wheel coordinates to 3D coordinates for SCIA.
+
+    :param wheel_2d: List of 2D wheel coordinates [[x1, y1], [x2, y2], ...]
+    :returns: List of 3D coordinates [(x1, y1, 0), (x2, y2, 0), ...]
+    """
+    return [(x, y, 0.0) for x, y in wheel_2d]
+
+
+def align_bridge_coordinates_to_scia(coords: list[tuple[float, float, float]], bridge_center_y: float = 0.0) -> list[tuple[float, float, float]]:
+    """
+    Align bridge coordinates to SCIA coordinate system.
+
+    :param coords: List of 3D coordinates
+    :param bridge_center_y: Y-coordinate of bridge center line
+    :returns: List of aligned coordinates
+    """
+    return [(x, y + bridge_center_y, z) for x, y, z in coords]
+
+
+def convert_loads_to_scia_format(load_data: list[dict[str, Any]], load_type: LoadType | str = LoadType.TANDEM) -> list[dict[str, Any]]:
+    """
+    Convert load data to SCIA-compatible format.
+
+    :param load_data: Raw load data from generate_tandem_loads() or generate_udl_loads()
+    :param load_type: Type of loads to convert (TANDEM or UDL)
+    :returns: SCIA-formatted load cases
+    :raises ValueError: When load_type is unsupported
+    """
+    # Convert string to enum if needed
+    if isinstance(load_type, str):
+        try:
+            load_type = LoadType(load_type)
+        except ValueError:
+            raise ValueError(f"Invalid load_type '{load_type}'. Use 'tandem' or 'udl'") from None
+
+    if load_type == LoadType.TANDEM:
+        return _convert_tandem_to_scia(load_data)
+    if load_type == LoadType.UDL:
+        return _convert_udl_to_scia(load_data)
+    raise ValueError(f"Unsupported load type: {load_type}")
+
+
+def _convert_tandem_to_scia(load_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert tandem load data to SCIA-compatible format."""
+    scia_cases = []
+
+    for tandem in load_data:
+        patch_loads = []
+
+        # Extract wheel loads and convert to 3D coordinates
+        for load in tandem.get("loads", []):
+            for wheel_2d in load.get("wheels", []):
+                # Convert 2D wheel coordinates to 3D (add z=0)
+                wheel_3d = convert_wheel_coordinates_to_3d(wheel_2d)
+                aligned_coords = align_bridge_coordinates_to_scia(wheel_3d)
+
+                patch_loads.append(
+                    {
+                        "corners": aligned_coords,
+                        "load_value": load.get("load", 0.0),
+                    }
+                )
+
+        scia_cases.append(
+            {
+                "load_case": tandem["load_case"],
+                "patch_loads": patch_loads,
+            }
+        )
+
+    return scia_cases
+
+
+def _convert_udl_to_scia(load_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert UDL load data to SCIA-compatible format."""
+    scia_cases = []
+
+    for udl_load in load_data:
+        # UDL loads already have polygon coordinates
+        polygon_coords = udl_load.get("polygon", [])
+        load_value = udl_load.get("load_value", 0.0)
+
+        # Align coordinates to SCIA coordinate system
+        aligned_coords = align_bridge_coordinates_to_scia(polygon_coords)
+
+        patch_loads = [
+            {
+                "corners": aligned_coords,
+                "load_value": load_value,
+            }
+        ]
+
+        scia_cases.append(
+            {
+                "load_case": udl_load["load_case"],
+                "patch_loads": patch_loads,
+            }
+        )
+
+    return scia_cases
+
+
+def extract_zone_boundaries(params: Any) -> dict[str, dict[str, float]]:  # noqa: ANN401
+    """
+    Extract zone boundaries for each segment.
+
+    :param params: Bridge parameters
+    :returns: Dictionary with zone boundaries per segment
+    :raises IndexError: When no bridge segments are provided
+    """
+    if not params.bridge_segments_array:
+        raise IndexError("No bridge segments provided")
+
+    boundaries = {}
+
+    for i, segment in enumerate(params.bridge_segments_array):
+        segment_id = f"segment_{i + 1}"
+
+        # Calculate zone boundaries from center line
+        # Zone layout: Zone 3 | Zone 2 | Zone 1
+        z1_left = segment.bz1 + segment.bz2 / 2
+        z1_right = segment.bz2 / 2
+        z3_left = -segment.bz2 / 2
+        z3_right = -segment.bz3 - segment.bz2 / 2
+
+        boundaries[segment_id] = {
+            "z1_left": z1_left,
+            "z1_right": z1_right,
+            "z3_left": z3_left,
+            "z3_right": z3_right,
+        }
+
+    return boundaries
+
+
+# ------------------------------
+# Deck zone geometry (between D-lines)
+# ------------------------------
+
+
+def get_bridge_deck_zone_coordinates(params: object) -> dict[str, list[list[float]]]:
+    """
+    Get coordinates of bridge deck zones spanning between segment boundaries.
+
+    This function loops through ``bridge_segments_array`` starting from the second segment
+    and creates zone polygons that span from the previous segment to the current segment.
+    Each zone (zone_1, zone_2, zone_3) is defined by 4 corner coordinates forming a
+    quadrilateral that transitions between different segment widths.
+
+    :param params: Bridge parameters containing ``bridge_segments_array``
+    :returns: Dictionary with zone names (zone_1_{n}, zone_2_{n}, zone_3_{n}) as keys
+              and list of 4 corner coordinates [[x, y, z], ...] as values
+    :raises IndexError: When no bridge segments are provided
+    """
+    bridge_segments = getattr(params, "bridge_segments_array", None)
+    if not bridge_segments:
+        raise IndexError("No bridge segments provided")
+
+    zone_coordinates: dict[str, list[list[float]]] = {}
+    cumulative_length = 0.0
+
+    for segment_idx, segment in enumerate(bridge_segments[1:], start=1):
+        x_start = cumulative_length
+        cumulative_length += getattr(segment, "l", 0.0)
+        x_end = cumulative_length
+
+        # Current segment boundaries (Zone layout: Z3 | Z2 | Z1)
+        z1_y_plus = segment.bz1 + segment.bz2 / 2
+        z1_y_minus = segment.bz2 / 2
+        z3_y_plus = -segment.bz2 / 2
+        z3_y_minus = -segment.bz3 - segment.bz2 / 2
+
+        prev_segment = bridge_segments[segment_idx - 1]
+        prev_z1_y_plus = prev_segment.bz1 + prev_segment.bz2 / 2
+        prev_z1_y_minus = prev_segment.bz2 / 2
+        prev_z3_y_plus = -prev_segment.bz2 / 2
+
+        z_coord = 0.0
+        zone_num = segment_idx
+
+        zone1_name = f"zone_1_{zone_num}"
+        zone1_corners = [
+            [x_start, prev_z1_y_plus, z_coord],
+            [x_end, z1_y_plus, z_coord],
+            [x_end, z1_y_minus, z_coord],
+            [x_start, prev_z1_y_minus, z_coord],
+        ]
+        zone_coordinates[zone1_name] = zone1_corners
+
+        zone2_name = f"zone_2_{zone_num}"
+        zone2_corners = [
+            [x_start, prev_z1_y_minus, z_coord],
+            [x_end, z1_y_minus, z_coord],
+            [x_end, z3_y_plus, z_coord],
+            [x_start, prev_z3_y_plus, z_coord],
+        ]
+        zone_coordinates[zone2_name] = zone2_corners
+
+        zone3_name = f"zone_3_{zone_num}"
+        zone3_corners = [
+            [x_start, prev_z3_y_plus, z_coord],
+            [x_end, z3_y_plus, z_coord],
+            [x_end, z3_y_minus, z_coord],
+            [x_start, -prev_segment.bz3 - prev_segment.bz2 / 2, z_coord],
+        ]
+        zone_coordinates[zone3_name] = zone3_corners
+
+    return zone_coordinates
+
+
+def get_bridge_deck_zone_materials_and_thickness(params: object) -> dict[str, dict[str, Any]]:
+    """
+    Extract material and thickness information for bridge deck zones.
+
+    This function loops through ``bridge_segments_array`` starting from the second segment
+    and creates material/thickness data for zones that span from the previous segment
+    to the current segment. Each zone (zone_1, zone_2, zone_3) gets material and
+    individual D-line thickness properties from both segments. Uses the same zone naming
+    convention as ``get_bridge_deck_zone_coordinates``.
+
+    :param params: Bridge parameters containing ``bridge_segments_array``
+    :returns: Dictionary with zone names as keys and material/thickness data as values
+    :raises IndexError: When no bridge segments are provided
+    """
+    bridge_segments = getattr(params, "bridge_segments_array", None)
+    if not bridge_segments:
+        raise IndexError("No bridge segments provided")
+
+    material_attr = getattr(params, "concrete_strength_class", None)
+    applied_material = material_attr if isinstance(material_attr, str) and material_attr else "C40/50"
+    zone_materials_thickness: dict[str, dict[str, Any]] = {}
+
+    def _as_float(value: float | str | None) -> float:
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    for segment_idx, segment in enumerate(bridge_segments[1:], start=1):
+        zone_num = segment_idx
+        prev_segment = bridge_segments[segment_idx - 1]
+
+        prev_thickness_primary = _as_float(getattr(prev_segment, "dz", 0.0))
+        curr_thickness_primary = _as_float(getattr(segment, "dz", 0.0))
+        prev_thickness_secondary = _as_float(getattr(prev_segment, "dz_2", 0.0))
+        curr_thickness_secondary = _as_float(getattr(segment, "dz_2", 0.0))
+        distance_between_d_lines = getattr(segment, "l", 0.0)
+
+        zone1_name = f"zone_1_{zone_num}"
+        zone_materials_thickness[zone1_name] = {
+            "material": applied_material,
+            "thickness_start_d_line": prev_thickness_primary,
+            "thickness_end_d_line": curr_thickness_primary,
+            "distance_between_d_lines": distance_between_d_lines,
+        }
+
+        zone2_name = f"zone_2_{zone_num}"
+        zone2_start = max(prev_thickness_secondary - prev_thickness_primary, 0.0)
+        zone2_end = max(curr_thickness_secondary - curr_thickness_primary, 0.0)
+        zone_materials_thickness[zone2_name] = {
+            "material": applied_material,
+            "thickness_start_d_line": round(zone2_start, 3),
+            "thickness_end_d_line": round(zone2_end, 3),
+            "distance_between_d_lines": distance_between_d_lines,
+        }
+
+        zone3_name = f"zone_3_{zone_num}"
+        zone_materials_thickness[zone3_name] = {
+            "material": applied_material,
+            "thickness_start_d_line": prev_thickness_primary,
+            "thickness_end_d_line": curr_thickness_primary,
+            "distance_between_d_lines": distance_between_d_lines,
+        }
+
+    return zone_materials_thickness
+
+
+# ------------------------------
+# Load zone geometry (within deck zones)
+# ------------------------------
+
+
+def get_bridge_load_zone_coordinates(params: object) -> dict[str, list[list[float]]]:  # noqa: C901
+    """
+    Get coordinates of bridge load zones spanning between segment boundaries.
+
+    This function creates load zone polygons based on the ``load_zones_data_array`` that span
+    from one segment to the next. Each load zone uses the d{n}_width values to define its
+    width at each D-point. Each zone is defined by 4 corner coordinates forming a
+    quadrilateral that transitions between different zone widths across segments.
+
+    :param params: Bridge parameters containing ``bridge_segments_array`` and ``load_zones_data_array``
+    :returns: Dictionary with load zone names as keys and list of 4 corner coordinates [[x, y, z], ...]
+    :raises IndexError: When no bridge segments or load zones are provided
+    """
+    bridge_segments = getattr(params, "bridge_segments_array", None)
+    if not bridge_segments:
+        raise IndexError("No bridge segments provided")
+    load_zones = getattr(params, "load_zones_data_array", None)
+    if not load_zones:
+        raise IndexError("No bridge load zones provided")
+
+    load_zone_coordinates: dict[str, list[list[float]]] = {}
+    cumulative_length = 0.0
+
+    for segment_idx, segment in enumerate(bridge_segments[1:], start=1):
+        x_start = cumulative_length
+        cumulative_length += getattr(segment, "l", 0.0)
+        x_end = cumulative_length
+        z_coord = 0.0
+
+        prev_d_point = segment_idx
+        curr_d_point = segment_idx + 1
+
+        prev_segment = bridge_segments[segment_idx - 1]
+        curr_segment = segment
+
+        prev_y_max = prev_segment.bz1 + prev_segment.bz2 / 2
+        curr_y_max = curr_segment.bz1 + curr_segment.bz2 / 2
+        prev_y_min = -prev_segment.bz3 - prev_segment.bz2 / 2
+        curr_y_min = -curr_segment.bz3 - curr_segment.bz2 / 2
+
+        prev_y_pos = prev_y_max
+        curr_y_pos = curr_y_max
+
+        for zone_idx, load_zone in enumerate(load_zones):
+            zone_name = f"load_zone_{zone_idx + 1}_{segment_idx}"
+            is_last_zone = zone_idx == len(load_zones) - 1
+
+            def _get_width_for_d(load_zone_obj: object, d_point: int, *, use_next_if_penultimate: bool = False) -> float:
+                try:
+                    wad = getattr(load_zone_obj, "width_at_d")
+                    if isinstance(wad, (list, tuple)) and 1 <= d_point <= len(wad):
+                        index = d_point - 1
+                        if use_next_if_penultimate and index == len(wad) - 2:
+                            index = min(index + 1, len(wad) - 1)
+                        value = wad[index]
+                        return float(value) if value is not None else 0.0
+                except Exception:
+                    pass
+                value = getattr(load_zone_obj, f"d{d_point}_width", 0.0)
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            if is_last_zone:
+                prev_width = prev_y_pos - prev_y_min
+                curr_width = curr_y_pos - curr_y_min
+            elif zone_idx == 1:
+                prev_width = _get_width_for_d(load_zone, prev_d_point, use_next_if_penultimate=True)
+                curr_width = _get_width_for_d(load_zone, curr_d_point, use_next_if_penultimate=True)
+            else:
+                prev_width = _get_width_for_d(load_zone, prev_d_point, use_next_if_penultimate=False)
+                curr_width = _get_width_for_d(load_zone, curr_d_point, use_next_if_penultimate=False)
+
+            prev_y_start = prev_y_pos
+            prev_y_end = prev_y_pos - prev_width
+            curr_y_start = curr_y_pos
+            curr_y_end = curr_y_pos - curr_width
+
+            zone_corners = [
+                [x_start, prev_y_start, z_coord],
+                [x_end, curr_y_start, z_coord],
+                [x_end, curr_y_end, z_coord],
+                [x_start, prev_y_end, z_coord],
+            ]
+            load_zone_coordinates[zone_name] = zone_corners
+
+            prev_y_pos -= prev_width
+            curr_y_pos -= curr_width
+
+    return load_zone_coordinates
+
+
+def get_bridge_load_zone_materials_and_thickness(params: object) -> dict[str, dict[str, Any]]:
+    """
+    Extract material and thickness information for bridge load zones.
+
+    This function creates material/thickness data for load zones that span from one segment
+    to the next. Each load zone gets material from its own pavement properties and thickness.
+
+    :param params: Bridge parameters containing ``bridge_segments_array`` and ``load_zones_data_array``
+    :returns: Dictionary with load zone names as keys and dict containing material and thickness info as values
+    :raises IndexError: When no bridge segments or load zones are provided
+    """
+    bridge_segments = getattr(params, "bridge_segments_array", None)
+    if not bridge_segments:
+        raise IndexError("No bridge segments provided")
+    load_zones = getattr(params, "load_zones_data_array", None)
+    if not load_zones:
+        raise IndexError("No bridge load zones provided")
+
+    load_zone_materials_thickness: dict[str, dict[str, Any]] = {}
+    for segment_idx in range(1, len(bridge_segments)):
+        for zone_idx, load_zone in enumerate(load_zones):
+            zone_name = f"load_zone_{zone_idx + 1}_{segment_idx}"
+            pavement_material = getattr(load_zone, "material", None)
+            pavement_thickness = getattr(load_zone, "thickness", None)
+            load_zone_materials_thickness[zone_name] = {
+                "material": pavement_material,
+                "thickness": pavement_thickness,
+            }
+    return load_zone_materials_thickness
+
+
+# ------------------------------
+# Point-in-polygon helper and property queries at coordinate
+# ------------------------------
+
+
+def _point_in_polygon(point_x: float, point_y: float, polygon_corners: list[list[float]]) -> bool:  # noqa: C901
+    """
+    Check if a point is inside a polygon using ray casting algorithm.
+
+    :param point_x: X coordinate of the point
+    :param point_y: Y coordinate of the point
+    :param polygon_corners: List of polygon corner coordinates [[x, y, z], ...]
+    :returns: True if point is inside polygon, False otherwise
+    :rtype: bool
+    """
+    n = len(polygon_corners)
+    inside = False
+
+    def _point_on_segment(px: float, py: float, x1: float, y1: float, x2: float, y2: float, eps: float = 1e-9) -> bool:  # noqa: PLR0913
+        dx = x2 - x1
+        dy = y2 - y1
+        if abs(dx) < eps and abs(dy) < eps:
+            return abs(px - x1) < eps and abs(py - y1) < eps
+        t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy) if (dx * dx + dy * dy) > eps else 0.0
+        if t < -eps or t > 1.0 + eps:
+            return False
+        proj_x = x1 + t * dx
+        proj_y = y1 + t * dy
+        return abs(px - proj_x) < eps and abs(py - proj_y) < eps
+
+    for vx, vy, _ in polygon_corners:
+        if abs(point_x - vx) < 1e-9 and abs(point_y - vy) < 1e-9:
+            return True
+
+    for i in range(n):
+        x1, y1 = polygon_corners[i][0], polygon_corners[i][1]
+        x2, y2 = polygon_corners[(i + 1) % n][0], polygon_corners[(i + 1) % n][1]
+        if _point_on_segment(point_x, point_y, x1, y1, x2, y2):
+            return True
+
+    p1x, p1y = polygon_corners[0][0], polygon_corners[0][1]
+    for i in range(1, n + 1):
+        p2x, p2y = polygon_corners[i % n][0], polygon_corners[i % n][1]
+        if min(p1y, p2y) < point_y <= max(p1y, p2y) or abs(point_y - min(p1y, p2y)) < 1e-9:
+            xinters = (point_y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x if p1y != p2y else p1x
+            if point_x <= xinters or abs(point_x - xinters) < 1e-9:
+                inside = not inside
+        p1x, p1y = p2x, p2y
+
+    return inside
+
+
+def get_deck_mat_and_thick_at_coord(params: object, coord: tuple[float, float, float] | list[float]) -> tuple[Any, float | None]:
+    """
+    Get the deck zone material and interpolated thickness at the given coordinate.
+
+    :param params: Bridge parameters containing ``bridge_segments_array``
+    :param coord: 3D coordinate (x, y, z) to search for (z-coordinate is ignored)
+    :returns: Tuple of (material, interpolated_thickness) or (None, None) if not found
+    :raises IndexError: When no bridge segments are provided
+    :raises ValueError: When coord is not in the expected format
+    """
+    bridge_segments = getattr(params, "bridge_segments_array", None)
+    if not bridge_segments:
+        raise IndexError("No bridge segments provided")
+    if not (isinstance(coord, (tuple, list)) and len(coord) == 3):
+        raise ValueError("Coordinate must be a tuple or list of 3 values (x, y, z)")
+
+    x, y, _ = coord
+    deck_zones_coords = get_bridge_deck_zone_coordinates(params)
+    deck_zones_materials = get_bridge_deck_zone_materials_and_thickness(params)
+
+    for zone_name, zone_corners in deck_zones_coords.items():
+        if _point_in_polygon(float(x), float(y), zone_corners):
+            zone_data = deck_zones_materials[zone_name]
+            x_start = zone_corners[0][0]
+            x_end = zone_corners[1][0]
+            thickness_start = zone_data["thickness_start_d_line"]
+            thickness_end = zone_data["thickness_end_d_line"]
+            if x_end != x_start:
+                interpolation_factor = (float(x) - x_start) / (x_end - x_start)
+                interpolation_factor = max(0.0, min(1.0, interpolation_factor))
+            else:
+                interpolation_factor = 0.0
+            interpolated_thickness = thickness_start + interpolation_factor * (thickness_end - thickness_start)
+            return (zone_data["material"], interpolated_thickness)
+
+    return (None, None)
+
+
+def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, float] | list[float]) -> tuple[Any, float | None]:
+    """
+    Get the load zone material and thickness at the given coordinate.
+
+    :param params: Bridge parameters containing ``bridge_segments_array`` and ``load_zones_data_array``
+    :param coord: 3D coordinate (x, y, z) to search for (z-coordinate is ignored)
+    :returns: Tuple of (material, thickness) or (None, None) if not found
+    :raises IndexError: When no bridge segments or load zones are provided
+    :raises ValueError: When coord is not in the expected format
+    """
+    bridge_segments = getattr(params, "bridge_segments_array", None)
+    if not bridge_segments:
+        raise IndexError("No bridge segments provided")
+    load_zones = getattr(params, "load_zones_data_array", None)
+    if not load_zones:
+        raise IndexError("No bridge load zones provided")
+    if not (isinstance(coord, (tuple, list)) and len(coord) == 3):
+        raise ValueError("Coordinate must be a tuple or list of 3 values (x, y, z)")
+
+    x, y, _ = coord
+    load_zones_coords = get_bridge_load_zone_coordinates(params)
+    load_zones_materials = get_bridge_load_zone_materials_and_thickness(params)
+
+    for zone_name, zone_corners in load_zones_coords.items():
+        if _point_in_polygon(float(x), float(y), zone_corners):
+            return (
+                load_zones_materials[zone_name]["material"],
+                load_zones_materials[zone_name]["thickness"],
+            )
+
+    return (None, None)
+
+
+def clip_polygon_to_bridge_boundaries(
+    corner_points: list[tuple[float, float, float]], bridge_geom_data: BridgeGeometryData
+) -> list[tuple[float, float, float]]:
+    """
+    Clip a polygon to stay within bridge boundaries.
+
+    :param corner_points: List of 3D corner points [(x, y, z), ...]
+    :param bridge_geom_data: Bridge geometry data containing boundary information
+    :returns: Clipped corner points within bridge boundaries
+    """
+    if not corner_points:
+        return corner_points
+
+    # Extract bridge boundaries
+    if not hasattr(bridge_geom_data, "x_coords_d_points"):
+        return corner_points  # Return original if no geometry data
+    x_min = bridge_geom_data.x_coords_d_points[0]
+    x_max = bridge_geom_data.x_coords_d_points[-1]
+    y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]
+    y_max = bridge_geom_data.y_top_structural_edge_at_d_points[0]
+
+    clipped_points = []
+    for x, y, z in corner_points:
+        # Clip X coordinates
+        clipped_x = max(x_min, min(x_max, x))
+        # Clip Y coordinates
+        clipped_y = max(y_min, min(y_max, y))
+        clipped_points.append((clipped_x, clipped_y, z))
+
+    return clipped_points
+
+
+def get_dispersion_at_coord(
+    params: object,
+    coord: tuple[float, float, float] | tuple[int, int, int] | list[float] | list[int],
+) -> dict[str, float | None]:
+    """
+    Calculate horizontal dispersion distances for deck and load zones at a coordinate.
+
+    The function checks both deck and load zones at the specified coordinate and returns
+    the horizontal dispersion distance for each zone type (if found).
+
+    :param params: Bridge parameters
+    :param coord: 3D coordinate as a tuple (x, y, z) or list
+    :returns: Dictionary with keys 'deck_zone' and 'load_zone', values are horizontal dispersion distances or None
+    :rtype: dict[str, float | None]
+    """
+    material_dispersion_angles: dict[str, int] = {
+        "beton": 45,
+        "asfalt": 45,
+        "klinkers": 45,
+        "grind": 35,
+        "tegels": 45,
+    }
+    result: dict[str, float | None] = {"deck_zone": None, "load_zone": None}
+
+    def get_dispersion(material: str | None, thickness: float | None) -> float | None:
+        if material is None or thickness is None:
+            return None
+        mat_str = str(material)
+        starts_with_kbc_and_digit = len(mat_str) > 1 and mat_str[0] in "KBC" and mat_str[1].isdigit()
+        if starts_with_kbc_and_digit or "Beton" in mat_str:
+            angle_deg = material_dispersion_angles["beton"]
+        else:
+            angle_deg = None
+            for key, value in material_dispersion_angles.items():
+                if key.lower() in mat_str.lower():
+                    angle_deg = value
+                    break
+        if angle_deg is not None:
+            angle_rad = radians(angle_deg)
+            return thickness * tan(angle_rad)
+        return None
+
+    if isinstance(coord, (list, tuple)) and len(coord) == 3:
+        coord_f: tuple[float, float, float] = (float(coord[0]), float(coord[1]), float(coord[2]))
+    else:
+        coord_f = (0.0, 0.0, 0.0)
+
+    deck_mat, deck_thick = get_deck_mat_and_thick_at_coord(params, coord_f)
+    result["deck_zone"] = get_dispersion(deck_mat if isinstance(deck_mat, str) else str(deck_mat) if deck_mat is not None else None, deck_thick)
+
+    load_mat, load_thick = get_load_mat_and_thick_at_coord(params, coord_f)
+    result["load_zone"] = get_dispersion(load_mat if isinstance(load_mat, str) else str(load_mat) if load_mat is not None else None, load_thick)
+
+    if deck_mat is None or deck_thick is None:
+        result["deck_zone"] = 0.0
+    if load_mat is None or load_thick is None:
+        result["load_zone"] = 0.0
+
+    return result

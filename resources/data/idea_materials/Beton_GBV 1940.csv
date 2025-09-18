@@ -1,0 +1,16 @@
+﻿"MPRL table v3.0"
+"TableName";;"GBV 1940"
+"TableID";"c1f3cb4c-a705-4463-aad4-1a5164492fdb"
+"TableType";"Material"
+"Group";"#LNG080"
+"TableParam1";"Concrete"
+"TableParam2";"ECEN"
+"TableParam3";""
+;;
+"Header";"ElementID";"E";"G";"Poisson";"UnitMass";"SpecificHeat";"ThermalExpansion";"ThermalConductivity";"Ecm";"Fck";"Fcm";"Fctm";"Fctk_0_05";"Fctk_0_95";"NFactor";"Epsc1";"Epsc2";"Epsc3";"Epscu1";"Epscu2";"Epscu3";"StoneDiameter";"CementClass";"AggregateType";"DiagramType";"PlainConcreteDiagram";"SilicaFume";"CalculateDependentValues"
+"Unit";;"MPa";"MPa";"-";"kg/m3";"K";"-";"10e-6/K";"MPa";"MPa";"MPa";"MPa";"MPa";"MPa";"-";"1e-4";"1e-4";"1e-4";"1e-4";"1e-4";"1e-4";"mm";"-";"-";"-";"-";"boolean";"boolean"
+"UnitCoeff";;1000000;1000000;1;1;1;1;1,00E-006;1000000;1000000;1000000;1000000;1000000;1000000;1;0,0001;0,0001;0,0001;0,0001;0,0001;0,0001;0,001;;;;;;;
+"Data"
+"K150";"{b730116e-9400-4112-bee4-811d25612b43}";25331,3698357791;10554,7374315746;0,2;2450;0,75;1,2E-05;800000;25331,3698357791;8;16;1,2;0,84;1,56;2;16,5338972600134;20;17,5;35;35;35;16;1;0;1;"False";"False";"True"
+"K200";"{cc1c18d7-0da4-496d-8813-691de2a3e121}";26671,581071563;11113,1587798179;0,2;2450;0,75;1,2E-05;800000;26671,581071563;11;19;1,48382623297461;1,03867836308223;1,92897410286699;2;17,4386016142505;20;17,5;35;35;35;16;1;0;1;"False";"False";"True"
+"K250";"{0dcbd0de-3474-4cbb-88a5-8fb63074a118}";27679,2436612733;11533,0181921972;0,2;2450;0,75;1,2E-05;800000;27679,2436612733;13,5;21,5;1,70089341735808;1,19062539215066;2,2111614425655;2;18,1198234818338;20;17,5;35;35;35;16;1;0;1;"False";"False";"True"

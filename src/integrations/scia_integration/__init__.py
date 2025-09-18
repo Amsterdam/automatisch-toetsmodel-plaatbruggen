@@ -7,7 +7,8 @@ to remain decoupled from the VIKTOR SDK.
 
 Modules:
 - scia_model: Orchestrates the entire model creation process.
-- scia_bridge_geometry: Extracts and calculates pure geometry data from bridge parameters.
+- scia_load_generators: Pure load generation logic with dataclasses and enums.
+- scia_coordinate_utils: Coordinate conversion and alignment utilities.
 - scia_load_group: Creates standard load groups.
 - scia_load_cases: Creates standard and dynamic load cases.
 - scia_loads: Creates surface loads for traffic systems.

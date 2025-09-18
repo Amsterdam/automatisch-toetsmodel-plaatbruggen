@@ -51,6 +51,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
+        self.integration_strips: dict[str, scia.IntegrationStrip] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
@@ -95,6 +96,24 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
         self.plates[name] = plate
         return plate
+
+    def create_integration_strip(
+        self,
+        plane: str,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        width: float,
+    ) -> scia.IntegrationStrip:
+        """Creates an integration strip and stores it."""
+        # get the plate by name
+        plane_name = plane
+        if plane_name not in self.plates:
+            raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
+        plane = self.plates[plane_name]
+
+        strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
+        self.integration_strips[f"strip_{plane_name}"] = strip
+        return strip
 
     def create_load_group(
         self,
@@ -390,7 +409,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
         scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-        scia_analysis.execute(timeout=600)
+        scia_analysis.execute(timeout=1800)
         return scia_analysis
 
     def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
@@ -403,7 +422,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             xml_output_file = analysis.get_xml_output_file()
 
             # Extract various result types
-            return {
+            results = {
                 "xml_output_file": xml_output_file,
                 "displacements": self.get_displacement_results(analysis),
                 "internal_forces": self.get_internal_force_results(analysis),
@@ -413,8 +432,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "xml_parsing": self.parse_xml_results(xml_output_file),
             }
 
+            # Add units mapping for downstream consumers
+            from src.integrations.scia_integration.scia_unit_conversion import build_units_mapping
+
+            units_mapping = build_units_mapping(results)
+            results["units"] = units_mapping
+
         except Exception as e:
             raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
+        else:
+            return results
 
     def _try_get_table_result(self, xml_output_file: File, table_name: str) -> dict[str, object] | None:
         """Try to get a table result from the XML output file."""
@@ -839,7 +866,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                     "message": f"Table '{table_name}' not found in XML",
                     "error": f"Cannot find table '{table_name}' in output XML. Found tables: {found_tables[:10]}",
                 }
-
             # Extract result class data
             result_data = self._extract_result_class_data(table_element)
         except Exception as e:
@@ -1022,7 +1048,7 @@ def run_scia_analysis(params: Any, template_path: Path) -> SciaAnalysis:  # noqa
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
     xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
     scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-    scia_analysis.execute(timeout=600)
+    scia_analysis.execute(timeout=1800)
     return scia_analysis
 
 

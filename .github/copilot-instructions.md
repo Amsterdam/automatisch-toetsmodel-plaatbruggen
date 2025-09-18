@@ -407,5 +407,44 @@ When working within the `viktor/` layer, refer to the official VIKTOR documentat
 *   Data from the core logic layer (`src/`) should be retrieved by calling functions/methods in `src/` from within the `viktor/` controller methods.
 *   Results for views are returned by the corresponding view methods in the controller.
 
+## Parametrization Field Access Patterns
 
+**CRITICAL**: When a parametrization field has a `name` attribute, the field data is accessible differently than the attribute path where it's defined.
 
+### Field Access Rules
+
+*   **Fields WITH `name` attribute**: Access directly on `params` using the `name` value
+    ```python
+    # Parametrization definition
+    info.concrete_strength_class = OptionField("Label", name="concrete_strength_class", ...)
+    
+    # ✅ Correct access in controller/cache
+    value = params.concrete_strength_class
+    
+    # ❌ Incorrect access (will not work)
+    value = params.info.concrete_strength_class
+    ```
+
+*   **Fields WITHOUT `name` attribute**: Access via the attribute path
+    ```python
+    # Parametrization definition  
+    info.bridge_objectnumm = TextField("Label", ...)
+    
+    # ✅ Correct access
+    value = params.info.bridge_objectnumm
+    ```
+
+### Examples from Codebase
+
+*   `bridge_segments_array` (has `name="bridge_segments_array"`) → Access as `params.bridge_segments_array`
+*   `concrete_strength_class` (has `name="concrete_strength_class"`) → Access as `params.concrete_strength_class`
+*   `bridge_objectnumm` (no `name` attribute) → Access as `params.info.bridge_objectnumm`
+
+### Debugging Field Access
+
+*   Use `print(dir(params))` to see available attributes on the `params` object
+*   Use `hasattr(params, "field_name")` to check if a field with `name` attribute exists
+*   When in doubt, print the `params` object structure to understand the access pattern
+
+*   When writing new code, make use of comments and docstrings to explain the purpose and functionality of your code.
+*   When modifying code, don't delete existing comments or docstrings.

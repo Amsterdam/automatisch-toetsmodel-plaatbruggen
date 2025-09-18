@@ -92,6 +92,8 @@ class TestDefineCompleteBridgeModel:
         # Arrange
         mock_geometry.return_value = ["plate1", "plate2"]
         mock_cases.return_value = {"standard_cases": {}, "tandem_cases": {}}
+        # Add the required berekeningsniveau attribute that the code expects at top level
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
 
         # Act
         define_complete_bridge_model(mock_builder, mock_params)
