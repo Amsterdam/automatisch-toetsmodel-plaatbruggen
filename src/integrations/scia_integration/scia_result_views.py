@@ -4,9 +4,9 @@ import functools
 from typing import Any
 
 import pandas as pd
-from viktor.views import TableResult
 
 from src.integrations.idea_integration.scia_to_idea_functions import process_scia_results_for_idea
+from viktor.views import TableResult
 
 
 # Simple cache for processed results to avoid reprocessing the same data
