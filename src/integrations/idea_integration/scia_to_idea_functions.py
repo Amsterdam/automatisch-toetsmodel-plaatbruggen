@@ -184,20 +184,15 @@ def _extract_scia_1d_table_data(results: dict[str, Any], selected_table: str) ->
     :rtype: dict[str, Any] | None
     """
     # Read 1D forces data
-    table_data = (
-        results.get("xml_parsing", {})
-        .get("parsed_tables", {})
-        .get(f"Interne 1D-krachten {selected_table}", {})
-        .get("data", None)
-    )
-    
+    table_data = results.get("xml_parsing", {}).get("parsed_tables", {}).get(f"Interne 1D-krachten {selected_table}", {}).get("data", None)
+
     # If we found table data, try to extract the actual results
     if table_data and isinstance(table_data, dict):
         # Check if the data is under "Resultaten over integratiestroken:"
         integration_results = table_data.get("Resultaten over integratiestroken:")
         if integration_results:
             return integration_results
-        
+
         # Otherwise return the data as-is
         return table_data
 
@@ -374,12 +369,12 @@ def _populate_1d_dataframe_from_lookup(
 
     # Populate 1D force values (normal force, shear forces, bending moments)
     force_columns = [
-        ("n_max", "N"),        # Normal force
-        ("v_y_max", "V_y"),    # Shear force Y
-        ("v_z_max", "V_z"),    # Shear force Z
-        ("m_y_max", "M_y"),    # Bending moment Y
-        ("m_z_max", "M_z"),    # Bending moment Z
-        ("m_x_max", "M_x"),    # Torsional moment X
+        ("n_max", "N"),  # Normal force
+        ("v_y_max", "V_y"),  # Shear force Y
+        ("v_z_max", "V_z"),  # Shear force Z
+        ("m_y_max", "M_y"),  # Bending moment Y
+        ("m_z_max", "M_z"),  # Bending moment Z
+        ("m_x_max", "M_x"),  # Torsional moment X
     ]
 
     for col_name, orig_col in force_columns:

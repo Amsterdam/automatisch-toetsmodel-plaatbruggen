@@ -83,7 +83,7 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     extract_force_envelopes,
     get_force_envelope_summary,
 )
-from src.integrations.scia_integration.scia_result_views import create_scia_result_table, create_scia_1d_result_table, create_scia_1d_result_table
+from src.integrations.scia_integration.scia_result_views import create_scia_1d_result_table, create_scia_result_table
 from src.report.report_functions import create_export_report  # Import the report creation function
 
 # Import parametrization from the separate file
