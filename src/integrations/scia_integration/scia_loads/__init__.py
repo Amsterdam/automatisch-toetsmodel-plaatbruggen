@@ -1,0 +1,64 @@
+"""
+SCIA loads package.
+
+This package contains specialized modules for different types of SCIA loads:
+- scia_surface_loads: UDL and material surface loads
+- scia_point_loads: Tandem and vehicle point loads
+- scia_load_helpers: Utilities and orchestration functions
+
+The package provides a clean separation of concerns for load creation functionality.
+"""
+
+# Re-export main functions for backward compatibility
+from src.geometry.load_zone_geometry import get_bridge_geom_data
+
+# Re-export functions from other modules that tests need
+from ..scia_coordinate_utils import convert_loads_to_scia_format
+from ..scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+
+# Re-export types for backward compatibility
+from ..types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
+from .scia_load_helpers import add_pedestrian_loads, create_all_loads
+from .scia_point_loads import (
+    add_accidental_vehicle_loads,
+    add_actual_tandem_loads,
+    add_service_vehicle_loads,
+    add_theoretical_tandem_loads,
+    dispersal_function,
+)
+from .scia_surface_loads import (
+    add_asfalt_loads,
+    add_concrete_fill_loads,
+    add_crowd_loads,
+    add_parapet_loads,
+    add_pavement_loads,
+    add_udl_loads,
+)
+
+__all__ = [
+    # Surface loads
+    "add_udl_loads",
+    "add_parapet_loads",
+    "add_asfalt_loads",
+    "add_concrete_fill_loads",
+    "add_pavement_loads",
+    "add_crowd_loads",
+    # Point loads
+    "add_theoretical_tandem_loads",
+    "add_actual_tandem_loads",
+    "add_service_vehicle_loads",
+    "add_accidental_vehicle_loads",
+    "dispersal_function",
+    # Helpers
+    "add_pedestrian_loads",
+    "create_all_loads",
+    # Functions from other modules (for test compatibility)
+    "convert_loads_to_scia_format",
+    "extract_bridge_dimensions",
+    "generate_tandem_loads",
+    "get_bridge_geom_data",
+    # Types
+    "WheelConfig",
+    "AmsterdamWheelConfig",
+    "BridgeParametrization",
+]
