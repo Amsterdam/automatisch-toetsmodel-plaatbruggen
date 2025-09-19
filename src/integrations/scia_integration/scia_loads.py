@@ -5,7 +5,7 @@ This module provides functions for creating SCIA loads by calling the SciaModelB
 These functions are pure Python and can be used by the app layer to construct the actual SCIA model.
 """
 
-from typing import Any, TypedDict
+from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
 
@@ -14,29 +14,7 @@ from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loa
 
 # Import functions at runtime to avoid circular imports
 from .scia_model_interface import SciaModelBuilder
-
-
-# Type definitions for wheel configurations
-class WheelConfig(TypedDict):
-    """Type definition for standard vehicle wheel configuration."""
-
-    position: str
-    side: str
-    corners_key: str
-    load: float
-    axle_locations: dict[str, list[tuple[float, float, float]]]
-
-
-class AmsterdamWheelConfig(TypedDict):
-    """Type definition for Amsterdam vehicle wheel configuration."""
-
-    position: str
-    corners_key: str
-    load: float
-
-
-# Type alias to avoid importing from app layer
-BridgeParametrization = Any
+from .types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
 
 
 def add_udl_loads(
