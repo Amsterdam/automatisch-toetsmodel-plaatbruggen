@@ -368,7 +368,6 @@ class TestAccidentalVehicleLoads:
             # Just verify that some surface loads were created
             assert len(calls) > 0, "Expected surface loads to be created"
 
-
             # Just verify that Amsterdam vehicle loads were created
             amsterdam_loads = [call for call in calls if "amsterdam" in call.kwargs["name"]]
             assert len(amsterdam_loads) > 0, "Expected Amsterdam vehicle loads to be created"
@@ -414,7 +413,7 @@ class TestAccidentalVehicleLoads:
             # Verify that surface loads were created at Amsterdam vehicle positions
             amsterdam_calls = [call for call in mock_builder.create_surface_load.call_args_list if "amsterdam" in call.kwargs["name"]]
             assert len(amsterdam_calls) > 0, "Expected Amsterdam vehicle loads to be created"
-            
+
             # Verify that tandem_system_sequencer_single_axis was called correctly
             mock_sequencer_single.assert_called_once_with(10.0, 0.5)  # Should be called with bridge length and thickness
 
