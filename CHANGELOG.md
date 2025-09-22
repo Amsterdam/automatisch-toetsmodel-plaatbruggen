@@ -1,3 +1,7 @@
+## [`v0.0.13`] - 2025-xx-xx
+### Changed
+- **Explanatory text**: Changed the explanatory text throughout the app since it contained outdated information and mixed Dutch and English language 
+
 ## [`v0.0.12`] - 2025-09-18
 ### Added
 - **Load Case Selection System**: Added load case selection table in SCIA → Berekening tab for controlling calculation times
