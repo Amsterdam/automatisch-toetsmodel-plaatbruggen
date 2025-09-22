@@ -432,6 +432,9 @@ def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.Data
     :returns: Merged dataframe with all load cases
     :rtype: pd.DataFrame
     """
+    print("SCIA results dictionary:")
+    print(scia_results_dict)
+
     # Get load cases from SCIA results
     df_uls = scia_results_dict.get("ULS", pd.DataFrame())
     df_sls_kar = scia_results_dict.get("SLS kar", pd.DataFrame())
@@ -560,6 +563,7 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
 
     # Process SCIA results
     df_all = _process_scia_results(scia_results_dict)
+
 
     # Apply loads to slabs
     _apply_loads_to_slabs(created_slabs, df_all)

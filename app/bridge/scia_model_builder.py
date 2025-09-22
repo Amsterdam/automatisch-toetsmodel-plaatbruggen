@@ -111,8 +111,13 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
         plane = self.plates[plane_name]
 
+        # Create the SCIA integration strip
         strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
-        self.integration_strips[f"strip_{plane_name}"] = strip
+        # Try to set the name after creation if possible
+        if hasattr(strip, '_name'):
+            strip._name = f"strip_{plane_name}_{point_1}_{point_2}"
+        
+        self.integration_strips[strip._name] = strip
         return strip
 
     def create_load_group(
