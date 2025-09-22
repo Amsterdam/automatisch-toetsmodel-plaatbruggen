@@ -1,238 +1,28 @@
 """Functions for creating SCIA result views for VIKTOR tables."""
 
-import functools
-from typing import Any, Callable, Union
+from typing import Any
 
 import pandas as pd
 from viktor.views import TableResult
 
-from src.integrations.idea_integration.scia_to_idea_functions import process_scia_results_for_idea
-
-
-def get_processed_1d_data_for_idea(results: dict[str, Any], result_type: str) -> pd.DataFrame:
-    """
-    Get processed 1D SCIA data as a DataFrame for use in IDEA integration.
-
-    This function extracts raw 1D data from SCIA results and processes it by:
-    - Grouping rows with same 'Naam' and 'dx' values
-    - Merging 'Belasting' values into single cells
-    - Finding absolute maximum values for force/moment columns
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :param result_type: Type of results to extract ("SLS kar", "SLS freq", "ULS")
-    :type result_type: str
-    :returns: Processed DataFrame with grouped and filtered 1D data
-    :rtype: pd.DataFrame
-    """
-    try:
-        # Map result types to table names (using exact table names from SCIA)
-        table_mapping = {"SLS kar": "SLS kar", "SLS freq": "SLS freq", "ULS": "ULS"}
-
-        selected_table = table_mapping.get(result_type, "SLS kar")
-
-        # Extract raw 1D data directly from parsed tables
-        xml_parsing = results.get("xml_parsing", {})
-        parsed_tables = xml_parsing.get("parsed_tables", {})
-        table_name = f"Interne 1D-krachten {selected_table}"
-        table_data = parsed_tables.get(table_name, {}).get("data", {})
-
-        # Look for integration results
-        integration_results = table_data.get("Resultaten over integratiestroken:")
-        if not integration_results or not isinstance(integration_results, dict):
-            # If no integration results, check for other data structure
-            if table_data:
-                # Look for any other data structure that might contain the results
-                for value in table_data.values():
-                    if isinstance(value, dict) and len(value) > 0:
-                        integration_results = value
-                        break
-
-            if not integration_results:
-                return pd.DataFrame()
-
-        # Process the raw data with grouping and filtering
-        df_processed = process_raw_1d_data_for_view(integration_results)
-
-    except Exception:
-        # Return empty DataFrame on any error
-        return pd.DataFrame()
-    else:
-        return df_processed
-
-
-def _extract_column_data(integration_results: dict[str, Any]) -> tuple[list[str], dict[str, list]]:
-    """
-    Extract available columns and column data from integration results.
-
-    :param integration_results: Raw integration results from SCIA
-    :type integration_results: dict[str, Any]
-    :returns: Tuple of (available_columns, column_data)
-    :rtype: tuple[list[str], dict[str, list]]
-    """
-    available_columns = []
-    column_data = {}
-
-    for key, value in integration_results.items():
-        if isinstance(value, list) and len(value) > 0:
-            available_columns.append(key)
-            column_data[key] = value
-
-    return available_columns, column_data
-
-
-def _convert_numeric_columns(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    Convert numeric columns to proper types.
-
-    :param df_raw: Raw DataFrame
-    :type df_raw: pd.DataFrame
-    :returns: DataFrame with converted numeric columns
-    :rtype: pd.DataFrame
-    """
-    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    for col in numeric_columns:
-        if col in df_raw.columns:
-            df_raw[col] = pd.to_numeric(df_raw[col], errors="coerce").fillna(0)
-    return df_raw
-
-
-def _abs_max_aggregator(series: pd.Series) -> float:
-    """Find the value with the maximum absolute value."""
-    series_clean = series.dropna()
-    if series_clean.empty:
-        return 0
-    # Find index of maximum absolute value
-    abs_max_idx = series_clean.abs().idxmax()
-    return series_clean.loc[abs_max_idx]
-
-
-def _create_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
-    """
-    Create aggregation functions for DataFrame grouping.
-
-    :param df_columns: List of DataFrame column names
-    :type df_columns: list[str]
-    :returns: Dictionary of aggregation functions
-    :rtype: dict[str, Union[str, Callable[[pd.Series], Any]]]
-    """
-    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    agg_functions: dict[str, Union[str, Callable[[pd.Series], Any]]] = {}
-
-    for col in df_columns:
-        if col == "Belasting":
-            # Merge Belasting values into single cell (concatenate unique values)
-            agg_functions[col] = lambda x: " | ".join(sorted(x.dropna().astype(str).unique()))
-        elif col in numeric_columns and col not in ["Naam", "dx"]:
-            # Find absolute maximum for force/moment columns
-            agg_functions[col] = _abs_max_aggregator
-        elif col in ["Naam", "dx"]:
-            # Keep first value for grouping columns
-            agg_functions[col] = "first"
-        else:
-            # For other columns, take first non-null value
-            agg_functions[col] = lambda x: x.dropna().iloc[0] if not x.dropna().empty else ""
-
-    return agg_functions
-
-
-def process_raw_1d_data_for_view(integration_results: dict[str, Any]) -> pd.DataFrame:
-    """
-    Process raw 1D SCIA data by grouping rows with same name and dx values.
-
-    Groups rows by 'Naam' and 'dx', merges 'Belasting' values into single cells,
-    and finds absolute maximum values for force/moment columns.
-
-    :param integration_results: Raw integration results from SCIA
-    :type integration_results: dict[str, Any]
-    :returns: Processed DataFrame with grouped and filtered data
-    :rtype: pd.DataFrame
-    """
-    # Extract available columns and data
-    available_columns, column_data = _extract_column_data(integration_results)
-
-    if not available_columns or not column_data:
-        return pd.DataFrame()
-
-    # Create DataFrame from raw data
-    df_raw = pd.DataFrame(column_data)
-
-    if df_raw.empty:
-        return pd.DataFrame()
-
-    # Convert numeric columns to proper types
-    df_raw = _convert_numeric_columns(df_raw)
-
-    # Group by 'Naam' and 'dx'
-    if "Naam" not in df_raw.columns or "dx" not in df_raw.columns:
-        return df_raw  # Return original if grouping columns don't exist
-
-    # Define aggregation functions
-    agg_functions = _create_aggregation_functions(df_raw.columns.tolist())
-
-    # Apply grouping and aggregation
-    df_processed = df_raw.groupby(["Naam", "dx"], as_index=False).agg(agg_functions)
-
-    # Sort by Naam and dx for consistent ordering
-    return df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
-
-
-# Simple cache for processed results to avoid reprocessing the same data
-@functools.lru_cache(maxsize=32)
-def _cached_process_scia_results(_results_hash: int) -> dict[str, pd.DataFrame] | None:
-    """
-    Cached wrapper for process_scia_results_for_idea.
-
-    :param _results_hash: Hash of the results dictionary for caching
-    :type _results_hash: int
-    :returns: Processed results or None if failed
-    :rtype: dict[str, pd.DataFrame] | None
-    """
-    # This is just the cache wrapper - actual processing happens in the calling function
-    return None
-
-
-def _get_results_hash(results: dict[str, Any]) -> int:
-    """
-    Create a simple hash of the results dictionary for caching.
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :returns: Hash value for caching
-    :rtype: int
-    """
-    # Create a simple hash based on the structure and some key values
-    try:
-        # Hash based on available table keys and some sample data
-        xml_parsing = results.get("xml_parsing", {})
-        parsed_tables = xml_parsing.get("parsed_tables", {})
-
-        # Create a signature from table names and basic structure
-        table_names = sorted(parsed_tables.keys())
-        signature = str(table_names)
-
-        # Add some sample data if available
-        for table_name in table_names[:3]:  # Only check first 3 tables to avoid excessive computation
-            table_data = parsed_tables.get(table_name, {})
-            if isinstance(table_data, dict):
-                signature += str(len(str(table_data)[:100]))  # Add length of first 100 chars
-
-        return hash(signature)
-    except Exception:
-        # Fallback to a simple hash if anything goes wrong
-        return hash(str(results)[:200])
+from .scia_results_processor import (
+    _extract_integration_strip_results,
+    get_processed_results_with_cache,
+    process_raw_integration_strip_data,
+)
 
 
 def safe_float_format(value: str | float, unit: str = "", default: str = "N/A") -> str:
     """
     Safely format a value as a float with one decimal place and optional unit.
+
     Automatically converts force values from N to kN and moment values from Nm to kNm.
 
     This function now uses the centralized unit conversion system to ensure
     consistent conversion logic.
 
     :param value: Value to format
-    :type value: Any
+    :type value: str | float
     :param unit: Unit to append to the formatted value
     :type unit: str
     :param default: Default value if formatting fails
@@ -455,10 +245,6 @@ def create_scia_1d_table_data(df: pd.DataFrame, result_type: str, units_mapping:
     return table_data, headers
 
 
-# Module-level cache for processed results
-_processed_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
-
-
 def create_scia_result_table(results: dict[str, Any], result_type: str) -> TableResult:
     """
     Create a VIKTOR TableResult from SCIA analysis results for a specific result type.
@@ -475,19 +261,8 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
         # Extract units mapping from results
         units_mapping = results.get("units", {}).get("internal_forces", {})
 
-        # Use simple caching to avoid reprocessing the same results
-        results_hash = _get_results_hash(results)
-
-        if results_hash in _processed_results_cache:
-            processed_results = _processed_results_cache[results_hash]
-        else:
-            processed_results = process_scia_results_for_idea(results)
-            # Cache the results (limit cache size to prevent memory issues)
-            if len(_processed_results_cache) > 10:
-                # Remove oldest entry
-                oldest_key = next(iter(_processed_results_cache))
-                del _processed_results_cache[oldest_key]
-            _processed_results_cache[results_hash] = processed_results
+        # Use the centralized processing function with caching
+        processed_results = get_processed_results_with_cache(results)
 
         # Extract the specific DataFrame from the processed results
         if processed_results and isinstance(processed_results, dict):
@@ -496,22 +271,8 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
             if result_df is not None and not result_df.empty:
                 table_data, headers = create_scia_table_data(result_df, result_type, units_mapping)
                 return TableResult(table_data, column_headers=headers)
-            # DataFrame not found or empty - use default headers with units
-            default_headers = [
-                "Coordinates",
-                "Name",
-                "Vx Max (kN)",
-                "Vy Max (kN)",
-                "MxD+ Max (kNm)",
-                "MxD- Max (kNm)",
-                "MyD+ Max (kNm)",
-                "MyD- Max (kNm)",
-            ]
-            return TableResult(
-                [[f"Geen {result_type} data", f"{result_type} resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]],
-                column_headers=default_headers,
-            )
-        # Fallback if processed results don't have expected structure
+
+        # DataFrame not found or empty - use default headers with units
         default_headers = [
             "Coordinates",
             "Name",
@@ -523,7 +284,8 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
             "MyD- Max (kNm)",
         ]
         return TableResult(
-            [["Geen data", "SCIA resultaten verwerking gefaald", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers
+            [[f"Geen {result_type} data", f"{result_type} resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]],
+            column_headers=default_headers,
         )
 
     except Exception as e:
@@ -542,38 +304,69 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
 
 
-def _extract_integration_results(results: dict[str, Any], result_type: str) -> dict[str, Any] | None:
+def create_scia_1d_result_table(results: dict[str, Any], result_type: str) -> TableResult:
     """
-    Extract integration results from SCIA results.
+    Create a VIKTOR TableResult from SCIA 1D analysis results for a specific result type.
+
+    This version processes the raw 1D data by grouping rows with same name and dx values,
+    merging Belasting values, and finding absolute max for force/moment columns.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
-    :param result_type: Type of results to extract
+    :param result_type: Type of results to extract ("SLS kar", "SLS freq", "ULS")
     :type result_type: str
-    :returns: Integration results or None if not found
-    :rtype: dict[str, Any] | None
+    :returns: VIKTOR TableResult with processed 1D data
+    :rtype: TableResult
+    :raises Exception: If processing fails
     """
-    # Map result types to table names (using exact table names from SCIA)
-    table_mapping = {"SLS kar": "SLS kar", "SLS freq": "SLS freq", "ULS": "ULS"}
-    selected_table = table_mapping.get(result_type, "SLS kar")
+    try:
+        # Extract integration strip results
+        integration_strip_results = _extract_integration_strip_results(results, result_type)
 
-    # Extract raw 1D data directly from parsed tables
-    xml_parsing = results.get("xml_parsing", {})
-    parsed_tables = xml_parsing.get("parsed_tables", {})
-    table_name = f"Interne 1D-krachten {selected_table}"
-    table_data = parsed_tables.get(table_name, {}).get("data", {})
+        if not integration_strip_results:
+            return TableResult(
+                [["Geen 1D data beschikbaar", f"Geen {result_type} resultaten gevonden", "N/A", "N/A", "N/A"]],
+                column_headers=["Info", "Status", "Detail", "Extra", "Opmerking"],
+            )
 
-    # Look for integration results
-    integration_results = table_data.get("Resultaten over integratiestroken:")
-    if (not integration_results or not isinstance(integration_results, dict)) and table_data:
-        # If no integration results, check for other data structure
-        # Look for any other data structure that might contain the results
-        for value in table_data.values():
-            if isinstance(value, dict) and len(value) > 0:
-                integration_results = value
-                break
+        # Process the raw data with grouping and filtering
+        df_processed = process_raw_integration_strip_data(integration_strip_results)
 
-    return integration_results
+        if df_processed.empty:
+            return TableResult(
+                [["Geen data na verwerking", f"Geen {result_type} data na filtering", "N/A", "N/A", "N/A"]],
+                column_headers=["Info", "Status", "Detail", "Extra", "Opmerking"],
+            )
+
+        # Convert and process data with unit conversion
+        from .scia_unit_conversion import SciaUnitConverter
+
+        # Create a 1D converter for proper unit handling
+        converter = SciaUnitConverter("1D")
+
+        # Get column order for display
+        available_columns = df_processed.columns.tolist()
+
+        # Create headers with units
+        headers = [_get_header_with_unit(col, converter) for col in available_columns]
+
+        # Create table data from processed DataFrame
+        table_rows = []
+        for _, row in df_processed.iterrows():
+            table_row = []
+            for col in available_columns:
+                value = row[col]
+                formatted_value = _format_cell_value(value, col, converter)
+                table_row.append(formatted_value)
+            table_rows.append(table_row)
+
+        return TableResult(table_rows, column_headers=headers)
+
+    except Exception as e:
+        error_message = f"Error processing 1D results: {e!s}"
+        return TableResult(
+            [["Verwerkingsfout", error_message, "N/A", "N/A", "N/A"]], column_headers=["Error", "Details", "Extra1", "Extra2", "Extra3"]
+        )
 
 
 def _get_header_with_unit(col: str, converter: Any) -> str:  # noqa: ANN401
@@ -624,52 +417,31 @@ def _get_header_with_unit(col: str, converter: Any) -> str:  # noqa: ANN401
     return col
 
 
-def _create_headers_with_units(available_columns: list[str], converter: Any) -> list[str]:  # noqa: ANN401
+def _format_cell_value(value: Any, col: str, converter: Any) -> str:  # noqa: ANN401
     """
-    Create headers with units for display.
+    Format a single cell value with proper units.
 
-    :param available_columns: List of column names
-    :type available_columns: list[str]
-    :param converter: Unit converter instance
-    :type converter: SciaUnitConverter
-    :returns: List of headers with units
-    :rtype: list[str]
-    """
-    return [_get_header_with_unit(col, converter) for col in available_columns]
-
-
-def _get_numeric_value(value: Any) -> tuple[bool, float | None]:  # noqa: ANN401
-    """
-    Extract numeric value from any type.
-
-    :param value: Value to extract numeric from
+    :param value: Cell value to format
     :type value: Any
-    :returns: Tuple of (is_numeric, numeric_value)
-    :rtype: tuple[bool, float | None]
-    """
-    if isinstance(value, (int, float)):
-        return True, value
-    if isinstance(value, str) and value.strip():
-        try:
-            return True, float(value)
-        except (ValueError, TypeError):
-            return False, None
-    return False, None
-
-
-def _format_numeric_with_units(numeric_value: float, col: str, converter: Any) -> str:  # noqa: ANN401
-    """
-    Format numeric value with appropriate units.
-
-    :param numeric_value: Numeric value to format
-    :type numeric_value: float
     :param col: Column name
     :type col: str
     :param converter: Unit converter instance
     :type converter: Any
-    :returns: Formatted value with units
+    :returns: Formatted string value
     :rtype: str
     """
+    # Check if value is numeric
+    if isinstance(value, (int, float)):
+        numeric_value = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            numeric_value = float(value)
+        except (ValueError, TypeError):
+            return str(value)
+    else:
+        return str(value)
+
+    # Format numeric value with units
     col_lower = col.lower()
 
     # Define mapping for force/moment columns
@@ -703,106 +475,3 @@ def _format_numeric_with_units(numeric_value: float, col: str, converter: Any) -
 
     # Other numeric values - format as-is
     return f"{numeric_value:.3f}"
-
-
-def _format_cell_value(value: Any, col: str, converter: Any) -> str:  # noqa: ANN401
-    """
-    Format a single cell value with proper units.
-
-    :param value: Cell value to format
-    :type value: Any
-    :param col: Column name
-    :type col: str
-    :param converter: Unit converter instance
-    :type converter: Any
-    :returns: Formatted string value
-    :rtype: str
-    """
-    is_numeric, numeric_value = _get_numeric_value(value)
-
-    if is_numeric and numeric_value is not None:
-        return _format_numeric_with_units(numeric_value, col, converter)
-    return str(value)
-
-
-def _create_table_rows_from_dataframe(df_processed: pd.DataFrame, converter: Any) -> list[list[str]]:  # noqa: ANN401
-    """
-    Create table rows from processed DataFrame.
-
-    :param df_processed: Processed DataFrame
-    :type df_processed: pd.DataFrame
-    :param converter: Unit converter instance
-    :type converter: SciaUnitConverter
-    :returns: List of table rows
-    :rtype: list[list[str]]
-    """
-    available_columns = df_processed.columns.tolist()
-    table_rows = []
-
-    for _, row in df_processed.iterrows():
-        table_row = []
-        for col in available_columns:
-            value = row[col]
-            formatted_value = _format_cell_value(value, col, converter)
-            table_row.append(formatted_value)
-        table_rows.append(table_row)
-
-    return table_rows
-
-
-def create_scia_1d_result_table(results: dict[str, Any], result_type: str) -> TableResult:
-    """
-    Create a VIKTOR TableResult from SCIA 1D analysis results for a specific result type.
-
-    This version processes the raw 1D data by grouping rows with same name and dx values,
-    merging Belasting values, and finding absolute max for force/moment columns.
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :param result_type: Type of results to extract ("SLS kar", "SLS freq", "ULS")
-    :type result_type: str
-    :returns: VIKTOR TableResult with processed 1D data
-    :rtype: TableResult
-    :raises Exception: If processing fails
-    """
-    try:
-        # Extract integration results
-        integration_results = _extract_integration_results(results, result_type)
-
-        if not integration_results:
-            return TableResult(
-                [["Geen 1D data beschikbaar", f"Geen {result_type} resultaten gevonden", "N/A", "N/A", "N/A"]],
-                column_headers=["Info", "Status", "Detail", "Extra", "Opmerking"],
-            )
-
-        # Process the raw data with grouping and filtering
-        df_processed = process_raw_1d_data_for_view(integration_results)
-
-        if df_processed.empty:
-            return TableResult(
-                [["Geen data na verwerking", f"Geen {result_type} data na filtering", "N/A", "N/A", "N/A"]],
-                column_headers=["Info", "Status", "Detail", "Extra", "Opmerking"],
-            )
-
-        # Convert and process data with unit conversion
-        from .scia_unit_conversion import SciaUnitConverter
-
-        # Create a 1D converter for proper unit handling
-        converter = SciaUnitConverter("1D")
-
-        # Get column order for display
-        available_columns = df_processed.columns.tolist()
-
-        # Create headers with units
-        headers = _create_headers_with_units(available_columns, converter)
-
-        # Create table data from processed DataFrame
-        table_rows = _create_table_rows_from_dataframe(df_processed, converter)
-
-        return TableResult(table_rows, column_headers=headers)
-
-    except Exception as e:
-        error_message = f"Error processing 1D results: {e!s}"
-        return TableResult(
-            [["Verwerkingsfout", error_message, "N/A", "N/A", "N/A"]], column_headers=["Error", "Details", "Extra1", "Extra2", "Extra3"]
-        )

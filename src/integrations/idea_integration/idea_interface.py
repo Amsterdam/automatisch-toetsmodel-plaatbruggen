@@ -424,42 +424,172 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
     return created_slabs
 
 
-def _process_scia_results(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
+def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    Process SCIA results into a single merged dataframe.
+    Process SCIA node results into a single merged dataframe.
 
-    :param scia_results_dict: Dictionary containing SCIA results for different load cases
+    :param scia_results_dict: Dictionary containing SCIA node results for different load cases
     :returns: Merged dataframe with all load cases
     :rtype: pd.DataFrame
     """
-    print("SCIA results dictionary:")
-    print(scia_results_dict)
 
-    # Get load cases from SCIA results
-    df_uls = scia_results_dict.get("ULS", pd.DataFrame())
-    df_sls_kar = scia_results_dict.get("SLS kar", pd.DataFrame())
-    df_sls_freq = scia_results_dict.get("SLS freq", pd.DataFrame())
+    # Get load cases from SCIA results with node prefixes
+    df_uls = scia_results_dict.get("node_ULS")
+    if df_uls is None:
+        df_uls = pd.DataFrame()
+    
+    df_sls_kar = scia_results_dict.get("node_SLS kar")
+    if df_sls_kar is None:
+        df_sls_kar = pd.DataFrame()
+    
+    df_sls_freq = scia_results_dict.get("node_SLS freq")
+    if df_sls_freq is None:
+        df_sls_freq = pd.DataFrame()
 
     # Filter the names in the dataframes to match the zones
     for df in [df_uls, df_sls_kar, df_sls_freq]:
-        df["name"] = df["name"].str[1:].str.replace("_", "-")
+        if df is not None and not df.empty and "name" in df.columns:
+            df["name"] = df["name"].str[1:].str.replace("_", "-")
 
     # Add moment columns - select value with maximum absolute magnitude while preserving sign
     for df in [df_uls, df_sls_kar, df_sls_freq]:
-        df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-        df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+        if df is not None and not df.empty and all(col in df.columns for col in ["m_xD+_max", "m_xD-_max"]):
+            df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+        if df is not None and not df.empty and all(col in df.columns for col in ["m_yD+_max", "m_yD-_max"]):
+            df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
     # Rename columns to prevent clashes
-    df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["name", "coords_xyz"] else x)
-    df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["name", "coords_xyz"] else x)
-    df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["name", "coords_xyz"] else x)
+    if df_uls is not None and not df_uls.empty:
+        df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["name", "coords_xyz"] else x)
+    if df_sls_kar is not None and not df_sls_kar.empty:
+        df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["name", "coords_xyz"] else x)
+    if df_sls_freq is not None and not df_sls_freq.empty:
+        df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["name", "coords_xyz"] else x)
 
-    # Merge dataframes
+    # Merge dataframes - handle empty cases
+    if (df_uls is None or df_uls.empty or 
+        df_sls_kar is None or df_sls_kar.empty or 
+        df_sls_freq is None or df_sls_freq.empty):
+        return pd.DataFrame()  # Return empty DataFrame if any component is empty
+    
     df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
     return df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
 
 
-def _apply_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
+def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """
+    Process SCIA integration strip results into a single merged dataframe.
+
+    :param scia_results_dict: Dictionary containing SCIA integration strip results for different load cases
+    :returns: Merged dataframe with all load cases
+    :rtype: pd.DataFrame
+    """
+
+    # Get load cases from SCIA results with strip prefixes and add fallback for None values
+    df_uls = scia_results_dict.get("strip_ULS")
+    if df_uls is None:
+        df_uls = pd.DataFrame()
+    
+    df_sls_kar = scia_results_dict.get("strip_SLS kar")
+    if df_sls_kar is None:
+        df_sls_kar = pd.DataFrame()
+    
+    df_sls_freq = scia_results_dict.get("strip_SLS freq")
+    if df_sls_freq is None:
+        df_sls_freq = pd.DataFrame()
+
+    # Rename columns to prevent clashes
+    if df_uls is not None and not df_uls.empty:
+        df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["Naam", "dx"] else x)
+    if df_sls_kar is not None and not df_sls_kar.empty:
+        df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["Naam", "dx"] else x)
+    if df_sls_freq is not None and not df_sls_freq.empty:
+        df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["Naam", "dx"] else x)
+
+    # Merge dataframes - handle empty cases
+    if (df_uls is None or df_uls.empty or 
+        df_sls_kar is None or df_sls_kar.empty or 
+        df_sls_freq is None or df_sls_freq.empty):
+        return pd.DataFrame()  # Return empty DataFrame if any component is empty
+    
+    df_all = df_uls.merge(df_sls_kar, on=["Naam", "dx"], how="inner")
+    return df_all.merge(df_sls_freq, on=["Naam", "dx"], how="inner")
+
+
+def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
+    """
+    Apply load cases from SCIA integration strip results to each slab.
+
+    :param created_slabs: Dictionary of created slabs. Expected keys per slab:
+                          - "zones": list[str]
+                          - "slab_langs" (optional)
+                          - "slab_dwars" (optional)
+    :param df_all: Merged dataframe with all load cases. Expected columns include:
+                   - name, coords_xyz
+                   - SLS_kar_v_{y|z}_max, SLS_freq_v_{y|z}_max, ULS_v_{y|z}_max
+                   - SLS_kar_M{y|x},     SLS_freq_M{y|x},     ULS_M{y|x}
+    """
+    # For integration strips: langs cs uses v_y and My, dwars cs uses v_z and Mx
+    orient = {
+        "langs": {"shear": "v_y_max", "moment": "My"},
+        "dwars": {"shear": "v_z_max", "moment": "Mx"},
+    }
+
+    def _format_coords(coords: list | tuple | str | float | None) -> str:
+        if coords is None:
+            return "No coords"
+        if isinstance(coords, (list, tuple)):
+            return f"({', '.join(map(str, coords))})"
+        return str(coords)
+
+    for slab_key, slab_data in created_slabs.items():
+        zones = slab_data.get("zones") or []
+        if not zones:
+            continue
+
+        df_slab = df_all[df_all["name"].isin(zones)]
+        if df_slab.empty:
+            continue
+
+        desc_prefix = slab_key.replace(".", "_")
+
+        for direction, cfg in orient.items():
+            slab = slab_data.get(f"slab_{direction}")
+            if slab is None:
+                continue
+
+            shear_col = cfg["shear"]  # "v_y_max" or "v_z_max"
+            moment_col = cfg["moment"]  # "My" or "Mx"
+
+            for _, row in df_slab.iterrows():
+                # Build internal forces with integration strip forces
+                char = idea_rcs.LoadingSLS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"SLS_kar_{shear_col}", 0),
+                        My=row.get(f"SLS_kar_{moment_col}", 0),
+                    )
+                )
+                freq = idea_rcs.LoadingSLS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"SLS_freq_{shear_col}", 0),
+                        My=row.get(f"SLS_freq_{moment_col}", 0),
+                    )
+                )
+                fund = idea_rcs.LoadingULS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"ULS_{shear_col}", 0),
+                        My=row.get(f"ULS_{moment_col}", 0),
+                    )
+                )
+
+                name = row.get("name", "Unknown")
+                coords_str = _format_coords(row.get("coords_xyz"))
+                description = f"{desc_prefix}_strip - {name} - {coords_str}"
+
+                slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
+
+
+def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
     """
     Apply load cases from SCIA results to each slab.
 
@@ -561,12 +691,18 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     # Create slabs with reinforcement
     created_slabs = _create_slabs_with_reinforcement(params, model, cs_mat, mat_reinf)
 
-    # Process SCIA results
-    df_all = _process_scia_results(scia_results_dict)
+    # Process SCIA node results for idea input
+    df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
+    # Apply node loads to slabs
+    _apply_node_loads_to_slabs(created_slabs, df_node_all)
+
+    # Process SCIA integration strip results for idea input
+    df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
+    print("stripdata",df_strip_all)
+    # Apply integration strip loads to slabs
+    # _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
 
 
-    # Apply loads to slabs
-    _apply_loads_to_slabs(created_slabs, df_all)
 
     return model
 
