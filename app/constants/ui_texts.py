@@ -89,9 +89,11 @@ SCIA_INFO_TEXT = """## SCIA Engineer Integratie
 
 Deze pagina toont een weergave van het aangemaakte SCIA model en biedt download opties voor SCIA Engineer bestanden.
 Op het tabblad "Berekening" kun je belastinggevallen toevoegen die mee genomen worden in de SCIA analyse.
-Vervolgens kun je de .xml bestanden downloaden om het model zelf te bekijken in SCIA, of de analyse direct in Viktor laten uitvoeren en de resultaten hier bekijken,
+Vervolgens kun je de .xml bestanden downloaden om het model zelf te bekijken in SCIA,
+of de analyse direct in Viktor laten uitvoeren en de resultaten hier bekijken,
 door op de knop "Download ESA Model" of "Download SCIA Output XML" te klikken.
-In het eerste geval krijg je meteen het volledige .esa model om zelf te openen in SCIA Engineer, in het tweede geval krijg je enkel het output .xml bestand.
+In het eerste geval krijg je meteen het volledige .esa model om zelf te openen in SCIA Engineer,
+in het tweede geval krijg je enkel het output .xml bestand.
 
 ### Download Opties
 Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:"""
