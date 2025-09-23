@@ -481,8 +481,9 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     """
     Process SCIA integration strip results into a single merged dataframe.
     
-    Groups rows by 'Naam' and 'dx', merges 'Belasting' values into single cells,
-    and finds absolute maximum values for force/moment columns.
+    The individual DataFrames should already be processed (grouped by 'Naam' and 'dx', 
+    with 'Belasting' values merged and absolute maximum values for force/moment columns).
+    This function just merges the load cases.
 
     :param scia_results_dict: Dictionary containing SCIA integration strip results for different load cases
     :returns: Merged dataframe with all load cases
@@ -502,120 +503,27 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     if df_sls_freq is None:
         df_sls_freq = pd.DataFrame()
 
-    # Process each dataframe with grouping and aggregation
-    df_uls = _process_integration_strip_dataframe(df_uls, "ULS")
-    df_sls_kar = _process_integration_strip_dataframe(df_sls_kar, "SLS_kar")
-    df_sls_freq = _process_integration_strip_dataframe(df_sls_freq, "SLS_freq")
-
     # Check if any dataframes are empty
     if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
         return pd.DataFrame()
 
-    # Merge dataframes on Naam and dx only (not Belasting since load cases differ)
+    # The DataFrames should already be processed, so we just need to merge them
+    # Merge dataframes on Naam and dx (these columns come from the base processor)
     # Rename Belasting columns to avoid conflicts
     df_uls_renamed = df_uls.rename(columns={"Belasting": "ULS_Belasting"})
     df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
     df_sls_freq_renamed = df_sls_freq.rename(columns={"Belasting": "SLS_freq_Belasting"})
     
-    df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=["Naam", "dx"], how="inner")
-    df_all = df_temp.merge(df_sls_freq_renamed, on=["Naam", "dx"], how="inner")
+    # Use 'Naam' and 'dx' columns as they come from the base processor
+    merge_columns = ["Naam", "dx"]
+    
+    df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
+    df_all = df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
     
     return df_all
 
 
-def _abs_max_aggregator(series: pd.Series) -> float:
-    """Find the value with the maximum absolute value."""
-    series_clean = series.dropna()
-    if series_clean.empty:
-        return 0
-    # Find index of maximum absolute value
-    abs_max_idx = series_clean.abs().idxmax()
-    return series_clean.loc[abs_max_idx]
 
-
-def _create_integration_strip_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
-    """
-    Create aggregation functions for DataFrame grouping.
-
-    :param df_columns: List of DataFrame column names
-    :type df_columns: list[str]
-    :returns: Dictionary of aggregation functions
-    :rtype: dict[str, Union[str, Callable[[pd.Series], Any]]]
-    """
-    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    agg_functions: dict[str, Union[str, Callable[[pd.Series], Any]]] = {}
-
-    for col in df_columns:
-        if col == "Belasting":
-            # Merge Belasting values into single cell (concatenate unique values)
-            agg_functions[col] = lambda x: " | ".join(sorted(x.dropna().astype(str).unique()))
-        elif col in numeric_columns and col not in ["Naam", "dx"]:
-            # Find absolute maximum for force/moment columns
-            agg_functions[col] = _abs_max_aggregator
-        elif col in ["Naam", "dx"]:
-            # Keep first value for grouping columns
-            agg_functions[col] = "first"
-        else:
-            # For other columns, take first non-null value
-            agg_functions[col] = lambda x: x.dropna().iloc[0] if not x.dropna().empty else ""
-
-    return agg_functions
-
-
-def _convert_integration_strip_numeric_columns(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    Convert numeric columns to proper types.
-
-    :param df_raw: Raw DataFrame
-    :type df_raw: pd.DataFrame
-    :returns: DataFrame with converted numeric columns
-    :rtype: pd.DataFrame
-    """
-    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    for col in numeric_columns:
-        if col in df_raw.columns:
-            df_raw[col] = pd.to_numeric(df_raw[col], errors="coerce").fillna(0)
-    return df_raw
-
-
-def _process_integration_strip_dataframe(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
-    """
-    Process a single integration strip dataframe by grouping rows with same name and dx values.
-    
-    Groups rows by 'Naam' and 'dx', merges 'Belasting' values into single cells,
-    and finds absolute maximum values for force/moment columns.
-
-    :param df: Input DataFrame to process
-    :type df: pd.DataFrame
-    :param prefix: Prefix to add to column names (except grouping columns)
-    :type prefix: str
-    :returns: Processed DataFrame with grouped and filtered data
-    :rtype: pd.DataFrame
-    """
-    if df.empty:
-        return df
-
-    # Convert numeric columns to proper types
-    df = _convert_integration_strip_numeric_columns(df.copy())
-
-    # Group by 'Naam' and 'dx' if these columns exist
-    if "Naam" not in df.columns or "dx" not in df.columns:
-        # If grouping columns don't exist, just rename and return
-        return df.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
-
-    # Define aggregation functions
-    agg_functions = _create_integration_strip_aggregation_functions(df.columns.tolist())
-
-    # Apply grouping and aggregation - group only by Naam and dx (not Belasting)
-    df_processed = df.groupby(["Naam", "dx"], as_index=False).agg(agg_functions)
-
-    # Sort by Naam and dx for consistent ordering
-    df_processed = df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
-    
-    # Rename columns to prevent clashes (except grouping and Belasting columns)
-    df_processed = df_processed.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
-
-    return df_processed
 
 
 def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:

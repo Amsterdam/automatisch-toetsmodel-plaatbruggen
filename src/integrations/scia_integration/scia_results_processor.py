@@ -278,7 +278,9 @@ def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
     This function extracts 1D force data from SCIA results and processes coordinates,
     creating DataFrames with unique coordinate locations and their corresponding
-    force/moment values for beam elements.
+    force/moment values for beam elements. The processing includes grouping rows
+    with same 'Naam' and 'dx' values, merging 'Belasting' values, and finding
+    absolute maximum values for force/moment columns.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
@@ -293,7 +295,6 @@ def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     for selected_table in selected_result_tables:
         data_1d = _extract_scia_1d_table_data(results, selected_table)
         selected_data_scia_1d[f"Interne 1D-krachten {selected_table}"] = data_1d
-        print("DEBUG: reading data")
 
     # Create empty dict for storing results for each selected table
     results_1d = {}
@@ -305,6 +306,9 @@ def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
         # Convert 1D data to DataFrame
         df_1d = pd.DataFrame(data_1d) if data_1d is not None else pd.DataFrame()
         
+        # Process the DataFrame with grouping and aggregation (similar to what was done in IDEA interface)
+        if not df_1d.empty:
+            df_1d = process_raw_integration_strip_data(data_1d)
         
         results_1d[selected_table] = df_1d
 

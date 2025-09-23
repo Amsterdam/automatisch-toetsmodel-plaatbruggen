@@ -83,6 +83,14 @@ def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> 
             
         # Create copy to avoid modifying original
         idea_df = df_1d.copy()
+
+        # Drop the E/W/N column if it exists it's not needed for IDEA
+        if "E/W/N" in idea_df.columns:
+            idea_df = idea_df.drop(columns=["E/W/N"])
+
+        # Drop the N column if it exists it's not needed for IDEA
+        if "N" in idea_df.columns:
+            idea_df = idea_df.drop(columns=["N"])
         
         # Rename columns to IDEA-specific names (with _max suffix)
         column_mapping = {
@@ -91,21 +99,14 @@ def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> 
             "V_z": "v_z_max",
             "M_x": "m_x_max",
             "M_y": "m_y_max",
-            "M_z": "m_z_max"
+            "M_z": "m_z_max",
+            "Naam": "name"  # Rename Dutch "Naam" to English "name" for consistency
         }
         
         for old_col, new_col in column_mapping.items():
             if old_col in idea_df.columns:
                 idea_df[new_col] = idea_df[old_col]
                 idea_df = idea_df.drop(columns=[old_col])
-        
-        # Drop the E/W/N column if it exists it's not needed for IDEA
-        if "E/W/N" in idea_df.columns:
-            idea_df = idea_df.drop(columns=["E/W/N"])
-
-        # Drop the N column if it exists it's not needed for IDEA
-        if "N" in idea_df.columns:
-            idea_df = idea_df.drop(columns=["N"])
 
         idea_results_1d[selected_table] = idea_df
     

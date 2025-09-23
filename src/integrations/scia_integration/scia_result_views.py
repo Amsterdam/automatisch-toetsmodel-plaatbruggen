@@ -134,6 +134,7 @@ def create_scia_node_table_data(df: pd.DataFrame, result_type: str, units_mappin
             formatted_cols[col] = pd.Series(["N/A"] * len(df))
 
     # Create table data using list comprehension with pre-computed values
+    # The name column should be available after IDEA processing
     names = df.get("name", pd.Series(["N/A"] * len(df))).astype(str)
 
     table_data = [
@@ -187,8 +188,8 @@ def create_scia_integration_strip_table_data(df: pd.DataFrame, result_type: str,
             force_units[component] = converter.get_display_unit(component)
 
     headers = [
-        "Coordinates",
         "Name",
+        "dx (m)",
         f"N Max ({force_units['N']})",  # Normal force
         f"Vy Max ({force_units['V_y']})",  # Shear force Y
         f"Vz Max ({force_units['V_z']})",  # Shear force Z
@@ -201,8 +202,20 @@ def create_scia_integration_strip_table_data(df: pd.DataFrame, result_type: str,
         return [[f"Geen {result_type} 1D data", f"{result_type} 1D resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], headers
 
     # Use vectorized operations instead of row-by-row iteration
-    # Format coordinates
-    coords_formatted = df["coords_xyz"].apply(format_coordinates_safe)
+    # Format dx values (integration strip positions)
+    def format_dx_value(x):
+        """Safely format dx values, handling various input types."""
+        if pd.isna(x):
+            return "N/A"
+        try:
+            # Try to convert to float first
+            float_val = float(x)
+            return f"{float_val:.2f}"
+        except (ValueError, TypeError):
+            # If conversion fails, return as string
+            return str(x) if x is not None else "N/A"
+    
+    dx_formatted = df.get("dx", pd.Series([0.0] * len(df))).apply(format_dx_value)
 
     # Format numeric columns with their respective units using the converter
     numeric_columns = ["n_max", "v_y_max", "v_z_max", "m_x_max", "m_y_max", "m_z_max"]
@@ -225,12 +238,12 @@ def create_scia_integration_strip_table_data(df: pd.DataFrame, result_type: str,
             formatted_cols[col] = pd.Series(["N/A"] * len(df))
 
     # Create table data using list comprehension with pre-computed values
-    names = df.get("name", pd.Series(["N/A"] * len(df))).astype(str)
+    names = df.get("Naam", df.get("name", pd.Series(["N/A"] * len(df)))).astype(str)
 
     table_data = [
         [
-            coords_formatted.iloc[i],
             names.iloc[i],
+            dx_formatted.iloc[i],
             formatted_cols["n_max"].iloc[i],
             formatted_cols["v_y_max"].iloc[i],
             formatted_cols["v_z_max"].iloc[i],
