@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from viktor.core import File
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
-    
+
     VIKTOR_AVAILABLE = True
 else:
     try:
@@ -121,9 +121,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         # Create the SCIA integration strip
         strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
         # Try to set the name after creation if possible
-        if hasattr(strip, '_name'):
+        if hasattr(strip, "_name"):
             strip._name = f"strip_{plane_name}_{point_1}_{point_2}"
-        
+
         self.integration_strips[strip._name] = strip
         return strip
 

@@ -14,7 +14,7 @@ Future enhancements needed:
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from viktor.external import idea_rcs
@@ -26,7 +26,6 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
-from src.integrations.scia_integration.scia_unit_conversion import SciaUnitConverter
 
 if TYPE_CHECKING:
     from viktor.core import File
@@ -433,16 +432,15 @@ def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.Da
     :returns: Merged dataframe with all load cases
     :rtype: pd.DataFrame
     """
-
     # Get load cases from SCIA results with node prefixes
     df_uls = scia_results_dict.get("node_ULS")
     if df_uls is None:
         df_uls = pd.DataFrame()
-    
+
     df_sls_kar = scia_results_dict.get("node_SLS kar")
     if df_sls_kar is None:
         df_sls_kar = pd.DataFrame()
-    
+
     df_sls_freq = scia_results_dict.get("node_SLS freq")
     if df_sls_freq is None:
         df_sls_freq = pd.DataFrame()
@@ -468,11 +466,9 @@ def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.Da
         df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["name", "coords_xyz"] else x)
 
     # Merge dataframes - handle empty cases
-    if (df_uls is None or df_uls.empty or 
-        df_sls_kar is None or df_sls_kar.empty or 
-        df_sls_freq is None or df_sls_freq.empty):
+    if df_uls is None or df_uls.empty or df_sls_kar is None or df_sls_kar.empty or df_sls_freq is None or df_sls_freq.empty:
         return pd.DataFrame()  # Return empty DataFrame if any component is empty
-    
+
     df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
     return df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
 
@@ -480,8 +476,8 @@ def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.Da
 def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
     Process SCIA integration strip results into a single merged dataframe.
-    
-    The individual DataFrames should already be processed (grouped by 'Naam' and 'dx', 
+
+    The individual DataFrames should already be processed (grouped by 'Naam' and 'dx',
     with 'Belasting' values merged and absolute maximum values for force/moment columns).
     This function just merges the load cases.
 
@@ -489,16 +485,15 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     :returns: Merged dataframe with all load cases
     :rtype: pd.DataFrame
     """
-
     # Get load cases from SCIA results with strip prefixes and add fallback for None values
     df_uls = scia_results_dict.get("strip_ULS")
     if df_uls is None:
         df_uls = pd.DataFrame()
-    
+
     df_sls_kar = scia_results_dict.get("strip_SLS kar")
     if df_sls_kar is None:
         df_sls_kar = pd.DataFrame()
-    
+
     df_sls_freq = scia_results_dict.get("strip_SLS freq")
     if df_sls_freq is None:
         df_sls_freq = pd.DataFrame()
@@ -513,17 +508,14 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     df_uls_renamed = df_uls.rename(columns={"Belasting": "ULS_Belasting"})
     df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
     df_sls_freq_renamed = df_sls_freq.rename(columns={"Belasting": "SLS_freq_Belasting"})
-    
+
     # Use 'Naam' and 'dx' columns as they come from the base processor
     merge_columns = ["Naam", "dx"]
-    
+
     df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
     df_all = df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
-    
+
     return df_all
-
-
-
 
 
 def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
@@ -540,10 +532,11 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
                    - ULS_V_z, SLS_kar_V_z, SLS_freq_V_z (shear forces)
                    - ULS_M_x, ULS_M_y, SLS_kar_M_x, SLS_kar_M_y, SLS_freq_M_x, SLS_freq_M_y (moments)
     """
+
     def _extract_zone_name_from_strip(strip_name: str) -> str:
         """
         Extract zone name from strip name and convert format.
-        
+
         Example: "strip_Z3_1_(5.0, -1.5, 0)_(5.0, -10.5, 0)" -> "3-1"
         """
         try:
@@ -578,7 +571,7 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
             zone_name = _extract_zone_name_from_strip(strip_name)
             if zone_name in zones:
                 matching_strips.append(row)
-        
+
         if not matching_strips:
             continue
 
@@ -736,8 +729,6 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     print("stripdata", df_strip_all)
     # Apply integration strip loads to slabs
     _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
-
-
 
     return model
 

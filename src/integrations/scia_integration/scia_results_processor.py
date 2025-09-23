@@ -305,11 +305,11 @@ def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
         # Convert 1D data to DataFrame
         df_1d = pd.DataFrame(data_1d) if data_1d is not None else pd.DataFrame()
-        
+
         # Process the DataFrame with grouping and aggregation (similar to what was done in IDEA interface)
         if not df_1d.empty:
             df_1d = process_raw_integration_strip_data(data_1d)
-        
+
         results_1d[selected_table] = df_1d
 
     return results_1d
@@ -688,7 +688,7 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
 
     try:
         processed_results = process_scia_node_results_for_idea(results)
-        
+
         # Cache the results (limit cache size to prevent memory issues)
         if len(_processed_results_cache) > 10:
             # Remove oldest entry
@@ -696,12 +696,12 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
             del _processed_results_cache[oldest_key]
         _processed_results_cache[results_hash] = processed_results
         return processed_results
-        
+
     except Exception:
         return None
 
 
-# Module-level cache for integration strip results  
+# Module-level cache for integration strip results
 _integration_strip_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
 
 
@@ -728,7 +728,7 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
 
     try:
         processed_results = process_scia_integration_strip_results_for_idea(results)
-        
+
         # Cache the results (limit cache size to prevent memory issues)
         if len(_integration_strip_results_cache) > 10:
             # Remove oldest entry
@@ -736,6 +736,6 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
             del _integration_strip_results_cache[oldest_key]
         _integration_strip_results_cache[results_hash] = processed_results
         return processed_results
-        
+
     except Exception:
         return None

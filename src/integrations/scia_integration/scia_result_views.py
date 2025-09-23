@@ -6,8 +6,8 @@ import pandas as pd
 from viktor.views import TableResult
 
 from .scia_results_processor import (
-    get_processed_results_with_cache,
     get_processed_integration_strip_results_with_cache,
+    get_processed_results_with_cache,
 )
 
 
@@ -154,7 +154,9 @@ def create_scia_node_table_data(df: pd.DataFrame, result_type: str, units_mappin
     return table_data, headers
 
 
-def create_scia_integration_strip_table_data(df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None) -> tuple[list[list[str]], list[str]]:
+def create_scia_integration_strip_table_data(
+    df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None
+) -> tuple[list[list[str]], list[str]]:
     """
     Create table data and headers from a SCIA 1D results DataFrame.
 
@@ -214,7 +216,7 @@ def create_scia_integration_strip_table_data(df: pd.DataFrame, result_type: str,
         except (ValueError, TypeError):
             # If conversion fails, return as string
             return str(x) if x is not None else "N/A"
-    
+
     dx_formatted = df.get("dx", pd.Series([0.0] * len(df))).apply(format_dx_value)
 
     # Format numeric columns with their respective units using the converter
@@ -365,7 +367,18 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
             "Mz Max (kNm)",
         ]
         return TableResult(
-            [[f"Geen {result_type} strip data", f"{result_type} integration strip resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]],
+            [
+                [
+                    f"Geen {result_type} strip data",
+                    f"{result_type} integration strip resultaten niet beschikbaar",
+                    "N/A",
+                    "N/A",
+                    "N/A",
+                    "N/A",
+                    "N/A",
+                    "N/A",
+                ]
+            ],
             column_headers=default_headers,
         )
 
