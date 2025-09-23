@@ -72,34 +72,40 @@ class TestSciaIntegrationStripResultsProcessing:
         """Create sample SCIA integration strip result DataFrames for testing."""
         # These simulate the output from process_scia_integration_strip_results_for_idea
         # after the "Naam" column has been renamed to "name"
-        
-        df_uls = pd.DataFrame({
-            "name": ["Beam1", "Beam2", "Beam3"],
-            "dx": [0.0, 1.0, 2.0],
-            "Belasting": ["ULS_LC1", "ULS_LC2", "ULS_LC3"],
-            "v_y_max": [10.0, 20.0, 15.0],
-            "m_z_max": [5.0, 10.0, 7.5],
-            "n_max": [100.0, 200.0, 150.0],
-        })
-        
-        df_sls_kar = pd.DataFrame({
-            "name": ["Beam1", "Beam2", "Beam3"],
-            "dx": [0.0, 1.0, 2.0],
-            "Belasting": ["SLS_kar_LC1", "SLS_kar_LC2", "SLS_kar_LC3"],
-            "v_y_max": [8.0, 16.0, 12.0],
-            "m_z_max": [4.0, 8.0, 6.0],
-            "n_max": [80.0, 160.0, 120.0],
-        })
-        
-        df_sls_freq = pd.DataFrame({
-            "name": ["Beam1", "Beam2", "Beam3"],
-            "dx": [0.0, 1.0, 2.0],
-            "Belasting": ["SLS_freq_LC1", "SLS_freq_LC2", "SLS_freq_LC3"],
-            "v_y_max": [6.0, 12.0, 9.0],
-            "m_z_max": [3.0, 6.0, 4.5],
-            "n_max": [60.0, 120.0, 90.0],
-        })
-        
+
+        df_uls = pd.DataFrame(
+            {
+                "name": ["Beam1", "Beam2", "Beam3"],
+                "dx": [0.0, 1.0, 2.0],
+                "Belasting": ["ULS_LC1", "ULS_LC2", "ULS_LC3"],
+                "v_y_max": [10.0, 20.0, 15.0],
+                "m_z_max": [5.0, 10.0, 7.5],
+                "n_max": [100.0, 200.0, 150.0],
+            }
+        )
+
+        df_sls_kar = pd.DataFrame(
+            {
+                "name": ["Beam1", "Beam2", "Beam3"],
+                "dx": [0.0, 1.0, 2.0],
+                "Belasting": ["SLS_kar_LC1", "SLS_kar_LC2", "SLS_kar_LC3"],
+                "v_y_max": [8.0, 16.0, 12.0],
+                "m_z_max": [4.0, 8.0, 6.0],
+                "n_max": [80.0, 160.0, 120.0],
+            }
+        )
+
+        df_sls_freq = pd.DataFrame(
+            {
+                "name": ["Beam1", "Beam2", "Beam3"],
+                "dx": [0.0, 1.0, 2.0],
+                "Belasting": ["SLS_freq_LC1", "SLS_freq_LC2", "SLS_freq_LC3"],
+                "v_y_max": [6.0, 12.0, 9.0],
+                "m_z_max": [3.0, 6.0, 4.5],
+                "n_max": [60.0, 120.0, 90.0],
+            }
+        )
+
         return {
             "strip_ULS": df_uls,
             "strip_SLS kar": df_sls_kar,
@@ -109,25 +115,34 @@ class TestSciaIntegrationStripResultsProcessing:
     def test_successful_merge_with_renamed_columns(self, sample_strip_dataframes: dict[str, pd.DataFrame]) -> None:
         """Test that the merge operation succeeds with the corrected column names."""
         result = _process_scia_integration_strip_results_for_idea_input(sample_strip_dataframes)
-        
+
         # Verify the merge was successful
         assert not result.empty, "Merged DataFrame should not be empty"
         assert len(result) == 3, "Should have 3 rows (one for each beam)"
-        
+
         # Verify the expected columns are present
         expected_columns = {
-            "name", "dx", 
-            "ULS_Belasting", "SLS_kar_Belasting", "SLS_freq_Belasting",
-            "v_y_max_x", "m_z_max_x", "n_max_x",  # From ULS (suffixed by pandas)
-            "v_y_max_y", "m_z_max_y", "n_max_y",  # From SLS kar (suffixed by pandas)
-            "v_y_max", "m_z_max", "n_max",        # From SLS freq (no suffix)
+            "name",
+            "dx",
+            "ULS_Belasting",
+            "SLS_kar_Belasting",
+            "SLS_freq_Belasting",
+            "v_y_max_x",
+            "m_z_max_x",
+            "n_max_x",  # From ULS (suffixed by pandas)
+            "v_y_max_y",
+            "m_z_max_y",
+            "n_max_y",  # From SLS kar (suffixed by pandas)
+            "v_y_max",
+            "m_z_max",
+            "n_max",  # From SLS freq (no suffix)
         }
         assert expected_columns.issubset(set(result.columns)), f"Missing expected columns. Got: {list(result.columns)}"
-        
+
         # Verify the merge keys are correct
         assert result["name"].tolist() == ["Beam1", "Beam2", "Beam3"]
         assert result["dx"].tolist() == [0.0, 1.0, 2.0]
-        
+
         # Verify load case columns are properly renamed
         assert result["ULS_Belasting"].tolist() == ["ULS_LC1", "ULS_LC2", "ULS_LC3"]
         assert result["SLS_kar_Belasting"].tolist() == ["SLS_kar_LC1", "SLS_kar_LC2", "SLS_kar_LC3"]
@@ -140,7 +155,7 @@ class TestSciaIntegrationStripResultsProcessing:
             "strip_SLS kar": pd.DataFrame(),
             "strip_SLS freq": pd.DataFrame(),
         }
-        
+
         result = _process_scia_integration_strip_results_for_idea_input(empty_dataframes)
         assert result.empty, "Result should be empty when input DataFrames are empty"
 
@@ -151,7 +166,7 @@ class TestSciaIntegrationStripResultsProcessing:
             "strip_SLS kar": None,
             "strip_SLS freq": None,
         }
-        
+
         result = _process_scia_integration_strip_results_for_idea_input(missing_dataframes)
         assert result.empty, "Result should be empty when input DataFrames are None"
 
@@ -162,7 +177,7 @@ class TestSciaIntegrationStripResultsProcessing:
             "strip_SLS kar": None,  # Missing
             "strip_SLS freq": pd.DataFrame(),  # Empty
         }
-        
+
         result = _process_scia_integration_strip_results_for_idea_input(partial_dataframes)
         assert result.empty, "Result should be empty when any input DataFrame is missing or empty"
 
@@ -177,16 +192,16 @@ class TestSciaIntegrationStripResultsProcessing:
                 old_dataframes[key] = old_df
             else:
                 old_dataframes[key] = df
-        
+
         # Manually simulate what the function would do with old column names
         df_uls = old_dataframes["strip_ULS"]
         df_sls_kar = old_dataframes["strip_SLS kar"]
         df_sls_freq = old_dataframes["strip_SLS freq"]
-        
+
         if not (df_uls.empty or df_sls_kar.empty or df_sls_freq.empty):
             df_uls_renamed = df_uls.rename(columns={"Belasting": "ULS_Belasting"})
             df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
-            
+
             # This should fail with the old column name
             with pytest.raises(KeyError, match="name"):
                 merge_columns = ["name", "dx"]  # Column "name" doesn't exist in old dataframes
