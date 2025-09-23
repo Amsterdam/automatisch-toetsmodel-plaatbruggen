@@ -484,7 +484,7 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     """
     Process SCIA integration strip results into a single merged dataframe.
 
-    The individual DataFrames should already be processed (grouped by 'Naam' and 'dx',
+    The individual DataFrames should already be processed (grouped by 'name' and 'dx',
     with 'Belasting' values merged and absolute maximum values for force/moment columns).
     This function just merges the load cases.
 
@@ -510,14 +510,14 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
         return pd.DataFrame()
 
     # The DataFrames should already be processed, so we just need to merge them
-    # Merge dataframes on Naam and dx (these columns come from the base processor)
+    # Merge dataframes on name and dx (these columns come from the base processor after renaming)
     # Rename Belasting columns to avoid conflicts
     df_uls_renamed = df_uls.rename(columns={"Belasting": "ULS_Belasting"})
     df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
     df_sls_freq_renamed = df_sls_freq.rename(columns={"Belasting": "SLS_freq_Belasting"})
 
-    # Use 'Naam' and 'dx' columns as they come from the base processor
-    merge_columns = ["Naam", "dx"]
+    # Use 'name' and 'dx' columns as they come from the base processor after column renaming
+    merge_columns = ["name", "dx"]
 
     df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
     return df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
