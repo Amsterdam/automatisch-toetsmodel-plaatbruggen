@@ -1,3 +1,11 @@
+## [`v0.0.14`] - 2025-09-23
+### Fixed
+- **IDEA Integration Strip Results Merge**: Fixed KeyError 'Naam' in IDEA StatiCa integration when processing strip results
+  - Updated `_process_scia_integration_strip_results_for_idea_input` function to use correct column name 'name' instead of 'Naam'
+  - The upstream processing already renamed 'Naam' to 'name' but the merge operation was still using the old column name
+  - Added comprehensive test coverage for the merge functionality in `test_scia_strip_merge_fix.py`
+  - This resolves crashes when downloading IDEA analysis results that include integration strip data
+
 ## [`v0.0.13`] - 2025-09-23
 ### Added
 - **IDEA StatiCa Integration Enhancements**: Improved the integration with IDEA StatiCa to support returning and processing results from the software.
