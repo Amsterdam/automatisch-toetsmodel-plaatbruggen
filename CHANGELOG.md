@@ -1,5 +1,12 @@
-## [`v0.0.13`] - 2025-xx-xx
+## [`v0.0.13`] - 2025-09-23
+### Added
+- **IDEA StatiCa Integration Enhancements**: Improved the integration with IDEA StatiCa to support returning and processing results from the software.
+  - Added integration strip checks to IDEA 
+  - Added enhanced functionality to parse and handle results from IDEA StatiCa analyses.
+  - Enhanced error handling and logging for IDEA StatiCa workflows.
+
 ### Changed
+- **Integration Logic**: Refactored integration logic to streamline communication with IDEA StatiCa.
 - **Explanatory text**: Changed the explanatory text throughout the app since it contained outdated information and mixed Dutch and English language 
 - **Calculation settings**: Changed "Werkelijke wegindeling onderliggend wegennet met bebording", to "Werkelijke wegindeling met bebording".
 - **Calculation settings SCIA**: Changed location from "In nodes avg. on macro" to "a"In nodes avg." for node results
