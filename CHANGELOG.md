@@ -1,6 +1,8 @@
-## ['v0.0.13'] - 2025-xx-xx
+## [`v0.0.13`] - 2025-xx-xx
 ### Changed
+- **Explanatory text**: Changed the explanatory text throughout the app since it contained outdated information and mixed Dutch and English language 
 - **Calculation settings**: Changed "Werkelijke wegindeling onderliggend wegennet met bebording", to "Werkelijke wegindeling met bebording".
+- **Calculation settings SCIA**: Changed location from "In nodes avg. on macro" to "a"In nodes avg." for node results
 
 ## [`v0.0.12`] - 2025-09-18
 ### Added
