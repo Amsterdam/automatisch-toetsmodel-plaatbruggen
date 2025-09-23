@@ -266,7 +266,12 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
 
         # Extract the specific DataFrame from the processed results
         if processed_results and isinstance(processed_results, dict):
+            # Try both the direct key and the "node_" prefixed key
             result_df = processed_results.get(result_type)
+            if result_df is None:
+                # Try with "node_" prefix
+                node_key = f"node_{result_type}"
+                result_df = processed_results.get(node_key)
 
             if result_df is not None and not result_df.empty:
                 table_data, headers = create_scia_table_data(result_df, result_type, units_mapping)

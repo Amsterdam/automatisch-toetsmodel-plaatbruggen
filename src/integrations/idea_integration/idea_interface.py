@@ -500,20 +500,25 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
 
     # Rename columns to prevent clashes
     if df_uls is not None and not df_uls.empty:
-        df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["Naam", "dx"] else x)
+        df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
     if df_sls_kar is not None and not df_sls_kar.empty:
-        df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["Naam", "dx"] else x)
+        df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
     if df_sls_freq is not None and not df_sls_freq.empty:
-        df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["Naam", "dx"] else x)
+        df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
 
     # Merge dataframes - handle empty cases
     if (df_uls is None or df_uls.empty or 
         df_sls_kar is None or df_sls_kar.empty or 
         df_sls_freq is None or df_sls_freq.empty):
         return pd.DataFrame()  # Return empty DataFrame if any component is empty
-    
-    df_all = df_uls.merge(df_sls_kar, on=["Naam", "dx"], how="inner")
-    return df_all.merge(df_sls_freq, on=["Naam", "dx"], how="inner")
+
+    # print each dataframe length for debugging
+    print(f"df_uls length: {len(df_uls)}")
+    print(f"df_sls_kar length: {len(df_sls_kar)}")
+    print(f"df_sls_freq length: {len(df_sls_freq)}")
+
+    df_all = df_uls.merge(df_sls_kar, on=["Naam", "dx", "Belasting"], how="inner")
+    return df_all.merge(df_sls_freq, on=["Naam", "dx", "Belasting"], how="inner")
 
 
 def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
@@ -658,7 +663,7 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
 
                 name = row.get("name", "Unknown")
                 coords_str = _format_coords(row.get("coords_xyz"))
-                description = f"{desc_prefix} - {name} - {coords_str}"
+                description = f"{desc_prefix} - {name} - node_{coords_str}"
 
                 slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
@@ -698,7 +703,8 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
 
     # Process SCIA integration strip results for idea input
     df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
-    print("stripdata",df_strip_all)
+    print("stripdata length", len(df_strip_all))
+    print("stripdata", df_strip_all)
     # Apply integration strip loads to slabs
     # _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
 

@@ -674,16 +674,24 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
     from src.integrations.idea_integration.scia_to_idea_functions import process_scia_node_results_for_idea
 
     # Use simple caching to avoid reprocessing the same results
-    results_hash = _get_results_hash(results)
+    try:
+        results_hash = _get_results_hash(results)
+    except Exception:
+        return None
 
     if results_hash in _processed_results_cache:
         return _processed_results_cache[results_hash]
 
-    processed_results = process_scia_node_results_for_idea(results)
-    # Cache the results (limit cache size to prevent memory issues)
-    if len(_processed_results_cache) > 10:
-        # Remove oldest entry
-        oldest_key = next(iter(_processed_results_cache))
-        del _processed_results_cache[oldest_key]
-    _processed_results_cache[results_hash] = processed_results
-    return processed_results
+    try:
+        processed_results = process_scia_node_results_for_idea(results)
+        
+        # Cache the results (limit cache size to prevent memory issues)
+        if len(_processed_results_cache) > 10:
+            # Remove oldest entry
+            oldest_key = next(iter(_processed_results_cache))
+            del _processed_results_cache[oldest_key]
+        _processed_results_cache[results_hash] = processed_results
+        return processed_results
+        
+    except Exception:
+        return None
