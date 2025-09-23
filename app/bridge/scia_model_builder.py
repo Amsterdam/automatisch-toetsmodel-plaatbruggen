@@ -7,7 +7,7 @@ This module acts as the bridge between the VIKTOR SDK and the core logic from th
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.scia_model_interface import (
@@ -21,18 +21,25 @@ from src.integrations.scia_integration.scia_model_interface import (
 )
 
 # Global VIKTOR imports with error handling for CI/testing environments
-try:
+if TYPE_CHECKING:
     from viktor.core import File
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
-
+    
     VIKTOR_AVAILABLE = True
-except ImportError:
-    # Mock scia module for environments without VIKTOR SDK
-    scia = None  # type: ignore[misc,assignment]
-    File = None  # type: ignore[misc,assignment]
-    OutputFileParser = None  # type: ignore[misc,assignment]
-    VIKTOR_AVAILABLE = False
+else:
+    try:
+        from viktor.core import File
+        from viktor.external import scia
+        from viktor.external.scia import OutputFileParser
+
+        VIKTOR_AVAILABLE = True
+    except ImportError:
+        # Mock scia module for environments without VIKTOR SDK
+        scia = None  # type: ignore[misc,assignment]
+        File = None  # type: ignore[misc,assignment]
+        OutputFileParser = None  # type: ignore[misc,assignment]
+        VIKTOR_AVAILABLE = False
 
 
 class ViktorSciaModelBuilder(SciaModelBuilder):
