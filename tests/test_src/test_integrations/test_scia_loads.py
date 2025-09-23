@@ -43,9 +43,9 @@ class TestRealTandemLoads:
         [
             ("Werkelijke wegindeling", None),
             ("Werkelijke wegindeling onderliggend wegennet", None),
-            ("Werkelijke wegindeling onderliggend wegennet met bebording", "50 ton"),
-            ("Werkelijke wegindeling onderliggend wegennet met bebording", "30 ton"),
-            ("Werkelijke wegindeling onderliggend wegennet met bebording", "20 ton"),
+            ("Werkelijke wegindeling met bebording", "50 ton"),
+            ("Werkelijke wegindeling met bebording", "30 ton"),
+            ("Werkelijke wegindeling met bebording", "20 ton"),
         ],
     )
     def test_calculate_real_tandem_values(self, berekeningsniveau: str, signage: str | None) -> None:
@@ -528,9 +528,9 @@ class TestUniformlyDistributedLoads:
         [
             ("Werkelijke wegindeling", None, 9000.0),
             ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
-            ("Werkelijke wegindeling onderliggend wegennet met bebording", "50 ton", 9000.0),
-            ("Werkelijke wegindeling onderliggend wegennet met bebording", "30 ton", 9000.0),
-            ("Werkelijke wegindeling onderliggend wegennet met bebording", "20 ton", 9000.0),
+            ("Werkelijke wegindeling met bebording", "50 ton", 9000.0),
+            ("Werkelijke wegindeling met bebording", "30 ton", 9000.0),
+            ("Werkelijke wegindeling met bebording", "20 ton", 9000.0),
         ],
     )
     def test_calculate_real_udl_values(self, berekeningsniveau: str, signage: str | None, udl_value: float) -> None:
