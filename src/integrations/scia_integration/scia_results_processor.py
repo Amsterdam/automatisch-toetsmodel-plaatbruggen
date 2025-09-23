@@ -315,6 +315,87 @@ def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     return results_1d
 
 
+def _process_selected_result_tables(results: dict[str, Any], selected_result_tables: list[str]) -> dict[str, Any]:
+    """Process and merge SCIA table data for selected result tables."""
+    selected_data_scia = {}
+
+    # Read the selected data from the "results" into a new dict
+    for selected_table in selected_result_tables:
+        basis_data, elementaire_data = _extract_scia_table_data(results, selected_table)
+        selected_data_scia[f"Interne 2D-krachten basis {selected_table}"] = basis_data
+        selected_data_scia[f"Interne 2D-krachten elementair {selected_table}"] = elementaire_data
+
+    # Merge x, y, z into coords_xyz for 2D force tables
+    for key, data in selected_data_scia.items():
+        if data is not None and isinstance(data, dict):
+            selected_data_scia[key] = merge_xyz_to_coords_xyz(data)
+
+    return selected_data_scia
+
+
+def _populate_coordinate_names(unique_coords_df: pd.DataFrame, elementaire_name_lookup: dict, basis_name_lookup: dict) -> None:
+    """Populate coordinate names in the dataframe."""
+    coords_list = unique_coords_df["coords_xyz"].tolist()
+    names = []
+    for coord in coords_list:
+        coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+        name = elementaire_name_lookup.get(coord_tuple) or basis_name_lookup.get(coord_tuple, "zone name not found")
+        names.append(name)
+    unique_coords_df["name"] = names
+
+
+def _populate_force_values_from_lookup(unique_coords_df: pd.DataFrame, coords_list: list, lookup_dict: dict, column_name: str) -> None:
+    """Populate force/moment values from lookup dictionary into dataframe."""
+    values = []
+    for coord in coords_list:
+        coord_tuple = tuple(coord) if isinstance(coord, list) else coord
+        coord_values = lookup_dict.get(coord_tuple, [])
+        if coord_values:
+            # Find value with maximum absolute value
+            max_abs_val = max(coord_values, key=abs)
+            values.append(max_abs_val)
+        else:
+            values.append(float("nan"))
+    unique_coords_df[column_name] = values
+
+
+def _process_single_result_table(selected_data_scia: dict[str, Any], selected_table: str) -> pd.DataFrame:
+    """Process a single result table and return the processed DataFrame."""
+    elementaire_ontwerpgrootheden = selected_data_scia.get(f"Interne 2D-krachten elementair {selected_table}", None)
+    basis_grootheden = selected_data_scia.get(f"Interne 2D-krachten basis {selected_table}", None)
+
+    # Convert elementaire_ontwerpgrootheden and basis_grootheden to DataFrames
+    df_elementaire = pd.DataFrame(elementaire_ontwerpgrootheden) if elementaire_ontwerpgrootheden is not None else pd.DataFrame()
+    df_basis = pd.DataFrame(basis_grootheden) if basis_grootheden is not None else pd.DataFrame()
+
+    # Create a DataFrame containing all unique values from the 'coords_xyz' column in both DataFrames
+    unique_coords_df = get_unique_coords_xyz_dataframe(df_elementaire, df_basis)
+
+    if unique_coords_df.empty:
+        return unique_coords_df
+
+    # Create lookup dictionaries for faster coordinate-based access
+    elementaire_name_lookup, elementaire_lookup = _create_lookup_dictionaries(df_elementaire, ["m_xD+", "m_xD-", "m_yD+", "m_yD-"])
+    basis_name_lookup, basis_lookup = _create_lookup_dictionaries(df_basis, ["v_x", "v_y"])
+
+    # Populate names
+    _populate_coordinate_names(unique_coords_df, elementaire_name_lookup, basis_name_lookup)
+
+    coords_list = unique_coords_df["coords_xyz"].tolist()
+
+    # Populate force/moment values from basis lookup (shear forces)
+    for orig_col in ["v_x", "v_y"]:
+        if orig_col in basis_lookup:
+            _populate_force_values_from_lookup(unique_coords_df, coords_list, basis_lookup[orig_col], orig_col)
+
+    # Populate force/moment values from elementaire lookup (moments)
+    for orig_col in ["m_xD+", "m_xD-", "m_yD+", "m_yD-"]:
+        if orig_col in elementaire_lookup:
+            _populate_force_values_from_lookup(unique_coords_df, coords_list, elementaire_lookup[orig_col], orig_col)
+
+    return unique_coords_df
+
+
 def process_scia_2d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """
     Process SCIA 2D force analysis results to create DataFrames with coordinate and force data.
@@ -330,85 +411,16 @@ def process_scia_2d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """
     # Setting to read SCIA xml for 2D forces
     selected_result_tables = ["ULS", "SLS kar", "SLS freq"]
-    selected_data_scia = {}
 
-    # Read the selected data from the "results" into a new dict
-    for selected_table in selected_result_tables:
-        basis_data, elementaire_data = _extract_scia_table_data(results, selected_table)
-        selected_data_scia[f"Interne 2D-krachten basis {selected_table}"] = basis_data
-        selected_data_scia[f"Interne 2D-krachten elementair {selected_table}"] = elementaire_data
-
-    # Merge x, y, z into coords_xyz for 2D force tables
-    for key, data in selected_data_scia.items():
-        if data is not None and isinstance(data, dict):
-            selected_data_scia[key] = merge_xyz_to_coords_xyz(data)
+    # Process selected result tables
+    selected_data_scia = _process_selected_result_tables(results, selected_result_tables)
 
     # Create empty dict for storing results for each selected table
     results_2d = {}
 
     # Create DataFrames for each selected result class table
     for selected_table in selected_result_tables:
-        elementaire_ontwerpgrootheden = selected_data_scia.get(f"Interne 2D-krachten elementair {selected_table}", None)
-        basis_grootheden = selected_data_scia.get(f"Interne 2D-krachten basis {selected_table}", None)
-
-        # Convert elementaire_ontwerpgrootheden and basis_grootheden to DataFrames
-        df_elementaire = pd.DataFrame(elementaire_ontwerpgrootheden) if elementaire_ontwerpgrootheden is not None else pd.DataFrame()
-        df_basis = pd.DataFrame(basis_grootheden) if basis_grootheden is not None else pd.DataFrame()
-
-        # Create a DataFrame containing all unique values from the 'coords_xyz' column in both DataFrames
-        unique_coords_df = get_unique_coords_xyz_dataframe(df_elementaire, df_basis)
-
-        if unique_coords_df.empty:
-            results_2d[selected_table] = unique_coords_df
-            continue
-
-        # Create lookup dictionaries for faster coordinate-based access
-        elementaire_name_lookup, elementaire_lookup = _create_lookup_dictionaries(df_elementaire, ["m_xD+", "m_xD-", "m_yD+", "m_yD-"])
-        basis_name_lookup, basis_lookup = _create_lookup_dictionaries(df_basis, ["v_x", "v_y"])
-
-        # Populate names
-        coords_list = unique_coords_df["coords_xyz"].tolist()
-        names = []
-        for coord in coords_list:
-            coord_tuple = tuple(coord) if isinstance(coord, list) else coord
-            name = elementaire_name_lookup.get(coord_tuple) or basis_name_lookup.get(coord_tuple, "zone name not found")
-            names.append(name)
-        unique_coords_df["name"] = names
-
-        # Populate force/moment values from basis lookup (shear forces)
-        for orig_col in ["v_x", "v_y"]:
-            if orig_col in basis_lookup:
-                lookup_dict = basis_lookup[orig_col]
-                values = []
-                for coord in coords_list:
-                    coord_tuple = tuple(coord) if isinstance(coord, list) else coord
-                    coord_values = lookup_dict.get(coord_tuple, [])
-                    if coord_values:
-                        # Find value with maximum absolute value
-                        max_abs_val = max(coord_values, key=abs)
-                        values.append(max_abs_val)
-                    else:
-                        values.append(float("nan"))
-                unique_coords_df[orig_col] = values
-
-        # Populate force/moment values from elementaire lookup (moments)
-        for orig_col in ["m_xD+", "m_xD-", "m_yD+", "m_yD-"]:
-            if orig_col in elementaire_lookup:
-                lookup_dict = elementaire_lookup[orig_col]
-                values = []
-                for coord in coords_list:
-                    coord_tuple = tuple(coord) if isinstance(coord, list) else coord
-                    coord_values = lookup_dict.get(coord_tuple, [])
-                    if coord_values:
-                        # Find value with maximum absolute value
-                        max_abs_val = max(coord_values, key=abs)
-                        values.append(max_abs_val)
-                    else:
-                        values.append(float("nan"))
-                unique_coords_df[orig_col] = values
-
-        # Store results in the dictionary
-        results_2d[selected_table] = unique_coords_df
+        results_2d[selected_table] = _process_single_result_table(selected_data_scia, selected_table)
 
     return results_2d
 
@@ -695,10 +707,10 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
             oldest_key = next(iter(_processed_results_cache))
             del _processed_results_cache[oldest_key]
         _processed_results_cache[results_hash] = processed_results
-        return processed_results
-
     except Exception:
         return None
+    else:
+        return processed_results
 
 
 # Module-level cache for integration strip results
@@ -735,7 +747,7 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
             oldest_key = next(iter(_integration_strip_results_cache))
             del _integration_strip_results_cache[oldest_key]
         _integration_strip_results_cache[results_hash] = processed_results
-        return processed_results
-
     except Exception:
         return None
+    else:
+        return processed_results

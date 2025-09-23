@@ -120,11 +120,14 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         # Create the SCIA integration strip
         strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
+        # Create a name for internal tracking
+        strip_name = f"strip_{plane_name}_{point_1}_{point_2}"
+
         # Try to set the name after creation if possible
         if hasattr(strip, "_name"):
-            strip._name = f"strip_{plane_name}_{point_1}_{point_2}"
+            strip._name = strip_name  # noqa: SLF001  # Required for SCIA SDK integration
 
-        self.integration_strips[strip._name] = strip
+        self.integration_strips[strip_name] = strip
         return strip
 
     def create_load_group(

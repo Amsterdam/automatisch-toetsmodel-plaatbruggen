@@ -47,9 +47,7 @@ def process_scia_node_results_for_idea(results: dict[str, Any]) -> dict[str, pd.
         idea_results_2d[selected_table] = idea_df
 
     # Add node_ prefix to all keys to distinguish from integration strip results
-    prefixed_results = {f"node_{key}": value for key, value in idea_results_2d.items()}
-
-    return prefixed_results
+    return {f"node_{key}": value for key, value in idea_results_2d.items()}
 
 
 def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
@@ -105,6 +103,4 @@ def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> 
         idea_results_1d[selected_table] = idea_df
 
     # Add strip_ prefix to all keys to distinguish from node results
-    prefixed_results = {f"strip_{key}": value for key, value in idea_results_1d.items()}
-
-    return prefixed_results
+    return {f"strip_{key}": value for key, value in idea_results_1d.items()}

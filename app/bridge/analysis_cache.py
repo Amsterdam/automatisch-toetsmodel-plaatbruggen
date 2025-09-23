@@ -142,18 +142,10 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     node_results = process_scia_node_results_for_idea(results)
     integration_strip_results = process_scia_integration_strip_results_for_idea(results)
 
-    print(
-        "SCIA results processed for IDEA integration."
-        f" Node tables: {list(node_results.keys())},"
-        f" Integration strip tables: {list(integration_strip_results.keys())}"
-    )
-
     # Merge both result dictionaries
     merged_results = {}
     merged_results.update(node_results)
     merged_results.update(integration_strip_results)
-
-    print("Merged SCIA results for IDEA integration:", list(merged_results.keys()))
 
     return merged_results
 

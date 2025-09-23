@@ -205,17 +205,18 @@ def create_scia_integration_strip_table_data(
 
     # Use vectorized operations instead of row-by-row iteration
     # Format dx values (integration strip positions)
-    def format_dx_value(x):
+    def format_dx_value(x: str | float | None) -> str:
         """Safely format dx values, handling various input types."""
         if pd.isna(x):
             return "N/A"
         try:
             # Try to convert to float first
             float_val = float(x)
-            return f"{float_val:.2f}"
         except (ValueError, TypeError):
             # If conversion fails, return as string
             return str(x) if x is not None else "N/A"
+        else:
+            return f"{float_val:.2f}"
 
     dx_formatted = df.get("dx", pd.Series([0.0] * len(df))).apply(format_dx_value)
 
