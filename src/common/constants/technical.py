@@ -13,7 +13,7 @@ MAX_LOAD_ZONE_SEGMENT_FIELDS = 15
 # Unit conversion factors
 MM_TO_M = 1000.0  # Conversion factor from millimeters to meters
 
-# Signage load factors for "Werkelijke wegindeling onderliggend wegennet met bebording"
+# Signage load factors for "Werkelijke wegindeling met bebording"
 # Maps to signage options: ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
 SIGNAGE_LOAD_FACTORS = [0.83, 0.75, 0.67, 0.58, 0.5, 0.42, 0.33]
 
