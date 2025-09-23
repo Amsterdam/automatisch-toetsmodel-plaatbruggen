@@ -734,23 +734,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "Resultaatklasses - All ULS",
             "Resultaatklasses - All SLS",
             "Resultaatklasses - All ULS+SLS",
-            # Fallback names
-            "Displacements",
-            "Displacement",
-            "2D internal forces",
-            "Internal forces",
-            "Internal Forces",
-            "Reactions",
-            "Reaction",
-            "Stresses",
-            "Stress",
-            "Result classes - UGT",
-            "Result classes - ULS",
-            "Result classes - SLS",
-            "Result classes",
-            "UGT",
-            "ULS",
-            "SLS",
         ]
         result_tables = [*dynamic_result_tables, *static_result_tables]
 

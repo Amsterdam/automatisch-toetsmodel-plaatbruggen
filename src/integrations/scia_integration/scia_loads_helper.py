@@ -46,7 +46,7 @@ def calculate_real_tandem_values(
         load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
+    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
         signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
         signage_index = signage_options_list.index(params.signage)
         load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
@@ -88,7 +88,7 @@ def calculate_real_udl_values(
         main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
         other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
         rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording":
+    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
         # Get the selected signage option and map to load factor
         signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
         signage_index = signage_options_list.index(params.signage)
