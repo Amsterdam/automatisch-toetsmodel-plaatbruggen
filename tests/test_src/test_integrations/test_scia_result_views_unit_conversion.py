@@ -8,8 +8,8 @@ and moment values from Newton-meters (Nm) to kiloNewton-meters (kNm) in SCIA res
 import pandas as pd
 
 from src.integrations.scia_integration.scia_result_views import (
-    create_scia_result_table,
-    create_scia_table_data,
+    create_scia_node_results_table,
+    create_scia_node_table_data,
     safe_float_format,
 )
 
@@ -82,7 +82,7 @@ class TestSciaTableDataUnitConversion:
     """Test unit conversion in SCIA table data creation."""
 
     def test_table_data_with_unit_conversion(self) -> None:
-        """Test that create_scia_table_data applies unit conversion correctly."""
+        """Test that create_scia_node_table_data applies unit conversion correctly."""
         # Mock DataFrame with raw SCIA data (values in N and Nm)
         mock_data = {
             "coords_xyz": [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)],
@@ -107,7 +107,7 @@ class TestSciaTableDataUnitConversion:
         }
 
         # Test the function
-        table_data, headers = create_scia_table_data(test_df, "ULS", units_mapping)
+        table_data, headers = create_scia_node_table_data(test_df, "ULS", units_mapping)
 
         # Verify headers contain units
         expected_headers = [
@@ -144,7 +144,7 @@ class TestSciaTableDataUnitConversion:
         assert "-9.0 kNm" in row2[7]  # m_yD-_max: -9000.0 Nm -> -9.0 kNm
 
     def test_full_result_table_with_unit_conversion(self) -> None:
-        """Test that create_scia_result_table applies unit conversion correctly."""
+        """Test that create_scia_node_results_table applies unit conversion correctly."""
         # Mock results with units and raw data
         mock_results = {
             "units": {
@@ -186,7 +186,7 @@ class TestSciaTableDataUnitConversion:
         }
 
         # Test the function
-        result_table = create_scia_result_table(mock_results, "ULS")
+        result_table = create_scia_node_results_table(mock_results, "ULS")
         headers = result_table.column_headers
         data = result_table.data
 
@@ -211,7 +211,7 @@ class TestSciaTableDataUnitConversion:
         test_dataframe = pd.DataFrame(mock_data)
 
         # Test without units mapping
-        table_data, headers = create_scia_table_data(test_dataframe, "ULS", None)
+        table_data, headers = create_scia_node_table_data(test_dataframe, "ULS", None)
 
         # Should still work, using default units (kN, kNm)
         assert len(table_data) == 1

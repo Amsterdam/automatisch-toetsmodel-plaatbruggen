@@ -7,7 +7,7 @@ This module acts as the bridge between the VIKTOR SDK and the core logic from th
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.scia_model_interface import (
@@ -21,18 +21,25 @@ from src.integrations.scia_integration.scia_model_interface import (
 )
 
 # Global VIKTOR imports with error handling for CI/testing environments
-try:
+if TYPE_CHECKING:
     from viktor.core import File
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
 
     VIKTOR_AVAILABLE = True
-except ImportError:
-    # Mock scia module for environments without VIKTOR SDK
-    scia = None  # type: ignore[misc,assignment]
-    File = None  # type: ignore[misc,assignment]
-    OutputFileParser = None  # type: ignore[misc,assignment]
-    VIKTOR_AVAILABLE = False
+else:
+    try:
+        from viktor.core import File
+        from viktor.external import scia
+        from viktor.external.scia import OutputFileParser
+
+        VIKTOR_AVAILABLE = True
+    except ImportError:
+        # Mock scia module for environments without VIKTOR SDK
+        scia = None  # type: ignore[misc,assignment]
+        File = None  # type: ignore[misc,assignment]
+        OutputFileParser = None  # type: ignore[misc,assignment]
+        VIKTOR_AVAILABLE = False
 
 
 class ViktorSciaModelBuilder(SciaModelBuilder):
@@ -111,8 +118,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
         plane = self.plates[plane_name]
 
+        # Create the SCIA integration strip
         strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
-        self.integration_strips[f"strip_{plane_name}"] = strip
+        # Create a name for internal tracking
+        strip_name = f"strip_{plane_name}_{point_1}_{point_2}"
+
+        # Try to set the name after creation if possible
+        if hasattr(strip, "_name"):
+            strip._name = strip_name  # noqa: SLF001  # Required for SCIA SDK integration
+
+        self.integration_strips[strip_name] = strip
         return strip
 
     def create_load_group(

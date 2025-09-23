@@ -5,7 +5,7 @@ This module provides comprehensive testing for the IDEA StatiCa integration,
 including model creation, parameter extraction, and analysis functionality.
 
 Key test coverage:
-- _apply_loads_to_slabs function: Tests the application of SCIA analysis results
+- _apply_node_loads_to_slabs function: Tests the application of SCIA analysis results
   to IDEA slab models, including proper force/moment assignment, error handling
   for edge cases, and correct formatting of load descriptions.
 """
@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from src.integrations.idea_integration.idea_interface import _apply_loads_to_slabs
+from src.integrations.idea_integration.idea_interface import _apply_node_loads_to_slabs
 
 # Mock the problematic imports to avoid circular import issues
 sys.modules["app.bridge.parametrization"] = MagicMock()
@@ -26,7 +26,7 @@ sys.modules["app.bridge.analysis_cache"] = MagicMock()
 
 class TestApplyLoadsToSlabs:
     """
-    Test cases for the _apply_loads_to_slabs function.
+    Test cases for the _apply_node_loads_to_slabs function.
 
     This function applies load cases from SCIA results to IDEA slab models.
     It processes loads for both longitudinal ("langs") and transverse ("dwars")
@@ -113,7 +113,7 @@ class TestApplyLoadsToSlabs:
         mock_slab_langs: MagicMock,
         mock_slab_dwars: MagicMock,
     ) -> None:
-        """Test basic functionality of _apply_loads_to_slabs."""
+        """Test basic functionality of _apply_node_loads_to_slabs."""
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs") as mock_idea_rcs:
             # Configure mock IDEA RCS classes
             mock_loading_sls = MagicMock()
@@ -125,7 +125,7 @@ class TestApplyLoadsToSlabs:
             mock_idea_rcs.ResultOfInternalForces = MagicMock(return_value=mock_internal_forces)
 
             # Execute the function
-            _apply_loads_to_slabs(sample_created_slabs, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(sample_created_slabs, sample_scia_dataframe)
 
             # Verify that create_extreme was called on both slabs for each matching zone
             # CS_d0.2_1: zones ["1-1", "1-2"] → 2 zones × 2 directions = 4 calls per slab type
@@ -139,7 +139,7 @@ class TestApplyLoadsToSlabs:
             assert mock_slab_dwars.create_extreme.call_count == expected_calls
 
     def test_apply_loads_with_empty_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_loads_to_slabs with empty zones."""
+        """Test _apply_node_loads_to_slabs with empty zones."""
         created_slabs_empty_zones: dict[str, dict[str, Any]] = {
             "CS_d0.2_1": {
                 "zones": [],  # Empty zones
@@ -150,7 +150,7 @@ class TestApplyLoadsToSlabs:
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
             # Execute the function
-            _apply_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe)
 
             # Verify no create_extreme calls were made
             slab_langs = created_slabs_empty_zones["CS_d0.2_1"]["slab_langs"]
@@ -161,7 +161,7 @@ class TestApplyLoadsToSlabs:
             assert slab_dwars.create_extreme.call_count == 0
 
     def test_apply_loads_with_missing_slab_direction(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_loads_to_slabs with missing slab direction."""
+        """Test _apply_node_loads_to_slabs with missing slab direction."""
         created_slabs_missing_direction: dict[str, dict[str, Any]] = {
             "CS_d0.2_1": {
                 "zones": ["1-1"],
@@ -172,7 +172,7 @@ class TestApplyLoadsToSlabs:
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
             # Execute the function - should not raise an error
-            _apply_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe)
 
             # Verify only slab_langs was called
             slab_langs = created_slabs_missing_direction["CS_d0.2_1"]["slab_langs"]
@@ -180,7 +180,7 @@ class TestApplyLoadsToSlabs:
             assert slab_langs.create_extreme.call_count == 1
 
     def test_apply_loads_with_nonexistent_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_loads_to_slabs with zones not present in SCIA dataframe."""
+        """Test _apply_node_loads_to_slabs with zones not present in SCIA dataframe."""
         mock_slab = MagicMock()
         created_slabs_nonexistent_zones = {
             "CS_d0.2_1": {
@@ -192,13 +192,13 @@ class TestApplyLoadsToSlabs:
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
             # Execute the function
-            _apply_loads_to_slabs(created_slabs_nonexistent_zones, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(created_slabs_nonexistent_zones, sample_scia_dataframe)
 
             # Verify no create_extreme calls were made
             assert mock_slab.create_extreme.call_count == 0
 
     def test_apply_loads_with_none_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_loads_to_slabs with None zones."""
+        """Test _apply_node_loads_to_slabs with None zones."""
         mock_slab = MagicMock()
         created_slabs_none_zones = {
             "CS_d0.2_1": {
@@ -210,7 +210,7 @@ class TestApplyLoadsToSlabs:
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
             # Execute the function
-            _apply_loads_to_slabs(created_slabs_none_zones, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(created_slabs_none_zones, sample_scia_dataframe)
 
             # Verify no create_extreme calls were made
             assert mock_slab.create_extreme.call_count == 0
@@ -242,7 +242,7 @@ class TestApplyLoadsToSlabs:
             mock_idea_rcs.ResultOfInternalForces = MagicMock(return_value=mock_internal_forces)
 
             # Execute the function
-            _apply_loads_to_slabs(created_slabs, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe)
 
             # Check that ResultOfInternalForces was called with correct parameters
             # For 'langs' direction: uses y-axis forces and My moments
@@ -288,7 +288,7 @@ class TestApplyLoadsToSlabs:
                 assert expected_my in all_my_values, f"Expected My value {expected_my} not found in calls"
 
     def test_apply_loads_with_missing_dataframe_columns(self) -> None:
-        """Test _apply_loads_to_slabs with missing columns in dataframe."""
+        """Test _apply_node_loads_to_slabs with missing columns in dataframe."""
         incomplete_dataframe = pd.DataFrame(
             {
                 "name": ["1-1"],
@@ -308,7 +308,7 @@ class TestApplyLoadsToSlabs:
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
             # Execute the function - should handle missing columns gracefully
-            _apply_loads_to_slabs(created_slabs, incomplete_dataframe)
+            _apply_node_loads_to_slabs(created_slabs, incomplete_dataframe)
 
             # Function should still execute but with default values (0) for missing columns
             assert mock_slab.create_extreme.call_count == 2  # One per direction
@@ -329,7 +329,7 @@ class TestApplyLoadsToSlabs:
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
             # Execute the function
-            _apply_loads_to_slabs(created_slabs, sample_scia_dataframe)
+            _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe)
 
             # Check that create_extreme was called with proper description formatting
             calls = mock_slab_langs.create_extreme.call_args_list
@@ -344,7 +344,7 @@ class TestApplyLoadsToSlabs:
             assert "10.0, 5.0, 0.0" in description  # coordinates
 
     def test_apply_loads_with_empty_dataframe(self) -> None:
-        """Test _apply_loads_to_slabs with empty SCIA dataframe."""
+        """Test _apply_node_loads_to_slabs with empty SCIA dataframe."""
         empty_dataframe = pd.DataFrame()
 
         mock_slab = MagicMock()
@@ -363,7 +363,7 @@ class TestApplyLoadsToSlabs:
 
             # This test verifies that the function doesn't crash when given empty data
             # but currently the function doesn't handle this case, so we expect a KeyError
-            _apply_loads_to_slabs(created_slabs, empty_dataframe)
+            _apply_node_loads_to_slabs(created_slabs, empty_dataframe)
 
 
 if __name__ == "__main__":

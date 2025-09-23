@@ -21,7 +21,10 @@ from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
 from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
-from src.integrations.idea_integration.scia_to_idea_functions import process_scia_results_for_idea
+from src.integrations.idea_integration.scia_to_idea_functions import (
+    process_scia_integration_strip_results_for_idea,
+    process_scia_node_results_for_idea,
+)
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -106,11 +109,14 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     """
     Get SCIA results that are needed for IDEA analysis.
 
+    This function processes SCIA analysis results and returns both node results (2D forces)
+    and integration strip results (1D forces) in a single merged dictionary.
+
     :param params: Bridge parametrization
     :type params: Any
     :param entity_id: Entity ID for caching
     :type entity_id: int
-    :returns: Dictionary containing processed SCIA results for IDEA
+    :returns: Dictionary containing processed SCIA node and integration strip results for IDEA
     :rtype: dict[str, Any]
     :raises UserError: If bridge segments are missing or analysis fails
     """
@@ -128,10 +134,20 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
 
-    # Process SCIA results using the dedicated function returned DataFrame
+    # Process SCIA results using the dedicated functions for both node and integration strip results
     if results is None:
         raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
-    return process_scia_results_for_idea(results)
+
+    # Get both node results (2D forces) and integration strip results (1D forces)
+    node_results = process_scia_node_results_for_idea(results)
+    integration_strip_results = process_scia_integration_strip_results_for_idea(results)
+
+    # Merge both result dictionaries
+    merged_results = {}
+    merged_results.update(node_results)
+    merged_results.update(integration_strip_results)
+
+    return merged_results
 
 
 def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401

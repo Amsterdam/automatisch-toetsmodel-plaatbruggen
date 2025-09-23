@@ -4,7 +4,7 @@
 
 Previously, the SCIA units mapping and value conversion were handled in two separate places:
 
-1. **Units mapping**: `build_units_mapping()` in `scia_results.py` determined what units should be displayed (e.g., "kN", "kNm")
+1. **Units mapping**: `build_units_mapping()` in `scia_results_creator.py` determined what units should be displayed (e.g., "kN", "kNm")
 2. **Value conversion**: `safe_float_format()` in `scia_result_views.py` converted actual values from N to kN and Nm to kNm
 
 This separation created a risk that the units mapping and value conversion could get out of sync, leading to incorrect unit labels or improper conversions.
@@ -73,7 +73,7 @@ units = build_units_mapping(results)
 ### Backward Compatibility
 
 The existing functions continue to work exactly as before:
-- `build_units_mapping()` in `scia_results.py` now delegates to the centralized system
+- `build_units_mapping()` in `scia_results_creator.py` now delegates to the centralized system
 - `safe_float_format()` in `scia_result_views.py` now uses the centralized conversion logic
 - All existing unit tests continue to pass
 
@@ -89,7 +89,7 @@ The existing functions continue to work exactly as before:
 ### Integration Points
 
 The centralized system is now used by:
-- `scia_results.py`: For building units mappings
+- `scia_results_creator.py`: For building units mappings
 - `scia_result_views.py`: For value formatting and conversion
 - `scia_model_builder.py`: For attaching units to analysis results
 
