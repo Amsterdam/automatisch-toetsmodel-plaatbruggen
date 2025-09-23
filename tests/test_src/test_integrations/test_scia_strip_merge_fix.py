@@ -5,7 +5,6 @@ This module tests the DataFrame merge functionality for SCIA integration strip r
 without importing the full idea_interface module to avoid circular import issues.
 """
 
-
 from collections.abc import Mapping
 
 import pandas as pd
