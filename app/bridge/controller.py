@@ -83,7 +83,7 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     extract_force_envelopes,
     get_force_envelope_summary,
 )
-from src.integrations.scia_integration.scia_result_views import create_scia_1d_result_table, create_scia_result_table
+from src.integrations.scia_integration.scia_result_views import create_scia_integration_strip_results_table, create_scia_node_results_table
 from src.report.report_functions import create_export_report  # Import the report creation function
 
 # Import parametrization from the separate file
@@ -815,7 +815,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the table
-        return create_scia_result_table(results, "SLS kar")
+        return create_scia_node_results_table(results, "SLS kar")
 
     # Tableview for SLS freq results
     @TableView("SCIA SLS freq 2D", duration_guess=600)
@@ -881,7 +881,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the table
-        return create_scia_result_table(results, "SLS freq")
+        return create_scia_node_results_table(results, "SLS freq")
 
     # Tableview for ULS results
     @TableView("SCIA ULS 2D", duration_guess=600)
@@ -947,7 +947,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the table
-        return create_scia_result_table(results, "ULS")
+        return create_scia_node_results_table(results, "ULS")
 
     # Tableview for SLS kar 1D results
     @TableView("SCIA SLS kar 1D", duration_guess=600)
@@ -1014,7 +1014,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the 1D table
-        return create_scia_1d_result_table(results, "SLS kar")
+        return create_scia_integration_strip_results_table(results, "SLS kar")
 
     # Tableview for SLS freq 1D results
     @TableView("SCIA SLS freq 1D", duration_guess=600)
@@ -1081,7 +1081,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the 1D table
-        return create_scia_1d_result_table(results, "SLS freq")
+        return create_scia_integration_strip_results_table(results, "SLS freq")
 
     # Tableview for ULS 1D results
     @TableView("SCIA ULS 1D", duration_guess=600)
@@ -1148,7 +1148,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the 1D table
-        return create_scia_1d_result_table(results, "ULS")
+        return create_scia_integration_strip_results_table(results, "ULS")
 
     @TableView("SCIA Analyse Resultaten", duration_guess=600)
     def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: C901, PLR0912

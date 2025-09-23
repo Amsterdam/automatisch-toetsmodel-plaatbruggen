@@ -695,3 +695,43 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
         
     except Exception:
         return None
+
+
+# Module-level cache for integration strip results  
+_integration_strip_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
+
+
+def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) -> dict[str, pd.DataFrame] | None:
+    """
+    Get processed SCIA integration strip results with caching to avoid reprocessing.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :returns: Processed integration strip results or None if failed
+    :rtype: dict[str, pd.DataFrame] | None
+    """
+    # Import here to avoid circular imports
+    from src.integrations.idea_integration.scia_to_idea_functions import process_scia_integration_strip_results_for_idea
+
+    # Use simple caching to avoid reprocessing the same results
+    try:
+        results_hash = _get_results_hash(results)
+    except Exception:
+        return None
+
+    if results_hash in _integration_strip_results_cache:
+        return _integration_strip_results_cache[results_hash]
+
+    try:
+        processed_results = process_scia_integration_strip_results_for_idea(results)
+        
+        # Cache the results (limit cache size to prevent memory issues)
+        if len(_integration_strip_results_cache) > 10:
+            # Remove oldest entry
+            oldest_key = next(iter(_integration_strip_results_cache))
+            del _integration_strip_results_cache[oldest_key]
+        _integration_strip_results_cache[results_hash] = processed_results
+        return processed_results
+        
+    except Exception:
+        return None

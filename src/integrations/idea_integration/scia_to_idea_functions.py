@@ -99,6 +99,14 @@ def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> 
                 idea_df[new_col] = idea_df[old_col]
                 idea_df = idea_df.drop(columns=[old_col])
         
+        # Drop the E/W/N column if it exists it's not needed for IDEA
+        if "E/W/N" in idea_df.columns:
+            idea_df = idea_df.drop(columns=["E/W/N"])
+
+        # Drop the N column if it exists it's not needed for IDEA
+        if "N" in idea_df.columns:
+            idea_df = idea_df.drop(columns=["N"])
+
         idea_results_1d[selected_table] = idea_df
     
     # Add strip_ prefix to all keys to distinguish from node results

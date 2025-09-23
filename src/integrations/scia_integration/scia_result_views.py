@@ -6,9 +6,8 @@ import pandas as pd
 from viktor.views import TableResult
 
 from .scia_results_processor import (
-    _extract_integration_strip_results,
     get_processed_results_with_cache,
-    process_raw_integration_strip_data,
+    get_processed_integration_strip_results_with_cache,
 )
 
 
@@ -61,7 +60,7 @@ def format_coordinates_safe(coords: tuple[float, ...] | list[float] | str | None
         return "N/A"
 
 
-def create_scia_table_data(df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None) -> tuple[list[list[str]], list[str]]:
+def create_scia_node_table_data(df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None) -> tuple[list[list[str]], list[str]]:
     """
     Create table data and headers from a SCIA results DataFrame.
 
@@ -154,7 +153,7 @@ def create_scia_table_data(df: pd.DataFrame, result_type: str, units_mapping: di
     return table_data, headers
 
 
-def create_scia_1d_table_data(df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None) -> tuple[list[list[str]], list[str]]:
+def create_scia_integration_strip_table_data(df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None) -> tuple[list[list[str]], list[str]]:
     """
     Create table data and headers from a SCIA 1D results DataFrame.
 
@@ -245,7 +244,7 @@ def create_scia_1d_table_data(df: pd.DataFrame, result_type: str, units_mapping:
     return table_data, headers
 
 
-def create_scia_result_table(results: dict[str, Any], result_type: str) -> TableResult:
+def create_scia_node_results_table(results: dict[str, Any], result_type: str) -> TableResult:
     """
     Create a VIKTOR TableResult from SCIA analysis results for a specific result type.
 
@@ -274,7 +273,7 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
                 result_df = processed_results.get(node_key)
 
             if result_df is not None and not result_df.empty:
-                table_data, headers = create_scia_table_data(result_df, result_type, units_mapping)
+                table_data, headers = create_scia_node_table_data(result_df, result_type, units_mapping)
                 return TableResult(table_data, column_headers=headers)
 
         # DataFrame not found or empty - use default headers with units
@@ -309,174 +308,65 @@ def create_scia_result_table(results: dict[str, Any], result_type: str) -> Table
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
 
 
-def create_scia_1d_result_table(results: dict[str, Any], result_type: str) -> TableResult:
+def create_scia_integration_strip_results_table(results: dict[str, Any], result_type: str) -> TableResult:
     """
-    Create a VIKTOR TableResult from SCIA 1D analysis results for a specific result type.
-
-    This version processes the raw 1D data by grouping rows with same name and dx values,
-    merging Belasting values, and finding absolute max for force/moment columns.
+    Create a VIKTOR TableResult from SCIA integration strip analysis results for a specific result type.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
     :param result_type: Type of results to extract ("SLS kar", "SLS freq", "ULS")
     :type result_type: str
-    :returns: VIKTOR TableResult with processed 1D data
+    :returns: VIKTOR TableResult with formatted data including units
     :rtype: TableResult
     :raises Exception: If processing fails
     """
     try:
-        # Extract integration strip results
-        integration_strip_results = _extract_integration_strip_results(results, result_type)
+        # Extract units mapping from results
+        units_mapping = results.get("units", {}).get("internal_forces", {})
 
-        if not integration_strip_results:
-            return TableResult(
-                [["Geen 1D data beschikbaar", f"Geen {result_type} resultaten gevonden", "N/A", "N/A", "N/A"]],
-                column_headers=["Info", "Status", "Detail", "Extra", "Opmerking"],
-            )
+        # Use the centralized processing function with caching
+        processed_results = get_processed_integration_strip_results_with_cache(results)
 
-        # Process the raw data with grouping and filtering
-        df_processed = process_raw_integration_strip_data(integration_strip_results)
+        # Extract the specific DataFrame from the processed results
+        if processed_results and isinstance(processed_results, dict):
+            # Try both the direct key and the "strip_" prefixed key
+            result_df = processed_results.get(result_type)
+            if result_df is None:
+                # Try with "strip_" prefix
+                strip_key = f"strip_{result_type}"
+                result_df = processed_results.get(strip_key)
 
-        if df_processed.empty:
-            return TableResult(
-                [["Geen data na verwerking", f"Geen {result_type} data na filtering", "N/A", "N/A", "N/A"]],
-                column_headers=["Info", "Status", "Detail", "Extra", "Opmerking"],
-            )
+            if result_df is not None and not result_df.empty:
+                table_data, headers = create_scia_integration_strip_table_data(result_df, result_type, units_mapping)
+                return TableResult(table_data, column_headers=headers)
 
-        # Convert and process data with unit conversion
-        from .scia_unit_conversion import SciaUnitConverter
-
-        # Create a 1D converter for proper unit handling
-        converter = SciaUnitConverter("1D")
-
-        # Get column order for display
-        available_columns = df_processed.columns.tolist()
-
-        # Create headers with units
-        headers = [_get_header_with_unit(col, converter) for col in available_columns]
-
-        # Create table data from processed DataFrame
-        table_rows = []
-        for _, row in df_processed.iterrows():
-            table_row = []
-            for col in available_columns:
-                value = row[col]
-                formatted_value = _format_cell_value(value, col, converter)
-                table_row.append(formatted_value)
-            table_rows.append(table_row)
-
-        return TableResult(table_rows, column_headers=headers)
-
-    except Exception as e:
-        error_message = f"Error processing 1D results: {e!s}"
+        # DataFrame not found or empty - use default headers with units
+        default_headers = [
+            "Name",
+            "dx (m)",
+            "N Max (kN)",
+            "Vy Max (kN)",
+            "Vz Max (kN)",
+            "Mx Max (kNm)",
+            "My Max (kNm)",
+            "Mz Max (kNm)",
+        ]
         return TableResult(
-            [["Verwerkingsfout", error_message, "N/A", "N/A", "N/A"]], column_headers=["Error", "Details", "Extra1", "Extra2", "Extra3"]
+            [[f"Geen {result_type} strip data", f"{result_type} integration strip resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]],
+            column_headers=default_headers,
         )
 
-
-def _get_header_with_unit(col: str, converter: Any) -> str:  # noqa: ANN401
-    """
-    Get header with appropriate unit for a single column.
-
-    :param col: Column name
-    :type col: str
-    :param converter: Unit converter instance
-    :type converter: Any
-    :returns: Header with unit
-    :rtype: str
-    """
-    col_lower = col.lower()
-
-    # Define mapping for force/moment columns
-    unit_mapping = {
-        "n": "N",
-        "v_y": "Vy",
-        "vy": "Vy",
-        "v_z": "Vz",
-        "vz": "Vz",
-        "m_x": "Mx",
-        "mx": "Mx",
-        "m_y": "My",
-        "my": "My",
-        "m_z": "Mz",
-        "mz": "Mz",
-    }
-
-    # Check direct mappings first
-    if col_lower in unit_mapping:
-        return f"{col} ({converter.get_display_unit(unit_mapping[col_lower])})"
-
-    # Check coordinate/distance columns
-    if col_lower in ["dx", "dy", "dz", "x", "y", "z"]:
-        return f"{col} (m)"
-
-    # Check pattern-based columns
-    if "kracht" in col_lower or "force" in col_lower:
-        return f"{col} (kN)"
-    if "moment" in col_lower:
-        return f"{col} (kNm)"
-    if "coord" in col_lower or "positie" in col_lower:
-        return f"{col} (m)"
-
-    # No unit for non-numeric columns (names, IDs, etc.)
-    return col
-
-
-def _format_cell_value(value: Any, col: str, converter: Any) -> str:  # noqa: ANN401
-    """
-    Format a single cell value with proper units.
-
-    :param value: Cell value to format
-    :type value: Any
-    :param col: Column name
-    :type col: str
-    :param converter: Unit converter instance
-    :type converter: Any
-    :returns: Formatted string value
-    :rtype: str
-    """
-    # Check if value is numeric
-    if isinstance(value, (int, float)):
-        numeric_value = value
-    elif isinstance(value, str) and value.strip():
-        try:
-            numeric_value = float(value)
-        except (ValueError, TypeError):
-            return str(value)
-    else:
-        return str(value)
-
-    # Format numeric value with units
-    col_lower = col.lower()
-
-    # Define mapping for force/moment columns
-    unit_mapping = {
-        "n": "N",
-        "v_y": "Vy",
-        "vy": "Vy",
-        "v_z": "Vz",
-        "vz": "Vz",
-        "m_x": "Mx",
-        "mx": "Mx",
-        "m_y": "My",
-        "my": "My",
-        "m_z": "Mz",
-        "mz": "Mz",
-    }
-
-    # Check direct mappings first
-    if col_lower in unit_mapping:
-        return f"{converter.convert_value(numeric_value, unit_mapping[col_lower]):.1f}"
-
-    # Coordinates/distances: keep in meters
-    if col_lower in ["dx", "dy", "dz", "x", "y", "z"] or "coord" in col_lower or "positie" in col_lower:
-        return f"{numeric_value:.3f}"
-
-    # Pattern-based conversion for other force/moment columns
-    if "kracht" in col_lower or "force" in col_lower:
-        return f"{converter.convert_value(numeric_value, 'N'):.1f}"
-    if "moment" in col_lower:
-        return f"{converter.convert_value(numeric_value, 'Mx'):.1f}"
-
-    # Other numeric values - format as-is
-    return f"{numeric_value:.3f}"
+    except Exception as e:
+        # Handle errors from processing function
+        error_message = f"Fout bij verwerken {result_type} integration strip resultaten: {str(e)[:100]}..."
+        default_headers = [
+            "Name",
+            "dx (m)",
+            "N Max (kN)",
+            "Vy Max (kN)",
+            "Vz Max (kN)",
+            "Mx Max (kNm)",
+            "My Max (kNm)",
+            "Mz Max (kNm)",
+        ]
+        return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)

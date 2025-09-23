@@ -14,7 +14,7 @@ Future enhancements needed:
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import pandas as pd
 from viktor.external import idea_rcs
@@ -26,6 +26,7 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
+from src.integrations.scia_integration.scia_unit_conversion import SciaUnitConverter
 
 if TYPE_CHECKING:
     from viktor.core import File
@@ -479,6 +480,9 @@ def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.Da
 def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
     Process SCIA integration strip results into a single merged dataframe.
+    
+    Groups rows by 'Naam' and 'dx', merges 'Belasting' values into single cells,
+    and finds absolute maximum values for force/moment columns.
 
     :param scia_results_dict: Dictionary containing SCIA integration strip results for different load cases
     :returns: Merged dataframe with all load cases
@@ -498,27 +502,120 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     if df_sls_freq is None:
         df_sls_freq = pd.DataFrame()
 
-    # Rename columns to prevent clashes
-    if df_uls is not None and not df_uls.empty:
-        df_uls = df_uls.rename(columns=lambda x: f"ULS_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
-    if df_sls_kar is not None and not df_sls_kar.empty:
-        df_sls_kar = df_sls_kar.rename(columns=lambda x: f"SLS_kar_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
-    if df_sls_freq is not None and not df_sls_freq.empty:
-        df_sls_freq = df_sls_freq.rename(columns=lambda x: f"SLS_freq_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
+    # Process each dataframe with grouping and aggregation
+    df_uls = _process_integration_strip_dataframe(df_uls, "ULS")
+    df_sls_kar = _process_integration_strip_dataframe(df_sls_kar, "SLS_kar")
+    df_sls_freq = _process_integration_strip_dataframe(df_sls_freq, "SLS_freq")
 
-    # Merge dataframes - handle empty cases
-    if (df_uls is None or df_uls.empty or 
-        df_sls_kar is None or df_sls_kar.empty or 
-        df_sls_freq is None or df_sls_freq.empty):
-        return pd.DataFrame()  # Return empty DataFrame if any component is empty
+    # Check if any dataframes are empty
+    if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
+        return pd.DataFrame()
 
-    # print each dataframe length for debugging
-    print(f"df_uls length: {len(df_uls)}")
-    print(f"df_sls_kar length: {len(df_sls_kar)}")
-    print(f"df_sls_freq length: {len(df_sls_freq)}")
+    # Merge dataframes on Naam and dx only (not Belasting since load cases differ)
+    # Rename Belasting columns to avoid conflicts
+    df_uls_renamed = df_uls.rename(columns={"Belasting": "ULS_Belasting"})
+    df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
+    df_sls_freq_renamed = df_sls_freq.rename(columns={"Belasting": "SLS_freq_Belasting"})
+    
+    df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=["Naam", "dx"], how="inner")
+    df_all = df_temp.merge(df_sls_freq_renamed, on=["Naam", "dx"], how="inner")
+    
+    return df_all
 
-    df_all = df_uls.merge(df_sls_kar, on=["Naam", "dx", "Belasting"], how="inner")
-    return df_all.merge(df_sls_freq, on=["Naam", "dx", "Belasting"], how="inner")
+
+def _abs_max_aggregator(series: pd.Series) -> float:
+    """Find the value with the maximum absolute value."""
+    series_clean = series.dropna()
+    if series_clean.empty:
+        return 0
+    # Find index of maximum absolute value
+    abs_max_idx = series_clean.abs().idxmax()
+    return series_clean.loc[abs_max_idx]
+
+
+def _create_integration_strip_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
+    """
+    Create aggregation functions for DataFrame grouping.
+
+    :param df_columns: List of DataFrame column names
+    :type df_columns: list[str]
+    :returns: Dictionary of aggregation functions
+    :rtype: dict[str, Union[str, Callable[[pd.Series], Any]]]
+    """
+    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
+    agg_functions: dict[str, Union[str, Callable[[pd.Series], Any]]] = {}
+
+    for col in df_columns:
+        if col == "Belasting":
+            # Merge Belasting values into single cell (concatenate unique values)
+            agg_functions[col] = lambda x: " | ".join(sorted(x.dropna().astype(str).unique()))
+        elif col in numeric_columns and col not in ["Naam", "dx"]:
+            # Find absolute maximum for force/moment columns
+            agg_functions[col] = _abs_max_aggregator
+        elif col in ["Naam", "dx"]:
+            # Keep first value for grouping columns
+            agg_functions[col] = "first"
+        else:
+            # For other columns, take first non-null value
+            agg_functions[col] = lambda x: x.dropna().iloc[0] if not x.dropna().empty else ""
+
+    return agg_functions
+
+
+def _convert_integration_strip_numeric_columns(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert numeric columns to proper types.
+
+    :param df_raw: Raw DataFrame
+    :type df_raw: pd.DataFrame
+    :returns: DataFrame with converted numeric columns
+    :rtype: pd.DataFrame
+    """
+    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
+    for col in numeric_columns:
+        if col in df_raw.columns:
+            df_raw[col] = pd.to_numeric(df_raw[col], errors="coerce").fillna(0)
+    return df_raw
+
+
+def _process_integration_strip_dataframe(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+    """
+    Process a single integration strip dataframe by grouping rows with same name and dx values.
+    
+    Groups rows by 'Naam' and 'dx', merges 'Belasting' values into single cells,
+    and finds absolute maximum values for force/moment columns.
+
+    :param df: Input DataFrame to process
+    :type df: pd.DataFrame
+    :param prefix: Prefix to add to column names (except grouping columns)
+    :type prefix: str
+    :returns: Processed DataFrame with grouped and filtered data
+    :rtype: pd.DataFrame
+    """
+    if df.empty:
+        return df
+
+    # Convert numeric columns to proper types
+    df = _convert_integration_strip_numeric_columns(df.copy())
+
+    # Group by 'Naam' and 'dx' if these columns exist
+    if "Naam" not in df.columns or "dx" not in df.columns:
+        # If grouping columns don't exist, just rename and return
+        return df.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
+
+    # Define aggregation functions
+    agg_functions = _create_integration_strip_aggregation_functions(df.columns.tolist())
+
+    # Apply grouping and aggregation - group only by Naam and dx (not Belasting)
+    df_processed = df.groupby(["Naam", "dx"], as_index=False).agg(agg_functions)
+
+    # Sort by Naam and dx for consistent ordering
+    df_processed = df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
+    
+    # Rename columns to prevent clashes (except grouping and Belasting columns)
+    df_processed = df_processed.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["Naam", "dx", "Belasting"] else x)
+
+    return df_processed
 
 
 def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
@@ -530,15 +627,29 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
                           - "slab_langs" (optional)
                           - "slab_dwars" (optional)
     :param df_all: Merged dataframe with all load cases. Expected columns include:
-                   - name, coords_xyz
-                   - SLS_kar_v_{y|z}_max, SLS_freq_v_{y|z}_max, ULS_v_{y|z}_max
-                   - SLS_kar_M{y|x},     SLS_freq_M{y|x},     ULS_M{y|x}
+                   - Naam (strip name like "strip_Z3_1_(5.0, -1.5, 0)_(5.0, -10.5, 0)")
+                   - dx
+                   - ULS_V_z, SLS_kar_V_z, SLS_freq_V_z (shear forces)
+                   - ULS_M_x, ULS_M_y, SLS_kar_M_x, SLS_kar_M_y, SLS_freq_M_x, SLS_freq_M_y (moments)
     """
-    # For integration strips: langs cs uses v_y and My, dwars cs uses v_z and Mx
-    orient = {
-        "langs": {"shear": "v_y_max", "moment": "My"},
-        "dwars": {"shear": "v_z_max", "moment": "Mx"},
-    }
+    def _extract_zone_name_from_strip(strip_name: str) -> str:
+        """
+        Extract zone name from strip name and convert format.
+        
+        Example: "strip_Z3_1_(5.0, -1.5, 0)_(5.0, -10.5, 0)" -> "3-1"
+        """
+        try:
+            # Remove "strip_" prefix and extract zone part
+            if strip_name.startswith("strip_Z"):
+                zone_part = strip_name[7:]  # Remove "strip_Z"
+                # Find the first underscore followed by coordinates
+                coord_start = zone_part.find("_(")
+                if coord_start > 0:
+                    zone_id = zone_part[:coord_start]  # e.g., "3_1"
+                    return zone_id.replace("_", "-")  # Convert "3_1" to "3-1"
+        except Exception:
+            pass
+        return ""
 
     def _format_coords(coords: list | tuple | str | float | None) -> str:
         if coords is None:
@@ -552,44 +663,54 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
         if not zones:
             continue
 
-        df_slab = df_all[df_all["name"].isin(zones)]
-        if df_slab.empty:
+        # Filter df_all to only include strips that belong to this slab's zones
+        matching_strips = []
+        for _, row in df_all.iterrows():
+            strip_name = row.get("Naam", "")
+            zone_name = _extract_zone_name_from_strip(strip_name)
+            if zone_name in zones:
+                matching_strips.append(row)
+        
+        if not matching_strips:
             continue
 
         desc_prefix = slab_key.replace(".", "_")
 
-        for direction, cfg in orient.items():
+        for direction in ["langs", "dwars"]:
             slab = slab_data.get(f"slab_{direction}")
             if slab is None:
                 continue
 
-            shear_col = cfg["shear"]  # "v_y_max" or "v_z_max"
-            moment_col = cfg["moment"]  # "My" or "Mx"
+            # For integration strips: always use v_z_max as shear (Qz)
+            # For moments: use m_y_max for langs, m_x_max for dwars
+            moment_component = "m_y_max" if direction == "langs" else "m_x_max"
 
-            for _, row in df_slab.iterrows():
+            for row in matching_strips:
                 # Build internal forces with integration strip forces
+                # Always use v_z_max for shear (mapped to Qz in IDEA)
                 char = idea_rcs.LoadingSLS(
                     idea_rcs.ResultOfInternalForces(
-                        Qz=row.get(f"SLS_kar_{shear_col}", 0),
-                        My=row.get(f"SLS_kar_{moment_col}", 0),
+                        Qz=row.get("SLS_kar_v_z_max", 0),
+                        My=row.get(f"SLS_kar_{moment_component}", 0),
                     )
                 )
                 freq = idea_rcs.LoadingSLS(
                     idea_rcs.ResultOfInternalForces(
-                        Qz=row.get(f"SLS_freq_{shear_col}", 0),
-                        My=row.get(f"SLS_freq_{moment_col}", 0),
+                        Qz=row.get("SLS_freq_v_z_max", 0),
+                        My=row.get(f"SLS_freq_{moment_component}", 0),
                     )
                 )
                 fund = idea_rcs.LoadingULS(
                     idea_rcs.ResultOfInternalForces(
-                        Qz=row.get(f"ULS_{shear_col}", 0),
-                        My=row.get(f"ULS_{moment_col}", 0),
+                        Qz=row.get("ULS_v_z_max", 0),
+                        My=row.get(f"ULS_{moment_component}", 0),
                     )
                 )
 
-                name = row.get("name", "Unknown")
-                coords_str = _format_coords(row.get("coords_xyz"))
-                description = f"{desc_prefix}_strip - {name} - {coords_str}"
+                strip_name = row.get("Naam", "Unknown")
+                zone_name = _extract_zone_name_from_strip(strip_name)
+                dx_value = row.get("dx", 0)
+                description = f"{desc_prefix}_{direction}_strip - Zone_{zone_name} - dx={dx_value:.3f}"
 
                 slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
@@ -706,7 +827,7 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     print("stripdata length", len(df_strip_all))
     print("stripdata", df_strip_all)
     # Apply integration strip loads to slabs
-    # _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
+    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
 
 
 
