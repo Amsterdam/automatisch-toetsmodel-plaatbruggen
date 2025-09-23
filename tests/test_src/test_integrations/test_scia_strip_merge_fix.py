@@ -5,11 +5,14 @@ This module tests the DataFrame merge functionality for SCIA integration strip r
 without importing the full idea_interface module to avoid circular import issues.
 """
 
+
+from collections.abc import Mapping
+
 import pandas as pd
 import pytest
 
 
-def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
+def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: Mapping[str, pd.DataFrame | None]) -> pd.DataFrame:
     """
     Process SCIA integration strip results into a single merged dataframe.
 
@@ -203,8 +206,8 @@ class TestSciaIntegrationStripResultsProcessing:
             df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
 
             # This should fail with the old column name
+            merge_columns = ["name", "dx"]  # Column "name" doesn't exist in old dataframes
             with pytest.raises(KeyError, match="name"):
-                merge_columns = ["name", "dx"]  # Column "name" doesn't exist in old dataframes
                 df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
 
 
