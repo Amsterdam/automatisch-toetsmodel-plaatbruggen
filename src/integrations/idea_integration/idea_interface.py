@@ -619,38 +619,6 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
         slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
-    """
-    Apply load cases from SCIA integration strip results to each slab.
-
-    :param created_slabs: Dictionary of created slabs. Expected keys per slab:
-                          - "zones": list[str]
-                          - "slab_langs" (optional)
-                          - "slab_dwars" (optional)
-    :param df_all: Merged dataframe with all load cases. Expected columns include:
-                   - Naam (strip name like "strip_Z3_1_(5.0, -1.5, 0)_(5.0, -10.5, 0)")
-                   - dx
-                   - ULS_V_z, SLS_kar_V_z, SLS_freq_V_z (shear forces)
-                   - ULS_M_x, ULS_M_y, SLS_kar_M_x, SLS_kar_M_y, SLS_freq_M_x, SLS_freq_M_y (moments)
-    """
-    for slab_key, slab_data in created_slabs.items():
-        zones = slab_data.get("zones") or []
-        if not zones:
-            continue
-
-        # Filter df_all to only include strips that belong to this slab's zones
-        matching_strips = _find_matching_strips(df_all, zones)
-        if not matching_strips:
-            continue
-
-        desc_prefix = slab_key.replace(".", "_")
-
-        for direction in ["langs", "dwars"]:
-            slab = slab_data.get(f"slab_{direction}")
-            if slab is not None:
-                _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction)
-
-
 def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
     """
     Apply load cases from SCIA results to each slab.

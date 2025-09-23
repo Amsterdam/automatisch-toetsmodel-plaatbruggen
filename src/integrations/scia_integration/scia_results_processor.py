@@ -307,7 +307,7 @@ def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
         df_1d = pd.DataFrame(data_1d) if data_1d is not None else pd.DataFrame()
 
         # Process the DataFrame with grouping and aggregation (similar to what was done in IDEA interface)
-        if not df_1d.empty:
+        if not df_1d.empty and data_1d is not None:
             df_1d = process_raw_integration_strip_data(data_1d)
 
         results_1d[selected_table] = df_1d
