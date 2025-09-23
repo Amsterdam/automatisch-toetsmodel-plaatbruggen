@@ -187,13 +187,13 @@ def _bridge_field_is_empty(objectnumm: str, field_name: str) -> bool:
 def _show_signage_field(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
     """
     Determine if the signage field should be visible based on berekeningsniveau.
-    Only show when "Werkelijke wegindeling onderliggend wegennet met bebording" is selected.
+    Only show when "Werkelijke wegindeling met bebording" is selected.
 
     :param params: Parameters containing berekeningsniveau setting
     :returns: True if signage field should be visible, False otherwise
     :rtype: bool
     """
-    return params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording"
+    return params.berekeningsniveau == "Werkelijke wegindeling met bebording"
 
 
 # --- Helper functions for DynamicArray Default Rows ---
@@ -806,7 +806,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "Theoretische wegindeling",
             "Werkelijke wegindeling",
             "Werkelijke wegindeling onderliggend wegennet",
-            "Werkelijke wegindeling onderliggend wegennet met bebording",
+            "Werkelijke wegindeling met bebording",
         ],
         variant="radio",
         name="berekeningsniveau",

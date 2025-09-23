@@ -1,3 +1,16 @@
+## [`v0.0.13`] - 2025-09-23
+### Added
+- **IDEA StatiCa Integration Enhancements**: Improved the integration with IDEA StatiCa to support returning and processing results from the software.
+  - Added integration strip checks to IDEA 
+  - Added enhanced functionality to parse and handle results from IDEA StatiCa analyses.
+  - Enhanced error handling and logging for IDEA StatiCa workflows.
+
+### Changed
+- **Integration Logic**: Refactored integration logic to streamline communication with IDEA StatiCa.
+- **Explanatory text**: Changed the explanatory text throughout the app since it contained outdated information and mixed Dutch and English language 
+- **Calculation settings**: Changed "Werkelijke wegindeling onderliggend wegennet met bebording", to "Werkelijke wegindeling met bebording".
+- **Calculation settings SCIA**: Changed location from "In nodes avg. on macro" to "a"In nodes avg." for node results
+
 ## [`v0.0.12`] - 2025-09-18
 ### Added
 - **Load Case Selection System**: Added load case selection table in SCIA → Berekening tab for controlling calculation times
@@ -21,7 +34,7 @@
   - Added functionality dependent on radio button for road layout
   - Added accidental vehicle according to TAB, parallel and perpendicular to driving direction
   - Added the dispersal function to all the vertical traffic load cases, with a maximum dispersion of 1.0 by 1.0 meters
-- **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
+- **Calculation level**: Added the option for calculation level "werkelijke wegindeling onderliggend wegennet" and "Werkelijke wegindeling onderliggend wegennet met bebording", with different load factors for tandem systems and UDL.
 - **Integration strips**: Added four integration strips to the model for both the theoretical and real road layout. One in cross direction at half-span and three longitudinal, one in the middle of the bridge deck, and one at either side of the bridge or road, 0.5 meters inward.
 
 ### Changed

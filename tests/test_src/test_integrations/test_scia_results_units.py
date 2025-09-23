@@ -4,7 +4,7 @@ import unittest
 from typing import Any
 from unittest.mock import Mock
 
-from src.integrations.scia_integration.scia_results import (
+from src.integrations.scia_integration.scia_results_creator import (
     build_units_mapping,
     extract_analysis_results,
 )
