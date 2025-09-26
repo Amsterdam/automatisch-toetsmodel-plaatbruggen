@@ -539,9 +539,16 @@ def _extract_coords_from_strip_name(name: str) -> tuple[tuple[float, float, floa
         parts = name.split("_")
         start_str = parts[-2].strip("()")
         end_str = parts[-1].strip("()")
-        start_coords = tuple(map(float, start_str.split(",")))
-        end_coords = tuple(map(float, end_str.split(",")))
-        return start_coords, end_coords
+
+        start_coords_list = list(map(float, start_str.split(",")))
+        end_coords_list = list(map(float, end_str.split(",")))
+
+        # Ensure we have exactly 3 coordinates for each point
+        if len(start_coords_list) >= 3 and len(end_coords_list) >= 3:
+            start_coords = (start_coords_list[0], start_coords_list[1], start_coords_list[2])
+            end_coords = (end_coords_list[0], end_coords_list[1], end_coords_list[2])
+            return start_coords, end_coords
+        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if not enough coordinates
     except Exception:
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if parsing fails
 

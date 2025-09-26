@@ -12,6 +12,7 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
+import contextlib
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -537,9 +538,7 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     merge_columns = ["name", "dx"]
 
     df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
-    df_final = df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
-
-    return df_final
+    return df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
 
 
 def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
@@ -587,12 +586,9 @@ def _extract_zone_name_from_strip(strip_name: str) -> str:
             coord_start = zone_part.find("_(")
             if coord_start > 0:
                 zone_id = zone_part[:coord_start]  # e.g., "3_1"
-                result = zone_id.replace("_", "-")  # Convert "3_1" to "3-1"
-                # Only print for debugging if needed
-                # print(f"DEBUG: strip '{strip_name}' -> zone '{result}'")
-                return result
-    except Exception as e:
-        print(f"DEBUG: Error extracting zone from '{strip_name}': {e}")
+                return zone_id.replace("_", "-")  # Convert "3_1" to "3-1"
+    except Exception:
+        pass
     return ""
 
 
@@ -678,10 +674,8 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
         dx_value = row.get("dx", 0)
         description = f"{desc_prefix} - {zone_name} - {strip_name} - dx={dx_value:.3f}"
 
-        try:
+        with contextlib.suppress(Exception):
             slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
-        except Exception as e:
-            print(f"Error creating extreme load case for strip {strip_name}: {e}")
 
 
 def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
