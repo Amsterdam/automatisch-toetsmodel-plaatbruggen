@@ -1,9 +1,12 @@
 """Functions for creating SCIA result views for VIKTOR tables."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 from viktor.views import TableResult
+
+if TYPE_CHECKING:
+    from .scia_unit_conversion import SciaUnitConverter
 
 from .scia_results_processor import (
     get_processed_integration_strip_results_with_cache,
@@ -154,6 +157,83 @@ def create_scia_node_table_data(df: pd.DataFrame, result_type: str, units_mappin
     return table_data, headers
 
 
+def _get_force_units_mapping(units_mapping: dict[str, str], converter: "SciaUnitConverter") -> dict[str, str]:
+    """
+    Get force units mapping with fallback to converter defaults.
+
+    :param units_mapping: Provided units mapping
+    :type units_mapping: dict[str, str]
+    :param converter: SCIA unit converter
+    :type converter: SciaUnitConverter
+    :returns: Force units mapping
+    :rtype: dict[str, str]
+    """
+    force_components = ["N", "V_y", "V_z", "M_x", "M_y", "M_z"]
+    force_units = {}
+    for component in force_components:
+        # Use provided units mapping if available, otherwise get from converter
+        if component in units_mapping:
+            force_units[component] = units_mapping[component]
+        else:
+            force_units[component] = converter.get_display_unit(component)
+    return force_units
+
+
+def _create_headers_with_units(force_units: dict[str, str]) -> list[str]:
+    """
+    Create table headers with units for SCIA integration strip results.
+
+    :param force_units: Force units mapping
+    :type force_units: dict[str, str]
+    :returns: List of headers with units
+    :rtype: list[str]
+    """
+    return [
+        "Name",
+        "dx (m)",
+        "Direction Vector",
+        f"N Max ({force_units['N']})",  # Normal force
+        f"Vy Max ({force_units['V_y']})",  # Shear force Y
+        f"Vz Max ({force_units['V_z']})",  # Shear force Z
+        f"Mx Max ({force_units['M_x']})",  # Torsional moment X
+        f"My Max ({force_units['M_y']})",  # Bending moment Y
+        f"Mz Max ({force_units['M_z']})",  # Bending moment Z
+    ]
+
+
+def _format_numeric_columns(df: pd.DataFrame, converter: "SciaUnitConverter") -> dict[str, pd.Series]:
+    """
+    Format numeric columns with their respective units using the converter.
+
+    :param df: DataFrame with SCIA 1D results
+    :type df: pd.DataFrame
+    :param converter: SCIA unit converter
+    :type converter: SciaUnitConverter
+    :returns: Dictionary of formatted column data
+    :rtype: dict[str, pd.Series]
+    """
+    numeric_columns = ["n_max", "v_y_max", "v_z_max", "m_x_max", "m_y_max", "m_z_max"]
+    column_to_component = {
+        "n_max": "N",
+        "v_y_max": "V_y",
+        "v_z_max": "V_z",
+        "m_x_max": "M_x",
+        "m_y_max": "M_y",
+        "m_z_max": "M_z",
+    }
+
+    formatted_cols = {}
+    for col in numeric_columns:
+        if col in df.columns:
+            component = column_to_component.get(col, "")
+            # Use converter to format values with consistent conversion
+            formatted_cols[col] = df[col].apply(lambda x: converter.format_value_with_unit(x, component, decimals=1, default="N/A"))
+        else:
+            formatted_cols[col] = pd.Series(["N/A"] * len(df))
+
+    return formatted_cols
+
+
 def create_scia_integration_strip_table_data(
     df: pd.DataFrame, result_type: str, units_mapping: dict[str, str] | None = None
 ) -> tuple[list[list[str]], list[str]]:
@@ -179,27 +259,11 @@ def create_scia_integration_strip_table_data(
     # Create a converter for 1D beam elements
     converter = SciaUnitConverter("1D")
 
-    # Create headers with units for 1D beam forces
-    force_components = ["N", "V_y", "V_z", "M_x", "M_y", "M_z"]
-    force_units = {}
-    for component in force_components:
-        # Use provided units mapping if available, otherwise get from converter
-        if component in units_mapping:
-            force_units[component] = units_mapping[component]
-        else:
-            force_units[component] = converter.get_display_unit(component)
+    # Get force units mapping
+    force_units = _get_force_units_mapping(units_mapping, converter)
 
-    headers = [
-        "Name",
-        "dx (m)",
-        "Direction Vector",
-        f"N Max ({force_units['N']})",  # Normal force
-        f"Vy Max ({force_units['V_y']})",  # Shear force Y
-        f"Vz Max ({force_units['V_z']})",  # Shear force Z
-        f"Mx Max ({force_units['M_x']})",  # Torsional moment X
-        f"My Max ({force_units['M_y']})",  # Bending moment Y
-        f"Mz Max ({force_units['M_z']})",  # Bending moment Z
-    ]
+    # Create headers with units for 1D beam forces
+    headers = _create_headers_with_units(force_units)
 
     if df.empty:
         return [
@@ -239,24 +303,7 @@ def create_scia_integration_strip_table_data(
     direction_vector_formatted = df.get("direction_vector", pd.Series([None] * len(df))).apply(format_direction_vector)
 
     # Format numeric columns with their respective units using the converter
-    numeric_columns = ["n_max", "v_y_max", "v_z_max", "m_x_max", "m_y_max", "m_z_max"]
-    column_to_component = {
-        "n_max": "N",
-        "v_y_max": "V_y",
-        "v_z_max": "V_z",
-        "m_x_max": "M_x",
-        "m_y_max": "M_y",
-        "m_z_max": "M_z",
-    }
-
-    formatted_cols = {}
-    for col in numeric_columns:
-        if col in df.columns:
-            component = column_to_component.get(col, "")
-            # Use converter to format values with consistent conversion
-            formatted_cols[col] = df[col].apply(lambda x: converter.format_value_with_unit(x, component, decimals=1, default="N/A"))
-        else:
-            formatted_cols[col] = pd.Series(["N/A"] * len(df))
+    formatted_cols = _format_numeric_columns(df, converter)
 
     # Create table data using list comprehension with pre-computed values
     names = df.get("Naam", df.get("name", pd.Series(["N/A"] * len(df)))).astype(str)

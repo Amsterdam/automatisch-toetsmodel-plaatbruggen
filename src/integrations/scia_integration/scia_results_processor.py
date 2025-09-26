@@ -535,22 +535,19 @@ def _extract_coords_from_strip_name(name: str) -> tuple[tuple[float, float, floa
     :returns: Tuple of (start_coordinates, end_coordinates)
     :rtype: tuple[tuple[float, float, float], tuple[float, float, float]]
     """
-    try:
-        parts = name.split("_")
-        start_str = parts[-2].strip("()")
-        end_str = parts[-1].strip("()")
+    parts = name.split("_")
+    start_str = parts[-2].strip("()")
+    end_str = parts[-1].strip("()")
 
-        start_coords_list = list(map(float, start_str.split(",")))
-        end_coords_list = list(map(float, end_str.split(",")))
+    start_coords_list = list(map(float, start_str.split(",")))
+    end_coords_list = list(map(float, end_str.split(",")))
 
-        # Ensure we have exactly 3 coordinates for each point
-        if len(start_coords_list) >= 3 and len(end_coords_list) >= 3:
-            start_coords = (start_coords_list[0], start_coords_list[1], start_coords_list[2])
-            end_coords = (end_coords_list[0], end_coords_list[1], end_coords_list[2])
-            return start_coords, end_coords
-        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if not enough coordinates
-    except Exception:
-        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if parsing fails
+    # Ensure we have exactly 3 coordinates for each point
+    if len(start_coords_list) >= 3 and len(end_coords_list) >= 3:
+        start_coords = (start_coords_list[0], start_coords_list[1], start_coords_list[2])
+        end_coords = (end_coords_list[0], end_coords_list[1], end_coords_list[2])
+        return start_coords, end_coords
+    return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if not enough coordinates
 
 
 def _calculate_normalized_direction_vector(
@@ -569,22 +566,18 @@ def _calculate_normalized_direction_vector(
     :returns: Normalized direction vector (dx, dy, dz)
     :rtype: tuple[float, float, float]
     """
-    try:
-        # Calculate direction vector
-        dx = coords_end[0] - coords_start[0]
-        dy = coords_end[1] - coords_start[1]
-        dz = coords_end[2] - coords_start[2]
+    # Calculate direction vector
+    dx = coords_end[0] - coords_start[0]
+    dy = coords_end[1] - coords_start[1]
+    dz = coords_end[2] - coords_start[2]
 
-        # Calculate magnitude
-        magnitude = (dx**2 + dy**2 + dz**2) ** 0.5
+    # Calculate magnitude
+    magnitude = (dx**2 + dy**2 + dz**2) ** 0.5
 
-        # Return normalized vector (avoid division by zero)
-        if magnitude > 1e-10:  # Small tolerance for numerical precision
-            return (dx / magnitude, dy / magnitude, dz / magnitude)
-        return (0.0, 0.0, 0.0)  # Default to zero vector if zero-length vector
-
-    except Exception:
-        return (0.0, 0.0, 0.0)  # Default if calculation fails
+    # Return normalized vector (avoid division by zero)
+    if magnitude > 1e-10:  # Small tolerance for numerical precision
+        return (dx / magnitude, dy / magnitude, dz / magnitude)
+    return (0.0, 0.0, 0.0)  # Default to zero vector if zero-length vector
 
 
 def _create_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
