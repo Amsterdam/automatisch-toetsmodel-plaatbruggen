@@ -192,6 +192,7 @@ def create_scia_integration_strip_table_data(
     headers = [
         "Name",
         "dx (m)",
+        "Direction Vector",
         f"N Max ({force_units['N']})",  # Normal force
         f"Vy Max ({force_units['V_y']})",  # Shear force Y
         f"Vz Max ({force_units['V_z']})",  # Shear force Z
@@ -201,7 +202,7 @@ def create_scia_integration_strip_table_data(
     ]
 
     if df.empty:
-        return [[f"Geen {result_type} 1D data", f"{result_type} 1D resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], headers
+        return [[f"Geen {result_type} 1D data", f"{result_type} 1D resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], headers
 
     # Use vectorized operations instead of row-by-row iteration
     # Format dx values (integration strip positions)
@@ -219,6 +220,21 @@ def create_scia_integration_strip_table_data(
             return f"{float_val:.2f}"
 
     dx_formatted = df.get("dx", pd.Series([0.0] * len(df))).apply(format_dx_value)
+
+    # Format direction vector values
+    def format_direction_vector(direction_vector: tuple[float, float, float] | list[float] | str | None) -> str:
+        """Safely format direction vector values as (x,y,z) for SCIA 1D views."""
+        if direction_vector is None:
+            return "N/A"
+        try:
+            if isinstance(direction_vector, (list, tuple)) and len(direction_vector) >= 3:
+                x, y, z = float(direction_vector[0]), float(direction_vector[1]), float(direction_vector[2])
+                return f"({x:.0f},{y:.0f},{z:.0f})"
+            return str(direction_vector)
+        except (ValueError, TypeError, IndexError):
+            return "N/A"
+
+    direction_vector_formatted = df.get("direction_vector", pd.Series([None] * len(df))).apply(format_direction_vector)
 
     # Format numeric columns with their respective units using the converter
     numeric_columns = ["n_max", "v_y_max", "v_z_max", "m_x_max", "m_y_max", "m_z_max"]
@@ -247,6 +263,7 @@ def create_scia_integration_strip_table_data(
         [
             names.iloc[i],
             dx_formatted.iloc[i],
+            direction_vector_formatted.iloc[i],
             formatted_cols["n_max"].iloc[i],
             formatted_cols["v_y_max"].iloc[i],
             formatted_cols["v_z_max"].iloc[i],
@@ -360,6 +377,7 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
         default_headers = [
             "Name",
             "dx (m)",
+            "Direction Vector",
             "N Max (kN)",
             "Vy Max (kN)",
             "Vz Max (kN)",
@@ -378,6 +396,7 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
                     "N/A",
                     "N/A",
                     "N/A",
+                    "N/A",
                 ]
             ],
             column_headers=default_headers,
@@ -389,6 +408,7 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
         default_headers = [
             "Name",
             "dx (m)",
+            "Direction Vector",
             "N Max (kN)",
             "Vy Max (kN)",
             "Vz Max (kN)",
@@ -396,4 +416,4 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
             "My Max (kNm)",
             "Mz Max (kNm)",
         ]
-        return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
+        return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)

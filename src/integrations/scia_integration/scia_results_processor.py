@@ -523,6 +523,62 @@ def _abs_max_aggregator(series: pd.Series) -> float:
     return series_clean.loc[abs_max_idx]
 
 
+def _extract_coords_from_strip_name(name: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """
+    Extract start and end coordinates from a SCIA integration strip name.
+
+    Name format: strip_Z1_1_(0, 0.5, 0)_(15, 0.5, 0)
+    Returns: ((0, 0.5, 0), (15, 0.5, 0))
+
+    :param name: SCIA integration strip name containing coordinate information
+    :type name: str
+    :returns: Tuple of (start_coordinates, end_coordinates)
+    :rtype: tuple[tuple[float, float, float], tuple[float, float, float]]
+    """
+    try:
+        parts = name.split("_")
+        start_str = parts[-2].strip("()")
+        end_str = parts[-1].strip("()")
+        start_coords = tuple(map(float, start_str.split(",")))
+        end_coords = tuple(map(float, end_str.split(",")))
+        return start_coords, end_coords
+    except Exception:
+        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if parsing fails
+
+
+def _calculate_normalized_direction_vector(coords_start: tuple[float, float, float], coords_end: tuple[float, float, float]) -> tuple[float, float, float]:
+    """
+    Calculate normalized direction vector from start to end coordinates.
+
+    This function computes the unit direction vector for a strip element, which is used
+    to determine the local coordinate system of the integration strip.
+
+    :param coords_start: Start coordinates (x, y, z)
+    :type coords_start: tuple[float, float, float]
+    :param coords_end: End coordinates (x, y, z)
+    :type coords_end: tuple[float, float, float]
+    :returns: Normalized direction vector (dx, dy, dz)
+    :rtype: tuple[float, float, float]
+    """
+    try:
+        # Calculate direction vector
+        dx = coords_end[0] - coords_start[0]
+        dy = coords_end[1] - coords_start[1]
+        dz = coords_end[2] - coords_start[2]
+        
+        # Calculate magnitude
+        magnitude = (dx**2 + dy**2 + dz**2)**0.5
+        
+        # Return normalized vector (avoid division by zero)
+        if magnitude > 1e-10:  # Small tolerance for numerical precision
+            return (dx / magnitude, dy / magnitude, dz / magnitude)
+        else:
+            return (0.0, 0.0, 0.0)  # Default to zero vector if zero-length vector
+            
+    except Exception:
+        return (0.0, 0.0, 0.0)  # Default if calculation fails
+
+
 def _create_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
     """
     Create aggregation functions for DataFrame grouping.
@@ -590,7 +646,20 @@ def process_raw_integration_strip_data(integration_results: dict[str, Any]) -> p
     df_processed = df_raw.groupby(["Naam", "dx"], as_index=False).agg(agg_functions)
 
     # Sort by Naam and dx for consistent ordering
-    return df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
+    df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
+    
+    # Create two new columns that contains the start and end coordinates as tuples extracted from the 'Naam' column
+    # Name = strip_Z1_1_(0, 0.5, 0)_(15, 0.5, 0) -> coords_start = (0, 0.5, 0) and coords_end = (15, 0.5, 0)
+    df_processed["coords_start"], df_processed["coords_end"] = zip(*df_processed["Naam"].apply(_extract_coords_from_strip_name)) 
+    
+    # Based on the extracted start and end coordinates, create a new column containing a normalized direction vector (dx, dy, dz)
+    # we will use to later determine the local axis system of the strip
+    df_processed["direction_vector"] = df_processed.apply(
+        lambda row: _calculate_normalized_direction_vector(row["coords_start"], row["coords_end"]), 
+        axis=1
+    )
+
+    return df_processed
 
 
 # Simple cache for processed results to avoid reprocessing the same data

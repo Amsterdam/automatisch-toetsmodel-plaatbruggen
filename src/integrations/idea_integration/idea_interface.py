@@ -504,23 +504,42 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     df_sls_freq = scia_results_dict.get("strip_SLS freq")
     if df_sls_freq is None:
         df_sls_freq = pd.DataFrame()
-
+    
     # Check if any dataframes are empty
     if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
         return pd.DataFrame()
 
-    # The DataFrames should already be processed, so we just need to merge them
-    # Merge dataframes on name and dx (these columns come from the base processor after renaming)
-    # Rename Belasting columns to avoid conflicts
-    df_uls_renamed = df_uls.rename(columns={"Belasting": "ULS_Belasting"})
-    df_sls_kar_renamed = df_sls_kar.rename(columns={"Belasting": "SLS_kar_Belasting"})
-    df_sls_freq_renamed = df_sls_freq.rename(columns={"Belasting": "SLS_freq_Belasting"})
+    # The DataFrames come from SCIA processor with Dutch column names, need to rename them
+    # First rename the common columns (Naam -> name) and add load case prefixes
+    
+    # Rename common columns and Belasting to avoid conflicts
+    df_uls_renamed = df_uls.rename(columns={"Naam": "name", "Belasting": "ULS_Belasting"})
+    df_sls_kar_renamed = df_sls_kar.rename(columns={"Naam": "name", "Belasting": "SLS_kar_Belasting"})
+    df_sls_freq_renamed = df_sls_freq.rename(columns={"Naam": "name", "Belasting": "SLS_freq_Belasting"})
 
-    # Use 'name' and 'dx' columns as they come from the base processor after column renaming
+    # Add load case prefixes to ALL force/moment columns to avoid conflicts during merge
+    # The columns are already named like v_y_max, v_z_max, m_x_max, m_y_max, m_z_max
+    force_moment_columns = ["v_y_max", "v_z_max", "m_x_max", "m_y_max", "m_z_max"]
+    
+    # Also rename coordinate and direction columns to avoid conflicts
+    other_columns_to_rename = ["coords_start", "coords_end", "direction_vector"]
+    all_columns_to_rename = force_moment_columns + other_columns_to_rename
+    
+    for col in all_columns_to_rename:
+        if col in df_uls_renamed.columns:
+            df_uls_renamed = df_uls_renamed.rename(columns={col: f"ULS_{col}"})
+        if col in df_sls_kar_renamed.columns:
+            df_sls_kar_renamed = df_sls_kar_renamed.rename(columns={col: f"SLS_kar_{col}"})
+        if col in df_sls_freq_renamed.columns:
+            df_sls_freq_renamed = df_sls_freq_renamed.rename(columns={col: f"SLS_freq_{col}"})
+
+    # Use 'name' and 'dx' columns for merging (renamed from 'Naam')
     merge_columns = ["name", "dx"]
 
     df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
-    return df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
+    df_final = df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
+    
+    return df_final
 
 
 def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
@@ -530,13 +549,18 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
     :param created_slabs: Dictionary of created slabs with zones and slab objects
     :param df_all: Merged dataframe with all load cases and strip data
     """
+    if df_all.empty:
+        return
+    
     for slab_key, slab_data in created_slabs.items():
         zones = slab_data.get("zones") or []
+        
         if not zones:
             continue
 
         # Filter df_all to only include strips that belong to this slab's zones
         matching_strips = _find_matching_strips(df_all, zones)
+        
         if not matching_strips:
             continue
 
@@ -544,6 +568,7 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
 
         for direction in ["langs", "dwars"]:
             slab = slab_data.get(f"slab_{direction}")
+            
             if slab is not None:
                 _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction)
 
@@ -562,8 +587,12 @@ def _extract_zone_name_from_strip(strip_name: str) -> str:
             coord_start = zone_part.find("_(")
             if coord_start > 0:
                 zone_id = zone_part[:coord_start]  # e.g., "3_1"
-                return zone_id.replace("_", "-")  # Convert "3_1" to "3-1"
-    except Exception:
+                result = zone_id.replace("_", "-")  # Convert "3_1" to "3-1"
+                # Only print for debugging if needed
+                # print(f"DEBUG: strip '{strip_name}' -> zone '{result}'")
+                return result
+    except Exception as e:
+        print(f"DEBUG: Error extracting zone from '{strip_name}': {e}")
         pass
     return ""
 
@@ -571,11 +600,14 @@ def _extract_zone_name_from_strip(strip_name: str) -> str:
 def _find_matching_strips(df_all: pd.DataFrame, zones: list[str]) -> list:
     """Find strips that belong to the specified zones."""
     matching_strips = []
+    
     for _, row in df_all.iterrows():
         strip_name = row.get("name", "")
         zone_name = _extract_zone_name_from_strip(strip_name)
+        
         if zone_name in zones:
             matching_strips.append(row)
+    
     return matching_strips
 
 
@@ -605,18 +637,52 @@ def _create_idea_loading_objects(row: pd.Series, moment_component: str) -> tuple
 def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_prefix: str, direction: str) -> None:  # noqa: ANN401
     """Apply strip loads to a slab in a specific direction."""
     # For integration strips: always use v_z_max as shear (Qz)
-    # For moments: use m_y_max for langs, m_x_max for dwars
-    moment_component = "m_y_max" if direction == "langs" else "m_x_max"
+    # For moments, determine component based on the strip's direction vector:
+    # - if direction vector is (1, 0, 0) or (-1, 0, 0) use m_y_max for langs, m_x_max for dwars
+    # - if direction vector is (0, 1, 0) or (0, -1, 0) use m_x_max for langs, m_y_max for dwars
+    # This is based on the orientation of the strip and how IDEA RCS expects the moments
+
+    if not matching_strips:
+        return
 
     for row in matching_strips:
+        # Debug row data
+        strip_name = row.get("name", "Unknown")
+        
+        # Get the normalized direction vector from the strip data
+        # Try the different possible column names based on load case
+        direction_vector = (
+            row.get("ULS_direction_vector") or 
+            row.get("SLS_kar_direction_vector") or 
+            row.get("SLS_freq_direction_vector") or 
+            (1.0, 0.0, 0.0)  # Default to x-direction if not found
+        )
+        
+        # Determine moment component based on strip orientation and slab direction
+        if abs(direction_vector[0]) > 0.7:  # Strip is primarily in X-direction (longitudinal)
+            moment_component = "m_y_max" if direction == "langs" else "m_x_max"
+        elif abs(direction_vector[1]) > 0.7:  # Strip is primarily in Y-direction (transverse)
+            moment_component = "m_x_max" if direction == "langs" else "m_y_max"
+        else:
+            # Error for diagonal or unclear orientations - this indicates a problem with strip geometry
+            msg = (
+                f"Invalid strip orientation detected for strip '{strip_name}'. "
+                f"Direction vector {direction_vector} is not aligned with X or Y axis. "
+                f"Integration strips should be aligned with bridge coordinate axes."
+            )
+            raise ValueError(msg)
+
+        # Create loading objects
         char, freq, fund = _create_idea_loading_objects(row, moment_component)
 
-        strip_name = row.get("name", "Unknown")
         zone_name = _extract_zone_name_from_strip(strip_name)
         dx_value = row.get("dx", 0)
-        description = f"{desc_prefix} - {zone_name} - strip_{strip_name} - dx={dx_value:.3f}"
+        description = f"{desc_prefix} - {zone_name} - {strip_name} - dx={dx_value:.3f}"
 
-        slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
+        try:
+            slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
+        except Exception as e:
+            print(f"Error creating extreme load case for strip {strip_name}: {e}")
 
 
 def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
