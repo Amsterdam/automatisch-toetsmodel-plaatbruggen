@@ -546,7 +546,9 @@ def _extract_coords_from_strip_name(name: str) -> tuple[tuple[float, float, floa
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if parsing fails
 
 
-def _calculate_normalized_direction_vector(coords_start: tuple[float, float, float], coords_end: tuple[float, float, float]) -> tuple[float, float, float]:
+def _calculate_normalized_direction_vector(
+    coords_start: tuple[float, float, float], coords_end: tuple[float, float, float]
+) -> tuple[float, float, float]:
     """
     Calculate normalized direction vector from start to end coordinates.
 
@@ -565,16 +567,15 @@ def _calculate_normalized_direction_vector(coords_start: tuple[float, float, flo
         dx = coords_end[0] - coords_start[0]
         dy = coords_end[1] - coords_start[1]
         dz = coords_end[2] - coords_start[2]
-        
+
         # Calculate magnitude
-        magnitude = (dx**2 + dy**2 + dz**2)**0.5
-        
+        magnitude = (dx**2 + dy**2 + dz**2) ** 0.5
+
         # Return normalized vector (avoid division by zero)
         if magnitude > 1e-10:  # Small tolerance for numerical precision
             return (dx / magnitude, dy / magnitude, dz / magnitude)
-        else:
-            return (0.0, 0.0, 0.0)  # Default to zero vector if zero-length vector
-            
+        return (0.0, 0.0, 0.0)  # Default to zero vector if zero-length vector
+
     except Exception:
         return (0.0, 0.0, 0.0)  # Default if calculation fails
 
@@ -647,16 +648,15 @@ def process_raw_integration_strip_data(integration_results: dict[str, Any]) -> p
 
     # Sort by Naam and dx for consistent ordering
     df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
-    
+
     # Create two new columns that contains the start and end coordinates as tuples extracted from the 'Naam' column
     # Name = strip_Z1_1_(0, 0.5, 0)_(15, 0.5, 0) -> coords_start = (0, 0.5, 0) and coords_end = (15, 0.5, 0)
-    df_processed["coords_start"], df_processed["coords_end"] = zip(*df_processed["Naam"].apply(_extract_coords_from_strip_name)) 
-    
+    df_processed["coords_start"], df_processed["coords_end"] = zip(*df_processed["Naam"].apply(_extract_coords_from_strip_name))
+
     # Based on the extracted start and end coordinates, create a new column containing a normalized direction vector (dx, dy, dz)
     # we will use to later determine the local axis system of the strip
     df_processed["direction_vector"] = df_processed.apply(
-        lambda row: _calculate_normalized_direction_vector(row["coords_start"], row["coords_end"]), 
-        axis=1
+        lambda row: _calculate_normalized_direction_vector(row["coords_start"], row["coords_end"]), axis=1
     )
 
     return df_processed

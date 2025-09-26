@@ -202,7 +202,9 @@ def create_scia_integration_strip_table_data(
     ]
 
     if df.empty:
-        return [[f"Geen {result_type} 1D data", f"{result_type} 1D resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], headers
+        return [
+            [f"Geen {result_type} 1D data", f"{result_type} 1D resultaten niet beschikbaar", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]
+        ], headers
 
     # Use vectorized operations instead of row-by-row iteration
     # Format dx values (integration strip positions)
