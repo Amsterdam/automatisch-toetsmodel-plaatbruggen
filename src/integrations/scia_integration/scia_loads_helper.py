@@ -493,7 +493,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
 
-def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) -> list[list[float]]:
+def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) -> list[list[list[float]]]:
     """Helper function to create a tandem's wheel coordinates."""
     wheels = []
     tandem_start_y = y_center - 1.2
@@ -845,7 +845,6 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
                 "loads": [{"wheels": wheels_300, "load": load_main}],
             }
             results.append(load_case)
-            print(load_case)
             idx += 1
             continue  # Skip creating configurations A/B since we only have center lane
 
@@ -885,7 +884,6 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
         }
         results.append(load_case_b)
         idx += 1
-        print(results)
     return results
 
 
