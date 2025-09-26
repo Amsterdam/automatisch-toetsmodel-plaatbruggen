@@ -10,7 +10,6 @@ from typing import Any, Literal
 from .scia_load_generators import extract_bridge_dimensions
 from .scia_loads_helper import (
     generate_theoretical_lane_positions_bg8000,
-    tandem_systems_theoretical_lanes_bg10000,
     tandem_system_sequencer,
     tandem_system_sequencer_single_axis,
     tandem_system_sequencer_single_axis_rotated,

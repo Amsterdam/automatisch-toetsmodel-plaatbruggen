@@ -492,6 +492,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
 # These functions connect tandem loads to theoretical traffic lanes from
 # src.geometry.load_zone_geometry for proper structural engineering analysis.
 
+
 def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) -> list[list[float]]:
     """Helper function to create a tandem's wheel coordinates."""
     wheels = []
@@ -507,6 +508,7 @@ def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) ->
         ]
         wheels.append(wheel_coords)
     return wheels
+
 
 def generate_theoretical_lane_positions_bg8000(
     width_bridgedeck: float,
@@ -750,6 +752,7 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
 
     return results
 
+
 def generate_theoretical_lane_positions_bg10000(
     width_bridgedeck: float,
     lane_width: float = 3.0,
@@ -775,7 +778,7 @@ def generate_theoretical_lane_positions_bg10000(
 
     # Center lane
     y_center = width_bridgedeck / 2 - zone3_width - 0.5 * zone2_width
-    
+
     # Only add adjacent lanes if we have at least 9m width (3 lanes of 3m each)
     if width_bridgedeck >= 9.0:
         # Left lane (adjacent to center)
@@ -783,9 +786,8 @@ def generate_theoretical_lane_positions_bg10000(
         # Right lane (adjacent to center)
         y_right = y_center + lane_width
         return [y_center, y_left, y_right]
-    else:
-        # For narrow bridges, only return center lane
-        return [y_center]
+    # For narrow bridges, only return center lane
+    return [y_center]
 
 
 def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
@@ -826,16 +828,16 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     # Check if we have enough width for adjacent lanes (needs at least 9m)
     has_adjacent_lanes = len(lane_y_positions) > 1
     y_center = lane_y_positions[0]  # Center lane always exists
-    
+
     prefix = "BG10"
     results = []
     idx = 1
-    
+
     # For all tandem positions along the bridge
     for x in tandem_x_positions:
         # Create central 300kN tandem (always present)
         wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
-            
+
         if not has_adjacent_lanes:
             # For narrow bridges, only create central tandem
             load_case = {
@@ -846,11 +848,11 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
             print(load_case)
             idx += 1
             continue  # Skip creating configurations A/B since we only have center lane
-            
+
         # For wider bridges, get adjacent lane positions
         y_left = lane_y_positions[1]
         y_right = lane_y_positions[2]
-        
+
         # Create wheels for Configuration A: 200 kN left, 100 kN right
         wheels_200_left = _create_tandem_wheels(x, y_left, wheel_size)
 
@@ -1277,7 +1279,7 @@ def generate_real_lane_positions_bg10000(
 
     # Center lane
     y_center = (y_top + y_bottom) / 2
-    
+
     # Only add adjacent lanes if we have at least 9m width (3 lanes of 3m each)
     if width_road >= 9.0:
         # Left lane (adjacent to center)
@@ -1285,9 +1287,8 @@ def generate_real_lane_positions_bg10000(
         # Right lane (adjacent to center)
         y_right = y_center + lane_width
         return [y_center, y_left, y_right]
-    else:
-        # For narrow roads, only return center lane
-        return [y_center]
+    # For narrow roads, only return center lane
+    return [y_center]
 
 
 def tandem_systems_real_lanes_bg10000(
@@ -1320,11 +1321,11 @@ def tandem_systems_real_lanes_bg10000(
     # Check if we have enough width for adjacent lanes (needs at least 9m)
     has_adjacent_lanes = len(lane_y_positions) > 1
     y_center = lane_y_positions[0]  # Center lane always exists
-    
+
     prefix = "BG10"
     results = []
     idx = 1
-    
+
     # For all tandem positions along the bridge
     for x in tandem_x_positions:
         # Central 300kN tandem (always present)
