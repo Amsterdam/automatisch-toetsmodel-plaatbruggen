@@ -38,6 +38,7 @@ from app.constants import (
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
     SCIA_INFO_TEXT,
 )
 from src.common.materials import get_reinforcement_qualities
@@ -692,6 +693,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         name="concrete_strength_class",
         description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
+    info.concrete_strength_class_source = OptionField(
+        "Bron Betonsterkteklasse",
+        options=["Onbekend", "Aanname", "Tekening"],
+        default="Onbekend",
+    )
+    info.concrete_strength_class_source_text = TextAreaField(
+        "Toelichting Bron Betonsterkteklasse", default="", description="Toelichting op de bron van de betonsterkteklasse"
+    )
 
     info.lb2a = LineBreak()
 
@@ -896,23 +905,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------------
 
     # --- Reinforcement Geometry (in geometrie_wapening tab) ---
-    input.geometrie_wapening.explanation = Text(
-        """Op deze pagina kan de wapening van de brug worden ingevoerd. Er kunnen oneindig veel wapeningconfiguraties worden toegevoegd.
-        Er kan per configuratie worden aangegeven in welke zones deze moet worden toegepast.
-De zones corresponderen met de plaatzones die worden gegenereerd op basis van de geometrie:
-- Bij de minimale geometrie (2 doorsnedes) ontstaan er 3 zones: "1-1", "2-1" en "3-1"
-- Voor elke extra doorsnede komen er 3 nieuwe zones bij: "1-2", "2-2", "3-2", etc.
-- Het getal voor het streepje correspondeert met de zone (1=links, 2=midden, 3=rechts)
-- Het getal na het streepje geeft aan bij welk segment de zone hoort
-
-Eerst wordt er gevraagd naar de eigenschappen van de hoofdwapening in langs- en dwarsrichting.
-Vervolgens kan er aangeklikt worden, of er extra bijlegwapening aanwezig is in de configuratie.
-Wanneer dit wordt aangevinkt, verschijnen dezelfde invoervelden nogmaals, om deze bijlegwapening te definiëren.
-In het model, wordt deze bijlegwapening automatisch tussen het bestaande hoofdwapeningsnet gelegd, met dezelfde hart op hart afstand.
-
-Zorg ervoor dat elke zone altijd precies 1 keer is aangevinkt, anders kan het model niet correct worden gegenereerd.
-Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningsconfiguraties worden gedefinieerd."""
-    )
+    input.geometrie_wapening.explanation = Text(REINFORCEMENT_INFO_TEXT)
 
     # General reinforcement parameters
     input.geometrie_wapening.staalsoort = OptionField(
@@ -924,6 +917,19 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
             "Oude staalsoorten worden automatisch ondersteund."
         ),
     )
+
+    input.geometrie_wapening.steel_quality_source = OptionField(
+        "Staalsoort bron",
+        options=["Onbekend", "Aanname", "Tekening"],
+        default="Onbekend",
+        description=("Bron van de staalsoort, bijvoorbeeld een aanname of afgeleid uit tekeningen."),
+    )
+
+    input.geometrie_wapening.steel_quality_source_text = TextAreaField(
+        "Toelichting staalsoort bron", default="", description="Toelichting op de bron van de staalsoort"
+    )
+
+    input.geometrie_wapening.lb0 = LineBreak()
 
     input.geometrie_wapening.langswapening_buiten = BooleanField(
         "Langswapening in eerste laag?",

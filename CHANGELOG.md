@@ -3,6 +3,7 @@
 - **Invoer - Dimensies**: minimum values for the dimension field.
   - Description that the bridge always consists of 3 zones.
   - Instructions how to model a bridge with one thickness
+  **Source fields for concrete and steel aquality**: added fields for concrete and steelquality source
 
 ### Changed
 - **Invoer - berekeningsinstellingen**: NEN 8700 gebruik is now default veiligheidsniveai. Renamed Berekeningsniveau to Verkeersbelasting.

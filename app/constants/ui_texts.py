@@ -114,6 +114,23 @@ De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts éé
 
 """
 
+# Reinforcement explanation text
+REINFORCEMENT_INFO_TEXT = """Op deze pagina kan de wapening van de brug worden ingevoerd. Er kunnen oneindig veel wapeningconfiguraties worden toegevoegd. 
+Er kan per configuratie worden aangegeven in welke zones deze moet worden toegepast.
+De zones corresponderen met de plaatzones die worden gegenereerd op basis van de geometrie:
+- Bij de minimale geometrie (2 doorsnedes) ontstaan er 3 zones: "1-1", "2-1" en "3-1"
+- Voor elke extra doorsnede komen er 3 nieuwe zones bij: "1-2", "2-2", "3-2", etc.
+- Het getal voor het streepje correspondeert met de zone (1=links, 2=midden, 3=rechts)
+- Het getal na het streepje geeft aan bij welk segment de zone hoort
+
+Eerst wordt er gevraagd naar de eigenschappen van de hoofdwapening in langs- en dwarsrichting.
+Vervolgens kan er aangeklikt worden, of er extra bijlegwapening aanwezig is in de configuratie.
+Wanneer dit wordt aangevinkt, verschijnen dezelfde invoervelden nogmaals, om deze bijlegwapening te definiëren.
+In het model, wordt deze bijlegwapening automatisch tussen het bestaande hoofdwapeningsnet gelegd, met dezelfde hart op hart afstand.
+
+Zorg ervoor dat elke zone altijd precies 1 keer is aangevinkt, anders kan het model niet correct worden gegenereerd.
+Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningsconfiguraties worden gedefinieerd."""
+
 # IDEA StatiCa integration info text
 IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
