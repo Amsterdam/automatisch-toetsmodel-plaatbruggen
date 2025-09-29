@@ -1,7 +1,11 @@
 ## [`v0.0.15`] - 2025-XX-XX
+### Changed
+- **SCIA Results Processor Refactor**: Rewrote coordinate extraction and normalized direction vector logic in `scia_results_processor.py` for improved robustness and clarity.
+
 ### Fixed
 - **IDEA Integration Strip Loads**: Fixed integration strip loads not being applied to IDEA model due to incorrect column name references
   - Updated `_find_matching_strips` and `_apply_strip_loads_to_slab_direction` functions to use 'name' instead of 'Naam'
+  - SCIA strip load now apply correctly to IDEA slabs, fixed multiple issues.
 
 ## [`v0.0.14`] - 2025-09-23
 ### Fixed
