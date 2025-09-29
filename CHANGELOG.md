@@ -1,3 +1,8 @@
+## [`v0.0.15`] - 2025-XX-XX
+### Fixed
+- **IDEA Integration Strip Loads**: Fixed integration strip loads not being applied to IDEA model due to incorrect column name references
+  - Updated `_find_matching_strips` and `_apply_strip_loads_to_slab_direction` functions to use 'name' instead of 'Naam'
+
 ## [`v0.0.14`] - 2025-09-23
 ### Fixed
 - **IDEA Integration Strip Results Merge**: Fixed KeyError 'Naam' in IDEA StatiCa integration when processing strip results

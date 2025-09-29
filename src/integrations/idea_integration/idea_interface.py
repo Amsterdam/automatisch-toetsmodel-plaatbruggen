@@ -572,7 +572,7 @@ def _find_matching_strips(df_all: pd.DataFrame, zones: list[str]) -> list:
     """Find strips that belong to the specified zones."""
     matching_strips = []
     for _, row in df_all.iterrows():
-        strip_name = row.get("Naam", "")
+        strip_name = row.get("name", "")
         zone_name = _extract_zone_name_from_strip(strip_name)
         if zone_name in zones:
             matching_strips.append(row)
@@ -611,10 +611,10 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
     for row in matching_strips:
         char, freq, fund = _create_idea_loading_objects(row, moment_component)
 
-        strip_name = row.get("Naam", "Unknown")
+        strip_name = row.get("name", "Unknown")
         zone_name = _extract_zone_name_from_strip(strip_name)
         dx_value = row.get("dx", 0)
-        description = f"{desc_prefix}_{direction}_strip - Zone_{zone_name} - dx={dx_value:.3f}"
+        description = f"{desc_prefix} - {zone_name} - strip_{strip_name} - dx={dx_value:.3f}"
 
         slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
