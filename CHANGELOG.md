@@ -1,4 +1,7 @@
 ## [`v0.0.15`] - 2025-XX-XX
+### Changed
+- **Invoer - berekeningsinstellingen**: NEN 8700 gebruik is now default veiligheidsniveai. Renamed Berekeningsniveau to Verkeersbelasting.
+
 ### Fixed
 - **IDEA Integration Strip Loads**: Fixed integration strip loads not being applied to IDEA model due to incorrect column name references
   - Updated `_find_matching_strips` and `_apply_strip_loads_to_slab_direction` functions to use 'name' instead of 'Naam'
