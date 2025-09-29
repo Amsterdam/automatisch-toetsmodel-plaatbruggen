@@ -22,14 +22,14 @@ from src.integrations.scia_integration.scia_model_interface import (
 
 # Global VIKTOR imports with error handling for CI/testing environments
 if TYPE_CHECKING:
-    from viktor.core import File
+    from viktor.core import File, progress_message
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
 
     VIKTOR_AVAILABLE = True
 else:
     try:
-        from viktor.core import File
+        from viktor.core import File, progress_message
         from viktor.external import scia
         from viktor.external.scia import OutputFileParser
 
@@ -38,6 +38,7 @@ else:
         # Mock scia module for environments without VIKTOR SDK
         scia = None  # type: ignore[misc,assignment]
         File = None  # type: ignore[misc,assignment]
+        progress_message = None  # type: ignore[misc,assignment]
         OutputFileParser = None  # type: ignore[misc,assignment]
         VIKTOR_AVAILABLE = False
 
@@ -1150,15 +1151,18 @@ def _run_scia_analysis_with_builder(params: Any, template_path: Path) -> tuple[S
     :return: Tuple of (analysis object, basic results dictionary).
     """
     # Create builder and generate input files
+    progress_message("Genereren SCIA model...")
     builder = ViktorSciaModelBuilder()
     define_complete_bridge_model(builder, params)
     xml_file, def_file = builder.generate_xml_input()
     esa_template = File.from_path(template_path)
 
     # Run the analysis using the builder interface
+    progress_message("Uitvoeren SCIA berekening...")
     analysis = builder.run_analysis(xml_file, def_file, esa_template)
 
     # Extract results using the builder interface
+    progress_message("Extraheren resultaten...")
     results = builder.extract_analysis_results(analysis)
 
     return analysis, results
@@ -1176,12 +1180,15 @@ def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
     # Run analysis and get basic results
+    progress_message("Uitvoeren SCIA analyse...")
     analysis, results = _run_scia_analysis_with_builder(params, template_path)
 
     # Extract additional data for caching
+    progress_message("Extraheren XML output voor caching...")
     results["xml_output"] = _extract_xml_output_for_caching(analysis)
 
     # Extract ESA model
+    progress_message("Extraheren ESA model...")
     esa_model = _extract_esa_model_for_caching(analysis)
     results["esa_model"] = esa_model
 

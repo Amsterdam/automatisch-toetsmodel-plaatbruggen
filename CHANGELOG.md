@@ -4,6 +4,7 @@
   - Description that the bridge always consists of 3 zones.
   - Instructions how to model a bridge with one thickness
   **Source fields for concrete and steel aquality**: added fields for concrete and steelquality source
+  **Progress messages**: added progress messages to VIKTOR loading screens. (messages for download buttons are not working atm)
 
 ### Changed
 - **Invoer - berekeningsinstellingen**: NEN 8700 gebruik is now default veiligheidsniveai. Renamed Berekeningsniveau to Verkeersbelasting.

@@ -11,7 +11,7 @@ import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from viktor.core import File, ViktorController
+from viktor.core import File, ViktorController, progress_message
 from viktor.errors import UserError  # Add UserError
 from viktor.result import DownloadResult  # Import DownloadResult from correct module
 from viktor.views import (
@@ -778,6 +778,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS kar analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -844,6 +845,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS freq analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -894,6 +896,7 @@ class BridgeController(ViktorController):
 
         Note: SCIA analysis can take up to 10 minutes for complex models.
         """
+
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
@@ -910,6 +913,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA ULS analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -977,6 +981,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS kar 1D analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -1044,6 +1049,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS freq 1D analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -1111,6 +1117,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA ULS 1D analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -1779,6 +1786,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
         # Get cached results
+        progress_message("Laden van gecachte IDEA RCS analyse of starten nieuwe analyse...")
         cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
@@ -1828,6 +1836,7 @@ class BridgeController(ViktorController):
 
             # Get cached IDEA model
             assert entity_id is not None  # type: ignore[unreachable]
+            progress_message("Laden van gecachte IDEA model of genereren nieuw model...")
             cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_model_only)
             if cached_results is None:
                 _raise_model_creation_error()
@@ -1882,6 +1891,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID not found in kwargs")
 
         # Get cached IDEA analysis results
+        progress_message("Laden van gecachte IDEA analyse resultaten...")
         cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analysis failed or no cached results available")
