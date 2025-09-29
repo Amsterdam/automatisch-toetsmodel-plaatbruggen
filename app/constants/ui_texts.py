@@ -110,7 +110,7 @@ Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
 Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
 
-De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor `dz` en `dz_2` (alle zones zelfde dikte).
+De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor `dz` en `dz_2`.
 
 """
 
