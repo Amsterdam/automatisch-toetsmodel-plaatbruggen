@@ -896,7 +896,6 @@ class BridgeController(ViktorController):
 
         Note: SCIA analysis can take up to 10 minutes for complex models.
         """
-
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 

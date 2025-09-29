@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 from viktor.views import TableResult
-from viktor.core import progress_message
 
 if TYPE_CHECKING:
     from .scia_unit_conversion import SciaUnitConverter
@@ -339,7 +338,6 @@ def create_scia_node_results_table(results: dict[str, Any], result_type: str) ->
     :rtype: TableResult
     :raises Exception: If processing fails
     """
-
     try:
         # Extract units mapping from results
         units_mapping = results.get("units", {}).get("internal_forces", {})
