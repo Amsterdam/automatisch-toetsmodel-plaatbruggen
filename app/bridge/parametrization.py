@@ -994,7 +994,6 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 
     input.geometrie_wapening.zones.lb3 = LineBreak()
 
-    
     # Main reinforcement - Transverse Top
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = NumberField(
         "Ø hoofdwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47
@@ -1075,7 +1074,6 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     )
 
     input.geometrie_wapening.zones.lb10 = LineBreak()
-
 
     # Additional reinforcement - Transverse bottom
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = NumberField(
