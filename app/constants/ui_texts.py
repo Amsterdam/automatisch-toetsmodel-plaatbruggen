@@ -115,7 +115,8 @@ De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts éé
 """
 
 # Reinforcement explanation text
-REINFORCEMENT_INFO_TEXT = """Op deze pagina kan de wapening van de brug worden ingevoerd. Er kunnen oneindig veel wapeningconfiguraties worden toegevoegd. 
+REINFORCEMENT_INFO_TEXT = """Op deze pagina kan de wapening van de brug worden ingevoerd.
+Er kunnen oneindig veel wapeningconfiguraties worden toegevoegd.
 Er kan per configuratie worden aangegeven in welke zones deze moet worden toegepast.
 De zones corresponderen met de plaatzones die worden gegenereerd op basis van de geometrie:
 - Bij de minimale geometrie (2 doorsnedes) ontstaan er 3 zones: "1-1", "2-1" en "3-1"
