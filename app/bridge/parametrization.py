@@ -848,11 +848,11 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
 
-    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m")
-    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m")
-    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m")
-    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m")
-    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=0.8, suffix="m")
+    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
+    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
+    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
+    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m", min=0.05)
+    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=0.8, suffix="m", min=0.05)
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
 
     _l_field_visibility_constraint = DynamicArrayConstraint(
@@ -863,6 +863,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Afstand tot vorige snede",
         default=10,
         suffix="m",
+        min=0.1,
         visible=_l_field_visibility_constraint,
     )
 
