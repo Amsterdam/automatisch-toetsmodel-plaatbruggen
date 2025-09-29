@@ -795,13 +795,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         ],
         variant="radio",
         name="design_code",
-        default="NEN 8700 verbouw",
+        default="NEN 8700 gebruik",
     )
 
     input.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
 
     input.berekeningsinstellingen.berekeningsniveau = OptionField(
-        "Berekeningsniveau",
+        "Verkeersbelasting",
         options=[
             "Theoretische wegindeling",
             "Werkelijke wegindeling",

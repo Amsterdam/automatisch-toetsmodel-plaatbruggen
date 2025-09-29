@@ -1,6 +1,8 @@
 ## [`v0.0.15`] - 2025-XX-XX
 ### Changed
+- **Invoer - berekeningsinstellingen**: NEN 8700 gebruik is now default veiligheidsniveai. Renamed Berekeningsniveau to Verkeersbelasting.
 - **SCIA Results Processor Refactor**: Rewrote coordinate extraction and normalized direction vector logic in `scia_results_processor.py` for improved robustness and clarity.
+
 
 ### Fixed
 - **IDEA Integration Strip Loads**: Fixed integration strip loads not being applied to IDEA model due to incorrect column name references
