@@ -1,10 +1,14 @@
 ## [`v0.0.15`] - 2025-XX-XX
+### Added
+- **Invoer - Dimensies**: minimum values for the dimension field.
+  - Description that the bridge always consists of 3 zones.
+  - Instructions how to model a bridge with one thickness
+
 ### Changed
 - **Invoer - berekeningsinstellingen**: NEN 8700 gebruik is now default veiligheidsniveai. Renamed Berekeningsniveau to Verkeersbelasting.
 - **SCIA Results Processor Refactor**: Rewrote coordinate extraction and normalized direction vector logic in `scia_results_processor.py` for improved robustness and clarity.
 - **Invoer- Wapening**: Order of the fields adjusted, so that you first have longitudinal and transverse top, and then longitudinal and transverse bottom.
   - renamed diameter to Ø in order to shorten the field names for visibility on low resolution screens 
-
 
 ### Fixed
 - **IDEA Integration Strip Loads**: Fixed integration strip loads not being applied to IDEA model due to incorrect column name references

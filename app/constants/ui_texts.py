@@ -108,7 +108,11 @@ Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 - De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
   beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
 Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
-Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen."""
+Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
+
+De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor `dz` en `dz_2`.
+
+"""
 
 # IDEA StatiCa integration info text
 IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
