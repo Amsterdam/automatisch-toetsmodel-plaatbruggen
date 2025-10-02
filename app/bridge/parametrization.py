@@ -34,6 +34,9 @@ from app.constants import (
     CONCRETEQUALITY_CSV_PATH,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
@@ -778,7 +781,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "get_2d_longitudinal_section",
             "get_2d_cross_section",
             "get_load_zones_view",
-            "get_load_combinations_view",
         ],
     )
 
@@ -786,57 +788,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions = Tab("Dimensies")
     input.geometrie_wapening = Tab("Wapening")
     input.belastingzones = Tab("Belastingzones")
-    input.berekeningsinstellingen = Tab("Berekeningsinstellingen")
-
-    input.berekeningsinstellingen.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
-
-    # --- Load Combinations (in berekeningsinstellingen tab) ---
-    input.berekeningsinstellingen.cc_class = OptionField(
-        "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
-    )
-
-    input.berekeningsinstellingen.design_code = OptionField(
-        "Veiligheidsniveau",
-        options=[
-            "NEN 8700 verbouw",
-            "NEN 8700 gebruik",
-            "NEN 8700 afkeur",
-        ],
-        variant="radio",
-        name="design_code",
-        default="NEN 8700 gebruik",
-    )
-
-    input.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
-
-    input.berekeningsinstellingen.berekeningsniveau = OptionField(
-        "Verkeersbelasting",
-        options=[
-            "Theoretische wegindeling",
-            "Werkelijke wegindeling",
-            "Werkelijke wegindeling onderliggend wegennet",
-            "Werkelijke wegindeling met bebording",
-        ],
-        variant="radio",
-        name="berekeningsniveau",
-        default="Theoretische wegindeling",
-    )
-
-    input.berekeningsinstellingen.signage = OptionField(
-        "Bebording",
-        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
-        name="signage",
-        default="50 ton",
-        visible=_show_signage_field,
-    )
-
-    input.berekeningsinstellingen.lb1 = LineBreak()
-
-    input.berekeningsinstellingen.spreiding = BooleanField(
-        "Spreiding van verkeersbelasting",
-        default=True,
-        description="Indien aangevinkt, wordt de verticale verkeersbelasting van BG6000 tot en met BG10000, uitgespreid over een breder vlak",
-    )
+    
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
@@ -1162,6 +1114,100 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------------
 
     # ----------------------------------
+    # --- Berekening Page ---
+    # ----------------------------------
+    calc_page = Page("Berekening", views="get_load_combinations_view")
+
+    calc_page.berekeningsinstellingen = Tab("Berekeningsinstellingen")
+
+    calc_page.berekeningsinstellingen.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
+
+    # --- Load Combinations (in berekeningsinstellingen tab) ---
+    calc_page.berekeningsinstellingen.cc_class = OptionField(
+        "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
+    )
+
+    calc_page.berekeningsinstellingen.design_code = OptionField(
+        "Veiligheidsniveau",
+        options=[
+            "NEN 8700 verbouw",
+            "NEN 8700 gebruik",
+            "NEN 8700 afkeur",
+        ],
+        variant="radio",
+        name="design_code",
+        default="NEN 8700 gebruik",
+    )
+
+    calc_page.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
+
+    calc_page.berekeningsinstellingen.berekeningsniveau = OptionField(
+        "Verkeersbelasting",
+        options=[
+            "Theoretische wegindeling",
+            "Werkelijke wegindeling",
+            "Werkelijke wegindeling onderliggend wegennet",
+            "Werkelijke wegindeling met bebording",
+        ],
+        variant="radio",
+        name="berekeningsniveau",
+        default="Theoretische wegindeling",
+    )
+
+    calc_page.berekeningsinstellingen.signage = OptionField(
+        "Bebording",
+        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
+        name="signage",
+        default="50 ton",
+        visible=_show_signage_field,
+    )
+
+    calc_page.berekeningsinstellingen.lb1 = LineBreak()
+
+    calc_page.berekeningsinstellingen.spreiding = BooleanField(
+        "Spreiding van verkeersbelasting",
+        default=True,
+        name="spreiding",
+        description="Indien aangevinkt, wordt de verticale verkeersbelasting van BG6000 tot en met BG10000, uitgespreid over een breder vlak",
+    )
+
+    # ----------------------------------
+    # --- Berekening Page -> Berekening opties tab --- 
+    # ----------------------------------
+    calc_page.calc_options = Tab("Berekening opties")
+
+    # Load case selection for controlling calculation time
+    calc_page.calc_options.load_case_selection_header = Text(LOAD_CASE_SELECTION_HEADER_TEXT)
+
+    calc_page.calc_options.lb_load_case_selection = LineBreak()
+
+    calc_page.calc_options.load_case_selection_table = Table(
+        "Belastingselectie",
+        name="load_case_selection_table",
+        default=LOAD_CASE_SELECTION_DEFAULT,
+    )
+
+    # Define table columns (order determines display order)
+    calc_page.calc_options.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
+    calc_page.calc_options.load_case_selection_table.load_type = TextField(
+        "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
+    )
+    calc_page.calc_options.load_case_selection_table.load_case_range = TextField(
+        "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
+    )
+    calc_page.calc_options.load_case_selection_table.load_case_count = NumberField(
+        "Aantal belastinggevallen",
+        suffix="",
+        visible=True,
+        description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
+    )
+
+    calc_page.calc_options.lb_traffic_loads = LineBreak()
+
+    calc_page.calc_options.load_case_selection_note = Text(LOAD_CASE_SELECTION_NOTE_TEXT)
+
+
+    # ----------------------------------
     # --- SCIA Page ---
     # ----------------------------------
 
@@ -1191,98 +1237,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Analysis button
     scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml", longpoll=True)
-
-    # Berekening tab
-    scia.berekening = Tab("Berekening")
-
-    # Load case selection for controlling calculation time
-    scia.berekening.load_case_selection_header = Text(
-        """## Belastingselectie
-Selecteer welke belastingen worden gegenereerd in het SCIA model.
-Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen."""
-    )
-
-    scia.berekening.lb_load_case_selection = LineBreak()
-
-    # Default content for load case selection table (static values)
-    _load_case_selection_default: ClassVar[list[dict[str, Any]]] = [
-        {
-            "include": True,
-            "load_type": "Eigen gewicht",
-            "load_case_range": "BG1001",
-            "load_case_count": 1,
-        },
-        {
-            "include": True,
-            "load_type": "Permanent",
-            "load_case_range": "BG2001-BG2005",
-            "load_case_count": 5,
-        },
-        {
-            "include": True,
-            "load_type": "Temperatuur",
-            "load_case_range": "BG3001-BG3004",
-            "load_case_count": 4,
-        },
-        {
-            "include": True,
-            "load_type": "UDL",
-            "load_case_range": "BG4001-BG4003",
-            "load_case_count": 3,
-        },
-        {
-            "include": True,
-            "load_type": "Voetgangers",
-            "load_case_range": "BG5001",
-            "load_case_count": 1,
-        },
-        {
-            "include": True,
-            "load_type": "Dienstvoertuig",
-            "load_case_range": "BG6001-BG6xxx",
-            "load_case_count": 20,  # Estimated default
-        },
-        {
-            "include": True,
-            "load_type": "Onbedoeld voertuig",
-            "load_case_range": "BG7001-BG7xxx",
-            "load_case_count": 50,  # Estimated default
-        },
-        {
-            "include": True,
-            "load_type": "TS",
-            "load_case_range": "BG8001-BG10xxx",
-            "load_case_count": 30,  # Estimated default
-        },
-    ]
-
-    scia.berekening.load_case_selection_table = Table(
-        "Belastingselectie",
-        name="load_case_selection_table",
-        default=_load_case_selection_default,
-    )
-
-    # Define table columns (order determines display order)
-    scia.berekening.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
-    scia.berekening.load_case_selection_table.load_type = TextField(
-        "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
-    )
-    scia.berekening.load_case_selection_table.load_case_range = TextField(
-        "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
-    )
-    scia.berekening.load_case_selection_table.load_case_count = NumberField(
-        "Aantal belastinggevallen",
-        suffix="",
-        visible=True,
-        description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
-    )
-
-    scia.berekening.lb_traffic_loads = LineBreak()
-
-    scia.berekening.load_case_selection_note = Text(
-        """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,
-maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoeleinden."""
-    )
 
     # ----------------------------------
     # --- IDEA StatiCa Page ---
