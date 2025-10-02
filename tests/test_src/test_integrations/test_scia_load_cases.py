@@ -12,7 +12,6 @@ import pytest
 from src.integrations.scia_integration.scia_load_cases import (
     create_all_load_cases,
     create_dead_load_cases,
-    create_dynamic_tandem_load_cases,
     create_pedestrian_load_case,
     create_self_weight_load_case,
     create_service_vehicle_load_cases,

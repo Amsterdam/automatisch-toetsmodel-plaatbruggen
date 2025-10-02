@@ -1,4 +1,5 @@
-"""|
+"""
+|
 Technical constants specific to the app layer.
 
 These constants define app-specific technical limits and parameters

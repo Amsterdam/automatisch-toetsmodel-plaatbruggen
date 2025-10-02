@@ -3,7 +3,7 @@
 import csv
 import json
 from collections.abc import Callable, Mapping
-from typing import Any, ClassVar
+from typing import Any
 
 from viktor.parametrization import (
     BooleanField,
@@ -788,7 +788,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions = Tab("Dimensies")
     input.geometrie_wapening = Tab("Wapening")
     input.belastingzones = Tab("Belastingzones")
-    
+
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
@@ -1172,7 +1172,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     # ----------------------------------
-    # --- Berekening Page -> Berekening opties tab --- 
+    # --- Berekening Page -> Berekening opties tab ---
     # ----------------------------------
     calc_page.calc_options = Tab("Berekening opties")
 
@@ -1205,7 +1205,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     calc_page.calc_options.lb_traffic_loads = LineBreak()
 
     calc_page.calc_options.load_case_selection_note = Text(LOAD_CASE_SELECTION_NOTE_TEXT)
-
 
     # ----------------------------------
     # --- SCIA Page ---
