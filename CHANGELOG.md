@@ -1,4 +1,4 @@
-## [`v0.0.15`] - 2025-XX-XX
+## [`v0.0.15`] - 2025-10-02
 ### Added
 - **Invoer - Dimensies**: minimum values for the dimension field.
   - Description that the bridge always consists of 3 zones.
