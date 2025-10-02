@@ -9,11 +9,10 @@ loads from vehicles and tandem systems.
 from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
-
-from ..scia_coordinate_utils import convert_loads_to_scia_format
-from ..scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
-from ..scia_model_interface import SciaModelBuilder
-from ..types import BridgeParametrization
+from src.integrations.scia_integration.scia_coordinate_utils import convert_loads_to_scia_format
+from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.types import BridgeParametrization
 
 
 def dispersal_function(
@@ -42,7 +41,7 @@ def dispersal_function(
     """
     try:
         # Import here to avoid circular imports
-        from ..scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+        from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
         # Check if dispersion is enabled
         if not hasattr(params, "input") or not hasattr(params.input, "berekeningsinstellingen"):
@@ -73,12 +72,8 @@ def dispersal_function(
             original_area = 1.0  # Default area
 
         # Apply dispersion based on load case type and bridge thickness
-        if load_case_type == "axle_load":
-            # For axle loads, spread over a larger area
-            dispersion_factor = 1.5  # Increase area by 50%
-        else:
-            # For other loads, use standard dispersion
-            dispersion_factor = 1.2  # Increase area by 20%
+        # For axle loads, spread over a larger area (50%); for others, use standard dispersion (20%)
+        dispersion_factor = 1.5 if load_case_type == "axle_load" else 1.2
 
         # Calculate new corner points with expanded area
         if len(corner_points) == 4:
@@ -115,16 +110,12 @@ def dispersal_function(
             new_area = original_area * dispersion_factor
 
         # Adjust load value to maintain total force
-        if new_area > 0 and original_area > 0:
-            adjusted_load_value = load_value * (original_area / new_area)
-        else:
-            adjusted_load_value = load_value
-
-        return clipped_corners, adjusted_load_value
-
+        adjusted_load_value = load_value * (original_area / new_area) if new_area > 0 and original_area > 0 else load_value
     except Exception:
         # If dispersion fails, return original values
         return corner_points, load_value
+    else:
+        return clipped_corners, adjusted_load_value
 
 
 def add_theoretical_tandem_loads(
@@ -234,7 +225,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from ..scia_loads_helper import tandem_system_sequencer
+        from src.integrations.scia_integration.scia_loads_helper import tandem_system_sequencer
 
         positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
 
@@ -270,7 +261,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             load_per_area = force_per_wheel / wheel_area  # N/m²
 
             # Use the helper function to calculate wheel positions
-            from ..scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
@@ -345,7 +336,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from ..scia_loads_helper import (
+        from src.integrations.scia_integration.scia_loads_helper import (
             tandem_system_sequencer,
             tandem_system_sequencer_single_axis,
             tandem_system_sequencer_single_axis_rotated,
@@ -391,7 +382,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 load_per_area = force_per_wheel / wheel_area
 
                 # Use helper function to calculate wheel positions
-                from ..scia_loads_helper import calc_vehicle_load_locations
+                from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
 
                 wheel_locations = calc_vehicle_load_locations(
                     x_coord=axle_x,
@@ -448,7 +439,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             load_per_area = force_per_wheel / wheel_area
 
             # Use helper function to calculate wheel positions
-            from ..scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,

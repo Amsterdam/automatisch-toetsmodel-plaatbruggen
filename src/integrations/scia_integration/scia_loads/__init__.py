@@ -13,11 +13,12 @@ The package provides a clean separation of concerns for load creation functional
 from src.geometry.load_zone_geometry import get_bridge_geom_data
 
 # Re-export functions from other modules that tests need
-from ..scia_coordinate_utils import convert_loads_to_scia_format
-from ..scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+from src.integrations.scia_integration.scia_coordinate_utils import convert_loads_to_scia_format
+from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
 
 # Re-export types for backward compatibility
-from ..types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
+from src.integrations.scia_integration.types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
+
 from .scia_load_helpers import add_pedestrian_loads, create_all_loads
 from .scia_point_loads import (
     add_accidental_vehicle_loads,
@@ -36,29 +37,24 @@ from .scia_surface_loads import (
 )
 
 __all__ = [
-    # Surface loads
-    "add_udl_loads",
-    "add_parapet_loads",
+    "AmsterdamWheelConfig",
+    "BridgeParametrization",
+    "WheelConfig",
+    "add_accidental_vehicle_loads",
+    "add_actual_tandem_loads",
     "add_asfalt_loads",
     "add_concrete_fill_loads",
-    "add_pavement_loads",
     "add_crowd_loads",
-    # Point loads
-    "add_theoretical_tandem_loads",
-    "add_actual_tandem_loads",
-    "add_service_vehicle_loads",
-    "add_accidental_vehicle_loads",
-    "dispersal_function",
-    # Helpers
+    "add_parapet_loads",
+    "add_pavement_loads",
     "add_pedestrian_loads",
-    "create_all_loads",
-    # Functions from other modules (for test compatibility)
+    "add_service_vehicle_loads",
+    "add_theoretical_tandem_loads",
+    "add_udl_loads",
     "convert_loads_to_scia_format",
+    "create_all_loads",
+    "dispersal_function",
     "extract_bridge_dimensions",
     "generate_tandem_loads",
     "get_bridge_geom_data",
-    # Types
-    "WheelConfig",
-    "AmsterdamWheelConfig",
-    "BridgeParametrization",
 ]

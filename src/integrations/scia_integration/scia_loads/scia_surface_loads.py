@@ -9,10 +9,9 @@ loads and material-based surface loads.
 from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
-
-from ..scia_load_generators import generate_udl_loads
-from ..scia_model_interface import SciaModelBuilder
-from ..types import BridgeParametrization
+from src.integrations.scia_integration.scia_load_generators import generate_udl_loads
+from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.types import BridgeParametrization
 
 
 def add_udl_loads(
@@ -149,9 +148,10 @@ def add_parapet_loads(
                     edge_index=1,
                     load_value=-load_value,
                 )
-        return []
     except Exception as e:
         raise ValueError(f"Failed to add parapet loads: {e}") from e
+    else:
+        return []
 
 
 def add_asfalt_loads(
@@ -178,12 +178,13 @@ def add_asfalt_loads(
         load_case_name = asphalt_load_case.name
 
         material_config = {"Asfalt": load_case_name}
-        from ..scia_loads_helper import add_material_loads
+        from src.integrations.scia_integration.scia_loads_helper import add_material_loads
 
         add_material_loads(builder, params, material_config)
-        return []
     except Exception as e:
         raise ValueError(f"Failed to add asphalt loads: {e}") from e
+    else:
+        return []
 
 
 def add_concrete_fill_loads(
@@ -213,12 +214,13 @@ def add_concrete_fill_loads(
             "Beton (normaal)": load_case_name,
             "Beton (gewapend)": load_case_name,
         }
-        from ..scia_loads_helper import add_material_loads
+        from src.integrations.scia_integration.scia_loads_helper import add_material_loads
 
         add_material_loads(builder, params, material_config)
-        return []
     except Exception as e:
         raise ValueError(f"Failed to add concrete fill loads: {e}") from e
+    else:
+        return []
 
 
 def add_pavement_loads(
@@ -249,12 +251,13 @@ def add_pavement_loads(
             "Grind": load_case_name,
             "Tegels": load_case_name,
         }
-        from ..scia_loads_helper import add_material_loads
+        from src.integrations.scia_integration.scia_loads_helper import add_material_loads
 
         add_material_loads(builder, params, material_config)
-        return []
     except Exception as e:
         raise ValueError(f"Failed to add pavement loads: {e}") from e
+    else:
+        return []
 
 
 def add_crowd_loads(
@@ -309,6 +312,7 @@ def add_crowd_loads(
             corner_points=corners,
             load_value=-crowd_load_per_sqm_n,  # Negative for downward load
         )
-        return []  # Placeholder return to match function signature
     except Exception as e:
         raise ValueError(f"Failed to add crowd loads: {e}") from e
+    else:
+        return []  # Placeholder return to match function signature

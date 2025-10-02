@@ -38,29 +38,24 @@ from .scia_loads.scia_surface_loads import (
 from .types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
 
 __all__ = [
-    # Surface loads
-    "add_udl_loads",
-    "add_parapet_loads",
+    "AmsterdamWheelConfig",
+    "BridgeParametrization",
+    "WheelConfig",
+    "add_accidental_vehicle_loads",
+    "add_actual_tandem_loads",
     "add_asfalt_loads",
     "add_concrete_fill_loads",
-    "add_pavement_loads",
     "add_crowd_loads",
-    # Point loads
-    "add_theoretical_tandem_loads",
-    "add_actual_tandem_loads",
-    "add_service_vehicle_loads",
-    "add_accidental_vehicle_loads",
-    "dispersal_function",
-    # Helpers
+    "add_parapet_loads",
+    "add_pavement_loads",
     "add_pedestrian_loads",
-    "create_all_loads",
-    # Functions from other modules (for test compatibility)
+    "add_service_vehicle_loads",
+    "add_theoretical_tandem_loads",
+    "add_udl_loads",
     "convert_loads_to_scia_format",
+    "create_all_loads",
+    "dispersal_function",
     "extract_bridge_dimensions",
     "generate_tandem_loads",
     "get_bridge_geom_data",
-    # Types
-    "WheelConfig",
-    "AmsterdamWheelConfig",
-    "BridgeParametrization",
 ]

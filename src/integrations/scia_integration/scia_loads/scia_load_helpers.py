@@ -8,8 +8,8 @@ different load types.
 
 from typing import Any
 
-from ..scia_model_interface import SciaModelBuilder
-from ..types import BridgeParametrization
+from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.types import BridgeParametrization
 
 
 def add_pedestrian_loads(
