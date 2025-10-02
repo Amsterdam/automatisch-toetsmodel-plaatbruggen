@@ -195,7 +195,7 @@ class TestServiceVehicleLoads:
         # Verify workflow
         mock_extract.assert_called_once_with(mock_params)
         mock_sequencer.assert_called_once_with(50.0, 0.5, length_vehicle=3.25)  # Service vehicle length=3.25m
-        mock_bridge_geom.assert_called_once_with(mock_params)
+        mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times by dispersal_function
 
         # Should create loads for 3 positions × 2 edges × 4 wheels = 24 surface loads
         assert mock_builder.create_surface_load.call_count == 24
@@ -271,7 +271,7 @@ class TestAccidentalVehicleLoads:
         # Verify workflow
         mock_extract.assert_called_once_with(mock_params)
         mock_sequencer.assert_called_once_with(50.0, 0.5, length_vehicle=1.2)  # Accidental vehicle length=1.2m
-        mock_bridge_geom.assert_called_once_with(mock_params)
+        mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times by dispersal_function
 
         # Verify calc_vehicle_load_locations was called for standard accidental vehicles
         # 2 positions × 2 edges × 2 axles = 8 total calls (only standard vehicles, no Amsterdam vehicles in this test)

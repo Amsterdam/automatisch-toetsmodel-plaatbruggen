@@ -12,6 +12,11 @@ This module maintains the original API for existing code that imports from scia_
 """
 
 # Re-export all functions for backward compatibility
+from src.geometry.load_zone_geometry import get_bridge_geom_data
+
+# Re-export functions from other modules that tests need
+from .scia_coordinate_utils import convert_loads_to_scia_format
+from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
 from .scia_loads.scia_load_helpers import add_pedestrian_loads, create_all_loads
 from .scia_loads.scia_point_loads import (
     add_accidental_vehicle_loads,
@@ -28,11 +33,6 @@ from .scia_loads.scia_surface_loads import (
     add_pavement_loads,
     add_udl_loads,
 )
-
-# Re-export functions from other modules that tests need
-from .scia_coordinate_utils import convert_loads_to_scia_format
-from .scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
-    from src.geometry.load_zone_geometry import get_bridge_geom_data
 
 # Re-export types for backward compatibility
 from .types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig

@@ -42,7 +42,7 @@ def dispersal_function(
     """
     try:
         # Import here to avoid circular imports
-        from ..scia_loads_helper import clip_polygon_to_bridge_boundaries
+        from ..scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
         # Check if dispersion is enabled
         if not hasattr(params, "input") or not hasattr(params.input, "berekeningsinstellingen"):
@@ -51,10 +51,10 @@ def dispersal_function(
         if not params.input.berekeningsinstellingen.spreiding:
             return corner_points, load_value
 
-        # Get bridge dimensions for boundary checking
-        dims = extract_bridge_dimensions(params)
-        bridge_length = dims.total_length
-        bridge_width = dims.total_width
+        # Get bridge geometry data for boundary checking
+        bridge_geom_data = get_bridge_geom_data(params)
+        if bridge_geom_data is None:
+            return corner_points, load_value
 
         # Calculate original area
         if len(corner_points) < 3:
@@ -102,7 +102,7 @@ def dispersal_function(
             dispersed_corners = corner_points
 
         # Clip to bridge boundaries
-        clipped_corners = clip_polygon_to_bridge_boundaries(dispersed_corners, bridge_length, bridge_width)
+        clipped_corners = clip_polygon_to_bridge_boundaries(dispersed_corners, bridge_geom_data)
 
         # Calculate new area and adjust load value
         if len(clipped_corners) == 4:
