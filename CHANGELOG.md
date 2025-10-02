@@ -1,3 +1,5 @@
+## [`v0.0.16`] - 2025-XX-XX
+
 ## [`v0.0.15`] - 2025-10-02
 ### Added
 - **Invoer - Dimensies**: minimum values for the dimension field.
