@@ -40,7 +40,7 @@ def get_load_mode_from_params(params: BridgeParams) -> LoadMode:
     if berekeningsniveau in [
         "Werkelijke wegindeling",
         "Werkelijke wegindeling onderliggend wegennet",
-        "Werkelijke wegindeling onderliggend wegennet met bebording",
+        "Werkelijke wegindeling met bebording",
     ]:
         return LoadMode.ACTUAL
     # This should never happen with radio button, but fallback for safety

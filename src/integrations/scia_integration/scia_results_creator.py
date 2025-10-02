@@ -1,0 +1,232 @@
+"""
+SCIA results extraction and processing utilities.
+
+This module provides functions for extracting and processing results from SCIA analysis.
+These functions are pure Python and can be used by the app layer to retrieve analysis results.
+"""
+
+from typing import Any
+
+from .scia_model_interface import SciaAnalysis, SciaModelBuilder
+
+
+def extract_analysis_results(builder: SciaModelBuilder, analysis: SciaAnalysis) -> dict[str, Any]:
+    """
+    Extract results from a completed SCIA analysis using the builder interface.
+
+    :param builder: The SCIA model builder instance
+    :param analysis: The completed SCIA analysis object
+    :returns: Dictionary containing extracted analysis results
+    :rtype: dict[str, Any]
+    """
+    try:
+        # Extract results using the builder interface
+        results = builder.extract_analysis_results(analysis)
+
+        # Validate results
+        is_valid, validation_messages = validate_analysis_results(results)
+        results["validation"] = {
+            "is_valid": is_valid,
+            "messages": validation_messages,
+        }
+
+        # Add summary
+        results["result_summary"] = get_result_summary(results)
+
+        # Attach units mapping for downstream consumers
+        units_mapping = build_units_mapping(results)
+        results["units"] = units_mapping
+
+        # Also place units inside individual sections when present (convenience)
+        if isinstance(results.get("internal_forces"), dict):
+            results["internal_forces"].setdefault("units", units_mapping.get("internal_forces", {}))
+
+    except Exception as e:
+        raise ValueError(f"Failed to extract SCIA analysis results: {e!s}")
+    else:
+        return results
+
+
+def get_result_summary(results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Generate a summary of the analysis results.
+
+    :param results: The complete results dictionary from extract_analysis_results
+    :returns: Summary of key results and statistics
+    :rtype: dict[str, Any]
+    """
+
+    # Helper function to safely get status from result sections
+    def _get_status(section_data: object) -> str:
+        if isinstance(section_data, dict):
+            return section_data.get("status", "unknown")
+        return "unknown"
+
+    summary = {
+        "analysis_successful": results.get("analysis_status", {}).get("executed", False),
+        "has_displacements": _get_status(results.get("displacements")) != "not_implemented",
+        "has_internal_forces": _get_status(results.get("internal_forces")) != "not_implemented",
+        "has_reactions": _get_status(results.get("reactions")) != "not_implemented",
+        "has_stresses": _get_status(results.get("stresses")) != "not_implemented",
+    }
+
+    # Add error information if available
+    error_msg = results.get("analysis_status", {}).get("error_message")
+    if error_msg:
+        summary["error_message"] = error_msg
+
+    return summary
+
+
+def validate_analysis_results(results: dict[str, Any]) -> tuple[bool, list[str]]:
+    """
+    Validate that the analysis results are complete and usable.
+
+    :param results: The complete results dictionary from extract_analysis_results
+    :returns: Tuple of (is_valid, list_of_validation_messages)
+    :rtype: tuple[bool, list[str]]
+    """
+    validation_messages = []
+
+    # Check if analysis was executed
+    if not results.get("analysis_status", {}).get("executed", False):
+        validation_messages.append("Analysis was not executed successfully")
+
+    # Check for error messages
+    error_msg = results.get("analysis_status", {}).get("error_message")
+    if error_msg:
+        validation_messages.append(f"Analysis error: {error_msg}")
+
+    # TODO: Add more validation checks as result extraction is implemented
+
+    is_valid = len(validation_messages) == 0
+    return is_valid, validation_messages
+
+
+def build_units_mapping(results: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """
+    Build a best-effort units mapping for SCIA results.
+
+    The mapping is returned under a top-level structure keyed by result category
+    (e.g. "internal_forces", "reactions", "stresses"). For internal forces,
+    units depend on whether the selected table represents 1D (beam) or 2D (plate)
+    forces. This is inferred from the table name when available.
+
+    This function now uses the centralized unit conversion system to ensure
+    units mapping and value conversion stay in sync.
+
+    :param results: The complete results dictionary from extract_analysis_results
+    :returns: Mapping from category -> { result_component: unit_string }
+    :rtype: dict[str, dict[str, str]]
+    """
+    # Import the centralized unit conversion system
+    from .scia_unit_conversion import build_units_mapping as build_units_mapping_centralized
+
+    # Use the centralized system
+    return build_units_mapping_centralized(results)
+
+
+def _extract_combinations_by_type(load_combinations: dict[str, Any], combo_type: str) -> list[Any]:
+    """
+    Extract load combinations by type from the load combinations dictionary.
+
+    :param load_combinations: Dictionary of created load combinations
+    :param combo_type: Type to filter by (ULS, SLS, etc.)
+    :returns: List of combinations of the specified type
+    """
+    if not load_combinations:
+        return []
+
+    items_iter = []
+    if isinstance(load_combinations, dict):
+        items_iter = list(load_combinations.items())
+    elif hasattr(load_combinations, "items"):
+        try:
+            items_iter = list(load_combinations.items())
+        except Exception:
+            items_iter = []
+
+    combinations = []
+    for combo_name, combo in items_iter:
+        if combo_type in combo_name:
+            combinations.append(combo)
+
+    return combinations
+
+
+def _extract_sls_combinations(load_combinations: dict[str, Any]) -> list[Any]:
+    """
+    Extract SLS (Serviceability Limit State) combinations.
+
+    :param load_combinations: Dictionary of created load combinations
+    :returns: List of SLS combinations
+    """
+    if not load_combinations:
+        return []
+
+    items_iter = []
+    if isinstance(load_combinations, dict):
+        items_iter = list(load_combinations.items())
+    elif hasattr(load_combinations, "items"):
+        try:
+            items_iter = list(load_combinations.items())
+        except Exception:
+            items_iter = []
+
+    combinations = []
+    for combo_name, combo in items_iter:
+        if "SLS" in combo_name or "BGT" in combo_name or "serviceability" in combo_name.lower():
+            combinations.append(combo)
+
+    return combinations
+
+
+def _extract_all_combinations(load_combinations: dict[str, Any]) -> list[Any]:
+    """
+    Extract all load combinations.
+
+    :param load_combinations: Dictionary of created load combinations
+    :returns: List of all combinations
+    """
+    if not load_combinations:
+        return []
+
+    try:
+        all_combinations = list(load_combinations.values())
+    except Exception:
+        all_combinations = []
+
+    return all_combinations
+
+
+def create_result_classes_for_bridge(builder: SciaModelBuilder, load_combinations: dict[str, Any]) -> None:
+    """
+    Create result classes for bridge analysis.
+
+    This function creates the necessary result classes that tell SCIA which
+    load combinations to analyze and what results to output.
+
+    :param builder: The SCIA model builder instance
+    :param load_combinations: Dictionary of created load combinations
+    """
+    if not load_combinations:
+        return
+
+    # Create ULS result class
+    uls_combinations = _extract_combinations_by_type(load_combinations, "ULS")
+    uls_combinations.extend(_extract_combinations_by_type(load_combinations, "UGT"))
+
+    if uls_combinations:
+        builder.create_result_class(name="Ultimate Limit State (ULS)", combinations=uls_combinations)
+
+    # Create SLS (Serviceability Limit State) result class
+    sls_combinations = _extract_sls_combinations(load_combinations)
+
+    if sls_combinations:
+        builder.create_result_class(name="Serviceability Limit State (SLS)", combinations=sls_combinations)
+
+    # Create a general result class with all combinations if no specific ones found
+    if not uls_combinations and not sls_combinations and load_combinations:
+        all_combinations = _extract_all_combinations(load_combinations)
+        if all_combinations:
+            builder.create_result_class(name="All Load Combinations", combinations=all_combinations)

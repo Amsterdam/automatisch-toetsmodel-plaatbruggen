@@ -9,7 +9,7 @@ import contextlib
 from collections.abc import Mapping
 from typing import Any
 
-from src.integrations.idea_integration.scia_to_idea_functions import merge_xyz_to_coords_xyz
+from src.integrations.scia_integration.scia_results_processor import merge_xyz_to_coords_xyz
 
 
 def _extract_basis_data(parsed_tables: Mapping[str, Any], section_key: str = "Basis grootheden") -> dict[str, Any]:
@@ -83,7 +83,7 @@ def _extract_internal_forces_data(results: dict[str, Any]) -> dict[str, Any] | N
 
     parsed_tables = xml_parsing.get("parsed_tables", {})
 
-    # Following process_scia_results_for_idea pattern, extract both basis and elementaire data
+    # Following process_scia_node_results_for_idea pattern, extract both basis and elementaire data
     basis_data = _extract_basis_data(parsed_tables)
     elementaire_data = _extract_elementaire_data(parsed_tables)
 
@@ -121,7 +121,7 @@ def _extract_rows_from_internal_forces(internal_forces_data: dict[str, Any]) -> 
 
 def _extract_column_data_from_internal_forces(internal_forces_data: dict[str, Any]) -> dict[str, Any] | None:
     """Extract column-based data structure from internal forces."""
-    # Check if the data itself is already in the correct format (following process_scia_results_for_idea pattern)
+    # Check if the data itself is already in the correct format (following process_scia_node_results_for_idea pattern)
     if isinstance(internal_forces_data, dict) and any(
         force_field in internal_forces_data for force_field in ["m_xD+", "m_xD-", "m_yD+", "m_yD-", "v_x", "v_y", "n_x", "n_y", "Naam"]
     ):
@@ -226,7 +226,7 @@ def extract_force_envelopes(results: dict[str, Any]) -> dict[str, dict[str, dict
     if not internal_forces_data:
         return envelopes
 
-    # Merge x, y, z coordinates into coords_xyz (following process_scia_results_for_idea pattern)
+    # Merge x, y, z coordinates into coords_xyz (following process_scia_node_results_for_idea pattern)
     if isinstance(internal_forces_data, dict):
         internal_forces_data = merge_xyz_to_coords_xyz(internal_forces_data)
 

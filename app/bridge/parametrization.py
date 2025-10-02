@@ -16,6 +16,7 @@ from app.constants import (
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
     PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
     SCIA_INFO_TEXT,
 )
 from src.common.materials import get_reinforcement_qualities
@@ -186,13 +187,13 @@ def _bridge_field_is_empty(objectnumm: str, field_name: str) -> bool:
 def _show_signage_field(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
     """
     Determine if the signage field should be visible based on berekeningsniveau.
-    Only show when "Werkelijke wegindeling onderliggend wegennet met bebording" is selected.
+    Only show when "Werkelijke wegindeling met bebording" is selected.
 
     :param params: Parameters containing berekeningsniveau setting
     :returns: True if signage field should be visible, False otherwise
     :rtype: bool
     """
-    return params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet met bebording"
+    return params.berekeningsniveau == "Werkelijke wegindeling met bebording"
 
 
 # --- Helper functions for DynamicArray Default Rows ---
@@ -691,6 +692,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         name="concrete_strength_class",
         description="Beton sterkte classificatie (bijv. C12/15 .. C90/105)",
     )
+    info.concrete_strength_class_source = OptionField(
+        "Bron Betonsterkteklasse",
+        options=["Onbekend", "Aanname", "Tekening"],
+        default="Onbekend",
+    )
+    info.concrete_strength_class_source_text = TextAreaField(
+        "Toelichting Bron Betonsterkteklasse", default="", description="Toelichting op de bron van de betonsterkteklasse"
+    )
 
     info.lb2a = LineBreak()
 
@@ -794,18 +803,18 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         ],
         variant="radio",
         name="design_code",
-        default="NEN 8700 verbouw",
+        default="NEN 8700 gebruik",
     )
 
     input.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
 
     input.berekeningsinstellingen.berekeningsniveau = OptionField(
-        "Berekeningsniveau",
+        "Verkeersbelasting",
         options=[
             "Theoretische wegindeling",
             "Werkelijke wegindeling",
             "Werkelijke wegindeling onderliggend wegennet",
-            "Werkelijke wegindeling onderliggend wegennet met bebording",
+            "Werkelijke wegindeling met bebording",
         ],
         variant="radio",
         name="berekeningsniveau",
@@ -847,11 +856,11 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
 
-    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m")
-    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m")
-    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m")
-    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m")
-    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=0.8, suffix="m")
+    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
+    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
+    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
+    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m", min=0.05)
+    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=0.8, suffix="m", min=0.05)
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
 
     _l_field_visibility_constraint = DynamicArrayConstraint(
@@ -862,6 +871,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Afstand tot vorige snede",
         default=10,
         suffix="m",
+        min=0.1,
         visible=_l_field_visibility_constraint,
     )
 
@@ -894,23 +904,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------------
 
     # --- Reinforcement Geometry (in geometrie_wapening tab) ---
-    input.geometrie_wapening.explanation = Text(
-        """Op deze pagina kan de wapening van de brug worden ingevoerd. Er kunnen oneindig veel wapeningconfiguraties worden toegevoegd.
-        Er kan per configuratie worden aangegeven in welke zones deze moet worden toegepast.
-De zones corresponderen met de plaatzones die worden gegenereerd op basis van de geometrie:
-- Bij de minimale geometrie (2 doorsnedes) ontstaan er 3 zones: "1-1", "2-1" en "3-1"
-- Voor elke extra doorsnede komen er 3 nieuwe zones bij: "1-2", "2-2", "3-2", etc.
-- Het getal voor het streepje correspondeert met de zone (1=links, 2=midden, 3=rechts)
-- Het getal na het streepje geeft aan bij welk segment de zone hoort
-
-Eerst wordt er gevraagd naar de eigenschappen van de hoofdwapening in langs- en dwarsrichting.
-Vervolgens kan er aangeklikt worden, of er extra bijlegwapening aanwezig is in de configuratie.
-Wanneer dit wordt aangevinkt, verschijnen dezelfde invoervelden nogmaals, om deze bijlegwapening te definiëren.
-In het model, wordt deze bijlegwapening automatisch tussen het bestaande hoofdwapeningsnet gelegd, met dezelfde hart op hart afstand.
-
-Zorg ervoor dat elke zone altijd precies 1 keer is aangevinkt, anders kan het model niet correct worden gegenereerd.
-Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningsconfiguraties worden gedefinieerd."""
-    )
+    input.geometrie_wapening.explanation = Text(REINFORCEMENT_INFO_TEXT)
 
     # General reinforcement parameters
     input.geometrie_wapening.staalsoort = OptionField(
@@ -922,6 +916,19 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
             "Oude staalsoorten worden automatisch ondersteund."
         ),
     )
+
+    input.geometrie_wapening.steel_quality_source = OptionField(
+        "Staalsoort bron",
+        options=["Onbekend", "Aanname", "Tekening"],
+        default="Onbekend",
+        description=("Bron van de staalsoort, bijvoorbeeld een aanname of afgeleid uit tekeningen."),
+    )
+
+    input.geometrie_wapening.steel_quality_source_text = TextAreaField(
+        "Toelichting staalsoort bron", default="", description="Toelichting op de bron van de staalsoort"
+    )
+
+    input.geometrie_wapening.lb0 = LineBreak()
 
     input.geometrie_wapening.langswapening_buiten = BooleanField(
         "Langswapening in eerste laag?",
@@ -959,16 +966,16 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
                 "zone_number": ["1-1", "2-1", "3-1"],  # Default to all zones for the first configuration
                 "hoofdwapening_langs_boven_diameter": 12.0,
                 "hoofdwapening_langs_boven_hart_op_hart": 150.0,
-                "hoofdwapening_langs_onder_diameter": 12.0,
-                "hoofdwapening_langs_onder_hart_op_hart": 150.0,
                 "hoofdwapening_dwars_boven_diameter": 12.0,
                 "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
+                "hoofdwapening_langs_onder_diameter": 12.0,
+                "hoofdwapening_langs_onder_hart_op_hart": 150.0,
                 "hoofdwapening_dwars_onder_diameter": 12.0,
                 "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
                 "heeft_bijlegwapening": False,
                 "bijlegwapening_langs_boven_diameter": 12.0,
-                "bijlegwapening_langs_onder_diameter": 12.0,
                 "bijlegwapening_dwars_boven_diameter": 12.0,
+                "bijlegwapening_langs_onder_diameter": 12.0,
                 "bijlegwapening_dwars_onder_diameter": 12.0,
             },
         ],
@@ -985,36 +992,38 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 
     # Main reinforcement - Longitudinal top
     input.geometrie_wapening.zones.hoofdwapening_langs_boven_diameter = NumberField(
-        "Diameter hoofdwapening langsrichting boven", default=12.0, min=6.0, suffix="mm", flex=47
+        "Ø hoofdwapening langsrichting boven", default=12.0, min=6.0, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_boven_hart_op_hart = NumberField(
         "H.o.h. afstand hoofdwapening langsrichting boven", default=150.0, min=50, suffix="mm", flex=53
     )
+
     input.geometrie_wapening.zones.lb3 = LineBreak()
 
-    # Main reinforcement - Longitudinal bottom
-    input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = NumberField(
-        "Diameter hoofdwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47
-    )
-    input.geometrie_wapening.zones.hoofdwapening_langs_onder_hart_op_hart = NumberField(
-        "H.o.h. afstand hoofdwapening langsrichting onder", default=150.0, min=50, suffix="mm", flex=53
-    )
-
-    input.geometrie_wapening.zones.lb4 = LineBreak()
     # Main reinforcement - Transverse Top
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = NumberField(
-        "Diameter hoofdwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47
+        "Ø hoofdwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_hart_op_hart = NumberField(
         "H.o.h. afstand hoofdwapening dwarsrichting boven", default=150.0, min=50, suffix="mm", flex=53
     )
 
+    input.geometrie_wapening.zones.lb4 = LineBreak()
+
+    # Main reinforcement - Longitudinal bottom
+    input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = NumberField(
+        "Ø hoofdwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47
+    )
+    input.geometrie_wapening.zones.hoofdwapening_langs_onder_hart_op_hart = NumberField(
+        "H.o.h. afstand hoofdwapening langsrichting onder", default=150.0, min=50, suffix="mm", flex=53
+    )
+
     input.geometrie_wapening.zones.lb5 = LineBreak()
 
     # Main reinforcement - Transverse Bottom
     input.geometrie_wapening.zones.hoofdwapening_dwars_onder_diameter = NumberField(
-        "Diameter hoofdwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47
+        "Ø hoofdwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_onder_hart_op_hart = NumberField(
@@ -1030,8 +1039,9 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     # Additional reinforcement fields - only visible when heeft_bijlegwapening is True
     input.geometrie_wapening.zones.lb7 = LineBreak()
 
+    # Additional reinforcement - Longitudinal top
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = NumberField(
-        "Diameter bijlegwapening langsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening langsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting boven",
@@ -1043,23 +1053,9 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 
     input.geometrie_wapening.zones.lb8 = LineBreak()
 
-    # Additional reinforcement - Longitudinal bottom
-    input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = NumberField(
-        "Diameter bijlegwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
-    )
-    input.geometrie_wapening.zones.bijlegwapening_langs_onder_hart_op_hart = OutputField(
-        "H.o.h. afstand bijlegwapening langsrichting onder",
-        value=RowLookup("hoofdwapening_langs_onder_hart_op_hart"),
-        visible=RowLookup("heeft_bijlegwapening"),
-        suffix="mm",
-        flex=53,
-    )
-
-    input.geometrie_wapening.zones.lb9 = LineBreak()
-
     # Additional reinforcement - Transverse top
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = NumberField(
-        "Diameter bijlegwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting boven",
@@ -1069,11 +1065,25 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
         flex=53,
     )
 
+    input.geometrie_wapening.zones.lb9 = LineBreak()
+
+    # Additional reinforcement - Longitudinal bottom
+    input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = NumberField(
+        "Ø bijlegwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    )
+    input.geometrie_wapening.zones.bijlegwapening_langs_onder_hart_op_hart = OutputField(
+        "H.o.h. afstand bijlegwapening langsrichting onder",
+        value=RowLookup("hoofdwapening_langs_onder_hart_op_hart"),
+        visible=RowLookup("heeft_bijlegwapening"),
+        suffix="mm",
+        flex=53,
+    )
+
     input.geometrie_wapening.zones.lb10 = LineBreak()
 
     # Additional reinforcement - Transverse bottom
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = NumberField(
-        "Diameter bijlegwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting onder",
@@ -1174,12 +1184,12 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
     scia.downloads.info_text = Text(SCIA_INFO_TEXT)
 
     # Download buttons - use DownloadButton instead of ActionButton
-    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
+    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files", longpoll=True)
 
-    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
+    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model", longpoll=True)
 
     # Analysis button
-    scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+    scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml", longpoll=True)
 
     # Berekening tab
     scia.berekening = Tab("Berekening")
@@ -1282,8 +1292,8 @@ maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoel
     idea.explanation = Text(IDEA_INFO_TEXT)
 
     # Add download buttons as page attributes below the explanation
-    idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file")
-    idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results")
+    idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file", longpoll=True)
+    idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results", longpoll=True)
 
     # ----------------------------------
     # --- Report Page ---

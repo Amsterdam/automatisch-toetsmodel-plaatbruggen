@@ -7,7 +7,7 @@ This module acts as the bridge between the VIKTOR SDK and the core logic from th
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.scia_model_interface import (
@@ -21,18 +21,26 @@ from src.integrations.scia_integration.scia_model_interface import (
 )
 
 # Global VIKTOR imports with error handling for CI/testing environments
-try:
-    from viktor.core import File
+if TYPE_CHECKING:
+    from viktor.core import File, progress_message
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
 
     VIKTOR_AVAILABLE = True
-except ImportError:
-    # Mock scia module for environments without VIKTOR SDK
-    scia = None  # type: ignore[misc,assignment]
-    File = None  # type: ignore[misc,assignment]
-    OutputFileParser = None  # type: ignore[misc,assignment]
-    VIKTOR_AVAILABLE = False
+else:
+    try:
+        from viktor.core import File, progress_message
+        from viktor.external import scia
+        from viktor.external.scia import OutputFileParser
+
+        VIKTOR_AVAILABLE = True
+    except ImportError:
+        # Mock scia module for environments without VIKTOR SDK
+        scia = None  # type: ignore[misc,assignment]
+        File = None  # type: ignore[misc,assignment]
+        progress_message = None  # type: ignore[misc,assignment]
+        OutputFileParser = None  # type: ignore[misc,assignment]
+        VIKTOR_AVAILABLE = False
 
 
 class ViktorSciaModelBuilder(SciaModelBuilder):
@@ -111,8 +119,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
         plane = self.plates[plane_name]
 
+        # Create the SCIA integration strip
         strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
-        self.integration_strips[f"strip_{plane_name}"] = strip
+        # Create a name for internal tracking
+        strip_name = f"strip_{plane_name}_{point_1}_{point_2}"
+
+        # Try to set the name after creation if possible
+        if hasattr(strip, "_name"):
+            strip._name = strip_name  # noqa: SLF001  # Required for SCIA SDK integration
+
+        self.integration_strips[strip_name] = strip
         return strip
 
     def create_load_group(
@@ -734,23 +750,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "Resultaatklasses - All ULS",
             "Resultaatklasses - All SLS",
             "Resultaatklasses - All ULS+SLS",
-            # Fallback names
-            "Displacements",
-            "Displacement",
-            "2D internal forces",
-            "Internal forces",
-            "Internal Forces",
-            "Reactions",
-            "Reaction",
-            "Stresses",
-            "Stress",
-            "Result classes - UGT",
-            "Result classes - ULS",
-            "Result classes - SLS",
-            "Result classes",
-            "UGT",
-            "ULS",
-            "SLS",
         ]
         result_tables = [*dynamic_result_tables, *static_result_tables]
 
@@ -1152,15 +1151,18 @@ def _run_scia_analysis_with_builder(params: Any, template_path: Path) -> tuple[S
     :return: Tuple of (analysis object, basic results dictionary).
     """
     # Create builder and generate input files
+    progress_message("Genereren SCIA model...")
     builder = ViktorSciaModelBuilder()
     define_complete_bridge_model(builder, params)
     xml_file, def_file = builder.generate_xml_input()
     esa_template = File.from_path(template_path)
 
     # Run the analysis using the builder interface
+    progress_message("Uitvoeren SCIA berekening...")
     analysis = builder.run_analysis(xml_file, def_file, esa_template)
 
     # Extract results using the builder interface
+    progress_message("Extraheren resultaten...")
     results = builder.extract_analysis_results(analysis)
 
     return analysis, results
@@ -1178,12 +1180,15 @@ def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
     # Run analysis and get basic results
+    progress_message("Uitvoeren SCIA analyse...")
     analysis, results = _run_scia_analysis_with_builder(params, template_path)
 
     # Extract additional data for caching
+    progress_message("Extraheren XML output voor caching...")
     results["xml_output"] = _extract_xml_output_for_caching(analysis)
 
     # Extract ESA model
+    progress_message("Extraheren ESA model...")
     esa_model = _extract_esa_model_for_caching(analysis)
     results["esa_model"] = esa_model
 

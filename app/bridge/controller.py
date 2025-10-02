@@ -12,6 +12,23 @@ import trimesh
 
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
+from viktor.core import File, ViktorController, progress_message
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
+
 from app.bridge.analysis_cache import (
     get_cached_analysis_results,
     get_idea_analysis_results,
@@ -67,24 +84,8 @@ from src.integrations.scia_integration.scia_force_envelopes import (
     extract_force_envelopes,
     get_force_envelope_summary,
 )
-from src.integrations.scia_integration.scia_result_views import create_scia_1d_result_table, create_scia_result_table
+from src.integrations.scia_integration.scia_result_views import create_scia_integration_strip_results_table, create_scia_node_results_table
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -762,7 +763,6 @@ class BridgeController(ViktorController):
 
         Note: SCIA analysis can take up to 10 minutes for complex models.
         """
-        print("Starting SCIA SLS kar results view...")  # noqa: T201
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
@@ -779,6 +779,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS kar analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -816,7 +817,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the table
-        return create_scia_result_table(results, "SLS kar")
+        return create_scia_node_results_table(results, "SLS kar")
 
     # Tableview for SLS freq results
     @TableView("SCIA SLS freq 2D", duration_guess=600)
@@ -845,6 +846,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS freq analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -882,7 +884,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the table
-        return create_scia_result_table(results, "SLS freq")
+        return create_scia_node_results_table(results, "SLS freq")
 
     # Tableview for ULS results
     @TableView("SCIA ULS 2D", duration_guess=600)
@@ -911,6 +913,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA ULS analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -948,7 +951,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the table
-        return create_scia_result_table(results, "ULS")
+        return create_scia_node_results_table(results, "ULS")
 
     # Tableview for SLS kar 1D results
     @TableView("SCIA SLS kar 1D", duration_guess=600)
@@ -962,7 +965,6 @@ class BridgeController(ViktorController):
 
         Note: SCIA analysis can take up to 10 minutes for complex models.
         """
-        print("Starting SCIA SLS kar 1D results view...")  # noqa: T201
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
@@ -979,6 +981,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS kar 1D analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -1016,7 +1019,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the 1D table
-        return create_scia_1d_result_table(results, "SLS kar")
+        return create_scia_integration_strip_results_table(results, "SLS kar")
 
     # Tableview for SLS freq 1D results
     @TableView("SCIA SLS freq 1D", duration_guess=600)
@@ -1046,6 +1049,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA SLS freq 1D analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -1083,7 +1087,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the 1D table
-        return create_scia_1d_result_table(results, "SLS freq")
+        return create_scia_integration_strip_results_table(results, "SLS freq")
 
     # Tableview for ULS 1D results
     @TableView("SCIA ULS 1D", duration_guess=600)
@@ -1113,6 +1117,7 @@ class BridgeController(ViktorController):
             raise UserError(error_msg)
 
         # Get cached or run new SCIA analysis
+        progress_message("Laden van gecachte SCIA ULS 1D analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -1150,7 +1155,7 @@ class BridgeController(ViktorController):
                 _raise_scia_error(f"SCIA 1D analyse fout: {str(e)[:200]}...")  # Limit error message length
 
         # Use the new module function to create the 1D table
-        return create_scia_1d_result_table(results, "ULS")
+        return create_scia_integration_strip_results_table(results, "ULS")
 
     @TableView("SCIA Analyse Resultaten", duration_guess=600)
     def get_scia_results_table(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: C901, PLR0912
@@ -1781,6 +1786,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
         # Get cached results
+        progress_message("Laden van gecachte IDEA RCS analyse of starten nieuwe analyse...")
         cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
@@ -1830,6 +1836,7 @@ class BridgeController(ViktorController):
 
             # Get cached IDEA model
             assert entity_id is not None  # type: ignore[unreachable]
+            progress_message("Laden van gecachte IDEA model of genereren nieuw model...")
             cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_model_only)
             if cached_results is None:
                 _raise_model_creation_error()
@@ -1884,6 +1891,7 @@ class BridgeController(ViktorController):
             raise UserError("Entity ID not found in kwargs")
 
         # Get cached IDEA analysis results
+        progress_message("Laden van gecachte IDEA analyse resultaten...")
         cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
         if cached_results is None:
             raise UserError("IDEA analysis failed or no cached results available")

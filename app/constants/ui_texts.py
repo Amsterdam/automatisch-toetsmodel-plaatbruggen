@@ -42,9 +42,9 @@ LOAD_ZONES_INFO_TEXT = """Definieer hier de werkelijke wegindeling op de brug, d
 De belastingen volgens de theoretische wegindeling worden automatisch gegenereerd op de achtergrond, hier hoef je niets voor in te vullen.
 
 Elke zone wordt gestapeld vanaf één zijde van de brug.
-Vul alleen breedtes in voor de daadwerkelijk gedefinieerde brugsegmenten (D-nummers) onder de tab Dimensies.
+Vul alleen breedtes in voor de daadwerkelijk gedefinieerde brugsegmenten (D-nummers) onder het tabblad dimensies.
 De laatste belastingzone loopt automatisch door tot het einde van de brug;
-hiervoor hoeven dus geen segmentbreedtes (D-waardes) ingevuld te worden.
+hiervoor hoeft geen breedte ingevuld te worden.
 
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
@@ -85,37 +85,18 @@ Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebr
 """
 
 # SCIA integration info text
-SCIA_INFO_TEXT = """## SCIA Engineer Integration
+SCIA_INFO_TEXT = """## SCIA Engineer Integratie
 
-Deze pagina toont een preview van het SCIA model en biedt download opties voor SCIA Engineer bestanden.
-
-### Model Informatie
-Het huidige model is een **vereenvoudigde rechthoekige plaat** gebaseerd op:
-- **Lengte**: Som van alle segment lengtes (Afstand tot vorige snede)
-- **Breedte**: Breedte van het eerste segment (bz1 + bz2 + bz3)
-- **Dikte**: Vast op 0.5m (moet nog uitgebreid worden met variabele dikte per zone)
-- **Materiaal**: Standaard beton C30/37
-
-### Materiaal Compatibiliteit
-SCIA Engineer ondersteunt een brede range aan materialen via string-gebaseerde namen:
-
-**Volledig ondersteund:**
-- **Alle moderne Eurocode materialen** (C12/15 tot C90/105, B500A/B/C)
-- **Oudere Nederlandse materialen** (K150-K600, B12,5-B65)
-- **Oud wapeningsstaal** (QR22-QR54, QRn32-QRn54, FeB 220/400/500)
-- **Historische staalsoorten** (St. 37, St. 52, Speciaal st. 36/48)
-
-**Voordeel:** SCIA accepteert materialen direct zoals ze in de project database staan.
+Deze pagina toont een weergave van het aangemaakte SCIA model en biedt download opties voor SCIA Engineer bestanden.
+Op het tabblad "Berekening" kun je belastinggevallen toevoegen die mee genomen worden in de SCIA analyse.
+Vervolgens kun je de .xml bestanden downloaden om het model zelf te bekijken in SCIA,
+of de analyse direct in Viktor laten uitvoeren en de resultaten hier bekijken,
+door op de knop "Download ESA Model" of "Download SCIA Output XML" te klikken.
+In het eerste geval krijg je meteen het volledige .esa model om zelf te openen in SCIA Engineer,
+in het tweede geval krijg je enkel het output .xml bestand.
 
 ### Download Opties
-Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:
-
-### Toekomstige Uitbreidingen
-- Complexe bruggeometrie (1:1 met werkelijke brugvorm)
-- Variabele dikte per zone (dz, dz_2 parameters)
-- Belastinggevallen en combinaties
-- Geavanceerde materiaal eigenschappen
-        """
+Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:"""
 
 # Dimensions segments explanation
 DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) van de brug.
@@ -127,45 +108,48 @@ Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 - De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
   beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
 Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
-Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen."""
+Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
+
+De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor `dz` en `dz_2`.
+
+"""
+
+# Reinforcement explanation text
+REINFORCEMENT_INFO_TEXT = """Op deze pagina kan de wapening van de brug worden ingevoerd.
+Er kunnen oneindig veel wapeningconfiguraties worden toegevoegd.
+Er kan per configuratie worden aangegeven in welke zones deze moet worden toegepast.
+De zones corresponderen met de plaatzones die worden gegenereerd op basis van de geometrie:
+- Bij de minimale geometrie (2 doorsnedes) ontstaan er 3 zones: "1-1", "2-1" en "3-1"
+- Voor elke extra doorsnede komen er 3 nieuwe zones bij: "1-2", "2-2", "3-2", etc.
+- Het getal voor het streepje correspondeert met de zone (1=links, 2=midden, 3=rechts)
+- Het getal na het streepje geeft aan bij welk segment de zone hoort
+
+Eerst wordt er gevraagd naar de eigenschappen van de hoofdwapening in langs- en dwarsrichting.
+Vervolgens kan er aangeklikt worden, of er extra bijlegwapening aanwezig is in de configuratie.
+Wanneer dit wordt aangevinkt, verschijnen dezelfde invoervelden nogmaals, om deze bijlegwapening te definiëren.
+In het model, wordt deze bijlegwapening automatisch tussen het bestaande hoofdwapeningsnet gelegd, met dezelfde hart op hart afstand.
+
+Zorg ervoor dat elke zone altijd precies 1 keer is aangevinkt, anders kan het model niet correct worden gegenereerd.
+Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningsconfiguraties worden gedefinieerd."""
 
 # IDEA StatiCa integration info text
-IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integration
+IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
-Deze pagina toont een preview van het IDEA RCS model en biedt download opties voor dwarsdoorsnede analyse.
+Deze pagina toont een weergave van de IDEA RCS resultaten en biedt download opties voor de snedetoetsingen in IDEA.
 
 ### Model Informatie
-Het huidige model is een **vereenvoudigde rechthoekige plaat** met wapening gebaseerd op:
-- **Breedte**: Breedte van het eerste segment (bz1 + bz2 + bz3)
-- **Dikte**: Realistische dekdikte (maximum 0.8m voor plaatanalyse)
-- **Materiaal**: Standaard beton C30/37
-- **Wapening**: Betonstaal B500B met diameter 12mm en onderlinge afstand 150mm
-- **Bovenwapening**: Hart-op-hart afstand 150mm, betondekking 55mm
-- **Onderwapening**: Hart-op-hart afstand 150mm, betondekking 55mm
+Het model is gebaseerd op de opgegeven bruggeometrie en wapening. Het model identificeert op basis van de wapeningsconfiguraties en plaatdiktes,
+hoeveel unieke combinaties van plaatdiktes en wapening er zijn, en maakt voor elke unieke combinatie een apart plaat element aan in IDEA.
+Vervolgens worden de snedekrachten uit SCIA, hieraan gekoppeld op basis van locatie op het brugdek, en worden de snedetoetsingen uitgevoerd.
+Per locatie langs de integratiestroken worden er een of meerdere krachtencombinaties getoetst die mogelijk maatgevend zijn. Deze worden als extremen
+toegevoegd aan de doorsnedes.
 
-### Materiaal Compatibiliteit
-IDEA StatiCa ondersteunt alleen moderne Eurocode materialen:
-
-**Direct ondersteund:**
-- **B500A, B500B, B500C** (moderne Eurocode wapeningsstaal)
-- **C12/15 tot C50/60** (standaard betonklassen)
-
-**Automatische omzetting oude materialen:**
-- **QR24, QR22** naar B500A (lage sterkte: 220-240 N/mm²)
-- **QR30, QR40, FeB 400** naar B500B (medium sterkte: 300-400 N/mm²)
-- **QR48, FeB 500** naar B500C (hoge sterkte: 400+ N/mm²)
-
-**Aanbeveling:** Voor exacte materiaalcontrole, selecteer direct B500A/B/C in wapeningsinstellingen.
+In het eerste tabblad op de rechterkant van het scherm, is een overzicht te zien van de verschillende plaat elementen die zijn aangemaakt.
+In het tweede tabblad is een overzicht te zien van de resultaten van de snedetoetsingen.
 
 ### Download Opties
-Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:
+Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:"""
 
-### Toekomstige Uitbreidingen
-- T-balken en kokerprofielen
-- Variabele wapeningsconfiguraties per zone
-- Realistische belastinggevallen uit bruggeometrie
-- Uitbreiding van materiaalintegratie met Info pagina parameters
-        """
 CALCULATION_SETTINGS_INFO_TEXT = """Hier kunnen de berekeningsinstellingen voor het model worden opgegeven.
 Eerst wordt gevraagd om de gevolgklasse en het veiligheidsniveau te selecteren. Deze bepalen de factoren in de belastingcombinaties.
 De factoren worden automatisch geupdate in de belastingcombinatie tabel aan de rechterkant van het scherm."""
@@ -174,7 +158,7 @@ CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL = """Hieronder kan het gewenste
 Ten eerste moet een keuze worden gemaakt tussen de theoretische wegindeling of de werkelijke wegindeling.
 Bij de theoretische wegindeling worden de standaard verkeersbelastingen uit de norm toegepast over de volledige breedte van de brug.
 Bij de werkelijke wegindeling worden de verkeersbelastingen verdeeld over de verschillende zones zoals opgegeven in het tabblad 'Belastingzones'.
-Wanneer de brug hierop niet voldoet, kan er gekozen worden om de brug te berekenen op het onderliggend wegennet, met eventuele bebording.
+Wanneer de brug hierop niet voldoet, kan er gekozen worden om de brug te berekenen op het onderliggend wegennet, of met een lastbeperking.
 Hierbij wordt de grootte van de verkeersbelasting aangepast.
-De aanpassingen van de verkeersbelastingen zijn niet te zien in de viktor app, maar worden direct doorgestuurd naar het SCIA model.
+De aanpassingen van de verkeersbelastingen zijn niet te zien in de Viktor app, maar worden direct doorgestuurd naar het SCIA model.
 Vergeet de pagina niet op te slaan na het maken van wijzigingen, voordat je het SCIA model aanmaakt."""

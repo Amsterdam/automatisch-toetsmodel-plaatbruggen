@@ -9,7 +9,6 @@ from typing import Any, Literal
 
 from .scia_load_generators import extract_bridge_dimensions
 from .scia_loads_helper import (
-    generate_theoretical_lane_positions_bg8000,
     tandem_system_sequencer,
     tandem_system_sequencer_single_axis,
     tandem_system_sequencer_single_axis_rotated,
@@ -399,12 +398,9 @@ def create_dynamic_tandem_load_cases(
     dims = extract_bridge_dimensions(params)
     length = dims.total_length
     thickness = dims.thickness
-    width = dims.total_width
 
-    # Determine the number of theoretical lanes, with a maximum of 3
     # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
-    num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
-    num_lanes = min(num_lanes, 3)
+    num_lanes = 3
 
     # Create tandem load cases for each road system (RS)
     for rs in range(1, num_lanes + 1):
