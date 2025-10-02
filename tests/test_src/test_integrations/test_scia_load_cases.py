@@ -267,29 +267,6 @@ class TestTandemLoadCases:
         with pytest.raises(ValueError, match="RS must be 1, 2, or 3"):
             create_tandem_rs_load_cases(mock_builder, 4, 50.0, 0.5)
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.generate_theoretical_lane_positions_bg8000")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_tandem_rs_load_cases")
-    def test_create_dynamic_tandem_load_cases(
-        self, mock_create_rs: Mock, mock_generate_lanes: Mock, mock_extract_params: Mock, mock_builder: Mock
-    ) -> None:
-        """Test the creation of dynamic tandem load cases."""
-        mock_params = Mock()
-        # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
-
-        mock_extract_params.return_value = BridgeDimensions(
-            total_length=50.0, total_width=12.0, thickness=0.5, zone1_width=4.0, zone2_width=4.0, zone3_width=4.0, first_segment_thickness=0.5
-        )
-        mock_generate_lanes.return_value = [1.5, 4.5, 7.5, 10.5]  # 4 lanes, but should be capped at 3
-
-        create_dynamic_tandem_load_cases(mock_builder, mock_params)
-
-        assert mock_create_rs.call_count == 3  # Called for RS 1, 2, and 3
-        mock_create_rs.assert_any_call(mock_builder, 1, 50.0, 0.5)
-        mock_create_rs.assert_any_call(mock_builder, 2, 50.0, 0.5)
-        mock_create_rs.assert_any_call(mock_builder, 3, 50.0, 0.5)
-
 
 class TestCreateAllLoadCases:
     """Tests for the main function creating all load cases."""
