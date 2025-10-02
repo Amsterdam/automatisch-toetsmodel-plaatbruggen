@@ -13,7 +13,7 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
-from viktor.core import File, Storage
+from viktor.core import File, Storage, progress_message
 from viktor.errors import UserError
 from viktor.external import idea_rcs
 
@@ -44,17 +44,21 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
 def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
     """Run IDEA analysis and extract results."""
     # First get SCIA results needed for IDEA
+    progress_message("Ophalen SCIA resultaten voor IDEA analyse...")
     scia_results_dict = get_scia_results_for_idea(params, entity_id)
 
     # Create IDEA model with the SCIA results
+    progress_message("Genereren IDEA model...")
     model = create_bridge_idea_model(params, entity_id, scia_results_dict)
     idea_xml_input_bytes = model.generate_xml_input()
 
     # Run IDEA analysis
+    progress_message("Uitvoeren IDEA RCS analyse...")
     analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
     analysis.execute(600)
 
     # Get the IDEA RCS model and output XML
+    progress_message("Verwerken IDEA analyse resultaten...")
     idea_rcs_model = analysis.get_idea_rcs_file(as_file=False)
     idea_output_xml_bytes = analysis.get_output_file(as_file=False)
 
@@ -63,6 +67,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
 
     results: dict[str, Any] = {}
     try:
+        progress_message("Parsen IDEA output...")
         parser = idea_rcs.RcsOutputFileParser(BytesIO(output_content))
         section_results = []
         for section in parser.section_results():
@@ -129,6 +134,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
         template_path = SCIA_TEMPLATE_PATH
 
         # Use cached SCIA analysis results instead of calling directly
+        progress_message("Ophalen SCIA resultaten voor IDEA verwerking...")
         results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
     except Exception as e:
@@ -139,6 +145,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
         raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
 
     # Get both node results (2D forces) and integration strip results (1D forces)
+    progress_message("Verwerken SCIA resultaten voor IDEA...")
     node_results = process_scia_node_results_for_idea(results)
     integration_strip_results = process_scia_integration_strip_results_for_idea(results)
 
@@ -152,6 +159,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
 
 def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
     """Create IDEA model only (without running analysis)."""
+    progress_message("Genereren IDEA model...")
     model = create_bridge_idea_model(params, entity_id)
     return {
         "model": model,
@@ -508,11 +516,14 @@ def get_cached_analysis_results(
     cache = _get_analysis_cache()
 
     # Try to get cached results
+    progress_message("Controleren op gecachte resultaten...")
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
+        progress_message("Gecachte resultaten gevonden - laden...")
         return cached_results
 
     # Run analysis if not cached
+    progress_message("Geen gecachte resultaten gevonden - starten nieuwe analyse...")
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
         results = analysis_function(params, template_path)
@@ -524,6 +535,7 @@ def get_cached_analysis_results(
 
     # Cache the results
     if results is not None:
+        progress_message("Opslaan resultaten in cache...")
         cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
 
     return results
