@@ -1185,12 +1185,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     scia.downloads.info_text = Text(SCIA_INFO_TEXT)
 
     # Download buttons - use DownloadButton instead of ActionButton
-    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files")
+    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files", longpoll=True)
 
-    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model")
+    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model", longpoll=True)
 
     # Analysis button
-    scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml")
+    scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml", longpoll=True)
 
     # Berekening tab
     scia.berekening = Tab("Berekening")
@@ -1293,8 +1293,8 @@ maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoel
     idea.explanation = Text(IDEA_INFO_TEXT)
 
     # Add download buttons as page attributes below the explanation
-    idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file")
-    idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results")
+    idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file", longpoll=True)
+    idea.download_results = DownloadButton("Download Capaciteitsanalyse", method="download_idea_analysis_results", longpoll=True)
 
     # ----------------------------------
     # --- Report Page ---
