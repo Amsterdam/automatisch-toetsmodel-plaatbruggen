@@ -301,7 +301,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         raise ValueError(f"Failed to add service vehicle loads: {e}") from e
 
 
-def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
+def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:  # noqa: C901
     """
     Add accidental vehicle loads to the SCIA model using sequenced X positions.
 
