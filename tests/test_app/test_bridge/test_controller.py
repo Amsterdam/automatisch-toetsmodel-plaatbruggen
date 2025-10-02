@@ -181,7 +181,7 @@ class TestBridgeController(unittest.TestCase):
         # New structure checks (parametrization alignment)
         # Load combinations
         assert hasattr(self.default_params.input, "berekeningsinstellingen")
-        assert isinstance(self.default_params.cc_class, str)
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "cc_class")
         assert hasattr(self.default_params.input.berekeningsinstellingen, "berekeningsniveau")
         assert hasattr(self.default_params.input.berekeningsinstellingen, "design_code")
 
@@ -214,7 +214,7 @@ class TestBridgeController(unittest.TestCase):
         # New structure checks (parametrization alignment)
         # Load combinations
         assert hasattr(self.complex_params.input, "berekeningsinstellingen")
-        assert isinstance(self.complex_params.cc_class, str)
+        assert hasattr(self.complex_params.input.berekeningsinstellingen, "cc_class")
         assert hasattr(self.complex_params.input.berekeningsinstellingen, "berekeningsniveau")
         assert hasattr(self.complex_params.input.berekeningsinstellingen, "design_code")
 
