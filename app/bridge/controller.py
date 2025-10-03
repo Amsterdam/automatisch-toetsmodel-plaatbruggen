@@ -451,24 +451,29 @@ class BridgeController(ViktorController):
         :returns: OptimizationResult containing the optimization results
         :rtype: OptimizationResult
         """
+        # # Initialize a list to store optimization results for each scenario
         results: list[OptimizationResultElement] = []
 
-        # Loop over calculation levels
+        # # Loop over all calculation levels defined in CALCULATION_LEVEL_OPTIONS
         for calc_level in CALCULATION_LEVEL_OPTIONS:
+            # # Special case: if calculation level requires iterating over signage options
             if calc_level == "Werkelijke wegindeling met bebording":
+                # # Try all possible signage options for this calculation level
                 for signage in SIGNAGE_OPTIONS:
-                    print("calc_level:", calc_level)
-                    print("params before:", params.berekeningsniveau, params.signage)
+                    # # Set the current calculation level and signage in the params
                     params.berekeningsniveau = calc_level
                     params.signage = signage
-                    print("params after:", params.berekeningsniveau, params.signage)
 
+                    # # Call the IDEA RCS results view to get the results table for this scenario
                     idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
-                    df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
+                    # # Convert the table data to a DataFrame for easier processing
+                    results_df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
 
-                    capacity_values = df["Capaciteit"].tolist() if "Capaciteit" in df else []
-                    shearforce_values = df["Schuifkracht"].tolist() if "Schuifkracht" in df else []
+                    # # Extract capacity and shearforce values from the DataFrame
+                    capacity_values = results_df["Capaciteit"].tolist() if "Capaciteit" in results_df else []
+                    shearforce_values = results_df["Schuifkracht"].tolist() if "Schuifkracht" in results_df else []
 
+                    # # Store the results for this scenario
                     results.append(
                         OptimizationResultElement(
                             params,
@@ -481,22 +486,24 @@ class BridgeController(ViktorController):
                         )
                     )
 
-                    # Stop if no failures
+                    # # If there are no failures in either capacity or shearforce, stop iterating signage options
                     if "Failed" not in capacity_values and "Failed" not in shearforce_values:
                         break
             else:
-                print("calc_level:", calc_level)
-                print("params before:", params.berekeningsniveau, params.signage)
+                # # For other calculation levels, signage is not relevant
                 params.berekeningsniveau = calc_level
                 params.signage = None
-                print("params after:", params.berekeningsniveau, params.signage)
 
+                # # Call the IDEA RCS results view to get the results table for this scenario
                 idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
-                df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
+                # # Convert the table data to a DataFrame for easier processing
+                results_df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
 
-                capacity_values = df["Capaciteit"].tolist() if "Capaciteit" in df else []
-                shearforce_values = df["Schuifkracht"].tolist() if "Schuifkracht" in df else []
+                # # Extract capacity and shearforce values from the DataFrame
+                capacity_values = results_df["Capaciteit"].tolist() if "Capaciteit" in results_df else []
+                shearforce_values = results_df["Schuifkracht"].tolist() if "Schuifkracht" in results_df else []
 
+                # # Store the results for this scenario
                 results.append(
                     OptimizationResultElement(
                         params,
@@ -509,16 +516,18 @@ class BridgeController(ViktorController):
                     )
                 )
 
-                # Stop if no failures
+                # # If there are no failures in either capacity or shearforce, stop iterating calculation levels
                 if "Failed" not in capacity_values and "Failed" not in shearforce_values:
                     break
 
+        # # Define the output headers for the optimization result table
         output_headers = {
             "calculation_level": "Berekeningsniveau",
             "signage": "Bebording",
             "uc_capacity": "UC Capaciteit",
             "uc_shearforce": "UC Schuifkracht",
         }
+        # # Return the OptimizationResult object containing all results and headers
         return OptimizationResult(results, output_headers=output_headers)
 
     # ============================================================================================================
@@ -629,8 +638,8 @@ class BridgeController(ViktorController):
 
         # Extract values and collect valid results
         try:
-            disp_values = data[disp_col].values
-            rot_values = data[rot_col].values
+            disp_values = data[disp_col].to_numpy()
+            rot_values = data[rot_col].to_numpy()
         except (AttributeError, KeyError):
             return max_displacement, max_rotation
 
