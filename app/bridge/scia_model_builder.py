@@ -1202,7 +1202,7 @@ def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any
     return results
 
 
-def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:
+def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001
     """
     Module-level factory for SCIA input and analysis.
 
@@ -1211,7 +1211,7 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
 
     :param params: Bridge parametrization object
     :type params: Any
-    :param template_path: Path to SCIA template file
+    :param template_path: Path to SCIA template file (unused in this simplified version)
     :type template_path: Path
     :returns: Tuple of (xml_file, def_file, analysis)
     :rtype: tuple[Any, Any, Any]
