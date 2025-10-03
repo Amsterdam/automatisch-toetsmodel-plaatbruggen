@@ -2,6 +2,7 @@
 
 import traceback
 import zipfile
+import pandas as pd  # Import pandas for DataFrame handling
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
@@ -13,7 +14,7 @@ import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
 from viktor.core import File, ViktorController, progress_message
 from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.result import DownloadResult, OptimizationResult, OptimizationResultElement
 from viktor.views import (
     GeometryResult,
     GeometryView,
@@ -47,7 +48,7 @@ from app.common.map_utils import (
 )
 
 # Params for load combinations are in app.constants
-from app.constants import SCIA_TEMPLATE_PATH
+from app.constants import SCIA_TEMPLATE_PATH, CALCULATION_LEVEL_OPTIONS, SIGNAGE_OPTIONS
 from src.combinations.load_factors import create_load_combination_table
 from src.common.constants.technical import AnalysisType
 from src.common.plot_utils import (
@@ -435,6 +436,85 @@ class BridgeController(ViktorController):
         combination_table = create_load_combination_table(load_combination_params)
         # Return the Styler object to preserve colors and formatting
         return TableResult(combination_table)
+    
+    # ============================================================================================================
+    # Optimization
+    # ============================================================================================================
+
+    def perform_optimization(self, params: BridgeParametrization, **kwargs) -> 'OptimizationResult':
+        """
+        Performs optimization of load zones based on user-defined criteria.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional keyword arguments
+        :returns: OptimizationResult containing the optimization results
+        :rtype: OptimizationResult
+        """
+        results: list[OptimizationResultElement] = []
+
+        # Loop over calculation levels
+        for calc_level in CALCULATION_LEVEL_OPTIONS:
+            if calc_level == "Werkelijke wegindeling met bebording":
+                for signage in SIGNAGE_OPTIONS:
+                    params.berekeningsniveau = calc_level
+                    params.bebording = signage
+
+                    idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
+                    df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
+
+                    capacity_values = df["Capaciteit"].tolist() if "Capaciteit" in df else []
+                    shearforce_values = df["Schuifkracht"].tolist() if "Schuifkracht" in df else []
+
+                    results.append(
+                        OptimizationResultElement(
+                            params,
+                            {
+                                "calculation_level": calc_level,
+                                "signage": signage,
+                                "uc_capacity": capacity_values,
+                                "uc_shearforce": shearforce_values,
+                            },
+                        )
+                    )
+
+                    # Stop if no failures
+                    if "Failed" not in capacity_values and "Failed" not in shearforce_values:
+                        break
+            else:
+                params.berekeningsniveau = calc_level
+                params.bebording = None
+
+                idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
+                df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
+
+                capacity_values = df["Capaciteit"].tolist() if "Capaciteit" in df else []
+                shearforce_values = df["Schuifkracht"].tolist() if "Schuifkracht" in df else []
+
+                results.append(
+                    OptimizationResultElement(
+                        params,
+                        {
+                            "calculation_level": calc_level,
+                            "signage": None,
+                            "uc_capacity": capacity_values,
+                            "uc_shearforce": shearforce_values,
+                        },
+                    )
+                )
+
+                # Stop if no failures
+                if "Failed" not in capacity_values and "Failed" not in shearforce_values:
+                    break
+
+        output_headers = {
+            "calculation_level": "Berekeningsniveau",
+            "signage": "Bebording",
+            "uc_capacity": "UC Capaciteit",
+            "uc_shearforce": "UC Schuifkracht",
+        }
+        return OptimizationResult(results, output_headers=output_headers)
+    
 
     # ============================================================================================================
     # SCIA Integration

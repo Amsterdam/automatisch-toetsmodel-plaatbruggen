@@ -25,10 +25,12 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
+    OptimizationButton
 )
 
 from app.constants import (
     BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
     CALCULATION_SETTINGS_INFO_TEXT,
     CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
     CONCRETEQUALITY_CSV_PATH,
@@ -43,6 +45,7 @@ from app.constants import (
     PAVEMENT_MATERIAL_OPTIONS,
     REINFORCEMENT_INFO_TEXT,
     SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
 )
 from src.common.materials import get_reinforcement_qualities
 
@@ -1118,16 +1121,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------
     calc_page = Page("Berekening", views="get_load_combinations_view")
 
-    calc_page.berekeningsinstellingen = Tab("Berekeningsinstellingen")
+    # ----------------------------------
+    # --- Berekening Page -> Berekening opties tab ---
+    # ----------------------------------
 
-    calc_page.berekeningsinstellingen.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
+    calc_page.calc_level = Tab("Berekening niveau")
 
-    # --- Load Combinations (in berekeningsinstellingen tab) ---
-    calc_page.berekeningsinstellingen.cc_class = OptionField(
+    calc_page.calc_level.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
+
+    # --- Load Combinations (in berekening niveau tab) ---
+    calc_page.calc_level.cc_class = OptionField(
         "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
     )
 
-    calc_page.berekeningsinstellingen.design_code = OptionField(
+    calc_page.calc_level.design_code = OptionField(
         "Veiligheidsniveau",
         options=[
             "NEN 8700 verbouw",
@@ -1139,32 +1146,27 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default="NEN 8700 gebruik",
     )
 
-    calc_page.berekeningsinstellingen.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
+    calc_page.calc_level.info_calculation_level = Text(CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL)
 
-    calc_page.berekeningsinstellingen.berekeningsniveau = OptionField(
+    calc_page.calc_level.calculation_level = OptionField(
         "Verkeersbelasting",
-        options=[
-            "Theoretische wegindeling",
-            "Werkelijke wegindeling",
-            "Werkelijke wegindeling onderliggend wegennet",
-            "Werkelijke wegindeling met bebording",
-        ],
+        options=CALCULATION_LEVEL_OPTIONS,
         variant="radio",
         name="berekeningsniveau",
         default="Theoretische wegindeling",
     )
 
-    calc_page.berekeningsinstellingen.signage = OptionField(
+    calc_page.calc_level.signage = OptionField(
         "Bebording",
-        options=["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"],
+        options=SIGNAGE_OPTIONS,
         name="signage",
         default="50 ton",
         visible=_show_signage_field,
     )
 
-    calc_page.berekeningsinstellingen.lb1 = LineBreak()
+    calc_page.calc_level.lb1 = LineBreak()
 
-    calc_page.berekeningsinstellingen.spreiding = BooleanField(
+    calc_page.calc_level.spreiding = BooleanField(
         "Spreiding van verkeersbelasting",
         default=True,
         name="spreiding",
@@ -1172,39 +1174,53 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     # ----------------------------------
-    # --- Berekening Page -> Berekening opties tab ---
+    # --- Berekening Page -> Berekening selectie tab ---
     # ----------------------------------
-    calc_page.calc_options = Tab("Berekening opties")
+    calc_page.calc_selection = Tab("Berekening selectie")
 
     # Load case selection for controlling calculation time
-    calc_page.calc_options.load_case_selection_header = Text(LOAD_CASE_SELECTION_HEADER_TEXT)
+    calc_page.calc_selection.load_case_selection_header = Text(LOAD_CASE_SELECTION_HEADER_TEXT)
 
-    calc_page.calc_options.lb_load_case_selection = LineBreak()
+    calc_page.calc_selection.lb_load_case_selection = LineBreak()
 
-    calc_page.calc_options.load_case_selection_table = Table(
+    calc_page.calc_selection.load_case_selection_table = Table(
         "Belastingselectie",
         name="load_case_selection_table",
         default=LOAD_CASE_SELECTION_DEFAULT,
     )
 
     # Define table columns (order determines display order)
-    calc_page.calc_options.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
-    calc_page.calc_options.load_case_selection_table.load_type = TextField(
+    calc_page.calc_selection.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
+    calc_page.calc_selection.load_case_selection_table.load_type = TextField(
         "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
     )
-    calc_page.calc_options.load_case_selection_table.load_case_range = TextField(
+    calc_page.calc_selection.load_case_selection_table.load_case_range = TextField(
         "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
     )
-    calc_page.calc_options.load_case_selection_table.load_case_count = NumberField(
+    calc_page.calc_selection.load_case_selection_table.load_case_count = NumberField(
         "Aantal belastinggevallen",
         suffix="",
         visible=True,
         description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
     )
 
-    calc_page.calc_options.lb_traffic_loads = LineBreak()
+    calc_page.calc_selection.lb_traffic_loads = LineBreak()
 
-    calc_page.calc_options.load_case_selection_note = Text(LOAD_CASE_SELECTION_NOTE_TEXT)
+    calc_page.calc_selection.load_case_selection_note = Text(LOAD_CASE_SELECTION_NOTE_TEXT)
+
+    # ----------------------------------
+    # --- Berekening Page -> Berekening selectie tab ---
+    # ----------------------------------
+    calc_page.calc_optimization = Tab("Berekening optimalisatie")
+
+    calc_page.calc_optimization.optimization_header = Text("OPTIMIZATION_HEADER_TEXT")
+
+    calc_page.calc_optimization.lb1 = LineBreak()
+
+    calc_page.calc_optimization.optimization_explanation = Text("OPTIMIZATION_EXPLANATION_TEXT")
+
+    calc_page.calc_optimization.optimization_btn = OptimizationButton('OptimizationButton', method='perform_optimization', flex=100, longpoll=True)   
+
 
     # ----------------------------------
     # --- SCIA Page ---

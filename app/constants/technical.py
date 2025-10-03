@@ -62,3 +62,22 @@ LOAD_CASE_SELECTION_DEFAULT: list[dict[str, Any]] = [
         "load_case_count": 30,  # Estimated default
     },
 ]
+
+# Calculation level options for traffic loads
+CALCULATION_LEVEL_OPTIONS = [
+    "Theoretische wegindeling",
+    "Werkelijke wegindeling",
+    "Werkelijke wegindeling onderliggend wegennet",
+    "Werkelijke wegindeling met bebording",
+]
+
+# Signage options for bridge weight limits
+SIGNAGE_OPTIONS = [
+    "50 ton",
+    "45 ton",
+    "40 ton",
+    "35 ton",
+    "30 ton",
+    "25 ton",
+    "20 ton",
+]
