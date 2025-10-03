@@ -54,8 +54,10 @@ SHARED_PARAMETERS: list[ParameterGroup] = [
     {
         "name": "load_combinations",
         "paths": [
-            "input.berekeningsinstellingen.cc_class",
-            "input.berekeningsinstellingen.design_code",
+            "cc_class",
+            "design_code",
+            "berekeningsniveau",
+            "signage",
             "info.construction_year",
         ],
     },

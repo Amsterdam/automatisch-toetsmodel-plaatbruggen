@@ -171,3 +171,29 @@ Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belasting
 # Load case selection note text
 LOAD_CASE_SELECTION_NOTE_TEXT = """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,
 maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoeleinden."""
+
+# OPTIMIZATION_EXPLANATION_TEXT
+OPTIMIZATION_EXPLANATION_TEXT = """Op deze pagina kan een optimalisatie berekening worden uitgevoerd.
+Tijdens de optimalisatie worden de volgende berekeningsniveaus doorlopen:
+1.  Theoretische wegindeling
+2.  Werkelijke wegindeling
+3.  Werkelijke wegindeling onderliggend wegennet
+4.  Werkelijke wegindeling met bebording - 60 ton (standaard)
+5.  Werkelijke wegindeling met bebording - 50 ton
+6.  Werkelijke wegindeling met bebording - 45 ton
+7.  Werkelijke wegindeling met bebording - 40 ton
+8.  Werkelijke wegindeling met bebording - 35 ton
+9.  Werkelijke wegindeling met bebording - 30 ton
+10.  Werkelijke wegindeling met bebording - 25 ton
+11.  Werkelijke wegindeling met bebording - 20 ton
+
+Tijdens elke stap worden de resultaten gecontroleerd op slagingscriteria (IDEA capaciteit en schuifsterkte toetsing).
+Als de resultaten voldoen aan de slagingscriteria, wordt de optimalisatie gestopt en worden de resultaten weergegeven.
+
+Door op "Start Optimalisatie" te klikken, wordt de optimalisatie gestart.
+Na voltooiing worden de resultaten van de optimalisatieberekeningen weergegeven.
+Het is mogelijk in de resultaten lijst te klikken op een specifieke rij om alle invoergegevens behorende bij die berekening in te laden.
+Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
+
+**Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
+"""

@@ -48,6 +48,7 @@ from .ui_texts import (
     REINFORCEMENT_INFO_TEXT,
     SCIA_INFO_TEXT,
     SCIA_ZIP_README_CONTENT,
+    OPTIMIZATION_EXPLANATION_TEXT,
 )
 
 # Re-export all constants for backward compatibility
@@ -82,4 +83,5 @@ __all__ = [
     "SIGNAGE_LOAD_FACTORS",
     "SIGNAGE_OPTIONS",
     "CALCULATION_LEVEL_OPTIONS",
+    "OPTIMIZATION_EXPLANATION_TEXT"
 ]

@@ -5,20 +5,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-)
+
 from src.common.materials import get_reinforcement_qualities
 from viktor.parametrization import (
     BooleanField,
@@ -62,7 +49,9 @@ from app.constants import (
     REINFORCEMENT_INFO_TEXT,
     SCIA_INFO_TEXT,
     SIGNAGE_OPTIONS,
+    OPTIMIZATION_EXPLANATION_TEXT
 )
+
 from src.common.materials import get_reinforcement_qualities
 from .utils import validate_reinforcement_zone_selections
 
@@ -1127,10 +1116,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         )
         setattr(input.belastingzones.load_zones_array, f"d{_idx_field}_width", _field)
 
-    # ----------------------------------------
-    # --- Invoer Page -> loadcases tab ---
-    # ----------------------------------------
-
     # ----------------------------------
     # --- Berekening Page ---
     # ----------------------------------
@@ -1228,11 +1213,11 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------
     calc_page.calc_optimization = Tab("Berekening optimalisatie")
 
-    calc_page.calc_optimization.optimization_header = Text("OPTIMIZATION_HEADER_TEXT")
+    calc_page.calc_optimization.optimization_header = Text("## Berekening optimalisatie")
 
     calc_page.calc_optimization.lb1 = LineBreak()
 
-    calc_page.calc_optimization.optimization_explanation = Text("OPTIMIZATION_EXPLANATION_TEXT")
+    calc_page.calc_optimization.optimization_explanation = Text(OPTIMIZATION_EXPLANATION_TEXT)
 
     calc_page.calc_optimization.optimization_btn = OptimizationButton('OptimizationButton', method='perform_optimization', flex=100, longpoll=True)   
 

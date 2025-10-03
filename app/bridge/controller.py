@@ -473,8 +473,11 @@ class BridgeController(ViktorController):
         for calc_level in CALCULATION_LEVEL_OPTIONS:
             if calc_level == "Werkelijke wegindeling met bebording":
                 for signage in SIGNAGE_OPTIONS:
+                    print("calc_level:", calc_level)
+                    print("params before:", params.berekeningsniveau, params.signage)
                     params.berekeningsniveau = calc_level
-                    params.bebording = signage
+                    params.signage = signage
+                    print("params after:", params.berekeningsniveau, params.signage)
 
                     idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
                     df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
@@ -498,8 +501,11 @@ class BridgeController(ViktorController):
                     if "Failed" not in capacity_values and "Failed" not in shearforce_values:
                         break
             else:
+                print("calc_level:", calc_level)
+                print("params before:", params.berekeningsniveau, params.signage)
                 params.berekeningsniveau = calc_level
-                params.bebording = None
+                params.signage = None
+                print("params after:", params.berekeningsniveau, params.signage)
 
                 idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
                 df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
