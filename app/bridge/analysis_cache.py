@@ -13,10 +13,6 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
-from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
-from viktor.external import idea_rcs
-
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
@@ -25,6 +21,9 @@ from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_integration_strip_results_for_idea,
     process_scia_node_results_for_idea,
 )
+from viktor.core import File, Storage, progress_message
+from viktor.errors import UserError
+from viktor.external import idea_rcs
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -176,210 +175,31 @@ class AnalysisCache:
         self.storage = Storage()
 
     def _extract_params(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> dict[str, Any]:  # noqa: ANN401
-        """Extract relevant parameters for caching based on analysis type."""
+        """
+        Extract relevant parameters for caching based on analysis type.
+
+        Uses the centralized parameter system from cache_parameters module.
+
+        :param params: Bridge parameters object
+        :type params: Any
+        :param analysis_type: Type of analysis (SCIA or IDEA)
+        :type analysis_type: AnalysisType
+        :param template_path: Optional template path for SCIA analyses
+        :type template_path: str | None
+        :returns: Dictionary of extracted parameters for caching
+        :rtype: dict[str, Any]
+        """
+        from app.bridge.cache_parameters import extract_parameters_for_analysis
+
         extracted_params: dict[str, Any] = {
             "analysis_type": analysis_type.value,
             "template_path": template_path,
         }
 
-        if analysis_type == AnalysisType.SCIA:
-            # For SCIA, extract only the parameters that actually affect the SCIA analysis
-            extracted_params.update(
-                {
-                    "bridge_segments": self._extract_bridge_segments(params),
-                    "load_combinations": self._extract_scia_load_combinations(params),
-                    "load_zones": self._extract_scia_load_zones(params),
-                }
-            )
-        elif analysis_type == AnalysisType.IDEA:
-            # For IDEA, extract all relevant parameters
-            extracted_params.update(
-                {
-                    "bridge_segments": self._extract_bridge_segments(params),
-                    "load_zones": self._extract_load_zones(params),
-                    "load_combinations": self._extract_load_combinations(params),
-                    "materials": self._extract_materials(params),
-                    "reinforcement_zones": self._extract_reinforcement_zones(params),
-                    "reinforcement_materials": self._extract_reinforcement_materials(params),
-                    "reinforcement_geometry": self._extract_reinforcement_geometry(params),
-                }
-            )
+        # Use the centralized extraction system
+        extracted_params.update(extract_parameters_for_analysis(params, analysis_type))
 
         return extracted_params
-
-    def _extract_bridge_segments(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
-        """Extract bridge segments data from params."""
-        segments: list[dict[str, Any]] = []
-        if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
-            segments.extend(
-                {
-                    "bz1": getattr(segment, "bz1", 0.0),
-                    "bz2": getattr(segment, "bz2", 0.0),
-                    "bz3": getattr(segment, "bz3", 0.0),
-                    "dz": getattr(segment, "dz", 0.0),
-                    "dz_2": getattr(segment, "dz_2", 0.0),
-                    "l": getattr(segment, "l", 0.0),
-                    "is_first_segment": getattr(segment, "is_first_segment", False),
-                    "is_support": getattr(segment, "is_support", False),
-                }
-                for segment in params.bridge_segments_array
-            )
-        return segments
-
-    def _extract_load_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
-        """Extract load zones data from params (non-reinforcement parameters)."""
-        zones: list[dict[str, Any]] = []
-        zones_array = getattr(params, "load_zones_data_array", None)
-        if zones_array:
-            zones.extend(
-                {
-                    "zone_type": getattr(zone, "zone_type", ""),
-                    "pavement_thickness": getattr(zone, "pavement_thickness", 0.0),
-                    "pavement_material": getattr(zone, "pavement_material", ""),
-                    # Extract d{X}_width fields that affect load geometry
-                    **{
-                        f"d{i}_width": getattr(zone, f"d{i}_width", 0.0)
-                        for i in range(1, 16)  # D1 to D15 width fields
-                        if hasattr(zone, f"d{i}_width")
-                    },
-                }
-                for zone in zones_array
-            )
-        return zones
-
-    def _extract_load_combinations(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Extract load combinations data from params."""
-        return {
-            "load_combinations": getattr(params, "load_combinations", {}),
-        }
-
-    def _extract_scia_load_combinations(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Extract SCIA-specific load combinations data from params."""
-        # For SCIA analysis, we need the load combination parameters
-        scia_params = {}
-
-        # Try to get load combination parameters from the nested structure
-        if hasattr(params, "input") and hasattr(params.input, "berekeningsinstellingen"):
-            belasting = params.input.berekeningsinstellingen
-            scia_params.update(
-                {
-                    "cc_class": getattr(belasting, "cc_class", None),
-                    "design_code": getattr(belasting, "design_code", None),
-                }
-            )
-
-        # Also get construction year if available
-        if hasattr(params, "info"):
-            scia_params["construction_year"] = getattr(params.info, "construction_year", None)
-
-        return scia_params
-
-    def _extract_scia_load_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
-        """Extract SCIA-specific load zones data from params (only parameters that affect SCIA analysis)."""
-        zones: list[dict[str, Any]] = []
-        zones_array = getattr(params, "load_zones_data_array", None)
-        if zones_array:
-            zones.extend(
-                {
-                    "zone_type": getattr(zone, "zone_type", ""),
-                    "pavement_thickness": getattr(zone, "pavement_thickness", 0.0),
-                    "pavement_material": getattr(zone, "pavement_material", ""),
-                    # Extract d{X}_width fields that affect load geometry
-                    **{
-                        f"d{i}_width": getattr(zone, f"d{i}_width", 0.0)
-                        for i in range(1, 16)  # D1 to D15 width fields
-                        if hasattr(zone, f"d{i}_width")
-                    },
-                }
-                for zone in zones_array
-            )
-        return zones
-
-    def _extract_materials(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Extract materials data from params."""
-        materials_data = {
-            "materials": getattr(params, "materials", {}),
-        }
-
-        # Extract concrete strength class from params directly (uses name attribute)
-        # This parameter affects the concrete material properties in IDEA RCS analysis
-        materials_data["concrete_strength_class"] = getattr(params, "concrete_strength_class", "")
-
-        return materials_data
-
-    def _extract_reinforcement_zones(self, params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
-        """Extract reinforcement zones data from params."""
-        zones = []
-        reinforcement_zones = getattr(params, "reinforcement_zones", [])
-        if reinforcement_zones:
-            for zone in reinforcement_zones:
-                zone_data = {
-                    "zone_name": getattr(zone, "zone_name", ""),
-                    "zone_type": getattr(zone, "zone_type", ""),
-                    "zone_length": getattr(zone, "zone_length", 0.0),
-                    "zone_width": getattr(zone, "zone_width", 0.0),
-                    "zone_height": getattr(zone, "zone_height", 0.0),
-                    "zone_position": getattr(zone, "zone_position", {}),
-                }
-                zones.append(zone_data)
-        return zones
-
-    def _extract_reinforcement_materials(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Extract reinforcement materials data from params."""
-        return {
-            "reinforcement_materials": getattr(params, "reinforcement_materials", {}),
-        }
-
-    def _extract_reinforcement_geometry(self, params: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Extract reinforcement geometry data from params."""
-        reinforcement_data: dict[str, Any] = {}
-
-        # Extract general reinforcement parameters
-        if hasattr(params, "input") and hasattr(params.input, "geometrie_wapening"):
-            geom_wap = params.input.geometrie_wapening
-            reinforcement_data.update(
-                {
-                    "staalsoort": getattr(geom_wap, "staalsoort", ""),
-                    "dekking_boven": getattr(geom_wap, "dekking_boven", 0.0),
-                    "dekking_onder": getattr(geom_wap, "dekking_onder", 0.0),
-                    "langswapening_buiten": getattr(geom_wap, "langswapening_buiten", False),
-                }
-            )
-
-        # Extract reinforcement zone data - this is where the actual reinforcement geometry is stored
-        zones_array = getattr(params, "reinforcement_zones_array", None)
-        if zones_array:
-            zones_data = []
-            for zone in zones_array:
-                zone_data = {
-                    "zone_number": getattr(zone, "zone_number", []),
-                    "hoofdwapening_langs_boven_diameter": getattr(zone, "hoofdwapening_langs_boven_diameter", 0.0),
-                    "hoofdwapening_langs_boven_hart_op_hart": getattr(zone, "hoofdwapening_langs_boven_hart_op_hart", 0.0),
-                    "hoofdwapening_langs_onder_diameter": getattr(zone, "hoofdwapening_langs_onder_diameter", 0.0),
-                    "hoofdwapening_langs_onder_hart_op_hart": getattr(zone, "hoofdwapening_langs_onder_hart_op_hart", 0.0),
-                    "hoofdwapening_dwars_boven_diameter": getattr(zone, "hoofdwapening_dwars_boven_diameter", 0.0),
-                    "hoofdwapening_dwars_boven_hart_op_hart": getattr(zone, "hoofdwapening_dwars_boven_hart_op_hart", 0.0),
-                    "hoofdwapening_dwars_onder_diameter": getattr(zone, "hoofdwapening_dwars_onder_diameter", 0.0),
-                    "hoofdwapening_dwars_onder_hart_op_hart": getattr(zone, "hoofdwapening_dwars_onder_hart_op_hart", 0.0),
-                    "heeft_bijlegwapening": getattr(zone, "heeft_bijlegwapening", False),
-                }
-
-                # Add bijlegwapening fields if present
-                if getattr(zone, "heeft_bijlegwapening", False):
-                    zone_data.update(
-                        {
-                            "bijlegwapening_langs_boven_diameter": getattr(zone, "bijlegwapening_langs_boven_diameter", 0.0),
-                            "bijlegwapening_langs_onder_diameter": getattr(zone, "bijlegwapening_langs_onder_diameter", 0.0),
-                            "bijlegwapening_dwars_boven_diameter": getattr(zone, "bijlegwapening_dwars_boven_diameter", 0.0),
-                            "bijlegwapening_dwars_onder_diameter": getattr(zone, "bijlegwapening_dwars_onder_diameter", 0.0),
-                        }
-                    )
-
-                zones_data.append(zone_data)
-
-            reinforcement_data["reinforcement_zones"] = zones_data
-
-        return reinforcement_data
 
     def _generate_input_hash(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> str:  # noqa: ANN401
         """Generate a hash of the input parameters for caching."""

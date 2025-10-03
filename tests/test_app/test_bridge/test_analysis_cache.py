@@ -6,6 +6,10 @@ import unittest
 from unittest.mock import Mock, patch
 
 from app.bridge.analysis_cache import AnalysisCache
+from app.bridge.cache_parameters import (
+    extract_parameters_for_analysis,
+    get_cache_parameters_for_analysis,
+)
 from src.common.constants.technical import AnalysisType
 from tests.test_data.seed_loader import load_bridge_default_params
 
@@ -23,95 +27,93 @@ class TestAnalysisCache(unittest.TestCase):
         assert AnalysisType.SCIA.value == "scia"
         assert AnalysisType.IDEA.value == "idea"
 
-    def test_extract_bridge_segments(self) -> None:
-        """Test bridge segment parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            segments = cache._extract_bridge_segments(self.default_params)
-            assert isinstance(segments, list)
+    def test_get_cache_parameters_for_scia(self) -> None:
+        """Test getting parameter groups for SCIA analysis."""
+        param_groups = get_cache_parameters_for_analysis(AnalysisType.SCIA)
+        assert isinstance(param_groups, list)
+        # SCIA should only have SHARED_PARAMETERS
+        group_names = [group["name"] for group in param_groups]
+        assert "bridge_segments" in group_names
+        assert "load_zones" in group_names
+        assert "load_combinations" in group_names
+        assert "materials" in group_names
+        # SCIA should not have reinforcement parameters
+        assert "reinforcement_zones" not in group_names
+        assert "reinforcement_geometry" not in group_names
 
-    def test_extract_load_zones(self) -> None:
-        """Test load zone parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            zones = cache._extract_load_zones(self.default_params)
-            assert isinstance(zones, list)
+    def test_get_cache_parameters_for_idea(self) -> None:
+        """Test getting parameter groups for IDEA analysis."""
+        param_groups = get_cache_parameters_for_analysis(AnalysisType.IDEA)
+        assert isinstance(param_groups, list)
+        # IDEA should have both SHARED and IDEA_ONLY parameters
+        group_names = [group["name"] for group in param_groups]
+        assert "bridge_segments" in group_names
+        assert "load_zones" in group_names
+        assert "load_combinations" in group_names
+        assert "materials" in group_names
+        assert "reinforcement_zones" in group_names
+        assert "reinforcement_geometry" in group_names
 
-    def test_extract_load_combinations(self) -> None:
-        """Test load combination parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            combinations = cache._extract_load_combinations(self.default_params)
-            assert isinstance(combinations, dict)
+    def test_extract_parameters_for_scia(self) -> None:
+        """Test parameter extraction for SCIA analysis."""
+        params = extract_parameters_for_analysis(self.default_params, AnalysisType.SCIA)
+        assert isinstance(params, dict)
+        # Check that SCIA parameters are extracted
+        assert "bridge_segments" in params
+        assert "load_zones" in params
+        assert "load_combinations" in params
+        assert "materials" in params
+        # Check that IDEA-only parameters are NOT extracted for SCIA
+        assert "reinforcement_zones" not in params
+        assert "reinforcement_geometry" not in params
 
-    def test_extract_materials(self) -> None:
-        """Test material parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            materials = cache._extract_materials(self.default_params)
-            assert isinstance(materials, dict)
-
-    def test_extract_reinforcement_zones(self) -> None:
-        """Test reinforcement zone parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            zones = cache._extract_reinforcement_zones(self.default_params)
-            assert isinstance(zones, list)
-
-    def test_extract_reinforcement_materials(self) -> None:
-        """Test reinforcement material parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            materials = cache._extract_reinforcement_materials(self.default_params)
-            assert isinstance(materials, dict)
-
-    def test_extract_reinforcement_geometry(self) -> None:
-        """Test reinforcement geometry parameter extraction."""
-        # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
-            cache = AnalysisCache()
-            geometry = cache._extract_reinforcement_geometry(self.default_params)
-            assert isinstance(geometry, dict)
+    def test_extract_parameters_for_idea(self) -> None:
+        """Test parameter extraction for IDEA analysis."""
+        params = extract_parameters_for_analysis(self.default_params, AnalysisType.IDEA)
+        assert isinstance(params, dict)
+        # Check that all parameters are extracted for IDEA
+        assert "bridge_segments" in params
+        assert "load_zones" in params
+        assert "load_combinations" in params
+        assert "materials" in params
+        assert "reinforcement_zones" in params
+        assert "reinforcement_geometry" in params
 
     def test_extract_scia_parameters(self) -> None:
-        """Test SCIA parameter extraction."""
+        """Test SCIA parameter extraction via AnalysisCache._extract_params()."""
         # Mock Storage to avoid "Job token is not set" error
         with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
             cache = AnalysisCache()
             template_path = "/path/to/template"
             params = cache._extract_params(self.default_params, AnalysisType.SCIA, template_path)
             assert isinstance(params, dict)
-            # SCIA analysis only includes specific parameters that affect the analysis
+            # Check metadata fields
+            assert params["analysis_type"] == "scia"
+            assert params["template_path"] == template_path
+            # SCIA analysis includes SHARED parameters grouped by category
             assert "bridge_segments" in params
             assert "load_zones" in params
             assert "load_combinations" in params
-            assert "template_path" in params
-            # SCIA analysis does not include materials or reinforcement parameters
-            assert "materials" not in params
+            assert "materials" in params
+            # SCIA analysis does not include IDEA-ONLY reinforcement parameters
             assert "reinforcement_zones" not in params
-            assert "reinforcement_materials" not in params
             assert "reinforcement_geometry" not in params
 
     def test_extract_idea_parameters(self) -> None:
-        """Test IDEA parameter extraction."""
+        """Test IDEA parameter extraction via AnalysisCache._extract_params()."""
         # Mock Storage to avoid "Job token is not set" error
         with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
             cache = AnalysisCache()
             params = cache._extract_params(self.default_params, AnalysisType.IDEA)
             assert isinstance(params, dict)
-            # Should include ALL parameters (SCIA + reinforcement)
+            # Check metadata
+            assert params["analysis_type"] == "idea"
+            # Should include ALL parameters (SHARED + IDEA_ONLY)
             assert "bridge_segments" in params
             assert "load_zones" in params
             assert "load_combinations" in params
             assert "materials" in params
             assert "reinforcement_zones" in params
-            assert "reinforcement_materials" in params
             assert "reinforcement_geometry" in params
 
     def test_generate_input_hash(self) -> None:
