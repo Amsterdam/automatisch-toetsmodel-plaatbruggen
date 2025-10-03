@@ -5,8 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-
-from src.common.materials import get_reinforcement_qualities
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -17,6 +15,7 @@ from viktor.parametrization import (
     Lookup,
     MultiSelectField,
     NumberField,
+    OptimizationButton,
     OptionField,
     OutputField,
     Page,
@@ -27,9 +26,7 @@ from viktor.parametrization import (
     Text,
     TextAreaField,
     TextField,
-    OptimizationButton
 )
-
 
 from app.constants import (
     BRIDGE_DATA_PATH,
@@ -45,14 +42,14 @@ from app.constants import (
     LOAD_ZONE_TYPES,
     LOAD_ZONES_INFO_TEXT,
     MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
     PAVEMENT_MATERIAL_OPTIONS,
     REINFORCEMENT_INFO_TEXT,
     SCIA_INFO_TEXT,
     SIGNAGE_OPTIONS,
-    OPTIMIZATION_EXPLANATION_TEXT
 )
-
 from src.common.materials import get_reinforcement_qualities
+
 from .utils import validate_reinforcement_zone_selections
 
 
@@ -1130,9 +1127,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     calc_page.calc_level.info_load_combinations = Text(CALCULATION_SETTINGS_INFO_TEXT)
 
     # --- Load Combinations (in berekening niveau tab) ---
-    calc_page.calc_level.cc_class = OptionField(
-        "Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2"
-    )
+    calc_page.calc_level.cc_class = OptionField("Gevolgklasse", options=["CC1a/b", "CC2", "CC3"], variant="radio", name="cc_class", default="CC2")
 
     calc_page.calc_level.design_code = OptionField(
         "Veiligheidsniveau",
@@ -1219,8 +1214,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     calc_page.calc_optimization.optimization_explanation = Text(OPTIMIZATION_EXPLANATION_TEXT)
 
-    calc_page.calc_optimization.optimization_btn = OptimizationButton('OptimizationButton', method='perform_optimization', flex=100, longpoll=True)   
-
+    calc_page.calc_optimization.optimization_btn = OptimizationButton("OptimizationButton", method="perform_optimization", flex=100, longpoll=True)
 
     # ----------------------------------
     # --- SCIA Page ---

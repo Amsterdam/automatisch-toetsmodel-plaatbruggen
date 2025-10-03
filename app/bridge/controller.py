@@ -2,15 +2,14 @@
 
 import traceback
 import zipfile
-import pandas as pd  # Import pandas for DataFrame handling
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, NoReturn
 
+import pandas as pd  # Import pandas for DataFrame handling
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
-
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
 from viktor.core import File, ViktorController, progress_message
@@ -29,6 +28,7 @@ from viktor.views import (
     TableResult,  # Import TableResult
     TableView,  # Import TableView
 )
+
 from app.bridge.analysis_cache import (
     get_cached_analysis_results,
     get_idea_analysis_results,
@@ -48,7 +48,7 @@ from app.common.map_utils import (
 )
 
 # Params for load combinations are in app.constants
-from app.constants import SCIA_TEMPLATE_PATH, CALCULATION_LEVEL_OPTIONS, SIGNAGE_OPTIONS
+from app.constants import CALCULATION_LEVEL_OPTIONS, SCIA_TEMPLATE_PATH, SIGNAGE_OPTIONS
 from src.combinations.load_factors import create_load_combination_table
 from src.common.constants.technical import AnalysisType
 from src.common.plot_utils import (
@@ -86,22 +86,6 @@ from src.integrations.scia_integration.scia_force_envelopes import (
 )
 from src.integrations.scia_integration.scia_result_views import create_scia_integration_strip_results_table, create_scia_node_results_table
 from src.report.report_functions import create_export_report  # Import the report creation function
-from viktor.core import File, ViktorController, progress_message
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -452,12 +436,12 @@ class BridgeController(ViktorController):
         combination_table = create_load_combination_table(load_combination_params)
         # Return the Styler object to preserve colors and formatting
         return TableResult(combination_table)
-    
+
     # ============================================================================================================
     # Optimization
     # ============================================================================================================
 
-    def perform_optimization(self, params: BridgeParametrization, **kwargs) -> 'OptimizationResult':
+    def perform_optimization(self, params: BridgeParametrization, **kwargs) -> "OptimizationResult":
         """
         Performs optimization of load zones based on user-defined criteria.
 
@@ -536,7 +520,6 @@ class BridgeController(ViktorController):
             "uc_shearforce": "UC Schuifkracht",
         }
         return OptimizationResult(results, output_headers=output_headers)
-    
 
     # ============================================================================================================
     # SCIA Integration

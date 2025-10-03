@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from viktor.external import idea_rcs
 
 from app.bridge.parametrization import BridgeParametrization
 from src.common.constants.technical import MM_TO_M
@@ -26,7 +27,6 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
-from viktor.external import idea_rcs
 
 if TYPE_CHECKING:
     from viktor.core import File
