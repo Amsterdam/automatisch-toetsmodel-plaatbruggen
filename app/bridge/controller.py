@@ -7,13 +7,14 @@ from io import BytesIO
 from pathlib import Path  # Add Path import for SCIA template
 from typing import Any, NoReturn
 
+import pandas as pd  # Import pandas for DataFrame handling
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
 from viktor.core import File, ViktorController, progress_message
 from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult  # Import DownloadResult from correct module
+from viktor.result import DownloadResult, OptimizationResult, OptimizationResultElement
 from viktor.views import (
     GeometryResult,
     GeometryView,
@@ -47,7 +48,7 @@ from app.common.map_utils import (
 )
 
 # Params for load combinations are in app.constants
-from app.constants import SCIA_TEMPLATE_PATH
+from app.constants import CALCULATION_LEVEL_OPTIONS, SCIA_TEMPLATE_PATH, SIGNAGE_OPTIONS
 from src.combinations.load_factors import create_load_combination_table
 from src.common.constants.technical import AnalysisType
 from src.common.plot_utils import (
@@ -437,6 +438,99 @@ class BridgeController(ViktorController):
         return TableResult(combination_table)
 
     # ============================================================================================================
+    # Optimization
+    # ============================================================================================================
+
+    def perform_optimization(self, params: BridgeParametrization, **kwargs) -> "OptimizationResult":
+        """
+        Performs optimization of load zones based on user-defined criteria.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional keyword arguments
+        :returns: OptimizationResult containing the optimization results
+        :rtype: OptimizationResult
+        """
+        # # Initialize a list to store optimization results for each scenario
+        results: list[OptimizationResultElement] = []
+
+        # # Loop over all calculation levels defined in CALCULATION_LEVEL_OPTIONS
+        for calc_level in CALCULATION_LEVEL_OPTIONS:
+            # # Special case: if calculation level requires iterating over signage options
+            if calc_level == "Werkelijke wegindeling met bebording":
+                # # Try all possible signage options for this calculation level
+                for signage in SIGNAGE_OPTIONS:
+                    # # Set the current calculation level and signage in the params
+                    params.berekeningsniveau = calc_level
+                    params.signage = signage
+
+                    # # Call the IDEA RCS results view to get the results table for this scenario
+                    idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
+                    # # Convert the table data to a DataFrame for easier processing
+                    results_df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
+
+                    # # Extract capacity and shearforce values from the DataFrame
+                    capacity_values = results_df["Capaciteit"].tolist() if "Capaciteit" in results_df else []
+                    shearforce_values = results_df["Schuifkracht"].tolist() if "Schuifkracht" in results_df else []
+
+                    # # Store the results for this scenario
+                    results.append(
+                        OptimizationResultElement(
+                            params,
+                            {
+                                "calculation_level": calc_level,
+                                "signage": signage,
+                                "uc_capacity": capacity_values,
+                                "uc_shearforce": shearforce_values,
+                            },
+                        )
+                    )
+
+                    # # If there are no failures in either capacity or shearforce, stop iterating signage options
+                    if "Failed" not in capacity_values and "Failed" not in shearforce_values:
+                        break
+            else:
+                # # For other calculation levels, signage is not relevant
+                params.berekeningsniveau = calc_level
+                params.signage = None
+
+                # # Call the IDEA RCS results view to get the results table for this scenario
+                idea_rcs_results_table = self.get_view_idea_rcs_results(self, params, **kwargs)
+                # # Convert the table data to a DataFrame for easier processing
+                results_df = pd.DataFrame(idea_rcs_results_table.data, columns=idea_rcs_results_table.column_headers)
+
+                # # Extract capacity and shearforce values from the DataFrame
+                capacity_values = results_df["Capaciteit"].tolist() if "Capaciteit" in results_df else []
+                shearforce_values = results_df["Schuifkracht"].tolist() if "Schuifkracht" in results_df else []
+
+                # # Store the results for this scenario
+                results.append(
+                    OptimizationResultElement(
+                        params,
+                        {
+                            "calculation_level": calc_level,
+                            "signage": None,
+                            "uc_capacity": capacity_values,
+                            "uc_shearforce": shearforce_values,
+                        },
+                    )
+                )
+
+                # # If there are no failures in either capacity or shearforce, stop iterating calculation levels
+                if "Failed" not in capacity_values and "Failed" not in shearforce_values:
+                    break
+
+        # # Define the output headers for the optimization result table
+        output_headers = {
+            "calculation_level": "Berekeningsniveau",
+            "signage": "Bebording",
+            "uc_capacity": "UC Capaciteit",
+            "uc_shearforce": "UC Schuifkracht",
+        }
+        # # Return the OptimizationResult object containing all results and headers
+        return OptimizationResult(results, output_headers=output_headers)
+
+    # ============================================================================================================
     # SCIA Integration
     # ============================================================================================================
 
@@ -544,8 +638,8 @@ class BridgeController(ViktorController):
 
         # Extract values and collect valid results
         try:
-            disp_values = data[disp_col].values
-            rot_values = data[rot_col].values
+            disp_values = data[disp_col].to_numpy()
+            rot_values = data[rot_col].to_numpy()
         except (AttributeError, KeyError):
             return max_displacement, max_rotation
 
