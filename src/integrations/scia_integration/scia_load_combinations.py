@@ -22,7 +22,11 @@ from src.combinations.load_factors import (
     prepare_combination_table,
 )
 
-from .scia_model_interface import SciaCombinationType, SciaLoadCombination, SciaModelBuilder
+from .scia_constants import (
+    COMBINATION_TYPE_ENVELOPE_SERVICEABILITY,
+    COMBINATION_TYPE_ENVELOPE_ULTIMATE,
+)
+from .scia_model_interface import SciaLoadCombination, SciaModelBuilder
 
 # Type aliases for SCIA objects
 SciaModel = Any
@@ -77,7 +81,7 @@ def _create_combinations_from_df(
     *,
     builder: SciaModelBuilder,
     df: DataFrame,
-    combination_type: SciaCombinationType,
+    combination_type: str,
     desc_prefix: str,
     all_load_cases: dict[str, Any],
 ) -> list[SciaLoadCombination]:
@@ -174,7 +178,7 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
 
 def create_load_combination(
     builder: SciaModelBuilder,
-    combination_type: SciaCombinationType,
+    combination_type: str,
     combination_name: str,
     load_case_factors: dict[SciaLoadCase, float],
     description: str = "",
@@ -214,7 +218,7 @@ def create_uls_combinations_from_table(
     return _create_combinations_from_df(
         builder=builder,
         df=uls_df,
-        combination_type=SciaCombinationType.ENVELOPE_ULTIMATE,
+        combination_type=COMBINATION_TYPE_ENVELOPE_ULTIMATE,
         desc_prefix="ULS Combination",
         all_load_cases=all_load_cases,
     )
@@ -236,7 +240,7 @@ def create_sls_combinations_from_table(
     return _create_combinations_from_df(
         builder=builder,
         df=sls_df,
-        combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
+        combination_type=COMBINATION_TYPE_ENVELOPE_SERVICEABILITY,
         desc_prefix="SLS Combination",
         all_load_cases=all_load_cases,
     )
@@ -258,7 +262,7 @@ def create_fatigue_combinations_from_table(
     return _create_combinations_from_df(
         builder=builder,
         df=fatigue_df,
-        combination_type=SciaCombinationType.ENVELOPE_SERVICEABILITY,
+        combination_type=COMBINATION_TYPE_ENVELOPE_SERVICEABILITY,
         desc_prefix="Fatigue Combination",
         all_load_cases=all_load_cases,
     )

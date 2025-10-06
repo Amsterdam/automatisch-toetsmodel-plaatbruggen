@@ -5,6 +5,14 @@ These functions call the SciaModelBuilder to directly construct SCIA load groups
 This keeps this module independent of the VIKTOR SDK by programming against an interface.
 """
 
+from .scia_constants import (
+    LOAD_GROUP_PERMANENT,
+    LOAD_GROUP_VARIABLE,
+    LOAD_TYPE_CONSTRUCTION_LOADS,
+    LOAD_TYPE_TEMPERATURE,
+    RELATION_EXCLUSIVE,
+    RELATION_STANDARD,
+)
 from .scia_model_interface import SciaLoadGroup, SciaModelBuilder
 
 
@@ -17,8 +25,8 @@ def create_permanent_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG1000 - Permanent",
-        load_option="PERMANENT",
-        relation="STANDARD",
+        load_option=LOAD_GROUP_PERMANENT,
+        relation=RELATION_STANDARD,
         load_type=None,
     )
 
@@ -32,8 +40,8 @@ def create_dead_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG2000 - Rustende belasting",
-        load_option="PERMANENT",
-        relation="STANDARD",
+        load_option=LOAD_GROUP_PERMANENT,
+        relation=RELATION_STANDARD,
         load_type=None,
     )
 
@@ -47,9 +55,9 @@ def create_temperature_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG3000 - Temperatuur",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="TEMPERATURE",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_TEMPERATURE,
     )
 
 
@@ -62,9 +70,9 @@ def create_udl_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG4000 - UDL",
-        load_option="VARIABLE",
-        relation="STANDARD",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_STANDARD,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
@@ -77,9 +85,9 @@ def create_crowd_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG5000 - Mensenmenigte",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
@@ -92,9 +100,9 @@ def create_service_vehicle_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG6000 - Dienstvoertuig",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
@@ -107,9 +115,9 @@ def create_accidental_vehicle_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG7000 - Onbedoeld voertuig",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
@@ -122,9 +130,9 @@ def create_ts_lane_1_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG8000 - TS rijstrook 1",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
@@ -137,9 +145,9 @@ def create_ts_lane_2_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG9000 - TS rijstrook 2",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
@@ -152,9 +160,9 @@ def create_ts_lane_3_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG10000 - TS rijstrook 3",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LOAD_GROUP_VARIABLE,
+        relation=RELATION_EXCLUSIVE,
+        load_type=LOAD_TYPE_CONSTRUCTION_LOADS,
     )
 
 
