@@ -80,10 +80,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_timeout_message())
+            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_exception_message(e))
+            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
         return create_scia_node_results_table(results, "SLS kar")
 
@@ -126,10 +126,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_timeout_message())
+            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_exception_message(e))
+            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
         return create_scia_node_results_table(results, "SLS freq")
 
@@ -172,10 +172,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_timeout_message())
+            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_exception_message(e))
+            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
         return create_scia_node_results_table(results, "ULS")
 
@@ -223,10 +223,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_1d_timeout_message())
+            _raise_scia_error(self._get_scia_1d_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_1d_exception_message(e))
+            _raise_scia_error(self._get_scia_1d_exception_message(e))  # type: ignore[attr-defined]
 
         return create_scia_integration_strip_results_table(results, "SLS kar")
 
@@ -270,10 +270,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_1d_timeout_message())
+            _raise_scia_error(self._get_scia_1d_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_1d_exception_message(e))
+            _raise_scia_error(self._get_scia_1d_exception_message(e))  # type: ignore[attr-defined]
 
         return create_scia_integration_strip_results_table(results, "SLS freq")
 
@@ -317,10 +317,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_1d_timeout_message())
+            _raise_scia_error(self._get_scia_1d_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_1d_exception_message(e))
+            _raise_scia_error(self._get_scia_1d_exception_message(e))  # type: ignore[attr-defined]
 
         return create_scia_integration_strip_results_table(results, "ULS")
 
@@ -367,10 +367,10 @@ class SciaIntegrationMixin:
             if results is None:
                 _raise_scia_error()
         except TimeoutError:
-            _raise_scia_error(self._get_scia_timeout_message())
+            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
-            _raise_scia_error(self._get_scia_exception_message(e))
+            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
         self._print_scia_results_summary(results)  # type: ignore[arg-type, attr-defined]
 
@@ -621,54 +621,6 @@ class SciaIntegrationMixin:
 
         except Exception as e:
             raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
-
-    # ============================================================================================================
-    # SCIA Helper Methods - Error Messages
-    # ============================================================================================================
-
-    def _get_scia_timeout_message(self) -> str:
-        """Get standardized SCIA timeout error message."""
-        return (
-            "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
-            "Mogelijke oplossingen:\n"
-            "• Verminder het aantal brugsegmenten\n"
-            "• Vereenvoudig de belastingzones\n"
-            "• Download de XML bestanden en analyseer handmatig in SCIA\n"
-            "• Probeer het later opnieuw als de server minder belast is\n\n"
-            "Als het probleem aanhoudt, neem contact op met support."
-        )
-
-    def _get_scia_1d_timeout_message(self) -> str:
-        """Get standardized SCIA 1D timeout error message."""
-        return (
-            "⏱️ SCIA 1D analyse time-out na 10 minuten.\n\n"
-            "Mogelijke oplossingen:\n"
-            "• Verminder het aantal brugsegmenten\n"
-            "• Vereenvoudig de belastingzones\n"
-            "• Download de XML bestanden en analyseer handmatig in SCIA\n"
-            "• Probeer het later opnieuw als de server minder belast is\n\n"
-            "Als het probleem aanhoudt, neem contact op met support."
-        )
-
-    def _get_scia_exception_message(self, e: Exception) -> str:
-        """Get appropriate error message based on exception type."""
-        if "timeout" in str(e).lower():
-            return "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
-        if "license" in str(e).lower():
-            return "SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft."
-        if "worker" in str(e).lower():
-            return "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
-        return f"SCIA analyse fout: {str(e)[:200]}..."
-
-    def _get_scia_1d_exception_message(self, e: Exception) -> str:
-        """Get appropriate error message for 1D analysis based on exception type."""
-        if "timeout" in str(e).lower():
-            return "SCIA 1D analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
-        if "license" in str(e).lower():
-            return "SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft."
-        if "worker" in str(e).lower():
-            return "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
-        return f"SCIA 1D analyse fout: {str(e)[:200]}..."
 
     def _validate_generated_files(self, xml_file: BytesIO, def_file: BytesIO) -> None:
         """
