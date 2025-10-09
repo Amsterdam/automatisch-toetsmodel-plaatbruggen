@@ -129,7 +129,7 @@ def add_theoretical_tandem_loads(
     # Create surface loads using the builder, applying them to the correct load case
     for tandem in scia_tandem_data:
         load_case_name = tandem["load_case"]
-        if params.input.berekeningsinstellingen.spreiding:
+        if params.spreiding:
             # If dispersion is enabled, adjust each patch load's corners and load value
             for patch_load in tandem["patch_loads"]:
                 dispersed_corners, dispersed_load_value = dispersal_function(
@@ -574,7 +574,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             load_value = config["load"]
 
             # Apply dispersion if enabled
-            if params.input.berekeningsinstellingen.spreiding:
+            if params.spreiding:
                 corner_points, load_value = dispersal_function(
                     params=params,
                     corner_points=corner_points,
@@ -639,7 +639,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             load_value = config["load"]
 
             # Apply dispersion if enabled
-            if params.input.berekeningsinstellingen.spreiding:
+            if params.spreiding:
                 corner_points, load_value = dispersal_function(
                     params=params,
                     corner_points=corner_points,
@@ -704,7 +704,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             load_value = config["load"]
 
             # Apply dispersion if enabled
-            if params.input.berekeningsinstellingen.spreiding:
+            if params.spreiding:
                 corner_points, load_value = dispersal_function(
                     params=params,
                     corner_points=corner_points,
@@ -814,7 +814,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             corner_points_dispersed, load_value_dispersed = dispersal_function(
                 params=params, corner_points=wheel_corners, load_value=load_per_area, load_case_type="axle_load"
             )
-            if params.input.berekeningsinstellingen.spreiding:
+            if params.spreiding:
                 builder.create_surface_load(
                     name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
                     load_case_name=load_case_name,
