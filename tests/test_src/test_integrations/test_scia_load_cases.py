@@ -197,7 +197,7 @@ class TestTandemLoadCases:
     )
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_tandem_rs_load_cases(
+    def test_create_tandem_rs_load_cases(  # noqa: PLR0913
         self, mock_sequencer: Mock, mock_extract: Mock, rs: int, group_name: str, prefix: str, positions_count: int, mock_builder: Mock
     ) -> None:
         """Test creation of tandem load case definitions for different RS."""
@@ -244,7 +244,7 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_tandem_rs_load_cases")
-    def test_create_all_load_cases_calls_helpers(
+    def test_create_all_load_cases_calls_helpers(  # noqa: PLR0913
         self,
         mock_tandem: Mock,
         mock_unintended: Mock,
