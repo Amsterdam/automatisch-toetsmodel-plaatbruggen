@@ -17,7 +17,7 @@ from viktor.errors import UserError
 
 
 # Patch DownloadResult at the module level to use our mock
-@patch("app.bridge.controller.scia_integration.DownloadResult")
+@patch("app.bridge.bridgeController.scia_integration.DownloadResult")
 class TestGetSciaTemplatePath:
     """Test cases for _get_scia_template_path method."""
 
@@ -44,7 +44,7 @@ class TestGetSciaTemplatePath:
             controller._get_scia_template_path()
 
 
-@patch("app.bridge.controller.scia_integration.DownloadResult")
+@patch("app.bridge.bridgeController.scia_integration.DownloadResult")
 class TestDownloadSciaXmlFiles:
     """Test cases for download_scia_xml_files method."""
 
@@ -82,7 +82,7 @@ class TestDownloadSciaXmlFiles:
             }
         )
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_success(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
@@ -121,7 +121,7 @@ class TestDownloadSciaXmlFiles:
             mock_get_template.assert_called_once()
             mock_create_model.assert_called_once_with(self.mock_params, mock_template_path)
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_empty_xml(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, _mock_download_result: MagicMock
@@ -142,7 +142,7 @@ class TestDownloadSciaXmlFiles:
         with pytest.raises(UserError, match="XML bestand is leeg"):
             self.controller.download_scia_xml_files(self.mock_params)
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_empty_def(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, _mock_download_result: MagicMock
@@ -163,7 +163,7 @@ class TestDownloadSciaXmlFiles:
         with pytest.raises(UserError, match="Definition bestand is leeg"):
             self.controller.download_scia_xml_files(self.mock_params)
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_no_bridge_id(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
@@ -202,7 +202,7 @@ class TestDownloadSciaXmlFiles:
             assert result == mock_result
             assert result.file_name == "bridge_model_Input_Files.zip"
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_create_model_error(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, _mock_download_result: MagicMock
@@ -218,7 +218,7 @@ class TestDownloadSciaXmlFiles:
         with pytest.raises(UserError, match="Fout bij genereren SCIA XML bestanden"):
             self.controller.download_scia_xml_files(self.mock_params)
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_zip_contents(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
@@ -259,7 +259,7 @@ class TestDownloadSciaXmlFiles:
             assert hasattr(file_obj, "source")
 
 
-@patch("app.bridge.controller.scia_integration.DownloadResult")
+@patch("app.bridge.bridgeController.scia_integration.DownloadResult")
 class TestDownloadSciaEsaModel:
     """Test cases for download_scia_esa_model method."""
 
@@ -276,7 +276,7 @@ class TestDownloadSciaEsaModel:
             }
         )
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_esa_model_success(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
@@ -315,7 +315,7 @@ class TestDownloadSciaEsaModel:
         mock_analysis.execute.assert_called_once_with(timeout=300)
         mock_analysis.get_updated_esa_model.assert_called_once()
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_esa_model_analysis_failure(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, _mock_download_result: MagicMock
@@ -343,7 +343,7 @@ class TestDownloadSciaEsaModel:
         assert "SCIA worker niet beschikbaar" in error_message
         assert "XML bestanden te downloaden" in error_message
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_esa_model_empty_esa_file(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, _mock_download_result: MagicMock
@@ -367,7 +367,7 @@ class TestDownloadSciaEsaModel:
         with pytest.raises(UserError, match="ESA bestand is leeg"):
             self.controller.download_scia_esa_model(self.mock_params)
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_esa_model_no_bridge_id(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
@@ -407,7 +407,7 @@ class TestDownloadSciaEsaModel:
         assert result == mock_result
         assert result.file_name == "bridge_model.esa"
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_esa_model_timeout_handling(
         self, mock_get_template: MagicMock, mock_create_model: MagicMock, _mock_download_result: MagicMock
@@ -499,7 +499,7 @@ class TestSciaIntegrationEdgeCases:
         """Test behavior with various parameter configurations."""
         with (
             patch.object(self.controller, "_get_scia_template_path") as mock_template,
-            patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create,
+            patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model") as mock_create,
         ):
             mock_template.return_value = Path("mock/path")
             mock_create.side_effect = Exception("Test exception")
@@ -508,7 +508,7 @@ class TestSciaIntegrationEdgeCases:
             with pytest.raises(UserError):
                 self.controller.download_scia_xml_files(self.mock_params)
 
-    @patch("app.bridge.controller.scia_integration.create_bridge_scia_model")
+    @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_scia_xml_getvalue_method_handling(self, mock_get_template: MagicMock, mock_create_model: MagicMock) -> None:
         """Test handling of files without getvalue method."""
