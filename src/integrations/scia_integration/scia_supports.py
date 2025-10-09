@@ -1,5 +1,6 @@
 """Module for defining SCIA support elements."""
 
+from .scia_enums import LineSupportFreedom
 from .scia_model_interface import SciaLineSupport, SciaModelBuilder
 
 
@@ -31,7 +32,14 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str]) -> l
                 name=f"SLB_opleg_as_1:{zone_number}",
                 plane_name=plate_name,
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             )
         )
@@ -44,7 +52,14 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str]) -> l
                 name=f"SLB_opleg_as_{last_section_number}:{zone_number}",
                 plane_name=plate_name,
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             )
         )
