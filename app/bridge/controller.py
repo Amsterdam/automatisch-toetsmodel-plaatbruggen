@@ -10,25 +10,9 @@ from typing import Any, NoReturn
 import pandas as pd  # Import pandas for DataFrame handling
 import plotly.graph_objects as go  # Import Plotly graph objects
 import trimesh
+
 import viktor.api_v1 as api_sdk  # Import VIKTOR API SDK
 import viktor.errors  # Import for specific error types
-from viktor.core import File, ViktorController, progress_message
-from viktor.errors import UserError  # Add UserError
-from viktor.result import DownloadResult, OptimizationResult, OptimizationResultElement
-from viktor.views import (
-    GeometryResult,
-    GeometryView,
-    MapPoint,  # Add MapPoint
-    MapResult,  # Add MapResult
-    MapView,  # Add MapView
-    PDFResult,
-    PDFView,
-    PlotlyResult,  # Import PlotlyResult
-    PlotlyView,  # Import PlotlyView
-    TableResult,  # Import TableResult
-    TableView,  # Import TableView
-)
-
 from app.bridge.analysis_cache import (
     get_cached_analysis_results,
     get_idea_analysis_results,
@@ -86,6 +70,22 @@ from src.integrations.scia_integration.scia_force_envelopes import (
 )
 from src.integrations.scia_integration.scia_result_views import create_scia_integration_strip_results_table, create_scia_node_results_table
 from src.report.report_functions import create_export_report  # Import the report creation function
+from viktor.core import File, ViktorController, progress_message
+from viktor.errors import UserError  # Add UserError
+from viktor.result import DownloadResult, OptimizationResult, OptimizationResultElement
+from viktor.views import (
+    GeometryResult,
+    GeometryView,
+    MapPoint,  # Add MapPoint
+    MapResult,  # Add MapResult
+    MapView,  # Add MapView
+    PDFResult,
+    PDFView,
+    PlotlyResult,  # Import PlotlyResult
+    PlotlyView,  # Import PlotlyView
+    TableResult,  # Import TableResult
+    TableView,  # Import TableView
+)
 
 # Import parametrization from the separate file
 from .parametrization import BridgeParametrization
@@ -1847,7 +1847,11 @@ class BridgeController(ViktorController):
         # Validate reinforcement zone selections before processing
         validate_reinforcement_zone_selections(params)
 
-        unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
+        # Extract input data from params for IDEA integration
+        from src.integrations.idea_integration.idea_data_models import extract_bridge_idea_input_data
+
+        input_data = extract_bridge_idea_input_data(params)
+        unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(input_data)
 
         # If no unique keys found, return empty table
         data = [[value[0], value[1], str(value[2])] for value in unique_matching_zone_keys]
@@ -1942,21 +1946,32 @@ class BridgeController(ViktorController):
 
             # Validate content
             assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-            xml_content = (
-                idea_xml_input_bytes.getvalue()
-                if hasattr(idea_xml_input_bytes, "getvalue")
-                else idea_xml_input_bytes.read()
-                if hasattr(idea_xml_input_bytes, "read")
-                else b""
-            )
+            
+            # Handle different types of XML content
+            if isinstance(idea_xml_input_bytes, bytes):
+                xml_content = idea_xml_input_bytes
+            elif hasattr(idea_xml_input_bytes, "getvalue"):
+                xml_content = idea_xml_input_bytes.getvalue()
+            elif hasattr(idea_xml_input_bytes, "read"):
+                xml_content = idea_xml_input_bytes.read()
+            else:
+                xml_content = b""
 
             if not xml_content:
-                self._raise_empty_idea_xml_error()
+                # Debug: check what we actually got
+                debug_info = f"Type: {type(idea_xml_input_bytes)}, HasValue: {hasattr(idea_xml_input_bytes, 'getvalue')}, HasRead: {hasattr(idea_xml_input_bytes, 'read')}, IsBytes: {isinstance(idea_xml_input_bytes, bytes)}, Length: {len(idea_xml_input_bytes) if isinstance(idea_xml_input_bytes, bytes) else 'N/A'}"
+                raise UserError(f"XML bestand is leeg - IDEA RCS model generatie gefaald. Debug: {debug_info}")
 
             # Add analysis datetime to filename for uniqueness
             analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            
+            # Convert bytes to File for DownloadResult if needed
+            if isinstance(xml_content, bytes):
+                xml_file = File.from_data(xml_content)
+            else:
+                xml_file = idea_xml_input_bytes
 
-            return DownloadResult(idea_xml_input_bytes, f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
+            return DownloadResult(xml_file, f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS model input XML generatie gefaald: {e!s}")
@@ -2000,15 +2015,18 @@ class BridgeController(ViktorController):
         if model is None or idea_xml_input_bytes is None or idea_rcs_model is None or idea_xml_output_bytes is None or output_content is None:
             raise UserError("Cached IDEA results are incomplete")
 
-        # Validate content
+        # Validate content - handle different types
         assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-        idea_input_xml_content = (
-            idea_xml_input_bytes.getvalue()
-            if hasattr(idea_xml_input_bytes, "getvalue")
-            else idea_xml_input_bytes.read()
-            if hasattr(idea_xml_input_bytes, "read")
-            else b""
-        )
+        
+        # Extract XML content based on type
+        if isinstance(idea_xml_input_bytes, bytes):
+            idea_input_xml_content = idea_xml_input_bytes
+        elif hasattr(idea_xml_input_bytes, "getvalue"):
+            idea_input_xml_content = idea_xml_input_bytes.getvalue()
+        elif hasattr(idea_xml_input_bytes, "read"):
+            idea_input_xml_content = idea_xml_input_bytes.read()
+        else:
+            idea_input_xml_content = b""
 
         if not idea_input_xml_content:
             self._raise_empty_idea_xml_error()
@@ -2022,24 +2040,34 @@ class BridgeController(ViktorController):
             # Add input XML model
             z.writestr(f"IDEA_rcs_model_input_{params.info.bridge_objectnumm}_{analysis_datetime}.xml", idea_input_xml_content)
 
-            # Add IDEA RCS model file
-            z.writestr(
-                f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs",
-                idea_rcs_model.getvalue()
+            # Add IDEA RCS model file - handle different types
+            rcs_model_content = (
+                idea_rcs_model
+                if isinstance(idea_rcs_model, bytes)
+                else idea_rcs_model.getvalue()
                 if hasattr(idea_rcs_model, "getvalue")
                 else idea_rcs_model.read()
                 if hasattr(idea_rcs_model, "read")
-                else b"",
+                else b""
+            )
+            z.writestr(
+                f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs",
+                rcs_model_content,
             )
 
-            # Add analysis output results
-            z.writestr(
-                f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml",
-                idea_xml_output_bytes.getvalue()
+            # Add analysis output results - handle different types
+            output_xml_content = (
+                idea_xml_output_bytes
+                if isinstance(idea_xml_output_bytes, bytes)
+                else idea_xml_output_bytes.getvalue()
                 if hasattr(idea_xml_output_bytes, "getvalue")
                 else idea_xml_output_bytes.read()
                 if hasattr(idea_xml_output_bytes, "read")
-                else b"",
+                else b""
+            )
+            z.writestr(
+                f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml",
+                output_xml_content,
             )
 
         return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}_{analysis_datetime}.zip")
