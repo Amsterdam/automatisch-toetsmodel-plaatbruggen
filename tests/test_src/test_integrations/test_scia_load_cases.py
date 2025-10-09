@@ -8,16 +8,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.integrations.scia_integration.scia_constants import (
-    DURATION_LONG,
-    DURATION_SHORT,
-    LOAD_CASE_TYPE_PERMANENT,
-    LOAD_CASE_TYPE_VARIABLE,
-    PERMANENT_TYPE_SELF_WEIGHT,
-    PERMANENT_TYPE_STANDARD,
-    SPECIFICATION_STANDARD,
-    SPECIFICATION_TEMPERATURE,
-    VARIABLE_TYPE_STATIC,
+from src.integrations.scia_integration.scia_enums import (
+    LoadCaseActionType,
+    LoadCaseDuration,
+    LoadCaseSpecification,
+    PermanentLoadType,
+    VariableLoadType,
 )
 from src.integrations.scia_integration.scia_load_cases import (
     create_all_load_cases,
@@ -48,8 +44,8 @@ class TestStandardLoadCases:
             name="BG1001",
             description="Eigen gewicht",
             group_name="LG1000 - Permanent",
-            case_type=LOAD_CASE_TYPE_PERMANENT,
-            permanent_type=PERMANENT_TYPE_SELF_WEIGHT,
+            case_type=LoadCaseActionType.PERMANENT,
+            permanent_type=PermanentLoadType.SELF_WEIGHT,
             variable_type=None,
             specification=None,
             duration=None,
@@ -63,8 +59,8 @@ class TestStandardLoadCases:
             name="BG2001",
             description="Permanente belasting - Asfalt",
             group_name="LG2000 - Rustende belasting",
-            case_type=LOAD_CASE_TYPE_PERMANENT,
-            permanent_type=PERMANENT_TYPE_STANDARD,
+            case_type=LoadCaseActionType.PERMANENT,
+            permanent_type=PermanentLoadType.STANDARD,
             variable_type=None,
             specification=None,
             duration=None,
@@ -78,10 +74,10 @@ class TestStandardLoadCases:
             name="BG3001",
             description="Temperatuur, dek - Temp combi 1",
             group_name="LG3000 - Temperatuur",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_TEMPERATURE,
-            duration=DURATION_LONG,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.TEMPERATURE,
+            duration=LoadCaseDuration.LONG,
             permanent_type=None,
         )
 
@@ -93,10 +89,10 @@ class TestStandardLoadCases:
             name="BG4001",
             description="Verkeer, dek - LM1 UDL RS 1",
             group_name="LG4000 - UDL",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
             permanent_type=None,
         )
 
@@ -133,10 +129,10 @@ class TestStandardLoadCases:
             name="BG6001",
             description="Verkeer, dienstvoertuig - y+ - x = 2.5 m",
             group_name="LG6000 - Dienstvoertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
 
         # Check first y_minus case
@@ -144,10 +140,10 @@ class TestStandardLoadCases:
             name="BG6004",
             description="Verkeer, dienstvoertuig - y- - x = 2.5 m",
             group_name="LG6000 - Dienstvoertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
@@ -181,10 +177,10 @@ class TestStandardLoadCases:
             name="BG7001",
             description="Verkeer, onbedoeld voertuig - RS 1 forward - x = 2.5 m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
 
 
@@ -224,10 +220,10 @@ class TestTandemLoadCases:
             name=f"{prefix}001",
             description=f"Verkeer, dek - LM1 TS RS {rs}" + (" (configuratie 1)" if rs == 3 else "") + " - x = 2.5 m",
             group_name=group_name,
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
 
     def test_invalid_rs_raises_value_error(self, mock_builder: Mock) -> None:

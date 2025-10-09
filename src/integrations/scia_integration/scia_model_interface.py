@@ -7,13 +7,27 @@ while the `app` layer provides the concrete implementation using the VIKTOR SDK.
 This approach decouples the core logic from the specific SDK implementation.
 
 .. note::
-    As of the modernization effort, this Protocol now uses SDK enum types directly
-    instead of string literals and custom enums. The `app` layer re-exports these
-    types from `app.bridge.scia_types` for convenience.
+    This Protocol uses enum bridge types that wrap SDK enums when available,
+    or fall back to string enums for testing. This provides type safety while
+    maintaining independence from the SDK.
 """
 
 from io import BytesIO
 from typing import Any, Protocol
+
+from .scia_enums import (
+    LineLoadDirection,
+    LineSupportFreedom,
+    LoadCaseActionType,
+    LoadCaseDuration,
+    LoadCaseSpecification,
+    LoadCombinationType,
+    LoadGroupLoadType,
+    LoadGroupOption,
+    LoadGroupRelation,
+    PermanentLoadType,
+    VariableLoadType,
+)
 
 # Type aliases for opaque SCIA objects that the builder implementation will handle.
 # The src layer treats these as abstract types.
@@ -34,25 +48,14 @@ SciaResults = Any
 SciaResultClass = Any
 SciaIntegrationStrip = Any
 
-# Type aliases for SCIA SDK enum types
-# These are opaque to the src layer - the app layer provides concrete implementations
-LoadGroupOption = Any
-LoadGroupRelation = Any
-LoadGroupLoadType = Any
-LoadCaseActionType = Any
-LoadCasePermanentType = Any
-LoadCaseVariableType = Any
-LoadCaseSpecification = Any
-LoadCaseDuration = Any
-LoadCombinationType = Any
-FreeLineLoadDirection = Any
-LineSupportFreedom = Any
-
 # Type aliases for file objects
 SciaFile = BytesIO | bytes
 
-# Backward compatibility: Keep SciaCombinationType as alias to LoadCombinationType
+# Backward compatibility: Keep old type alias names
 SciaCombinationType = LoadCombinationType
+LoadCasePermanentType = PermanentLoadType
+LoadCaseVariableType = VariableLoadType
+FreeLineLoadDirection = LineLoadDirection
 
 
 class SciaModelBuilder(Protocol):
@@ -85,17 +88,17 @@ class SciaModelBuilder(Protocol):
     def create_load_group(
         self,
         name: str,
-        load_option: str,
-        relation: str,
-        load_type: str | None,
+        load_option: LoadGroupOption,
+        relation: LoadGroupRelation,
+        load_type: LoadGroupLoadType | None,
     ) -> SciaLoadGroup:
         """
         Creates a load group in the SCIA model.
 
         :param name: Name of the load group
-        :param load_option: SDK enum for load option (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
-        :param relation: SDK enum for relation (STANDARD, EXCLUSIVE, TOGETHER)
-        :param load_type: Optional SDK enum for load type
+        :param load_option: Load option enum (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
+        :param relation: Relation enum (STANDARD, EXCLUSIVE, TOGETHER)
+        :param load_type: Optional load type enum
         """
         ...
 
@@ -104,11 +107,11 @@ class SciaModelBuilder(Protocol):
         name: str,
         description: str,
         group_name: str,
-        case_type: str,
-        permanent_type: str | None = None,
-        variable_type: str | None = None,
-        specification: str | None = None,
-        duration: str | None = None,
+        case_type: LoadCaseActionType,
+        permanent_type: PermanentLoadType | None = None,
+        variable_type: VariableLoadType | None = None,
+        specification: LoadCaseSpecification | None = None,
+        duration: LoadCaseDuration | None = None,
     ) -> SciaLoadCase:
         """
         Creates a load case in the SCIA model.
@@ -116,11 +119,11 @@ class SciaModelBuilder(Protocol):
         :param name: Name of the load case
         :param description: Description of the load case
         :param group_name: Name of the load group
-        :param case_type: SDK enum for action type (PERMANENT or VARIABLE)
-        :param permanent_type: SDK enum for permanent load type (if permanent)
-        :param variable_type: SDK enum for variable load type (if variable)
-        :param specification: SDK enum for specification (if variable)
-        :param duration: SDK enum for duration (if variable)
+        :param case_type: Action type enum (PERMANENT or VARIABLE)
+        :param permanent_type: Permanent load type enum (if permanent)
+        :param variable_type: Variable load type enum (if variable)
+        :param specification: Specification enum (if variable)
+        :param duration: Duration enum (if variable)
         """
         ...
 
@@ -152,7 +155,7 @@ class SciaModelBuilder(Protocol):
         point_1: tuple[float, float],
         point_2: tuple[float, float],
         load_value: float,
-        direction: str = "Z",
+        direction: LineLoadDirection = LineLoadDirection.Z,  # type: ignore[assignment]
     ) -> SciaFreeLineLoad:
         """
         Creates a uniform free line load between two XY points.
@@ -162,14 +165,14 @@ class SciaModelBuilder(Protocol):
         :param point_1: First point (x, y)
         :param point_2: Second point (x, y)
         :param load_value: Load value
-        :param direction: SDK enum for direction (X, Y, or Z)
+        :param direction: Direction enum (X, Y, or Z)
         """
         ...
 
     def create_load_combination(
         self,
         name: str,
-        combination_type: str,
+        combination_type: LoadCombinationType,
         load_case_factors: dict[SciaLoadCase, float],
         description: str,
     ) -> SciaLoadCombination:
@@ -177,7 +180,7 @@ class SciaModelBuilder(Protocol):
         Creates a load combination in the SCIA model.
 
         :param name: Name of the load combination
-        :param combination_type: SDK enum for combination type
+        :param combination_type: Combination type enum
         :param load_case_factors: Dictionary mapping load cases to factors
         :param description: Description of the combination
         """
@@ -197,7 +200,7 @@ class SciaModelBuilder(Protocol):
         name: str,
         plane_name: str,
         edge_index: int,
-        freedom: dict[str, str],
+        freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
     ) -> SciaLineSupport:
         """
@@ -206,7 +209,7 @@ class SciaModelBuilder(Protocol):
         :param name: Name of the line support
         :param plane_name: Name of the plane
         :param edge_index: Edge index on the plane
-        :param freedom: Dictionary with SDK enum values for x, y, z, rx, ry, rz
+        :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz
         :param stiffness: Dictionary with stiffness values
         """
         ...

@@ -13,10 +13,7 @@ import pandas as pd
 import pytest
 
 from app.bridge.parametrization import BridgeParametrization
-from src.integrations.scia_integration.scia_constants import (
-    COMBINATION_TYPE_ENVELOPE_SERVICEABILITY,
-    COMBINATION_TYPE_ENVELOPE_ULTIMATE,
-)
+from src.integrations.scia_integration.scia_enums import LoadCombinationType
 from src.integrations.scia_integration.scia_load_combinations import create_all_load_combinations, create_load_combination
 
 
@@ -34,18 +31,18 @@ class TestCreateLoadCombination:
         mock_lc1 = Mock()
         mock_lc2 = Mock()
         factors = {mock_lc1: 1.5, mock_lc2: 1.0}
-        create_load_combination(mock_builder, COMBINATION_TYPE_ENVELOPE_ULTIMATE, "TestCombo", factors, "A test combo")
+        create_load_combination(mock_builder, LoadCombinationType.ENVELOPE_ULTIMATE, "TestCombo", factors, "A test combo")
 
         mock_builder.create_load_combination.assert_called_once_with(
             name="TestCombo",
-            combination_type=COMBINATION_TYPE_ENVELOPE_ULTIMATE,
+            combination_type=LoadCombinationType.ENVELOPE_ULTIMATE,
             load_case_factors=factors,
             description="A test combo",
         )
 
     def test_create_load_combination_default_description(self, mock_builder: Mock) -> None:
         """Test load combination creation with default description."""
-        create_load_combination(mock_builder, COMBINATION_TYPE_ENVELOPE_SERVICEABILITY, "DefaultDescCombo", {})
+        create_load_combination(mock_builder, LoadCombinationType.ENVELOPE_SERVICEABILITY, "DefaultDescCombo", {})
         mock_builder.create_load_combination.assert_called_once()
         assert mock_builder.create_load_combination.call_args[1]["description"] == "Load combination: DefaultDescCombo"
 
@@ -103,7 +100,7 @@ class TestCreateAllLoadCombinationsPipeline:
 
         # Validate the first ULS call has expected type and includes mapped cases
         first_call_kwargs = mock_builder.create_load_combination.call_args_list[0].kwargs
-        assert first_call_kwargs["combination_type"] == COMBINATION_TYPE_ENVELOPE_ULTIMATE
+        assert first_call_kwargs["combination_type"] == LoadCombinationType.ENVELOPE_ULTIMATE
         uls_factors = first_call_kwargs["load_case_factors"]
         # Permanent -> self_weight + dead_load_cases
         assert uls_factors[lc_sw] == 1.35
@@ -113,7 +110,7 @@ class TestCreateAllLoadCombinationsPipeline:
 
         # SLS and Fatigue should be serviceability envelope
         other_types = [c.kwargs["combination_type"] for c in mock_builder.create_load_combination.call_args_list[1:]]
-        assert all(t == COMBINATION_TYPE_ENVELOPE_SERVICEABILITY for t in other_types)
+        assert all(t == LoadCombinationType.ENVELOPE_SERVICEABILITY for t in other_types)
 
     @patch("src.integrations.scia_integration.scia_load_combinations.get_leading_action_positions")
     @patch("src.integrations.scia_integration.scia_load_combinations.get_project_scope")

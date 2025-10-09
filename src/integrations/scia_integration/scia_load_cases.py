@@ -7,16 +7,12 @@ the SciaModelBuilder interface.
 
 from typing import Any
 
-from .scia_constants import (
-    DURATION_LONG,
-    DURATION_SHORT,
-    LOAD_CASE_TYPE_PERMANENT,
-    LOAD_CASE_TYPE_VARIABLE,
-    PERMANENT_TYPE_SELF_WEIGHT,
-    PERMANENT_TYPE_STANDARD,
-    SPECIFICATION_STANDARD,
-    SPECIFICATION_TEMPERATURE,
-    VARIABLE_TYPE_STATIC,
+from .scia_enums import (
+    LoadCaseActionType,
+    LoadCaseDuration,
+    LoadCaseSpecification,
+    PermanentLoadType,
+    VariableLoadType,
 )
 from .scia_load_generators import extract_bridge_dimensions
 from .scia_loads_helper import (
@@ -24,15 +20,7 @@ from .scia_loads_helper import (
     tandem_system_sequencer_single_axis,
     tandem_system_sequencer_single_axis_rotated,
 )
-from .scia_model_interface import (
-    LoadCaseActionType,
-    LoadCaseDuration,
-    LoadCasePermanentType,
-    LoadCaseSpecification,
-    LoadCaseVariableType,
-    SciaLoadCase,
-    SciaModelBuilder,
-)
+from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
 def create_load_case(  # noqa: PLR0913
@@ -41,8 +29,8 @@ def create_load_case(  # noqa: PLR0913
     case_name: str,
     description: str,
     case_type: LoadCaseActionType,
-    permanent_type: LoadCasePermanentType | None = None,
-    variable_type: LoadCaseVariableType | None = None,
+    permanent_type: PermanentLoadType | None = None,
+    variable_type: VariableLoadType | None = None,
     specification: LoadCaseSpecification | None = None,
     duration: LoadCaseDuration | None = None,
 ) -> SciaLoadCase:
@@ -86,8 +74,8 @@ def create_self_weight_load_case(builder: SciaModelBuilder) -> SciaLoadCase:
         group_name="LG1000 - Permanent",
         case_name="BG1001",
         description="Eigen gewicht",
-        case_type=LOAD_CASE_TYPE_PERMANENT,
-        permanent_type=PERMANENT_TYPE_SELF_WEIGHT,
+        case_type=LoadCaseActionType.PERMANENT,
+        permanent_type=PermanentLoadType.SELF_WEIGHT,
     )
 
 
@@ -113,8 +101,8 @@ def create_dead_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLoadCase]
             group_name="LG2000 - Rustende belasting",
             case_name=name,
             description=desc,
-            case_type=LOAD_CASE_TYPE_PERMANENT,
-            permanent_type=PERMANENT_TYPE_STANDARD,
+            case_type=LoadCaseActionType.PERMANENT,
+            permanent_type=PermanentLoadType.STANDARD,
         )
     return cases
 
@@ -140,10 +128,10 @@ def create_temperature_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLo
             group_name="LG3000 - Temperatuur",
             case_name=name,
             description=desc,
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_TEMPERATURE,
-            duration=DURATION_LONG,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.TEMPERATURE,
+            duration=LoadCaseDuration.LONG,
         )
     return cases
 
@@ -168,10 +156,10 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder) -> dict[str, SciaLo
             group_name="LG4000 - UDL",
             case_name=name,
             description=desc,
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
     return cases
 
@@ -189,10 +177,10 @@ def create_pedestrian_load_case(builder: SciaModelBuilder) -> SciaLoadCase:
         group_name="LG5000 - Mensenmenigte",
         case_name="BG5001",
         description="Verkeer, mensenmenigte - LM4",
-        case_type=LOAD_CASE_TYPE_VARIABLE,
-        variable_type=VARIABLE_TYPE_STATIC,
-        specification=SPECIFICATION_STANDARD,
-        duration=DURATION_SHORT,
+        case_type=LoadCaseActionType.VARIABLE,
+        variable_type=VariableLoadType.STATIC,
+        specification=LoadCaseSpecification.STANDARD,
+        duration=LoadCaseDuration.SHORT,
     )
 
 
@@ -226,10 +214,10 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
             name=case_name,
             description=f"Verkeer, dienstvoertuig - y+ - x = {pos:g} m",
             group_name="LG6000 - Dienstvoertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
 
     # Create load cases for y_minus (bottom edge), continuing numbering
@@ -240,10 +228,10 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
             name=case_name,
             description=f"Verkeer, dienstvoertuig - y- - x = {pos:g} m",
             group_name="LG6000 - Dienstvoertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
 
     return cases
@@ -284,10 +272,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 1 forward - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -299,10 +287,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 1 reverse - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -314,10 +302,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 3 forward - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -329,10 +317,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 3 reverse - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -344,10 +332,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 1 Amsterdam - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
     for pos in positions_amsterdam:
@@ -357,10 +345,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 3 Amsterdam - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -372,10 +360,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 1 Amsterdam rotated - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -386,10 +374,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
             name=case_name,
             description=f"Verkeer, onbedoeld voertuig - RS 3 Amsterdam rotated - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LOAD_CASE_TYPE_VARIABLE,
-            variable_type=VARIABLE_TYPE_STATIC,
-            specification=SPECIFICATION_STANDARD,
-            duration=DURATION_SHORT,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
         case_counter += 1
 
@@ -472,10 +460,10 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
                 group_name=group_name,
                 case_name=case_name,
                 description=description,
-                case_type=LOAD_CASE_TYPE_VARIABLE,
-                variable_type=VARIABLE_TYPE_STATIC,
-                specification=SPECIFICATION_STANDARD,
-                duration=DURATION_SHORT,
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
             )
             idx += 1
         # Second configuration (B): 100 kN left, 200 kN right
@@ -487,10 +475,10 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
                 group_name=group_name,
                 case_name=case_name,
                 description=description,
-                case_type=LOAD_CASE_TYPE_VARIABLE,
-                variable_type=VARIABLE_TYPE_STATIC,
-                specification=SPECIFICATION_STANDARD,
-                duration=DURATION_SHORT,
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
             )
             idx += 1
     else:
@@ -502,10 +490,10 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
                 group_name=group_name,
                 case_name=case_name,
                 description=description,
-                case_type=LOAD_CASE_TYPE_VARIABLE,
-                variable_type=VARIABLE_TYPE_STATIC,
-                specification=SPECIFICATION_STANDARD,
-                duration=DURATION_SHORT,
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
             )
     return cases
 

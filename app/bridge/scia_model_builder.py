@@ -9,6 +9,19 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from src.integrations.scia_integration.scia_enums import (
+    LineLoadDirection,
+    LineSupportFreedom,
+    LoadCaseActionType,
+    LoadCaseDuration,
+    LoadCaseSpecification,
+    LoadCombinationType,
+    LoadGroupLoadType,
+    LoadGroupOption,
+    LoadGroupRelation,
+    PermanentLoadType,
+    VariableLoadType,
+)
 from src.integrations.scia_integration.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.scia_model_interface import (
     SciaAnalysis,
@@ -40,103 +53,6 @@ else:
         progress_message = None  # type: ignore[misc,assignment]
         OutputFileParser = None  # type: ignore[misc,assignment]
         VIKTOR_AVAILABLE = False
-
-
-# ================================================================================================
-# String-to-SDK Enum Mappings
-# ================================================================================================
-# These mappings convert string literals from the src/ layer to SDK enum objects.
-# Keeping them centralized here maintains clean separation: src/ uses strings, app/ uses SDK.
-
-# Load Group Mappings
-_LOAD_OPTION_MAP = {
-    "PERMANENT": scia.LoadGroup.LoadOption.PERMANENT if VIKTOR_AVAILABLE and scia else None,
-    "VARIABLE": scia.LoadGroup.LoadOption.VARIABLE if VIKTOR_AVAILABLE and scia else None,
-    "ACCIDENTAL": scia.LoadGroup.LoadOption.ACCIDENTAL if VIKTOR_AVAILABLE and scia else None,
-    "SEISMIC": scia.LoadGroup.LoadOption.SEISMIC if VIKTOR_AVAILABLE and scia else None,
-}
-
-_RELATION_MAP = {
-    "STANDARD": scia.LoadGroup.RelationOption.STANDARD if VIKTOR_AVAILABLE and scia else None,
-    "EXCLUSIVE": scia.LoadGroup.RelationOption.EXCLUSIVE if VIKTOR_AVAILABLE and scia else None,
-    "TOGETHER": scia.LoadGroup.RelationOption.TOGETHER if VIKTOR_AVAILABLE and scia else None,
-}
-
-_LOAD_TYPE_MAP = {
-    "CAT_A": scia.LoadGroup.LoadTypeOption.CAT_A if VIKTOR_AVAILABLE and scia else None,
-    "CAT_B": scia.LoadGroup.LoadTypeOption.CAT_B if VIKTOR_AVAILABLE and scia else None,
-    "CAT_C": scia.LoadGroup.LoadTypeOption.CAT_C if VIKTOR_AVAILABLE and scia else None,
-    "CAT_D": scia.LoadGroup.LoadTypeOption.CAT_D if VIKTOR_AVAILABLE and scia else None,
-    "CAT_E": scia.LoadGroup.LoadTypeOption.CAT_E if VIKTOR_AVAILABLE and scia else None,
-    "CAT_F": scia.LoadGroup.LoadTypeOption.CAT_F if VIKTOR_AVAILABLE and scia else None,
-    "CAT_G": scia.LoadGroup.LoadTypeOption.CAT_G if VIKTOR_AVAILABLE and scia else None,
-    "CAT_H": scia.LoadGroup.LoadTypeOption.CAT_H if VIKTOR_AVAILABLE and scia else None,
-    "WIND": scia.LoadGroup.LoadTypeOption.WIND if VIKTOR_AVAILABLE and scia else None,
-    "SNOW": scia.LoadGroup.LoadTypeOption.SNOW if VIKTOR_AVAILABLE and scia else None,
-    "TEMPERATURE": scia.LoadGroup.LoadTypeOption.TEMPERATURE if VIKTOR_AVAILABLE and scia else None,
-    "CONSTRUCTION_LOADS": scia.LoadGroup.LoadTypeOption.CONSTRUCTION_LOADS if VIKTOR_AVAILABLE and scia else None,
-}
-
-# Load Case Mappings
-_CASE_TYPE_MAP = {
-    "PERMANENT": scia.LoadCase.ActionType.PERMANENT if VIKTOR_AVAILABLE and scia else None,
-    "VARIABLE": scia.LoadCase.ActionType.VARIABLE if VIKTOR_AVAILABLE and scia else None,
-}
-
-_PERMANENT_TYPE_MAP = {
-    "STANDARD": scia.LoadCase.PermanentLoadType.STANDARD if VIKTOR_AVAILABLE and scia else None,
-    "SELF_WEIGHT": scia.LoadCase.PermanentLoadType.SELF_WEIGHT if VIKTOR_AVAILABLE and scia else None,
-    "PRESTRESS": scia.LoadCase.PermanentLoadType.PRESTRESS if VIKTOR_AVAILABLE and scia else None,
-}
-
-_VARIABLE_TYPE_MAP = {
-    "STATIC": scia.LoadCase.VariableLoadType.STATIC if VIKTOR_AVAILABLE and scia else None,
-    "DYNAMIC": scia.LoadCase.VariableLoadType.DYNAMIC if VIKTOR_AVAILABLE and scia else None,
-}
-
-_SPECIFICATION_MAP = {
-    "STANDARD": scia.LoadCase.Specification.STANDARD if VIKTOR_AVAILABLE and scia else None,
-    "WIND": scia.LoadCase.Specification.WIND if VIKTOR_AVAILABLE and scia else None,
-    "SNOW": scia.LoadCase.Specification.SNOW if VIKTOR_AVAILABLE and scia else None,
-    "TEMPERATURE": scia.LoadCase.Specification.TEMPERATURE if VIKTOR_AVAILABLE and scia else None,
-    "CRANE": scia.LoadCase.Specification.CRANE if VIKTOR_AVAILABLE and scia else None,
-}
-
-_DURATION_MAP = {
-    "SHORT": scia.LoadCase.Duration.SHORT if VIKTOR_AVAILABLE and scia else None,
-    "MEDIUM": scia.LoadCase.Duration.MEDIUM if VIKTOR_AVAILABLE and scia else None,
-    "LONG": scia.LoadCase.Duration.LONG if VIKTOR_AVAILABLE and scia else None,
-}
-
-# Load Combination Mappings
-_COMBINATION_TYPE_MAP = {
-    "ENVELOPE_ULTIMATE": scia.LoadCombination.Type.ENVELOPE_ULTIMATE if VIKTOR_AVAILABLE and scia else None,
-    "ENVELOPE_SERVICEABILITY": scia.LoadCombination.Type.ENVELOPE_SERVICEABILITY if VIKTOR_AVAILABLE and scia else None,
-    "EN_ULS_SET_B": scia.LoadCombination.Type.EN_ULS_SET_B if VIKTOR_AVAILABLE and scia else None,
-    "EN_ULS_SET_C": scia.LoadCombination.Type.EN_ULS_SET_C if VIKTOR_AVAILABLE and scia else None,
-    "EN_ULS_ACC": scia.LoadCombination.Type.EN_ULS_ACC if VIKTOR_AVAILABLE and scia else None,
-    "EN_ULS_SEISMIC": scia.LoadCombination.Type.EN_ULS_SEISMIC if VIKTOR_AVAILABLE and scia else None,
-    "EN_SLS_CHAR": scia.LoadCombination.Type.EN_SLS_CHAR if VIKTOR_AVAILABLE and scia else None,
-    "EN_SLS_FREQ": scia.LoadCombination.Type.EN_SLS_FREQ if VIKTOR_AVAILABLE and scia else None,
-    "EN_SLS_PERM": scia.LoadCombination.Type.EN_SLS_PERM if VIKTOR_AVAILABLE and scia else None,
-    "EN_SLS_QUASI_PERM": scia.LoadCombination.Type.EN_SLS_QUASI_PERM if VIKTOR_AVAILABLE and scia else None,
-}
-
-# Direction Mappings
-_DIRECTION_MAP = {
-    "X": scia.FreeLineLoad.Direction.X if VIKTOR_AVAILABLE and scia else None,
-    "Y": scia.FreeLineLoad.Direction.Y if VIKTOR_AVAILABLE and scia else None,
-    "Z": scia.FreeLineLoad.Direction.Z if VIKTOR_AVAILABLE and scia else None,
-}
-
-# Line Support Freedom Mappings
-_FREEDOM_MAP = {
-    "FREE": scia.LineSupport.Freedom.FREE if VIKTOR_AVAILABLE and scia else None,
-    "RIGID": scia.LineSupport.Freedom.RIGID if VIKTOR_AVAILABLE and scia else None,
-    "FLEXIBLE": scia.LineSupport.Freedom.FLEXIBLE if VIKTOR_AVAILABLE and scia else None,
-    "RIGID_COMPRESSION_ONLY": scia.LineSupport.Freedom.RIGID_COMPRESSION_ONLY if VIKTOR_AVAILABLE and scia else None,
-    "FLEXIBLE_COMPRESSION_ONLY": scia.LineSupport.Freedom.FLEXIBLE_COMPRESSION_ONLY if VIKTOR_AVAILABLE and scia else None,
-}
 
 
 class ViktorSciaModelBuilder(SciaModelBuilder):
@@ -230,23 +146,23 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     def create_load_group(
         self,
         name: str,
-        load_option: str,
-        relation: str,
-        load_type: str | None,
+        load_option: LoadGroupOption,
+        relation: LoadGroupRelation,
+        load_type: LoadGroupLoadType | None,
     ) -> SciaLoadGroup:
         """
         Creates a load group and stores it.
 
         :param name: Name of the load group
-        :param load_option: Load option string (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
-        :param relation: Relation string (STANDARD, EXCLUSIVE, TOGETHER)
-        :param load_type: Optional load type string (CAT_A through CAT_H, WIND, SNOW, TEMPERATURE, CONSTRUCTION_LOADS)
+        :param load_option: Load option enum (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
+        :param relation: Relation enum (STANDARD, EXCLUSIVE, TOGETHER)
+        :param load_type: Optional load type enum
         :return: Created load group
         """
-        # Map strings to SDK enums
-        sdk_load_option = _LOAD_OPTION_MAP[load_option]
-        sdk_relation = _RELATION_MAP[relation]
-        sdk_load_type = _LOAD_TYPE_MAP.get(load_type) if load_type else None
+        # Extract SDK enums from bridge enums
+        sdk_load_option = load_option.value
+        sdk_relation = relation.value
+        sdk_load_type = load_type.value if load_type else None
 
         group = self.model.create_load_group(
             name,
@@ -262,11 +178,11 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         name: str,
         description: str,
         group_name: str,
-        case_type: str,
-        permanent_type: str | None = None,
-        variable_type: str | None = None,
-        specification: str | None = None,
-        duration: str | None = None,
+        case_type: LoadCaseActionType,
+        permanent_type: PermanentLoadType | None = None,
+        variable_type: VariableLoadType | None = None,
+        specification: LoadCaseSpecification | None = None,
+        duration: LoadCaseDuration | None = None,
     ) -> SciaLoadCase:
         """
         Creates a load case and stores it.
@@ -274,34 +190,31 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         :param name: Name of the load case
         :param description: Description of the load case
         :param group_name: Name of the load group this case belongs to
-        :param case_type: Action type string (PERMANENT or VARIABLE)
-        :param permanent_type: Permanent load type string (STANDARD, SELF_WEIGHT, PRESTRESS)
-        :param variable_type: Variable load type string (STATIC, DYNAMIC)
-        :param specification: Load specification string (STANDARD, WIND, SNOW, TEMPERATURE, CRANE)
-        :param duration: Load duration string (SHORT, MEDIUM, LONG)
+        :param case_type: Action type enum (PERMANENT or VARIABLE)
+        :param permanent_type: Permanent load type enum
+        :param variable_type: Variable load type enum
+        :param specification: Load specification enum
+        :param duration: Load duration enum
         :return: Created load case
         """
         if group_name not in self.load_groups:
             raise ValueError(f"Load group '{group_name}' not found.")
         group = self.load_groups[group_name]
 
-        # Map strings to SDK enums
-        sdk_case_type = _CASE_TYPE_MAP[case_type]
-
         # Check if permanent type
-        is_permanent = case_type == "PERMANENT"
+        is_permanent = case_type == LoadCaseActionType.PERMANENT
 
         if is_permanent:
             if permanent_type is None:
                 raise ValueError("Permanent load case type must be specified.")
-            sdk_permanent_type = _PERMANENT_TYPE_MAP[permanent_type]
+            sdk_permanent_type = permanent_type.value
             load_case = self.model.create_permanent_load_case(name, description, group, sdk_permanent_type)
         else:
             if any(arg is None for arg in [variable_type, specification, duration]):
                 raise ValueError("Variable load case requires type, specification, and duration.")
-            sdk_variable_type = _VARIABLE_TYPE_MAP[variable_type]  # type: ignore[index]
-            sdk_specification = _SPECIFICATION_MAP[specification]  # type: ignore[index]
-            sdk_duration = _DURATION_MAP[duration]  # type: ignore[index]
+            sdk_variable_type = variable_type.value  # type: ignore[union-attr]
+            sdk_specification = specification.value  # type: ignore[union-attr]
+            sdk_duration = duration.value  # type: ignore[union-attr]
             load_case = self.model.create_variable_load_case(
                 name,
                 description,
@@ -373,7 +286,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         point_1: tuple[float, float],
         point_2: tuple[float, float],
         load_value: float,
-        direction: str = "Z",
+        direction: LineLoadDirection = LineLoadDirection.Z,  # type: ignore[assignment]
     ) -> scia.FreeLineLoad:
         """
         Creates a uniform free line load.
@@ -383,15 +296,15 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         :param point_1: First point (x, y)
         :param point_2: Second point (x, y)
         :param load_value: Load value
-        :param direction: Direction string (X, Y, or Z), defaults to Z
+        :param direction: Direction enum (X, Y, or Z), defaults to Z
         :return: Created free line load
         """
         if load_case_name not in self.load_cases:
             raise ValueError(f"Load case '{load_case_name}' not found for line load '{name}'.")
         load_case = self.load_cases[load_case_name]
 
-        # Map string to SDK enum
-        sdk_direction = _DIRECTION_MAP[direction]
+        # Extract SDK enum from bridge enum
+        sdk_direction = direction.value
 
         return self.model.create_free_line_load(
             name=name,
@@ -405,7 +318,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     def create_load_combination(
         self,
         name: str,
-        combination_type: str,
+        combination_type: LoadCombinationType,
         load_case_factors: dict[SciaLoadCase, float],
         description: str,
     ) -> SciaLoadCombination:
@@ -413,7 +326,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         Creates a load combination and stores it.
 
         :param name: Name of the load combination
-        :param combination_type: Combination type string (e.g., ENVELOPE_ULTIMATE, EN_ULS_SET_B, EN_SLS_CHAR)
+        :param combination_type: Combination type enum
         :param load_case_factors: Dictionary mapping load cases to their factors
         :param description: Description of the combination
         :return: Created load combination
@@ -428,8 +341,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             if not found_in_stored:
                 pass
 
-        # Map string to SDK enum
-        sdk_combination_type = _COMBINATION_TYPE_MAP[combination_type]
+        # Extract SDK enum from bridge enum
+        sdk_combination_type = combination_type.value
 
         # Convert load_case_factors to the format expected by SCIA
         scia_load_cases = dict(load_case_factors)
@@ -465,7 +378,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         name: str,
         plane_name: str,
         edge_index: int,
-        freedom: dict[str, str],
+        freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
     ) -> scia.LineSupport:
         """
@@ -474,7 +387,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         :param name: Name of the line support
         :param plane_name: Name of the plane to attach support to
         :param edge_index: Edge index on the plane
-        :param freedom: Dictionary with freedom strings for x, y, z, rx, ry, rz directions (FREE, RIGID, FLEXIBLE, etc.)
+        :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz directions
         :param stiffness: Dictionary with stiffness values for x and y directions
         :return: Created line support
         """
@@ -482,8 +395,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             raise ValueError(f"Plate '{plane_name}' not found for line support '{name}'.")
         plane = self.plates[plane_name]
 
-        # Map strings to SDK enums
-        sdk_freedom = {key: _FREEDOM_MAP[value] for key, value in freedom.items()}
+        # Extract SDK enums from bridge enums
+        sdk_freedom = {key: value.value for key, value in freedom.items()}
 
         return self.model.create_line_support_on_plane(
             name=name,
