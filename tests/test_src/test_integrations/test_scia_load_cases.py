@@ -207,9 +207,8 @@ class TestTandemLoadCases:
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_params = Mock()
 
-        cases = create_tandem_rs_load_cases(mock_builder, mock_params, rs)
+        cases = create_tandem_rs_load_cases(mock_builder, rs, 50.0, 0.5)
 
         # Verify correct number of cases created
         assert len(cases) == positions_count
@@ -228,9 +227,8 @@ class TestTandemLoadCases:
 
     def test_invalid_rs_raises_value_error(self, mock_builder: Mock) -> None:
         """Test that invalid RS raises ValueError."""
-        mock_params = Mock()
         with pytest.raises(ValueError, match="Invalid rs value"):
-            create_tandem_rs_load_cases(mock_builder, mock_params, 99)
+            create_tandem_rs_load_cases(mock_builder, 99, 50.0, 0.5)
 
 
 class TestCreateAllLoadCases:
