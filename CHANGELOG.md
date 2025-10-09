@@ -1,3 +1,10 @@
+## [`v0.0.16`] - 2025-XX-XX
+### Added
+- **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+
+### Changed
+- **Refactored cache code**: code cleanup 
+
 ## [`v0.0.15`] - 2025-10-02
 ### Added
 - **Invoer - Dimensies**: minimum values for the dimension field.
