@@ -37,7 +37,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -71,7 +71,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -96,7 +96,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         # Don't set load_case_selection_table attribute
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -121,7 +121,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         params.load_case_selection_table = []
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -155,7 +155,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -185,7 +185,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -214,7 +214,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -243,7 +243,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()
@@ -272,7 +272,7 @@ class TestLoadCaseSelectionControllerIntegration(unittest.TestCase):
         ]
 
         # Mock the SCIA model creation function
-        with patch("app.bridge.controller.create_bridge_scia_model") as mock_create_model:
+        with patch("app.bridge.controller.scia_integration.create_bridge_scia_model") as mock_create_model:
             # Mock the model creation to return a tuple (xml_file, def_file, analysis)
             mock_xml_file = Mock()
             mock_def_file = Mock()

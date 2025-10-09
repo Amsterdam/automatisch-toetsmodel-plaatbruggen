@@ -1,0 +1,109 @@
+"""
+Information views mixin for BridgeController.
+
+This mixin provides views for displaying bridge information:
+- Map view showing bridge location
+- Load combinations table
+"""
+
+from app.bridge.parametrization import BridgeParametrization
+from app.common.map_utils import load_and_filter_bridge_shapefile, process_bridge_geometries, validate_shapefile_exists
+from src.combinations.load_factors import create_load_combination_table
+from viktor.errors import UserError
+from viktor.views import MapPoint, MapResult, MapView, TableResult, TableView
+
+
+class InfoViewsMixin:
+    """
+    Mixin providing information display views.
+
+    Contains methods for:
+    - Bridge location map display
+    - Load combination tables
+    """
+
+    @MapView("Locatie Brug", duration_guess=2)
+    def get_bridge_map_view(self, params: BridgeParametrization, **kwargs) -> MapResult:  # noqa: ARG002
+        """
+        Display the current bridge polygon from the shapefile in the resources folder.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: MapResult with bridge location
+        :rtype: MapResult
+        """
+        entity_id = kwargs.get("entity_id")
+
+        if not isinstance(entity_id, int):
+            return MapResult([MapPoint(52.37, 4.89, description="Ongeldige entity ID ontvangen.")])
+
+        current_objectnumm, bridge_name_from_params, error_result = self._get_bridge_entity_data(entity_id)  # type: ignore[attr-defined]
+        if error_result:
+            return error_result
+
+        if current_objectnumm is None:
+            return MapResult([MapPoint(52.37, 4.89, description="Interne fout: OBJECTNUMM onbekend na API call.")])
+
+        if bridge_name_from_params is None:
+            bridge_name_from_params = ""
+
+        try:
+            shapefile_path = validate_shapefile_exists()
+            target_bridge_gdf = load_and_filter_bridge_shapefile(shapefile_path, current_objectnumm)
+        except UserError as ue:
+            return MapResult([MapPoint(52.37, 4.89, description=str(ue))])
+
+        features, error_point = process_bridge_geometries(target_bridge_gdf.iloc[0], current_objectnumm, bridge_name_from_params)
+
+        if error_point:
+            return MapResult([error_point])
+
+        return MapResult(features)
+
+    @TableView("Belastingscombinaties", duration_guess=1)
+    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+        """
+        Display the table of load combinations for the bridge.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments
+        :returns: TableResult containing the load combinations
+        :rtype: TableResult
+        """
+        try:
+            cc_class = (
+                getattr(params, "cc_class", None)
+                or getattr(getattr(getattr(params, "input", None), "berekeningsinstellingen", None), "cc_class", None)
+                or "CC2"
+            )
+            design_code = (
+                getattr(params, "design_code", None)
+                or getattr(getattr(getattr(params, "input", None), "berekeningsinstellingen", None), "design_code", None)
+                or "NEN 8700 verbouw"
+            )
+        except Exception:
+            cc_class = "CC2"
+            design_code = "NEN 8700 verbouw"
+
+        try:
+            construction_year = (
+                getattr(getattr(params, "info", None), "construction_year", None) or getattr(params, "construction_year", None) or "2000"
+            )
+        except Exception:
+            construction_year = "2000"
+
+        if not construction_year or str(construction_year).strip() == "":
+            construction_year = "2000"
+
+        load_combination_params = {
+            "cc_class": cc_class,
+            "design_code": design_code,
+            "info": {
+                "construction_year": construction_year,
+            },
+        }
+
+        combination_table = create_load_combination_table(load_combination_params)
+        return TableResult(combination_table)
