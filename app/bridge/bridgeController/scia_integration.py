@@ -1,7 +1,7 @@
 """
-SCIA Engineer integration mixin for BridgeController.
+SCIA Engineer integration component for BridgeController.
 
-This mixin provides all SCIA-related functionality including:
+This component provides all SCIA-related functionality including:
 - Multiple table views for different analysis types (ULS, SLS kar, SLS freq)
 - 1D and 2D result views
 - ESA model and XML file downloads
@@ -25,9 +25,9 @@ from viktor.result import DownloadResult
 from viktor.views import TableResult, TableView
 
 
-class SciaIntegrationMixin:
+class SciaIntegration:
     """
-    Mixin providing SCIA Engineer integration.
+    Component providing SCIA Engineer integration.
 
     Contains methods for:
     - SCIA analysis table views (ULS, SLS kar, SLS freq) in 2D and 1D
