@@ -61,7 +61,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
     builder = ViktorIdeaModelBuilder()
     model = create_idea_model_from_data(input_data, builder, scia_results_dict)
     idea_xml_input_bytes = builder.generate_xml_input(model)
-    
+
     # Validate XML is not empty
     if not idea_xml_input_bytes or len(idea_xml_input_bytes) == 0:
         raise ValueError("Generated IDEA model XML is empty - model may have no slabs/sections")
@@ -104,19 +104,19 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
             xml_bytes_to_store = idea_xml_input_bytes.getvalue()
         elif hasattr(idea_xml_input_bytes, "read"):
             xml_bytes_to_store = idea_xml_input_bytes.read()
-        
+
         rcs_model_bytes = idea_rcs_model
         if hasattr(idea_rcs_model, "getvalue"):
             rcs_model_bytes = idea_rcs_model.getvalue()
         elif hasattr(idea_rcs_model, "read"):
             rcs_model_bytes = idea_rcs_model.read()
-        
+
         output_xml_bytes = idea_output_xml_bytes
         if hasattr(idea_output_xml_bytes, "getvalue"):
             output_xml_bytes = idea_output_xml_bytes.getvalue()
         elif hasattr(idea_output_xml_bytes, "read"):
             output_xml_bytes = idea_output_xml_bytes.read()
-        
+
         results.update(
             {
                 "section_results": section_results,
@@ -209,7 +209,7 @@ def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa:
     progress_message("Genereren IDEA model...")
     builder = ViktorIdeaModelBuilder()
     model = create_idea_model_from_data(input_data, builder, scia_results_dict)
-    
+
     # Generate XML and validate it's not empty
     xml_bytes = builder.generate_xml_input(model)
     if not xml_bytes or len(xml_bytes) == 0:

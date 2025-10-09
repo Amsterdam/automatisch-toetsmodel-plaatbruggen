@@ -139,7 +139,7 @@ class IdeaIntegrationMixin:
                 _raise_incomplete_model_error()
 
             assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-            
+
             # Handle different types of XML content - bytes-first pattern
             if isinstance(idea_xml_input_bytes, bytes):
                 xml_content = idea_xml_input_bytes
@@ -156,7 +156,7 @@ class IdeaIntegrationMixin:
                 raise UserError(f"XML bestand is leeg - IDEA RCS model generatie gefaald. Debug: {debug_info}")
 
             analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            
+
             # Convert bytes to File for DownloadResult if needed
             if isinstance(xml_content, bytes):
                 xml_file = File.from_data(xml_content)
@@ -206,7 +206,7 @@ class IdeaIntegrationMixin:
             raise UserError("Cached IDEA results are incomplete")
 
         assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-        
+
         # Extract XML content based on type - bytes-first pattern
         if isinstance(idea_xml_input_bytes, bytes):
             idea_input_xml_content = idea_xml_input_bytes
