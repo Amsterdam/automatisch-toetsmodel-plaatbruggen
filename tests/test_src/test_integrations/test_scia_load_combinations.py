@@ -23,6 +23,14 @@ def mock_builder() -> Mock:
     return Mock()
 
 
+@pytest.fixture
+def params() -> BridgeParametrization:
+    """Fixture to provide bridge parametrization using seed data."""
+    from tests.test_data.seed_loader import load_bridge_default_params
+
+    return load_bridge_default_params()  # type: ignore[return-value]
+
+
 class TestCreateLoadCombination:
     """Tests for the base load combination creation function."""
 
