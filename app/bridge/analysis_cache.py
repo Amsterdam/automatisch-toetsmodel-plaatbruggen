@@ -13,12 +13,10 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
-from app.bridge.idea_model_builder import ViktorIdeaModelBuilder
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
-from src.integrations.idea_integration.idea_data_models import extract_bridge_idea_input_data
-from src.integrations.idea_integration.idea_interface import create_idea_model_from_data
+from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
 from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_integration_strip_results_for_idea,
     process_scia_node_results_for_idea,
@@ -43,33 +41,19 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
 
 
 def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
-    """
-    Run IDEA analysis and extract results.
-
-    Uses the refactored IDEA integration with IdeaModelBuilder pattern.
-    """
+    """Run IDEA analysis and extract results."""
     # First get SCIA results needed for IDEA
     progress_message("Ophalen SCIA resultaten voor IDEA analyse...")
     scia_results_dict = get_scia_results_for_idea(params, entity_id)
 
-    # Extract bridge input data from parameters
-    progress_message("Extracting bridge input data...")
-    input_data = extract_bridge_idea_input_data(params)
-
-    # Create IDEA model builder and model
+    # Create IDEA model with the SCIA results
     progress_message("Genereren IDEA model...")
-    builder = ViktorIdeaModelBuilder()
-    model = create_idea_model_from_data(input_data, builder, scia_results_dict)
-    idea_xml_input_bytes = builder.generate_xml_input(model)
+    model = create_bridge_idea_model(params, entity_id, scia_results_dict)
+    idea_xml_input_bytes = model.generate_xml_input()
 
-    # Validate XML is not empty
-    if not idea_xml_input_bytes or len(idea_xml_input_bytes) == 0:
-        raise ValueError("Generated IDEA model XML is empty - model may have no slabs/sections")
-
-    # Run IDEA analysis - SDK expects File object, not raw bytes
+    # Run IDEA analysis
     progress_message("Uitvoeren IDEA RCS analyse...")
-    idea_xml_file = File.from_data(idea_xml_input_bytes)
-    analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_file, return_rcs_file=True)
+    analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
     analysis.execute(600)
 
     # Get the IDEA RCS model and output XML
@@ -98,33 +82,14 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
             }
             section_results.append(section_data)
 
-        # Store results - ensure all file objects are converted to bytes for serialization
-        xml_bytes_to_store = idea_xml_input_bytes
-        if hasattr(idea_xml_input_bytes, "getvalue"):
-            xml_bytes_to_store = idea_xml_input_bytes.getvalue()
-        elif hasattr(idea_xml_input_bytes, "read"):
-            xml_bytes_to_store = idea_xml_input_bytes.read()
-
-        rcs_model_bytes = idea_rcs_model
-        if hasattr(idea_rcs_model, "getvalue"):
-            rcs_model_bytes = idea_rcs_model.getvalue()
-        elif hasattr(idea_rcs_model, "read"):
-            rcs_model_bytes = idea_rcs_model.read()
-
-        output_xml_bytes = idea_output_xml_bytes
-        if hasattr(idea_output_xml_bytes, "getvalue"):
-            output_xml_bytes = idea_output_xml_bytes.getvalue()
-        elif hasattr(idea_output_xml_bytes, "read"):
-            output_xml_bytes = idea_output_xml_bytes.read()
-
         results.update(
             {
                 "section_results": section_results,
                 "analysis_status": "completed",
                 "model": model,
-                "idea_xml_input_bytes": xml_bytes_to_store,
-                "idea_rcs_model": rcs_model_bytes,
-                "idea_xml_output_bytes": output_xml_bytes,
+                "idea_xml_input_bytes": idea_xml_input_bytes,
+                "idea_rcs_model": idea_rcs_model,
+                "idea_xml_output_bytes": idea_output_xml_bytes,
                 "output_content": output_content,
             }
         )
@@ -192,32 +157,12 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
 
 
 def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
-    """
-    Create IDEA model only (without running analysis).
-
-    Uses the refactored IDEA integration with IdeaModelBuilder pattern.
-    """
-    # Get SCIA results needed for IDEA model
-    progress_message("Ophalen SCIA resultaten...")
-    scia_results_dict = get_scia_results_for_idea(params, entity_id)
-
-    # Extract bridge input data from parameters
-    progress_message("Extracting bridge input data...")
-    input_data = extract_bridge_idea_input_data(params)
-
-    # Create IDEA model builder and model
+    """Create IDEA model only (without running analysis)."""
     progress_message("Genereren IDEA model...")
-    builder = ViktorIdeaModelBuilder()
-    model = create_idea_model_from_data(input_data, builder, scia_results_dict)
-
-    # Generate XML and validate it's not empty
-    xml_bytes = builder.generate_xml_input(model)
-    if not xml_bytes or len(xml_bytes) == 0:
-        raise ValueError("Generated IDEA model XML is empty - model may have no slabs/sections")
-
+    model = create_bridge_idea_model(params, entity_id)
     return {
         "model": model,
-        "idea_xml_input_bytes": xml_bytes,
+        "idea_xml_input_bytes": model.generate_xml_input(),
         "analysis_status": "model_created",
     }
 

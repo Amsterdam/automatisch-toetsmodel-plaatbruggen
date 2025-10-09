@@ -1,73 +1,74 @@
 """
 IDEA StatiCa Concrete integration module for bridge cross-section analysis.
 
-This module provides SDK-independent functionality to create IDEA StatiCa models.
-Uses the IdeaModelBuilder Protocol to maintain separation from VIKTOR SDK.
+This module provides functionality to create IDEA StatiCa models from bridge parameters.
+Currently implements a simple rectangular beam model as a starting point.
 
-Architecture:
-- Accepts BridgeIdeaInputData instead of BridgeParametrization
-- Uses IdeaModelBuilder Protocol for all SDK interactions
-- Returns IdeaModel type (actual type determined by app layer)
-
-This refactored module maintains complete independence from the VIKTOR SDK,
-enabling better testing and architectural separation.
+Future enhancements needed:
+- Support for complex bridge cross-sections (T-beams, box girders)
+- Variable reinforcement configurations per zone
+- Multiple load cases and combinations
+- Different member types (slabs, compression members)
+- Integration with bridge geometry for automatic cross-section selection
 """
 
 import contextlib
 from collections import defaultdict
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from app.bridge.parametrization import BridgeParametrization
 from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
-from src.integrations.idea_integration.idea_data_models import (
-    BridgeGeometryConfig,
-    BridgeIdeaInputData,
-    ReinforcementConfig,
-    ReinforcementZoneConfig,
+from src.integrations.idea_integration.idea_material_mapping import (
+    create_concrete_material_for_idea,
+    create_reinforcement_material_for_idea,
 )
-from src.integrations.idea_integration.idea_model_interface import (
-    IdeaConcreteMaterial,
-    IdeaLoadingSLS,
-    IdeaLoadingULS,
-    IdeaModel,
-    IdeaModelBuilder,
-    IdeaReinforcementMaterial,
-    IdeaSlab,
-)
+from viktor.external import idea_rcs
+
+if TYPE_CHECKING:
+    from viktor.core import File
+    from viktor.external.idea_rcs import ConcreteMaterial, Material, Model, OneWaySlab, ReinforcementMaterial
+
+
+@dataclass
+class ReinforcementConfig:
+    """Configuration for reinforcement parameters."""
+
+    main_reinf_ctc_distances: dict[str, float]
+    main_reinf_diameters: dict[str, float]
+    reinf_heights: dict[str, float]
+    extra_reinf_diameter: dict[str, float]
+    extra_reinf_ctc_distances: dict[str, float]
+    has_extra_reinforcement: bool
+    rebar_config: dict
 
 
 def _get_unique_matching_zone_keys(
-    input_data: BridgeIdeaInputData,
+    params: BridgeParametrization,
 ) -> tuple[
     list[tuple[float, str, list[str]]],
     dict[float, list[str]],
     dict[int, list[str]],
 ]:
     """
-    Extract unique matching zone keys from bridge input data.
+    Extract unique matching zone keys from bridge parameters.
 
     This function groups reinforcement zones by their zone number and matches them with
-    the corresponding thickness zones extracted from the bridge segments.
+    the corresponding thickness zones extracted from the bridge parameters.
 
-    :param input_data: Bridge input data containing segments and reinforcement zones
-    :type input_data: BridgeIdeaInputData
+    :param params: BridgeParametrization object containing all bridge input parameters
+    :type params: BridgeParametrization
     :returns: Tuple containing:
         - List of (thickness, config, zones) tuples for unique matching combinations
         - Dictionary grouping thickness zones by thickness value
         - Dictionary grouping reinforcement zones by configuration number
     :rtype: tuple[list[tuple[float, str, list[str]]], dict[float, list[str]], dict[int, list[str]]]
     """
-
     # --- 1) Build grouped_thickness: thickness -> [zone] (normalized) -----------------
-    # Create a simple object with bridge_segments_array for compatibility
-    class _ParamsAdapter:
-        def __init__(self, segments: list[dict[str, Any]]):
-            self.bridge_segments_array = segments
-
-    params_adapter = _ParamsAdapter(input_data.bridge_segments)
-    nodes_dict, thickness_dict = create_node_and_thickness_dict(params_adapter)
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
     grouped_thickness: dict[float, list[str]] = {}
     for zone_key, thickness in thickness_dict.items():
         # original zone format Z1_1 -> normalized "1-1"
@@ -76,8 +77,8 @@ def _get_unique_matching_zone_keys(
 
     # --- 2) Build grouped_rebar_configs: config_idx -> [zone] (as given) --------------
     grouped_rebar_configs: dict[int, list[str]] = {}
-    for i, rebar_config in enumerate(input_data.reinforcement_zones, start=1):
-        zones = rebar_config.zone_number or []
+    for i, rebar_config in enumerate(params.reinforcement_zones_array, start=1):
+        zones = rebar_config.get("zone_number") or []
         # ensure strings and trim whitespace; keep original semantics
         grouped_rebar_configs[i] = [str(z).strip() for z in zones]
 
@@ -143,52 +144,43 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
 
 
 def _get_rebar_config(
-    rebar_config: ReinforcementZoneConfig,
-    geometry_config: BridgeGeometryConfig,
-    slab_thickness: float,
+    rebar_config: dict, params: BridgeParametrization, slab_thickness: float
 ) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
-    """
-    Get reinforcement configuration based on the provided reinforcement zone config.
+    """Get reinforcement configuration based on the provided viktor parameters."""
+    # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
+    top_reinf_cover = params.input.geometrie_wapening.dekking_boven
+    bottom_reinf_cover = params.input.geometrie_wapening.dekking_onder
 
-    :param rebar_config: Reinforcement zone configuration
-    :param geometry_config: Bridge geometry configuration (covers and layer order)
-    :param slab_thickness: Slab thickness in meters
-    :returns: Tuple of (ctc_distances, diameters, heights, extra_diameters, extra_ctc_distances)
-    """
-    # Reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
-    top_reinf_cover = geometry_config.dekking_boven
-    bottom_reinf_cover = geometry_config.dekking_onder
-
-    # Get needed reinforcement data in mm (from dataclass fields)
+    # Get needed reinforcement data in mm
     main_reinf_diameters = {
-        "top_langs": rebar_config.hoofdwapening_langs_boven_diameter,
-        "top_dwars": rebar_config.hoofdwapening_dwars_boven_diameter,
-        "bottom_langs": rebar_config.hoofdwapening_langs_onder_diameter,
-        "bottom_dwars": rebar_config.hoofdwapening_dwars_onder_diameter,
+        "top_langs": rebar_config.get("hoofdwapening_langs_boven_diameter", 0.0),
+        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_diameter", 0.0),
+        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_diameter", 0.0),
+        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_diameter", 0.0),
     }
 
-    # Get center to center distances in mm (from dataclass fields)
+    # Get center to center distances in mm
     main_reinf_ctc_distances = {
-        "top_langs": rebar_config.hoofdwapening_langs_boven_hart_op_hart,
-        "top_dwars": rebar_config.hoofdwapening_dwars_boven_hart_op_hart,
-        "bottom_langs": rebar_config.hoofdwapening_langs_onder_hart_op_hart,
-        "bottom_dwars": rebar_config.hoofdwapening_dwars_onder_hart_op_hart,
+        "top_langs": rebar_config.get("hoofdwapening_langs_boven_hart_op_hart", 0.0),
+        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_hart_op_hart", 0.0),
+        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_hart_op_hart", 0.0),
+        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart", 0.0),
     }
 
-    # Check if additional reinforcement is used and set the diameters and distances accordingly
+    # check if additional reinforcement is used and set the diameters and distances accordingly
     # those values are mm!
-    if rebar_config.heeft_bijlegwapening:
+    if rebar_config.get("heeft_bijlegwapening"):
         extra_reinf_diameter = {
-            "top_langs": rebar_config.bijlegwapening_langs_boven_diameter,
-            "top_dwars": rebar_config.bijlegwapening_dwars_boven_diameter,
-            "bottom_langs": rebar_config.bijlegwapening_langs_onder_diameter,
-            "bottom_dwars": rebar_config.bijlegwapening_dwars_onder_diameter,
+            "top_langs": rebar_config.get("bijlegwapening_langs_boven_diameter", 0.0),
+            "top_dwars": rebar_config.get("bijlegwapening_dwars_boven_diameter", 0.0),
+            "bottom_langs": rebar_config.get("bijlegwapening_langs_onder_diameter", 0.0),
+            "bottom_dwars": rebar_config.get("bijlegwapening_dwars_onder_diameter", 0.0),
         }
         extra_reinf_ctc_distances = {
-            "top_langs": rebar_config.bijlegwapening_boven_hart_op_hart,
-            "top_dwars": rebar_config.bijlegwapening_boven_hart_op_hart,
-            "bottom_langs": rebar_config.bijlegwapening_boven_hart_op_hart,
-            "bottom_dwars": rebar_config.bijlegwapening_boven_hart_op_hart,
+            "top_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "top_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "bottom_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "bottom_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
         }
     else:
         # If no additional reinforcement is used, set diameters and distances to zero
@@ -205,20 +197,20 @@ def _get_rebar_config(
             "bottom_dwars": 0.0,
         }
 
-    # Create new dict with max diameters to calculate reinforcement heights
+    # create new dict with max diameters to calculate reinforcement heights
     # This is needed to ensure that we use the maximum diameter for each direction to calculate cover and reinforcement heights
     max_reinf_diameters = {
         "top_langs": max(main_reinf_diameters["top_langs"], extra_reinf_diameter["top_langs"])
-        if rebar_config.heeft_bijlegwapening
+        if rebar_config.get("heeft_bijlegwapening")
         else main_reinf_diameters["top_langs"],
         "top_dwars": max(main_reinf_diameters["top_dwars"], extra_reinf_diameter["top_dwars"])
-        if rebar_config.heeft_bijlegwapening
+        if rebar_config.get("heeft_bijlegwapening")
         else main_reinf_diameters["top_dwars"],
         "bottom_langs": max(main_reinf_diameters["bottom_langs"], extra_reinf_diameter["bottom_langs"])
-        if rebar_config.heeft_bijlegwapening
+        if rebar_config.get("heeft_bijlegwapening")
         else main_reinf_diameters["bottom_langs"],
         "bottom_dwars": max(main_reinf_diameters["bottom_dwars"], extra_reinf_diameter["bottom_dwars"])
-        if rebar_config.heeft_bijlegwapening
+        if rebar_config.get("heeft_bijlegwapening")
         else main_reinf_diameters["bottom_dwars"],
     }
 
@@ -229,7 +221,7 @@ def _get_rebar_config(
     reinf_heights = {}
     thickness_mm = slab_thickness * 1000  # Convert thickness from m to mm
     # check if diameter main > extra to determine cover and reinforcement heights
-    if geometry_config.langswapening_buiten:
+    if params.input.geometrie_wapening.langswapening_buiten:
         # If langswapening_buiten is True, we assume the reinforcement in "langswapening" is placed as first layer
         reinf_heights["top_langs"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] / 2
         reinf_heights["top_dwars"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] - max_reinf_diameters["top_dwars"] / 2
@@ -249,84 +241,65 @@ def _get_rebar_config(
     return main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances
 
 
-def _create_idea_model_with_materials(
-    input_data: BridgeIdeaInputData,
-    builder: IdeaModelBuilder,
-) -> tuple[IdeaModel, IdeaConcreteMaterial, IdeaReinforcementMaterial]:
+def _create_idea_model_with_concrete_and_reinforcement_materials(
+    params: BridgeParametrization,
+) -> tuple["Model", "ConcreteMaterial", "ReinforcementMaterial"]:
     """
-    Create IDEA model with concrete and reinforcement materials.
+    Create IDEA model with concrete and reinforcement materials from bridge parameters.
 
     Supports both modern Eurocode materials and historical materials from CSV data.
-    Uses the IdeaModelBuilder Protocol for all SDK interactions.
 
-    :param input_data: Bridge input data containing material specifications
-    :type input_data: BridgeIdeaInputData
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
+    :param params: Bridge parametrization
+    :type params: BridgeParametrization
     :returns: Tuple of (model, concrete_material, reinforcement_material)
-    :rtype: tuple[IdeaModel, IdeaConcreteMaterial, IdeaReinforcementMaterial]
+    :rtype: tuple[Model, ConcreteMaterial, ReinforcementMaterial]
     """
     # Prepare the IDEA model with project information
-    project_data = builder.create_project_data(
-        name=f"IDEA Model for {input_data.bridge_name}",
+    project_data = idea_rcs.ProjectData(
+        name=f"IDEA Model for {getattr(params.info, 'bridge_objectnumm', None) or 'Unnamed Project'}",
         description="Generated model from VIKTOR",
         author="Ctrl+b",
         national_annex="Dutch",
     )
 
     # Create the IDEA model with project information
-    model = builder.create_model(project_data)
+    model = idea_rcs.Model(project_data=project_data)
 
-    # Create concrete material
-    concrete_quality = input_data.concrete_strength_class
-    if builder.is_historical_concrete_material(concrete_quality):
-        # Historical material - requires CSV parsing and custom material creation
-        # For now, use a simplified approach - this may need enhancement
-        # TODO: Implement full historical material support with CSV parsing
-        raise NotImplementedError(
-            f"Historical concrete material '{concrete_quality}' not yet supported in refactored code. "
-            "Please use modern Eurocode materials (C12/15 through C90/105) or implement historical material support."
-        )
-    # Modern material - use enum-based creation
-    material_enum = builder.get_concrete_material_enum(concrete_quality)
-    cs_mat = builder.create_concrete_material_modern(model, material_enum)
+    # Create concrete material using parameter from user input
+    # Get concrete strength class - use the name attribute to access it directly on params
+    concrete_strength_value = getattr(params, "concrete_strength_class", "")
 
-    # Create reinforcement material
-    steel_quality = input_data.steel_quality
-    if builder.is_historical_reinforcement_material(steel_quality):
-        # Historical material - requires CSV parsing and custom material creation
-        # TODO: Implement full historical reinforcement material support with CSV parsing
-        raise NotImplementedError(
-            f"Historical reinforcement material '{steel_quality}' not yet supported in refactored code. "
-            "Please use modern Eurocode materials (B400A through B600C) or implement historical material support."
-        )
-    # Modern material - use enum-based creation
-    material_enum = builder.get_reinforcement_material_enum(steel_quality)
-    mat_reinf = builder.create_reinforcement_material_modern(model, material_enum)
+    # Use C30/37 as default if field is None, empty string, or whitespace only
+    concrete_quality = concrete_strength_value.strip() if concrete_strength_value else "C30/37"
+    if not concrete_quality:  # Handle case where strip() results in empty string
+        concrete_quality = "C30/37"
+
+    cs_mat = create_concrete_material_for_idea(model, concrete_quality)
+
+    # Create reinforcement material using parameter from user input
+    steel_quality = getattr(params.input.geometrie_wapening, "staalsoort", None) or "B500B"  # Default fallback
+    mat_reinf = create_reinforcement_material_for_idea(model, steel_quality)
 
     return model, cs_mat, mat_reinf
 
 
 def _create_reinforcement_bars(
-    slab: IdeaSlab,
+    slab: "OneWaySlab",
     direction: str,
     config: ReinforcementConfig,
-    mat_reinf: IdeaReinforcementMaterial,
-    builder: IdeaModelBuilder,
+    mat_reinf: "ReinforcementMaterial",
 ) -> None:
     """
     Create reinforcement bars for a slab in a specific direction.
 
     :param slab: IDEA slab object
-    :type slab: IdeaSlab
+    :type slab: OneWaySlab
     :param direction: Direction ("langs" or "dwars")
     :type direction: str
     :param config: Reinforcement configuration containing all parameters
     :type config: ReinforcementConfig
     :param mat_reinf: Reinforcement material
-    :type mat_reinf: IdeaReinforcementMaterial
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
+    :type mat_reinf: ReinforcementMaterial
     """
     for location in ["top", "bottom"]:
         # Create main reinforcement bars
@@ -338,26 +311,25 @@ def _create_reinforcement_bars(
         bar_locations = list(zip(bar_locations_x, bar_locations_y))
 
         for coords, diameter in zip(bar_locations, bar_diameters):
-            builder.create_bar_on_slab(slab, coords, diameter, mat_reinf)
+            slab.create_bar(coords, diameter, mat_reinf)
 
         # Create additional reinforcement if needed
         if config.rebar_config.get("heeft_bijlegwapening"):
-            _create_additional_reinforcement(slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf, builder)
+            _create_additional_reinforcement(slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf)
 
 
 def _create_additional_reinforcement(
-    slab: IdeaSlab,
+    slab: "OneWaySlab",
     location_direction: str,  # Combined "top_langs", "bottom_dwars", etc.
     main_bar_locations_x: list[float],
     config: ReinforcementConfig,
-    mat_reinf: IdeaReinforcementMaterial,
-    builder: IdeaModelBuilder,
+    mat_reinf: "ReinforcementMaterial",
 ) -> None:
     """
     Create additional reinforcement bars (bijlegwapening).
 
     :param slab: IDEA slab object
-    :type slab: IdeaSlab
+    :type slab: OneWaySlab
     :param location_direction: Combined location and direction ("top_langs", "bottom_dwars", etc.)
     :type location_direction: str
     :param main_bar_locations_x: X coordinates of main reinforcement bars
@@ -365,9 +337,7 @@ def _create_additional_reinforcement(
     :param config: Reinforcement configuration containing all parameters
     :type config: ReinforcementConfig
     :param mat_reinf: Reinforcement material
-    :type mat_reinf: IdeaReinforcementMaterial
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
+    :type mat_reinf: ReinforcementMaterial
     """
     # Create additional reinforcement bars
     extra_bar_locations_x = calculate_bijleg_positions(main_bar_locations_x)
@@ -388,34 +358,26 @@ def _create_additional_reinforcement(
     extra_bar_locations = list(zip(extra_bar_locations_x, extra_bar_locations_y))
 
     for coords, diameter in zip(extra_bar_locations, extra_bar_diameters):
-        builder.create_bar_on_slab(slab, coords, diameter, mat_reinf)
+        slab.create_bar(coords, diameter, mat_reinf)
 
 
-def _create_slabs_with_reinforcement(
-    input_data: BridgeIdeaInputData,
-    model: IdeaModel,
-    builder: IdeaModelBuilder,
-    cs_mat: IdeaConcreteMaterial,
-    mat_reinf: IdeaReinforcementMaterial,
-) -> dict[str, dict]:
+def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Model", cs_mat: "Material", mat_reinf: "Material") -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
 
-    :param input_data: Bridge input data containing segment and reinforcement zone information
-    :type input_data: BridgeIdeaInputData
+    :param params: Bridge parametrization
+    :type params: BridgeParametrization
     :param model: IDEA model
-    :type model: IdeaModel
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
+    :type model: Model
     :param cs_mat: Concrete material
-    :type cs_mat: IdeaConcreteMaterial
+    :type cs_mat: ConcreteMaterial
     :param mat_reinf: Reinforcement material
-    :type mat_reinf: IdeaReinforcementMaterial
+    :type mat_reinf: ReinforcementMaterial
     :returns: Dictionary of created slabs
     :rtype: dict[str, dict]
     """
     # Get unique matching zone keys based on thickness and reinforcement configuration
-    unique_matching_zone_keys, _, _ = _get_unique_matching_zone_keys(input_data)
+    unique_matching_zone_keys, _, _ = _get_unique_matching_zone_keys(params)
 
     # Create a empty dict to store already created slabs to avoid duplicates
     created_slabs = {}
@@ -430,10 +392,9 @@ def _create_slabs_with_reinforcement(
 
         # Get reinforcement configuration
         config_idx = int(config) - 1
-        rebar_zone_config = input_data.reinforcement_zones[config_idx]
-        geometry_config = input_data.geometry_config
+        rebar_config = params.reinforcement_zones_array[config_idx]
         main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances = _get_rebar_config(
-            rebar_zone_config, geometry_config, slab_thickness
+            rebar_config, params, slab_thickness
         )
 
         # Create reinforcement configuration object
@@ -443,8 +404,8 @@ def _create_slabs_with_reinforcement(
             reinf_heights=reinf_heights,
             extra_reinf_diameter=extra_reinf_diameter,
             extra_reinf_ctc_distances=extra_reinf_ctc_distances,
-            has_extra_reinforcement=rebar_zone_config.heeft_bijlegwapening,
-            rebar_config=rebar_zone_config.__dict__,  # Convert dataclass to dict for legacy code
+            has_extra_reinforcement=rebar_config.get("heeft_bijlegwapening", False),
+            rebar_config=rebar_config,
         )
 
         # Create slab for each rebar direction
@@ -452,14 +413,14 @@ def _create_slabs_with_reinforcement(
             # Create rectangular cross-section for the slab
             # cs_dwars should be paired with rebar_langs and vice versa so we use opposite_direction here
             opposite_direction = "dwars" if direction == "langs" else "langs"
-            cs = builder.create_rect_section(1.0, slab_thickness)
-            slab = builder.create_one_way_slab(
-                model, cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
+            cs = idea_rcs.RectSection(1.0, slab_thickness)
+            slab = model.create_one_way_slab(
+                cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
             )
             created_slabs[slab_key][f"slab_{opposite_direction}"] = slab
 
             # Create reinforcement bars for this slab
-            _create_reinforcement_bars(slab, direction, reinf_config, mat_reinf, builder)
+            _create_reinforcement_bars(slab, direction, reinf_config, mat_reinf)
 
     return created_slabs
 
@@ -580,20 +541,12 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     return df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
 
 
-def _apply_integration_strip_loads_to_slabs(
-    created_slabs: dict[str, dict],
-    df_all: pd.DataFrame,
-    builder: IdeaModelBuilder,
-) -> None:
+def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
     """
     Apply load cases from SCIA integration strip results to each slab.
 
     :param created_slabs: Dictionary of created slabs with zones and slab objects
-    :type created_slabs: dict[str, dict]
     :param df_all: Merged dataframe with all load cases and strip data
-    :type df_all: pd.DataFrame
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
     """
     if df_all.empty:
         return
@@ -616,7 +569,7 @@ def _apply_integration_strip_loads_to_slabs(
             slab = slab_data.get(f"slab_{direction}")
 
             if slab is not None:
-                _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction, builder)
+                _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction)
 
 
 def _extract_zone_name_from_strip(strip_name: str) -> str:
@@ -653,65 +606,31 @@ def _find_matching_strips(df_all: pd.DataFrame, zones: list[str]) -> list:
     return matching_strips
 
 
-def _create_idea_loading_objects(
-    row: pd.Series,
-    moment_component: str,
-    builder: IdeaModelBuilder,
-) -> tuple[IdeaLoadingSLS, IdeaLoadingSLS, IdeaLoadingULS]:
-    """
-    Create IDEA RCS loading objects from strip result row.
-
-    :param row: Pandas Series containing load data
-    :type row: pd.Series
-    :param moment_component: Moment component name (e.g., "m_y_max", "m_x_max")
-    :type moment_component: str
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
-    :returns: Tuple of (characteristic, frequent, fundamental) loading objects
-    :rtype: tuple[IdeaLoadingSLS, IdeaLoadingSLS, IdeaLoadingULS]
-    """
-    char_forces = builder.create_result_of_internal_forces(
-        Qz=row.get("SLS_kar_v_z_max", 0),
-        My=row.get(f"SLS_kar_{moment_component}", 0),
+def _create_idea_loading_objects(row: pd.Series, moment_component: str) -> tuple:
+    """Create IDEA RCS loading objects from strip result row."""
+    char = idea_rcs.LoadingSLS(
+        idea_rcs.ResultOfInternalForces(
+            Qz=row.get("SLS_kar_v_z_max", 0),
+            My=row.get(f"SLS_kar_{moment_component}", 0),
+        )
     )
-    char = builder.create_loading_sls(char_forces)
-
-    freq_forces = builder.create_result_of_internal_forces(
-        Qz=row.get("SLS_freq_v_z_max", 0),
-        My=row.get(f"SLS_freq_{moment_component}", 0),
+    freq = idea_rcs.LoadingSLS(
+        idea_rcs.ResultOfInternalForces(
+            Qz=row.get("SLS_freq_v_z_max", 0),
+            My=row.get(f"SLS_freq_{moment_component}", 0),
+        )
     )
-    freq = builder.create_loading_sls(freq_forces)
-
-    fund_forces = builder.create_result_of_internal_forces(
-        Qz=row.get("ULS_v_z_max", 0),
-        My=row.get(f"ULS_{moment_component}", 0),
+    fund = idea_rcs.LoadingULS(
+        idea_rcs.ResultOfInternalForces(
+            Qz=row.get("ULS_v_z_max", 0),
+            My=row.get(f"ULS_{moment_component}", 0),
+        )
     )
-    fund = builder.create_loading_uls(fund_forces)
-
     return char, freq, fund
 
 
-def _apply_strip_loads_to_slab_direction(
-    slab: IdeaSlab,
-    matching_strips: list,
-    desc_prefix: str,
-    direction: str,
-    builder: IdeaModelBuilder,
-) -> None:
-    """
-    Apply strip loads to a slab in a specific direction.
-
-    :param slab: IDEA slab object
-    :type slab: IdeaSlab
-    :param matching_strips: List of matching strip results
-    :type matching_strips: list
-    :param desc_prefix: Description prefix for extremes
-    :type desc_prefix: str
-    :param direction: Direction ("langs" or "dwars")
-    :type direction: str
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
-    """
+def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_prefix: str, direction: str) -> None:  # noqa: ANN401
+    """Apply strip loads to a slab in a specific direction."""
     # For integration strips: always use v_z_max as shear (Qz)
     # For moments, determine component based on the strip's direction vector:
     # - if direction vector is (1, 0, 0) or (-1, 0, 0) use m_y_max for langs, m_x_max for dwars
@@ -749,30 +668,22 @@ def _apply_strip_loads_to_slab_direction(
             raise ValueError(msg)
 
         # Create loading objects
-        char, freq, fund = _create_idea_loading_objects(row, moment_component, builder)
+        char, freq, fund = _create_idea_loading_objects(row, moment_component)
 
         zone_name = _extract_zone_name_from_strip(strip_name)
         dx_value = row.get("dx", 0)
         description = f"{desc_prefix} - {zone_name} - {strip_name} - dx={dx_value:.3f}"
 
         with contextlib.suppress(Exception):
-            builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
+            slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def _apply_node_loads_to_slabs(
-    created_slabs: dict[str, dict],
-    df_all: pd.DataFrame,
-    builder: IdeaModelBuilder,
-) -> None:
+def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
     """
     Apply load cases from SCIA results to each slab.
 
     :param created_slabs: Dictionary of created slabs with zones and slab objects
-    :type created_slabs: dict[str, dict]
     :param df_all: Merged dataframe with all load cases
-    :type df_all: pd.DataFrame
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
     """
     # For langs cs link IDEA vz to scia vy and IDEA My to scia My
     # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
@@ -809,72 +720,91 @@ def _apply_node_loads_to_slabs(
 
             for _, row in df_slab.iterrows():
                 # Build internal forces with dynamic moment component (vx/y and Mx/My)
-                char_forces = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                    My=row.get(f"SLS_kar_M{axis}", 0),
+                char = idea_rcs.LoadingSLS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
+                        My=row.get(f"SLS_kar_M{axis}", 0),
+                    )
                 )
-                char = builder.create_loading_sls(char_forces)
-
-                freq_forces = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                    My=row.get(f"SLS_freq_M{axis}", 0),
+                freq = idea_rcs.LoadingSLS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
+                        My=row.get(f"SLS_freq_M{axis}", 0),
+                    )
                 )
-                freq = builder.create_loading_sls(freq_forces)
-
-                fund_forces = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"ULS_v_{axis}_max", 0),
-                    My=row.get(f"ULS_M{axis}", 0),
+                fund = idea_rcs.LoadingULS(
+                    idea_rcs.ResultOfInternalForces(
+                        Qz=row.get(f"ULS_v_{axis}_max", 0),
+                        My=row.get(f"ULS_M{axis}", 0),
+                    )
                 )
-                fund = builder.create_loading_uls(fund_forces)
 
                 name = row.get("name", "Unknown")
                 coords_str = _format_coords(row.get("coords_xyz"))
                 description = f"{desc_prefix} - {name} - node_{coords_str}"
 
-                builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
+                slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def create_idea_model_from_data(
-    input_data: BridgeIdeaInputData,
-    builder: IdeaModelBuilder,
-    scia_results_dict: dict[str, pd.DataFrame],
-) -> IdeaModel:
+def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":
     """
-    Create IDEA StatiCa RCS model from bridge input data.
+    Create IDEA StatiCa RCS model from bridge parameters.
 
-    This function is SDK-independent and uses the IdeaModelBuilder Protocol for all SDK interactions.
-    SCIA results must be provided by the caller (fetching is app layer responsibility).
-
-    :param input_data: Bridge input data containing all bridge parameters
-    :type input_data: BridgeIdeaInputData
-    :param builder: IDEA model builder Protocol implementation
-    :type builder: IdeaModelBuilder
-    :param scia_results_dict: SCIA analysis results (required, must be fetched by caller)
-    :type scia_results_dict: dict[str, pd.DataFrame]
+    :param params: BridgeParametrization object containing all bridge input parameters
+    :type params: BridgeParametrization
+    :param entity_id: Entity ID for caching (used if scia_results_dict is None)
+    :type entity_id: int
+    :param scia_results_dict: Pre-computed SCIA results, if None will fetch from cache
+    :type scia_results_dict: dict[str, pd.DataFrame] | None
     :returns: IDEA RCS model object
-    :rtype: IdeaModel
+    :rtype: Model
     :raises ValueError: If parameters are invalid
-    :raises NotImplementedError: If historical materials are specified (not yet supported)
+    :raises ImportError: If VIKTOR IDEA module is not available
     """
+    # Get SCIA results - either passed in or fetch from cache
+    if scia_results_dict is None:
+        # Import here to avoid circular imports only when needed
+        from app.bridge.analysis_cache import get_scia_results_for_idea
+
+        scia_results_dict = get_scia_results_for_idea(params, entity_id=entity_id)
+
     # Create IDEA model with materials
-    model, cs_mat, mat_reinf = _create_idea_model_with_materials(input_data, builder)
+    model, cs_mat, mat_reinf = _create_idea_model_with_concrete_and_reinforcement_materials(params)
 
     # Create slabs with reinforcement
-    created_slabs = _create_slabs_with_reinforcement(input_data, model, builder, cs_mat, mat_reinf)
+    created_slabs = _create_slabs_with_reinforcement(params, model, cs_mat, mat_reinf)
 
     # Process SCIA node results for idea input
     df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
     # Apply node loads to slabs
-    _apply_node_loads_to_slabs(created_slabs, df_node_all, builder)
+    _apply_node_loads_to_slabs(created_slabs, df_node_all)
 
     # Process SCIA integration strip results for idea input
     df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
     # Apply integration strip loads to slabs
-    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all, builder)
+    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
 
     return model
 
 
-# Note: run_idea_analysis() was removed from this module as it's SDK-dependent.
-# Analysis execution should be done in the app layer using IdeaModelBuilder.
-# See app/bridge/idea_model_builder.py for SDK-dependent functionality.
+def run_idea_analysis(model: "Model", timeout: int = 300) -> "File":
+    """
+    Run IDEA StatiCa analysis on the provided model.
+
+    :param model: IDEA RCS model object
+    :type model: Model
+    :param timeout: Analysis timeout in seconds
+    :type timeout: int
+    :returns: Analysis output file object
+    :rtype: File
+    :raises ImportError: If VIKTOR IDEA module is not available
+    :raises RuntimeError: If analysis execution fails
+    """
+    # Generate XML input for analysis
+    xml_input = model.generate_xml_input()
+
+    # Create and execute analysis
+    analysis = idea_rcs.IdeaRcsAnalysis(xml_input, return_rcs_file=True)
+    analysis.execute(timeout)
+
+    return analysis.get_idea_rcs_file()

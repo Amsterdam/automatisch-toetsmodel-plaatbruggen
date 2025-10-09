@@ -2,15 +2,13 @@
 Mapping module for IDEA RCS concrete and reinforcement materials.
 
 This module provides mapping functions to convert material quality strings
-to enum values and create custom materials from CSV data.
-
-This module is now SDK-independent, using the enum bridge pattern.
+from CSV files to IDEA RCS material enum values and create custom materials from CSV data.
 """
 
-from src.integrations.idea_integration.idea_enums import ConcreteMaterial, ReinforcementMaterial
+from viktor.external import idea_rcs
 
 
-def get_idea_concrete_material(concrete_quality: str) -> ConcreteMaterial:
+def get_idea_concrete_material(concrete_quality: str) -> idea_rcs.ConcreteMaterial:
     """
     Map concrete quality string to IDEA RCS ConcreteMaterial enum value.
 
@@ -19,26 +17,26 @@ def get_idea_concrete_material(concrete_quality: str) -> ConcreteMaterial:
 
     :param concrete_quality: Concrete quality string (e.g., "C30/37")
     :type concrete_quality: str
-    :returns: ConcreteMaterial enum value
-    :rtype: ConcreteMaterial
+    :returns: IDEA RCS ConcreteMaterial enum value
+    :rtype: idea_rcs.ConcreteMaterial
     :raises ValueError: If concrete quality is not supported or is a historical material
     """
     concrete_material_mapping = {
         # Modern Eurocode materials (C-class)
-        "C12/15": ConcreteMaterial.C12_15,
-        "C16/20": ConcreteMaterial.C16_20,
-        "C20/25": ConcreteMaterial.C20_25,
-        "C25/30": ConcreteMaterial.C25_30,
-        "C30/37": ConcreteMaterial.C30_37,
-        "C35/45": ConcreteMaterial.C35_45,
-        "C40/50": ConcreteMaterial.C40_50,
-        "C45/55": ConcreteMaterial.C45_55,
-        "C50/60": ConcreteMaterial.C50_60,
-        "C55/67": ConcreteMaterial.C55_67,
-        "C60/75": ConcreteMaterial.C60_75,
-        "C70/85": ConcreteMaterial.C70_85,
-        "C80/95": ConcreteMaterial.C80_95,
-        "C90/105": ConcreteMaterial.C90_105,
+        "C12/15": idea_rcs.ConcreteMaterial.C12_15,
+        "C16/20": idea_rcs.ConcreteMaterial.C16_20,
+        "C20/25": idea_rcs.ConcreteMaterial.C20_25,
+        "C25/30": idea_rcs.ConcreteMaterial.C25_30,
+        "C30/37": idea_rcs.ConcreteMaterial.C30_37,
+        "C35/45": idea_rcs.ConcreteMaterial.C35_45,
+        "C40/50": idea_rcs.ConcreteMaterial.C40_50,
+        "C45/55": idea_rcs.ConcreteMaterial.C45_55,
+        "C50/60": idea_rcs.ConcreteMaterial.C50_60,
+        "C55/67": idea_rcs.ConcreteMaterial.C55_67,
+        "C60/75": idea_rcs.ConcreteMaterial.C60_75,
+        "C70/85": idea_rcs.ConcreteMaterial.C70_85,
+        "C80/95": idea_rcs.ConcreteMaterial.C80_95,
+        "C90/105": idea_rcs.ConcreteMaterial.C90_105,
     }
 
     if concrete_quality not in concrete_material_mapping:
@@ -55,20 +53,56 @@ def get_idea_concrete_material(concrete_quality: str) -> ConcreteMaterial:
     return concrete_material_mapping[concrete_quality]
 
 
-# ===================================================================================
-# Material Creation Functions - Use IdeaModelBuilder Instead
-# ===================================================================================
-#
-# Material creation with SDK has been moved to app/bridge/idea_model_builder.py
-#
-# For creating materials, use the IdeaModelBuilder Protocol methods:
-# - builder.create_concrete_material_modern(model, material_enum)
-# - builder.create_concrete_material_historical(model, quality, cement_class, aggregate_type, diagram_type)
-# - builder.create_reinforcement_material_modern(model, material_enum)
-# - builder.create_reinforcement_material_historical(model, quality, ...)
-#
-# This module now only provides enum mappings and material type checking.
-# ===================================================================================
+def create_historical_concrete_material(model: idea_rcs.Model, concrete_quality: str, custom_name: str | None = None) -> idea_rcs.MatConcreteEc2:
+    """
+    Create an IDEA RCS concrete material from CSV data for historical materials.
+
+    This function delegates to the material generator for the actual creation logic.
+
+    :param model: IDEA RCS model instance
+    :type model: idea_rcs.Model
+    :param concrete_quality: Concrete quality string (e.g., "K150", "B25")
+    :type concrete_quality: str
+    :param custom_name: Optional custom name for the material
+    :type custom_name: str
+    :returns: Created IDEA RCS concrete material
+    :rtype: idea_rcs.MatConcreteEc2
+    :raises ValueError: If material is not supported or CSV data is invalid
+    """
+    # Import here to avoid circular imports
+    from .idea_material_generator import create_idea_concrete_material
+
+    if not is_historical_material(concrete_quality):
+        raise ValueError(f"Material '{concrete_quality}' is not a historical material. Use get_idea_concrete_material() for modern materials.")
+
+    return create_idea_concrete_material(model, concrete_quality, custom_name)
+
+
+def create_concrete_material_for_idea(model: idea_rcs.Model, concrete_quality: str, custom_name: str | None = None) -> idea_rcs.MatConcreteEc2:
+    """
+    Unified function to create concrete materials for both modern and historical types.
+
+    This is the recommended function to use in idea_interface.py as it handles both cases automatically.
+
+    :param model: IDEA RCS model instance
+    :type model: idea_rcs.Model
+    :param concrete_quality: Concrete quality string (e.g., "C30/37", "K150", "B25")
+    :type concrete_quality: str
+    :param custom_name: Optional custom name for the material
+    :type custom_name: str
+    :returns: Created IDEA RCS concrete material
+    :rtype: idea_rcs.MatConcreteEc2
+    :raises ValueError: If material is not supported
+    """
+    if is_historical_material(concrete_quality):
+        # Historical materials: create with CSV data
+        return create_historical_concrete_material(model, concrete_quality, custom_name)
+    # Modern materials: use standard enum
+    try:
+        base_material = get_idea_concrete_material(concrete_quality)
+        return model.create_concrete_material(base_material, name=custom_name)
+    except ValueError:
+        raise ValueError(f"Concrete quality '{concrete_quality}' is not supported")
 
 
 def is_historical_material(concrete_quality: str) -> bool:
@@ -166,31 +200,31 @@ def get_all_supported_materials() -> dict[str, str]:
     return materials
 
 
-def get_idea_reinforcement_material(reinforcement_type: str = "B500B") -> ReinforcementMaterial:
+def get_idea_reinforcement_material(reinforcement_type: str = "B500B") -> idea_rcs.ReinforcementMaterial:
     """
-    Map modern reinforcement type string to ReinforcementMaterial enum value.
+    Map modern reinforcement type string to IDEA RCS ReinforcementMaterial enum value.
 
     This function only handles modern Eurocode materials (B-class with letter suffix).
-    For historical materials (FeB, HK, St.), use builder.create_reinforcement_material_historical() instead.
+    For historical materials (FeB, HK, St.), use create_historical_reinforcement_material() instead.
 
     :param reinforcement_type: Reinforcement type string (e.g., "B500B")
     :type reinforcement_type: str
-    :returns: ReinforcementMaterial enum value
-    :rtype: ReinforcementMaterial
+    :returns: IDEA RCS ReinforcementMaterial enum value
+    :rtype: idea_rcs.ReinforcementMaterial
     :raises ValueError: If reinforcement type is not supported or is a historical material
     """
     reinforcement_material_mapping = {
-        "B400A": ReinforcementMaterial.B_400A,
-        "B400B": ReinforcementMaterial.B_400B,
-        "B400C": ReinforcementMaterial.B_400C,
-        "B500A": ReinforcementMaterial.B_500A,
-        "B500B": ReinforcementMaterial.B_500B,
-        "B500C": ReinforcementMaterial.B_500C,
-        "B550A": ReinforcementMaterial.B_550A,
-        "B550B": ReinforcementMaterial.B_550B,
-        "B600A": ReinforcementMaterial.B_600A,
-        "B600B": ReinforcementMaterial.B_600B,
-        "B600C": ReinforcementMaterial.B_600C,
+        "B400A": idea_rcs.ReinforcementMaterial.B_400A,
+        "B400B": idea_rcs.ReinforcementMaterial.B_400B,
+        "B400C": idea_rcs.ReinforcementMaterial.B_400C,
+        "B500A": idea_rcs.ReinforcementMaterial.B_500A,
+        "B500B": idea_rcs.ReinforcementMaterial.B_500B,
+        "B500C": idea_rcs.ReinforcementMaterial.B_500C,
+        "B550A": idea_rcs.ReinforcementMaterial.B_550A,
+        "B550B": idea_rcs.ReinforcementMaterial.B_550B,
+        "B600A": idea_rcs.ReinforcementMaterial.B_600A,
+        "B600B": idea_rcs.ReinforcementMaterial.B_600B,
+        "B600C": idea_rcs.ReinforcementMaterial.B_600C,
     }
 
     if reinforcement_type not in reinforcement_material_mapping:
@@ -207,8 +241,66 @@ def get_idea_reinforcement_material(reinforcement_type: str = "B500B") -> Reinfo
     return reinforcement_material_mapping[reinforcement_type]
 
 
-# Note: Material creation functions have been removed - use IdeaModelBuilder instead
-# See comment block above for details on the new pattern
+def create_historical_reinforcement_material(
+    model: idea_rcs.Model,
+    reinforcement_type: str,
+    custom_name: str | None = None,
+) -> idea_rcs.MatReinforcementEc2:
+    """
+    Create an IDEA RCS reinforcement material from CSV data for historical materials.
+
+    This function delegates to the material generator for the actual creation logic.
+
+    :param model: IDEA RCS model instance
+    :type model: idea_rcs.Model
+    :param reinforcement_type: Reinforcement type string (e.g., "FeB500 HWL, HK", "HK", "St. 37")
+    :type reinforcement_type: str
+    :param custom_name: Optional custom name for the material
+    :type custom_name: str
+    :returns: Created IDEA RCS reinforcement material
+    :rtype: idea_rcs.MatReinforcementEc2
+    :raises ValueError: If material is not supported or CSV data is invalid
+    """
+    # Import here to avoid circular imports
+    from .idea_material_generator import create_idea_reinforcement_material
+
+    if not is_historical_reinforcement_material(reinforcement_type):
+        raise ValueError(
+            f"Material '{reinforcement_type}' is not a historical reinforcement material. Use get_idea_reinforcement_material() for modern materials."
+        )
+
+    return create_idea_reinforcement_material(model, reinforcement_type, custom_name)
+
+
+def create_reinforcement_material_for_idea(
+    model: idea_rcs.Model,
+    reinforcement_type: str,
+    custom_name: str | None = None,
+) -> idea_rcs.MatReinforcementEc2:
+    """
+    Unified function to create reinforcement materials for both modern and historical types.
+
+    This is the recommended function to use in idea_interface.py as it handles both cases automatically.
+
+    :param model: IDEA RCS model instance
+    :type model: idea_rcs.Model
+    :param reinforcement_type: Reinforcement type string (e.g., "B500B", "FeB500 HWL, HK", "HK", "St. 37")
+    :type reinforcement_type: str
+    :param custom_name: Optional custom name for the material
+    :type custom_name: str
+    :returns: Created IDEA RCS reinforcement material
+    :rtype: idea_rcs.MatReinforcementEc2
+    :raises ValueError: If material is not supported
+    """
+    if is_historical_reinforcement_material(reinforcement_type):
+        # Historical materials: create with CSV data
+        return create_historical_reinforcement_material(model, reinforcement_type, custom_name)
+    # Modern materials: use standard enum
+    try:
+        base_material = get_idea_reinforcement_material(reinforcement_type)
+        return model.create_reinforcement_material(base_material, name=custom_name)
+    except ValueError:
+        raise ValueError(f"Reinforcement type '{reinforcement_type}' is not supported")
 
 
 def is_historical_reinforcement_material(reinforcement_type: str) -> bool:

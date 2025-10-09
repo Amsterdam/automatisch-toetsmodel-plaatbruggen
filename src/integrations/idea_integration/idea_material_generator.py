@@ -2,39 +2,12 @@
 IDEA material generator module.
 
 This module provides functions to create IDEA RCS concrete and reinforcement materials from CSV data.
-Now uses enum bridge pattern for SDK independence in mappings.
-
-TODO Phase 5B: Functions still use SDK for material creation - needs builder parameter:
-- create_idea_reinforcement_material() should accept IdeaModelBuilder
-- create_idea_concrete_material() should accept IdeaModelBuilder
-- Replace model.create_*_material() calls with builder methods
-This requires updating all call sites in idea_interface.py
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from src.integrations.idea_integration.idea_enums import (
-    BarSurface,
-    ConcAggregateType,
-    ConcCementClass,
-    ConcDiagramType,
-    ReinfDiagramType,
-    ReinfFabrication,
-    ReinforcementClass,
-    ReinforcementMaterial,
-    ReinfType,
-)
-
-if TYPE_CHECKING:
-    from viktor.external import idea_rcs
-
-# NOTE: Still needs SDK import for ConcDependentParams and function signatures
-# This will be removed when functions accept builder parameter instead
-try:
-    from viktor.external import idea_rcs
-except ImportError:
-    idea_rcs = None  # type: ignore[assignment]
+from viktor.external import idea_rcs
 
 
 def _parse_csv_header_and_data_start(lines: list[str]) -> tuple[list[str], int]:
@@ -248,31 +221,31 @@ def create_idea_reinforcement_material(model: idea_rcs.Model, material_name: str
         # Map reinforcement class from CSV
         class_value = material_data.get("Class", "B")
         reinforcement_class_map = {
-            "A": ReinforcementClass.A,
-            "B": ReinforcementClass.B,
-            "C": ReinforcementClass.C,
+            "A": idea_rcs.ReinfClass.A,
+            "B": idea_rcs.ReinfClass.B,
+            "C": idea_rcs.ReinfClass.C,
         }
-        reinforcement_class = reinforcement_class_map.get(class_value, ReinforcementClass.B)
+        reinforcement_class = reinforcement_class_map.get(class_value, idea_rcs.ReinfClass.B)
 
         # Map bar surface from CSV
         bar_surface_value = material_data.get("BarSurface", "Ribbed")
         bar_surface_map = {
-            "Smooth": BarSurface.SMOOTH,
-            "Ribbed": BarSurface.RIBBED,
+            "Smooth": idea_rcs.BarSurface.SMOOTH,
+            "Ribbed": idea_rcs.BarSurface.RIBBED,
         }
-        bar_surface = bar_surface_map.get(bar_surface_value, BarSurface.RIBBED)
+        bar_surface = bar_surface_map.get(bar_surface_value, idea_rcs.BarSurface.RIBBED)
 
         # Map diagram type from CSV
         diagram_type_value = material_data.get("DiagramType", "BilinerWithOutAnInclinedTopBranch")
         diagram_type_map = {
-            "BilinerWithOutAnInclinedTopBranch": ReinfDiagramType.BILINEAR_NOT_INCLINED,
-            "BilinearWithInclinedTopBranch": ReinfDiagramType.BILINEAR_INCLINED,
+            "BilinerWithOutAnInclinedTopBranch": idea_rcs.ReinfDiagramType.BILINEAR_NOT_INCLINED,
+            "BilinearWithInclinedTopBranch": idea_rcs.ReinfDiagramType.BILINEAR_INCLINED,
         }
-        diagram_type = diagram_type_map.get(diagram_type_value, ReinfDiagramType.BILINEAR_NOT_INCLINED)
+        diagram_type = diagram_type_map.get(diagram_type_value, idea_rcs.ReinfDiagramType.BILINEAR_NOT_INCLINED)
 
         # Use a default base material (we'll override the properties)
         # For historical materials, we'll use B500B as a starting point
-        base_material = ReinforcementMaterial.B_500B
+        base_material = idea_rcs.ReinforcementMaterial.B_500B
 
         # Create the material
         material_display_name = custom_name or f"{material_name} (Historical)"
@@ -285,10 +258,10 @@ def create_idea_reinforcement_material(model: idea_rcs.Model, material_name: str
             fyk=fyk,
             ftk_by_fyk=ftk_by_fyk,
             epsuk=epsuk,
-            type_=ReinfType.BARS,
+            type_=idea_rcs.ReinfType.BARS,
             bar_surface=bar_surface,
             class_=reinforcement_class,
-            fabrication=ReinfFabrication.HOT_ROLLED,
+            fabrication=idea_rcs.ReinfFabrication.HOT_ROLLED,
             diagram_type=diagram_type,
         )
 
@@ -380,24 +353,24 @@ def create_idea_concrete_material(model: idea_rcs.Model, material_name: str, cus
 
         # Map cement class (integer to enum)
         cement_class_map = {
-            0: ConcCementClass.S,
-            1: ConcCementClass.R,
-            2: ConcCementClass.N,
+            0: idea_rcs.ConcCementClass.S,
+            1: idea_rcs.ConcCementClass.R,
+            2: idea_rcs.ConcCementClass.N,
         }
-        cement_class = cement_class_map.get(int(cement_class_value), ConcCementClass.R)
+        cement_class = cement_class_map.get(int(cement_class_value), idea_rcs.ConcCementClass.R)
 
         # Map aggregate type (integer to enum)
         aggregate_type_map = {
-            0: ConcAggregateType.QUARTZITE,
-            1: ConcAggregateType.LIMESTONE,
-            2: ConcAggregateType.SANDSTONE,
-            3: ConcAggregateType.BASALT,
+            0: idea_rcs.ConcAggregateType.QUARTZITE,
+            1: idea_rcs.ConcAggregateType.LIMESTONE,
+            2: idea_rcs.ConcAggregateType.SANDSTONE,
+            3: idea_rcs.ConcAggregateType.BASALT,
         }
-        aggregate_type = aggregate_type_map.get(int(aggregate_type_value), ConcAggregateType.QUARTZITE)
+        aggregate_type = aggregate_type_map.get(int(aggregate_type_value), idea_rcs.ConcAggregateType.QUARTZITE)
 
         # Use a default base material (we'll override the properties)
         # For historical materials, we'll use C20/25 as a starting point
-        base_material = ConcreteMaterial.C20_25
+        base_material = idea_rcs.ConcreteMaterial.C20_25
 
         # Create dependent parameters from CSV data if available
         dep_params = None
@@ -431,7 +404,7 @@ def create_idea_concrete_material(model: idea_rcs.Model, material_name: str, cus
             stone_diameter=stone_diameter,
             cement_class=cement_class,
             aggregate_type=aggregate_type,
-            diagram_type=ConcDiagramType.PARABOLIC,
+            diagram_type=idea_rcs.ConcDiagramType.PARABOLIC,
             silica_fume=False,
             plain_concrete_diagram=False,
             dep_params=dep_params,
