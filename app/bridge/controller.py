@@ -7,13 +7,13 @@ maintainability, with components located in the app/bridge/bridgeController/ sub
 
 Components:
 - InfoViews: Bridge information and location views
-- GeometryViews: 3D models and 2D section views  
+- GeometryViews: 3D models and 2D section views
 - SciaIntegration: SCIA Engineer analysis integration
 - IdeaIntegration: IDEA StatiCa RCS integration
 - ReportViews: PDF report generation
 - ControllerUtils: Common utilities and error handling
 
-Note: VIKTOR's introspection doesn't follow Python's MRO, so all view and download methods 
+Note: VIKTOR's introspection doesn't follow Python's MRO, so all view and download methods
 from components are explicitly referenced as class attributes at the bottom of the class.
 """
 
@@ -50,15 +50,15 @@ class BridgeController(
 
     label = "Brug"
     parametrization = BridgeParametrization  # type: ignore[assignment]
-    
+
     # Explicit method references for VIKTOR introspection
     # VIKTOR's introspection doesn't follow MRO, so we explicitly reference all view/download methods
     # from component classes. These methods are inherited but need to be explicitly listed for VIKTOR to find them.
-    
+
     # From InfoViews
     get_bridge_map_view = InfoViews.get_bridge_map_view
     get_load_combinations_view = InfoViews.get_load_combinations_view
-    
+
     # From GeometryViews
     get_3d_view = GeometryViews.get_3d_view
     get_top_view = GeometryViews.get_top_view
@@ -66,7 +66,7 @@ class BridgeController(
     get_2d_longitudinal_section = GeometryViews.get_2d_longitudinal_section
     get_2d_cross_section = GeometryViews.get_2d_cross_section
     get_load_zones_view = GeometryViews.get_load_zones_view
-    
+
     # From SciaIntegration
     get_scia_results_view_sls_kar = SciaIntegration.get_scia_results_view_sls_kar
     get_scia_results_view_sls_freq = SciaIntegration.get_scia_results_view_sls_freq
@@ -79,13 +79,12 @@ class BridgeController(
     download_scia_esa_model = SciaIntegration.download_scia_esa_model
     download_scia_xml_files = SciaIntegration.download_scia_xml_files
     download_scia_output_xml = SciaIntegration.download_scia_output_xml
-    
+
     # From IdeaIntegration
     get_view_unique_idea_cross_sections = IdeaIntegration.get_view_unique_idea_cross_sections
     get_view_idea_rcs_results = IdeaIntegration.get_view_idea_rcs_results
     download_idea_xml_file = IdeaIntegration.download_idea_xml_file
     download_idea_analysis_results = IdeaIntegration.download_idea_analysis_results
-    
+
     # From ReportViews
     get_output_report = ReportViews.get_output_report
-
