@@ -1,7 +1,7 @@
 """
-Geometry visualization mixin for BridgeController.
+Geometry visualization component for BridgeController.
 
-This mixin provides all geometry-related views including
+This component provides all geometry-related views including
 3D models, 2D sections, and load zone visualizations.
 """
 
@@ -29,9 +29,9 @@ from viktor.core import File
 from viktor.views import GeometryResult, GeometryView, PlotlyResult, PlotlyView
 
 
-class GeometryViewsMixin:
+class GeometryViews:
     """
-    Mixin providing geometry visualization views.
+    Component providing geometry visualization views.
 
     Contains methods for:
     - 3D model visualization

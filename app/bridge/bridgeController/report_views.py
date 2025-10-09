@@ -1,7 +1,7 @@
 """
-Report generation mixin for BridgeController.
+Report generation component for BridgeController.
 
-This mixin provides PDF report generation functionality
+This component provides PDF report generation functionality
 for bridge design documentation.
 """
 
@@ -11,9 +11,9 @@ from viktor.errors import UserError
 from viktor.views import PDFResult, PDFView
 
 
-class ReportViewsMixin:
+class ReportViews:
     """
-    Mixin providing report generation views.
+    Component providing report generation views.
 
     Contains methods for:
     - PDF report generation

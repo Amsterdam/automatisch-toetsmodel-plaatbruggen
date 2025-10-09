@@ -1,7 +1,7 @@
 """
-IDEA StatiCa integration mixin for BridgeController.
+IDEA StatiCa integration component for BridgeController.
 
-This mixin provides all IDEA RCS-related functionality including:
+This component provides all IDEA RCS-related functionality including:
 - Cross-section analysis views
 - Unique cross-section identification
 - XML model and analysis downloads
@@ -22,9 +22,9 @@ from viktor.result import DownloadResult
 from viktor.views import TableResult, TableView
 
 
-class IdeaIntegrationMixin:
+class IdeaIntegration:
     """
-    Mixin providing IDEA StatiCa RCS integration.
+    Component providing IDEA StatiCa RCS integration.
 
     Contains methods for:
     - Unique cross-section identification

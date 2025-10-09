@@ -1,7 +1,7 @@
 """
-Information views mixin for BridgeController.
+Information views component for BridgeController.
 
-This mixin provides views for displaying bridge information:
+This component provides views for displaying bridge information:
 - Map view showing bridge location
 - Load combinations table
 """
@@ -13,9 +13,9 @@ from viktor.errors import UserError
 from viktor.views import MapPoint, MapResult, MapView, TableResult, TableView
 
 
-class InfoViewsMixin:
+class InfoViews:
     """
-    Mixin providing information display views.
+    Component providing information display views.
 
     Contains methods for:
     - Bridge location map display

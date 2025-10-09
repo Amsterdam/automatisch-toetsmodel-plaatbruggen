@@ -17,9 +17,9 @@ from viktor.errors import UserError
 from viktor.views import MapPoint, MapResult
 
 
-class ControllerUtilsMixin:
+class ControllerUtils:
     """
-    Mixin providing utility methods for BridgeController.
+    Component providing utility methods for BridgeController.
 
     Contains helper methods for:
     - Entity data retrieval
