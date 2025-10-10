@@ -16,7 +16,7 @@ from src.integrations.scia_integration.types import BridgeParametrization
 
 
 def dispersal_function(
-    params: object,
+    params: BridgeParametrization,
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_case_type: str,
