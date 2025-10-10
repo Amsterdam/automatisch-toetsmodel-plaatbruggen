@@ -9,6 +9,9 @@ from typing import Any
 
 import pytest
 
+from unittest.mock import Mock
+
+from src.integrations.scia_integration.scia_results_creator import extract_analysis_results
 from src.integrations.scia_integration.scia_unit_conversion import (
     SciaUnitConverter,
     UnitConversion,
@@ -308,3 +311,124 @@ class TestIntegrationConsistency:
         # Key components should match
         for component in ["Vy", "Mx", "Mxd+"]:
             assert units_1d["internal_forces"][component] == converter_units_1d[component]
+
+
+class TestExtractAnalysisResults:
+    """Test the extract_analysis_results function with units attachment."""
+
+    def test_extract_analysis_results_attaches_units_2d(self) -> None:
+        """Test that extract_analysis_results attaches units for 2D tables."""
+        # Mock builder and analysis
+        mock_builder = Mock()
+        mock_analysis = Mock()
+
+        # Mock the builder's extract method to return 2D results
+        mock_builder.extract_analysis_results.return_value = {
+            "internal_forces": {"table_name": "Internal Forces 2D", "status": "success"},
+            "analysis_status": {"executed": True},
+        }
+
+        # Call the function
+        results = extract_analysis_results(mock_builder, mock_analysis)
+
+        # Check that units are attached at top level
+        assert "units" in results
+        assert "internal_forces" in results["units"]
+        assert results["units"]["internal_forces"]["N"] == "kN/m"
+        assert results["units"]["internal_forces"]["Myd+"] == "kNm/m"
+
+        # Check that units are also attached to internal_forces for convenience
+        assert "units" in results["internal_forces"]
+        assert results["internal_forces"]["units"]["N"] == "kN/m"
+        assert results["internal_forces"]["units"]["Myd-"] == "kNm/m"
+
+    def test_extract_analysis_results_attaches_units_1d(self) -> None:
+        """Test that extract_analysis_results attaches units for 1D tables."""
+        # Mock builder and analysis
+        mock_builder = Mock()
+        mock_analysis = Mock()
+
+        # Mock the builder's extract method to return 1D results
+        mock_builder.extract_analysis_results.return_value = {
+            "internal_forces": {"table_name": "Internal Forces 1D", "status": "success"},
+            "analysis_status": {"executed": True},
+        }
+
+        # Call the function
+        results = extract_analysis_results(mock_builder, mock_analysis)
+
+        # Check that units are attached with 1D values
+        assert results["units"]["internal_forces"]["N"] == "kN"
+        assert results["units"]["internal_forces"]["Myd+"] == "kNm"
+        assert results["internal_forces"]["units"]["Vy"] == "kN"
+
+    def test_extract_analysis_results_handles_missing_internal_forces(self) -> None:
+        """Test that extract_analysis_results handles missing internal_forces gracefully."""
+        # Mock builder and analysis
+        mock_builder = Mock()
+        mock_analysis = Mock()
+
+        # Mock the builder's extract method to return results without internal_forces
+        mock_builder.extract_analysis_results.return_value = {
+            "analysis_status": {"executed": True},
+        }
+
+        # Call the function
+        results = extract_analysis_results(mock_builder, mock_analysis)
+
+        # Check that units are still attached (defaults to 1D)
+        assert "units" in results
+        assert "internal_forces" in results["units"]
+        assert results["units"]["internal_forces"]["N"] == "kN"
+
+        # internal_forces section should not have units added since it doesn't exist
+        assert "internal_forces" not in results or "units" not in results.get("internal_forces", {})
+
+    def test_extract_analysis_results_handles_non_dict_internal_forces(self) -> None:
+        """Test that extract_analysis_results handles non-dict internal_forces."""
+        # Mock builder and analysis
+        mock_builder = Mock()
+        mock_analysis = Mock()
+
+        # Mock the builder's extract method to return non-dict internal_forces
+        mock_builder.extract_analysis_results.return_value = {
+            "internal_forces": "not a dict",
+            "analysis_status": {"executed": True},
+        }
+
+        # Call the function
+        results = extract_analysis_results(mock_builder, mock_analysis)
+
+        # Check that units are still attached (defaults to 1D)
+        assert "units" in results
+        assert results["units"]["internal_forces"]["N"] == "kN"
+
+        # internal_forces should remain unchanged since it's not a dict
+        assert results["internal_forces"] == "not a dict"
+
+    def test_extract_analysis_results_includes_validation_and_summary(self) -> None:
+        """Test that extract_analysis_results includes validation and summary."""
+        # Mock builder and analysis
+        mock_builder = Mock()
+        mock_analysis = Mock()
+
+        # Mock the builder's extract method
+        mock_builder.extract_analysis_results.return_value = {
+            "internal_forces": {"table_name": "Internal Forces 1D", "status": "success"},
+            "analysis_status": {"executed": True},
+        }
+
+        # Call the function
+        results = extract_analysis_results(mock_builder, mock_analysis)
+
+        # Check that validation and summary are included
+        assert "validation" in results
+        assert "result_summary" in results
+        assert "units" in results
+
+        # Check validation structure
+        assert "is_valid" in results["validation"]
+        assert "messages" in results["validation"]
+
+        # Check summary structure
+        assert "analysis_successful" in results["result_summary"]

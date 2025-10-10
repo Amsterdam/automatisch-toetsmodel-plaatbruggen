@@ -230,6 +230,47 @@ def test_get_3d_view_execution(self):
     self.assertIsInstance(result, GeometryResult)
 ```
 
+## 📊 Test Coverage Strategy
+
+### Integration-Only Testing for VIKTOR SDK Adapters
+
+Sommige modules worden bewust **niet** direct unit-getest maar alleen via **integratie tests**:
+
+#### `app/bridge/scia_model_builder.py` (1200+ regels)
+**Beslissing:** Alleen integratie tests, geen directe unit tests.
+
+**Rationale:**
+1. **Thin adapter**: `ViktorSciaModelBuilder` delegeert simpel naar VIKTOR SDK methods
+2. **Geen complexe logica**: Alle berekeningen zitten in `src/integrations/scia_integration/` (19 testbestanden, 100+ tests)
+3. **Integratie dekking**: Volledig getest via:
+   - `test_controller_scia.py` (5 test classes)
+   - `test_load_case_selection_integration.py`
+   - Meerdere `test_scia_*` integratiebestanden in `test_src/`
+4. **Lage waarde unit tests**: Direct testen zou uitgebreide VIKTOR SDK mocking vereisen zonder extra zekerheid
+
+**Voorbeeld van goede dekking:**
+```python
+# Integratie test (test_controller_scia.py)
+def test_scia_model_creation_with_load_cases(self):
+    """Test complete SCIA model creatie inclusief load cases."""
+    # Test de hele workflow van params → model → analyse
+    result = create_bridge_scia_model(self.params, template_path)
+    # Verifieert dat ViktorSciaModelBuilder correct gebruikt wordt
+```
+
+### Wanneer WEL Direct Unit Tests Schrijven
+
+**✅ Schrijf unit tests voor:**
+- **Business logic** met complexe berekeningen (`src/combinations/`, `src/geometry/`)
+- **Data models** met validatie (`src/data_models/` - 138+ tests voor Pydantic models)
+- **Utility functions** met edge cases (`src/common/`)
+- **Parameters extractie** (`app/bridge/cache_parameters.py` - 20 tests)
+
+**❌ Skip direct unit tests voor:**
+- **Dunne adapters** die alleen SDK methods aanroepen
+- **Pure VIKTOR decorators** (getest via VIKTOR CLI test suite)
+- **UI-only componenten** zonder business logic
+
 ## 🛠️ Wanneer Tests Toevoegen/Wijzigen
 
 ### Nieuwe Functionaliteit Toevoegen

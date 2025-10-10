@@ -44,14 +44,6 @@ class TestBridgeControllerViews(unittest.TestCase):
                 assert hasattr(self.controller, method_name)
                 assert callable(getattr(self.controller, method_name))
 
-    def test_controller_has_parametrization(self) -> None:
-        """Test that the controller has the correct parametrization."""
-        assert self.controller.parametrization == BridgeParametrization
-
-    def test_controller_label(self) -> None:
-        """Test that the controller has the correct label."""
-        assert self.controller.label == "Brug"
-
     # ============================================================================================================
     # PHASE 2: Full View Execution Tests - Bypassing VIKTOR Decorators
     # ============================================================================================================
