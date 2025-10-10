@@ -1,9 +1,17 @@
 ## [`v0.0.16`] - 2025-XX-XX
 ### Added
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+- **Manual Support Selection**: Users can now manually select support types for each D-point location instead of automatic first/last positioning.
+  - Support options: "Nee" (no support), "Roloplegging" (roller), "Inklemming" (fixed), "Scharnieroplegging" (pinned)
+  - Supports visualization and SCIA integration for all support types
+  - Support annotations in bridge top view update based on user selections
+  - Distinct Unicode symbols for each support type: ⧋ (roller), ▲ (fixed), ⧊ (pinned)
 
 ### Changed
-- **Refactored cache code**: code cleanup 
+- **Refactored cache code**: code cleanup
+- **Support System Overhaul**: Replaced automatic support calculation with user-controlled OptionField for each bridge segment
+  - Updated SCIA model integration to handle multiple support types with correct structural constraints
+  - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization 
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added
