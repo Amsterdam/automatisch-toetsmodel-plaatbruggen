@@ -409,6 +409,48 @@ def _get_model_zmax(params: Mapping, **kwargs) -> float:  # noqa: ARG001
     return max_value - 0.01
 
 
+# -- helper function to get bridge type based on supports
+def _get_bridge_type_based_on_supports(params: Mapping, **kwargs) -> str:  # noqa: ARG001
+    """
+    Determine the bridge type based on the support configuration.
+    Statically determinate: exactly 2 supports (Scharnieroplegging and Roloplegging) at begin and end positions.
+    Statically indeterminate: all other cases.
+
+    Args:
+        params: Parameters containing bridge_segments_array
+        **kwargs: Additional keyword arguments (unused).
+
+    Returns:
+        str: Bridge type ("Statisch bepaald" or "Statisch onbepaald")
+    """
+    support_types = [segment.is_support for segment in params.bridge_segments_array]
+    
+    # Count supports that are not "Nee" (no support)
+    supports_with_position = []
+    for i, support_type in enumerate(support_types):
+        if support_type != "Nee":
+            supports_with_position.append((i, support_type))
+    
+    num_supports = len(supports_with_position)
+    
+    # Statically determinate: exactly 2 supports at begin and end with one Scharnieroplegging and one Roloplegging
+    if num_supports == 2:
+        first_support_pos = supports_with_position[0][0]
+        last_support_pos = supports_with_position[1][0]
+        first_support_type = supports_with_position[0][1]
+        last_support_type = supports_with_position[1][1]
+        
+        # Check if supports are at begin and end positions
+        if first_support_pos == 0 and last_support_pos == len(support_types) - 1:
+            # Check if we have exactly one Scharnieroplegging and one Roloplegging (order doesn't matter)
+            support_type_set = {first_support_type, last_support_type}
+            if support_type_set == {"Scharnieroplegging", "Roloplegging"}:
+                return "Statisch bepaald"
+    
+    # All other cases: statically indeterminate
+    return "Statisch onbepaald"
+
+
 # ----------------------------------
 # --- Main Parametrization Class ---
 # ----------------------------------
@@ -810,10 +852,17 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions.array.is_support = OptionField(
         "Oplegging", options=["Nee", "Roloplegging", "Inklemming", "Scharnieroplegging"], default="Nee", description="Type oplegging op deze locatie"
     )
+    
+    input.dimensions.bridge_type_output = OutputField(
+        "### Op basis van de invoer is de brugtype:",
+        value = _get_bridge_type_based_on_supports,
+        description="De automatisch bepaalde brugtype op basis van de geselecteerde opleggingen",
+        flex=100
+    )
 
     # --- Bridge Geometry (moved to geometrie_brug tab) ---
     input.dimensions.lb1 = LineBreak()
-    input.dimensions.text_sections = Text("Met onderstaande instellingen kan de locatie van de doorsneden worden ingesteld.")
+    input.dimensions.text_sections = Text("### Met onderstaande instellingen kan de locatie van de doorsneden worden ingesteld.")
     input.dimensions.toggle_sections = BooleanField("Toon locaties van de doorsneden in het 3D model", default=False, flex=100)
     input.dimensions.lb2 = LineBreak()
     input.dimensions.horizontal_section_loc = NumberField(

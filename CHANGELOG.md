@@ -6,6 +6,10 @@
   - Supports visualization and SCIA integration for all support types
   - Support annotations in bridge top view update based on user selections
   - Distinct Unicode symbols for each support type: ⧋ (roller), ▲ (fixed), ⧊ (pinned)
+- **Automatic Bridge Type Classification**: Added real-time bridge type determination based on support configuration.
+  - Displays "Statisch bepaald" for exactly 2 supports (Scharnieroplegging + Roloplegging) at begin/end positions
+  - Displays "Statisch onbepaald" for all other support configurations
+  - Live updates as user modifies support selections
 
 ### Changed
 - **Refactored cache code**: code cleanup
