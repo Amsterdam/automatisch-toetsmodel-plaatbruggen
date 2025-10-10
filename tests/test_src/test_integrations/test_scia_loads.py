@@ -1083,7 +1083,7 @@ class TestLoadBoundaryCompliance:
         mock_params = Mock()
         mock_params.input = Mock()
         mock_params.input.berekeningsinstellingen = Mock()
-        mock_params.input.berekeningsinstellingen.spreiding = True  # Enable dispersion
+        mock_params.spreiding = True  # Enable dispersion
 
         # Mock bridge segments for dispersion calculation
         mock_segment = Mock()

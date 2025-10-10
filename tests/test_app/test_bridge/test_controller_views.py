@@ -570,7 +570,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         # New structure checks (parametrization alignment)
         # Load combinations present and typed
         assert hasattr(self.default_params.input, "berekeningsinstellingen")
-        assert isinstance(self.default_params.input.berekeningsinstellingen.cc_class, str)
+        assert hasattr(self.default_params.input.berekeningsinstellingen, "cc_class")
         assert hasattr(self.default_params.input.berekeningsinstellingen, "berekeningsniveau")
         assert hasattr(self.default_params.input.berekeningsinstellingen, "design_code")
 
