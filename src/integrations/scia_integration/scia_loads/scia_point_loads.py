@@ -47,7 +47,7 @@ def dispersal_function(
         if not hasattr(params, "input") or not hasattr(params.input, "berekeningsinstellingen"):
             return corner_points, load_value
 
-        if not params.input.berekeningsinstellingen.spreiding:
+        if not params.spreiding:
             return corner_points, load_value
 
         # Get bridge geometry data for boundary checking
@@ -147,7 +147,7 @@ def add_theoretical_tandem_loads(
         # Create surface loads using the builder, applying them to the correct load case
         for tandem in scia_tandem_data:
             load_case_name = tandem["load_case"]
-            if params.input.berekeningsinstellingen.spreiding:
+            if params.spreiding:
                 # If dispersion is enabled, adjust each patch load's corners and load value
                 for patch_load in tandem["patch_loads"]:
                     dispersed_corners, dispersed_load_value = dispersal_function(
@@ -277,7 +277,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                     params=params, corner_points=wheel_corners, load_value=load_per_area, load_case_type="axle_load"
                 )
-                if params.input.berekeningsinstellingen.spreiding:
+                if params.spreiding:
                     builder.create_surface_load(
                         name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
                         load_case_name=load_case_name,
@@ -402,7 +402,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                         load_case_type="axle_load",
                     )
 
-                    if params.input.berekeningsinstellingen.spreiding:
+                    if params.spreiding:
                         builder.create_surface_load(
                             name=f"accidental_vehicle_{edge_type}_x{x_pos}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
                             load_case_name=load_case_name,
@@ -459,7 +459,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                     load_case_type="axle_load",
                 )
 
-                if params.input.berekeningsinstellingen.spreiding:
+                if params.spreiding:
                     builder.create_surface_load(
                         name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_wheel{wheel_idx + 1}",
                         load_case_name=load_case_name,
