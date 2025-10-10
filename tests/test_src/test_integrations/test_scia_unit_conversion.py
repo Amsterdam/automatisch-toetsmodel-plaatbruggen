@@ -6,10 +6,9 @@ units mapping and value conversion stay in sync.
 """
 
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
-
-from unittest.mock import Mock
 
 from src.integrations.scia_integration.scia_results_creator import extract_analysis_results
 from src.integrations.scia_integration.scia_unit_conversion import (

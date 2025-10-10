@@ -1,7 +1,6 @@
 """Tests for cache parameter extraction and configuration."""
 
 import unittest
-from unittest.mock import Mock
 
 from munch import Munch  # type: ignore[import-untyped]
 
@@ -99,25 +98,43 @@ class TestParameterExtraction(unittest.TestCase):
         """Set up test fixtures."""
         # Create a mock params object with typical structure
         # Note: Arrays need to be lists of Munch objects for getattr to work
-        self.mock_params = Munch({
-            "bridge_segments_array": [
-                Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 1.0, "dz_2": 1.2, "is_first_segment": True, "is_support": False}),
-                Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 1.0, "dz_2": 1.2, "is_first_segment": False, "is_support": True}),
-            ],
-            "load_zones_data_array": [
-                Munch({"zone_type": "Rijbaan", "pavement_thickness": 0.1, "pavement_material": "Asfalt",
-                       "d1_width": 1.0, "d2_width": 2.0, "d3_width": 0.0}),
-                Munch({"zone_type": "Fietspad", "pavement_thickness": 0.05, "pavement_material": "Asfalt",
-                       "d1_width": 1.5, "d2_width": 0.0, "d3_width": 0.0}),
-            ],
-            "cc_class": "CC2",
-            "design_code": "NEN 8700 verbouw",
-            "berekeningsniveau": "Theoretische wegindeling",
-            "signage": "Geen signalering",
-            "reinforcement_zones_array": [
-                Munch({"zone_number": 1, "hoofdwapening_langs_boven_diameter": 16, "hoofdwapening_langs_boven_hart_op_hart": 150}),
-            ],
-        })
+        self.mock_params = Munch(
+            {
+                "bridge_segments_array": [
+                    Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 1.0, "dz_2": 1.2, "is_first_segment": True, "is_support": False}),
+                    Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0, "dz": 1.0, "dz_2": 1.2, "is_first_segment": False, "is_support": True}),
+                ],
+                "load_zones_data_array": [
+                    Munch(
+                        {
+                            "zone_type": "Rijbaan",
+                            "pavement_thickness": 0.1,
+                            "pavement_material": "Asfalt",
+                            "d1_width": 1.0,
+                            "d2_width": 2.0,
+                            "d3_width": 0.0,
+                        }
+                    ),
+                    Munch(
+                        {
+                            "zone_type": "Fietspad",
+                            "pavement_thickness": 0.05,
+                            "pavement_material": "Asfalt",
+                            "d1_width": 1.5,
+                            "d2_width": 0.0,
+                            "d3_width": 0.0,
+                        }
+                    ),
+                ],
+                "cc_class": "CC2",
+                "design_code": "NEN 8700 verbouw",
+                "berekeningsniveau": "Theoretische wegindeling",
+                "signage": "Geen signalering",
+                "reinforcement_zones_array": [
+                    Munch({"zone_number": 1, "hoofdwapening_langs_boven_diameter": 16, "hoofdwapening_langs_boven_hart_op_hart": 150}),
+                ],
+            }
+        )
 
     def test_extract_parameters_for_scia(self) -> None:
         """Test extracting parameters for SCIA analysis."""
@@ -170,13 +187,13 @@ class TestParameterExtraction(unittest.TestCase):
 
         # Check that array fields are extracted correctly (as dict of field arrays)
         segments = extracted["bridge_segments"]
-        
+
         # The structure is {field_name: [value1, value2, ...]}
         assert "bz1" in segments
         assert "bz2" in segments
         assert "bz3" in segments
         assert "l" in segments
-        
+
         # Each field should have 2 values (one per segment)
         assert len(segments["bz1"]) == 2
         assert len(segments["l"]) == 2
@@ -193,11 +210,13 @@ class TestParameterExtraction(unittest.TestCase):
     def test_missing_attributes_return_defaults(self) -> None:
         """Test that missing attributes are handled gracefully."""
         # Create params without some expected fields
-        minimal_params = Munch({
-            "bridge_segments_array": [
-                {"bz1": 3.5, "bz2": 7.0},  # Missing many fields
-            ],
-        })
+        minimal_params = Munch(
+            {
+                "bridge_segments_array": [
+                    {"bz1": 3.5, "bz2": 7.0},  # Missing many fields
+                ],
+            }
+        )
 
         extracted = extract_parameters_for_analysis(minimal_params, AnalysisType.SCIA)
 
@@ -207,10 +226,12 @@ class TestParameterExtraction(unittest.TestCase):
 
     def test_empty_arrays_handled_correctly(self) -> None:
         """Test that empty arrays are handled correctly."""
-        empty_params = Munch({
-            "bridge_segments_array": [],
-            "load_zones_data_array": [],
-        })
+        empty_params = Munch(
+            {
+                "bridge_segments_array": [],
+                "load_zones_data_array": [],
+            }
+        )
 
         extracted = extract_parameters_for_analysis(empty_params, AnalysisType.SCIA)
 
@@ -224,28 +245,32 @@ class TestParameterExtraction(unittest.TestCase):
     def test_all_d_width_fields_extracted(self) -> None:
         """Test that all 15 d{i}_width fields are extracted correctly."""
         # Create params with multiple d_width fields
-        params_with_widths = Munch({
-            "load_zones_data_array": [
-                Munch({
-                    "zone_type": "Rijbaan",
-                    "d1_width": 1.0,
-                    "d2_width": 2.0,
-                    "d3_width": 3.0,
-                    "d4_width": 4.0,
-                    "d5_width": 5.0,
-                    "d6_width": 0.0,  # Some can be zero
-                    "d7_width": 0.0,
-                    "d8_width": 0.0,
-                    "d9_width": 0.0,
-                    "d10_width": 0.0,
-                    "d11_width": 0.0,
-                    "d12_width": 0.0,
-                    "d13_width": 0.0,
-                    "d14_width": 0.0,
-                    "d15_width": 0.0,
-                }),
-            ],
-        })
+        params_with_widths = Munch(
+            {
+                "load_zones_data_array": [
+                    Munch(
+                        {
+                            "zone_type": "Rijbaan",
+                            "d1_width": 1.0,
+                            "d2_width": 2.0,
+                            "d3_width": 3.0,
+                            "d4_width": 4.0,
+                            "d5_width": 5.0,
+                            "d6_width": 0.0,  # Some can be zero
+                            "d7_width": 0.0,
+                            "d8_width": 0.0,
+                            "d9_width": 0.0,
+                            "d10_width": 0.0,
+                            "d11_width": 0.0,
+                            "d12_width": 0.0,
+                            "d13_width": 0.0,
+                            "d14_width": 0.0,
+                            "d15_width": 0.0,
+                        }
+                    ),
+                ],
+            }
+        )
 
         extracted = extract_parameters_for_analysis(params_with_widths, AnalysisType.SCIA)
 
@@ -281,10 +306,12 @@ class TestParameterExtractionEdgeCases(unittest.TestCase):
     def test_malformed_array_structures(self) -> None:
         """Test handling of malformed array structures."""
         # Non-list arrays
-        malformed_params = Munch({
-            "bridge_segments_array": "not a list",
-            "load_zones_data_array": 123,
-        })
+        malformed_params = Munch(
+            {
+                "bridge_segments_array": "not a list",
+                "load_zones_data_array": 123,
+            }
+        )
 
         # Should handle gracefully without crashing
         extracted = extract_parameters_for_analysis(malformed_params, AnalysisType.SCIA)
@@ -294,12 +321,11 @@ class TestParameterExtractionEdgeCases(unittest.TestCase):
     def test_very_large_arrays(self) -> None:
         """Test performance with large arrays."""
         # Create params with many segments
-        large_params = Munch({
-            "bridge_segments_array": [
-                Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0})
-                for _ in range(100)
-            ],
-        })
+        large_params = Munch(
+            {
+                "bridge_segments_array": [Munch({"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0}) for _ in range(100)],
+            }
+        )
 
         # Should complete without performance issues
         extracted = extract_parameters_for_analysis(large_params, AnalysisType.SCIA)
@@ -312,13 +338,15 @@ class TestParameterExtractionEdgeCases(unittest.TestCase):
 
     def test_special_characters_in_values(self) -> None:
         """Test handling of special characters in parameter values."""
-        params_with_special_chars = Munch({
-            "cc_class": "CC2 (special)",
-            "design_code": "NEN 8700 / verbouw",
-            "bridge_segments_array": [
-                {"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0},
-            ],
-        })
+        params_with_special_chars = Munch(
+            {
+                "cc_class": "CC2 (special)",
+                "design_code": "NEN 8700 / verbouw",
+                "bridge_segments_array": [
+                    {"bz1": 3.5, "bz2": 7.0, "bz3": 3.5, "l": 20.0},
+                ],
+            }
+        )
 
         extracted = extract_parameters_for_analysis(params_with_special_chars, AnalysisType.SCIA)
 
@@ -329,4 +357,3 @@ class TestParameterExtractionEdgeCases(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
