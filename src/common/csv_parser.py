@@ -75,7 +75,7 @@ INTEGER_FIELDS = {"aantal_velden", "constructiehoogte_dek"}
 FLOAT_FIELDS = {"kruisingshoek"}
 
 
-def parse_bridge_csv(file_content: bytes) -> list[dict[str, Any]]:
+def parse_bridge_csv(file_content: bytes) -> list[dict[str, Any]]:  # noqa: C901
     """
     Parse bridge data from a CSV file with semicolon delimiter.
 
@@ -136,7 +136,7 @@ def parse_bridge_csv(file_content: bytes) -> list[dict[str, Any]]:
                 f"Expected 'Kunstwerk nummer' column."
             )
 
-        return bridges
+        return bridges  # noqa: TRY300
 
     except UnicodeDecodeError as e:
         raise ValueError(f"Failed to decode CSV file. Please ensure it's UTF-8 encoded: {e}")
@@ -163,11 +163,11 @@ def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:
         # Get header row
         rows = list(sheet.iter_rows(values_only=True))
         if not rows:
-            raise ValueError("Excel file is empty")
+            raise ValueError("Excel file is empty")  # noqa: TRY301
 
         headers = rows[0]
         if not headers:
-            raise ValueError("Excel file has no header row")
+            raise ValueError("Excel file has no header row")  # noqa: TRY301
 
         # Normalize headers by stripping whitespace
         headers = [str(h).strip() if h else h for h in headers]
@@ -198,11 +198,11 @@ def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:
                 continue
 
         if not bridges:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY301
                 f"No valid bridge data found in Excel file. Available columns: {', '.join(headers[:10])}... Expected 'Kunstwerk nummer' column."
             )
 
-        return bridges
+        return bridges  # noqa: TRY300
 
     except Exception as e:
         if isinstance(e, ValueError):
@@ -238,7 +238,7 @@ def _convert_row_to_bridge_data(row: dict[str, Any]) -> dict[str, Any]:
     return bridge_data
 
 
-def _convert_field_value(field_name: str, value: Any) -> Any:
+def _convert_field_value(field_name: str, value: Any) -> Any:  # noqa: ANN401
     """
     Convert a field value to the appropriate type.
 
@@ -250,7 +250,7 @@ def _convert_field_value(field_name: str, value: Any) -> Any:
     :rtype: Any
     """
     # Handle None, empty strings, and "-" as null values
-    if value is None or value == "" or value == "-":
+    if value is None or value in {"", "-"}:
         return None
 
     # Strip whitespace from strings
@@ -275,7 +275,7 @@ def _convert_field_value(field_name: str, value: Any) -> Any:
     return value
 
 
-def _convert_to_boolean(value: Any) -> bool | None:
+def _convert_to_boolean(value: Any) -> bool | None:  # noqa: ANN401
     """
     Convert a value to boolean.
 
@@ -284,7 +284,7 @@ def _convert_to_boolean(value: Any) -> bool | None:
     :returns: Boolean value or None.
     :rtype: bool | None
     """
-    if value is None or value == "" or value == "-":
+    if value is None or value in {"", "-"}:
         return None
 
     if isinstance(value, bool):
@@ -300,7 +300,7 @@ def _convert_to_boolean(value: Any) -> bool | None:
     return None
 
 
-def _convert_to_integer(value: Any) -> int | None:
+def _convert_to_integer(value: Any) -> int | None:  # noqa: ANN401
     """
     Convert a value to integer.
 
@@ -309,7 +309,7 @@ def _convert_to_integer(value: Any) -> int | None:
     :returns: Integer value or None.
     :rtype: int | None
     """
-    if value is None or value == "" or value == "-":
+    if value is None or value in {"", "-"}:
         return None
 
     if isinstance(value, int):
@@ -327,7 +327,7 @@ def _convert_to_integer(value: Any) -> int | None:
     return None
 
 
-def _convert_to_float(value: Any) -> float | None:
+def _convert_to_float(value: Any) -> float | None:  # noqa: ANN401
     """
     Convert a value to float.
 
@@ -336,7 +336,7 @@ def _convert_to_float(value: Any) -> float | None:
     :returns: Float value or None.
     :rtype: float | None
     """
-    if value is None or value == "" or value == "-":
+    if value is None or value in {"", "-"}:
         return None
 
     if isinstance(value, float | int):

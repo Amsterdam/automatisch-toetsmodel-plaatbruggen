@@ -9,4 +9,5 @@ pydantic==2.10.3
 types-shapely
 types-Markdown
 types-psutil
+types-openpyxl
 pandas-stubs

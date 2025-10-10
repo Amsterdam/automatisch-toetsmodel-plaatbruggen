@@ -324,7 +324,7 @@ class OverviewBridgesController(ViktorController):
                     parent_entity.create_child(entity_type_name="Bridge", name=child_name, params=child_params)
                     created_count += 1
 
-            return updated_count, created_count
+            return updated_count, created_count  # noqa: TRY300
 
         except Exception as e:
             raise UserError(f"Fout tijdens het aanmaken/bijwerken van bruggen: {e}")
@@ -508,13 +508,13 @@ class OverviewBridgesController(ViktorController):
             json_path = get_filtered_bridges_json_path()
 
             if not os.path.exists(json_path):
-                raise UserError("Geen bruggegevens gevonden. Upload eerst een CSV bestand.")
+                raise UserError("Geen bruggegevens gevonden. Upload eerst een CSV bestand.")  # noqa: TRY301
 
             with open(json_path, encoding="utf-8") as f:
                 bridges_data = json.load(f)
 
             if not bridges_data:
-                raise UserError("Geen bruggegevens beschikbaar om te downloaden.")
+                raise UserError("Geen bruggegevens beschikbaar om te downloaden.")  # noqa: TRY301
 
             # Create reverse mapping: JSON field -> CSV column
             from src.common.csv_parser import COLUMN_MAPPINGS
@@ -568,14 +568,13 @@ class OverviewBridgesController(ViktorController):
         :rtype: list[dict]
         """
 
-        def clean_value(value):  # type: ignore[no-untyped-def]
+        def clean_value(value: dict | list | str | float | bool | None) -> dict | list | str | int | float | bool | None:
             """Recursively clean values in the data structure."""
             if isinstance(value, str):
                 # Remove Unicode replacement character and other problematic characters
                 cleaned = value.replace("\ufffd", "")
                 # Remove other control characters except newlines and tabs
-                cleaned = "".join(char for char in cleaned if char >= " " or char in "\n\t")
-                return cleaned
+                return "".join(char for char in cleaned if char >= " " or char in "\n\t")
             if isinstance(value, dict):
                 return {k: clean_value(v) for k, v in value.items()}
             if isinstance(value, list):
@@ -608,7 +607,7 @@ class OverviewBridgesController(ViktorController):
 
             # Validate file type
             if file_extension not in [".csv", ".xlsx", ".xls"]:
-                raise UserError(f"Ongeldig bestandstype: {file_extension}. Alleen .csv en .xlsx zijn toegestaan.")
+                raise UserError(f"Ongeldig bestandstype: {file_extension}. Alleen .csv en .xlsx zijn toegestaan.")  # noqa: TRY301
 
             # Read file content using VIKTOR's File API
             with uploaded_file.file.open_binary() as f:
@@ -620,7 +619,7 @@ class OverviewBridgesController(ViktorController):
             elif file_extension in [".xlsx", ".xls"]:
                 bridges_data = parse_bridge_excel(file_content)
             else:
-                raise UserError(f"Ongeldig bestandstype: {file_extension}. Alleen .csv en .xlsx zijn toegestaan.")
+                raise UserError(f"Ongeldig bestandstype: {file_extension}. Alleen .csv en .xlsx zijn toegestaan.")  # noqa: TRY301
 
             # Clean data: remove Unicode replacement characters and other problematic characters
             bridges_data = self._clean_bridge_data(bridges_data)
