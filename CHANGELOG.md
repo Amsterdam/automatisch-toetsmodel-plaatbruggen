@@ -1,9 +1,24 @@
 ## [`v0.0.16`] - 2025-XX-XX
 ### Added
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+- **Bridge Database Management System**: Complete workflow for managing bridge inventory data
+  - New "Brug Database Management" page in OverviewBridges entity for centralized data management
+  - CSV and Excel file upload functionality to update bridge database (`filtered_bridges.json`)
+  - Download current bridge data as CSV template for easy editing
+  - Automatic creation of new bridge entities and updating of existing entities from uploaded data
+  - Robust file parsing with multi-tier encoding detection (UTF-8, Latin-1, with BOM support)
+  - Automatic handling of empty rows and whitespace in column headers
+  - Clear step-by-step instructions with requirements and workflow guidance
+  - Excel-compatible CSV export with UTF-8 BOM for proper character display
+  - Comprehensive test suite for CSV/Excel parsing with 18 test cases covering various scenarios
+  - User-friendly success/error messages with detailed feedback on created/updated bridge counts
 
 ### Changed
-- **Refactored cache code**: code cleanup 
+- **Refactored cache code**: code cleanup
+- **Bridge Entity Management**: Enhanced regeneration workflow to update existing entities instead of only creating new ones
+  - `regenerate_bridges_action` now updates parameters of existing bridge entities based on uploaded data
+  - Provides detailed feedback showing count of newly created vs. updated bridges
+  - Ensures data consistency between uploaded CSV files and VIKTOR entities 
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added

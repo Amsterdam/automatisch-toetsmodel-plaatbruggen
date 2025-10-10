@@ -13,13 +13,8 @@ from io import StringIO
 # Add GeoPandas import (ensure it's installed in your venv)
 import geopandas as gpd
 import markdown
-import viktor.api_v1 as api  # Import VIKTOR API
-from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.result import DownloadResult  # Import DownloadResult
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
+import viktor.api_v1 as api  # Import VIKTOR API
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
     get_filtered_bridges_json_path,
@@ -33,6 +28,11 @@ from app.constants import (  # Replace relative imports with absolute imports
     CSS_PATH,
     README_PATH,
 )
+from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
+from viktor.errors import UserError  # Import UserError
+from viktor.parametrization import Parametrization  # Import for type hint
+from viktor.result import DownloadResult  # Import DownloadResult
+from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
 from .parametrization import OverviewBridgesParametrization
@@ -278,7 +278,7 @@ class OverviewBridgesController(ViktorController):
     ) -> tuple[int, int]:
         """
         Creates new child entities and updates existing ones with data from filtered_bridges.json.
-        
+
         :param parent_entity_id: ID of the parent entity.
         :type parent_entity_id: int
         :param filtered_bridge_data: Bridge data from JSON.
@@ -293,7 +293,7 @@ class OverviewBridgesController(ViktorController):
             viktor_api = api.API()
             parent_entity = viktor_api.get_entity(parent_entity_id)
             existing_children = parent_entity.children(entity_type_names=["Bridge"])
-            
+
             # Create mapping of OBJECTNUMM -> entity
             existing_entities_map = {}
             for child in existing_children:
@@ -496,9 +496,9 @@ class OverviewBridgesController(ViktorController):
     def download_current_bridges_csv(self, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
         Download the current filtered_bridges.json as a CSV file.
-        
+
         This provides a template that users can edit and re-upload.
-        
+
         :returns: DownloadResult with CSV file.
         :rtype: DownloadResult
         :raises UserError: If download fails.
@@ -506,28 +506,29 @@ class OverviewBridgesController(ViktorController):
         try:
             # Load current bridge data
             json_path = get_filtered_bridges_json_path()
-            
+
             if not os.path.exists(json_path):
                 raise UserError("Geen bruggegevens gevonden. Upload eerst een CSV bestand.")
-            
+
             with open(json_path, encoding="utf-8") as f:
                 bridges_data = json.load(f)
-            
+
             if not bridges_data:
                 raise UserError("Geen bruggegevens beschikbaar om te downloaden.")
-            
+
             # Create reverse mapping: JSON field -> CSV column
             from src.common.csv_parser import COLUMN_MAPPINGS
+
             reverse_mapping = {v: k for k, v in COLUMN_MAPPINGS.items()}
-            
+
             # Get all possible CSV columns
             csv_columns = list(COLUMN_MAPPINGS.keys())
-            
+
             # Create CSV in memory
             output = StringIO()
             writer = csv.DictWriter(output, fieldnames=csv_columns, delimiter=";", lineterminator="\n")
             writer.writeheader()
-            
+
             # Convert each bridge record back to CSV format
             for bridge in bridges_data:
                 csv_row = {}
@@ -540,15 +541,15 @@ class OverviewBridgesController(ViktorController):
                         else:
                             csv_row[csv_column] = str(value) if value is not None else ""
                 writer.writerow(csv_row)
-            
+
             # Convert to bytes
             csv_content = output.getvalue().encode("utf-8-sig")  # Add BOM for Excel compatibility
-            
+
             # Create File object
             csv_file = File.from_data(csv_content)
-            
+
             return DownloadResult(csv_file, "bruggegevens.csv")
-            
+
         except UserError:
             raise
         except Exception as e:
@@ -566,6 +567,7 @@ class OverviewBridgesController(ViktorController):
         :returns: Cleaned bridge data.
         :rtype: list[dict]
         """
+
         def clean_value(value):  # type: ignore[no-untyped-def]
             """Recursively clean values in the data structure."""
             if isinstance(value, str):
@@ -637,7 +639,7 @@ class OverviewBridgesController(ViktorController):
                 f"Upload succesvol! {bridge_count} bruggen verwerkt en opgeslagen. "
                 f"Gebruik nu de '(Her)genereer Bruggen' knop op de 'Overzicht Bruggen' pagina om de bruggen te laden."
             )
-            
+
         except ValueError as e:
             # Clean error message to avoid encoding issues
             error_msg = str(e).replace("\ufffd", "?").encode("ascii", errors="replace").decode("ascii")
@@ -652,7 +654,7 @@ class OverviewBridgesController(ViktorController):
     def regenerate_bridges_action(self, entity_id: int, **kwargs) -> None:  # noqa: ARG002
         """
         Loads bridges from filtered_bridges.json and creates/updates child entities.
-        
+
         Creates new entities for bridges that don't exist yet.
         Updates existing entities with new data from the JSON file.
         """
@@ -669,9 +671,6 @@ class OverviewBridgesController(ViktorController):
             filtered_bridge_data=filtered_bridge_data,
             objectnumm_to_name=objectnumm_to_name,
         )
-        
+
         # 4. Show success message
-        UserMessage.success(
-            f"Bruggen (her)gegenereerd: {created_count} nieuwe bruggen aangemaakt, "
-            f"{updated_count} bestaande bruggen bijgewerkt."
-        )
+        UserMessage.success(f"Bruggen (her)gegenereerd: {created_count} nieuwe bruggen aangemaakt, {updated_count} bestaande bruggen bijgewerkt.")

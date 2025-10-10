@@ -11,7 +11,6 @@ from typing import Any
 
 import openpyxl
 
-
 # Column name mappings from CSV/Excel to JSON field names
 COLUMN_MAPPINGS = {
     "Kunstwerk nummer": "OBJECTNUMM",
@@ -97,19 +96,19 @@ def parse_bridge_csv(file_content: bytes) -> list[dict[str, Any]]:
             except UnicodeDecodeError:
                 # Last resort: use UTF-8 with error replacement
                 text_content = file_content.decode("utf-8-sig", errors="replace")
-        
+
         csv_file = io.StringIO(text_content)
 
         # Parse CSV with semicolon delimiter
         reader = csv.DictReader(csv_file, delimiter=";")
-        
+
         # Normalize column headers by stripping whitespace
         if reader.fieldnames:
             reader.fieldnames = [field.strip() if field else field for field in reader.fieldnames]
 
         bridges = []
         skipped_rows = []
-        
+
         for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
             # Skip empty rows (all values are None, empty string, or whitespace)
             if not any(v and str(v).strip() for v in row.values()):
@@ -124,7 +123,7 @@ def parse_bridge_csv(file_content: bytes) -> list[dict[str, Any]]:
                     continue
 
                 bridges.append(bridge_data)
-            except ValueError as e:
+            except ValueError:
                 # Log but don't fail on individual row errors
                 skipped_rows.append(row_num)
                 continue
@@ -169,13 +168,13 @@ def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:
         headers = rows[0]
         if not headers:
             raise ValueError("Excel file has no header row")
-        
+
         # Normalize headers by stripping whitespace
         headers = [str(h).strip() if h else h for h in headers]
 
         bridges = []
         skipped_rows = []
-        
+
         for row_num, row_values in enumerate(rows[1:], start=2):  # Start at 2 (header is row 1)
             # Skip empty rows (all values are None, empty, or whitespace)
             if not any(v and str(v).strip() if v is not None else False for v in row_values):
@@ -193,16 +192,14 @@ def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:
                     continue
 
                 bridges.append(bridge_data)
-            except ValueError as e:
+            except ValueError:
                 # Log but don't fail on individual row errors
                 skipped_rows.append(row_num)
                 continue
 
         if not bridges:
             raise ValueError(
-                f"No valid bridge data found in Excel file. "
-                f"Available columns: {', '.join(headers[:10])}... "
-                f"Expected 'Kunstwerk nummer' column."
+                f"No valid bridge data found in Excel file. Available columns: {', '.join(headers[:10])}... Expected 'Kunstwerk nummer' column."
             )
 
         return bridges
@@ -224,7 +221,7 @@ def _convert_row_to_bridge_data(row: dict[str, Any]) -> dict[str, Any]:
     :raises ValueError: If data conversion fails.
     """
     bridge_data: dict[str, Any] = {}
-    
+
     # Normalize row keys by stripping whitespace
     normalized_row = {k.strip() if k else k: v for k, v in row.items()}
 
@@ -352,4 +349,3 @@ def _convert_to_float(value: Any) -> float | None:
             return None
 
     return None
-

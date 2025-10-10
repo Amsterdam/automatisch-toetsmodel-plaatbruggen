@@ -4,12 +4,12 @@ import unittest
 from io import BytesIO
 
 from src.common.csv_parser import (
-    parse_bridge_csv,
-    parse_bridge_excel,
     _convert_field_value,
     _convert_to_boolean,
-    _convert_to_integer,
     _convert_to_float,
+    _convert_to_integer,
+    parse_bridge_csv,
+    parse_bridge_excel,
 )
 
 
@@ -34,10 +34,7 @@ class TestCSVParser(unittest.TestCase):
 
     def test_parse_csv_with_integer_fields(self) -> None:
         """Test parsing CSV with integer fields."""
-        csv_content = (
-            "Kunstwerk nummer;Aantal velden;Constructiehoogte dek\n"
-            "BRU0010;3;430\n"
-        )
+        csv_content = "Kunstwerk nummer;Aantal velden;Constructiehoogte dek\nBRU0010;3;430\n"
         result = parse_bridge_csv(csv_content.encode("utf-8"))
 
         self.assertEqual(len(result), 1)
@@ -48,10 +45,7 @@ class TestCSVParser(unittest.TestCase):
 
     def test_parse_csv_with_float_fields(self) -> None:
         """Test parsing CSV with float fields."""
-        csv_content = (
-            "Kunstwerk nummer;kruisingshoek\n"
-            "BRU0010;77.2\n"
-        )
+        csv_content = "Kunstwerk nummer;kruisingshoek\nBRU0010;77.2\n"
         result = parse_bridge_csv(csv_content.encode("utf-8"))
 
         self.assertEqual(len(result), 1)
@@ -60,10 +54,7 @@ class TestCSVParser(unittest.TestCase):
 
     def test_parse_csv_with_null_values(self) -> None:
         """Test parsing CSV with null values (empty, -, None)."""
-        csv_content = (
-            "Kunstwerk nummer;Type;stadsdeel;Straat\n"
-            "BRU0010;;-;\n"
-        )
+        csv_content = "Kunstwerk nummer;Type;stadsdeel;Straat\nBRU0010;;-;\n"
         result = parse_bridge_csv(csv_content.encode("utf-8"))
 
         self.assertEqual(len(result), 1)
@@ -74,11 +65,7 @@ class TestCSVParser(unittest.TestCase):
 
     def test_parse_csv_with_boolean_fields(self) -> None:
         """Test parsing CSV with boolean fields."""
-        csv_content = (
-            "Kunstwerk nummer;voorgespannen;Randbelasting\n"
-            "BRU0010;ja;nee\n"
-            "BRU0027;nee;ja\n"
-        )
+        csv_content = "Kunstwerk nummer;voorgespannen;Randbelasting\nBRU0010;ja;nee\nBRU0027;nee;ja\n"
         result = parse_bridge_csv(csv_content.encode("utf-8"))
 
         self.assertEqual(len(result), 2)
@@ -89,10 +76,7 @@ class TestCSVParser(unittest.TestCase):
 
     def test_parse_csv_missing_required_field(self) -> None:
         """Test parsing CSV with missing required OBJECTNUMM field."""
-        csv_content = (
-            "Type;stadsdeel\n"
-            "Type 3;Centrum\n"
-        )
+        csv_content = "Type;stadsdeel\nType 3;Centrum\n"
         with self.assertRaises(ValueError) as context:
             parse_bridge_csv(csv_content.encode("utf-8"))
 
@@ -227,4 +211,3 @@ class TestExcelParser(unittest.TestCase):
         self.assertEqual(result[0]["kruisingshoek"], 77.2)
         self.assertIsInstance(result[0]["aantal_velden"], int)
         self.assertIsInstance(result[0]["kruisingshoek"], float)
-

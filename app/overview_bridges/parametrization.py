@@ -20,20 +20,17 @@ class OverviewBridgesParametrization(Parametrization):
     # Define the Data Upload page
     data_upload = Page("Brug Database Management")
     data_upload.header = Text(
-        "## Bruggegevens Uploaden\n\n"
-        "Op deze pagina kunt u de bruggegevens database bijwerken door een CSV of Excel bestand te uploaden."
+        "## Bruggegevens Uploaden\n\nOp deze pagina kunt u de bruggegevens database bijwerken door een CSV of Excel bestand te uploaden."
     )
-    
+
     data_upload.download_section = Text(
         "### Stap 1: Download Huidige Data (Optioneel)\n\n"
         "Download de huidige bruggegevens als CSV template. U kunt dit bestand bewerken en weer uploaden."
     )
     data_upload.download_button = DownloadButton(
-        "Download Huidige Bruggegevens (CSV)",
-        method="download_current_bridges_csv",
-        description="Download filtered_bridges.json als CSV bestand"
+        "Download Huidige Bruggegevens (CSV)", method="download_current_bridges_csv", description="Download filtered_bridges.json als CSV bestand"
     )
-    
+
     data_upload.upload_section = Text(
         "### Stap 2: Upload Bestand\n\n"
         "**Vereisten:**\n"
@@ -53,7 +50,7 @@ class OverviewBridgesParametrization(Parametrization):
         method="process_bridge_data_upload",
         description="Verwerk het geüploade bestand en update filtered_bridges.json",
     )
-    
+
     data_upload.next_steps = Text(
         "### Stap 3: Regenereer Bruggen\n\n"
         "Na succesvol uploaden, ga naar de **Overzicht Bruggen** pagina en klik op "
