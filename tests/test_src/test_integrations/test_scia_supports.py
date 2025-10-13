@@ -34,22 +34,22 @@ class TestCreateLineSupports:
                 name="SLB_opleg_as_1:1",
                 plane_name="Z1_1",
                 edge_index=4,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-                stiffness={},
+                freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
             ),
             call(
                 name="SLB_opleg_as_1:2",
                 plane_name="Z2_1",
                 edge_index=4,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-                stiffness={},
+                freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
             ),
             call(
                 name="SLB_opleg_as_1:3",
                 plane_name="Z3_1",
                 edge_index=4,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-                stiffness={},
+                freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
             ),
         ]
 
@@ -59,22 +59,22 @@ class TestCreateLineSupports:
                 name="SLB_opleg_as_3:1",
                 plane_name="Z1_2",
                 edge_index=2,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-                stiffness={},
+                freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
             ),
             call(
                 name="SLB_opleg_as_3:2",
                 plane_name="Z2_2",
                 edge_index=2,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-                stiffness={},
+                freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
             ),
             call(
                 name="SLB_opleg_as_3:3",
                 plane_name="Z3_2",
                 edge_index=2,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-                stiffness={},
+                freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
             ),
         ]
 
@@ -99,8 +99,8 @@ class TestCreateLineSupports:
             name="SLB_opleg_as_1:1",
             plane_name="Z1_1",
             edge_index=4,
-            freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
-            stiffness={},
+            freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+            stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
         )
 
 
