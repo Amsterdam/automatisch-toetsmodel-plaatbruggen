@@ -1072,9 +1072,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=[
             _create_default_load_zone_row(LOAD_ZONE_TYPES[0], 1.5),  # Voetgangers
             _create_default_load_zone_row(LOAD_ZONE_TYPES[1], 3.0),  # Fietsers
+            _create_default_load_zone_row(LOAD_ZONE_TYPES[3], 0.5),  # Berm (new)
             _create_default_load_zone_row(LOAD_ZONE_TYPES[2], 10.5),  # Auto (Rijbaan)
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[3], 3.0),  # Tram
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[4], 0.5),  # Berm
         ],
     )
     input.belastingzones.load_zones_array.zone_type = OptionField("Type belastingzone", options=LOAD_ZONE_TYPES, default=LOAD_ZONE_TYPES[0])

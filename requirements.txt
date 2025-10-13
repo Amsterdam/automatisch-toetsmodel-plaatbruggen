@@ -10,4 +10,3 @@ trimesh
 networkx
 docxtpl
 pydantic==2.10.3
-setuptools<81  # Pin to avoid pkg_resources deprecation warning from docxcompose
