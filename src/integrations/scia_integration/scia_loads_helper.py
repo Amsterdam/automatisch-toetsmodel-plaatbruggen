@@ -945,7 +945,7 @@ def obtain_y_coordinates_road(
         if zone.zone_type == "Auto":
             # Get y-coordinates, ensure we have a valid list and first value
             y_coords = getattr(zone, "y_coords_top_current_zone", [])
-            y_coord = float(y_coords[0]) if y_coords else 0.0       
+            y_coord = float(y_coords[0]) if y_coords else 0.0
 
             return y_coord, d1_width
 

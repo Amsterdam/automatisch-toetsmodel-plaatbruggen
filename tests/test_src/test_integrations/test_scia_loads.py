@@ -240,13 +240,26 @@ class TestAccidentalVehicleLoads:
         mock_bridge_geom.return_value = mock_bridge_geom_data
 
         # Mock calc_vehicle_load_locations to return wheel corner coordinates
-        # The function should return coordinates relative to the x_coord parameter
+        # The function should return 4 wheels (complete vehicle) relative to the x_coord parameter
         def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-            """Mock function to return wheel corner coordinates."""
+            """Mock function to return wheel corner coordinates for complete vehicle."""
             x_coord = kwargs["x_coord"]
+            vehicle_length = kwargs["vehicle_length"]
             return {
                 "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + 0.2, 0.0, 0.0), (x_coord + 0.2, 0.2, 0.0), (x_coord, 0.2, 0.0)],
                 "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + 0.2, -1.3, 0.0), (x_coord + 0.2, -1.1, 0.0), (x_coord, -1.1, 0.0)],
+                "top_right_wheel_corners": [
+                    (x_coord + vehicle_length, 0.0, 0.0),
+                    (x_coord + vehicle_length + 0.2, 0.0, 0.0),
+                    (x_coord + vehicle_length + 0.2, 0.2, 0.0),
+                    (x_coord + vehicle_length, 0.2, 0.0),
+                ],
+                "bottom_right_wheel_corners": [
+                    (x_coord + vehicle_length, -1.3, 0.0),
+                    (x_coord + vehicle_length + 0.2, -1.3, 0.0),
+                    (x_coord + vehicle_length + 0.2, -1.1, 0.0),
+                    (x_coord + vehicle_length, -1.1, 0.0),
+                ],
             }
 
         mock_calc_locations.side_effect = mock_calc_locations_side_effect
@@ -278,27 +291,21 @@ class TestAccidentalVehicleLoads:
         mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times by dispersal_function
 
         # Verify calc_vehicle_load_locations was called for standard accidental vehicles
-        # 2 positions × 2 edges × 2 directions × 2 axles = 16 total calls (only standard vehicles, no Amsterdam vehicles in this test)
-        assert mock_calc_locations.call_count == 16
+        # 2 positions × 2 edges × 2 directions = 8 total calls (only standard vehicles, no Amsterdam vehicles in this test)
+        assert mock_calc_locations.call_count == 8
 
-        # Should create loads for 2 positions × 2 edges × 2 directions × 2 axles × 2 wheels = 32 surface loads
+        # Should create loads for 2 positions × 2 edges × 2 directions × 4 wheels = 32 surface loads
         assert mock_builder.create_surface_load.call_count == 32
 
         # Check that individual wheel loads are created with correct values
         calls = mock_builder.create_surface_load.call_args_list
-        axle1_calls = [call for call in calls if "axle1" in call.kwargs["name"]]
-        axle2_calls = [call for call in calls if "axle2" in call.kwargs["name"]]
 
-        assert len(axle1_calls) == 16  # Front axle: 2 positions × 2 edges × 2 directions × 2 wheels = 16 loads
-        assert len(axle2_calls) == 16  # Rear axle: 2 positions × 2 edges × 2 directions × 2 wheels = 16 loads
-
-        # Verify axle1 wheel loads are calculated pressure values (40 kN / 0.04 m² = 1,000,000 N/m²)
-        for call in axle1_calls:
+        # Verify all loads have non-zero load values
+        for call in calls:
             assert abs(call.kwargs["load_value"]) > 0  # Just verify loads are created with non-zero values
-
-        # Verify axle2 wheel loads are calculated pressure values (20 kN / 0.04 m² = 500,000 N/m²)
-        for call in axle2_calls:
-            assert abs(call.kwargs["load_value"]) > 0  # Just verify loads are created with non-zero values
+            # Load names should NOT contain "axle" anymore, just "wheel"
+            assert "wheel" in call.kwargs["name"]
+            assert "axle" not in call.kwargs["name"]
 
     def test_add_accidental_vehicle_loads_direction_logic(self, mock_builder: Mock, mock_params: Mock) -> None:
         """Test that forward and reverse directions place axles correctly."""
