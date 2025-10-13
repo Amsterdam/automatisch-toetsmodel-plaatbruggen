@@ -355,10 +355,10 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         unintended_vehicle_cases = load_cases["unintended_vehicle_cases"]
 
         # Standard accidental vehicle (2-axle)
-        def create_standard_accidental_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
+        def create_standard_accidental_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], direction: str) -> None:
             """Create standard accidental vehicle loads at a specific X position."""
-            # Get the appropriate load case for this position and edge
-            load_case_key = f"{edge_type}_x{x_pos}"
+            # Get the appropriate load case for this position, edge, and direction
+            load_case_key = f"{edge_type}_x{x_pos}_{direction}"
             if load_case_key not in unintended_vehicle_cases:
                 return
 
@@ -404,23 +404,23 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
                     if params.spreiding:
                         builder.create_surface_load(
-                            name=f"accidental_vehicle_{edge_type}_x{x_pos}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
+                            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
                             load_case_name=load_case_name,
                             corner_points=corner_points_dispersed,
                             load_value=-load_value_dispersed,
                         )
                     else:
                         builder.create_surface_load(
-                            name=f"accidental_vehicle_{edge_type}_x{x_pos}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
+                            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
                             load_case_name=load_case_name,
                             corner_points=wheel_corners,
                             load_value=-load_per_area,
                         )
 
         # Amsterdam vehicle (single axle)
-        def create_amsterdam_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
+        def create_amsterdam_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], vehicle_type: str = "amsterdam") -> None:
             """Create Amsterdam vehicle loads at a specific X position."""
-            load_case_key = f"amsterdam_{edge_type}_x{x_pos}"
+            load_case_key = f"{edge_type}_x{x_pos}_{vehicle_type}"
             if load_case_key not in unintended_vehicle_cases:
                 return
 
@@ -461,31 +461,36 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
                 if params.spreiding:
                     builder.create_surface_load(
-                        name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_wheel{wheel_idx + 1}",
+                        name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
                         load_case_name=load_case_name,
                         corner_points=corner_points_dispersed,
                         load_value=-load_value_dispersed,
                     )
                 else:
                     builder.create_surface_load(
-                        name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_wheel{wheel_idx + 1}",
+                        name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
                         load_case_name=load_case_name,
                         corner_points=wheel_corners,
                         load_value=-load_per_area,
                     )
 
         # Create loads for all positions and vehicle types
+        # Standard vehicle: forward and reverse directions for each position
         for x_pos in positions:
-            create_standard_accidental_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points)
-            create_standard_accidental_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points)
+            create_standard_accidental_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "forward")
+            create_standard_accidental_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "reverse")
+            create_standard_accidental_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "forward")
+            create_standard_accidental_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "reverse")
 
+        # Amsterdam vehicle: single direction per position
         for x_pos in positions_amsterdam:
-            create_amsterdam_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points)
-            create_amsterdam_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points)
+            create_amsterdam_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "amsterdam")
+            create_amsterdam_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "amsterdam")
 
+        # Amsterdam vehicle rotated: single direction per position
         for x_pos in positions_amsterdam_rotated:
-            create_amsterdam_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points)
-            create_amsterdam_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points)
+            create_amsterdam_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "amsterdam_rotated")
+            create_amsterdam_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "amsterdam_rotated")
 
     except Exception as e:
         raise ValueError(f"Failed to add accidental vehicle loads: {e}") from e

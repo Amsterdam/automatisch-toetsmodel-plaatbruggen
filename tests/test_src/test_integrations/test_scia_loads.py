@@ -251,13 +251,17 @@ class TestAccidentalVehicleLoads:
 
         mock_calc_locations.side_effect = mock_calc_locations_side_effect
 
-        # Create mock load cases for all combinations
+        # Create mock load cases for all combinations (now with forward/reverse directions)
         mock_load_cases = {
             "unintended_vehicle_cases": {
-                "y_plus_x2.5": Mock(name="BG7001"),
-                "y_plus_x25.0": Mock(name="BG7002"),
-                "y_minus_x2.5": Mock(name="BG7003"),
-                "y_minus_x25.0": Mock(name="BG7004"),
+                "y_plus_x2.5_forward": Mock(name="BG7001"),
+                "y_plus_x2.5_reverse": Mock(name="BG7002"),
+                "y_plus_x25.0_forward": Mock(name="BG7003"),
+                "y_plus_x25.0_reverse": Mock(name="BG7004"),
+                "y_minus_x2.5_forward": Mock(name="BG7005"),
+                "y_minus_x2.5_reverse": Mock(name="BG7006"),
+                "y_minus_x25.0_forward": Mock(name="BG7007"),
+                "y_minus_x25.0_reverse": Mock(name="BG7008"),
             }
         }
 
@@ -274,19 +278,19 @@ class TestAccidentalVehicleLoads:
         mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times by dispersal_function
 
         # Verify calc_vehicle_load_locations was called for standard accidental vehicles
-        # 2 positions × 2 edges × 2 axles = 8 total calls (only standard vehicles, no Amsterdam vehicles in this test)
-        assert mock_calc_locations.call_count == 8
+        # 2 positions × 2 edges × 2 directions × 2 axles = 16 total calls (only standard vehicles, no Amsterdam vehicles in this test)
+        assert mock_calc_locations.call_count == 16
 
-        # Should create loads for 2 positions × 2 edges × 2 axles × 2 wheels = 16 surface loads
-        assert mock_builder.create_surface_load.call_count == 16
+        # Should create loads for 2 positions × 2 edges × 2 directions × 2 axles × 2 wheels = 32 surface loads
+        assert mock_builder.create_surface_load.call_count == 32
 
         # Check that individual wheel loads are created with correct values
         calls = mock_builder.create_surface_load.call_args_list
         axle1_calls = [call for call in calls if "axle1" in call.kwargs["name"]]
         axle2_calls = [call for call in calls if "axle2" in call.kwargs["name"]]
 
-        assert len(axle1_calls) == 8  # Front axle: 2 positions × 2 edges × 2 wheels = 8 loads
-        assert len(axle2_calls) == 8  # Rear axle: 2 positions × 2 edges × 2 wheels = 8 loads
+        assert len(axle1_calls) == 16  # Front axle: 2 positions × 2 edges × 2 directions × 2 wheels = 16 loads
+        assert len(axle2_calls) == 16  # Rear axle: 2 positions × 2 edges × 2 directions × 2 wheels = 16 loads
 
         # Verify axle1 wheel loads are calculated pressure values (40 kN / 0.04 m² = 1,000,000 N/m²)
         for call in axle1_calls:
@@ -344,13 +348,15 @@ class TestAccidentalVehicleLoads:
 
             mock_calc_locations.side_effect = mock_calc_locations_side_effect
 
-            # Create mock load cases
+            # Create mock load cases with forward/reverse for standard vehicle and amsterdam suffix for Amsterdam vehicle
             mock_load_cases = {
                 "unintended_vehicle_cases": {
-                    "y_plus_x10.0": Mock(name="BG7001"),
-                    "y_minus_x10.0": Mock(name="BG7002"),
-                    "amsterdam_y_plus_x15.0": Mock(name="BG7003"),
-                    "amsterdam_y_minus_x15.0": Mock(name="BG7004"),
+                    "y_plus_x10.0_forward": Mock(name="BG7001"),
+                    "y_plus_x10.0_reverse": Mock(name="BG7002"),
+                    "y_minus_x10.0_forward": Mock(name="BG7003"),
+                    "y_minus_x10.0_reverse": Mock(name="BG7004"),
+                    "y_plus_x15.0_amsterdam": Mock(name="BG7005"),
+                    "y_minus_x15.0_amsterdam": Mock(name="BG7006"),
                 }
             }
 
@@ -400,7 +406,7 @@ class TestAccidentalVehicleLoads:
 
             # Create mock load cases for Amsterdam vehicle positions
             mock_load_cases = {
-                "unintended_vehicle_cases": {f"amsterdam_y_plus_x{pos}": Mock(name=f"BG7{i + 1:03d}") for i, pos in enumerate([2.0, 4.0, 6.0, 8.0])}
+                "unintended_vehicle_cases": {f"y_plus_x{pos}_amsterdam": Mock(name=f"BG7{i + 1:03d}") for i, pos in enumerate([2.0, 4.0, 6.0, 8.0])}
             }
 
             # Mock the berekeningsinstellingen.spreiding attribute
@@ -448,7 +454,7 @@ class TestAllLoads:
             "dead_load_cases": {"leuning": Mock(name="BG2004"), "asfalt": Mock(), "uitvulling": Mock(), "ophogingen": Mock()},
             "pedestrian": Mock(name="BG5001"),
             "service_vehicle_cases": {"y_plus_x10.0": Mock(name="BG6001")},
-            "unintended_vehicle_cases": {"rs_1_x10.0_forward": Mock(name="BG7001")},
+            "unintended_vehicle_cases": {"y_plus_x10.0_forward": Mock(name="BG7001")},
             "udl_traffic_cases": {"rs_1": Mock(name="BG4001"), "rs_2": Mock(name="BG4002"), "rs_3": Mock(name="BG4003")},
             "tandem_cases": {"tandem_1": Mock(name="BG3001")},
         }

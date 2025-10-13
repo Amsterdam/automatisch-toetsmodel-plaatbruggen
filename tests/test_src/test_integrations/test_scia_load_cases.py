@@ -178,30 +178,32 @@ class TestStandardLoadCases:
 
         # Check keys follow expected pattern
         expected_standard_keys = [
-            "rs_1_x2.5_forward",
-            "rs_1_x25.0_forward",
-            "rs_1_x47.5_forward",
-            "rs_1_x2.5_reverse",
-            "rs_1_x25.0_reverse",
-            "rs_1_x47.5_reverse",
-            "rs_3_x2.5_forward",
-            "rs_3_x25.0_forward",
-            "rs_3_x47.5_forward",
-            "rs_3_x2.5_reverse",
-            "rs_3_x25.0_reverse",
-            "rs_3_x47.5_reverse",
+            "y_plus_x2.5_forward",
+            "y_plus_x25.0_forward",
+            "y_plus_x47.5_forward",
+            "y_plus_x2.5_reverse",
+            "y_plus_x25.0_reverse",
+            "y_plus_x47.5_reverse",
+            "y_minus_x2.5_forward",
+            "y_minus_x25.0_forward",
+            "y_minus_x47.5_forward",
+            "y_minus_x2.5_reverse",
+            "y_minus_x25.0_reverse",
+            "y_minus_x47.5_reverse",
         ]
-        expected_amsterdam_keys = [f"rs_1_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]] + [f"rs_3_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]]
-        expected_amsterdam_rotated_keys = [f"rs_1_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]] + [
-            f"rs_3_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]
+        expected_amsterdam_keys = [f"y_plus_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]] + [
+            f"y_minus_x{pos}_amsterdam" for pos in [2.5, 25.0, 47.5]
+        ]
+        expected_amsterdam_rotated_keys = [f"y_plus_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]] + [
+            f"y_minus_x{pos}_amsterdam_rotated" for pos in [2.5, 25.0, 47.5]
         ]
         expected_keys = expected_standard_keys + expected_amsterdam_keys + expected_amsterdam_rotated_keys
         assert sorted(cases.keys()) == sorted(expected_keys)
 
-        # Check first RS1 forward case
+        # Check first y_plus forward case
         mock_builder.create_load_case.assert_any_call(
             name="BG7001",
-            description="Verkeer, onbedoeld voertuig - RS 1 forward - x = 2.5 m",
+            description="Verkeer, onbedoeld voertuig - y+ forward - x = 2.5 m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
@@ -209,10 +211,10 @@ class TestStandardLoadCases:
             duration="SHORT",
         )
 
-        # Check first RS1 reverse case
+        # Check first y_plus reverse case
         mock_builder.create_load_case.assert_any_call(
             name="BG7004",
-            description="Verkeer, onbedoeld voertuig - RS 1 reverse - x = 2.5 m",
+            description="Verkeer, onbedoeld voertuig - y+ reverse - x = 2.5 m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type="VARIABLE",
             variable_type="STATIC",
