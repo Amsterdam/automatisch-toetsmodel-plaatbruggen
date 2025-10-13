@@ -10,15 +10,14 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, str
     :param support_type: The support type string
     :return: Tuple of (freedom dict, stiffness dict)
     """
-    if support_type == "Verende oplegging (x,y)":
-        freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"}
-        stiffness: dict[str, float] = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
-    elif support_type == "Inklemming":
+    stiffness: dict[str, float] = {}
+    if support_type == "Inklemming":
         freedom = {"x": "RIGID", "y": "RIGID", "z": "RIGID", "rx": "RIGID", "ry": "RIGID", "rz": "RIGID"}
         stiffness = {}  # Rigid supports don't need stiffness values
-    else:
+    else:  # support_type == "Verende oplegging (x,y)":
         freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"}
-        stiffness: dict[str, float] = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
+        stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
+
 
     return freedom, stiffness
 
