@@ -18,7 +18,6 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, str
         freedom = {"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"}
         stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}  # sliding supports don't need stiffness values
 
-
     return freedom, stiffness
 
 
