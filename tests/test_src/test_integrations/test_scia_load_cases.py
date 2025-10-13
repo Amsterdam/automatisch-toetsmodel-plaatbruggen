@@ -270,17 +270,20 @@ class TestTandemLoadCases:
 class TestCreateAllLoadCases:
     """Tests for the main function creating all load cases."""
 
+    @patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
-    def test_create_all_load_cases_calls_helpers(
-        self, mock_sw: Mock, mock_dead: Mock, mock_unintended: Mock, mock_service: Mock, mock_tandem: Mock
+    def test_create_all_load_cases_calls_helpers(  # noqa: PLR0913
+        self, mock_sw: Mock, mock_dead: Mock, mock_unintended: Mock, mock_service: Mock, mock_tandem: Mock, mock_tram_track: Mock
     ) -> None:
         """Test that all individual creation functions are called."""
         builder = Mock()
         params = Mock()
+        # Mock bridge_segments_array to be a list
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         create_all_load_cases(builder, params)
 
         mock_sw.assert_called_once_with(builder)
@@ -288,11 +291,14 @@ class TestCreateAllLoadCases:
         mock_service.assert_called_once_with(builder, params)
         mock_unintended.assert_called_once_with(builder, params)
         mock_tandem.assert_called_once_with(builder, params)
+        mock_tram_track.assert_called_once_with(builder, params)
 
     def test_create_all_load_cases_structure(self) -> None:
         """Test that the function returns the expected dictionary structure."""
         builder = Mock()
         params = Mock()
+        # Mock bridge_segments_array to be a list
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         # We patch here because we don't care about the return values, just the structure
         with (
             patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case"),
@@ -303,6 +309,7 @@ class TestCreateAllLoadCases:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases"),
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases"),
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases"),
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases"),
         ):
             all_cases = create_all_load_cases(builder, params)
 
@@ -315,6 +322,7 @@ class TestCreateAllLoadCases:
             "service_vehicle_cases",
             "unintended_vehicle_cases",
             "tandem_cases",
+            "tram_track_tandem_cases",
         ]
         assert list(all_cases.keys()) == expected_keys
 
@@ -325,6 +333,8 @@ class TestConditionalLoadCaseCreation:
     def test_create_all_load_cases_with_all_enabled(self, mock_builder: Mock) -> None:
         """Test create_all_load_cases when all load types are enabled (default behavior)."""
         params = Mock()
+        # Mock bridge_segments_array to be a list
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         # Mock the table with all load types enabled
         params.load_case_selection_table = [
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
@@ -347,6 +357,7 @@ class TestConditionalLoadCaseCreation:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             all_cases = create_all_load_cases(mock_builder, params)
 
@@ -359,6 +370,7 @@ class TestConditionalLoadCaseCreation:
         mock_service.assert_called_once_with(mock_builder, params)
         mock_unintended.assert_called_once_with(mock_builder, params)
         mock_tandem.assert_called_once_with(mock_builder, params)
+        mock_tram_track.assert_called_once_with(mock_builder, params)
 
         # All expected keys should be present
         expected_keys = [
@@ -370,12 +382,15 @@ class TestConditionalLoadCaseCreation:
             "service_vehicle_cases",
             "unintended_vehicle_cases",
             "tandem_cases",
+            "tram_track_tandem_cases",
         ]
         assert list(all_cases.keys()) == expected_keys
 
     def test_create_all_load_cases_with_some_disabled(self, mock_builder: Mock) -> None:
         """Test create_all_load_cases when some load types are disabled."""
         params = Mock()
+        # Mock bridge_segments_array to be a list
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         # Mock the table with some load types disabled
         params.load_case_selection_table = [
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
@@ -398,6 +413,7 @@ class TestConditionalLoadCaseCreation:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             all_cases = create_all_load_cases(mock_builder, params)
 
@@ -410,6 +426,7 @@ class TestConditionalLoadCaseCreation:
         mock_service.assert_not_called()  # Disabled
         mock_unintended.assert_called_once_with(mock_builder, params)
         mock_tandem.assert_not_called()  # Disabled
+        mock_tram_track.assert_not_called()  # Disabled (TS includes tram track)
 
         # Only enabled keys should be present
         expected_keys = [
@@ -423,6 +440,8 @@ class TestConditionalLoadCaseCreation:
     def test_create_all_load_cases_with_missing_table(self, mock_builder: Mock) -> None:
         """Test create_all_load_cases when params object doesn't have load case selection table (defaults to True)."""
         params = Mock()
+        # Mock bridge_segments_array to be a list
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         # Don't set load_case_selection_table - should default to all enabled
 
         # We patch here because we don't care about the return values, just the structure
@@ -435,6 +454,7 @@ class TestConditionalLoadCaseCreation:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             all_cases = create_all_load_cases(mock_builder, params)
 
@@ -447,6 +467,7 @@ class TestConditionalLoadCaseCreation:
         mock_service.assert_called_once_with(mock_builder, params)
         mock_unintended.assert_called_once_with(mock_builder, params)
         mock_tandem.assert_called_once_with(mock_builder, params)
+        mock_tram_track.assert_called_once_with(mock_builder, params)
 
         # All expected keys should be present
         expected_keys = [
@@ -458,5 +479,6 @@ class TestConditionalLoadCaseCreation:
             "service_vehicle_cases",
             "unintended_vehicle_cases",
             "tandem_cases",
+            "tram_track_tandem_cases",
         ]
         assert list(all_cases.keys()) == expected_keys

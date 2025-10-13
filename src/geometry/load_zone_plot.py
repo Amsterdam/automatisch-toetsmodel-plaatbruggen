@@ -38,6 +38,11 @@ DEFAULT_ZONE_APPEARANCE_MAP: dict[str, dict[str, Any]] = {
         "pattern_shape": "",
         "fill_color": "rgba(47,79,79,0.15)",
     },
+    "Tram": {
+        "line_color": "blue",
+        "pattern_shape": "",
+        "fill_color": "rgba(0,0,255,0.15)",
+    },
     "Berm": {
         "line_color": "goldenrod",  # Or another suitable border color
         "pattern_shape": "x",  # Cross-hatch pattern

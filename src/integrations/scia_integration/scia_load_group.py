@@ -158,6 +158,36 @@ def create_ts_lane_3_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     )
 
 
+def create_tram_track_1_group(builder: SciaModelBuilder) -> SciaLoadGroup:
+    """
+    Create the Tandem System for tram track 1 load group LG11000.
+
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
+    """
+    return builder.create_load_group(
+        name="LG11000 - TS tramspoor 1",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
+def create_tram_track_2_group(builder: SciaModelBuilder) -> SciaLoadGroup:
+    """
+    Create the Tandem System for tram track 2 load group LG12000.
+
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
+    """
+    return builder.create_load_group(
+        name="LG12000 - TS tramspoor 2",
+        load_option="VARIABLE",
+        relation="EXCLUSIVE",
+        load_type="CONSTRUCTION_LOADS",
+    )
+
+
 def create_all_load_groups(builder: SciaModelBuilder) -> dict[str, SciaLoadGroup]:
     """
     Create all basic load groups for bridge analysis using the builder.
@@ -177,4 +207,6 @@ def create_all_load_groups(builder: SciaModelBuilder) -> dict[str, SciaLoadGroup
         "ts_lane_1": create_ts_lane_1_group(builder),
         "ts_lane_2": create_ts_lane_2_group(builder),
         "ts_lane_3": create_ts_lane_3_group(builder),
+        "ts_tram_track_1": create_tram_track_1_group(builder),
+        "ts_tram_track_2": create_tram_track_2_group(builder),
     }
