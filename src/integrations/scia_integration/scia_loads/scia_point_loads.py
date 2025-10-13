@@ -15,8 +15,8 @@ from src.integrations.scia_integration.scia_model_interface import SciaModelBuil
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
-def dispersal_function(
-    params: BridgeParametrization,
+def dispersal_function(  # noqa: C901
+    params: object,
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_case_type: str,
@@ -25,95 +25,112 @@ def dispersal_function(
     """
     Disperse the load value across the corners based on bridge parameters.
 
-    This function implements load dispersion according to structural analysis principles,
-    spreading concentrated loads over a larger area to better represent real-world behavior.
-
-    :param params: Bridge parameters used for dispersion logic
-    :type params: object
-    :param corner_points: List of corner points for the load (each as (x, y, z))
+    :param params: Bridge parameters used for dispersion logic.
+    :type params: Any
+    :param corner_points: list of corner points for the load (each as (x, y, z)).
     :type corner_points: list[tuple[float, float, float]]
-    :param load_value: Load value to be dispersed
+    :param load_value: Load value to be dispersed.
     :type load_value: float
-    :param load_case_type: Type of load case for dispersion calculation
+    :param load_case_type: Type of load case for dispersion calculation.
     :type load_case_type: str
-    :returns: Tuple of (dispersed corner points, adjusted load value)
+    :param load_case_name: Name of load case for debugging (optional).
+    :type load_case_name: str
+    :returns: Tuple of (dispersed corner points, adjusted load value).
     :rtype: tuple[list[tuple[float, float, float]], float]
-    :raises ValueError: When dispersion calculation fails
     """
-    try:
-        # Import here to avoid circular imports
-        from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
-        # Check if dispersion is enabled (field has name="spreiding" so it's accessible at top level)
-        if not hasattr(params, "spreiding") or not params.spreiding:
-            return corner_points, load_value
+    def _calculate_quadrilateral_area(coords: list[tuple[float, float, float]]) -> float:
+        """
+        Calculates the area spanned by four coordinates (assumed to be a planar quadrilateral).
 
-        # Get bridge geometry data for boundary checking
-        bridge_geom_data = get_bridge_geom_data(params)
-        if bridge_geom_data is None:
-            return corner_points, load_value
+        :param coords: list of four (x, y, z) tuples representing the vertices in order.
+        :type coords: list[tuple[float, float, float]]
+        :returns: Area of the quadrilateral in the XY plane.
+        :rtype: float
+        :raises ValueError: If the input does not contain exactly four coordinates.
+        """
+        if len(coords) != 4:
+            raise ValueError("Exactly four coordinates are required.")
+        # Project to XY plane
+        xy = [(x, y) for x, y, _ in coords]
+        # Shoelace formula for quadrilateral
+        area = 0.0
+        for i in range(4):
+            x1, y1 = xy[i]
+            x2, y2 = xy[(i + 1) % 4]
+            area += x1 * y2 - x2 * y1
+        return abs(area) * 0.5
 
-        # Calculate original area
-        if len(corner_points) < 3:
-            return corner_points, load_value
+    def _expand_corners_with_dispersion(
+        params: object, coords: list[tuple[float, float, float]], load_case_type: str
+    ) -> list[tuple[float, float, float]]:
+        """
+        Expands the quadrilateral defined by four coordinates to include dispersion in x and y directions for each corner.
+        Dispersion is calculated using get_dispersion_at_coord for each corner.
+        Assumes corners are ordered: [bottom-right, top-right, top-left, bottom-left].
+        """
+        if len(coords) != 4:
+            raise ValueError("Exactly four coordinates are required.")
+        expanded_coords = []
+        for i in range(4):
+            x, y, z = coords[i]
+            # Import at runtime to avoid circular imports
+            from ..scia_coordinate_utils import get_dispersion_at_coord
 
-        # Simple rectangular area calculation for 4-point polygons
-        if len(corner_points) == 4:
-            # Assuming rectangular load patch
-            x_coords = [pt[0] for pt in corner_points]
-            y_coords = [pt[1] for pt in corner_points]
-            original_width = max(x_coords) - min(x_coords)
-            original_height = max(y_coords) - min(y_coords)
-            original_area = original_width * original_height
-        else:
-            # Fallback for non-rectangular polygons
-            original_area = 1.0  # Default area
+            dispersion_deck_zone = get_dispersion_at_coord(params=params, coord=coords[i])["deck_zone"]
+            dispersion_load_zone = get_dispersion_at_coord(params=params, coord=coords[i])["load_zone"]
 
-        # Apply dispersion based on load case type and bridge thickness
-        # For axle loads, spread over a larger area (50%); for others, use standard dispersion (20%)
-        dispersion_factor = 1.5 if load_case_type == "axle_load" else 1.2
+            # Add half the deck zone dispersion and the full load zone dispersion for each corner. Distinguish in x- and y-direction
+            # Handle None values robustly
+            deck_half = (dispersion_deck_zone / 2) if isinstance(dispersion_deck_zone, (int, float)) else 0.0
+            load_full = dispersion_load_zone if isinstance(dispersion_load_zone, (int, float)) else 0.0
+            dispersion_tot = max((deck_half + load_full), 0.5)  # Ensure maximum dispersion of 0.5m to either side
+            dispersion_x_tot = dispersion_tot if load_case_type == "axle_load" else 0.0
+            dispersion_y_tot = dispersion_tot
 
-        # Calculate new corner points with expanded area
-        if len(corner_points) == 4:
-            # Find center point
-            center_x = sum(pt[0] for pt in corner_points) / len(corner_points)
-            center_y = sum(pt[1] for pt in corner_points) / len(corner_points)
-            center_z = sum(pt[2] for pt in corner_points) / len(corner_points)
+            # Expand in the correct direction for each corner based on its position
+            if i == 0:  # bottom-right
+                expanded_coords.append((x + dispersion_x_tot, y - dispersion_y_tot, z))
+            elif i == 1:  # top-right
+                expanded_coords.append((x + dispersion_x_tot, y + dispersion_y_tot, z))
+            elif i == 2:  # top-left
+                expanded_coords.append((x - dispersion_x_tot, y + dispersion_y_tot, z))
+            elif i == 3:  # bottom-left
+                expanded_coords.append((x - dispersion_x_tot, y - dispersion_y_tot, z))
+        return expanded_coords
 
-            # Expand around center
-            new_width = original_width * dispersion_factor**0.5
-            new_height = original_height * dispersion_factor**0.5
-
-            dispersed_corners = [
-                (center_x - new_width / 2, center_y - new_height / 2, center_z),
-                (center_x + new_width / 2, center_y - new_height / 2, center_z),
-                (center_x + new_width / 2, center_y + new_height / 2, center_z),
-                (center_x - new_width / 2, center_y + new_height / 2, center_z),
-            ]
-        else:
-            # For non-rectangular polygons, return original
-            dispersed_corners = corner_points
-
-        # Clip to bridge boundaries
-        clipped_corners = clip_polygon_to_bridge_boundaries(dispersed_corners, bridge_geom_data)
-
-        # Calculate new area and adjust load value
-        if len(clipped_corners) == 4:
-            x_coords = [pt[0] for pt in clipped_corners]
-            y_coords = [pt[1] for pt in clipped_corners]
-            new_width = max(x_coords) - min(x_coords)
-            new_height = max(y_coords) - min(y_coords)
-            new_area = new_width * new_height
-        else:
-            new_area = original_area * dispersion_factor
-
-        # Adjust load value to maintain total force
-        adjusted_load_value = load_value * (original_area / new_area) if new_area > 0 and original_area > 0 else load_value
-    except Exception:
-        # If dispersion fails, return original values
+    # If bridge geometry parameters are not available (e.g., in unit tests with simple mocks),
+    # skip dispersion and return the original values to keep behavior predictable.
+    if (
+        not hasattr(params, "bridge_segments_array")
+        or not isinstance(getattr(params, "bridge_segments_array"), list)
+        or not getattr(params, "bridge_segments_array")
+    ):
         return corner_points, load_value
-    else:
-        return clipped_corners, adjusted_load_value
+    # For axle loads we also allow skipping dispersion if load zones are not defined
+    if load_case_type == "axle_load" and (
+        not hasattr(params, "load_zones_data_array")
+        or not isinstance(getattr(params, "load_zones_data_array"), list)
+        or not getattr(params, "load_zones_data_array")
+    ):
+        return corner_points, load_value
+
+    dispersed_load_coords = _expand_corners_with_dispersion(params=params, coords=corner_points, load_case_type=load_case_type)
+
+    # Clip dispersed coordinates to bridge boundaries
+    from src.geometry.load_zone_geometry import get_bridge_geom_data
+
+    from ..scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+
+    bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
+    if bridge_geom_data is not None:
+        dispersed_load_coords = clip_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
+
+    initial_load_area = _calculate_quadrilateral_area(coords=corner_points)
+    dispersed_load_area = _calculate_quadrilateral_area(coords=dispersed_load_coords)
+    dispersed_load_value = load_value * (initial_load_area / dispersed_load_area)
+
+    return dispersed_load_coords, dispersed_load_value
 
 
 def add_theoretical_tandem_loads(
@@ -153,6 +170,7 @@ def add_theoretical_tandem_loads(
                         corner_points=patch_load["corners"],
                         load_value=patch_load["load_value"],
                         load_case_type="axle_load",
+                        load_case_name=load_case_name,
                     )
                     patch_load["corners"] = dispersed_corners
                     patch_load["load_value"] = dispersed_load_value
@@ -273,7 +291,11 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
                 # Take into account load dispersion
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
-                    params=params, corner_points=wheel_corners, load_value=load_per_area, load_case_type="axle_load"
+                    params=params,
+                    corner_points=wheel_corners,
+                    load_value=load_per_area,
+                    load_case_type="axle_load",
+                    load_case_name=load_case_name,
                 )
                 if params.spreiding:
                     builder.create_surface_load(
@@ -399,15 +421,6 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
                 # Create surface loads for each wheel
                 for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                    # Debug BG7127 specifically
-                    if load_case_name == "BG7127":
-                        print(f"\n{'='*60}")
-                        print(f"[DEBUG BG7127] Load case: {load_case_name}")
-                        print(f"[DEBUG BG7127] Position: {edge_type}_x{x_pos}_{direction}")
-                        print(f"[DEBUG BG7127] Axle {axle_idx + 1}, Wheel {wheel_idx + 1}")
-                        print(f"[DEBUG BG7127] Corner points BEFORE: {wheel_corners}")
-                        print(f"[DEBUG BG7127] Load BEFORE: {load_per_area:.2f} N/m² ({load_per_area/1000:.2f} kN/m²)")
-                    
                     # Apply load dispersion if enabled
                     corner_points_dispersed, load_value_dispersed = dispersal_function(
                         params=params,
@@ -416,12 +429,6 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                         load_case_type="axle_load",
                         load_case_name=load_case_name,
                     )
-                    
-                    if load_case_name == "BG7127":
-                        print(f"[DEBUG BG7127] Corner points AFTER: {corner_points_dispersed}")
-                        print(f"[DEBUG BG7127] Load AFTER: {load_value_dispersed:.2f} N/m² ({load_value_dispersed/1000:.2f} kN/m²)")
-                        print(f"[DEBUG BG7127] Reduction factor: {load_value_dispersed/load_per_area:.3f}x")
-                        print(f"{'='*60}\n")
 
                     if params.spreiding:
                         builder.create_surface_load(
@@ -490,6 +497,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                     corner_points=wheel_corners,
                     load_value=load_per_area,
                     load_case_type="axle_load",
+                    load_case_name=load_case_name,
                 )
 
                 if params.spreiding:
