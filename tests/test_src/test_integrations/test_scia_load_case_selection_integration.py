@@ -22,8 +22,6 @@ class TestLoadCaseSelectionIntegration:
 
         # Create mock params with selective load case selection
         params = Mock()
-        # Mock bridge_segments_array to be a list
-        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         params.load_case_selection_table = [
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": False, "load_type": "Permanent", "load_case_count": 5},  # Disabled
@@ -45,7 +43,6 @@ class TestLoadCaseSelectionIntegration:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
-            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
             result = create_all_load_cases(mock_builder, params)
@@ -59,7 +56,6 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_not_called()  # Disabled
             mock_unintended.assert_not_called()  # Disabled
             mock_tandem.assert_not_called()  # Disabled
-            mock_tram_track.assert_not_called()  # Disabled (TS is disabled)
 
             # Verify result only contains enabled load types
             expected_keys = [
@@ -76,8 +72,6 @@ class TestLoadCaseSelectionIntegration:
 
         # Create mock params with all load types enabled
         params = Mock()
-        # Mock bridge_segments_array to be a list
-        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         params.load_case_selection_table = [
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": True, "load_type": "Permanent", "load_case_count": 5},
@@ -99,7 +93,6 @@ class TestLoadCaseSelectionIntegration:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
-            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
             result = create_all_load_cases(mock_builder, params)
@@ -113,7 +106,6 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_called_once_with(mock_builder, params)
 
             # Verify result contains all load types
             expected_keys = [
@@ -125,7 +117,6 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -136,8 +127,6 @@ class TestLoadCaseSelectionIntegration:
 
         # Create mock params with mixed selection
         params = Mock()
-        # Mock bridge_segments_array to be a list
-        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         params.load_case_selection_table = [
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": True, "load_type": "Permanent", "load_case_count": 5},
@@ -159,7 +148,6 @@ class TestLoadCaseSelectionIntegration:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
-            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
             result = create_all_load_cases(mock_builder, params)
@@ -173,7 +161,6 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)  # Enabled
             mock_unintended.assert_not_called()  # Disabled
             mock_tandem.assert_called_once_with(mock_builder, params)  # Enabled
-            mock_tram_track.assert_called_once_with(mock_builder, params)  # Enabled (part of TS)
 
             # Verify result only contains enabled load types
             expected_keys = [
@@ -182,7 +169,6 @@ class TestLoadCaseSelectionIntegration:
                 "udl_traffic_cases",
                 "service_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -193,8 +179,6 @@ class TestLoadCaseSelectionIntegration:
 
         # Create mock params without load_case_selection_table
         params = Mock()
-        # Mock bridge_segments_array to be a list
-        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         # Don't set load_case_selection_table attribute
 
         # Mock all the individual load case creation functions
@@ -207,7 +191,6 @@ class TestLoadCaseSelectionIntegration:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
-            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
             result = create_all_load_cases(mock_builder, params)
@@ -221,7 +204,6 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_called_once_with(mock_builder, params)
 
             # Verify result contains all load types
             expected_keys = [
@@ -233,7 +215,6 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -244,8 +225,6 @@ class TestLoadCaseSelectionIntegration:
 
         # Create mock params with empty load_case_selection_table
         params = Mock()
-        # Mock bridge_segments_array to be a list
-        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         params.load_case_selection_table = []
 
         # Mock all the individual load case creation functions
@@ -258,7 +237,6 @@ class TestLoadCaseSelectionIntegration:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
-            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
             result = create_all_load_cases(mock_builder, params)
@@ -272,7 +250,6 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_called_once_with(mock_builder, params)
 
             # Verify result contains all load types
             expected_keys = [
@@ -284,7 +261,6 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -295,8 +271,6 @@ class TestLoadCaseSelectionIntegration:
 
         # Create mock params with some invalid load types
         params = Mock()
-        # Mock bridge_segments_array to be a list
-        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         params.load_case_selection_table = [
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": True, "load_type": "Invalid Load Type", "load_case_count": 5},  # Invalid
@@ -314,7 +288,6 @@ class TestLoadCaseSelectionIntegration:
             patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
             patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
             patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
-            patch("src.integrations.scia_integration.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
             result = create_all_load_cases(mock_builder, params)
@@ -328,7 +301,6 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_unintended.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_tandem.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
-            mock_tram_track.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
 
             # Verify result contains all load types (invalid ones are ignored, valid ones default to enabled)
             expected_keys = [
@@ -340,7 +312,6 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
