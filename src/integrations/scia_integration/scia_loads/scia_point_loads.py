@@ -396,7 +396,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
                 y_coord=vehicle_top_edge,
-                vehicle_length=axle_spacing,  # Distance between axles (1.2m) 
+                vehicle_length=axle_spacing,  # Distance between axles (1.2m)
                 vehicle_width=vehicle_width,
                 wheel_contact_area=wheel_contact_area,
             )
@@ -406,17 +406,17 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             if direction == "forward":
                 # Forward: 80kN front axle (TL/BL), 40kN rear axle (TR/BR)
                 wheel_forces = {
-                    "top_left_wheel_corners": force_axle_1 / 2,      # Front left: 40kN
-                    "bottom_left_wheel_corners": force_axle_1 / 2,   # Front right: 40kN
-                    "top_right_wheel_corners": force_axle_2 / 2,     # Rear left: 20kN
+                    "top_left_wheel_corners": force_axle_1 / 2,  # Front left: 40kN
+                    "bottom_left_wheel_corners": force_axle_1 / 2,  # Front right: 40kN
+                    "top_right_wheel_corners": force_axle_2 / 2,  # Rear left: 20kN
                     "bottom_right_wheel_corners": force_axle_2 / 2,  # Rear right: 20kN
                 }
             else:  # reverse
                 # Reverse: 40kN front axle (TL/BL), 80kN rear axle (TR/BR)
                 wheel_forces = {
-                    "top_left_wheel_corners": force_axle_2 / 2,      # Front left: 20kN
-                    "bottom_left_wheel_corners": force_axle_2 / 2,   # Front right: 20kN
-                    "top_right_wheel_corners": force_axle_1 / 2,     # Rear left: 40kN
+                    "top_left_wheel_corners": force_axle_2 / 2,  # Front left: 20kN
+                    "bottom_left_wheel_corners": force_axle_2 / 2,  # Front right: 20kN
+                    "top_right_wheel_corners": force_axle_1 / 2,  # Rear left: 40kN
                     "bottom_right_wheel_corners": force_axle_1 / 2,  # Rear right: 40kN
                 }
 
@@ -425,7 +425,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 force_per_wheel = wheel_forces[wheel_loc]
                 wheel_area = wheel_contact_area * wheel_contact_area
                 load_per_area = force_per_wheel / wheel_area
-                
+
                 # Apply load dispersion if enabled
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                     params=params,
@@ -434,7 +434,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                     load_case_type="axle_load",
                     _load_case_name=load_case_name,
                 )
-                
+
                 load_name = f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_wheel{wheel_idx + 1}"
 
                 if params.spreiding:
