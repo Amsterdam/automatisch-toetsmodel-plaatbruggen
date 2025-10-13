@@ -491,6 +491,85 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     return cases
 
 
+def create_dynamic_tram_track_tandem_load_cases(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
+) -> dict[str, SciaLoadCase]:
+    """
+    Create dynamic tandem load cases based on bridge geometry.
+
+    This function determines the number of theoretical lanes and creates
+    the corresponding tandem system (TS) load cases for each lane (RS).
+
+    :param builder: The SCIA model builder instance.
+    :param params: Bridge parameters.
+    :return: A dictionary of all created tandem system load cases.
+    :rtype: dict[str, SciaLoadCase]
+    """
+    load_cases = {}
+
+    # Extract bridge dimensions needed for tandem load case generation
+    dims = extract_bridge_dimensions(params)
+    length = dims.total_length
+    thickness = dims.thickness
+
+    # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
+    num_tracks = 2
+
+    # Create tandem load cases for each road system (RS)
+    for track in range(1, num_tracks + 1):
+        tram_tandem_cases_dict = create_tram_track_tandem_load_cases(builder, track, length, thickness)
+        load_cases.update(tram_tandem_cases_dict)
+
+    return load_cases
+
+
+def create_tram_track_tandem_load_cases(
+    builder: SciaModelBuilder, track: int, length_bridgedeck: float, thickness_bridgedeck: float
+) -> dict[str, SciaLoadCase]:
+    """
+    Create tandem system load cases for a given RS (1,2,3).
+
+    Positions are determined dynamically based on the bridge geometry.
+
+    :param builder: The SCIA model builder instance.
+    :param rs: Road system number (1, 2, or 3).
+    :type rs: int
+    :param length_bridgedeck: The length of the bridge deck in meters.
+    :type length_bridgedeck: float
+    :param thickness_bridgedeck: The thickness of the bridge deck in meters.
+    :type thickness_bridgedeck: float
+    :returns: Dictionary of tandem load cases for the specified RS.
+    :rtype: dict[str, SciaLoadCase]
+    :raises ValueError: If rs is not 1, 2, or 3.
+    """
+    if track == 1:
+        group_name = "LG11000 - TS tramspoor 1"
+        prefix = "BG11"
+    elif track == 2:
+        group_name = "LG12000 - TS tramspoor 2"
+        prefix = "BG12"
+    else:
+        raise ValueError("Track must be 1 or 2")
+
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=30.128)  # Tram length 15G (CAF Urbos 100)
+    cases = {}
+    for i, pos in enumerate(positions, 1):
+        case_name = f"{prefix}{i:03d}"
+        description = f"Tram, dek - LM1 tramspoor {track} - x = {pos:g} m"
+        cases[f"tandem_tram_track{track}_x{pos}"] = create_load_case(
+            builder,
+            group_name=group_name,
+            case_name=case_name,
+            description=description,
+            case_type="VARIABLE",
+            variable_type="STATIC",
+            specification="STANDARD",
+            duration="SHORT",
+        )
+    return cases
+
+
 def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa: ANN401
     """
     Extract load case selection from the parametrization table.
@@ -580,5 +659,9 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     # Tandem system load cases (BG8001-BG10xxx)
     if load_selection.get("TS", True):
         load_cases["tandem_cases"] = create_dynamic_tandem_load_cases(builder, params)
+
+    # Tandem system load cases for tram tracks (BG11001-BG12xxx)
+    if load_selection.get("TS", True):
+        load_cases["tram_track_tandem_cases"] = create_dynamic_tram_track_tandem_load_cases(builder, params)
 
     return load_cases
