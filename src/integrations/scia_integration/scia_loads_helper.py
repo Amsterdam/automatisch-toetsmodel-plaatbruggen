@@ -8,6 +8,8 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
+from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions
+
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
@@ -921,16 +923,29 @@ def obtain_y_coordinates_road(
     # Update load zones data with geometry properties
     load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
 
+    # Extract bridge dimensions
+    dims = extract_bridge_dimensions(params)
+
     # Find the 'Auto' zone and get its y-coordinates and width
+    # It can be that the auto zone is the last zone, in this case it has no valid d1_width
+    # so we need to accumulate the widths of the previous zones and use the total bridge width to find the d1_width
+    cumulative_width = 0.0
     for zone in load_zones_data_params:
+        # Get d1_width, ensure it's a valid number
+        width_value = getattr(zone, "d1_width", None)
+        d1_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+
+        # if zone is not last zone in load_zones_data_params, accumulate widths
+        if zone != load_zones_data_params[-1]:
+            cumulative_width += d1_width
+        # if it is the last zone the width is the remaining width of the bridge
+        elif zone == load_zones_data_params[-1]:
+            d1_width = dims.total_width - cumulative_width
+
         if zone.zone_type == "Auto":
             # Get y-coordinates, ensure we have a valid list and first value
             y_coords = getattr(zone, "y_coords_top_current_zone", [])
-            y_coord = float(y_coords[0]) if y_coords else 0.0
-
-            # Get d1_width, ensure it's a valid number
-            width_value = getattr(zone, "d1_width", None)
-            d1_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+            y_coord = float(y_coords[0]) if y_coords else 0.0       
 
             return y_coord, d1_width
 
