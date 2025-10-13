@@ -176,7 +176,7 @@ def create_tram_track_1_group(builder: SciaModelBuilder) -> SciaLoadGroup:
 def create_tram_track_2_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     Create the Tandem System for tram track 2 load group LG12000.
-
+    test string    
     :param builder: The SCIA model builder instance.
     :return: The created SCIA load group.
     """
