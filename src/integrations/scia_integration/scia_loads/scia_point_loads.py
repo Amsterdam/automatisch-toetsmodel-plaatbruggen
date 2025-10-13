@@ -277,7 +277,13 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                     params=params, corner_points=wheel_corners, load_value=load_per_area, load_case_type="axle_load"
                 )
-                if params.spreiding:
+                # Check if spreiding is enabled (handle nested structure)
+                spreiding_enabled = (
+                    hasattr(params, "input")
+                    and hasattr(params.input, "berekeningsinstellingen")
+                    and getattr(params.input.berekeningsinstellingen, "spreiding", False)
+                )
+                if spreiding_enabled:
                     builder.create_surface_load(
                         name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
                         load_case_name=load_case_name,
@@ -371,9 +377,16 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 vehicle_bottom_edge = y_coords[0] + inset_distance
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # Create loads for both axles
-            axle_forces = [force_axle_1, force_axle_2]
-            axle_x_positions = [x_pos, x_pos + axle_spacing]
+            # Create loads for both axles - swap order and positions for reverse direction
+            if direction == "forward":
+                # Forward: 80kN front axle leads, 40kN rear follows
+                axle_forces = [force_axle_1, force_axle_2]  # [80kN, 40kN]
+                axle_x_positions = [x_pos, x_pos + axle_spacing]
+            else:  # reverse
+                # Reverse: 80kN front axle comes from opposite direction
+                # Place 40kN at position, 80kN behind (negative spacing)
+                axle_forces = [force_axle_2, force_axle_1]  # [40kN, 80kN]
+                axle_x_positions = [x_pos - axle_spacing, x_pos]
 
             for axle_idx, (axle_x, axle_force) in enumerate(zip(axle_x_positions, axle_forces)):
                 # Calculate wheel positions for this axle
@@ -402,7 +415,13 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                         load_case_type="axle_load",
                     )
 
-                    if params.spreiding:
+                    # Check if spreiding is enabled (handle nested structure)
+                    spreiding_enabled = (
+                        hasattr(params, "input")
+                        and hasattr(params.input, "berekeningsinstellingen")
+                        and getattr(params.input.berekeningsinstellingen, "spreiding", False)
+                    )
+                    if spreiding_enabled:
                         builder.create_surface_load(
                             name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
                             load_case_name=load_case_name,
@@ -459,7 +478,13 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                     load_case_type="axle_load",
                 )
 
-                if params.spreiding:
+                # Check if spreiding is enabled (handle nested structure)
+                spreiding_enabled = (
+                    hasattr(params, "input")
+                    and hasattr(params.input, "berekeningsinstellingen")
+                    and getattr(params.input.berekeningsinstellingen, "spreiding", False)
+                )
+                if spreiding_enabled:
                     builder.create_surface_load(
                         name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
                         load_case_name=load_case_name,
