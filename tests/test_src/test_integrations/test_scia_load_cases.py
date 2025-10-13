@@ -276,7 +276,7 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
     @patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
-    def test_create_all_load_cases_calls_helpers(
+    def test_create_all_load_cases_calls_helpers(  # noqa: PLR0913
         self, mock_sw: Mock, mock_dead: Mock, mock_unintended: Mock, mock_service: Mock, mock_tandem: Mock, mock_tram_track: Mock
     ) -> None:
         """Test that all individual creation functions are called."""
