@@ -20,7 +20,7 @@ def dispersal_function(  # noqa: C901
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_case_type: str,
-    load_case_name: str = "",
+    _load_case_name: str = "",
 ) -> tuple[list[tuple[float, float, float]], float]:
     """
     Disperse the load value across the corners based on bridge parameters.
@@ -33,8 +33,8 @@ def dispersal_function(  # noqa: C901
     :type load_value: float
     :param load_case_type: Type of load case for dispersion calculation.
     :type load_case_type: str
-    :param load_case_name: Name of load case for debugging (optional).
-    :type load_case_name: str
+    :param _load_case_name: Name of load case for debugging (optional, unused).
+    :type _load_case_name: str
     :returns: Tuple of (dispersed corner points, adjusted load value).
     :rtype: tuple[list[tuple[float, float, float]], float]
     """
@@ -75,7 +75,7 @@ def dispersal_function(  # noqa: C901
         for i in range(4):
             x, y, z = coords[i]
             # Import at runtime to avoid circular imports
-            from ..scia_coordinate_utils import get_dispersion_at_coord
+            from src.integrations.scia_integration.scia_coordinate_utils import get_dispersion_at_coord
 
             dispersion_deck_zone = get_dispersion_at_coord(params=params, coord=coords[i])["deck_zone"]
             dispersion_load_zone = get_dispersion_at_coord(params=params, coord=coords[i])["load_zone"]
@@ -119,8 +119,7 @@ def dispersal_function(  # noqa: C901
 
     # Clip dispersed coordinates to bridge boundaries
     from src.geometry.load_zone_geometry import get_bridge_geom_data
-
-    from ..scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+    from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
     bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
     if bridge_geom_data is not None:
@@ -170,7 +169,7 @@ def add_theoretical_tandem_loads(
                         corner_points=patch_load["corners"],
                         load_value=patch_load["load_value"],
                         load_case_type="axle_load",
-                        load_case_name=load_case_name,
+                        _load_case_name=load_case_name,
                     )
                     patch_load["corners"] = dispersed_corners
                     patch_load["load_value"] = dispersed_load_value
@@ -295,7 +294,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
                     corner_points=wheel_corners,
                     load_value=load_per_area,
                     load_case_type="axle_load",
-                    load_case_name=load_case_name,
+                    _load_case_name=load_case_name,
                 )
                 if params.spreiding:
                     builder.create_surface_load(
@@ -321,7 +320,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         raise ValueError(f"Failed to add service vehicle loads: {e}") from e
 
 
-def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:  # noqa: C901
+def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:  # noqa: C901, PLR0915
     """
     Add accidental vehicle loads to the SCIA model using sequenced X positions.
 
@@ -391,59 +390,67 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 vehicle_bottom_edge = y_coords[0] + inset_distance
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # Create loads for both axles - swap force order for reverse direction
-            if direction == "forward":
-                # Forward: 80kN front axle leads, 40kN rear follows
-                axle_forces = [force_axle_1, force_axle_2]  # [80kN, 40kN]
-                axle_x_positions = [x_pos, x_pos + axle_spacing]
-            else:  # reverse
-                # Reverse: 80kN axle leads from opposite direction
-                # Keep positions valid, but swap which force goes to which position
-                axle_forces = [force_axle_2, force_axle_1]  # [40kN first position, 80kN second position]
-                axle_x_positions = [x_pos, x_pos + axle_spacing]  # Same positions as forward
+            # Calculate wheel positions for the ENTIRE vehicle (not per axle)
+            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
 
-            for axle_idx, (axle_x, axle_force) in enumerate(zip(axle_x_positions, axle_forces)):
-                # Calculate wheel positions for this axle
+            wheel_locations = calc_vehicle_load_locations(
+                x_coord=x_pos,
+                y_coord=vehicle_top_edge,
+                vehicle_length=axle_spacing,  # Distance between axles (1.2m)
+                vehicle_width=vehicle_width,
+                wheel_contact_area=wheel_contact_area,
+            )
+
+            # Assign forces to wheels based on direction
+            # Layout: TL/BL = front axle (left side), TR/BR = rear axle (right side)
+            if direction == "forward":
+                # Forward: 80kN front axle (TL/BL), 40kN rear axle (TR/BR)
+                wheel_forces = {
+                    "top_left_wheel_corners": force_axle_1 / 2,  # Front left: 40kN
+                    "bottom_left_wheel_corners": force_axle_1 / 2,  # Front right: 40kN
+                    "top_right_wheel_corners": force_axle_2 / 2,  # Rear left: 20kN
+                    "bottom_right_wheel_corners": force_axle_2 / 2,  # Rear right: 20kN
+                }
+            else:  # reverse
+                # Reverse: 40kN front axle (TL/BL), 80kN rear axle (TR/BR)
+                wheel_forces = {
+                    "top_left_wheel_corners": force_axle_2 / 2,  # Front left: 20kN
+                    "bottom_left_wheel_corners": force_axle_2 / 2,  # Front right: 20kN
+                    "top_right_wheel_corners": force_axle_1 / 2,  # Rear left: 40kN
+                    "bottom_right_wheel_corners": force_axle_1 / 2,  # Rear right: 40kN
+                }
+
+            # Create surface loads for each wheel
+            for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
+                force_per_wheel = wheel_forces[wheel_loc]
                 wheel_area = wheel_contact_area * wheel_contact_area
-                force_per_wheel = axle_force / 2  # Two wheels per axle
                 load_per_area = force_per_wheel / wheel_area
 
-                # Use helper function to calculate wheel positions
-                from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
-
-                wheel_locations = calc_vehicle_load_locations(
-                    x_coord=axle_x,
-                    y_coord=vehicle_top_edge,
-                    vehicle_length=0.2,  # Just the wheel contact length
-                    vehicle_width=vehicle_width,
-                    wheel_contact_area=wheel_contact_area,
+                # Apply load dispersion if enabled
+                corner_points_dispersed, load_value_dispersed = dispersal_function(
+                    params=params,
+                    corner_points=wheel_corners,
+                    load_value=load_per_area,
+                    load_case_type="axle_load",
+                    _load_case_name=load_case_name,
                 )
 
-                # Create surface loads for each wheel
-                for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                    # Apply load dispersion if enabled
-                    corner_points_dispersed, load_value_dispersed = dispersal_function(
-                        params=params,
-                        corner_points=wheel_corners,
-                        load_value=load_per_area,
-                        load_case_type="axle_load",
-                        load_case_name=load_case_name,
-                    )
+                load_name = f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_wheel{wheel_idx + 1}"
 
-                    if params.spreiding:
-                        builder.create_surface_load(
-                            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
-                            load_case_name=load_case_name,
-                            corner_points=corner_points_dispersed,
-                            load_value=-load_value_dispersed,
-                        )
-                    else:
-                        builder.create_surface_load(
-                            name=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_axle{axle_idx + 1}_wheel{wheel_idx + 1}",
-                            load_case_name=load_case_name,
-                            corner_points=wheel_corners,
-                            load_value=-load_per_area,
-                        )
+                if params.spreiding:
+                    builder.create_surface_load(
+                        name=load_name,
+                        load_case_name=load_case_name,
+                        corner_points=corner_points_dispersed,
+                        load_value=-load_value_dispersed,
+                    )
+                else:
+                    builder.create_surface_load(
+                        name=load_name,
+                        load_case_name=load_case_name,
+                        corner_points=wheel_corners,
+                        load_value=-load_per_area,
+                    )
 
         # Amsterdam vehicle (single axle)
         def create_amsterdam_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], vehicle_type: str = "amsterdam") -> None:
@@ -497,7 +504,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                     corner_points=wheel_corners,
                     load_value=load_per_area,
                     load_case_type="axle_load",
-                    load_case_name=load_case_name,
+                    _load_case_name=load_case_name,
                 )
 
                 if params.spreiding:
