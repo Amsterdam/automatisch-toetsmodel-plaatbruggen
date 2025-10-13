@@ -20,6 +20,7 @@ def dispersal_function(
     corner_points: list[tuple[float, float, float]],
     load_value: float,
     load_case_type: str,
+    load_case_name: str = "",
 ) -> tuple[list[tuple[float, float, float]], float]:
     """
     Disperse the load value across the corners based on bridge parameters.
@@ -43,11 +44,8 @@ def dispersal_function(
         # Import here to avoid circular imports
         from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
-        # Check if dispersion is enabled
-        if not hasattr(params, "input") or not hasattr(params.input, "berekeningsinstellingen"):
-            return corner_points, load_value
-
-        if not params.spreiding:
+        # Check if dispersion is enabled (field has name="spreiding" so it's accessible at top level)
+        if not hasattr(params, "spreiding") or not params.spreiding:
             return corner_points, load_value
 
         # Get bridge geometry data for boundary checking
@@ -401,13 +399,29 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
                 # Create surface loads for each wheel
                 for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
+                    # Debug BG7127 specifically
+                    if load_case_name == "BG7127":
+                        print(f"\n{'='*60}")
+                        print(f"[DEBUG BG7127] Load case: {load_case_name}")
+                        print(f"[DEBUG BG7127] Position: {edge_type}_x{x_pos}_{direction}")
+                        print(f"[DEBUG BG7127] Axle {axle_idx + 1}, Wheel {wheel_idx + 1}")
+                        print(f"[DEBUG BG7127] Corner points BEFORE: {wheel_corners}")
+                        print(f"[DEBUG BG7127] Load BEFORE: {load_per_area:.2f} N/m² ({load_per_area/1000:.2f} kN/m²)")
+                    
                     # Apply load dispersion if enabled
                     corner_points_dispersed, load_value_dispersed = dispersal_function(
                         params=params,
                         corner_points=wheel_corners,
                         load_value=load_per_area,
                         load_case_type="axle_load",
+                        load_case_name=load_case_name,
                     )
+                    
+                    if load_case_name == "BG7127":
+                        print(f"[DEBUG BG7127] Corner points AFTER: {corner_points_dispersed}")
+                        print(f"[DEBUG BG7127] Load AFTER: {load_value_dispersed:.2f} N/m² ({load_value_dispersed/1000:.2f} kN/m²)")
+                        print(f"[DEBUG BG7127] Reduction factor: {load_value_dispersed/load_per_area:.3f}x")
+                        print(f"{'='*60}\n")
 
                     if params.spreiding:
                         builder.create_surface_load(
