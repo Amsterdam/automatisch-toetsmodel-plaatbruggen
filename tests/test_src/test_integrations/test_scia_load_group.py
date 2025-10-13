@@ -143,10 +143,10 @@ class TestAllLoadGroups:
         builder = Mock()
         result = create_all_load_groups(builder)
 
-        # Check that the builder was called 10 times
-        assert builder.create_load_group.call_count == 10
-        # Check that the result dictionary has 10 entries
-        assert len(result) == 10
+        # Check that the builder was called 12 times (added tram track groups)
+        assert builder.create_load_group.call_count == 12
+        # Check that the result dictionary has 12 entries
+        assert len(result) == 12
         assert "permanent_self_weight" in result
         assert "ts_lane_3" in result
 
@@ -165,6 +165,8 @@ class TestAllLoadGroups:
             "ts_lane_1",
             "ts_lane_2",
             "ts_lane_3",
+            "ts_tram_track_1",
+            "ts_tram_track_2",
         ]
         assert list(definitions.keys()) == expected_keys
         # Check if returned values are the mock's return values
