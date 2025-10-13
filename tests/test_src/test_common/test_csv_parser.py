@@ -164,6 +164,7 @@ class TestExcelParser:
 
         workbook = openpyxl.Workbook()
         sheet = workbook.active
+        assert sheet is not None
 
         # Add headers
         sheet.append(["Kunstwerk nummer", "Type", "stadsdeel", "Straat", "KW naam"])
@@ -192,6 +193,7 @@ class TestExcelParser:
 
         workbook = openpyxl.Workbook()
         sheet = workbook.active
+        assert sheet is not None
 
         # Add headers
         sheet.append(["Kunstwerk nummer", "Aantal velden", "kruisingshoek"])

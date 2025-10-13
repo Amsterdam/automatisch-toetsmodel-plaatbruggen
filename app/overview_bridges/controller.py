@@ -581,7 +581,7 @@ class OverviewBridgesController(ViktorController):
                 return [clean_value(item) for item in value]
             return value
 
-        return [clean_value(bridge) for bridge in bridges_data]
+        return [clean_value(bridge) for bridge in bridges_data]  # type: ignore[misc]
 
     # --- Data Upload Action Method ---
 

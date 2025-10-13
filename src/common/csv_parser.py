@@ -144,7 +144,7 @@ def parse_bridge_csv(file_content: bytes) -> list[dict[str, Any]]:  # noqa: C901
         raise ValueError(f"Failed to parse CSV file: {e}")
 
 
-def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:
+def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:  # noqa: C901
     """
     Parse bridge data from an Excel file (.xlsx).
 
@@ -160,17 +160,20 @@ def parse_bridge_excel(file_content: bytes) -> list[dict[str, Any]]:
         workbook = openpyxl.load_workbook(excel_file, read_only=True, data_only=True)
         sheet = workbook.active
 
+        if sheet is None:
+            raise ValueError("Excel file has no active worksheet")  # noqa: TRY301
+
         # Get header row
         rows = list(sheet.iter_rows(values_only=True))
         if not rows:
             raise ValueError("Excel file is empty")  # noqa: TRY301
 
-        headers = rows[0]
-        if not headers:
+        headers_raw = rows[0]
+        if not headers_raw:
             raise ValueError("Excel file has no header row")  # noqa: TRY301
 
-        # Normalize headers by stripping whitespace
-        headers = [str(h).strip() if h else h for h in headers]
+        # Normalize headers by stripping whitespace and converting to strings
+        headers: list[str] = [str(h).strip() if h else "" for h in headers_raw]
 
         bridges = []
         skipped_rows = []
