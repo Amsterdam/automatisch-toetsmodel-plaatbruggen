@@ -155,7 +155,7 @@ def _create_support_annotation(x: float, y: float, support_type: str = "Inklemmi
     Args:
         x: X coordinate in data units
         y: Y coordinate in data units
-        support_type: Type of support ("Roloplegging", "Inklemming", "Scharnieroplegging", "Nee")
+        support_type: Type of support ("Verende oplegging (x,y)", "Inklemming", "Scharnieroplegging", "Nee")
 
     Returns:
         List of annotations for the support symbol
@@ -163,7 +163,7 @@ def _create_support_annotation(x: float, y: float, support_type: str = "Inklemmi
     """
     # Map support types to their Unicode symbols
     support_symbols = {
-        "Roloplegging": "⧋",  # Triangle With Underbar &#10699; &#x29CB
+        "Verende oplegging (x,y)": "⧋",  # Triangle With Underbar &#10699; &#x29CB
         "Inklemming": "⧍",  # Triangle With Serifs At Bottom &#10701; &#x29CD
         "Scharnieroplegging": "⧊",  # Triangle With Dot Above &#10698; &#x29CA
         "Nee": "",  # No support - empty symbol

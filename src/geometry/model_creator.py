@@ -1001,7 +1001,7 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
 
         if support_types and isinstance(support_types, list):
             # Convert support type strings to boolean values for backward compatibility
-            # "Nee" = False, any other value ("Roloplegging", "Inklemming", "Scharnieroplegging") = True
+            # "Nee" = False, any other value ("Verende oplegging (x,y)", "Inklemming", "Scharnieroplegging") = True
             support_positions = [support_type != "Nee" for support_type in support_types]
         else:
             # Fallback: calculate first/last as True if no support type list

@@ -23,7 +23,7 @@ class TestCreateLineSupports:
     def test_create_line_supports_basic(self, mock_builder: Mock) -> None:
         """Test basic creation of line supports at start and end of the bridge."""
         plate_names = ["Z1_1", "Z2_1", "Z3_1", "Z1_2", "Z2_2", "Z3_2"]
-        support_types = ["Roloplegging", "Nee", "Roloplegging"]  # Support at first and last D-point (3 D-points total)
+        support_types = ["Verende oplegging (x,y)", "Nee", "Verende oplegging (x,y)"]  # Support at first and last D-point (3 D-points total)
         create_line_supports(mock_builder, plate_names, support_types)
 
         assert mock_builder.create_line_support_on_plane.call_count == 6
@@ -90,7 +90,7 @@ class TestCreateLineSupports:
     def test_single_span_bridge(self, mock_builder: Mock) -> None:
         """Test with a single span bridge (less than 6 plates)."""
         plate_names = ["Z1_1", "Z2_1", "Z3_1"]
-        support_types = ["Roloplegging"]  # Only one D-point, so one support
+        support_types = ["Verende oplegging (x,y)"]  # Only one D-point, so one support
         create_line_supports(mock_builder, plate_names, support_types)
 
         # Should create supports at single D-point on all 3 plates
@@ -111,7 +111,7 @@ class TestCreateAllSupports:
     def test_create_all_supports_orchestration(self, mock_create_line: Mock, mock_builder: Mock) -> None:
         """Test that the main support function calls the line support helper."""
         plate_names = ["plate1", "plate2"]
-        support_types = ["Roloplegging", "Inklemming"]
+        support_types = ["Verende oplegging (x,y)", "Verende oplegging (x,y)"]
         mock_line_support = Mock()
         mock_create_line.return_value = [mock_line_support]
 
