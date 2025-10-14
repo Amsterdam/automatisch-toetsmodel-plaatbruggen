@@ -16,7 +16,7 @@ CHANGELOG_PATH = PROJECT_PATH / "CHANGELOG.md"
 
 # Resource paths
 CSS_PATH = PROJECT_PATH / "resources" / "styles" / "style.css"
-OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_eindrapport.docx"
+OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_management_summary.docx"
 SCIA_TEMPLATE_PATH = PROJECT_PATH / "resources" / "templates" / "model.esa"
 
 # Data file paths

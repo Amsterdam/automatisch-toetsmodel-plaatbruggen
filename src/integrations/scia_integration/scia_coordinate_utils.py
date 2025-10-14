@@ -413,6 +413,7 @@ def get_bridge_load_zone_materials_and_thickness(params: object) -> dict[str, di
     if not bridge_segments:
         raise IndexError("No bridge segments provided")
     load_zones = getattr(params, "load_zones_data_array", None)
+    print(load_zones)
     if not load_zones:
         raise IndexError("No bridge load zones provided")
 
