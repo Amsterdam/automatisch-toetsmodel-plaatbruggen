@@ -13,6 +13,10 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
+from viktor.core import File, Storage, progress_message
+from viktor.errors import UserError
+from viktor.external import idea_rcs
+
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
@@ -21,9 +25,6 @@ from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_integration_strip_results_for_idea,
     process_scia_node_results_for_idea,
 )
-from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
-from viktor.external import idea_rcs
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -105,7 +106,6 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
                 "output_content": output_content,
             }
         )
-
     return results
 
 

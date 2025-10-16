@@ -10,12 +10,15 @@
   - Displays "Statisch bepaald" for exactly 2 supports (Scharnieroplegging + Roloplegging) at begin/end positions
   - Displays "Statisch onbepaald" for all other support configurations
   - Live updates as user modifies support selections
+- **Management summary**: Added basic param values and unity check values to the management summary.
 
 ### Changed
 - **Refactored cache code**: code cleanup
 - **Support System Overhaul**: Replaced automatic support calculation with user-controlled OptionField for each bridge segment
   - Updated SCIA model integration to handle multiple support types with correct structural constraints
   - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization 
+- **Refactored cache code**: code cleanup
+- **Report template**: Changed the report template to a shorter management summary. 
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added
