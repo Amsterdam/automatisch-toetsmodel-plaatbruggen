@@ -5,46 +5,13 @@ This module contains the core load generation logic extracted from scia_bridge_g
 to eliminate circular imports. It only depends on scia_loads_helper for the actual calculations.
 """
 
-from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Callable
 
-# Type alias to avoid importing from app layer
-BridgeParams = Any
+from .types import BridgeDimensions, BridgeParams, LoadGroup, LoadMode, LoadType
 
 # Type aliases for different function signatures
 TheoreticalTandemFunc = Callable[[BridgeParams, float, float, float, float, float], list[dict[str, Any]]]
 ActualTandemFunc = Callable[[BridgeParams, float, float], list[dict[str, Any]]]
-
-
-class LoadType(Enum):
-    """Enumeration of available load types."""
-
-    TANDEM = "tandem"
-    UDL = "udl"
-
-
-class LoadGroup(Enum):
-    """Enumeration of available load groups for tandem loads."""
-
-    BG8000 = "bg8000"
-    BG9000 = "bg9000"
-    BG10000 = "bg10000"
-
-
-class UDLGroup(Enum):
-    """Enumeration of available UDL load groups."""
-
-    BG4001 = "bg4001"  # Leftmost lanes
-    BG4002 = "bg4002"  # Rightmost lanes
-    BG4003 = "bg4003"  # Center lanes
-
-
-class LoadMode(Enum):
-    """Enumeration of load generation modes."""
-
-    THEORETICAL = "theoretical"
-    ACTUAL = "actual"
 
 
 def _raise_unsupported_mode_error(mode: LoadMode) -> None:
@@ -78,29 +45,6 @@ def get_load_mode_from_params(params: BridgeParams) -> LoadMode:
         return LoadMode.ACTUAL
     # This should never happen with radio button, but fallback for safety
     return LoadMode.THEORETICAL
-
-
-@dataclass(frozen=True)
-class BridgeDimensions:
-    """Bridge dimensions extracted from parametrization."""
-
-    total_length: float
-    total_width: float
-    thickness: float
-    zone1_width: float
-    zone2_width: float
-    zone3_width: float
-    first_segment_thickness: float
-    first_segment_thickness_2: float = 0.0
-
-    @property
-    def zone_widths(self) -> dict[str, float]:
-        """Get zone widths as a dictionary for backward compatibility."""
-        return {
-            "bz1": self.zone1_width,
-            "bz2": self.zone2_width,
-            "bz3": self.zone3_width,
-        }
 
 
 def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensions:

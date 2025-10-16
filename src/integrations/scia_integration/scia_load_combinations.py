@@ -22,7 +22,8 @@ from src.combinations.load_factors import (
     prepare_combination_table,
 )
 
-from .scia_model_interface import SciaCombinationType, SciaLoadCombination, SciaModelBuilder
+from .scia_model_interface import SciaLoadCombination, SciaModelBuilder
+from .types import SciaCombinationType
 
 # Type aliases for SCIA objects
 SciaModel = Any
