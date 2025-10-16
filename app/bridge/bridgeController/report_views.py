@@ -5,11 +5,10 @@ This component provides PDF report generation functionality
 for bridge design documentation.
 """
 
-from viktor.errors import UserError
-from viktor.views import PDFResult, PDFView
-
 from app.bridge.parametrization import BridgeParametrization
 from src.report.report_functions import create_export_report
+from viktor.errors import UserError
+from viktor.views import PDFResult, PDFView
 
 
 class ReportViews:

@@ -120,8 +120,17 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     plate_names = create_bridge_geometry(builder, params)
     strip_definitions = create_strip_definitions(params)
 
-    # 2. Build Line Supports
-    create_all_supports(builder, plate_names)
+    # 2. Extract support types from parameters
+    support_types = None
+    try:
+        # Access support types from the parametrization using the DynamicArray name
+        if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+            support_types = [segment.is_support for segment in params.bridge_segments_array]
+    except AttributeError:
+        pass  # Will use default fallback in create_all_supports
+
+    # 3. Build Line Supports with user-specified support types
+    create_all_supports(builder, plate_names, support_types)
 
     # 3. Build Integration Strips
     create_all_integration_strips(builder, strip_definitions)
