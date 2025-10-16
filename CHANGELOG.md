@@ -1,9 +1,11 @@
 ## [`v0.0.16`] - 2025-XX-XX
 ### Added
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+- **Management summary**: Added basic param values and unity check values to the management summary.
 
 ### Changed
-- **Refactored cache code**: code cleanup 
+- **Refactored cache code**: code cleanup
+- **Report template**: Changed the report template to a shorter management summary. 
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added
