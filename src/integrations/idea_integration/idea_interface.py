@@ -312,8 +312,8 @@ def _create_reinforcement_bars(
         for coords, diameter in zip(bar_locations, bar_diameters):
             slab.create_bar(coords, diameter, mat_reinf)
 
-        # Create additional reinforcement if needed
-        if config.rebar_config.get("heeft_bijlegwapening"):
+        # Create additional reinforcement if needed (using attribute access for Pydantic model)
+        if config.rebar_config.heeft_bijlegwapening:
             _create_additional_reinforcement(slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf)
 
 
