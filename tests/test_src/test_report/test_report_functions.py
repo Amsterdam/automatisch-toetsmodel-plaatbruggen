@@ -75,7 +75,7 @@ class TestCreateExportReport(unittest.TestCase):
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_success(
+    def test_create_export_report_success(  # noqa: PLR0913
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
@@ -125,7 +125,7 @@ class TestCreateExportReport(unittest.TestCase):
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_context_variables(
+    def test_create_export_report_context_variables(  # noqa: PLR0913
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
@@ -180,7 +180,7 @@ class TestCreateExportReport(unittest.TestCase):
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_date_format(
+    def test_create_export_report_date_format(  # noqa: PLR0913
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
@@ -341,7 +341,7 @@ class TestCreateExportReport(unittest.TestCase):
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_pdf_conversion_error(
+    def test_create_export_report_pdf_conversion_error( # noqa: PLR0913
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
@@ -382,7 +382,7 @@ class TestCreateExportReport(unittest.TestCase):
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_file_operations(
+    def test_create_export_report_file_operations( # noqa: PLR0913
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
@@ -436,7 +436,7 @@ class TestCreateExportReport(unittest.TestCase):
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
-    def test_create_export_report_special_characters_in_bridge_id(
+    def test_create_export_report_special_characters_in_bridge_id( # noqa: PLR0913
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
