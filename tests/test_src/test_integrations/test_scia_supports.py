@@ -8,6 +8,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from src.integrations.scia_integration.scia_enums import LineSupportFreedom
 from src.integrations.scia_integration.scia_supports import create_all_supports, create_line_supports
 
 
@@ -29,52 +30,96 @@ class TestCreateLineSupports:
         assert mock_builder.create_line_support_on_plane.call_count == 6
 
         # Check calls for start supports (edge 4 on first 3 plates) with new freedom/stiffness
+        # Support type "Verende oplegging (x,y)" uses FLEXIBLE for x, y with stiffness
         expected_calls_start = [
             call(
                 name="SLB_opleg_as_1:1",
                 plane_name="Z1_1",
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
+                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_1:2",
                 plane_name="Z2_1",
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
+                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_1:3",
                 plane_name="Z3_1",
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
+                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
         ]
 
         # Check calls for end supports (edge 2 on last 3 plates) with new freedom/stiffness
+        # Support type "Verende oplegging (x,y)" uses FLEXIBLE for x, y with stiffness
         expected_calls_end = [
             call(
                 name="SLB_opleg_as_3:1",
                 plane_name="Z1_2",
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
+                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_3:2",
                 plane_name="Z2_2",
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
+                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_3:3",
                 plane_name="Z3_2",
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
+                stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
         ]
 
@@ -99,8 +144,15 @@ class TestCreateLineSupports:
             name="SLB_opleg_as_1:1",
             plane_name="Z1_1",
             edge_index=4,
-            freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
-            stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},  # sliding supports don't need stiffness values
+            freedom={
+                "x": LineSupportFreedom.FLEXIBLE,
+                "y": LineSupportFreedom.FLEXIBLE,
+                "z": LineSupportFreedom.RIGID,
+                "rx": LineSupportFreedom.FREE,
+                "ry": LineSupportFreedom.RIGID,
+                "rz": LineSupportFreedom.RIGID,
+            },
+            stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
         )
 
 

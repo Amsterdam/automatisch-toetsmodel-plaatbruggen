@@ -13,14 +13,22 @@ import pandas as pd
 import pytest
 
 from app.bridge.parametrization import BridgeParametrization
+from src.integrations.scia_integration.scia_enums import LoadCombinationType
 from src.integrations.scia_integration.scia_load_combinations import create_all_load_combinations, create_load_combination
-from src.integrations.scia_integration.scia_model_interface import SciaCombinationType
 
 
 @pytest.fixture
 def mock_builder() -> Mock:
     """Fixture to provide a mocked SciaModelBuilder."""
     return Mock()
+
+
+@pytest.fixture
+def params() -> BridgeParametrization:
+    """Fixture to provide bridge parametrization using seed data."""
+    from tests.test_data.seed_loader import load_bridge_default_params
+
+    return load_bridge_default_params()  # type: ignore[return-value]
 
 
 class TestCreateLoadCombination:
@@ -31,18 +39,18 @@ class TestCreateLoadCombination:
         mock_lc1 = Mock()
         mock_lc2 = Mock()
         factors = {mock_lc1: 1.5, mock_lc2: 1.0}
-        create_load_combination(mock_builder, SciaCombinationType.EN_ULS_SET_B, "TestCombo", factors, "A test combo")
+        create_load_combination(mock_builder, LoadCombinationType.ENVELOPE_ULTIMATE, "TestCombo", factors, "A test combo")
 
         mock_builder.create_load_combination.assert_called_once_with(
             name="TestCombo",
-            combination_type=SciaCombinationType.EN_ULS_SET_B,
+            combination_type=LoadCombinationType.ENVELOPE_ULTIMATE,
             load_case_factors=factors,
             description="A test combo",
         )
 
     def test_create_load_combination_default_description(self, mock_builder: Mock) -> None:
         """Test load combination creation with default description."""
-        create_load_combination(mock_builder, SciaCombinationType.EN_SLS_CHAR, "DefaultDescCombo", {})
+        create_load_combination(mock_builder, LoadCombinationType.ENVELOPE_SERVICEABILITY, "DefaultDescCombo", {})
         mock_builder.create_load_combination.assert_called_once()
         assert mock_builder.create_load_combination.call_args[1]["description"] == "Load combination: DefaultDescCombo"
 
@@ -100,7 +108,7 @@ class TestCreateAllLoadCombinationsPipeline:
 
         # Validate the first ULS call has expected type and includes mapped cases
         first_call_kwargs = mock_builder.create_load_combination.call_args_list[0].kwargs
-        assert first_call_kwargs["combination_type"] == SciaCombinationType.ENVELOPE_ULTIMATE
+        assert first_call_kwargs["combination_type"] == LoadCombinationType.ENVELOPE_ULTIMATE
         uls_factors = first_call_kwargs["load_case_factors"]
         # Permanent -> self_weight + dead_load_cases
         assert uls_factors[lc_sw] == 1.35
@@ -110,7 +118,7 @@ class TestCreateAllLoadCombinationsPipeline:
 
         # SLS and Fatigue should be serviceability envelope
         other_types = [c.kwargs["combination_type"] for c in mock_builder.create_load_combination.call_args_list[1:]]
-        assert all(t == SciaCombinationType.ENVELOPE_SERVICEABILITY for t in other_types)
+        assert all(t == LoadCombinationType.ENVELOPE_SERVICEABILITY for t in other_types)
 
     @patch("src.integrations.scia_integration.scia_load_combinations.get_leading_action_positions")
     @patch("src.integrations.scia_integration.scia_load_combinations.get_project_scope")
