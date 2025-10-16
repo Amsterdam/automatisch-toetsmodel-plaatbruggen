@@ -19,7 +19,7 @@ from src.report.report_functions import create_export_report
 def _create_mock_params(bridge_id: str = "BR-2024-001", bridge_name: str = "Test Bridge") -> Munch:
     """
     Create mock parameters with all required fields for create_export_report.
-    
+
     :param bridge_id: Bridge ID/object number
     :type bridge_id: str
     :param bridge_name: Bridge name
@@ -29,30 +29,38 @@ def _create_mock_params(bridge_id: str = "BR-2024-001", bridge_name: str = "Test
     """
     return Munch(
         {
-            "info": Munch({
-                "bridge_objectnumm": bridge_id,
-                "bridge_name": bridge_name,
-                "construction_year": "2000",
-            }),
+            "info": Munch(
+                {
+                    "bridge_objectnumm": bridge_id,
+                    "bridge_name": bridge_name,
+                    "construction_year": "2000",
+                }
+            ),
             "cc_class": "CC2",
             "design_code": "NEN 8700 gebruik",
             "berekeningsniveau": "Theoretische wegindeling",
             "signage": "50 ton",
             "concrete_strength_class": "C30/37",
-            "input": Munch({
-                "geometrie_wapening": Munch({
-                    "staalsoort": "B500B",
-                }),
-            }),
+            "input": Munch(
+                {
+                    "geometrie_wapening": Munch(
+                        {
+                            "staalsoort": "B500B",
+                        }
+                    ),
+                }
+            ),
             "bridge_segments_array": [
                 Munch({"dz": 0.3, "dz_2": 0.4}),
                 Munch({"dz": 0.3, "dz_2": 0.4}),
             ],
             "load_zones_data_array": [
-                Munch({
-                    "pavement_material": "Asfalt",
-                    "pavement_thickness": 0.05,
-                }),
+                Munch(
+                    {
+                        "pavement_material": "Asfalt",
+                        "pavement_thickness": 0.05,
+                    }
+                ),
             ],
         }
     )
@@ -89,7 +97,7 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -139,7 +147,7 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -200,7 +208,7 @@ class TestCreateExportReport(unittest.TestCase):
         mock_now = MagicMock()
         mock_now.strftime.return_value = "15-03-2024"
         mock_datetime.now.return_value = mock_now
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -280,7 +288,7 @@ class TestCreateExportReport(unittest.TestCase):
         mock_doc = MagicMock()
         mock_doc.render.side_effect = Exception("Template rendering failed")
         mock_docx_template.return_value = mock_doc
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -313,7 +321,7 @@ class TestCreateExportReport(unittest.TestCase):
         mock_doc = MagicMock()
         mock_doc.save.side_effect = OSError("Cannot save document")
         mock_docx_template.return_value = mock_doc
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -354,7 +362,7 @@ class TestCreateExportReport(unittest.TestCase):
         mock_file.from_data.return_value = mock_file_instance
 
         mock_convert_word_to_pdf.side_effect = Exception("PDF conversion failed")
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -400,7 +408,7 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
@@ -450,7 +458,7 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
-        
+
         # Mock the helper functions
         mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
         mock_plate_thickness.return_value = {
