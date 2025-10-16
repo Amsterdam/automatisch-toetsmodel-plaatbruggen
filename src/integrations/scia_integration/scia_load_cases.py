@@ -264,13 +264,13 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     cases = {}
     case_counter = 1
 
-    # Create load cases for RS 1 (top edge) - Forward direction
+    # Create load cases for y_plus (top edge) - Forward direction
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_1_x{pos}_forward"
+        key = f"y_plus_x{pos}_forward"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 1 forward - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y+ forward - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -279,13 +279,13 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         )
         case_counter += 1
 
-    # Create load cases for RS 1 (top edge) - Reverse direction
+    # Create load cases for y_plus (top edge) - Reverse direction
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_1_x{pos}_reverse"
+        key = f"y_plus_x{pos}_reverse"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 1 reverse - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y+ reverse - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -294,13 +294,13 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         )
         case_counter += 1
 
-    # Create load cases for RS 3 (bottom edge) - Forward direction
+    # Create load cases for y_minus (bottom edge) - Forward direction
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_3_x{pos}_forward"
+        key = f"y_minus_x{pos}_forward"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 3 forward - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y- forward - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -309,13 +309,13 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         )
         case_counter += 1
 
-    # Create load cases for RS 3 (bottom edge) - Reverse direction
+    # Create load cases for y_minus (bottom edge) - Reverse direction
     for pos in positions:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_3_x{pos}_reverse"
+        key = f"y_minus_x{pos}_reverse"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 3 reverse - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y- reverse - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -324,13 +324,13 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         )
         case_counter += 1
 
-    # Create load cases for Amsterdam vehicle on RS 1 and RS 3
+    # Create load cases for Amsterdam vehicle on y_plus and y_minus
     for pos in positions_amsterdam:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_1_x{pos}_amsterdam"
+        key = f"y_plus_x{pos}_amsterdam"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 1 Amsterdam - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y+ Amsterdam - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -340,10 +340,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         case_counter += 1
     for pos in positions_amsterdam:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_3_x{pos}_amsterdam"
+        key = f"y_minus_x{pos}_amsterdam"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 3 Amsterdam - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y- Amsterdam - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -352,13 +352,13 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         )
         case_counter += 1
 
-    # Create load cases for Amsterdam vehicle on RS 1 and RS 3 - Rotated
+    # Create load cases for Amsterdam vehicle on y_plus and y_minus - Rotated
     for pos in positions_amsterdam_rotated:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_1_x{pos}_amsterdam_rotated"
+        key = f"y_plus_x{pos}_amsterdam_rotated"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 1 Amsterdam rotated - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y+ Amsterdam rotated - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -369,10 +369,10 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
 
     for pos in positions_amsterdam_rotated:
         case_name = f"BG7{case_counter:03d}"
-        key = f"rs_3_x{pos}_amsterdam_rotated"
+        key = f"y_minus_x{pos}_amsterdam_rotated"
         cases[key] = builder.create_load_case(
             name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - RS 3 Amsterdam rotated - x = {pos:g} m",
+            description=f"Verkeer, onbedoeld voertuig - y- Amsterdam rotated - x = {pos:g} m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,

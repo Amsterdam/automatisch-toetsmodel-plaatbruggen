@@ -175,7 +175,7 @@ class TestStandardLoadCases:
         # Check a bidirectional RS1 forward case
         mock_builder.create_load_case.assert_any_call(
             name="BG7001",
-            description="Verkeer, onbedoeld voertuig - RS 1 forward - x = 2.5 m",
+            description="Verkeer, onbedoeld voertuig - y+ forward - x = 2.5 m",
             group_name="LG7000 - Onbedoeld voertuig",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
