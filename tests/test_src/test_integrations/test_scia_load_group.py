@@ -6,6 +6,11 @@ This module tests the creation of SCIA load group definitions by mocking the Sci
 
 from unittest.mock import Mock
 
+from src.integrations.scia_integration.scia_enums import (
+    LoadGroupLoadType,
+    LoadGroupOption,
+    LoadGroupRelation,
+)
 from src.integrations.scia_integration.scia_load_group import (
     create_accidental_vehicle_group,
     create_all_load_groups,
@@ -30,8 +35,8 @@ class TestLoadGroupCreation:
         create_permanent_load_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG1000 - Permanent",
-            load_option="PERMANENT",
-            relation="STANDARD",
+            load_option=LoadGroupOption.PERMANENT,
+            relation=LoadGroupRelation.STANDARD,
             load_type=None,
         )
 
@@ -41,8 +46,8 @@ class TestLoadGroupCreation:
         create_dead_load_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG2000 - Rustende belasting",
-            load_option="PERMANENT",
-            relation="STANDARD",
+            load_option=LoadGroupOption.PERMANENT,
+            relation=LoadGroupRelation.STANDARD,
             load_type=None,
         )
 
@@ -52,9 +57,9 @@ class TestLoadGroupCreation:
         create_temperature_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG3000 - Temperatuur",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",
-            load_type="TEMPERATURE",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,
+            load_type=LoadGroupLoadType.TEMPERATURE,
         )
 
     def test_create_udl_group(self) -> None:
@@ -63,9 +68,9 @@ class TestLoadGroupCreation:
         create_udl_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG4000 - UDL",
-            load_option="VARIABLE",
-            relation="STANDARD",
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.STANDARD,
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
     def test_create_crowd_load_group(self) -> None:
@@ -74,9 +79,9 @@ class TestLoadGroupCreation:
         create_crowd_load_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG5000 - Mensenmenigte",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
     def test_create_service_vehicle_group(self) -> None:
@@ -85,9 +90,9 @@ class TestLoadGroupCreation:
         create_service_vehicle_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG6000 - Dienstvoertuig",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
     def test_create_accidental_vehicle_group(self) -> None:
@@ -96,9 +101,9 @@ class TestLoadGroupCreation:
         create_accidental_vehicle_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG7000 - Onbedoeld voertuig",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
     def test_create_ts_lane_1_group(self) -> None:
@@ -107,9 +112,9 @@ class TestLoadGroupCreation:
         create_ts_lane_1_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG8000 - TS rijstrook 1",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",  # Tandem loads are mutually exclusive
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,  # Tandem loads are mutually exclusive
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
     def test_create_ts_lane_2_group(self) -> None:
@@ -118,9 +123,9 @@ class TestLoadGroupCreation:
         create_ts_lane_2_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG9000 - TS rijstrook 2",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",  # Tandem loads are mutually exclusive
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,  # Tandem loads are mutually exclusive
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
     def test_create_ts_lane_3_group(self) -> None:
@@ -129,9 +134,9 @@ class TestLoadGroupCreation:
         create_ts_lane_3_group(builder)
         builder.create_load_group.assert_called_once_with(
             name="LG10000 - TS rijstrook 3",
-            load_option="VARIABLE",
-            relation="EXCLUSIVE",  # Tandem loads are mutually exclusive
-            load_type="CONSTRUCTION_LOADS",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.EXCLUSIVE,  # Tandem loads are mutually exclusive
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
         )
 
 
@@ -143,10 +148,10 @@ class TestAllLoadGroups:
         builder = Mock()
         result = create_all_load_groups(builder)
 
-        # Check that the builder was called 10 times
-        assert builder.create_load_group.call_count == 10
-        # Check that the result dictionary has 10 entries
-        assert len(result) == 10
+        # Check that the builder was called 12 times (added tram track groups)
+        assert builder.create_load_group.call_count == 12
+        # Check that the result dictionary has 12 entries
+        assert len(result) == 12
         assert "permanent_self_weight" in result
         assert "ts_lane_3" in result
 
@@ -165,6 +170,8 @@ class TestAllLoadGroups:
             "ts_lane_1",
             "ts_lane_2",
             "ts_lane_3",
+            "ts_tram_track_1",
+            "ts_tram_track_2",
         ]
         assert list(definitions.keys()) == expected_keys
         # Check if returned values are the mock's return values

@@ -113,6 +113,9 @@ def main() -> None:
         else:
             pytest_args.insert(0, "-q")
 
+        # Suppress the pkg_resources deprecation warning from docxcompose
+        pytest_args.extend(["-W", "ignore:pkg_resources is deprecated:UserWarning:docxcompose.properties"])
+
         # Run pytest and exit with its status code
         exit_code = pytest.main(pytest_args)
         sys.exit(exit_code)
@@ -135,6 +138,10 @@ def main() -> None:
                     pytest_args2.insert(0, "-v")
                 else:
                     pytest_args2.insert(0, "-q")
+
+                # Suppress the pkg_resources deprecation warning from docxcompose
+                pytest_args2.extend(["-W", "ignore:pkg_resources is deprecated:UserWarning:docxcompose.properties"])
+
                 sys.exit(pytest.main(pytest_args2))
         except Exception:
             # Fall back to unittest runner below
