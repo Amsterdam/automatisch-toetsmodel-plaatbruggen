@@ -66,9 +66,7 @@ def obtain_plate_thickness(params: object) -> dict:
         dict: Dictionary with the plate thickness.
 
     """
-    materials = get_bridge_deck_zone_materials_and_thickness(params)
-    print(materials)
-    return materials
+    return get_bridge_deck_zone_materials_and_thickness(params)
 
 
 def obtain_loadzone_properties(params: object) -> dict[str, str]:
@@ -87,17 +85,18 @@ def obtain_loadzone_properties(params: object) -> dict[str, str]:
 
     # Create dictionary from the raw load zones data
     pavement_materials: dict[str, str] = {}
-    for zone in load_zones:
-        material = getattr(zone, "pavement_material", None)
-        thickness = getattr(zone, "pavement_thickness", None)
-        if material is not None and thickness is not None:
-            # Format the thickness with 3 decimal places and add "m" unit
-            pavement_materials[material] = f"{float(thickness):.3f} m"
+    if load_zones is not None:
+        for zone in load_zones:
+            material = getattr(zone, "pavement_material", None)
+            thickness = getattr(zone, "pavement_thickness", None)
+            if material is not None and thickness is not None:
+                # Format the thickness with 3 decimal places and add "m" unit
+                pavement_materials[material] = f"{float(thickness):.3f} m"
 
     return pavement_materials
 
 
-def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]:
+def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]: # noqa: C901, PLR0912
     """
     Extract unity check values from IDEA analysis results per check category.
 
@@ -140,7 +139,7 @@ def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, s
         return unity_checks
 
     # Find indices of UC columns in headers
-    uc_column_indices = {
+    uc_column_indices: dict[str, int | None] = {
         "Capaciteit": None,
         "Schuifkracht": None,
         "Torsie": None,
@@ -230,7 +229,10 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
     # Load the template
     doc = DocxTemplate(OUTPUT_REPORT_PATH)  # Create the context dict for the template
     # Get unity check values if IDEA results are provided
-    unity_checks = obtain_idea_unity_checks(cached_idea_results)
+    unity_checks: dict[str, str] = {}
+    if cached_idea_results is not None:
+        unity_checks = obtain_idea_unity_checks(cached_idea_results)
+    
     context = {
         "BRIDGE_NAME": params.info.bridge_name,
         "BRIDGE_ID": params.info.bridge_objectnumm,
