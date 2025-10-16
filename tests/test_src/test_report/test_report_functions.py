@@ -16,9 +16,53 @@ from munch import Munch  # type: ignore[import-untyped]
 from src.report.report_functions import create_export_report
 
 
+def _create_mock_params(bridge_id: str = "BR-2024-001", bridge_name: str = "Test Bridge") -> Munch:
+    """
+    Create mock parameters with all required fields for create_export_report.
+    
+    :param bridge_id: Bridge ID/object number
+    :type bridge_id: str
+    :param bridge_name: Bridge name
+    :type bridge_name: str
+    :returns: Munch object with complete parameter structure
+    :rtype: Munch
+    """
+    return Munch(
+        {
+            "info": Munch({
+                "bridge_objectnumm": bridge_id,
+                "bridge_name": bridge_name,
+                "construction_year": "2000",
+            }),
+            "cc_class": "CC2",
+            "design_code": "NEN 8700 gebruik",
+            "berekeningsniveau": "Theoretische wegindeling",
+            "signage": "50 ton",
+            "concrete_strength_class": "C30/37",
+            "input": Munch({
+                "geometrie_wapening": Munch({
+                    "staalsoort": "B500B",
+                }),
+            }),
+            "bridge_segments_array": [
+                Munch({"dz": 0.3, "dz_2": 0.4}),
+                Munch({"dz": 0.3, "dz_2": 0.4}),
+            ],
+            "load_zones_data_array": [
+                Munch({
+                    "pavement_material": "Asfalt",
+                    "pavement_thickness": 0.05,
+                }),
+            ],
+        }
+    )
+
+
 class TestCreateExportReport(unittest.TestCase):
     """Test cases for create_export_report function."""
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.convert_word_to_pdf")
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
@@ -29,6 +73,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_docx_template: MagicMock,
         mock_file: MagicMock,
         mock_convert_word_to_pdf: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test successful report creation with valid parameters."""
         # Arrange
@@ -43,13 +89,16 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
         # Create test parameters
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-            }
-        )
+        params = _create_mock_params(bridge_id="BR-2024-001")
 
         # Act
         result = create_export_report(params)
@@ -62,6 +111,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_convert_word_to_pdf.assert_called_once()
         assert result == mock_pdf_file
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.convert_word_to_pdf")
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
@@ -72,6 +123,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_docx_template: MagicMock,
         mock_file: MagicMock,
         mock_convert_word_to_pdf: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test that report context contains expected variables."""
         # Arrange
@@ -86,14 +139,17 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
         # Create test parameters
         bridge_id = "BR-2024-TEST"
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": bridge_id}),
-            }
-        )
+        params = _create_mock_params(bridge_id=bridge_id)
 
         # Act
         create_export_report(params)
@@ -109,6 +165,8 @@ class TestCreateExportReport(unittest.TestCase):
         assert len(render_call_args["DATE"]) == 10
         assert render_call_args["DATE"].count("-") == 2
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.datetime")
     @patch("src.report.report_functions.convert_word_to_pdf")
     @patch("src.report.report_functions.File")
@@ -121,6 +179,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_file: MagicMock,
         mock_convert_word_to_pdf: MagicMock,
         mock_datetime: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test that report uses correct date format and timezone."""
         # Arrange
@@ -140,12 +200,15 @@ class TestCreateExportReport(unittest.TestCase):
         mock_now = MagicMock()
         mock_now.strftime.return_value = "15-03-2024"
         mock_datetime.now.return_value = mock_now
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-            }
-        )
+        params = _create_mock_params(bridge_id="BR-2024-001")
 
         # Act
         create_export_report(params)
@@ -198,12 +261,16 @@ class TestCreateExportReport(unittest.TestCase):
         with pytest.raises(OSError, match="Template file not found"):
             create_export_report(params)
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
     def test_create_export_report_template_render_error(
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test handling of template rendering errors."""
         # Arrange
@@ -213,23 +280,30 @@ class TestCreateExportReport(unittest.TestCase):
         mock_doc = MagicMock()
         mock_doc.render.side_effect = Exception("Template rendering failed")
         mock_docx_template.return_value = mock_doc
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-            }
-        )
+        params = _create_mock_params(bridge_id="BR-2024-001")
 
         # Act & Assert
         with pytest.raises(Exception, match="Template rendering failed"):
             create_export_report(params)
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.DocxTemplate")
     @patch("src.report.report_functions.OUTPUT_REPORT_PATH")
     def test_create_export_report_save_error(
         self,
         mock_output_path: MagicMock,
         mock_docx_template: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test handling of document save errors."""
         # Arrange
@@ -239,17 +313,22 @@ class TestCreateExportReport(unittest.TestCase):
         mock_doc = MagicMock()
         mock_doc.save.side_effect = OSError("Cannot save document")
         mock_docx_template.return_value = mock_doc
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-            }
-        )
+        params = _create_mock_params(bridge_id="BR-2024-001")
 
         # Act & Assert
         with pytest.raises(OSError, match="Cannot save document"):
             create_export_report(params)
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.convert_word_to_pdf")
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
@@ -260,6 +339,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_docx_template: MagicMock,
         mock_file: MagicMock,
         mock_convert_word_to_pdf: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test handling of PDF conversion errors."""
         # Arrange
@@ -273,17 +354,22 @@ class TestCreateExportReport(unittest.TestCase):
         mock_file.from_data.return_value = mock_file_instance
 
         mock_convert_word_to_pdf.side_effect = Exception("PDF conversion failed")
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-            }
-        )
+        params = _create_mock_params(bridge_id="BR-2024-001")
 
         # Act & Assert
         with pytest.raises(Exception, match="PDF conversion failed"):
             create_export_report(params)
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.convert_word_to_pdf")
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
@@ -294,6 +380,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_docx_template: MagicMock,
         mock_file: MagicMock,
         mock_convert_word_to_pdf: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test that file operations are performed in correct sequence."""
         # Arrange
@@ -312,12 +400,15 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": "BR-2024-001"}),
-            }
-        )
+        params = _create_mock_params(bridge_id="BR-2024-001")
 
         # Act
         result = create_export_report(params)
@@ -331,6 +422,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_convert_word_to_pdf.assert_called_once_with(mock_binary_io)
         assert result == mock_pdf_file
 
+    @patch("src.report.report_functions.obtain_plate_thickness")
+    @patch("src.report.report_functions.obtain_loadzone_properties")
     @patch("src.report.report_functions.convert_word_to_pdf")
     @patch("src.report.report_functions.File")
     @patch("src.report.report_functions.DocxTemplate")
@@ -341,6 +434,8 @@ class TestCreateExportReport(unittest.TestCase):
         mock_docx_template: MagicMock,
         mock_file: MagicMock,
         mock_convert_word_to_pdf: MagicMock,
+        mock_loadzone_props: MagicMock,
+        mock_plate_thickness: MagicMock,
     ) -> None:
         """Test handling of special characters in bridge ID."""
         # Arrange
@@ -355,14 +450,17 @@ class TestCreateExportReport(unittest.TestCase):
 
         mock_pdf_file = MagicMock()
         mock_convert_word_to_pdf.return_value = mock_pdf_file
+        
+        # Mock the helper functions
+        mock_loadzone_props.return_value = {"Asfalt": "0.050 m"}
+        mock_plate_thickness.return_value = {
+            "zone_1_1": {"thickness_start_d_line": 0.3},
+            "zone_2_1": {"thickness_start_d_line": 0.4},
+        }
 
         # Bridge ID with special characters (note: function documentation warns about <, >, & characters)
         bridge_id_with_special_chars = "BR-2024-001/A"
-        params = Munch(
-            {
-                "info": Munch({"bridge_objectnumm": bridge_id_with_special_chars}),
-            }
-        )
+        params = _create_mock_params(bridge_id=bridge_id_with_special_chars)
 
         # Act
         create_export_report(params)
