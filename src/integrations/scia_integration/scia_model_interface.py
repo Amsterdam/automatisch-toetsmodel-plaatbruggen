@@ -57,6 +57,7 @@ LoadCasePermanentType = PermanentLoadType
 LoadCaseVariableType = VariableLoadType
 FreeLineLoadDirection = LineLoadDirection
 
+
 class SciaModelBuilder(Protocol):
     """
     Interface (Protocol) for a SCIA model builder.
