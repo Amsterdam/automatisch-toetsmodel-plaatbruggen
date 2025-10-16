@@ -822,10 +822,10 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         min=2,
         name="bridge_segments_array",
         default=[
-            _create_default_dimension_segment_row(l_value=0, is_first=True, support_type="Roloplegging"),
+            _create_default_dimension_segment_row(l_value=0, is_first=True, support_type="Verende oplegging (x,y)"),
             _create_default_dimension_segment_row(l_value=25, is_first=False, support_type="Nee"),
             _create_default_dimension_segment_row(l_value=15, is_first=False, support_type="Nee"),
-            _create_default_dimension_segment_row(l_value=10, is_first=False, support_type="Roloplegging"),
+            _create_default_dimension_segment_row(l_value=10, is_first=False, support_type="Verende oplegging (x,y)"),
         ],
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
@@ -850,7 +850,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     input.dimensions.array.is_support = OptionField(
-        "Oplegging", options=["Nee", "Roloplegging", "Inklemming", "Scharnieroplegging"], default="Nee", description="Type oplegging op deze locatie"
+        "Oplegging", options=["Nee", "Verende oplegging (x,y)", "Inklemming"], default="Nee", description="Type oplegging op deze locatie"
     )
 
     input.dimensions.bridge_type_output = OutputField(

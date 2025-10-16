@@ -11,17 +11,7 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, Lin
     :param support_type: The support type string
     :return: Tuple of (freedom dict, stiffness dict)
     """
-    if support_type == "Roloplegging":
-        freedom = {
-            "x": LineSupportFreedom.FREE,
-            "y": LineSupportFreedom.FREE,
-            "z": LineSupportFreedom.RIGID,
-            "rx": LineSupportFreedom.FREE,
-            "ry": LineSupportFreedom.FREE,
-            "rz": LineSupportFreedom.FREE,
-        }
-        stiffness: dict[str, float] = {}  # sliding supports don't need stiffness values
-    elif support_type == "Inklemming":
+    if support_type == "Inklemming":
         freedom = {
             "x": LineSupportFreedom.RIGID,
             "y": LineSupportFreedom.RIGID,
@@ -30,28 +20,17 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, Lin
             "ry": LineSupportFreedom.RIGID,
             "rz": LineSupportFreedom.RIGID,
         }
-        stiffness = {}  # Rigid supports don't need stiffness values
-    elif support_type == "Scharnieroplegging":
+        stiffness: dict[str, float] = {}  # Rigid supports don't need stiffness values
+    else:  # support_type == "Verende oplegging (x,y)":
         freedom = {
-            "x": LineSupportFreedom.RIGID,
-            "y": LineSupportFreedom.RIGID,
+            "x": LineSupportFreedom.FLEXIBLE,
+            "y": LineSupportFreedom.FLEXIBLE,
             "z": LineSupportFreedom.RIGID,
             "rx": LineSupportFreedom.FREE,
-            "ry": LineSupportFreedom.FREE,
-            "rz": LineSupportFreedom.FREE,
-        }
-        stiffness = {}  # Pinned supports don't need stiffness values
-    else:
-        # Default to fixed support for unknown types
-        freedom = {
-            "x": LineSupportFreedom.RIGID,
-            "y": LineSupportFreedom.RIGID,
-            "z": LineSupportFreedom.RIGID,
-            "rx": LineSupportFreedom.RIGID,
             "ry": LineSupportFreedom.RIGID,
             "rz": LineSupportFreedom.RIGID,
         }
-        stiffness = {}
+        stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}
 
     return freedom, stiffness
 
@@ -98,7 +77,7 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str], supp
     :param builder: The SCIA model builder instance.
     :param plate_names: An ordered list of created plate names.
     :param support_types: List of support type strings for each D-point.
-                         Options: "Nee", "Roloplegging", "Inklemming", "Scharnieroplegging".
+                         Options: "Nee", "Verende oplegging (x,y)", "Inklemming".
                          If None, defaults to supports at first and last positions only.
     :return: A list of the created LineSupport objects.
     """
@@ -114,7 +93,7 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str], supp
     # Handle support types
     if support_types is None:
         # Fallback: create supports at first and last positions only (legacy behavior)
-        support_types = ["Roloplegging"] + ["Nee"] * (num_d_points - 2) + (["Roloplegging"] if num_d_points > 1 else [])
+        support_types = ["Verende oplegging (x,y)"] + ["Nee"] * (num_d_points - 2) + (["Verende oplegging (x,y)"] if num_d_points > 1 else [])
 
     # Ensure support_types list matches number of D-points
     while len(support_types) < num_d_points:

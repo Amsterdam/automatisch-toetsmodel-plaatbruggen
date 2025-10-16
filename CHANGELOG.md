@@ -2,7 +2,7 @@
 ### Added
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
 - **Manual Support Selection**: Users can now manually select support types for each D-point location instead of automatic first/last positioning.
-  - Support options: "Nee" (no support), "Roloplegging" (roller), "Inklemming" (fixed), "Scharnieroplegging" (pinned)
+  - Support options: "Nee" (no support), "Verende oplegging (x,y)" (roller), "Inklemming" (fixed), "Scharnieroplegging" (pinned)
   - Supports visualization and SCIA integration for all support types
   - Support annotations in bridge top view update based on user selections
   - Distinct Unicode symbols for each support type: ⧋ (roller), ▲ (fixed), ⧊ (pinned)
