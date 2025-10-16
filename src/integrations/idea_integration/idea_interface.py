@@ -14,14 +14,24 @@ Future enhancements needed:
 
 import contextlib
 from collections import defaultdict
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+# TODO: Remove this app layer import - it violates architecture
+# Currently needed for:
+# 1. create_bridge_idea_model() public API (backward compatibility wrapper)
+# 2. _create_idea_model_with_concrete_and_reinforcement_materials()
+# Future: Refactor these functions to use BridgeIdeaInputData
 from app.bridge.parametrization import BridgeParametrization
 from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
+from src.integrations.idea_integration.idea_data_models import (
+    BridgeGeometryConfig,
+    BridgeIdeaInputData,
+    ReinforcementConfig,
+    ReinforcementZoneConfig,
+)
 from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
@@ -33,42 +43,40 @@ if TYPE_CHECKING:
     from viktor.external.idea_rcs import ConcreteMaterial, Material, Model, OneWaySlab, ReinforcementMaterial
 
 
-@dataclass
-class ReinforcementConfig:
-    """Configuration for reinforcement parameters."""
-
-    main_reinf_ctc_distances: dict[str, float]
-    main_reinf_diameters: dict[str, float]
-    reinf_heights: dict[str, float]
-    extra_reinf_diameter: dict[str, float]
-    extra_reinf_ctc_distances: dict[str, float]
-    has_extra_reinforcement: bool
-    rebar_config: dict
-
-
 def _get_unique_matching_zone_keys(
-    params: BridgeParametrization,
+    input_data: BridgeIdeaInputData,
 ) -> tuple[
     list[tuple[float, str, list[str]]],
     dict[float, list[str]],
     dict[int, list[str]],
 ]:
     """
-    Extract unique matching zone keys from bridge parameters.
+    Extract unique matching zone keys from bridge input data.
 
     This function groups reinforcement zones by their zone number and matches them with
     the corresponding thickness zones extracted from the bridge parameters.
 
-    :param params: BridgeParametrization object containing all bridge input parameters
-    :type params: BridgeParametrization
+    :param input_data: BridgeIdeaInputData object containing all bridge input data
+    :type input_data: BridgeIdeaInputData
     :returns: Tuple containing:
         - List of (thickness, config, zones) tuples for unique matching combinations
         - Dictionary grouping thickness zones by thickness value
         - Dictionary grouping reinforcement zones by configuration number
     :rtype: tuple[list[tuple[float, str, list[str]]], dict[float, list[str]], dict[int, list[str]]]
     """
+
     # --- 1) Build grouped_thickness: thickness -> [zone] (normalized) -----------------
-    nodes_dict, thickness_dict = create_node_and_thickness_dict(params)
+    # Note: create_node_and_thickness_dict still needs BridgeParametrization
+    # This is a temporary workaround - ideally this function should also be refactored
+    # TODO: Refactor create_node_and_thickness_dict to work with bridge_segments data
+    # Create temporary params object for geometry extraction
+    # This is technical debt that should be addressed in future refactoring
+    class TempParams:
+        def __init__(self, segments: list) -> None:
+            self.bridge_segments_array = segments
+
+    temp_params = TempParams(input_data.bridge_segments)
+    nodes_dict, thickness_dict = create_node_and_thickness_dict(temp_params)  # type: ignore[arg-type]
     grouped_thickness: dict[float, list[str]] = {}
     for zone_key, thickness in thickness_dict.items():
         # original zone format Z1_1 -> normalized "1-1"
@@ -77,8 +85,8 @@ def _get_unique_matching_zone_keys(
 
     # --- 2) Build grouped_rebar_configs: config_idx -> [zone] (as given) --------------
     grouped_rebar_configs: dict[int, list[str]] = {}
-    for i, rebar_config in enumerate(params.reinforcement_zones_array, start=1):
-        zones = rebar_config.get("zone_number") or []
+    for i, rebar_config in enumerate(input_data.reinforcement_zones, start=1):
+        zones = rebar_config.zone_number or []
         # ensure strings and trim whitespace; keep original semantics
         grouped_rebar_configs[i] = [str(z).strip() for z in zones]
 
@@ -144,43 +152,43 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
 
 
 def _get_rebar_config(
-    rebar_config: dict, params: BridgeParametrization, slab_thickness: float
+    rebar_config: ReinforcementZoneConfig, geometry_config: BridgeGeometryConfig, slab_thickness: float
 ) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
-    """Get reinforcement configuration based on the provided viktor parameters."""
+    """Get reinforcement configuration based on the provided bridge data."""
     # reinforcement cover (dekking) is the distance from the concrete surface to the reinforcement
-    top_reinf_cover = params.input.geometrie_wapening.dekking_boven
-    bottom_reinf_cover = params.input.geometrie_wapening.dekking_onder
+    top_reinf_cover = geometry_config.dekking_boven
+    bottom_reinf_cover = geometry_config.dekking_onder
 
     # Get needed reinforcement data in mm
     main_reinf_diameters = {
-        "top_langs": rebar_config.get("hoofdwapening_langs_boven_diameter", 0.0),
-        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_diameter", 0.0),
-        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_diameter", 0.0),
-        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_diameter", 0.0),
+        "top_langs": rebar_config.hoofdwapening_langs_boven_diameter,
+        "top_dwars": rebar_config.hoofdwapening_dwars_boven_diameter,
+        "bottom_langs": rebar_config.hoofdwapening_langs_onder_diameter,
+        "bottom_dwars": rebar_config.hoofdwapening_dwars_onder_diameter,
     }
 
     # Get center to center distances in mm
     main_reinf_ctc_distances = {
-        "top_langs": rebar_config.get("hoofdwapening_langs_boven_hart_op_hart", 0.0),
-        "top_dwars": rebar_config.get("hoofdwapening_dwars_boven_hart_op_hart", 0.0),
-        "bottom_langs": rebar_config.get("hoofdwapening_langs_onder_hart_op_hart", 0.0),
-        "bottom_dwars": rebar_config.get("hoofdwapening_dwars_onder_hart_op_hart", 0.0),
+        "top_langs": rebar_config.hoofdwapening_langs_boven_hart_op_hart,
+        "top_dwars": rebar_config.hoofdwapening_dwars_boven_hart_op_hart,
+        "bottom_langs": rebar_config.hoofdwapening_langs_onder_hart_op_hart,
+        "bottom_dwars": rebar_config.hoofdwapening_dwars_onder_hart_op_hart,
     }
 
     # check if additional reinforcement is used and set the diameters and distances accordingly
     # those values are mm!
-    if rebar_config.get("heeft_bijlegwapening"):
+    if rebar_config.heeft_bijlegwapening:
         extra_reinf_diameter = {
-            "top_langs": rebar_config.get("bijlegwapening_langs_boven_diameter", 0.0),
-            "top_dwars": rebar_config.get("bijlegwapening_dwars_boven_diameter", 0.0),
-            "bottom_langs": rebar_config.get("bijlegwapening_langs_onder_diameter", 0.0),
-            "bottom_dwars": rebar_config.get("bijlegwapening_dwars_onder_diameter", 0.0),
+            "top_langs": rebar_config.bijlegwapening_langs_boven_diameter,
+            "top_dwars": rebar_config.bijlegwapening_dwars_boven_diameter,
+            "bottom_langs": rebar_config.bijlegwapening_langs_onder_diameter,
+            "bottom_dwars": rebar_config.bijlegwapening_dwars_onder_diameter,
         }
         extra_reinf_ctc_distances = {
-            "top_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
-            "top_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
-            "bottom_langs": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
-            "bottom_dwars": rebar_config.get("bijlegwapening_boven_hart_op_hart", 0.0),
+            "top_langs": rebar_config.bijlegwapening_boven_hart_op_hart,
+            "top_dwars": rebar_config.bijlegwapening_boven_hart_op_hart,
+            "bottom_langs": rebar_config.bijlegwapening_boven_hart_op_hart,
+            "bottom_dwars": rebar_config.bijlegwapening_boven_hart_op_hart,
         }
     else:
         # If no additional reinforcement is used, set diameters and distances to zero
@@ -201,16 +209,16 @@ def _get_rebar_config(
     # This is needed to ensure that we use the maximum diameter for each direction to calculate cover and reinforcement heights
     max_reinf_diameters = {
         "top_langs": max(main_reinf_diameters["top_langs"], extra_reinf_diameter["top_langs"])
-        if rebar_config.get("heeft_bijlegwapening")
+        if rebar_config.heeft_bijlegwapening
         else main_reinf_diameters["top_langs"],
         "top_dwars": max(main_reinf_diameters["top_dwars"], extra_reinf_diameter["top_dwars"])
-        if rebar_config.get("heeft_bijlegwapening")
+        if rebar_config.heeft_bijlegwapening
         else main_reinf_diameters["top_dwars"],
         "bottom_langs": max(main_reinf_diameters["bottom_langs"], extra_reinf_diameter["bottom_langs"])
-        if rebar_config.get("heeft_bijlegwapening")
+        if rebar_config.heeft_bijlegwapening
         else main_reinf_diameters["bottom_langs"],
         "bottom_dwars": max(main_reinf_diameters["bottom_dwars"], extra_reinf_diameter["bottom_dwars"])
-        if rebar_config.get("heeft_bijlegwapening")
+        if rebar_config.heeft_bijlegwapening
         else main_reinf_diameters["bottom_dwars"],
     }
 
@@ -221,7 +229,7 @@ def _get_rebar_config(
     reinf_heights = {}
     thickness_mm = slab_thickness * 1000  # Convert thickness from m to mm
     # check if diameter main > extra to determine cover and reinforcement heights
-    if params.input.geometrie_wapening.langswapening_buiten:
+    if geometry_config.langswapening_buiten:
         # If langswapening_buiten is True, we assume the reinforcement in "langswapening" is placed as first layer
         reinf_heights["top_langs"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] / 2
         reinf_heights["top_dwars"] = thickness_mm / 2 - top_reinf_cover - max_reinf_diameters["top_langs"] - max_reinf_diameters["top_dwars"] / 2
@@ -361,12 +369,12 @@ def _create_additional_reinforcement(
         slab.create_bar(coords, diameter, mat_reinf)
 
 
-def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Model", cs_mat: "Material", mat_reinf: "Material") -> dict[str, dict]:
+def _create_slabs_with_reinforcement(input_data: BridgeIdeaInputData, model: "Model", cs_mat: "Material", mat_reinf: "Material") -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
 
-    :param params: Bridge parametrization
-    :type params: BridgeParametrization
+    :param input_data: Bridge input data
+    :type input_data: BridgeIdeaInputData
     :param model: IDEA model
     :type model: Model
     :param cs_mat: Concrete material
@@ -377,7 +385,7 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
     :rtype: dict[str, dict]
     """
     # Get unique matching zone keys based on thickness and reinforcement configuration
-    unique_matching_zone_keys, _, _ = _get_unique_matching_zone_keys(params)
+    unique_matching_zone_keys, _, _ = _get_unique_matching_zone_keys(input_data)
 
     # Create a empty dict to store already created slabs to avoid duplicates
     created_slabs = {}
@@ -392,9 +400,9 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
 
         # Get reinforcement configuration
         config_idx = int(config) - 1
-        rebar_config = params.reinforcement_zones_array[config_idx]
+        rebar_config = input_data.reinforcement_zones[config_idx]
         main_reinf_ctc_distances, main_reinf_diameters, reinf_heights, extra_reinf_diameter, extra_reinf_ctc_distances = _get_rebar_config(
-            rebar_config, params, slab_thickness
+            rebar_config, input_data.geometry_config, slab_thickness
         )
 
         # Create reinforcement configuration object
@@ -404,8 +412,8 @@ def _create_slabs_with_reinforcement(params: BridgeParametrization, model: "Mode
             reinf_heights=reinf_heights,
             extra_reinf_diameter=extra_reinf_diameter,
             extra_reinf_ctc_distances=extra_reinf_ctc_distances,
-            has_extra_reinforcement=rebar_config.get("heeft_bijlegwapening", False),
-            rebar_config=rebar_config,
+            has_extra_reinforcement=rebar_config.heeft_bijlegwapening,
+            rebar_config=rebar_config,  # type: ignore[arg-type]
         )
 
         # Create slab for each rebar direction
@@ -750,6 +758,9 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 
+    This is a backward-compatible wrapper that extracts data from BridgeParametrization
+    and delegates to the refactored implementation.
+
     :param params: BridgeParametrization object containing all bridge input parameters
     :type params: BridgeParametrization
     :param entity_id: Entity ID for caching (used if scia_results_dict is None)
@@ -761,6 +772,20 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     :raises ValueError: If parameters are invalid
     :raises ImportError: If VIKTOR IDEA module is not available
     """
+    # Extract input data from params (data extraction layer)
+    from src.integrations.idea_integration.idea_data_models import extract_bridge_idea_input_data
+
+    input_data = extract_bridge_idea_input_data(params)
+    input_data = BridgeIdeaInputData(
+        entity_id=entity_id,
+        bridge_name=input_data.bridge_name,
+        concrete_strength_class=input_data.concrete_strength_class,
+        steel_quality=input_data.steel_quality,
+        reinforcement_zones=input_data.reinforcement_zones,
+        bridge_segments=input_data.bridge_segments,
+        geometry_config=input_data.geometry_config,
+    )
+
     # Get SCIA results - either passed in or fetch from cache
     if scia_results_dict is None:
         # Import here to avoid circular imports only when needed
@@ -772,7 +797,7 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     model, cs_mat, mat_reinf = _create_idea_model_with_concrete_and_reinforcement_materials(params)
 
     # Create slabs with reinforcement
-    created_slabs = _create_slabs_with_reinforcement(params, model, cs_mat, mat_reinf)
+    created_slabs = _create_slabs_with_reinforcement(input_data, model, cs_mat, mat_reinf)
 
     # Process SCIA node results for idea input
     df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
