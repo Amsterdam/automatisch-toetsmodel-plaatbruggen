@@ -124,8 +124,14 @@ class TestApplyLoadsToSlabs:
             mock_idea_rcs.LoadingULS = MagicMock(return_value=mock_loading_uls)
             mock_idea_rcs.ResultOfInternalForces = MagicMock(return_value=mock_internal_forces)
 
-            # Execute the function
-            _apply_node_loads_to_slabs(sample_created_slabs, sample_scia_dataframe)
+            # Execute the function with mock builder
+            mock_builder = MagicMock()
+            mock_builder.create_result_of_internal_forces = MagicMock(return_value=mock_internal_forces)
+            mock_builder.create_loading_sls = MagicMock(return_value=mock_loading_sls)
+            mock_builder.create_loading_uls = MagicMock(return_value=mock_loading_uls)
+            mock_builder.create_extreme_on_slab = MagicMock()
+
+            _apply_node_loads_to_slabs(sample_created_slabs, sample_scia_dataframe, mock_builder)
 
             # Verify that create_extreme was called on both slabs for each matching zone
             # CS_d0.2_1: zones ["1-1", "1-2"] → 2 zones × 2 directions = 4 calls per slab type
@@ -149,8 +155,9 @@ class TestApplyLoadsToSlabs:
         }
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
-            # Execute the function
-            _apply_node_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe)
+            # Execute the function with mock builder
+            mock_builder = MagicMock()
+            _apply_node_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe, mock_builder)
 
             # Verify no create_extreme calls were made
             slab_langs = created_slabs_empty_zones["CS_d0.2_1"]["slab_langs"]
@@ -171,8 +178,9 @@ class TestApplyLoadsToSlabs:
         }
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
-            # Execute the function - should not raise an error
-            _apply_node_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe)
+            # Execute the function - should not raise an error with mock builder
+            mock_builder = MagicMock()
+            _apply_node_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe, mock_builder)
 
             # Verify only slab_langs was called
             slab_langs = created_slabs_missing_direction["CS_d0.2_1"]["slab_langs"]
@@ -191,8 +199,9 @@ class TestApplyLoadsToSlabs:
         }
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
-            # Execute the function
-            _apply_node_loads_to_slabs(created_slabs_nonexistent_zones, sample_scia_dataframe)
+            # Execute the function with mock builder
+            mock_builder = MagicMock()
+            _apply_node_loads_to_slabs(created_slabs_nonexistent_zones, sample_scia_dataframe, mock_builder)
 
             # Verify no create_extreme calls were made
             assert mock_slab.create_extreme.call_count == 0
@@ -209,8 +218,9 @@ class TestApplyLoadsToSlabs:
         }
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
-            # Execute the function
-            _apply_node_loads_to_slabs(created_slabs_none_zones, sample_scia_dataframe)
+            # Execute the function with mock builder
+            mock_builder = MagicMock()
+            _apply_node_loads_to_slabs(created_slabs_none_zones, sample_scia_dataframe, mock_builder)
 
             # Verify no create_extreme calls were made
             assert mock_slab.create_extreme.call_count == 0
@@ -241,8 +251,14 @@ class TestApplyLoadsToSlabs:
             mock_idea_rcs.LoadingULS = MagicMock(return_value=mock_loading_uls)
             mock_idea_rcs.ResultOfInternalForces = MagicMock(return_value=mock_internal_forces)
 
-            # Execute the function
-            _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe)
+            # Execute the function with mock builder
+            mock_builder = MagicMock()
+            mock_builder.create_result_of_internal_forces = MagicMock(return_value=mock_internal_forces)
+            mock_builder.create_loading_sls = MagicMock(return_value=mock_loading_sls)
+            mock_builder.create_loading_uls = MagicMock(return_value=mock_loading_uls)
+            mock_builder.create_extreme_on_slab = MagicMock()
+
+            _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe, mock_builder)
 
             # Check that ResultOfInternalForces was called with correct parameters
             # For 'langs' direction: uses y-axis forces and My moments
@@ -307,8 +323,9 @@ class TestApplyLoadsToSlabs:
         }
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
-            # Execute the function - should handle missing columns gracefully
-            _apply_node_loads_to_slabs(created_slabs, incomplete_dataframe)
+            # Execute the function - should handle missing columns gracefully with mock builder
+            mock_builder = MagicMock()
+            _apply_node_loads_to_slabs(created_slabs, incomplete_dataframe, mock_builder)
 
             # Function should still execute but with default values (0) for missing columns
             assert mock_slab.create_extreme.call_count == 2  # One per direction
@@ -328,8 +345,9 @@ class TestApplyLoadsToSlabs:
         }
 
         with patch("src.integrations.idea_integration.idea_interface.idea_rcs"):
-            # Execute the function
-            _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe)
+            # Execute the function with mock builder
+            mock_builder = MagicMock()
+            _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe, mock_builder)
 
             # Check that create_extreme was called with proper description formatting
             calls = mock_slab_langs.create_extreme.call_args_list
@@ -356,14 +374,13 @@ class TestApplyLoadsToSlabs:
             }
         }
 
-        with patch("src.integrations.idea_integration.idea_interface.idea_rcs"), pytest.raises(KeyError, match="name"):
-            # The function should handle empty dataframes gracefully
-            # When the dataframe is empty, df_all["name"].isin(zones) will raise KeyError
-            # because there's no "name" column in an empty dataframe
+        mock_builder = MagicMock()
 
-            # This test verifies that the function doesn't crash when given empty data
-            # but currently the function doesn't handle this case, so we expect a KeyError
-            _apply_node_loads_to_slabs(created_slabs, empty_dataframe)
+        # The function should handle empty dataframes gracefully
+        # When the dataframe is empty, df_all["name"].isin(zones) will raise KeyError
+        # because there's no "name" column in an empty dataframe
+        with patch("src.integrations.idea_integration.idea_interface.idea_rcs"), pytest.raises(KeyError, match="name"):
+            _apply_node_loads_to_slabs(created_slabs, empty_dataframe, mock_builder)
 
 
 if __name__ == "__main__":

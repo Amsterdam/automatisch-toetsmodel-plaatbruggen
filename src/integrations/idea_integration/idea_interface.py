@@ -18,12 +18,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-# TODO: Remove this app layer import - it violates architecture
-# Currently needed for:
-# 1. create_bridge_idea_model() public API (backward compatibility wrapper)
-# 2. _create_idea_model_with_concrete_and_reinforcement_materials()
-# Future: Refactor these functions to use BridgeIdeaInputData
-from app.bridge.parametrization import BridgeParametrization
 from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_integration.idea_data_models import (
@@ -253,7 +247,7 @@ def _get_rebar_config(
 
 def _create_idea_model_with_concrete_and_reinforcement_materials(
     input_data: BridgeIdeaInputData,
-    builder: Any,  # IdeaModelBuilder - using Any to avoid circular import
+    builder: Any,  # IdeaModelBuilder - using Any to avoid circular import  # noqa: ANN401
 ) -> tuple[Any, Any, Any]:  # Returns (IdeaModel, IdeaConcreteMaterial, IdeaReinforcementMaterial)
     """
     Create IDEA model with concrete and reinforcement materials using the builder pattern.
@@ -368,10 +362,10 @@ def _create_additional_reinforcement(
 
 def _create_slabs_with_reinforcement(
     input_data: BridgeIdeaInputData,
-    model: Any,  # IdeaModel
-    cs_mat: Any,  # IdeaConcreteMaterial
-    mat_reinf: Any,  # IdeaReinforcementMaterial
-    builder: Any,  # IdeaModelBuilder
+    model: Any,  # IdeaModel  # noqa: ANN401
+    cs_mat: Any,  # IdeaConcreteMaterial  # noqa: ANN401
+    mat_reinf: Any,  # IdeaReinforcementMaterial  # noqa: ANN401
+    builder: Any,  # IdeaModelBuilder  # noqa: ANN401
 ) -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
@@ -793,15 +787,17 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
                 builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":
+def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":  # noqa: ANN401
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 
     This is a backward-compatible wrapper that extracts data from BridgeParametrization
     and delegates to the refactored implementation.
 
+    Note: params type is Any to avoid circular import with app layer.
+
     :param params: BridgeParametrization object containing all bridge input parameters
-    :type params: BridgeParametrization
+    :type params: Any
     :param entity_id: Entity ID for caching (used if scia_results_dict is None)
     :type entity_id: int
     :param scia_results_dict: Pre-computed SCIA results, if None will fetch from cache
@@ -811,7 +807,7 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
     :raises ValueError: If parameters are invalid
     :raises ImportError: If VIKTOR IDEA module is not available
     """
-    # Extract input data from params (data extraction layer)
+    # Import here to avoid circular import
     from src.integrations.idea_integration.idea_data_models import extract_bridge_idea_input_data
 
     input_data = extract_bridge_idea_input_data(params)
