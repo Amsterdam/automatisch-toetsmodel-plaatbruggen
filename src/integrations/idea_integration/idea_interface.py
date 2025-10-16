@@ -36,11 +36,13 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
-from viktor.external import idea_rcs
 
+# SDK import only for TYPE_CHECKING and analysis execution
+# Note: run_idea_analysis() still uses direct SDK for analysis execution
+# This is acceptable as analysis execution is separate from model building
 if TYPE_CHECKING:
     from viktor.core import File
-    from viktor.external.idea_rcs import ConcreteMaterial, Material, Model, OneWaySlab, ReinforcementMaterial
+    from viktor.external.idea_rcs import Model, OneWaySlab, ReinforcementMaterial
 
 
 def _get_unique_matching_zone_keys(
@@ -250,43 +252,38 @@ def _get_rebar_config(
 
 
 def _create_idea_model_with_concrete_and_reinforcement_materials(
-    params: BridgeParametrization,
-) -> tuple["Model", "ConcreteMaterial", "ReinforcementMaterial"]:
+    input_data: BridgeIdeaInputData,
+    builder: Any,  # IdeaModelBuilder - using Any to avoid circular import
+) -> tuple[Any, Any, Any]:  # Returns (IdeaModel, IdeaConcreteMaterial, IdeaReinforcementMaterial)
     """
-    Create IDEA model with concrete and reinforcement materials from bridge parameters.
+    Create IDEA model with concrete and reinforcement materials using the builder pattern.
 
     Supports both modern Eurocode materials and historical materials from CSV data.
 
-    :param params: Bridge parametrization
-    :type params: BridgeParametrization
+    :param input_data: Bridge input data extracted from parametrization
+    :type input_data: BridgeIdeaInputData
+    :param builder: IDEA model builder instance
+    :type builder: IdeaModelBuilder
     :returns: Tuple of (model, concrete_material, reinforcement_material)
-    :rtype: tuple[Model, ConcreteMaterial, ReinforcementMaterial]
+    :rtype: tuple[Any, Any, Any]
     """
-    # Prepare the IDEA model with project information
-    project_data = idea_rcs.ProjectData(
-        name=f"IDEA Model for {getattr(params.info, 'bridge_objectnumm', None) or 'Unnamed Project'}",
+    # Prepare the IDEA model with project information using builder
+    project_data = builder.create_project_data(
+        name=f"IDEA Model for {input_data.bridge_name}",
         description="Generated model from VIKTOR",
         author="Ctrl+b",
         national_annex="Dutch",
     )
 
-    # Create the IDEA model with project information
-    model = idea_rcs.Model(project_data=project_data)
+    # Create the IDEA model with project information using builder
+    model = builder.create_model(project_data)
 
-    # Create concrete material using parameter from user input
-    # Get concrete strength class - use the name attribute to access it directly on params
-    concrete_strength_value = getattr(params, "concrete_strength_class", "")
+    # Create concrete material using builder and material helper functions
+    # The helper functions handle both modern and historical materials
+    cs_mat = create_concrete_material_for_idea(model, input_data.concrete_strength_class)
 
-    # Use C30/37 as default if field is None, empty string, or whitespace only
-    concrete_quality = concrete_strength_value.strip() if concrete_strength_value else "C30/37"
-    if not concrete_quality:  # Handle case where strip() results in empty string
-        concrete_quality = "C30/37"
-
-    cs_mat = create_concrete_material_for_idea(model, concrete_quality)
-
-    # Create reinforcement material using parameter from user input
-    steel_quality = getattr(params.input.geometrie_wapening, "staalsoort", None) or "B500B"  # Default fallback
-    mat_reinf = create_reinforcement_material_for_idea(model, steel_quality)
+    # Create reinforcement material using builder and material helper functions
+    mat_reinf = create_reinforcement_material_for_idea(model, input_data.steel_quality)
 
     return model, cs_mat, mat_reinf
 
@@ -369,18 +366,26 @@ def _create_additional_reinforcement(
         slab.create_bar(coords, diameter, mat_reinf)
 
 
-def _create_slabs_with_reinforcement(input_data: BridgeIdeaInputData, model: "Model", cs_mat: "Material", mat_reinf: "Material") -> dict[str, dict]:
+def _create_slabs_with_reinforcement(
+    input_data: BridgeIdeaInputData,
+    model: Any,  # IdeaModel
+    cs_mat: Any,  # IdeaConcreteMaterial
+    mat_reinf: Any,  # IdeaReinforcementMaterial
+    builder: Any,  # IdeaModelBuilder
+) -> dict[str, dict]:
     """
     Create slabs with reinforcement for all unique thickness and reinforcement configurations.
 
     :param input_data: Bridge input data
     :type input_data: BridgeIdeaInputData
     :param model: IDEA model
-    :type model: Model
+    :type model: Any
     :param cs_mat: Concrete material
-    :type cs_mat: ConcreteMaterial
+    :type cs_mat: Any
     :param mat_reinf: Reinforcement material
-    :type mat_reinf: ReinforcementMaterial
+    :type mat_reinf: Any
+    :param builder: IDEA model builder instance
+    :type builder: Any
     :returns: Dictionary of created slabs
     :rtype: dict[str, dict]
     """
@@ -418,12 +423,12 @@ def _create_slabs_with_reinforcement(input_data: BridgeIdeaInputData, model: "Mo
 
         # Create slab for each rebar direction
         for direction in ["langs", "dwars"]:
-            # Create rectangular cross-section for the slab
+            # Create rectangular cross-section for the slab using builder
             # cs_dwars should be paired with rebar_langs and vice versa so we use opposite_direction here
             opposite_direction = "dwars" if direction == "langs" else "langs"
-            cs = idea_rcs.RectSection(1.0, slab_thickness)
-            slab = model.create_one_way_slab(
-                cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
+            cs = builder.create_rect_section(1.0, slab_thickness)
+            slab = builder.create_one_way_slab(
+                model, cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
             )
             created_slabs[slab_key][f"slab_{opposite_direction}"] = slab
 
@@ -549,12 +554,16 @@ def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: di
     return df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
 
 
-def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
+def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401
     """
     Apply load cases from SCIA integration strip results to each slab.
 
     :param created_slabs: Dictionary of created slabs with zones and slab objects
+    :type created_slabs: dict[str, dict]
     :param df_all: Merged dataframe with all load cases and strip data
+    :type df_all: pd.DataFrame
+    :param builder: IDEA model builder instance
+    :type builder: Any
     """
     if df_all.empty:
         return
@@ -577,7 +586,7 @@ def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_a
             slab = slab_data.get(f"slab_{direction}")
 
             if slab is not None:
-                _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction)
+                _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction, builder)
 
 
 def _extract_zone_name_from_strip(strip_name: str) -> str:
@@ -614,31 +623,58 @@ def _find_matching_strips(df_all: pd.DataFrame, zones: list[str]) -> list:
     return matching_strips
 
 
-def _create_idea_loading_objects(row: pd.Series, moment_component: str) -> tuple:
-    """Create IDEA RCS loading objects from strip result row."""
-    char = idea_rcs.LoadingSLS(
-        idea_rcs.ResultOfInternalForces(
-            Qz=row.get("SLS_kar_v_z_max", 0),
-            My=row.get(f"SLS_kar_{moment_component}", 0),
-        )
+def _create_idea_loading_objects(row: pd.Series, moment_component: str, builder: Any) -> tuple:  # noqa: ANN401
+    """
+    Create IDEA RCS loading objects from strip result row using builder pattern.
+
+    :param row: DataFrame row with load results
+    :type row: pd.Series
+    :param moment_component: Moment component name (e.g., "m_y")
+    :type moment_component: str
+    :param builder: IDEA model builder instance
+    :type builder: Any
+    :returns: Tuple of (characteristic, frequent, fundamental) loadings
+    :rtype: tuple
+    """
+    # Create characteristic SLS loading
+    internal_forces_char = builder.create_result_of_internal_forces(
+        Qz=row.get("SLS_kar_v_z_max", 0),
+        My=row.get(f"SLS_kar_{moment_component}", 0),
     )
-    freq = idea_rcs.LoadingSLS(
-        idea_rcs.ResultOfInternalForces(
-            Qz=row.get("SLS_freq_v_z_max", 0),
-            My=row.get(f"SLS_freq_{moment_component}", 0),
-        )
+    char = builder.create_loading_sls(internal_forces_char)
+
+    # Create frequent SLS loading
+    internal_forces_freq = builder.create_result_of_internal_forces(
+        Qz=row.get("SLS_freq_v_z_max", 0),
+        My=row.get(f"SLS_freq_{moment_component}", 0),
     )
-    fund = idea_rcs.LoadingULS(
-        idea_rcs.ResultOfInternalForces(
-            Qz=row.get("ULS_v_z_max", 0),
-            My=row.get(f"ULS_{moment_component}", 0),
-        )
+    freq = builder.create_loading_sls(internal_forces_freq)
+
+    # Create fundamental ULS loading
+    internal_forces_fund = builder.create_result_of_internal_forces(
+        Qz=row.get("ULS_v_z_max", 0),
+        My=row.get(f"ULS_{moment_component}", 0),
     )
+    fund = builder.create_loading_uls(internal_forces_fund)
+
     return char, freq, fund
 
 
-def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_prefix: str, direction: str) -> None:  # noqa: ANN401
-    """Apply strip loads to a slab in a specific direction."""
+def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_prefix: str, direction: str, builder: Any) -> None:  # noqa: ANN401
+    """
+    Apply strip loads to a slab in a specific direction.
+
+    :param slab: Slab object to apply loads to
+    :type slab: Any
+    :param matching_strips: List of strip results
+    :type matching_strips: list
+    :param desc_prefix: Description prefix for load cases
+    :type desc_prefix: str
+    :param direction: Direction ("langs" or "dwars")
+    :type direction: str
+    :param builder: IDEA model builder instance
+    :type builder: Any
+    """
     # For integration strips: always use v_z_max as shear (Qz)
     # For moments, determine component based on the strip's direction vector:
     # - if direction vector is (1, 0, 0) or (-1, 0, 0) use m_y_max for langs, m_x_max for dwars
@@ -675,23 +711,27 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
             )
             raise ValueError(msg)
 
-        # Create loading objects
-        char, freq, fund = _create_idea_loading_objects(row, moment_component)
+        # Create loading objects using builder
+        char, freq, fund = _create_idea_loading_objects(row, moment_component, builder)
 
         zone_name = _extract_zone_name_from_strip(strip_name)
         dx_value = row.get("dx", 0)
         description = f"{desc_prefix} - {zone_name} - {strip_name} - dx={dx_value:.3f}"
 
         with contextlib.suppress(Exception):
-            slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
+            builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame) -> None:
+def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401
     """
-    Apply load cases from SCIA results to each slab.
+    Apply load cases from SCIA node results to each slab using builder pattern.
 
     :param created_slabs: Dictionary of created slabs with zones and slab objects
+    :type created_slabs: dict[str, dict]
     :param df_all: Merged dataframe with all load cases
+    :type df_all: pd.DataFrame
+    :param builder: IDEA model builder instance
+    :type builder: Any
     """
     # For langs cs link IDEA vz to scia vy and IDEA My to scia My
     # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
@@ -727,31 +767,30 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
             axis = cfg["axis"]  # "x" or "y"
 
             for _, row in df_slab.iterrows():
-                # Build internal forces with dynamic moment component (vx/y and Mx/My)
-                char = idea_rcs.LoadingSLS(
-                    idea_rcs.ResultOfInternalForces(
-                        Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                        My=row.get(f"SLS_kar_M{axis}", 0),
-                    )
+                # Build internal forces with dynamic moment component (vx/y and Mx/My) using builder
+                internal_forces_char = builder.create_result_of_internal_forces(
+                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
+                    My=row.get(f"SLS_kar_M{axis}", 0),
                 )
-                freq = idea_rcs.LoadingSLS(
-                    idea_rcs.ResultOfInternalForces(
-                        Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                        My=row.get(f"SLS_freq_M{axis}", 0),
-                    )
+                char = builder.create_loading_sls(internal_forces_char)
+
+                internal_forces_freq = builder.create_result_of_internal_forces(
+                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
+                    My=row.get(f"SLS_freq_M{axis}", 0),
                 )
-                fund = idea_rcs.LoadingULS(
-                    idea_rcs.ResultOfInternalForces(
-                        Qz=row.get(f"ULS_v_{axis}_max", 0),
-                        My=row.get(f"ULS_M{axis}", 0),
-                    )
+                freq = builder.create_loading_sls(internal_forces_freq)
+
+                internal_forces_fund = builder.create_result_of_internal_forces(
+                    Qz=row.get(f"ULS_v_{axis}_max", 0),
+                    My=row.get(f"ULS_M{axis}", 0),
                 )
+                fund = builder.create_loading_uls(internal_forces_fund)
 
                 name = row.get("name", "Unknown")
                 coords_str = _format_coords(row.get("coords_xyz"))
                 description = f"{desc_prefix} - {name} - node_{coords_str}"
 
-                slab.create_extreme(description=description, characteristic=char, frequent=freq, fundamental=fund)
+                builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
 def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":
@@ -786,6 +825,11 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
         geometry_config=input_data.geometry_config,
     )
 
+    # Create builder instance (app layer dependency - acceptable at entry point)
+    from app.bridge.idea_model_builder import ViktorIdeaModelBuilder
+
+    builder = ViktorIdeaModelBuilder()
+
     # Get SCIA results - either passed in or fetch from cache
     if scia_results_dict is None:
         # Import here to avoid circular imports only when needed
@@ -793,21 +837,21 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
 
         scia_results_dict = get_scia_results_for_idea(params, entity_id=entity_id)
 
-    # Create IDEA model with materials
-    model, cs_mat, mat_reinf = _create_idea_model_with_concrete_and_reinforcement_materials(params)
+    # Create IDEA model with materials using builder
+    model, cs_mat, mat_reinf = _create_idea_model_with_concrete_and_reinforcement_materials(input_data, builder)
 
-    # Create slabs with reinforcement
-    created_slabs = _create_slabs_with_reinforcement(input_data, model, cs_mat, mat_reinf)
+    # Create slabs with reinforcement using builder
+    created_slabs = _create_slabs_with_reinforcement(input_data, model, cs_mat, mat_reinf, builder)
 
     # Process SCIA node results for idea input
     df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
-    # Apply node loads to slabs
-    _apply_node_loads_to_slabs(created_slabs, df_node_all)
+    # Apply node loads to slabs using builder
+    _apply_node_loads_to_slabs(created_slabs, df_node_all, builder)
 
     # Process SCIA integration strip results for idea input
     df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
-    # Apply integration strip loads to slabs
-    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all)
+    # Apply integration strip loads to slabs using builder
+    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all, builder)
 
     return model
 
@@ -815,6 +859,10 @@ def create_bridge_idea_model(params: BridgeParametrization, entity_id: int, scia
 def run_idea_analysis(model: "Model", timeout: int = 300) -> "File":
     """
     Run IDEA StatiCa analysis on the provided model.
+
+    Note: This function uses direct SDK import for analysis execution, which is acceptable
+    as analysis execution is separate from model building. The src layer is SDK-independent
+    for model building, but analysis execution requires the VIKTOR SDK.
 
     :param model: IDEA RCS model object
     :type model: Model
@@ -825,6 +873,9 @@ def run_idea_analysis(model: "Model", timeout: int = 300) -> "File":
     :raises ImportError: If VIKTOR IDEA module is not available
     :raises RuntimeError: If analysis execution fails
     """
+    # Direct SDK import for analysis execution (acceptable technical debt)
+    from viktor.external import idea_rcs
+
     # Generate XML input for analysis
     xml_input = model.generate_xml_input()
 
