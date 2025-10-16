@@ -569,10 +569,10 @@ def create_tram_track_tandem_load_cases(
             group_name=group_name,
             case_name=case_name,
             description=description,
-            case_type="VARIABLE",
-            variable_type="STATIC",
-            specification="STANDARD",
-            duration="SHORT",
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
         )
     return cases
 

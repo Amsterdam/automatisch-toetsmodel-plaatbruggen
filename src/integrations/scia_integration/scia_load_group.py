@@ -172,9 +172,9 @@ def create_tram_track_1_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG11000 - TS tramspoor 1",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LoadGroupOption.VARIABLE,
+        relation=LoadGroupRelation.EXCLUSIVE,
+        load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
     )
 
 
@@ -187,9 +187,9 @@ def create_tram_track_2_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
     return builder.create_load_group(
         name="LG12000 - TS tramspoor 2",
-        load_option="VARIABLE",
-        relation="EXCLUSIVE",
-        load_type="CONSTRUCTION_LOADS",
+        load_option=LoadGroupOption.VARIABLE,
+        relation=LoadGroupRelation.EXCLUSIVE,
+        load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
     )
 
 
