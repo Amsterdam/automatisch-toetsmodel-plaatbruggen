@@ -12,17 +12,45 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, Lin
     :return: Tuple of (freedom dict, stiffness dict)
     """
     if support_type == "Roloplegging":
-        freedom = {"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE}
+        freedom = {
+            "x": LineSupportFreedom.FREE,
+            "y": LineSupportFreedom.FREE,
+            "z": LineSupportFreedom.RIGID,
+            "rx": LineSupportFreedom.FREE,
+            "ry": LineSupportFreedom.FREE,
+            "rz": LineSupportFreedom.FREE,
+        }
         stiffness: dict[str, float] = {}  # sliding supports don't need stiffness values
     elif support_type == "Inklemming":
-        freedom = {"x": LineSupportFreedom.RIGID, "y": LineSupportFreedom.RIGID, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.RIGID, "ry": LineSupportFreedom.RIGID, "rz": LineSupportFreedom.RIGID}
+        freedom = {
+            "x": LineSupportFreedom.RIGID,
+            "y": LineSupportFreedom.RIGID,
+            "z": LineSupportFreedom.RIGID,
+            "rx": LineSupportFreedom.RIGID,
+            "ry": LineSupportFreedom.RIGID,
+            "rz": LineSupportFreedom.RIGID,
+        }
         stiffness = {}  # Rigid supports don't need stiffness values
     elif support_type == "Scharnieroplegging":
-        freedom = {"x": LineSupportFreedom.RIGID, "y": LineSupportFreedom.RIGID, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE}
+        freedom = {
+            "x": LineSupportFreedom.RIGID,
+            "y": LineSupportFreedom.RIGID,
+            "z": LineSupportFreedom.RIGID,
+            "rx": LineSupportFreedom.FREE,
+            "ry": LineSupportFreedom.FREE,
+            "rz": LineSupportFreedom.FREE,
+        }
         stiffness = {}  # Pinned supports don't need stiffness values
     else:
         # Default to fixed support for unknown types
-        freedom = {"x": LineSupportFreedom.RIGID, "y": LineSupportFreedom.RIGID, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.RIGID, "ry": LineSupportFreedom.RIGID, "rz": LineSupportFreedom.RIGID}
+        freedom = {
+            "x": LineSupportFreedom.RIGID,
+            "y": LineSupportFreedom.RIGID,
+            "z": LineSupportFreedom.RIGID,
+            "rx": LineSupportFreedom.RIGID,
+            "ry": LineSupportFreedom.RIGID,
+            "rz": LineSupportFreedom.RIGID,
+        }
         stiffness = {}
 
     return freedom, stiffness

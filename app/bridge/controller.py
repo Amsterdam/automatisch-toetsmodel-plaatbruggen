@@ -17,8 +17,6 @@ Note: VIKTOR's introspection doesn't follow Python's MRO, so all view and downlo
 from components are explicitly referenced as class attributes at the bottom of the class.
 """
 
-from viktor.core import ViktorController
-
 from app.bridge.bridgeController.controller_utils import ControllerUtils
 from app.bridge.bridgeController.geometry_views import GeometryViews
 from app.bridge.bridgeController.idea_integration import IdeaIntegration
@@ -26,6 +24,7 @@ from app.bridge.bridgeController.info_views import InfoViews
 from app.bridge.bridgeController.report_views import ReportViews
 from app.bridge.bridgeController.scia_integration import SciaIntegration
 from app.bridge.parametrization import BridgeParametrization
+from viktor.core import ViktorController
 
 
 class BridgeController(
