@@ -307,6 +307,7 @@ class TestCreateAllLoadCases:
             "service_vehicle_cases",
             "unintended_vehicle_cases",
             "tandem_cases",
+            "tram_track_tandem_cases",
         ]
         assert list(cases.keys()) == expected_keys
 
