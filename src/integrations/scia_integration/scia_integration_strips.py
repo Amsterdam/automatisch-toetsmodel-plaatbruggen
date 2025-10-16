@@ -1,31 +1,16 @@
 """Module for defining integration strips in SCIA."""
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from src.common.constants.technical import EDGE_OFFSET, INTEGRATION_STRIP_WIDTH
 
 from .scia_loads_helper import obtain_y_coordinates_road
 from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
+from .types import BridgeParametrization, SegmentGeometry
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
     pass
-
-BridgeParametrization = Any  # Replace with actual BridgeParametrization type if available
-
-
-@dataclass
-class SegmentGeometry:
-    """Class to hold segment geometry data for easier access."""
-
-    index: int  # 1-based index of the segment
-    x_start: float  # Start x-coordinate
-    x_end: float  # End x-coordinate
-    top_y: float  # Top y-coordinate (z1_left)
-    mid_upper_y: float  # Middle upper y-coordinate (z1_right/z2_left)
-    mid_lower_y: float  # Middle lower y-coordinate (z2_right/z3_left)
-    bottom_y: float  # Bottom y-coordinate (z3_right)
 
 
 def determine_zone_index(y_coord: float, geom: SegmentGeometry) -> int:

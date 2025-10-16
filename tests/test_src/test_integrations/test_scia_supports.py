@@ -8,6 +8,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from src.integrations.scia_integration.scia_enums import LineSupportFreedom
 from src.integrations.scia_integration.scia_supports import create_all_supports, create_line_supports
 
 
@@ -29,51 +30,53 @@ class TestCreateLineSupports:
         assert mock_builder.create_line_support_on_plane.call_count == 6
 
         # Check calls for start supports (edge 4 on first 3 plates) with new freedom/stiffness
+        # Support type "Roloplegging" uses FREE for x, y and rotations, RIGID for z
         expected_calls_start = [
             call(
                 name="SLB_opleg_as_1:1",
                 plane_name="Z1_1",
                 edge_index=4,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+                freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
                 stiffness={},
             ),
             call(
                 name="SLB_opleg_as_1:2",
                 plane_name="Z2_1",
                 edge_index=4,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+                freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
                 stiffness={},
             ),
             call(
                 name="SLB_opleg_as_1:3",
                 plane_name="Z3_1",
                 edge_index=4,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+                freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
                 stiffness={},
             ),
         ]
 
         # Check calls for end supports (edge 2 on last 3 plates) with new freedom/stiffness
+        # Support type "Roloplegging" uses FREE for x, y and rotations, RIGID for z
         expected_calls_end = [
             call(
                 name="SLB_opleg_as_3:1",
                 plane_name="Z1_2",
                 edge_index=2,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+                freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
                 stiffness={},
             ),
             call(
                 name="SLB_opleg_as_3:2",
                 plane_name="Z2_2",
                 edge_index=2,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+                freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
                 stiffness={},
             ),
             call(
                 name="SLB_opleg_as_3:3",
                 plane_name="Z3_2",
                 edge_index=2,
-                freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+                freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
                 stiffness={},
             ),
         ]
@@ -99,7 +102,7 @@ class TestCreateLineSupports:
             name="SLB_opleg_as_1:1",
             plane_name="Z1_1",
             edge_index=4,
-            freedom={"x": "FREE", "y": "FREE", "z": "RIGID", "rx": "FREE", "ry": "FREE", "rz": "FREE"},
+            freedom={"x": LineSupportFreedom.FREE, "y": LineSupportFreedom.FREE, "z": LineSupportFreedom.RIGID, "rx": LineSupportFreedom.FREE, "ry": LineSupportFreedom.FREE, "rz": LineSupportFreedom.FREE},
             stiffness={},
         )
 

@@ -5,11 +5,29 @@ This module defines a formal interface (Protocol) for building a SCIA model.
 This allows the `src` layer to define the logic for constructing a bridge model,
 while the `app` layer provides the concrete implementation using the VIKTOR SDK.
 This approach decouples the core logic from the specific SDK implementation.
+
+.. note::
+    This Protocol uses enum bridge types that wrap SDK enums when available,
+    or fall back to string enums for testing. This provides type safety while
+    maintaining independence from the SDK.
 """
 
-from enum import Enum
 from io import BytesIO
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
+
+from .scia_enums import (
+    LineLoadDirection,
+    LineSupportFreedom,
+    LoadCaseActionType,
+    LoadCaseDuration,
+    LoadCaseSpecification,
+    LoadCombinationType,
+    LoadGroupLoadType,
+    LoadGroupOption,
+    LoadGroupRelation,
+    PermanentLoadType,
+    VariableLoadType,
+)
 
 # Type aliases for opaque SCIA objects that the builder implementation will handle.
 # The src layer treats these as abstract types.
@@ -33,22 +51,11 @@ SciaIntegrationStrip = Any
 # Type aliases for file objects
 SciaFile = BytesIO | bytes
 
-
-class SciaCombinationType(Enum):
-    """Enumeration for SCIA Load Combination types, aligned with the VIKTOR SDK."""
-
-    ENVELOPE_ULTIMATE = "ENVELOPE_ULTIMATE"
-    ENVELOPE_SERVICEABILITY = "ENVELOPE_SERVICEABILITY"
-    LINEAR_ULTIMATE = "LINEAR_ULTIMATE"
-    LINEAR_SERVICEABILITY = "LINEAR_SERVICEABILITY"
-    EN_ULS_SET_B = "EN_ULS_SET_B"
-    EN_ULS_SET_C = "EN_ULS_SET_C"
-    EN_SLS_CHAR = "EN_SLS_CHAR"
-    EN_SLS_FREQ = "EN_SLS_FREQ"
-    EN_SLS_QUASI = "EN_SLS_QUASI"
-    EN_ACC_ONE = "EN_ACC_ONE"
-    EN_ACC_TWO = "EN_ACC_TWO"
-    EN_SEISMIC = "EN_SEISMIC"
+# Backward compatibility: Keep old type alias names
+SciaCombinationType = LoadCombinationType
+LoadCasePermanentType = PermanentLoadType
+LoadCaseVariableType = VariableLoadType
+FreeLineLoadDirection = LineLoadDirection
 
 
 class SciaModelBuilder(Protocol):
@@ -81,28 +88,18 @@ class SciaModelBuilder(Protocol):
     def create_load_group(
         self,
         name: str,
-        load_option: Literal["PERMANENT", "VARIABLE", "ACCIDENTAL", "SEISMIC"],
-        relation: Literal["STANDARD", "EXCLUSIVE", "TOGETHER"],
-        load_type: (
-            Literal[
-                "CAT_A",
-                "CAT_B",
-                "CAT_C",
-                "CAT_D",
-                "CAT_E",
-                "CAT_F",
-                "CAT_G",
-                "CAT_H",
-                "WIND",
-                "SNOW",
-                "TEMPERATURE",
-                "RAIN_WATER",
-                "CONSTRUCTION_LOADS",
-            ]
-            | None
-        ),
+        load_option: LoadGroupOption,
+        relation: LoadGroupRelation,
+        load_type: LoadGroupLoadType | None,
     ) -> SciaLoadGroup:
-        """Creates a load group in the SCIA model."""
+        """
+        Creates a load group in the SCIA model.
+
+        :param name: Name of the load group
+        :param load_option: Load option enum (PERMANENT, VARIABLE, ACCIDENTAL, SEISMIC)
+        :param relation: Relation enum (STANDARD, EXCLUSIVE, TOGETHER)
+        :param load_type: Optional load type enum
+        """
         ...
 
     def create_load_case(  # noqa: PLR0913
@@ -110,13 +107,24 @@ class SciaModelBuilder(Protocol):
         name: str,
         description: str,
         group_name: str,
-        case_type: Literal["PERMANENT", "VARIABLE"],
-        permanent_type: Literal["SELF_WEIGHT", "STANDARD", "PRIMARY_EFFECT"] | None = None,
-        variable_type: Literal["STATIC", "PRIMARY_EFFECT"] | None = None,
-        specification: Literal["STANDARD", "STATIC_WIND", "SNOW", "TEMPERATURE", "EARTHQUAKE"] | None = None,
-        duration: Literal["INSTANTANEOUS", "SHORT", "MEDIUM", "LONG"] | None = None,
+        case_type: LoadCaseActionType,
+        permanent_type: PermanentLoadType | None = None,
+        variable_type: VariableLoadType | None = None,
+        specification: LoadCaseSpecification | None = None,
+        duration: LoadCaseDuration | None = None,
     ) -> SciaLoadCase:
-        """Creates a load case in the SCIA model."""
+        """
+        Creates a load case in the SCIA model.
+
+        :param name: Name of the load case
+        :param description: Description of the load case
+        :param group_name: Name of the load group
+        :param case_type: Action type enum (PERMANENT or VARIABLE)
+        :param permanent_type: Permanent load type enum (if permanent)
+        :param variable_type: Variable load type enum (if variable)
+        :param specification: Specification enum (if variable)
+        :param duration: Duration enum (if variable)
+        """
         ...
 
     def create_surface_load(
@@ -147,19 +155,35 @@ class SciaModelBuilder(Protocol):
         point_1: tuple[float, float],
         point_2: tuple[float, float],
         load_value: float,
-        direction: Literal["X", "Y", "Z"] = "Z",
+        direction: LineLoadDirection = LineLoadDirection.Z,  # type: ignore[assignment]
     ) -> SciaFreeLineLoad:
-        """Creates a uniform free line load between two XY points."""
+        """
+        Creates a uniform free line load between two XY points.
+
+        :param name: Name of the line load
+        :param load_case_name: Name of the load case
+        :param point_1: First point (x, y)
+        :param point_2: Second point (x, y)
+        :param load_value: Load value
+        :param direction: Direction enum (X, Y, or Z)
+        """
         ...
 
     def create_load_combination(
         self,
         name: str,
-        combination_type: SciaCombinationType,
+        combination_type: LoadCombinationType,
         load_case_factors: dict[SciaLoadCase, float],
         description: str,
     ) -> SciaLoadCombination:
-        """Creates a load combination in the SCIA model."""
+        """
+        Creates a load combination in the SCIA model.
+
+        :param name: Name of the load combination
+        :param combination_type: Combination type enum
+        :param load_case_factors: Dictionary mapping load cases to factors
+        :param description: Description of the combination
+        """
         ...
 
     def create_result_class(
@@ -176,10 +200,18 @@ class SciaModelBuilder(Protocol):
         name: str,
         plane_name: str,
         edge_index: int,
-        freedom: dict[str, str],
+        freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
     ) -> SciaLineSupport:
-        """Creates a line support on a plane edge in the SCIA model."""
+        """
+        Creates a line support on a plane edge in the SCIA model.
+
+        :param name: Name of the line support
+        :param plane_name: Name of the plane
+        :param edge_index: Edge index on the plane
+        :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz
+        :param stiffness: Dictionary with stiffness values
+        """
         ...
 
     def create_integration_strip(
