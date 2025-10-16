@@ -827,6 +827,18 @@ class TestUniformlyDistributedLoads:
         """Test obtaining y-coordinates for road section in basic case."""
         from src.integrations.scia_integration.scia_loads_helper import obtain_y_coordinates_road
 
+        # Setup mock bridge segments array for extract_bridge_dimensions
+        mock_segment = Mock()
+        mock_segment.breedte_dek = 10.0
+        mock_segment.dikte_dek = 0.5
+        mock_segment.l = 25.0  # segment length
+        mock_segment.bz1 = 3.0  # zone 1 width
+        mock_segment.bz2 = 4.0  # zone 2 width
+        mock_segment.bz3 = 3.0  # zone 3 width
+        mock_segment.dz = 0.5  # deck thickness
+        mock_params.bridge_segments_array = [mock_segment, mock_segment]
+        mock_params.load_zones_data_array = []
+
         # Setup mock bridge geometry data
         mock_bridge_geom_data = Mock()
         mock_bridge_geom.return_value = mock_bridge_geom_data
@@ -849,7 +861,7 @@ class TestUniformlyDistributedLoads:
 
         # Verify results
         assert y_coord == 6.5, "Y-coordinate should match the top of Auto zone"
-        assert width == 10.5, "Width should match d1_width of Auto zone"
+        assert width == 10.0, "Width should match total bridge width (bz1+bz2+bz3 = 3+4+3)"
 
         # Verify mocks were called correctly
         mock_load_zones.assert_called_once_with(mock_params)
@@ -859,6 +871,18 @@ class TestUniformlyDistributedLoads:
     def test_obtain_y_coordinates_road_edge_cases(self, mock_params: Mock) -> None:
         """Test obtaining y-coordinates for road section in edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import obtain_y_coordinates_road
+
+        # Setup mock bridge segments array for extract_bridge_dimensions
+        mock_segment = Mock()
+        mock_segment.breedte_dek = 10.0
+        mock_segment.dikte_dek = 0.5
+        mock_segment.l = 25.0  # segment length
+        mock_segment.bz1 = 3.0  # zone 1 width
+        mock_segment.bz2 = 4.0  # zone 2 width
+        mock_segment.bz3 = 3.0  # zone 3 width
+        mock_segment.dz = 0.5  # deck thickness
+        mock_params.bridge_segments_array = [mock_segment, mock_segment]
+        mock_params.load_zones_data_array = []
 
         with patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data") as mock_bridge_geom:
             # Test case: No bridge geometry data
@@ -904,7 +928,7 @@ class TestUniformlyDistributedLoads:
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
             assert y_coord == 5.0, "Should return correct y-coordinate"
-            assert width == 3.5, "Should return correct width"
+            assert width == 10.0, "Should return total bridge width (from bridge_segments_array)"
 
     def test_generate_real_lane_positions_bg8000(self, mock_params: Mock) -> None:
         """Test generation of lane positions for BG8000 load group."""
