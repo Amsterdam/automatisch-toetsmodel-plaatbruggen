@@ -2061,7 +2061,27 @@ class BridgeController(ViktorController):
             File: A PDF file containing the report.
 
         """
-        report_pdf = create_export_report(params)  # Call the report generation function
+        # Validate reinforcement zone selections before processing
+        validate_reinforcement_zone_selections(params)
+
+        # Validate bridge segments
+        if not hasattr(params, "bridge_segments_array") or not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        # Get entity ID
+        entity_id = kwargs.get("entity_id")
+        if entity_id is None:
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        # Get cached results
+        progress_message("Laden van gecachte IDEA RCS analyse of starten nieuwe analyse...")
+        cached_results = get_cached_analysis_results(params, AnalysisType.IDEA, entity_id, get_idea_analysis_results)
+        if cached_results is None:
+            raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
+
+        # Process results using core logic
+        result = IdeaResultsProcessor.process_idea_results(cached_results)
+        report_pdf = create_export_report(params, result)  # Call the report generation function
         if not report_pdf:
             raise UserError("Rapport kon niet worden gegenereerd. Controleer de parameters en probeer het opnieuw.")
         return PDFResult(file=report_pdf)

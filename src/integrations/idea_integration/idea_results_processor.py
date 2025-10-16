@@ -13,10 +13,26 @@ class IdeaResultsProcessor:
         """
         Get standard IDEA table column headers.
 
-        :returns: List of column headers for IDEA results table
+        :returns: List of column headers for IDEA results table including CheckValue columns
         :rtype: list[str]
         """
-        return ["Sectie", "Capaciteit", "Schuifkracht", "Torsie", "Interactie", "Scheurwijdte", "Detailing", "Spanningslimieten"]
+        return [
+            "Sectie",
+            "Capaciteit",
+            "UC Capaciteit",
+            "Schuifkracht",
+            "UC Schuifkracht",
+            "Torsie",
+            "UC Torsie",
+            "Interactie",
+            "UC Interactie",
+            "Scheurwijdte",
+            "UC Scheurwijdte",
+            "Detailing",
+            "UC Detailing",
+            "Spanningslimieten",
+            "UC Spanningslimieten",
+        ]
 
     @staticmethod
     def create_error_row(error_msg: str) -> list[str]:
@@ -28,7 +44,7 @@ class IdeaResultsProcessor:
         :returns: Table row with error message and empty cells
         :rtype: list[str]
         """
-        return ["Analyse gefaald", error_msg, "", "", "", "", "", ""]
+        return ["Analyse gefaald", error_msg, "", "", "", "", "", "", "", "", "", "", "", "", ""]
 
     @staticmethod
     def create_processing_error_row(error_msg: str) -> list[str]:
@@ -40,43 +56,53 @@ class IdeaResultsProcessor:
         :returns: Table row with processing error message and empty cells
         :rtype: list[str]
         """
-        return ["Fout bij verwerking", f"Kon IDEA resultaten niet verwerken: {error_msg}", "", "", "", "", "", ""]
+        return ["Fout bij verwerking", f"Kon IDEA resultaten niet verwerken: {error_msg}", "", "", "", "", "", "", "", "", "", "", "", "", ""]
 
     @staticmethod
-    def safe_get_result(section_data: dict[str, Any], key: str) -> str:
+    def safe_get_result(section_data: dict[str, Any], key: str) -> tuple[str, str]:
         """
-        Safely extract result values from pre-parsed data.
+        Safely extract result and check values from pre-parsed data.
 
         :param section_data: Section data dictionary
         :type section_data: dict[str, Any]
         :param key: Key to extract from section data
         :type key: str
-        :returns: Result value or "N/A" if not found
-        :rtype: str
+        :returns: Tuple of (Result value, CheckValue) or ("N/A", "N/A") if not found
+        :rtype: tuple[str, str]
         """
         value = section_data.get(key)
         if value is None:
-            return "N/A"
+            return ("N/A", "N/A")
         if isinstance(value, dict):
-            return value.get("Result", "N/A")
-        return str(value)
+            result = value.get("Result", "N/A")
+            check_value = value.get("CheckValue", "N/A")
+            # Format CheckValue if it's a number
+            if isinstance(check_value, (int, float)):
+                check_value = f"{check_value:.2f}"
+            return (str(result), str(check_value))
+        return (str(value), "N/A")
 
     @staticmethod
-    def safe_extract_result(result_list: list[dict[str, Any]] | None) -> str:
+    def safe_extract_result(result_list: list[dict[str, Any]] | None) -> tuple[str, str]:
         """
-        Safely extract result values from parser output.
+        Safely extract result and check values from parser output.
 
         :param result_list: List of result dictionaries from parser
         :type result_list: list[dict[str, Any]] | None
-        :returns: Result value or "N/A" if not found
-        :rtype: str
+        :returns: Tuple of (Result value, CheckValue) or ("N/A", "N/A") if not found
+        :rtype: tuple[str, str]
         """
         if not result_list or len(result_list) == 0:
-            return "N/A"
+            return ("N/A", "N/A")
         result_dict = result_list[0]
         if result_dict is None or not isinstance(result_dict, dict):
-            return "N/A"
-        return result_dict.get("Result", "N/A")
+            return ("N/A", "N/A")
+        result = result_dict.get("Result", "N/A")
+        check_value = result_dict.get("CheckValue", "N/A")
+        # Format CheckValue if it's a number
+        if isinstance(check_value, (int, float)):
+            check_value = f"{check_value:.3f}"
+        return (str(result), str(check_value))
 
     @staticmethod
     def process_preparsed_results(section_results: list[dict[str, Any]]) -> list[list[str]]:
@@ -85,22 +111,37 @@ class IdeaResultsProcessor:
 
         :param section_results: List of pre-parsed section results
         :type section_results: list[dict[str, Any]]
-        :returns: List of table rows with processed data
+        :returns: List of table rows with processed data including CheckValue columns
         :rtype: list[list[str]]
         """
-        return [
-            [
+        table_data = []
+        for section_data in section_results:
+            capacity_result, capacity_check = IdeaResultsProcessor.safe_get_result(section_data, "capacity")
+            shear_result, shear_check = IdeaResultsProcessor.safe_get_result(section_data, "shear")
+            torsion_result, torsion_check = IdeaResultsProcessor.safe_get_result(section_data, "torsion")
+            interaction_result, interaction_check = IdeaResultsProcessor.safe_get_result(section_data, "interaction")
+            crack_width_result, crack_width_check = IdeaResultsProcessor.safe_get_result(section_data, "crack_width")
+            detailing_result, detailing_check = IdeaResultsProcessor.safe_get_result(section_data, "detailing")
+            stress_limitation_result, stress_limitation_check = IdeaResultsProcessor.safe_get_result(section_data, "stress_limitation")
+
+            table_data.append([
                 section_data.get("id", "Onbekend"),
-                IdeaResultsProcessor.safe_get_result(section_data, "capacity"),
-                IdeaResultsProcessor.safe_get_result(section_data, "shear"),
-                IdeaResultsProcessor.safe_get_result(section_data, "torsion"),
-                IdeaResultsProcessor.safe_get_result(section_data, "interaction"),
-                IdeaResultsProcessor.safe_get_result(section_data, "crack_width"),
-                IdeaResultsProcessor.safe_get_result(section_data, "detailing"),
-                IdeaResultsProcessor.safe_get_result(section_data, "stress_limitation"),
-            ]
-            for section_data in section_results
-        ]
+                capacity_result,
+                capacity_check,
+                shear_result,
+                shear_check,
+                torsion_result,
+                torsion_check,
+                interaction_result,
+                interaction_check,
+                crack_width_result,
+                crack_width_check,
+                detailing_result,
+                detailing_check,
+                stress_limitation_result,
+                stress_limitation_check,
+            ])
+        return table_data
 
     @staticmethod
     def process_raw_results(output_content: str | bytes) -> list[list[str]]:
@@ -109,7 +150,7 @@ class IdeaResultsProcessor:
 
         :param output_content: Raw output content from IDEA analysis
         :type output_content: str | bytes
-        :returns: List of table rows with processed data
+        :returns: List of table rows with processed data including CheckValue columns
         :rtype: list[list[str]]
         :raises ValueError: If output content is missing or invalid format
         """
@@ -132,19 +173,34 @@ class IdeaResultsProcessor:
         output_file_obj = BytesIO(output_content)
         parser = idea_rcs.RcsOutputFileParser(output_file_obj)
 
-        return [
-            [
+        table_data = []
+        for section in parser.section_results():
+            capacity_result, capacity_check = IdeaResultsProcessor.safe_extract_result(section.capacity())
+            shear_result, shear_check = IdeaResultsProcessor.safe_extract_result(section.shear())
+            torsion_result, torsion_check = IdeaResultsProcessor.safe_extract_result(section.torsion())
+            interaction_result, interaction_check = IdeaResultsProcessor.safe_extract_result(section.interaction())
+            crack_width_result, crack_width_check = IdeaResultsProcessor.safe_extract_result(section.crack_width())
+            detailing_result, detailing_check = IdeaResultsProcessor.safe_extract_result(section.detailing())
+            stress_limitation_result, stress_limitation_check = IdeaResultsProcessor.safe_extract_result(section.stress_limitation())
+
+            table_data.append([
                 section.id_ if hasattr(section, "id_") else "Onbekend",
-                IdeaResultsProcessor.safe_extract_result(section.capacity()),
-                IdeaResultsProcessor.safe_extract_result(section.shear()),
-                IdeaResultsProcessor.safe_extract_result(section.torsion()),
-                IdeaResultsProcessor.safe_extract_result(section.interaction()),
-                IdeaResultsProcessor.safe_extract_result(section.crack_width()),
-                IdeaResultsProcessor.safe_extract_result(section.detailing()),
-                IdeaResultsProcessor.safe_extract_result(section.stress_limitation()),
-            ]
-            for section in parser.section_results()
-        ]
+                capacity_result,
+                capacity_check,
+                shear_result,
+                shear_check,
+                torsion_result,
+                torsion_check,
+                interaction_result,
+                interaction_check,
+                crack_width_result,
+                crack_width_check,
+                detailing_result,
+                detailing_check,
+                stress_limitation_result,
+                stress_limitation_check,
+            ])
+        return table_data
 
     @staticmethod
     def process_idea_results(cached_results: dict[str, Any]) -> dict[str, Any]:
