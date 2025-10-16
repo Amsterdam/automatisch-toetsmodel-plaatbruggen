@@ -8,6 +8,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from src.integrations.scia_integration.scia_enums import LineSupportFreedom
 from src.integrations.scia_integration.scia_supports import create_all_supports, create_line_supports
 
 
@@ -34,21 +35,42 @@ class TestCreateLineSupports:
                 name="SLB_opleg_as_1:1",
                 plane_name="Z1_1",
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_1:2",
                 plane_name="Z2_1",
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_1:3",
                 plane_name="Z3_1",
                 edge_index=4,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
         ]
@@ -59,21 +81,42 @@ class TestCreateLineSupports:
                 name="SLB_opleg_as_3:1",
                 plane_name="Z1_2",
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_3:2",
                 plane_name="Z2_2",
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
             call(
                 name="SLB_opleg_as_3:3",
                 plane_name="Z3_2",
                 edge_index=2,
-                freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+                freedom={
+                    "x": LineSupportFreedom.FLEXIBLE,
+                    "y": LineSupportFreedom.FLEXIBLE,
+                    "z": LineSupportFreedom.RIGID,
+                    "rx": LineSupportFreedom.FREE,
+                    "ry": LineSupportFreedom.RIGID,
+                    "rz": LineSupportFreedom.RIGID,
+                },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
             ),
         ]
@@ -98,7 +141,14 @@ class TestCreateLineSupports:
             name="SLB_opleg_as_1:1",
             plane_name="Z1_1",
             edge_index=4,
-            freedom={"x": "FLEXIBLE", "y": "FLEXIBLE", "z": "RIGID", "rx": "FREE", "ry": "RIGID", "rz": "RIGID"},
+            freedom={
+                "x": LineSupportFreedom.FLEXIBLE,
+                "y": LineSupportFreedom.FLEXIBLE,
+                "z": LineSupportFreedom.RIGID,
+                "rx": LineSupportFreedom.FREE,
+                "ry": LineSupportFreedom.RIGID,
+                "rz": LineSupportFreedom.RIGID,
+            },
             stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
         )
 

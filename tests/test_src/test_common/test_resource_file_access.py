@@ -189,6 +189,8 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
             with SCIA_TEMPLATE_PATH.open("rb") as f:
                 content = f.read(100)  # Read first 100 bytes
                 assert len(content) > 0, "Template file should not be empty"
+        except PermissionError:
+            self.skipTest(f"SCIA template file is locked (likely open in SCIA Engineer): {SCIA_TEMPLATE_PATH}")
         except Exception as e:
             self.fail(f"Should be able to read SCIA template as binary: {e}")
 
