@@ -124,23 +124,25 @@ class IdeaResultsProcessor:
             detailing_result, detailing_check = IdeaResultsProcessor.safe_get_result(section_data, "detailing")
             stress_limitation_result, stress_limitation_check = IdeaResultsProcessor.safe_get_result(section_data, "stress_limitation")
 
-            table_data.append([
-                section_data.get("id", "Onbekend"),
-                capacity_result,
-                capacity_check,
-                shear_result,
-                shear_check,
-                torsion_result,
-                torsion_check,
-                interaction_result,
-                interaction_check,
-                crack_width_result,
-                crack_width_check,
-                detailing_result,
-                detailing_check,
-                stress_limitation_result,
-                stress_limitation_check,
-            ])
+            table_data.append(
+                [
+                    section_data.get("id", "Onbekend"),
+                    capacity_result,
+                    capacity_check,
+                    shear_result,
+                    shear_check,
+                    torsion_result,
+                    torsion_check,
+                    interaction_result,
+                    interaction_check,
+                    crack_width_result,
+                    crack_width_check,
+                    detailing_result,
+                    detailing_check,
+                    stress_limitation_result,
+                    stress_limitation_check,
+                ]
+            )
         return table_data
 
     @staticmethod
@@ -183,23 +185,25 @@ class IdeaResultsProcessor:
             detailing_result, detailing_check = IdeaResultsProcessor.safe_extract_result(section.detailing())
             stress_limitation_result, stress_limitation_check = IdeaResultsProcessor.safe_extract_result(section.stress_limitation())
 
-            table_data.append([
-                section.id_ if hasattr(section, "id_") else "Onbekend",
-                capacity_result,
-                capacity_check,
-                shear_result,
-                shear_check,
-                torsion_result,
-                torsion_check,
-                interaction_result,
-                interaction_check,
-                crack_width_result,
-                crack_width_check,
-                detailing_result,
-                detailing_check,
-                stress_limitation_result,
-                stress_limitation_check,
-            ])
+            table_data.append(
+                [
+                    section.id_ if hasattr(section, "id_") else "Onbekend",
+                    capacity_result,
+                    capacity_check,
+                    shear_result,
+                    shear_check,
+                    torsion_result,
+                    torsion_check,
+                    interaction_result,
+                    interaction_check,
+                    crack_width_result,
+                    crack_width_check,
+                    detailing_result,
+                    detailing_check,
+                    stress_limitation_result,
+                    stress_limitation_check,
+                ]
+            )
         return table_data
 
     @staticmethod

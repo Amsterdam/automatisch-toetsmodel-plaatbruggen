@@ -7,47 +7,54 @@ from zoneinfo import ZoneInfo
 
 from docxtpl import DocxTemplate  # type: ignore[import]
 from munch import Munch  # type: ignore[import-untyped]
-
-from app.constants import OUTPUT_REPORT_PATH
 from viktor.core import File
 from viktor.utils import convert_word_to_pdf
-from src.integrations.scia_integration.scia_coordinate_utils import get_bridge_deck_zone_materials_and_thickness, get_bridge_load_zone_materials_and_thickness
+
+from app.constants import OUTPUT_REPORT_PATH
+from src.integrations.scia_integration.scia_coordinate_utils import (
+    get_bridge_deck_zone_materials_and_thickness,
+)
+
 
 def return_traffic_class(params: Munch) -> str:
     """
     Return a formatted string based on the traffic class parameter.
+
     Args:
         params: Dictionary containing parameters. Must include:
             - traffic_class (str): The traffic class value.
 
     Returns:
         str: Formatted traffic class string.
+
     """
     if params.berekeningsniveau == "Werkelijke wegindeling met bebording":
         return f"Werkelijke wegindeling met bebording, {params.signage}"
-    else:
-        return params.berekeningsniveau
-    
+    return params.berekeningsniveau
+
+
 def return_design_code(params: Munch) -> str:
     """
     Return a formatted string based on the design code parameter.
+
     Args:
         params: Dictionary containing parameters. Must include:
             - design_code (str): The design code value.
-    
+
     Returns:
         str: Formatted design code string.
+
     """
     if params.design_code == "NEN 8700 verbouw":
         return "Verbouwniveau"
-    elif params.design_code == "NEN 8700 gebruik":
+    if params.design_code == "NEN 8700 gebruik":
         return "Gebruiksniveau"
-    elif params.design_code == "NEN 8700 afkeur":
+    if params.design_code == "NEN 8700 afkeur":
         return "Afkeurniveau"
-    else:
-        return "Verbouwniveau"
-    
-def obtain_plate_thickness(params:object) -> dict:
+    return "Verbouwniveau"
+
+
+def obtain_plate_thickness(params: object) -> dict:
     """
     Obtain the plate thickness from the parameters.
 
@@ -57,10 +64,12 @@ def obtain_plate_thickness(params:object) -> dict:
 
     Returns:
         dict: Dictionary with the plate thickness.
+
     """
     materials = get_bridge_deck_zone_materials_and_thickness(params)
     print(materials)
     return materials
+
 
 def obtain_loadzone_properties(params: object) -> dict[str, str]:
     """
@@ -71,6 +80,7 @@ def obtain_loadzone_properties(params: object) -> dict[str, str]:
 
     Returns:
         dict[str, str]: Dictionary mapping unique pavement materials to their thicknesses with units (in meters)
+
     """
     # Let's directly use the load_zones_data_array from params since that contains what we need
     load_zones = getattr(params, "load_zones_data_array", None)
@@ -83,15 +93,16 @@ def obtain_loadzone_properties(params: object) -> dict[str, str]:
         if material is not None and thickness is not None:
             # Format the thickness with 3 decimal places and add "m" unit
             pavement_materials[material] = f"{float(thickness):.3f} m"
-    
+
     return pavement_materials
+
 
 def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]:
     """
     Extract unity check values from IDEA analysis results per check category.
 
-    This function processes the cached IDEA results to extract the maximum unity check (UC) 
-    value for each check category across all sections. Unity check values indicate how close 
+    This function processes the cached IDEA results to extract the maximum unity check (UC)
+    value for each check category across all sections. Unity check values indicate how close
     the design is to its limit (1.0 = at limit, >1.0 = over limit).
 
     Args:
@@ -102,8 +113,9 @@ def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, s
 
     Returns:
         dict[str, str]: Dictionary mapping check category names to their maximum UC values, formatted as strings.
-            Categories include: "Capaciteit", "Schuifkracht", "Torsie", "Interactie", 
+            Categories include: "Capaciteit", "Schuifkracht", "Torsie", "Interactie",
             "Scheurwijdte", "Detailing", "Spanningslimieten"
+
     """
     # Initialize result dictionary with N/A values
     unity_checks = {
@@ -115,18 +127,18 @@ def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, s
         "Detailing": "N/A",
         "Spanningslimieten": "N/A",
     }
-    
+
     # Check if analysis succeeded
     if not cached_idea_results.get("success"):
         return unity_checks
-    
+
     # Get data and headers
     data = cached_idea_results.get("data")
     headers = cached_idea_results.get("headers")
-    
+
     if not data or not headers or not isinstance(data, list) or not isinstance(headers, list):
         return unity_checks
-    
+
     # Find indices of UC columns in headers
     uc_column_indices = {
         "Capaciteit": None,
@@ -137,7 +149,7 @@ def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, s
         "Detailing": None,
         "Spanningslimieten": None,
     }
-    
+
     # Map headers to indices (UC columns have "UC " prefix)
     for idx, header in enumerate(headers):
         if header == "UC Capaciteit":
@@ -154,41 +166,42 @@ def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, s
             uc_column_indices["Detailing"] = idx
         elif header == "UC Spanningslimieten":
             uc_column_indices["Spanningslimieten"] = idx
-    
+
     # Track maximum UC values for each category
     max_uc_values: dict[str, float] = {}
-    
+
     # Iterate through all data rows to find maximum UC values
     for row in data:
         if not isinstance(row, list):
             continue
-            
+
         for category, col_idx in uc_column_indices.items():
             if col_idx is None or col_idx >= len(row):
                 continue
-                
+
             uc_value_str = row[col_idx]
-            
+
             # Skip N/A values
             if uc_value_str == "N/A" or uc_value_str is None:
                 continue
-            
+
             try:
                 # Convert string to float
                 uc_value = float(uc_value_str)
-                
+
                 # Update maximum value
                 if category not in max_uc_values or uc_value > max_uc_values[category]:
                     max_uc_values[category] = uc_value
             except (ValueError, TypeError):
                 # Skip invalid values
                 continue
-    
+
     # Format the results
     for category, uc_value in max_uc_values.items():
         unity_checks[category] = f"{uc_value:.2f}"
-    
+
     return unity_checks
+
 
 def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | None = None) -> File:
     """
@@ -229,8 +242,13 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
         "CONCRETE_CLASS": params.concrete_strength_class,
         "REINFORCEMENT_CLASS": params.input.geometrie_wapening.staalsoort,
         "PLATE_THICKNESS1": obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"],
-        "PLATE_THICKNESS2": round((obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"]
-            + obtain_plate_thickness(params)["zone_2_1"]["thickness_start_d_line"]),2),
+        "PLATE_THICKNESS2": round(
+            (
+                obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"]
+                + obtain_plate_thickness(params)["zone_2_1"]["thickness_start_d_line"]
+            ),
+            2,
+        ),
         "LOAD_ZONES": obtain_loadzone_properties(params),
         "UC_CAPACITY": unity_checks.get("Capaciteit", "N/A"),
         "UC_SHEARFORCE": unity_checks.get("Schuifkracht", "N/A"),
