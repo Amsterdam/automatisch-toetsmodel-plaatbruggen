@@ -100,7 +100,8 @@ class TestDefineCompleteBridgeModel:
 
         # Assert
         mock_geometry.assert_called_once_with(mock_builder, mock_params)
-        mock_supports.assert_called_once_with(mock_builder, ["plate1", "plate2"])
+        # The support_types parameter will be passed as the third argument
+        mock_supports.assert_called_once_with(mock_builder, ["plate1", "plate2"], [True, True])
         mock_groups.assert_called_once_with(mock_builder)
         mock_cases.assert_called_once_with(mock_builder, mock_params)
         mock_loads.assert_called_once_with(mock_builder, mock_params, mock_cases.return_value)

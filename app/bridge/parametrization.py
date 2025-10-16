@@ -210,7 +210,7 @@ def _create_default_dimension_segment_row(
     *,  # Force keyword arguments for clarity
     l_value: float = 0,
     is_first: bool = False,
-    is_support: bool = False,
+    support_type: str = "Nee",
 ) -> dict[str, Any]:
     """
     Create a dictionary for a default bridge dimension segment row with customizable values.
@@ -219,8 +219,8 @@ def _create_default_dimension_segment_row(
     :type l_value: float
     :param is_first: Whether this is the first segment. Defaults to False.
     :type is_first: bool
-    :param is_support: Whether this segment is a support location. Defaults to False.
-    :type is_support: bool
+    :param support_type: Type of support at this location. Defaults to "Nee".
+    :type support_type: str
 
     :returns: Dictionary containing the segment row parameters with the following keys:
         - "bz1" (float): Width of zone 1 (default: 10.0 m)
@@ -231,7 +231,7 @@ def _create_default_dimension_segment_row(
         - "col_6" (float): Alpha angle (default: 0.0 degrees)
         - "l" (float): Distance to previous section (default: value of l_value)
         - "is_first_segment" (bool): Whether this is the first segment (default: value of is_first)
-        - "is_support" (bool): Whether this is a support location (default: value of is_support)
+        - "is_support" (str): Type of support at this location
     :rtype: dict[str, Any]
     """
     bz1 = 10.0
@@ -250,7 +250,7 @@ def _create_default_dimension_segment_row(
         "col_6": col_6,
         "l": l_value,
         "is_first_segment": is_first,
-        "is_support": is_support,
+        "is_support": support_type,
     }
 
 
@@ -330,31 +330,6 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
     return dx_width_visibility_function
 
 
-def _calculate_support_positions(params, **kwargs) -> list[bool]:  # noqa: ANN001, ARG001
-    """
-    Calculate which bridge segments should have supports.
-
-    Automatically sets supports at the first and last segments.
-    All other segments will not have supports.
-
-    :param params: Parameters containing bridge_segments_array
-    :returns: List of boolean values indicating support positions
-    :rtype: list[bool]
-    """
-    num_segments = _get_current_num_segments(params)
-
-    if num_segments <= 0:
-        return []
-
-    support_positions = []
-    for i in range(num_segments):
-        # First segment (i=0) and last segment (i=num_segments-1) should have supports
-        is_support = (i == 0) or (i == num_segments - 1)
-        support_positions.append(is_support)
-
-    return support_positions
-
-
 # Generate the visibility callbacks using a dictionary comprehension
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
 
@@ -431,6 +406,49 @@ def _get_model_zmax(params: Mapping, **kwargs) -> float:  # noqa: ARG001
     dz_max = max(segment.dz_2 - segment.dz for segment in params.bridge_segments_array)
     max_value = dz_max
     return max_value - 0.01
+
+
+# -- helper function to get bridge type based on supports
+def _get_bridge_type_based_on_supports(params: Mapping, **kwargs) -> str:  # noqa: ARG001
+    """
+    Determine the bridge type based on the support configuration.
+    Statically determinate: exactly 2 supports (Scharnieroplegging and Roloplegging) at begin and end positions.
+    Statically indeterminate: all other cases.
+
+    Args:
+        params: Parameters containing bridge_segments_array
+        **kwargs: Additional keyword arguments (unused).
+
+    Returns:
+        str: Bridge type ("Statisch bepaald" or "Statisch onbepaald")
+
+    """
+    support_types = [segment.is_support for segment in params.bridge_segments_array]
+
+    # Count supports that are not "Nee" (no support)
+    supports_with_position = []
+    for i, support_type in enumerate(support_types):
+        if support_type != "Nee":
+            supports_with_position.append((i, support_type))
+
+    num_supports = len(supports_with_position)
+
+    # Statically determinate: exactly 2 supports at begin and end with one Scharnieroplegging and one Roloplegging
+    if num_supports == 2:
+        first_support_pos = supports_with_position[0][0]
+        last_support_pos = supports_with_position[1][0]
+        first_support_type = supports_with_position[0][1]
+        last_support_type = supports_with_position[1][1]
+
+        # Check if supports are at begin and end positions
+        if first_support_pos == 0 and last_support_pos == len(support_types) - 1:
+            # Check if we have exactly one Scharnieroplegging and one Roloplegging (order doesn't matter)
+            support_type_set = {first_support_type, last_support_type}
+            if support_type_set == {"Scharnieroplegging", "Roloplegging"}:
+                return "Statisch bepaald"
+
+    # All other cases: statically indeterminate
+    return "Statisch onbepaald"
 
 
 # ----------------------------------
@@ -804,10 +822,10 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         min=2,
         name="bridge_segments_array",
         default=[
-            _create_default_dimension_segment_row(l_value=0, is_first=True, is_support=True),
-            _create_default_dimension_segment_row(l_value=25, is_first=False, is_support=False),
-            _create_default_dimension_segment_row(l_value=15, is_first=False, is_support=False),
-            _create_default_dimension_segment_row(l_value=10, is_first=False, is_support=True),
+            _create_default_dimension_segment_row(l_value=0, is_first=True, support_type="Verende oplegging (x,y)"),
+            _create_default_dimension_segment_row(l_value=25, is_first=False, support_type="Nee"),
+            _create_default_dimension_segment_row(l_value=15, is_first=False, support_type="Nee"),
+            _create_default_dimension_segment_row(l_value=10, is_first=False, support_type="Verende oplegging (x,y)"),
         ],
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
@@ -831,11 +849,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         visible=_l_field_visibility_constraint,
     )
 
-    input.dimensions.array.is_support = OutputField("Oplegging", value=_calculate_support_positions)
+    input.dimensions.array.is_support = OptionField(
+        "Oplegging", options=["Nee", "Verende oplegging (x,y)", "Inklemming"], default="Nee", description="Type oplegging op deze locatie"
+    )
+
+    input.dimensions.bridge_type_output = OutputField(
+        "### Op basis van de invoer is de brugtype:",
+        value=_get_bridge_type_based_on_supports,
+        description="De automatisch bepaalde brugtype op basis van de geselecteerde opleggingen",
+        flex=100,
+    )
 
     # --- Bridge Geometry (moved to geometrie_brug tab) ---
     input.dimensions.lb1 = LineBreak()
-    input.dimensions.text_sections = Text("Met onderstaande instellingen kan de locatie van de doorsneden worden ingesteld.")
+    input.dimensions.text_sections = Text("### Met onderstaande instellingen kan de locatie van de doorsneden worden ingesteld.")
     input.dimensions.toggle_sections = BooleanField("Toon locaties van de doorsneden in het 3D model", default=False, flex=100)
     input.dimensions.lb2 = LineBreak()
     input.dimensions.horizontal_section_loc = NumberField(
