@@ -96,7 +96,7 @@ def obtain_loadzone_properties(params: object) -> dict[str, str]:
     return pavement_materials
 
 
-def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]: # noqa: C901, PLR0912
+def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]:  # noqa: C901, PLR0912
     """
     Extract unity check values from IDEA analysis results per check category.
 
@@ -232,7 +232,7 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
     unity_checks: dict[str, str] = {}
     if cached_idea_results is not None:
         unity_checks = obtain_idea_unity_checks(cached_idea_results)
-    
+
     context = {
         "BRIDGE_NAME": params.info.bridge_name,
         "BRIDGE_ID": params.info.bridge_objectnumm,
