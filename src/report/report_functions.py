@@ -6,10 +6,10 @@ from zoneinfo import ZoneInfo
 
 from docxtpl import DocxTemplate  # type: ignore[import]
 from munch import Munch  # type: ignore[import-untyped]
-from viktor.core import File
-from viktor.utils import convert_word_to_pdf
 
 from app.constants import OUTPUT_REPORT_PATH
+from viktor.core import File
+from viktor.utils import convert_word_to_pdf
 from src.integrations.scia_integration.scia_coordinate_utils import get_bridge_deck_zone_materials_and_thickness, get_bridge_load_zone_materials_and_thickness
 
 def return_traffic_class(params: Munch) -> str:

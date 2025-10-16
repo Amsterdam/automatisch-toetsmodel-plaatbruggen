@@ -7,48 +7,27 @@ while the `app` layer provides the concrete implementation using the VIKTOR SDK.
 This approach decouples the core logic from the specific SDK implementation.
 """
 
-from enum import Enum
-from io import BytesIO
 from typing import Any, Literal, Protocol
 
-# Type aliases for opaque SCIA objects that the builder implementation will handle.
-# The src layer treats these as abstract types.
-SciaObject = Any
-SciaModel = Any
-SciaNode = Any
-SciaMaterial = Any
-SciaPlate = Any
-SciaLoadGroup = Any
-SciaLoadCase = Any
-SciaLoadCombination = Any
-SciaLineSupport = Any
-SciaFreeSurfaceLoad = Any
-SciaLineForceSurface = Any
-SciaFreeLineLoad = Any
-SciaAnalysis = Any
-SciaResults = Any
-SciaResultClass = Any
-SciaIntegrationStrip = Any
-
-# Type aliases for file objects
-SciaFile = BytesIO | bytes
-
-
-class SciaCombinationType(Enum):
-    """Enumeration for SCIA Load Combination types, aligned with the VIKTOR SDK."""
-
-    ENVELOPE_ULTIMATE = "ENVELOPE_ULTIMATE"
-    ENVELOPE_SERVICEABILITY = "ENVELOPE_SERVICEABILITY"
-    LINEAR_ULTIMATE = "LINEAR_ULTIMATE"
-    LINEAR_SERVICEABILITY = "LINEAR_SERVICEABILITY"
-    EN_ULS_SET_B = "EN_ULS_SET_B"
-    EN_ULS_SET_C = "EN_ULS_SET_C"
-    EN_SLS_CHAR = "EN_SLS_CHAR"
-    EN_SLS_FREQ = "EN_SLS_FREQ"
-    EN_SLS_QUASI = "EN_SLS_QUASI"
-    EN_ACC_ONE = "EN_ACC_ONE"
-    EN_ACC_TWO = "EN_ACC_TWO"
-    EN_SEISMIC = "EN_SEISMIC"
+from .types import (
+    SciaAnalysis,
+    SciaCombinationType,
+    SciaFile,
+    SciaFreeLineLoad,
+    SciaFreeSurfaceLoad,
+    SciaIntegrationStrip,
+    SciaLineForceSurface,
+    SciaLineSupport,
+    SciaLoadCase,
+    SciaLoadCombination,
+    SciaLoadGroup,
+    SciaMaterial,
+    SciaModel,
+    SciaNode,
+    SciaPlate,
+    SciaResultClass,
+    SciaResults,
+)
 
 
 class SciaModelBuilder(Protocol):

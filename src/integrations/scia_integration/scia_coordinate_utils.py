@@ -8,7 +8,7 @@ zone geometry extraction, and load format conversions without circular dependenc
 from math import radians, tan
 from typing import Any, Protocol
 
-from .scia_load_generators import LoadType
+from .types import LoadType
 
 
 class BridgeGeometryData(Protocol):
