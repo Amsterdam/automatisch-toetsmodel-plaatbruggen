@@ -17,6 +17,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from viktor.external import idea_rcs
 
 from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
