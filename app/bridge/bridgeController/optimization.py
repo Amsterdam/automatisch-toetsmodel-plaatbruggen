@@ -68,7 +68,7 @@ class Optimization:
                     # Extract UC capacity and UC shearforce numeric values from the DataFrame
                     uc_capacity_values = results_df["UC Capaciteit"].tolist() if "UC Capaciteit" in results_df else []
                     uc_shearforce_values = results_df["UC Schuifkracht"].tolist() if "UC Schuifkracht" in results_df else []
-                    
+
                     # Extract status values to check for failures
                     capacity_status = results_df["Capaciteit"].tolist() if "Capaciteit" in results_df else []
                     shearforce_status = results_df["Schuifkracht"].tolist() if "Schuifkracht" in results_df else []
@@ -90,7 +90,7 @@ class Optimization:
 
                     # If there are no failures in either capacity or shearforce, stop iterating signage options
                     if "Failed" not in capacity_status and "Failed" not in shearforce_status:
-                        break   
+                        break
             else:
                 # For other calculation levels, signage is not relevant we set it to the first option (50 ton)
                 # Note: Fields with 'name' attribute are accessed directly on params object
@@ -106,7 +106,7 @@ class Optimization:
                 # Extract UC capacity and UC shearforce numeric values from the DataFrame
                 uc_capacity_values = results_df["UC Capaciteit"].tolist() if "UC Capaciteit" in results_df else []
                 uc_shearforce_values = results_df["UC Schuifkracht"].tolist() if "UC Schuifkracht" in results_df else []
-                
+
                 # Extract status values to check for failures
                 capacity_status = results_df["Capaciteit"].tolist() if "Capaciteit" in results_df else []
                 shearforce_status = results_df["Schuifkracht"].tolist() if "Schuifkracht" in results_df else []
@@ -147,7 +147,7 @@ class Optimization:
             "shearforce_status": "Schuifkracht Status",
             "shearforce_uc": "Schuifkracht UC Waarden",
         }
-        
+
         # Return the OptimizationResult object containing all results and headers
         return OptimizationResult(
             results,
