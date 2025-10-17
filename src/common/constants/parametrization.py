@@ -9,7 +9,7 @@ Single source of truth for all parametrization options.
 """
 
 # Load zone types for bridge analysis
-LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Berm"]
+LOAD_ZONE_TYPES = ["Voetgangers", "Fietsers", "Auto", "Tram", "Berm"]
 
 # Consequence classes according to NEN 8700
 CC_CLASS_OPTIONS = ["CC1a/b", "CC2", "CC3"]

@@ -12,13 +12,27 @@
   - Excel-compatible CSV export with UTF-8 BOM for proper character display
   - Comprehensive test suite for CSV/Excel parsing with 18 test cases covering various scenarios
   - User-friendly success/error messages with detailed feedback on created/updated bridge counts
+- **Manual Support Selection**: Users can now manually select support types for each D-point location instead of automatic first/last positioning.
+  - Support options: "Nee" (no support), "Verende oplegging (x,y)" (roller), "Inklemming" (fixed), "Scharnieroplegging" (pinned)
+  - Supports visualization and SCIA integration for all support types
+  - Support annotations in bridge top view update based on user selections
+  - Distinct Unicode symbols for each support type: ⧋ (roller), ▲ (fixed), ⧊ (pinned)
+- **Automatic Bridge Type Classification**: Added real-time bridge type determination based on support configuration.
+  - Displays "Statisch bepaald" for exactly 2 supports (Scharnieroplegging + Roloplegging) at begin/end positions
+  - Displays "Statisch onbepaald" for all other support configurations
+  - Live updates as user modifies support selections
+- **Management summary**: Added basic param values and unity check values to the management summary.
 
 ### Changed
 - **Refactored cache code**: code cleanup
 - **Bridge Entity Management**: Enhanced regeneration workflow to update existing entities instead of only creating new ones
   - `regenerate_bridges_action` now updates parameters of existing bridge entities based on uploaded data
   - Provides detailed feedback showing count of newly created vs. updated bridges
-  - Ensures data consistency between uploaded CSV files and VIKTOR entities 
+  - Ensures data consistency between uploaded CSV files and VIKTOR entities
+- **Support System Overhaul**: Replaced automatic support calculation with user-controlled OptionField for each bridge segment
+  - Updated SCIA model integration to handle multiple support types with correct structural constraints
+  - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
+- **Report template**: Changed the report template to a shorter management summary.
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added

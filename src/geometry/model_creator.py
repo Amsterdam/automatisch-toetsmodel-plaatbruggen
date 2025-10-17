@@ -4,6 +4,7 @@ and cross-sections, using the `trimesh` library. It also includes functionality 
 generating a 3D representation of a bridge deck based on input parameters.
 """
 
+import contextlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -979,15 +980,31 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
 
             current_x = next_x
 
-    # --- Get support positions from calculated list ---
+    # --- Get support positions from support type selections ---
     support_positions = []
     try:
-        # Access the calculated support positions from the parametrization
-        calculated_supports = viktor_params.input.dimensions.array.is_support
-        if calculated_supports and isinstance(calculated_supports, list):
-            support_positions = calculated_supports
+        # Access the support type selections from the parametrization
+        # The data might be accessed differently depending on the parameter structure
+        support_types = None
+
+        # Try multiple access patterns to find the support types
+        if hasattr(viktor_params, "bridge_segments_array"):
+            # First try: direct access via bridge_segments_array (like other fields)
+            bridge_segments = viktor_params.bridge_segments_array
+            if bridge_segments and isinstance(bridge_segments, list):
+                support_types = [getattr(segment, "is_support", "Nee") for segment in bridge_segments]
+
+        if support_types is None and hasattr(viktor_params, "input"):
+            # Second try: access via input.dimensions.array.is_support
+            with contextlib.suppress(AttributeError):
+                support_types = viktor_params.input.dimensions.array.is_support
+
+        if support_types and isinstance(support_types, list):
+            # Convert support type strings to boolean values for backward compatibility
+            # "Nee" = False, any other value ("Verende oplegging (x,y)", "Inklemming", "Scharnieroplegging") = True
+            support_positions = [support_type != "Nee" for support_type in support_types]
         else:
-            # Fallback: calculate first/last as True if no calculated list
+            # Fallback: calculate first/last as True if no support type list
             support_positions = [True] + [False] * (num_cross_sections - 2) + [True] if num_cross_sections >= 2 else [True]
     except AttributeError:
         # Fallback: calculate first/last as True if parameter doesn't exist
@@ -1069,7 +1086,13 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
         if j < len(support_positions) and support_positions[j]:
             # Place support just below the bottom outer edge
             support_y = y_bottom_outer - 0.5  # 0.5m below the lowest point (adjust as needed)
-            support_annotations_data.append({"x": cs_x, "y": support_y})
+
+            # Get the support type for this position
+            support_type = "Inklemming"  # Default to fixed support
+            if support_types and j < len(support_types):
+                support_type = support_types[j]
+
+            support_annotations_data.append({"x": cs_x, "y": support_y, "support_type": support_type})
 
     return {
         "bridge_lines": bridge_lines,

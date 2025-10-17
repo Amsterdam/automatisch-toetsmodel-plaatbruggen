@@ -105,7 +105,6 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
                 "output_content": output_content,
             }
         )
-
     return results
 
 
