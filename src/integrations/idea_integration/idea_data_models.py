@@ -11,6 +11,8 @@ This enables:
 - Clear documentation of required data
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,7 +32,7 @@ class ReinforcementConfig:
     extra_reinf_diameter: dict[str, float]
     extra_reinf_ctc_distances: dict[str, float]
     has_extra_reinforcement: bool
-    rebar_config: dict[str, Any]
+    rebar_config: ReinforcementZoneConfig
 
 
 @dataclass

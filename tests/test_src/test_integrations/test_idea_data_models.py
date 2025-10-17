@@ -39,7 +39,7 @@ class TestReinforcementZoneConfig:
             bijlegwapening_dwars_onder_diameter=8.0,
         )
 
-        assert config.zone_number == "1"
+        assert config.zone_number == ["1"]
         assert config.hoofdwapening_langs_boven_diameter == 16.0
         assert config.heeft_bijlegwapening is True
         assert config.bijlegwapening_langs_boven_diameter == 10.0
@@ -230,7 +230,7 @@ class TestExtractBridgeIdeaInputData:
 
         # Mock reinforcement zones array - use MagicMock to support getattr()
         mock_zone = MagicMock()
-        mock_zone.zone_number = "1"
+        mock_zone.zone_number = ["1"]
         mock_zone.hoofdwapening_langs_boven_diameter = 16.0
         mock_zone.hoofdwapening_langs_boven_hart_op_hart = 150.0
         mock_zone.hoofdwapening_langs_onder_diameter = 20.0
@@ -266,7 +266,7 @@ class TestExtractBridgeIdeaInputData:
         assert input_data.concrete_strength_class == "C30/37"
         assert input_data.steel_quality == "B500B"
         assert len(input_data.reinforcement_zones) == 1
-        assert input_data.reinforcement_zones[0].zone_number == "1"
+        assert input_data.reinforcement_zones[0].zone_number == ["1"]
         assert input_data.geometry_config.dekking_boven == 40.0
         assert len(input_data.bridge_segments) == 1
 
@@ -307,7 +307,7 @@ class TestExtractBridgeIdeaInputData:
         mock_zones = []
         for i in range(1, 4):
             mock_zone = MagicMock()
-            mock_zone.zone_number = str(i)
+            mock_zone.zone_number = [str(i)]
             mock_zone.hoofdwapening_langs_boven_diameter = 12.0 + i * 2
             mock_zone.hoofdwapening_langs_boven_hart_op_hart = 150.0
             mock_zone.hoofdwapening_langs_onder_diameter = 16.0 + i * 2
@@ -335,9 +335,9 @@ class TestExtractBridgeIdeaInputData:
 
         # Verify multiple zones were extracted
         assert len(input_data.reinforcement_zones) == 3
-        assert input_data.reinforcement_zones[0].zone_number == "1"
-        assert input_data.reinforcement_zones[1].zone_number == "2"
-        assert input_data.reinforcement_zones[2].zone_number == "3"
+        assert input_data.reinforcement_zones[0].zone_number == ["1"]
+        assert input_data.reinforcement_zones[1].zone_number == ["2"]
+        assert input_data.reinforcement_zones[2].zone_number == ["3"]
 
 
 if __name__ == "__main__":

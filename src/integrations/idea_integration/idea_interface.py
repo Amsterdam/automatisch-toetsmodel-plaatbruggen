@@ -412,7 +412,7 @@ def _create_slabs_with_reinforcement(
             extra_reinf_diameter=extra_reinf_diameter,
             extra_reinf_ctc_distances=extra_reinf_ctc_distances,
             has_extra_reinforcement=rebar_config.heeft_bijlegwapening,
-            rebar_config=rebar_config,  # type: ignore[arg-type]
+            rebar_config=rebar_config,
         )
 
         # Create slab for each rebar direction
