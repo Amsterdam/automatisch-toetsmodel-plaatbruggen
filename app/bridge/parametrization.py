@@ -443,9 +443,9 @@ def _get_bridge_type_based_on_supports(params: Mapping, **kwargs) -> str:  # noq
 
         # Check if supports are at begin and end positions
         if first_support_pos == 0 and last_support_pos == len(support_types) - 1:
-            # Check if we have exactly one Scharnieroplegging and one Roloplegging (order doesn't matter)
+            # Check if we have exactly one Scharnieroplegging and two Verende oplegging (x,y) (order doesn't matter)
             support_type_set = {first_support_type, last_support_type}
-            if support_type_set == {"Scharnieroplegging", "Roloplegging"}:
+            if support_type_set == {"Verende oplegging (x,y)", "Verende oplegging (x,y)"}:
                 return "Statisch bepaald"
 
     # All other cases: statically indeterminate
