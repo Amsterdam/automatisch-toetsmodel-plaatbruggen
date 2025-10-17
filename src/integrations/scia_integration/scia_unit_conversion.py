@@ -5,23 +5,9 @@ This module provides a centralized way to handle both unit mapping and value con
 to ensure they stay in sync.
 """
 
-from dataclasses import dataclass
 from typing import Any, ClassVar
 
-
-@dataclass
-class UnitConversion:
-    """
-    Represents a unit conversion with both the display unit and conversion factor.
-
-    :param display_unit: The unit string to display (e.g., "kN", "kNm")
-    :param conversion_factor: Factor to convert from raw SCIA units (N->kN = 1/1000)
-    :param raw_unit: The original unit from SCIA (for documentation)
-    """
-
-    display_unit: str
-    conversion_factor: float
-    raw_unit: str = ""
+from .types import UnitConversion
 
 
 class SciaUnitConverter:

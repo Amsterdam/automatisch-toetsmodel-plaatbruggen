@@ -47,7 +47,7 @@ class TestBridgeControllerViews(unittest.TestCase):
     # PHASE 2: Full View Execution Tests - Bypassing VIKTOR Decorators
     # ============================================================================================================
 
-    @patch("app.bridge.controller.create_3d_model")
+    @patch("app.bridge.bridgeController.geometry_views.create_3d_model")
     @patch("trimesh.exchange.gltf.export_glb")
     @view_test_wrapper("get_3d_view")
     def test_get_3d_view_execution(self, mock_export_glb: MagicMock, mock_create_3d: MagicMock) -> None:
@@ -68,9 +68,9 @@ class TestBridgeControllerViews(unittest.TestCase):
         mock_create_3d.assert_called_once_with(self.default_params, section_planes=True)
         mock_export_glb.assert_called_once_with(mock_scene)
 
-    @patch("app.bridge.controller.build_top_view_figure")
-    @patch("app.bridge.controller.create_2d_top_view")
-    @patch("app.bridge.controller.validate_load_zone_widths")
+    @patch("app.bridge.bridgeController.geometry_views.build_top_view_figure")
+    @patch("app.bridge.bridgeController.geometry_views.create_2d_top_view")
+    @patch("app.bridge.bridgeController.geometry_views.validate_load_zone_widths")
     @view_test_wrapper("get_top_view")
     def test_get_top_view_execution(self, mock_validate_widths: MagicMock, mock_create_2d: MagicMock, mock_build_figure: MagicMock) -> None:
         """Test actual execution of get_top_view with mocked dependencies."""
@@ -99,7 +99,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert "data" in json_result
         assert "layout" in json_result
 
-    @patch("app.bridge.controller.create_horizontal_section_view")
+    @patch("app.bridge.bridgeController.geometry_views.create_horizontal_section_view")
     @view_test_wrapper("get_2d_horizontal_section")
     def test_get_2d_horizontal_section_execution(self, mock_create_horizontal: MagicMock) -> None:
         """Test actual execution of get_2d_horizontal_section."""
@@ -122,7 +122,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         json_result = json.loads(result.figure)
         assert "layout" in json_result
 
-    @patch("app.bridge.controller.create_longitudinal_section")
+    @patch("app.bridge.bridgeController.geometry_views.create_longitudinal_section")
     @view_test_wrapper("get_2d_longitudinal_section")
     def test_get_2d_longitudinal_section_execution(self, mock_create_longitudinal: MagicMock) -> None:
         """Test actual execution of get_2d_longitudinal_section."""
@@ -141,7 +141,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert isinstance(result, PlotlyResult)
         mock_create_longitudinal.assert_called_once_with(self.default_params, self.default_params.input.dimensions.longitudinal_section_loc)
 
-    @patch("app.bridge.controller.create_cross_section_view")
+    @patch("app.bridge.bridgeController.geometry_views.create_cross_section_view")
     @view_test_wrapper("get_2d_cross_section")
     def test_get_2d_cross_section_execution(self, mock_create_cross: MagicMock) -> None:
         """Test actual execution of get_2d_cross_section."""
@@ -160,7 +160,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         assert isinstance(result, PlotlyResult)
         mock_create_cross.assert_called_once_with(self.default_params, self.default_params.input.dimensions.cross_section_loc)
 
-    @patch("app.bridge.controller.build_load_zones_figure")
+    @patch("app.bridge.bridgeController.geometry_views.build_load_zones_figure")
     @view_test_wrapper("get_load_zones_view")
     def test_get_load_zones_view_execution_with_zones(self, mock_build_zones: MagicMock) -> None:
         """Test actual execution of get_load_zones_view with load zones present."""
@@ -203,7 +203,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         json_result = json.loads(result.figure)
         assert "layout" in json_result
 
-    @patch("app.bridge.controller.create_load_combination_table")
+    @patch("app.bridge.bridgeController.info_views.create_load_combination_table")
     @view_test_wrapper("get_load_combinations_view")
     def test_get_load_combinations_view_execution(self, mock_create_table: MagicMock) -> None:
         """Test actual execution of get_load_combinations_view."""
@@ -238,7 +238,7 @@ class TestBridgeControllerViews(unittest.TestCase):
         # Check first row data
         assert result.data[0] == ["ULS_1", 1.35, 1.5, "Ultimate Limit State 1"]
 
-    @patch("app.bridge.controller.create_load_combination_table")
+    @patch("app.bridge.bridgeController.info_views.create_load_combination_table")
     @view_test_wrapper("get_load_combinations_view")
     def test_get_load_combinations_view_styler_object_handling(self, mock_create_table: MagicMock) -> None:
         """Test that load combinations view properly handles Styler objects returned by create_load_combination_table."""
@@ -476,7 +476,7 @@ class TestBridgeControllerViews(unittest.TestCase):
             assert not cell_str.startswith("<"), f"Cell at [{row}][{col}] should not be object representation: {cell_str}"
             assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
 
-    @patch("app.bridge.controller.api_sdk.API")
+    @patch("app.bridge.bridgeController.controller_utils.api_sdk.API")
     @view_test_wrapper("get_bridge_map_view")
     def test_get_bridge_map_view_execution_invalid_entity(self, _mock_api_class: MagicMock) -> None:
         """Test get_bridge_map_view with invalid entity ID."""
@@ -503,7 +503,7 @@ class TestBridgeControllerViews(unittest.TestCase):
     # Error Handling Tests
     # ============================================================================================================
 
-    @patch("app.bridge.controller.create_3d_model")
+    @patch("app.bridge.bridgeController.geometry_views.create_3d_model")
     @view_test_wrapper("get_3d_view")
     def test_get_3d_view_error_handling(self, mock_create_3d: MagicMock) -> None:
         """Test error handling in get_3d_view when 3D model creation fails."""

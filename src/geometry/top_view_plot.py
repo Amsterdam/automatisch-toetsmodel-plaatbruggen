@@ -148,11 +148,36 @@ def _create_north_arrow_annotation() -> list[go.layout.Annotation]:
     ]
 
 
-def _create_support_annotation(x: float, y: float) -> list[go.layout.Annotation]:
-    """Creates a triangle annotation under the plot at given coordinates (in data units)."""
+def _create_support_annotation(x: float, y: float, support_type: str = "Inklemming") -> list[go.layout.Annotation]:
+    """
+    Creates a support annotation at given coordinates with the appropriate symbol.
+
+    Args:
+        x: X coordinate in data units
+        y: Y coordinate in data units
+        support_type: Type of support ("Verende oplegging (x,y)", "Inklemming", "Scharnieroplegging", "Nee")
+
+    Returns:
+        List of annotations for the support symbol
+
+    """
+    # Map support types to their Unicode symbols
+    support_symbols = {
+        "Verende oplegging (x,y)": "⧋",  # Triangle With Underbar &#10699; &#x29CB
+        "Inklemming": "⧍",  # Triangle With Serifs At Bottom &#10701; &#x29CD
+        "Scharnieroplegging": "⧊",  # Triangle With Dot Above &#10698; &#x29CA
+        "Nee": "",  # No support - empty symbol
+    }
+
+    symbol = support_symbols.get(support_type, "⧍")  # Default to Inklemming if unknown type
+
+    # Skip annotation if no support
+    if not symbol:
+        return []
+
     return [
         go.layout.Annotation(
-            text="▲",  # Unicode triangle
+            text=symbol,
             x=x,  # Data coordinate
             y=y,  # Data coordinate
             xref="x",
@@ -193,7 +218,8 @@ def build_top_view_figure(top_view_geometric_data: dict[str, Any], validation_me
 
     # --- Add support annotations at specified locations ---
     for support in top_view_geometric_data.get("support_annotations", []):
-        all_annotations.extend(_create_support_annotation(support["x"], support["y"]))
+        support_type = support.get("support_type", "Inklemming")  # Default to fixed support
+        all_annotations.extend(_create_support_annotation(support["x"], support["y"], support_type))
 
     cs_labels_data = top_view_geometric_data.get("cross_section_labels", [])
     if cs_labels_data:
