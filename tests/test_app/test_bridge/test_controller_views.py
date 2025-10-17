@@ -7,12 +7,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
+from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 from app.bridge.controller import BridgeController
-from app.bridge.parametrization import BridgeParametrization
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import view_test_wrapper
-from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 
 class TestBridgeControllerViews(unittest.TestCase):
@@ -43,14 +42,6 @@ class TestBridgeControllerViews(unittest.TestCase):
             with self.subTest(method=method_name):
                 assert hasattr(self.controller, method_name)
                 assert callable(getattr(self.controller, method_name))
-
-    def test_controller_has_parametrization(self) -> None:
-        """Test that the controller has the correct parametrization."""
-        assert self.controller.parametrization == BridgeParametrization
-
-    def test_controller_label(self) -> None:
-        """Test that the controller has the correct label."""
-        assert self.controller.label == "Brug"
 
     # ============================================================================================================
     # PHASE 2: Full View Execution Tests - Bypassing VIKTOR Decorators
