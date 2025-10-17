@@ -6,12 +6,11 @@ This component provides views for displaying bridge information:
 - Load combinations table
 """
 
-from viktor.errors import UserError
-from viktor.views import MapPoint, MapResult, MapView, TableResult, TableView
-
 from app.bridge.parametrization import BridgeParametrization
 from app.common.map_utils import load_and_filter_bridge_shapefile, process_bridge_geometries, validate_shapefile_exists
 from src.combinations.load_factors import create_load_combination_table
+from viktor.errors import UserError
+from viktor.views import MapPoint, MapResult, MapView, TableResult, TableView
 
 
 class InfoViews:

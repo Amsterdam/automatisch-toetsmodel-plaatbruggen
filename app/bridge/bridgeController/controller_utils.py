@@ -11,11 +11,10 @@ from typing import Any
 
 import viktor.api_v1 as api_sdk
 import viktor.errors
-from viktor.errors import UserError
-from viktor.views import MapPoint, MapResult
-
 from app.constants import SCIA_TEMPLATE_PATH
 from src.integrations.scia_integration.scia_force_envelopes import get_force_envelope_summary
+from viktor.errors import UserError
+from viktor.views import MapPoint, MapResult
 
 
 class ControllerUtils:

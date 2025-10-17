@@ -10,17 +10,17 @@ This component provides all IDEA RCS-related functionality including:
 import zipfile
 from datetime import datetime, timezone
 
-from viktor.core import File, progress_message
-from viktor.errors import UserError
-from viktor.result import DownloadResult
-from viktor.views import TableResult, TableView
-
 from app.bridge.analysis_cache import get_cached_analysis_results, get_idea_analysis_results, get_idea_model_only
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.utils import validate_reinforcement_zone_selections
 from src.common.constants.technical import AnalysisType
+from src.integrations.idea_integration.idea_data_models import extract_bridge_idea_input_data
 from src.integrations.idea_integration.idea_interface import _get_unique_matching_zone_keys
 from src.integrations.idea_integration.idea_results_processor import IdeaResultsProcessor
+from viktor.core import File, progress_message
+from viktor.errors import UserError
+from viktor.result import DownloadResult
+from viktor.views import TableResult, TableView
 
 
 class IdeaIntegration:
@@ -50,7 +50,9 @@ class IdeaIntegration:
         """
         validate_reinforcement_zone_selections(params)
 
-        unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(params)
+        # Extract input data from params for IDEA integration
+        input_data = extract_bridge_idea_input_data(params)
+        unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(input_data)
 
         data = [[value[0], value[1], str(value[2])] for value in unique_matching_zone_keys]
         columns = ["Zone_dikte", "Wapeningsconfiguratie", "Zones"]
