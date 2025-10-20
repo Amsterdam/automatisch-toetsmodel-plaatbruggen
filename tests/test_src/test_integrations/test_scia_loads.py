@@ -1152,9 +1152,7 @@ class TestUniformlyDistributedLoads:
             y_bottom_zone_1 = y_top_zone_1 - width_zone_1
             for i in range(expected_lanes_zone_1):
                 expected_center = y_bottom_zone_1 + (i * 3.0) + 1.5  # Bottom + lane_idx * width + half_width
-                assert abs(lane_positions[i] - expected_center) < 0.001, (
-                    f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
-                )
+                assert abs(lane_positions[i] - expected_center) < 0.001, f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
 
         # Verify lane positions for zone 2 (from bottom upward)
         if expected_lanes_zone_2 > 0:
@@ -1216,9 +1214,7 @@ class TestUniformlyDistributedLoads:
         if expected_lanes_zone_1 > 0:
             for i in range(expected_lanes_zone_1):
                 expected_center = y_top_zone_1 - (i * 3.0) - 1.5  # Top - lane_idx * width - half_width
-                assert abs(lane_positions[i] - expected_center) < 0.001, (
-                    f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
-                )
+                assert abs(lane_positions[i] - expected_center) < 0.001, f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
 
         # Verify lane positions for zone 2 (from top downward)
         if expected_lanes_zone_2 > 0:
@@ -1282,9 +1278,7 @@ class TestUniformlyDistributedLoads:
             y_bottom_zone_1 = y_top_zone_1 - width_zone_1
             for i in range(expected_lanes_zone_1):
                 expected_center = y_bottom_zone_1 + (i * 3.0) + 1.5  # Bottom + lane_idx * width + half_width
-                assert abs(lane_positions[i] - expected_center) < 0.001, (
-                    f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
-                )
+                assert abs(lane_positions[i] - expected_center) < 0.001, f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
 
         # Verify lane positions for zone 2 (from top/interior downward)
         if expected_lanes_zone_2 > 0:

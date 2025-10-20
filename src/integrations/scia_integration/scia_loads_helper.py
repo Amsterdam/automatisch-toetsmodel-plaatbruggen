@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 # Standard tandem wheel offsets from bottom left corner
 TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
+
 # =======================================================================
 # Helper functions for bridge layout properties
 # =======================================================================
@@ -108,6 +109,7 @@ def calculate_start_of_lanes(thickness_bridgedeck: float) -> float:
 
     """
     return 0.9 * thickness_bridgedeck
+
 
 def get_reference_period(params: "BridgeParametrization") -> int:
     """
@@ -204,6 +206,7 @@ def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float
 
     return width_1, width_2
 
+
 def obtain_y_coordinates_road(
     params: "BridgeParametrization",
 ) -> tuple[float, float]:
@@ -281,6 +284,7 @@ def obtain_y_coordinates_two_road_zones(
     Note:
         If fewer than two road zones are found or bridge geometry is unavailable,
         returns (0.0, 0.0) as a safe default.
+
     """
     # Obtain load zones data and bridge geometry
     load_zones_data_params = get_load_zones_data_from_params(params)
@@ -308,6 +312,7 @@ def obtain_y_coordinates_two_road_zones(
         return auto_zone_y_coords[0], auto_zone_y_coords[1]
 
     return 0.0, 0.0
+
 
 # ========================================================================
 # Helper functions for load value calculations
@@ -398,6 +403,7 @@ def calculate_real_udl_values(
         rest_value = 2500.0
 
     return main_value, other_value, rest_value
+
 
 def calculate_pavement_load_from_dynamic_array(
     load_zones_array: list[dict[str, Any]],
@@ -548,9 +554,11 @@ def add_material_loads(
 
                 create_material_surface_load(builder, load_config, bridge_geom_data)
 
+
 # ========================================================================
 # Tandem sequencer functions
 # ========================================================================
+
 
 def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
     """
@@ -654,6 +662,7 @@ def tandem_system_sequencer_single_axis_rotated(length_bridgedeck: float, thickn
         tandem_systems.append(round(mid_span_position, 6))
 
     return sorted(set(tandem_systems))
+
 
 # ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
@@ -1023,6 +1032,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
 # Theoretical tandem systems for BG8000 series
 # ========================================================================
 
+
 # Helper function to create wheel coordinates for a tandem
 def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) -> list[list[list[float]]]:
     """Helper function to create a tandem's wheel coordinates."""
@@ -1084,6 +1094,7 @@ def generate_theoretical_lane_positions_bg8000(
         lane_centers.append(lane_center - zone3_width - 0.5 * zone2_width)
 
     return lane_centers
+
 
 def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     params: "BridgeParametrization",
@@ -1278,9 +1289,11 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
 
     return results
 
+
 # ========================================================================
 # Theoretical tandem systems from the center (BG10000)
 # ========================================================================
+
 
 def generate_theoretical_lane_positions_bg10000(
     width_bridgedeck: float,
@@ -1420,6 +1433,7 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
 # Generation of tandem systems for real lane distribution (BG8000)
 # ========================================================================
 
+
 def generate_real_lane_positions_bg8000(
     params: "BridgeParametrization",
     lane_width: float = 3.0,
@@ -1462,6 +1476,7 @@ def generate_real_lane_positions_bg8000(
         lane_centers.append(y_bottom + lane_center)
 
     return lane_centers
+
 
 def generate_real_lane_positions_bg8000_two_road_zones(
     params: "BridgeParametrization",
@@ -1521,6 +1536,7 @@ def generate_real_lane_positions_bg8000_two_road_zones(
             lane_centers.append(y_bottom_zone_2 + lane_center)
 
     return lane_centers
+
 
 def tandem_systems_real_lanes_bg8000(
     params: "BridgeParametrization",
@@ -1633,9 +1649,11 @@ def tandem_systems_real_lanes_bg8000(
 
     return results
 
+
 # ========================================================================
 # Generation of tandem systems for real lane distribution (BG9000)
 # ========================================================================
+
 
 def generate_real_lane_positions_bg9000(
     params: "BridgeParametrization",
@@ -1851,9 +1869,11 @@ def tandem_systems_real_lanes_bg9000(
 
     return results
 
+
 # ========================================================================
 # Generation of tandem systems for real lane distribution (BG10000)
 # ========================================================================
+
 
 def generate_real_lane_positions_bg10000(
     params: "BridgeParametrization",
@@ -2105,9 +2125,11 @@ def tandem_systems_real_lanes_bg10000(
         idx += 1
     return results
 
+
 # ========================================================================
 # Helper functions for service and accidental vehicle loads
 # ========================================================================
+
 
 # Helper function to calculate wheel corners for vehicle loads
 def _calculate_wheel_corners_vehicle(center_x: float, center_y: float, wheel_contact_area: float) -> list[tuple[float, float, float]]:
