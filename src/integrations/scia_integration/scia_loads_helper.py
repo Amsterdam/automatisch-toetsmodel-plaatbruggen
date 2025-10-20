@@ -204,6 +204,7 @@ def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float
 
     return width_1, width_2
 
+
 # Import for type checking only to avoid circular imports
 
 if TYPE_CHECKING:
