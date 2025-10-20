@@ -1101,6 +1101,200 @@ class TestUniformlyDistributedLoads:
         assert "BG4001" in result_zero_load
         assert result_zero_load["BG4001"]["main"][0]["load"] == 0.0, "Should handle zero load value"
 
+    @pytest.mark.parametrize(
+        ("width_zone_1", "width_zone_2", "expected_lanes_zone_1", "expected_lanes_zone_2"),
+        [
+            (10.0, 10.0, 3, 3),  # Both zones > 9m
+            (10.0, 7.5, 3, 2),  # Zone 1 > 9m, Zone 2 between 6-9m
+            (7.5, 7.5, 2, 2),  # Both zones between 6-9m
+            (7.5, 4.5, 2, 1),  # Zone 1 between 6-9m, Zone 2 between 3-6m
+            (4.5, 4.5, 1, 1),  # Both zones between 3-6m
+            (4.5, 2.5, 1, 0),  # Zone 1 between 3-6m, Zone 2 < 3m
+            (7.5, 2.5, 2, 0),  # Zone 1 between 6-9m, Zone 2 < 3m
+            (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
+        ],
+    )
+    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_two_road_zones")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_widths_of_two_road_zones")
+    def test_generate_real_lane_positions_bg8000_two_road_zones(
+        self,
+        mock_get_widths: Mock,
+        mock_get_y_coords: Mock,
+        width_zone_1: float,
+        width_zone_2: float,
+        expected_lanes_zone_1: int,
+        expected_lanes_zone_2: int,
+    ) -> None:
+        """
+        Test BG8000 lane position generation for dual road zones with various width configurations.
+
+        BG8000 positions lanes from bottom upward in each zone.
+        """
+        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg8000_two_road_zones
+
+        # Arrange
+        y_top_zone_1 = 5.0
+        y_top_zone_2 = -2.0  # Different zone, lower on bridge
+        mock_get_widths.return_value = (width_zone_1, width_zone_2)
+        mock_get_y_coords.return_value = (y_top_zone_1, y_top_zone_2)
+
+        mock_params = Mock()
+
+        # Act
+        lane_positions = generate_real_lane_positions_bg8000_two_road_zones(mock_params, lane_width=3.0)
+
+        # Assert
+        expected_total_lanes = expected_lanes_zone_1 + expected_lanes_zone_2
+        assert len(lane_positions) == expected_total_lanes, f"Expected {expected_total_lanes} lanes, got {len(lane_positions)}"
+
+        # Verify lane positions for zone 1 (from bottom upward)
+        if expected_lanes_zone_1 > 0:
+            y_bottom_zone_1 = y_top_zone_1 - width_zone_1
+            for i in range(expected_lanes_zone_1):
+                expected_center = y_bottom_zone_1 + (i * 3.0) + 1.5  # Bottom + lane_idx * width + half_width
+                assert abs(lane_positions[i] - expected_center) < 0.001, (
+                    f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
+                )
+
+        # Verify lane positions for zone 2 (from bottom upward)
+        if expected_lanes_zone_2 > 0:
+            y_bottom_zone_2 = y_top_zone_2 - width_zone_2
+            for i in range(expected_lanes_zone_2):
+                lane_idx_in_result = expected_lanes_zone_1 + i
+                expected_center = y_bottom_zone_2 + (i * 3.0) + 1.5
+                assert abs(lane_positions[lane_idx_in_result] - expected_center) < 0.001, (
+                    f"Zone 2, Lane {i}: expected {expected_center}, got {lane_positions[lane_idx_in_result]}"
+                )
+
+    @pytest.mark.parametrize(
+        ("width_zone_1", "width_zone_2", "expected_lanes_zone_1", "expected_lanes_zone_2"),
+        [
+            (10.0, 10.0, 3, 3),  # Both zones > 9m
+            (10.0, 7.5, 3, 2),  # Zone 1 > 9m, Zone 2 between 6-9m
+            (7.5, 7.5, 2, 2),  # Both zones between 6-9m
+            (7.5, 4.5, 2, 1),  # Zone 1 between 6-9m, Zone 2 between 3-6m
+            (4.5, 4.5, 1, 1),  # Both zones between 3-6m
+            (4.5, 2.5, 1, 0),  # Zone 1 between 3-6m, Zone 2 < 3m
+            (7.5, 2.5, 2, 0),  # Zone 1 between 6-9m, Zone 2 < 3m
+            (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
+        ],
+    )
+    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_two_road_zones")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_widths_of_two_road_zones")
+    def test_generate_real_lane_positions_bg9000_two_road_zones(
+        self,
+        mock_get_widths: Mock,
+        mock_get_y_coords: Mock,
+        width_zone_1: float,
+        width_zone_2: float,
+        expected_lanes_zone_1: int,
+        expected_lanes_zone_2: int,
+    ) -> None:
+        """
+        Test BG9000 lane position generation for dual road zones with various width configurations.
+
+        BG9000 positions lanes from top downward in each zone (opposite of BG8000).
+        """
+        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg9000_two_road_zones
+
+        # Arrange
+        y_top_zone_1 = 5.0
+        y_top_zone_2 = -2.0
+        mock_get_widths.return_value = (width_zone_1, width_zone_2)
+        mock_get_y_coords.return_value = (y_top_zone_1, y_top_zone_2)
+
+        mock_params = Mock()
+
+        # Act
+        lane_positions = generate_real_lane_positions_bg9000_two_road_zones(mock_params, lane_width=3.0)
+
+        # Assert
+        expected_total_lanes = expected_lanes_zone_1 + expected_lanes_zone_2
+        assert len(lane_positions) == expected_total_lanes, f"Expected {expected_total_lanes} lanes, got {len(lane_positions)}"
+
+        # Verify lane positions for zone 1 (from top downward)
+        if expected_lanes_zone_1 > 0:
+            for i in range(expected_lanes_zone_1):
+                expected_center = y_top_zone_1 - (i * 3.0) - 1.5  # Top - lane_idx * width - half_width
+                assert abs(lane_positions[i] - expected_center) < 0.001, (
+                    f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
+                )
+
+        # Verify lane positions for zone 2 (from top downward)
+        if expected_lanes_zone_2 > 0:
+            for i in range(expected_lanes_zone_2):
+                lane_idx_in_result = expected_lanes_zone_1 + i
+                expected_center = y_top_zone_2 - (i * 3.0) - 1.5
+                assert abs(lane_positions[lane_idx_in_result] - expected_center) < 0.001, (
+                    f"Zone 2, Lane {i}: expected {expected_center}, got {lane_positions[lane_idx_in_result]}"
+                )
+
+    @pytest.mark.parametrize(
+        ("width_zone_1", "width_zone_2", "expected_lanes_zone_1", "expected_lanes_zone_2"),
+        [
+            (10.0, 10.0, 3, 3),  # Both zones > 9m
+            (10.0, 7.5, 3, 2),  # Zone 1 > 9m, Zone 2 between 6-9m
+            (7.5, 7.5, 2, 2),  # Both zones between 6-9m
+            (7.5, 4.5, 2, 1),  # Zone 1 between 6-9m, Zone 2 between 3-6m
+            (4.5, 4.5, 1, 1),  # Both zones between 3-6m
+            (4.5, 2.5, 1, 0),  # Zone 1 between 3-6m, Zone 2 < 3m
+            (7.5, 2.5, 2, 0),  # Zone 1 between 6-9m, Zone 2 < 3m
+            (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
+        ],
+    )
+    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_two_road_zones")
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_widths_of_two_road_zones")
+    def test_generate_real_lane_positions_bg10000_two_road_zones(
+        self,
+        mock_get_widths: Mock,
+        mock_get_y_coords: Mock,
+        width_zone_1: float,
+        width_zone_2: float,
+        expected_lanes_zone_1: int,
+        expected_lanes_zone_2: int,
+    ) -> None:
+        """
+        Test BG10000 lane position generation for dual road zones with various width configurations.
+
+        BG10000 positions lanes from the interior (center-facing side) outward.
+        Zone 1 (bottom zone): from bottom (interior) upward toward top edge
+        Zone 2 (top zone): from top (interior) downward toward bottom edge
+        """
+        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg10000_two_road_zones
+
+        # Arrange
+        y_top_zone_1 = 5.0
+        y_top_zone_2 = -2.0
+        mock_get_widths.return_value = (width_zone_1, width_zone_2)
+        mock_get_y_coords.return_value = (y_top_zone_1, y_top_zone_2)
+
+        mock_params = Mock()
+
+        # Act
+        lane_positions = generate_real_lane_positions_bg10000_two_road_zones(mock_params, lane_width=3.0)
+
+        # Assert
+        expected_total_lanes = expected_lanes_zone_1 + expected_lanes_zone_2
+        assert len(lane_positions) == expected_total_lanes, f"Expected {expected_total_lanes} lanes, got {len(lane_positions)}"
+
+        # Verify lane positions for zone 1 (from bottom/interior upward)
+        if expected_lanes_zone_1 > 0:
+            y_bottom_zone_1 = y_top_zone_1 - width_zone_1
+            for i in range(expected_lanes_zone_1):
+                expected_center = y_bottom_zone_1 + (i * 3.0) + 1.5  # Bottom + lane_idx * width + half_width
+                assert abs(lane_positions[i] - expected_center) < 0.001, (
+                    f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
+                )
+
+        # Verify lane positions for zone 2 (from top/interior downward)
+        if expected_lanes_zone_2 > 0:
+            for i in range(expected_lanes_zone_2):
+                lane_idx_in_result = expected_lanes_zone_1 + i
+                expected_center = y_top_zone_2 - (i * 3.0) - 1.5  # Top - lane_idx * width - half_width
+                assert abs(lane_positions[lane_idx_in_result] - expected_center) < 0.001, (
+                    f"Zone 2, Lane {i}: expected {expected_center}, got {lane_positions[lane_idx_in_result]}"
+                )
+
 
 class TestLoadBoundaryCompliance:
     """Tests to ensure all generated loads stay within bridge boundaries."""
