@@ -138,10 +138,7 @@ def get_number_of_road_zones(params: "BridgeParametrization") -> int:
     load_zones_data = get_load_zones_data_from_params(params)
 
     # Count zones where zone_type is "Auto"
-    road_zone_count = sum(1 for zone in load_zones_data if zone.zone_type == "Auto")
-
-    return road_zone_count
-
+    return sum(1 for zone in load_zones_data if zone.zone_type == "Auto")
 
 def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float, float]:
     """
