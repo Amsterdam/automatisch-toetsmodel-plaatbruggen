@@ -178,14 +178,13 @@ Tijdens de optimalisatie worden de volgende berekeningsniveaus doorlopen:
 1.  Theoretische wegindeling
 2.  Werkelijke wegindeling
 3.  Werkelijke wegindeling onderliggend wegennet
-4.  Werkelijke wegindeling met bebording - 60 ton (standaard)
-5.  Werkelijke wegindeling met bebording - 50 ton
-6.  Werkelijke wegindeling met bebording - 45 ton
-7.  Werkelijke wegindeling met bebording - 40 ton
-8.  Werkelijke wegindeling met bebording - 35 ton
-9.  Werkelijke wegindeling met bebording - 30 ton
-10.  Werkelijke wegindeling met bebording - 25 ton
-11.  Werkelijke wegindeling met bebording - 20 ton
+4.  Werkelijke wegindeling met bebording - 50 ton
+5.  Werkelijke wegindeling met bebording - 45 ton
+6.  Werkelijke wegindeling met bebording - 40 ton
+7.  Werkelijke wegindeling met bebording - 35 ton
+8.  Werkelijke wegindeling met bebording - 30 ton
+9.  Werkelijke wegindeling met bebording - 25 ton
+10.  Werkelijke wegindeling met bebording - 20 ton
 
 Tijdens elke stap worden de resultaten gecontroleerd op slagingscriteria (IDEA capaciteit en schuifsterkte toetsing).
 Als de resultaten voldoen aan de slagingscriteria, wordt de optimalisatie gestopt en worden de resultaten weergegeven.

@@ -11,6 +11,7 @@ Individual components:
 - geometry_views.py - 3D and 2D visualization views
 - scia_integration.py - SCIA Engineer integration
 - idea_integration.py - IDEA StatiCa RCS integration
+- optimization.py - UC optimization functionality
 - report_views.py - PDF report generation
 """
 
