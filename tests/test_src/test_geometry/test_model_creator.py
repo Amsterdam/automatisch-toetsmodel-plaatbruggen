@@ -78,7 +78,7 @@ class TestModelCreator(unittest.TestCase):
             elif isinstance(geometry.visual, ColorVisuals) and hasattr(geometry.visual, "face_colors") and len(geometry.visual.face_colors) > 0:
                 # Use the first face color if main_color is not available
                 main_color = geometry.visual.face_colors[0]
-            
+
             if main_color is None:
                 continue  # Skip if we can't determine color
 
