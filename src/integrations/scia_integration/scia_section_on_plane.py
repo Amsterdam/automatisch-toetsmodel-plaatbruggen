@@ -220,8 +220,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
             if last_y_position > y_bottom + 0.01:  # 1cm tolerance
                 y_positions.append(y_bottom)
 
-        print(f"DEBUG: Span {span.span_index} - X-direction: x_positions={x_positions_x_dir}, y_positions={y_positions}")
-
         # Create x-direction sections at regular y positions
         for i, x_pos in enumerate(x_positions_x_dir):
             for j, y_pos in enumerate(y_positions):
@@ -238,7 +236,7 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         # Y-DIRECTION SECTIONS
         # -------------------
         # These sections are 1m long in y-direction, repeated every 0.5m in y, and every 0.5m in x
-        
+
         # Calculate x-positions for y-direction sections (separate from x-direction)
         x_positions_y_dir = []
         x_current = x_start
@@ -264,8 +262,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
             y_section_positions.append(y_current)  # Store the TOP position
             y_current -= spacing
         
-        print(f"DEBUG: Span {span.span_index} - y_top={y_top}, y_bottom={y_bottom}, y_section_positions before check={y_section_positions}")
-        
         # Add a final section if the last section doesn't reach the bottom
         # The section is 1m long in y direction, extending downward from y_pos to y_pos - section_length
         # We want a section starting at y_bottom + section_length (top) and ending at y_bottom (bottom)
@@ -273,17 +269,12 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
             last_y_section_top = y_section_positions[-1]
             last_y_section_bottom = last_y_section_top - section_length
             # Check if last section bottom is above y_bottom (with tolerance)
-            print(f"DEBUG: Checking boundary - last_y_section_top={last_y_section_top}, last_y_section_bottom={last_y_section_bottom}, y_bottom={y_bottom}, condition={last_y_section_bottom > y_bottom + 0.01}")
             if last_y_section_bottom > y_bottom + 0.01:  # 1cm tolerance
                 # Add one more section with top at y_bottom + section_length
                 # This section will extend from y_bottom + section_length (top) to y_bottom (bottom)
-                print(f"DEBUG: Adding final section with top at y_bottom + section_length={y_bottom + section_length}")
                 y_section_positions.append(y_bottom + section_length)
 
-        print(f"DEBUG: Span {span.span_index} - Final y_section_positions={y_section_positions}")
-        
         # Create y-direction sections at regular x positions
-        print(f"DEBUG: Span {span.span_index} - Y-direction section x positions: {x_positions_y_dir}")
         for i, x_pos in enumerate(x_positions_y_dir):
             for j, y_pos in enumerate(y_section_positions):
                 section_definitions.append(
