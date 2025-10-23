@@ -7,8 +7,6 @@ This component provides all geometry-related views including
 
 import plotly.graph_objects as go
 import trimesh
-from viktor.core import File
-from viktor.views import GeometryResult, GeometryView, PlotlyResult, PlotlyView
 
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.utils import validate_load_zone_widths, validate_reinforcement_zone_selections
@@ -27,6 +25,8 @@ from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
 from src.geometry.top_view_plot import build_top_view_figure
+from viktor.core import File
+from viktor.views import GeometryResult, GeometryView, PlotlyResult, PlotlyView
 
 
 class GeometryViews:

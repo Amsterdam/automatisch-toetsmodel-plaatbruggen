@@ -17,6 +17,19 @@ from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
+from src.integrations.scia_integration.constants.loads import (
+    ALPHA_Q_MAIN_LANE_ONDERLIGGEND,
+    ALPHA_Q_ONDERLIGGEND,
+    ALPHA_Q_OTHER_LANE_ONDERLIGGEND,
+    NOBS_DEFAULT,
+    SIGNAGE_WEIGHT_OPTIONS,
+    TANDEM_CONTACT_AREA_SIDE,
+    TANDEM_LOAD_BASE_MAIN,
+    TANDEM_LOAD_BASE_SECOND,
+    TANDEM_LOAD_BASE_THIRD,
+    UDL_OTHER_LANE_VALUE,
+    UDL_REST_AREA_VALUE,
+)
 
 
 def calculate_real_tandem_values(
@@ -34,23 +47,23 @@ def calculate_real_tandem_values(
     :param alpha_trend_factor: Alpha trend factor from NEN 8701
     :returns: Tuple of (load_main, load_second, load_third)
     """
-    base_main = 300000 / (0.4 * 0.4)
-    base_second = 200000 / (0.4 * 0.4)
-    base_third = 100000 / (0.4 * 0.4)
+    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
+    base_main = TANDEM_LOAD_BASE_MAIN / contact_area
+    base_second = TANDEM_LOAD_BASE_SECOND / contact_area
+    base_third = TANDEM_LOAD_BASE_THIRD / contact_area
 
     if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
         load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = 0.8
+        alpha_q_factor = ALPHA_Q_ONDERLIGGEND
         load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-        signage_index = signage_options_list.index(params.signage)
+        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
         load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
         load_main = base_main * load_factor
         load_second = base_second * load_factor
@@ -81,28 +94,27 @@ def calculate_real_udl_values(
     :returns: Tuple of (main_value, other_value, rest_value)
     """
     if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
         main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [1.35, 1.0]
+        alpha_q_factors = [ALPHA_Q_MAIN_LANE_ONDERLIGGEND, ALPHA_Q_OTHER_LANE_ONDERLIGGEND]
         main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
     elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
         # Get the selected signage option and map to load factor
-        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-        signage_index = signage_options_list.index(params.signage)
+        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
         load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
         # Apply the load factor to all values
         main_value = udl_value * load_factor
-        other_value = 2500.0
-        rest_value = 2500.0
+        other_value = UDL_OTHER_LANE_VALUE
+        rest_value = UDL_REST_AREA_VALUE
     else:  # Fallback for safety
         main_value = udl_value
-        other_value = 2500.0
-        rest_value = 2500.0
+        other_value = UDL_OTHER_LANE_VALUE
+        rest_value = UDL_REST_AREA_VALUE
 
     return main_value, other_value, rest_value
 
