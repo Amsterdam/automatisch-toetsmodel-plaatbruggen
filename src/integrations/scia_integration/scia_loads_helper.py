@@ -890,7 +890,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
         # Get widths and coordinates for both zones
         width_zone_1, width_zone_2 = get_widths_of_two_road_zones(params)
         y_top_zone_1, y_top_zone_2 = obtain_y_coordinates_two_road_zones(params)
-        
+
         y_bottom_zone_1 = y_top_zone_1 - width_zone_1
         y_bottom_zone_2 = y_top_zone_2 - width_zone_2
 
