@@ -1265,7 +1265,6 @@ class TestUniformlyDistributedLoads:
         Zone 1 (bottom zone): from bottom (interior) upward toward top edge
         Zone 2 (top zone): from top (interior) downward toward bottom edge
         """
-
         # Arrange
         y_top_zone_1 = 5.0
         y_top_zone_2 = -2.0
