@@ -182,9 +182,19 @@ def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float
     cumulative_width = 0.0
 
     for zone_position, (zone_index, zone) in enumerate(auto_zones_with_indices[:2]):
-        # Accumulate widths of all zones before this auto zone
+        # For each auto zone, accumulate widths of all zones before it
         if zone_position == 0:
+            # First auto zone: accumulate all zones before it
             for i in range(zone_index):
+                prev_zone = load_zones_data[i]
+                width_value = getattr(prev_zone, "d1_width", None)
+                prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+                cumulative_width += prev_width
+        else:
+            # Second auto zone: accumulate all zones between first and second auto zone
+            # (including the first auto zone itself)
+            prev_auto_index = auto_zones_with_indices[zone_position - 1][0]
+            for i in range(prev_auto_index, zone_index):
                 prev_zone = load_zones_data[i]
                 width_value = getattr(prev_zone, "d1_width", None)
                 prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
@@ -197,8 +207,6 @@ def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float
         # If this auto zone is the last zone in the array, calculate remaining width
         if zone_index == len(load_zones_data) - 1:
             zone_width = dims.total_width - cumulative_width
-        else:
-            cumulative_width += zone_width
 
         widths.append(zone_width)
 
@@ -881,10 +889,12 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     if num_road_zones == 2:
         # Get widths and coordinates for both zones
         width_zone_1, width_zone_2 = get_widths_of_two_road_zones(params)
+        print("widths:", width_zone_1, width_zone_2)
         y_top_zone_1, y_top_zone_2 = obtain_y_coordinates_two_road_zones(params)
+        print("y tops:", y_top_zone_1, y_top_zone_2)
         y_bottom_zone_1 = y_top_zone_1 - width_zone_1
         y_bottom_zone_2 = y_top_zone_2 - width_zone_2
-
+        print("y bottoms:", y_bottom_zone_1, y_bottom_zone_2)
         # Calculate lane width based on combined width
         max_lanes, lane_width = amount_of_notional_lanes(width_zone_1 + width_zone_2)
 
