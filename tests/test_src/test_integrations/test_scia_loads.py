@@ -14,6 +14,7 @@ from src.integrations.scia_integration.scia_loads_helper import (
     calculate_real_tandem_values,
     calculate_real_udl_values,
     create_material_surface_load,
+    generate_real_lane_positions_bg10000_two_road_zones,
 )
 
 BridgeParametrization: Any
@@ -1264,7 +1265,6 @@ class TestUniformlyDistributedLoads:
         Zone 1 (bottom zone): from bottom (interior) upward toward top edge
         Zone 2 (top zone): from top (interior) downward toward bottom edge
         """
-        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg10000_two_road_zones
 
         # Arrange
         y_top_zone_1 = 5.0
