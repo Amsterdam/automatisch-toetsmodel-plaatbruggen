@@ -737,7 +737,14 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_reference_period")
     def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
-        self, mock_ref_period: Mock, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y: Mock, mock_num_zones: Mock, mock_params: Mock
+        self,
+        mock_ref_period: Mock,
+        mock_alpha_q: Mock,
+        mock_alpha_trend: Mock,
+        mock_psi: Mock,
+        mock_obtain_y: Mock,
+        mock_num_zones: Mock,
+        mock_params: Mock,
     ) -> None:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
