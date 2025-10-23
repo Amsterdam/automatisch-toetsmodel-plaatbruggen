@@ -245,6 +245,7 @@ SciaAnalysis = Any
 SciaResults = Any
 SciaResultClass = Any
 SciaIntegrationStrip = Any
+SciaSectionOnPlane = Any
 
 # Type aliases for file objects
 SciaFile = BytesIO | bytes
