@@ -730,13 +730,14 @@ class TestUniformlyDistributedLoads:
         expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
         assert abs(main_polygon["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}"
 
+    @patch("src.integrations.scia_integration.scia_loads_helper.get_number_of_road_zones")
     @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
     @patch("src.integrations.scia_integration.scia_loads_helper.get_reference_period")
     def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
-        self, mock_ref_period: Mock, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y: Mock, mock_params: Mock
+        self, mock_ref_period: Mock, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y: Mock, mock_num_zones: Mock, mock_params: Mock
     ) -> None:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
@@ -744,6 +745,9 @@ class TestUniformlyDistributedLoads:
         # Configure mock params and reference period
         mock_params.reference_period = 50  # years
         mock_ref_period.return_value = 50
+
+        # Configure single road zone (not dual carriageway)
+        mock_num_zones.return_value = 1
 
         # Configure load factors
         mock_psi.return_value = 1.0  # Example psi factor
