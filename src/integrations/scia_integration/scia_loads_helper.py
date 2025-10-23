@@ -1158,7 +1158,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
         y_positions_left = generate_real_lane_positions_bg8000(params, lane_width)
 
         if y_positions_left:
-            load_polygons: dict[str, list[dict[str, list[tuple[float, float, float]] | float]]] = {"main": [], "other": [], "rest": []}
+            load_polygons = {"main": [], "other": [], "rest": []}
 
             for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
                 y_min = y_center - lane_width / 2
