@@ -877,23 +877,23 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
 
     # Check if we have two road zones
     num_road_zones = get_number_of_road_zones(params)
-    
+
     if num_road_zones == 2:
         # Get widths and coordinates for both zones
         width_zone_1, width_zone_2 = get_widths_of_two_road_zones(params)
         y_top_zone_1, y_top_zone_2 = obtain_y_coordinates_two_road_zones(params)
         y_bottom_zone_1 = y_top_zone_1 - width_zone_1
         y_bottom_zone_2 = y_top_zone_2 - width_zone_2
-        
+
         # Calculate lane width based on combined width
         max_lanes, lane_width = amount_of_notional_lanes(width_zone_1 + width_zone_2)
-        
+
         # BG4001: leftmost lanes (BG8000 logic) - lanes from bottom upward
         y_positions_left = generate_real_lane_positions_bg8000_two_road_zones(params, lane_width)
-        
+
         if y_positions_left:
             load_polygons: dict[str, list[dict[str, list[tuple[float, float, float]] | float]]] = {"main": [], "other": [], "rest": []}
-            
+
             # Create lane polygons for up to max_lanes
             for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
                 y_min = y_center - lane_width / 2
@@ -904,18 +904,18 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (length_bridgedeck, y_max, 0.0),
                     (0.0, y_max, 0.0),
                 ]
-                
+
                 # First lane is "main", others are "other"
                 if lane_idx == 0:
                     load_polygons["main"].append({"polygon": lane_polygon, "load": main_value})
                 else:
                     load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-            
+
             # Create rest polygons for uncovered areas in each zone
             # Determine which lanes belong to which zone and calculate rest areas
             lanes_covered_zone_1 = sum(1 for y in y_positions_left[:max_lanes] if y_bottom_zone_1 <= y <= y_top_zone_1)
             lanes_covered_zone_2 = sum(1 for y in y_positions_left[:max_lanes] if y_bottom_zone_2 <= y <= y_top_zone_2)
-            
+
             # Rest area for zone 1
             zone_1_lanes = [y for y in y_positions_left[:max_lanes] if y_bottom_zone_1 <= y <= y_top_zone_1]
             if zone_1_lanes:
@@ -939,7 +939,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_top_zone_1, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon_1, "load": rest_value})
-            
+
             # Rest area for zone 2
             zone_2_lanes = [y for y in y_positions_left[:max_lanes] if y_bottom_zone_2 <= y <= y_top_zone_2]
             if zone_2_lanes:
@@ -963,15 +963,15 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_top_zone_2, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon_2, "load": rest_value})
-            
+
             results["BG4001"] = load_polygons
-        
+
         # BG4002: rightmost lanes (BG9000 logic) - lanes from top downward
         y_positions_right = generate_real_lane_positions_bg9000_two_road_zones(params, lane_width)
-        
+
         if y_positions_right:
             load_polygons = {"main": [], "other": [], "rest": []}
-            
+
             for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
                 y_min = y_center - lane_width / 2
                 y_max = y_center + lane_width / 2
@@ -981,16 +981,16 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (length_bridgedeck, y_max, 0.0),
                     (0.0, y_max, 0.0),
                 ]
-                
+
                 if lane_idx == 0:
                     load_polygons["main"].append({"polygon": lane_polygon, "load": main_value})
                 else:
                     load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-            
+
             # Create rest polygons for uncovered areas in each zone
             lanes_covered_zone_1 = sum(1 for y in y_positions_right[:max_lanes] if y_bottom_zone_1 <= y <= y_top_zone_1)
             lanes_covered_zone_2 = sum(1 for y in y_positions_right[:max_lanes] if y_bottom_zone_2 <= y <= y_top_zone_2)
-            
+
             # Rest area for zone 1
             zone_1_lanes = [y for y in y_positions_right[:max_lanes] if y_bottom_zone_1 <= y <= y_top_zone_1]
             if zone_1_lanes:
@@ -1014,7 +1014,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_top_zone_1, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon_1, "load": rest_value})
-            
+
             # Rest area for zone 2
             zone_2_lanes = [y for y in y_positions_right[:max_lanes] if y_bottom_zone_2 <= y <= y_top_zone_2]
             if zone_2_lanes:
@@ -1038,15 +1038,15 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_top_zone_2, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon_2, "load": rest_value})
-            
+
             results["BG4002"] = load_polygons
-        
+
         # BG4003: center lane positioning (BG10000 logic)
         y_positions_center = generate_real_lane_positions_bg10000_two_road_zones(params, lane_width)
-        
+
         if y_positions_center and len(y_positions_center) > 0:
             load_polygons = {"main": [], "other": [], "rest": []}
-            
+
             # First position is the main (center) lane
             y_center_main = y_positions_center[0]
             center_y_min = y_center_main - lane_width / 2
@@ -1058,7 +1058,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                 (0.0, center_y_max, 0.0),
             ]
             load_polygons["main"].append({"polygon": center_polygon, "load": main_value})
-            
+
             # Create other lanes (adjacent lanes if they exist)
             for y_center in y_positions_center[1:max_lanes]:
                 y_min = y_center - lane_width / 2
@@ -1070,18 +1070,18 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_max, 0.0),
                 ]
                 load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-            
+
             # Create rest polygons for remaining areas in each zone
             lanes_used = y_positions_center[:max_lanes]
             lanes_in_zone_1 = [y for y in lanes_used if y_bottom_zone_1 <= y <= y_top_zone_1]
             lanes_in_zone_2 = [y for y in lanes_used if y_bottom_zone_2 <= y <= y_top_zone_2]
-            
+
             # Rest areas for zone 1
             if lanes_in_zone_1:
                 # Zone has lanes - create rest polygons for uncovered areas above and below lanes
                 min_y_covered = min(lanes_in_zone_1) - lane_width / 2
                 max_y_covered = max(lanes_in_zone_1) + lane_width / 2
-                
+
                 # Lower rest area in zone 1
                 if min_y_covered > y_bottom_zone_1:
                     rest_lower = [
@@ -1091,7 +1091,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                         (0.0, min_y_covered, 0.0),
                     ]
                     load_polygons["rest"].append({"polygon": rest_lower, "load": rest_value})
-                
+
                 # Upper rest area in zone 1
                 if max_y_covered < y_top_zone_1:
                     rest_upper = [
@@ -1110,13 +1110,13 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_top_zone_1, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon_1, "load": rest_value})
-            
+
             # Rest areas for zone 2
             if lanes_in_zone_2:
                 # Zone has lanes - create rest polygons for uncovered areas above and below lanes
                 min_y_covered = min(lanes_in_zone_2) - lane_width / 2
                 max_y_covered = max(lanes_in_zone_2) + lane_width / 2
-                
+
                 # Lower rest area in zone 2
                 if min_y_covered > y_bottom_zone_2:
                     rest_lower = [
@@ -1126,7 +1126,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                         (0.0, min_y_covered, 0.0),
                     ]
                     load_polygons["rest"].append({"polygon": rest_lower, "load": rest_value})
-                
+
                 # Upper rest area in zone 2
                 if max_y_covered < y_top_zone_2:
                     rest_upper = [
@@ -1145,21 +1145,21 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_top_zone_2, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon_2, "load": rest_value})
-            
+
             results["BG4003"] = load_polygons
-    
+
     else:
         # Single road zone - original logic
         y_top, width_road = obtain_y_coordinates_road(params)
         y_bottom = y_top - width_road
         max_lanes, lane_width = amount_of_notional_lanes(width_road)
-        
+
         # BG4001: leftmost lanes (BG8000 logic)
         y_positions_left = generate_real_lane_positions_bg8000(params, lane_width)
-        
+
         if y_positions_left:
             load_polygons: dict[str, list[dict[str, list[tuple[float, float, float]] | float]]] = {"main": [], "other": [], "rest": []}
-            
+
             for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
                 y_min = y_center - lane_width / 2
                 y_max = y_center + lane_width / 2
@@ -1169,12 +1169,12 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (length_bridgedeck, y_max, 0.0),
                     (0.0, y_max, 0.0),
                 ]
-                
+
                 if lane_idx == 0:
                     load_polygons["main"].append({"polygon": lane_polygon, "load": main_value})
                 else:
                     load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-            
+
             # Create rest polygon for areas not covered by lanes
             max_lane_width = max_lanes * lane_width
             if max_lane_width < width_road:
@@ -1185,15 +1185,15 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_bottom + max_lane_width, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon, "load": rest_value})
-            
+
             results["BG4001"] = load_polygons
-        
+
         # BG4002: Rightmost lanes (BG9000 logic)
         y_positions_right = generate_real_lane_positions_bg9000(params, lane_width)
-        
+
         if y_positions_right:
             load_polygons = {"main": [], "other": [], "rest": []}
-            
+
             for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
                 y_min = y_center - lane_width / 2
                 y_max = y_center + lane_width / 2
@@ -1203,12 +1203,12 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (length_bridgedeck, y_max, 0.0),
                     (0.0, y_max, 0.0),
                 ]
-                
+
                 if lane_idx == 0:
                     load_polygons["main"].append({"polygon": lane_polygon, "load": main_value})
                 else:
                     load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-            
+
             # Rest polygon for area below lanes
             max_lane_width = max_lanes * lane_width
             if max_lane_width < width_road:
@@ -1219,17 +1219,17 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                     (0.0, y_bottom, 0.0),
                 ]
                 load_polygons["rest"].append({"polygon": rest_polygon, "load": rest_value})
-            
+
             results["BG4002"] = load_polygons
-        
+
         # BG4003: center lanes with dynamic number of lanes on each side
         left_lanes, right_lanes, _ = amount_of_notional_lanes_from_center(width_road)
         total_lanes = 1 + left_lanes + right_lanes
-        
+
         center_y = (y_top + y_bottom) / 2
-        
+
         load_polygons = {"main": [], "other": [], "rest": []}
-        
+
         # Create center (main) lane
         center_y_min = center_y - lane_width / 2
         center_y_max = center_y + lane_width / 2
@@ -1240,7 +1240,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
             (0.0, center_y_max, 0.0),
         ]
         load_polygons["main"].append({"polygon": center_polygon, "load": main_value})
-        
+
         # Create left side lanes
         for i in range(left_lanes):
             y_center = center_y - (i + 1) * lane_width
@@ -1253,7 +1253,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                 (0.0, y_max, 0.0),
             ]
             load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-        
+
         # Create right side lanes
         for i in range(right_lanes):
             y_center = center_y + (i + 1) * lane_width
@@ -1266,10 +1266,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                 (0.0, y_max, 0.0),
             ]
             load_polygons["other"].append({"polygon": lane_polygon, "load": other_value})
-        
+
         # Create rest polygons for any remaining areas
         total_lanes_width = total_lanes * lane_width
-        
+
         # Upper rest area (if exists)
         if center_y + total_lanes_width / 2 < y_top:
             upper_rest = [
@@ -1279,7 +1279,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                 (0.0, y_top, 0.0),
             ]
             load_polygons["rest"].append({"polygon": upper_rest, "load": rest_value})
-        
+
         # Lower rest area (if exists)
         if center_y - total_lanes_width / 2 > y_bottom:
             lower_rest = [
@@ -1289,7 +1289,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
                 (0.0, center_y - total_lanes_width / 2, 0.0),
             ]
             load_polygons["rest"].append({"polygon": lower_rest, "load": rest_value})
-        
+
         results["BG4003"] = load_polygons
 
     return results
