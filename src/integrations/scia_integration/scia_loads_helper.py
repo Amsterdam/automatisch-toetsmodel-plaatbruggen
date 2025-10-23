@@ -1544,6 +1544,7 @@ def generate_real_lane_positions_bg8000_two_road_zones(
 
     return sorted(lane_centers)
 
+
 def tandem_systems_real_lanes_bg8000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
