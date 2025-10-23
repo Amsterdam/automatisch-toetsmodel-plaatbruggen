@@ -1129,6 +1129,7 @@ class TestUniformlyDistributedLoads:
         Test BG8000 lane position generation for dual road zones with various width configurations.
 
         BG8000 positions lanes from bottom upward in each zone.
+        Lane positions are returned sorted by y-coordinate.
         """
         from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg8000_two_road_zones
 
@@ -1147,22 +1148,29 @@ class TestUniformlyDistributedLoads:
         expected_total_lanes = expected_lanes_zone_1 + expected_lanes_zone_2
         assert len(lane_positions) == expected_total_lanes, f"Expected {expected_total_lanes} lanes, got {len(lane_positions)}"
 
-        # Verify lane positions for zone 1 (from bottom upward)
+        # Calculate all expected lane positions from both zones
+        expected_positions = []
+        
+        # Calculate expected positions for zone 1 (from bottom upward)
         if expected_lanes_zone_1 > 0:
             y_bottom_zone_1 = y_top_zone_1 - width_zone_1
             for i in range(expected_lanes_zone_1):
                 expected_center = y_bottom_zone_1 + (i * 3.0) + 1.5  # Bottom + lane_idx * width + half_width
-                assert abs(lane_positions[i] - expected_center) < 0.001, f"Zone 1, Lane {i}: expected {expected_center}, got {lane_positions[i]}"
+                expected_positions.append(expected_center)
 
-        # Verify lane positions for zone 2 (from bottom upward)
+        # Calculate expected positions for zone 2 (from bottom upward)
         if expected_lanes_zone_2 > 0:
             y_bottom_zone_2 = y_top_zone_2 - width_zone_2
             for i in range(expected_lanes_zone_2):
-                lane_idx_in_result = expected_lanes_zone_1 + i
                 expected_center = y_bottom_zone_2 + (i * 3.0) + 1.5
-                assert abs(lane_positions[lane_idx_in_result] - expected_center) < 0.001, (
-                    f"Zone 2, Lane {i}: expected {expected_center}, got {lane_positions[lane_idx_in_result]}"
-                )
+                expected_positions.append(expected_center)
+        
+        # Sort expected positions to match the function's return (which is sorted)
+        expected_positions.sort()
+        
+        # Verify each lane position matches expected (sorted) positions
+        for i, (actual, expected) in enumerate(zip(lane_positions, expected_positions)):
+            assert abs(actual - expected) < 0.001, f"Lane {i}: expected {expected}, got {actual}"
 
     @pytest.mark.parametrize(
         ("width_zone_1", "width_zone_2", "expected_lanes_zone_1", "expected_lanes_zone_2"),
