@@ -1150,7 +1150,7 @@ class TestUniformlyDistributedLoads:
 
         # Calculate all expected lane positions from both zones
         expected_positions = []
-        
+
         # Calculate expected positions for zone 1 (from bottom upward)
         if expected_lanes_zone_1 > 0:
             y_bottom_zone_1 = y_top_zone_1 - width_zone_1
@@ -1164,10 +1164,10 @@ class TestUniformlyDistributedLoads:
             for i in range(expected_lanes_zone_2):
                 expected_center = y_bottom_zone_2 + (i * 3.0) + 1.5
                 expected_positions.append(expected_center)
-        
+
         # Sort expected positions to match the function's return (which is sorted)
         expected_positions.sort()
-        
+
         # Verify each lane position matches expected (sorted) positions
         for i, (actual, expected) in enumerate(zip(lane_positions, expected_positions)):
             assert abs(actual - expected) < 0.001, f"Lane {i}: expected {expected}, got {actual}"

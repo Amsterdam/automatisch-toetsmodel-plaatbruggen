@@ -1994,7 +1994,7 @@ def generate_real_lane_positions_bg10000_two_road_zones(
     return lane_centers
 
 
-def tandem_systems_real_lanes_bg10000( # noqa: C901, PLR0912
+def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
