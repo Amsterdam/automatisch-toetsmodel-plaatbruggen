@@ -849,7 +849,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     return results
 
 
-def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
+def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
     udl_value: float = 9000.0,
@@ -2283,7 +2283,7 @@ def generate_real_lane_positions_bg10000_two_road_zones(
     return lane_centers
 
 
-def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912
+def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
