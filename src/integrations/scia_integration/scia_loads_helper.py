@@ -121,6 +121,90 @@ def get_reference_period(params: "BridgeParametrization") -> int:
     return 30
 
 
+def get_number_of_road_zones(params: "BridgeParametrization") -> int:
+    """
+    Determine the number of road zones defined by the user.
+
+    This function counts the number of load zones with zone_type "Auto" in the
+    load zones array, which represents the actual road/traffic zones on the bridge.
+    Typically, there will be 1 or 2 road zones (one for a single carriageway,
+    or two for dual carriageways separated by a median/tramway/grass strip).
+
+    :param params: Bridge parametrization containing load zones data
+    :type params: BridgeParametrization
+    :returns: Number of road zones (zones with zone_type "Auto")
+    :rtype: int
+    """
+    load_zones_data = get_load_zones_data_from_params(params)
+
+    # Count zones where zone_type is "Auto"
+    return sum(1 for zone in load_zones_data if zone.zone_type == "Auto")
+
+
+def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float, float]:
+    """
+    Get the widths of two road zones when the user has defined two auto zones.
+
+    This function extracts the d1_width values for the two road zones (zone_type "Auto").
+    If the second auto zone is the last zone in the array, its width is calculated as
+    the remaining width of the bridge after accounting for all previous zones.
+
+    :param params: Bridge parametrization containing load zones data and bridge geometry
+    :type params: BridgeParametrization
+    :returns: Tuple of (width_1, width_2) for the two road zones in meters
+    :rtype: tuple[float, float]
+    :raises ValueError: If fewer than two road zones are defined
+    """
+    load_zones_data = get_load_zones_data_from_params(params)
+    bridge_geom_data = get_bridge_geom_data(params)
+
+    if bridge_geom_data is None:
+        raise ValueError("Bridge geometry data is not available")
+
+    # Update load zones data with geometry properties
+    load_zones_data = calculate_zone_geometry_properties(load_zones_data, bridge_geom_data)
+
+    # Extract bridge dimensions
+    dims = extract_bridge_dimensions(params)
+
+    # Find all auto zones
+    auto_zones_with_indices = [(i, zone) for i, zone in enumerate(load_zones_data) if zone.zone_type == "Auto"]
+
+    if len(auto_zones_with_indices) < 2:
+        raise ValueError(f"Expected 2 road zones, but found {len(auto_zones_with_indices)}")
+
+    # Extract widths for the first two auto zones
+    widths = []
+    cumulative_width = 0.0
+
+    for zone_position, (zone_index, zone) in enumerate(auto_zones_with_indices[:2]):
+        # Accumulate widths of all zones before this auto zone
+        if zone_position == 0:
+            for i in range(zone_index):
+                prev_zone = load_zones_data[i]
+                width_value = getattr(prev_zone, "d1_width", None)
+                prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+                cumulative_width += prev_width
+
+        # Get the width of this auto zone
+        width_value = getattr(zone, "d1_width", None)
+        zone_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+
+        # If this auto zone is the last zone in the array, calculate remaining width
+        if zone_index == len(load_zones_data) - 1:
+            zone_width = dims.total_width - cumulative_width
+        else:
+            cumulative_width += zone_width
+
+        widths.append(zone_width)
+
+    width_1, width_2 = widths[0], widths[1]
+
+    return width_1, width_2
+
+
+# Import for type checking only to avoid circular imports
+
 if TYPE_CHECKING:
     from .scia_model_interface import SciaModelBuilder
 
