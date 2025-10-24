@@ -17,6 +17,11 @@ TANDEM_CONTACT_AREA_SIDE = 0.4  # m (0.4m x 0.4m contact patch)
 # UDL (Uniformly Distributed Load) Values
 UDL_OTHER_LANE_VALUE = 2500.0  # N/m²
 UDL_REST_AREA_VALUE = 2500.0  # N/m²
+DEFAULT_UDL_VALUE = 9000.0  # Default UDL value for main lane (in N/m²)
+
+# Crowd load (NEN-EN 1991-2 art. 5.3.2.1 LM4)
+CROWD_LOAD_PER_SQM = 5.0  # kN/m²
+CROWD_LOAD_PER_SQM_N = CROWD_LOAD_PER_SQM * 1000.0  # Convert to N/m²
 
 # Alpha factors for load calculations
 ALPHA_Q_ONDERLIGGEND = 0.8  # Alpha Q factor for underlying road network

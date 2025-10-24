@@ -17,10 +17,21 @@ from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
 from src.geometry.model_creator import LoadZoneGeometryData
+from src.integrations.scia_integration.constants.geometry import (
+    DEFAULT_LANE_WIDTH,
+    MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES,
+    TANDEM_SPACING_LONGITUDINAL,
+    TANDEM_START_Y_OFFSET,
+    TANDEM_START_Y_OFFSET_FACTOR,
+    TANDEM_VEHICLE_LENGTH,
+    TANDEM_WHEEL_SPACING_LONGITUDINAL,
+    TANDEM_WHEEL_SPACING_TRANSVERSE,
+)
 from src.integrations.scia_integration.constants.loads import (
     ALPHA_Q_MAIN_LANE_ONDERLIGGEND,
     ALPHA_Q_ONDERLIGGEND,
     ALPHA_Q_OTHER_LANE_ONDERLIGGEND,
+    DEFAULT_UDL_VALUE,
     NOBS_DEFAULT,
     SIGNAGE_WEIGHT_OPTIONS,
     TANDEM_CONTACT_AREA_SIDE,
@@ -29,6 +40,9 @@ from src.integrations.scia_integration.constants.loads import (
     TANDEM_LOAD_BASE_THIRD,
     UDL_OTHER_LANE_VALUE,
     UDL_REST_AREA_VALUE,
+)
+from src.integrations.scia_integration.constants.units import (
+    KN_PER_SQM_TO_N_PER_SQM,
 )
 
 
@@ -231,7 +245,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    udl_value: float = 9000.0,
+    udl_value: float = DEFAULT_UDL_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create UDLs for all notional lanes and remaining areas.
@@ -245,8 +259,8 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     :param width_bridgedeck: Bridge width in meters
     :param width_firstsegment_zone3: Zone 3 width (for lane offset)
     :param width_firstsegment_zone2: Zone 2 width (for lane offset)
-    :param lane_width: Lane width in meters (default 3.0)
-    :param udl_value: UDL value for main lane in N/m² (default 9000.0)
+    :param lane_width: Lane width in meters (default DEFAULT_LANE_WIDTH)
+    :param udl_value: UDL value for main lane in N/m² (default DEFAULT_UDL_VALUE)
     :returns: Dict with keys BG4001, BG4002, BG4003, each containing lane polygons and load values
     """
     # Create an empty results dictionary
@@ -255,11 +269,11 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
     # Obtain load values
     main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+    rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
     max_lanes, lane_width = amount_of_notional_lanes(width_bridgedeck)  # Maximum number of lanes to consider and lane width
 
@@ -408,7 +422,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
 def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     params: "BridgeParametrization",
     length_bridgedeck: float,
-    udl_value: float = 9000.0,
+    udl_value: float = DEFAULT_UDL_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create real uniform distributed load (UDL) traffic loads for the bridge.
@@ -423,7 +437,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
     :type width_firstsegment_zone3: float
     :param width_firstsegment_zone2: Width of the first segment in zone 2
     :type width_firstsegment_zone2: float
-    :param udl_value: Uniform distributed load value (default: 9000.0)
+    :param udl_value: Uniform distributed load value (default: DEFAULT_UDL_VALUE)
     :type udl_value: float
     :returns: Dictionary containing real UDL traffic loads
     :rtype: dict[str, dict[str, Any]]
@@ -594,7 +608,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901
 def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) -> list[list[list[float]]]:
     """Helper function to create a tandem's wheel coordinates."""
     wheels = []
-    tandem_start_y = y_center - 1.2
+    tandem_start_y = y_center - TANDEM_START_Y_OFFSET
     for dx, dy in TANDEM_WHEEL_OFFSETS:
         x0 = x_start + dx
         y0 = tandem_start_y + dy
@@ -610,7 +624,7 @@ def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) ->
 
 def generate_theoretical_lane_positions_bg8000(
     width_bridgedeck: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
     zone3_width: float = 0.0,
     zone2_width: float = 0.0,
 ) -> list[float]:
@@ -631,7 +645,7 @@ def generate_theoretical_lane_positions_bg8000(
     :raises ValueError: If bridge_width or lane_width is not positive
 
     Examples:
-        >>> generate_theoretical_lane_positions(30.0, 3.0, 2.0)
+        >>> generate_theoretical_lane_positions(30.0, DEFAULT_LANE_WIDTH, 2.0)
         [-0.5, 2.5, 5.5, 8.5, 11.5, 14.5, 17.5, 20.5, 23.5, 26.5]
 
     """
@@ -654,7 +668,12 @@ def generate_theoretical_lane_positions_bg8000(
 
 
 # Standard tandem wheel offsets from bottom left corner
-TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
+TANDEM_WHEEL_OFFSETS = [
+    (0, 0),
+    (TANDEM_WHEEL_SPACING_LONGITUDINAL, 0),
+    (0, TANDEM_WHEEL_SPACING_TRANSVERSE),
+    (TANDEM_WHEEL_SPACING_LONGITUDINAL, TANDEM_WHEEL_SPACING_TRANSVERSE),
+]
 
 
 def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
@@ -664,7 +683,7 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     thickness_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[dict[str, Any]]:
     """
     Generate tandem loads positioned at theoretical traffic lane centers.
@@ -690,10 +709,10 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
         - wheels: List of 4 wheel coordinates per tandem
         - load: Load intensity in N/m²
     """
-    wheel_size = 0.4
+    wheel_size = TANDEM_CONTACT_AREA_SIDE
 
     # Get longitudinal positions (same as existing system)
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
@@ -702,11 +721,12 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
     # Obtain load values
-    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
+    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG8 (first lane position)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -746,7 +766,7 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
 # ========================================================================
 def generate_theoretical_lane_positions_bg9000(
     width_bridgedeck: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
     zone3_width: float = 0.0,
     zone2_width: float = 0.0,
 ) -> list[float]:
@@ -787,7 +807,7 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     thickness_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[dict[str, Any]]:
     """
     Generate tandem loads positioned at theoretical traffic lane centers, starting from the right edge.
@@ -805,19 +825,20 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     :returns: List of tandem load cases with full width coverage, reversed
     :rtype: list[dict[str, Any]]
     """
-    wheel_size = 0.4
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    wheel_size = TANDEM_CONTACT_AREA_SIDE
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
     lane_y_positions = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     results = []
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
     # Obtain load values
-    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
+    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     # Only generate for BG9 (first lane position, reversed)
     if lane_y_positions:
         y_lane_center = lane_y_positions[0]
@@ -853,7 +874,7 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
 
 def generate_theoretical_lane_positions_bg10000(
     width_bridgedeck: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
     zone3_width: float = 0.0,
     zone2_width: float = 0.0,
 ) -> list[float]:
@@ -878,7 +899,7 @@ def generate_theoretical_lane_positions_bg10000(
     y_center = width_bridgedeck / 2 - zone3_width - 0.5 * zone2_width
 
     # Only add adjacent lanes if we have at least 9m width (3 lanes of 3m each)
-    if width_bridgedeck >= 9.0:
+    if width_bridgedeck >= MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES:
         # Left lane (adjacent to center)
         y_left = y_center - lane_width
         # Right lane (adjacent to center)
@@ -895,7 +916,7 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     thickness_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[dict[str, Any]]:
     """
     Generate BG10000 load cases: 300 kN tandem in center always, 200/100 kN adjacent only if width permits.
@@ -910,18 +931,19 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     :returns: List of BG10000 load cases. For narrow bridges (< 9m), only central tandem
     :rtype: list[dict[str, Any]]
     """
-    wheel_size = 0.4
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    wheel_size = TANDEM_CONTACT_AREA_SIDE
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
     lane_y_positions = generate_theoretical_lane_positions_bg10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
     alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
     # Obtain load values
-    load_main = 300000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = 200000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = 100000 / (0.4 * 0.4) * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
+    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
 
     # Check if we have enough width for adjacent lanes (needs at least 9m)
     has_adjacent_lanes = len(lane_y_positions) > 1
@@ -1050,7 +1072,7 @@ def obtain_y_coordinates_road(
 
 def generate_real_lane_positions_bg8000(
     params: "BridgeParametrization",
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """
     Generate y-positions of real traffic lanes for BG8000 load group based on actual road section geometry.
@@ -1096,7 +1118,7 @@ def tandem_systems_real_lanes_bg8000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[dict[str, Any]]:
     """
     Generate tandem load cases for BG8000 load group based on actual road lanes.
@@ -1124,10 +1146,10 @@ def tandem_systems_real_lanes_bg8000(
         - Wheel positions account for the standard 1.2m offset from lane center
 
     """
-    wheel_size = 0.4
+    wheel_size = TANDEM_CONTACT_AREA_SIDE
 
     # Get longitudinal positions (same as existing system)
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_real_lane_positions_bg8000(params, lane_width)
@@ -1146,7 +1168,7 @@ def tandem_systems_real_lanes_bg8000(
         prefix = "BG8"
         for tandem_idx, x in enumerate(tandem_x_positions, 1):
             wheels_main = []
-            tandem_start_y_main = y_lane_center - 1.2
+            tandem_start_y_main = y_lane_center - TANDEM_START_Y_OFFSET
             for dx, dy in TANDEM_WHEEL_OFFSETS:
                 x0 = x + dx
                 y0 = tandem_start_y_main + dy
@@ -1166,7 +1188,7 @@ def tandem_systems_real_lanes_bg8000(
             # Add 200 kN tandem in next lane (if exists)
             wheels_200 = []
             if len(lane_y_positions) > 1:
-                tandem_start_y_200 = lane_y_positions[1] - 1.2
+                tandem_start_y_200 = lane_y_positions[1] - TANDEM_START_Y_OFFSET
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_200 + dy
@@ -1181,7 +1203,7 @@ def tandem_systems_real_lanes_bg8000(
             # Add 100 kN tandem in next-next lane (if exists)
             wheels_100 = []
             if len(lane_y_positions) > 2:
-                tandem_start_y_100 = lane_y_positions[2] - 1.2
+                tandem_start_y_100 = lane_y_positions[2] - TANDEM_START_Y_OFFSET
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_100 + dy
@@ -1206,7 +1228,7 @@ def tandem_systems_real_lanes_bg8000(
 
 def generate_real_lane_positions_bg9000(
     params: "BridgeParametrization",
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """
     Generate y-positions of real traffic lanes for BG9000 load group based on actual road section geometry.
@@ -1251,7 +1273,7 @@ def tandem_systems_real_lanes_bg9000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[dict[str, Any]]:
     """
     Generate tandem load cases for BG9000 load group based on actual road lanes.
@@ -1279,10 +1301,10 @@ def tandem_systems_real_lanes_bg9000(
         - Wheel positions account for the standard 1.2m offset from lane center
 
     """
-    wheel_size = 0.4
+    wheel_size = TANDEM_CONTACT_AREA_SIDE
 
     # Get longitudinal positions (same as existing system)
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_real_lane_positions_bg9000(params, lane_width)
@@ -1301,7 +1323,7 @@ def tandem_systems_real_lanes_bg9000(
         prefix = "BG9"
         for tandem_idx, x in enumerate(tandem_x_positions, 1):
             wheels_main = []
-            tandem_start_y_main = y_lane_center - 1.2
+            tandem_start_y_main = y_lane_center - TANDEM_START_Y_OFFSET
             for dx, dy in TANDEM_WHEEL_OFFSETS:
                 x0 = x + dx
                 y0 = tandem_start_y_main + dy
@@ -1321,7 +1343,7 @@ def tandem_systems_real_lanes_bg9000(
             # Add 200 kN tandem in next lane (if exists)
             wheels_200 = []
             if len(lane_y_positions) > 1:
-                tandem_start_y_200 = lane_y_positions[1] - 1.2
+                tandem_start_y_200 = lane_y_positions[1] - TANDEM_START_Y_OFFSET
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_200 + dy
@@ -1336,7 +1358,7 @@ def tandem_systems_real_lanes_bg9000(
             # Add 100 kN tandem in next-next lane (if exists)
             wheels_100 = []
             if len(lane_y_positions) > 2:
-                tandem_start_y_100 = lane_y_positions[2] - 1.2
+                tandem_start_y_100 = lane_y_positions[2] - TANDEM_START_Y_OFFSET
                 for dx, dy in TANDEM_WHEEL_OFFSETS:
                     x0 = x + dx
                     y0 = tandem_start_y_100 + dy
@@ -1361,7 +1383,7 @@ def tandem_systems_real_lanes_bg9000(
 
 def generate_real_lane_positions_bg10000(
     params: "BridgeParametrization",
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """
     Generate Y-positions for BG10000 load case: 300 kN in center, 200/100 kN adjacent if width permits.
@@ -1390,7 +1412,7 @@ def generate_real_lane_positions_bg10000(
     y_center = (y_top + y_bottom) / 2
 
     # Only add adjacent lanes if we have at least 9m width (3 lanes of 3m each)
-    if width_road >= 9.0:
+    if width_road >= MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES:
         # Left lane (adjacent to center)
         y_left = y_center - lane_width
         # Right lane (adjacent to center)
@@ -1404,7 +1426,7 @@ def tandem_systems_real_lanes_bg10000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[dict[str, Any]]:
     """
     Generate BG10000 load cases: 300 kN tandem in center always, 200/100 kN adjacent only if width permits.
@@ -1416,8 +1438,8 @@ def tandem_systems_real_lanes_bg10000(
     :returns: List of BG10000 load cases. For narrow roads (<9m), only central tandem
     :rtype: list[dict[str, Any]]
     """
-    wheel_size = 0.4
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    wheel_size = TANDEM_CONTACT_AREA_SIDE
+    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
     lane_y_positions = generate_real_lane_positions_bg10000(params, lane_width)
 
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
@@ -1439,7 +1461,7 @@ def tandem_systems_real_lanes_bg10000(
     for x in tandem_x_positions:
         # Central 300kN tandem (always present)
         wheels_300 = []
-        tandem_start_y_300 = y_center - 1.2
+        tandem_start_y_300 = y_center - TANDEM_START_Y_OFFSET
         for dx, dy in TANDEM_WHEEL_OFFSETS:
             x0 = x + dx
             y0 = tandem_start_y_300 + dy
@@ -1467,7 +1489,7 @@ def tandem_systems_real_lanes_bg10000(
 
         # Configuration A: 200 kN left, 100 kN right
         wheels_200_left = []
-        tandem_start_y_200_left = y_left - 1.2
+        tandem_start_y_200_left = y_left - TANDEM_START_Y_OFFSET
         for dx, dy in TANDEM_WHEEL_OFFSETS:
             x0 = x + dx
             y0 = tandem_start_y_200_left + dy
@@ -1480,7 +1502,7 @@ def tandem_systems_real_lanes_bg10000(
             wheels_200_left.append(wheel_coords)
 
         wheels_100_right = []
-        tandem_start_y_100_right = y_right - 1.2
+        tandem_start_y_100_right = y_right - TANDEM_START_Y_OFFSET
         for dx, dy in TANDEM_WHEEL_OFFSETS:
             x0 = x + dx
             y0 = tandem_start_y_100_right + dy
@@ -1507,7 +1529,7 @@ def tandem_systems_real_lanes_bg10000(
 
         # Configuration B: 100 kN left, 200 kN right (only for wide roads)
         wheels_100_left = []
-        tandem_start_y_100_left = y_left - 1.2
+        tandem_start_y_100_left = y_left - TANDEM_START_Y_OFFSET
         for dx, dy in TANDEM_WHEEL_OFFSETS:
             x0 = x + dx
             y0 = tandem_start_y_100_left + dy
@@ -1520,7 +1542,7 @@ def tandem_systems_real_lanes_bg10000(
             wheels_100_left.append(wheel_coords)
 
         wheels_200_right = []
-        tandem_start_y_200_right = y_right - 1.2
+        tandem_start_y_200_right = y_right - TANDEM_START_Y_OFFSET
         for dx, dy in TANDEM_WHEEL_OFFSETS:
             x0 = x + dx
             y0 = tandem_start_y_200_right + dy
@@ -1589,16 +1611,16 @@ def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, 
 
     """
     # Center lane always takes 3.0m
-    center_lane_width = 3.0
+    center_lane_width = DEFAULT_LANE_WIDTH
     remaining_width = width_bridgedeck - center_lane_width
 
     # Calculate space on either side
     width_per_side = remaining_width / 2
 
     # Calculate number of full 3.0m lanes that can fit on each side
-    lanes_per_side = int(width_per_side // 3.0)
+    lanes_per_side = int(width_per_side // DEFAULT_LANE_WIDTH)
 
-    return lanes_per_side, lanes_per_side, 3.0
+    return lanes_per_side, lanes_per_side, DEFAULT_LANE_WIDTH
 
 
 def calculate_possibilities_lane_orientation(width_bridgedeck: float) -> int:
@@ -1630,7 +1652,7 @@ def calculate_start_of_lanes(thickness_bridgedeck: float) -> float:
         distance(float): The distance in meters from the edge of the bridge deck to the start of the tandem systems.
 
     """
-    return 0.9 * thickness_bridgedeck
+    return TANDEM_START_Y_OFFSET_FACTOR * thickness_bridgedeck
 
 
 def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
@@ -1649,7 +1671,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
     """
     start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
     tandem_systems = []
-    dx = 0.5  # Default spacing between tandem systems in meters
+    dx = TANDEM_SPACING_LONGITUDINAL  # Default spacing between tandem systems in meters
     mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
     end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
 
@@ -1683,7 +1705,7 @@ def tandem_system_sequencer_single_axis(length_bridgedeck: float, thickness_brid
     """
     start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
     tandem_systems = []
-    dx = 0.5  # Default spacing between tandem systems in meters
+    dx = TANDEM_SPACING_LONGITUDINAL  # Default spacing between tandem systems in meters
     mid_span_position = length_bridgedeck / 2
     end_span_position = length_bridgedeck - start_of_lanes
 
@@ -1718,7 +1740,7 @@ def tandem_system_sequencer_single_axis_rotated(length_bridgedeck: float, thickn
     """
     start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
     tandem_systems = []
-    dx = 0.5  # Default spacing between tandem systems in meters
+    dx = TANDEM_SPACING_LONGITUDINAL  # Default spacing between tandem systems in meters
     mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
     end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
 
@@ -1837,7 +1859,8 @@ def create_material_surface_load(
         name=f"{load_zone.zone_type}_{zone_index}_{material_name}_{span}_d{load_zone.pavement_thickness}",
         load_case_name=load_case_name,
         corner_points=corners,
-        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material) * 1000,  # Convert to kN/m²
+        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material)
+        * KN_PER_SQM_TO_N_PER_SQM,  # Convert to kN/m²
     )
 
 
