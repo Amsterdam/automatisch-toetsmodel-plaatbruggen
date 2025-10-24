@@ -9,6 +9,10 @@ loads and material-based surface loads.
 from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
+from src.integrations.scia_integration.constants import (
+    CROWD_LOAD_PER_SQM_N,
+    KN_PER_M_TO_N_PER_M,
+)
 from src.integrations.scia_integration.scia_load_generators import generate_udl_loads
 from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
 from src.integrations.scia_integration.types import BridgeParametrization
@@ -115,7 +119,7 @@ def add_parapet_loads(
             # If the parameter structure is missing or invalid, use default value
             leuning_numeric = 0.0
 
-        load_value = leuning_numeric * 1000  # Convert to N/m
+        load_value = leuning_numeric * KN_PER_M_TO_N_PER_M  # Convert to N/m
 
         # Get the parapet load case name from the load cases dictionary
         parapet_load_case = load_cases["dead_load_cases"]["leuning"]
@@ -280,8 +284,7 @@ def add_crowd_loads(
     """
     try:
         # Crowd load according to NEN-EN 1991-2 art. 5.3.2.1 (LM4)
-        crowd_load_per_sqm = 5.0  # kN/m²
-        crowd_load_per_sqm_n = crowd_load_per_sqm * 1000  # Convert to N/m²
+        crowd_load_per_sqm_n = CROWD_LOAD_PER_SQM_N
 
         # Get load zone information from params using the utility functions
         bridge_geom_data = get_bridge_geom_data(params)
