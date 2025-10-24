@@ -573,6 +573,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
         length_bridgedeck (float): The length of the bridge deck in meters.
         thickness_bridgedeck (float): The thickness of the bridge deck in meters.
         length_vehicle (float): The length of the vehicle in meters.
+        spacing (float): The spacing between tandem systems in meters.
 
     Returns:
         list[float]: A list containing the positions of the tandem systems along the bridge deck.
