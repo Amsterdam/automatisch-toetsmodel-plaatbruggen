@@ -1406,9 +1406,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
             idx += 1
         return results
 
-        # For wider bridges, create configurations sequentially
-        y_left = lane_y_positions[1]
-        y_right = lane_y_positions[2]
+    # For wider bridges, create configurations sequentially
+    y_left = lane_y_positions[1]
+    y_right = lane_y_positions[2]
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
@@ -1779,8 +1779,8 @@ def generate_real_lane_positions_bg9000_two_road_zones(
     if num_lanes_zone_2 > 0:
         for lane_idx in range(num_lanes_zone_2):
             lane_start = y_top_zone_2 - lane_idx * lane_width
-        lane_center = lane_start - (lane_width / 2)  # Center of each lane
-        lane_centers.append(lane_center)
+            lane_center = lane_start - (lane_width / 2)  # Center of each lane
+            lane_centers.append(lane_center)
 
     return lane_centers
 
@@ -2052,16 +2052,16 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
             # Central 300kN tandem (always present)
             wheels_300 = []
             tandem_start_y_300 = y_center - TANDEM_START_Y_OFFSET
-        for dx, dy in TANDEM_WHEEL_OFFSETS:
-            x0 = x + dx
-            y0 = tandem_start_y_300 + dy
-            wheel_coords = [
-                [x0 + wheel_size, y0],
-                [x0 + wheel_size, y0 + wheel_size],
-                [x0, y0 + wheel_size],
-                [x0, y0],
-            ]
-            wheels_300.append(wheel_coords)
+            for dx, dy in TANDEM_WHEEL_OFFSETS:
+                x0 = x + dx
+                y0 = tandem_start_y_300 + dy
+                wheel_coords = [
+                    [x0 + wheel_size, y0],
+                    [x0 + wheel_size, y0 + wheel_size],
+                    [x0, y0 + wheel_size],
+                    [x0, y0],
+                ]
+                wheels_300.append(wheel_coords)
 
             load_case = {
                 "load_case": f"{prefix}{idx:03d}",
@@ -2071,9 +2071,9 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
             idx += 1
         return results
 
-        # For wider roads, create configurations sequentially
-        y_left = lane_y_positions[1]
-        y_right = lane_y_positions[2]
+    # For wider roads, create configurations sequentially
+    y_left = lane_y_positions[1]
+    y_right = lane_y_positions[2]
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
