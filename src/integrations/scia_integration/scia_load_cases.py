@@ -7,7 +7,13 @@ the SciaModelBuilder interface.
 
 from typing import Any
 
-from src.integrations.scia_integration.constants import SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING
+from src.integrations.scia_integration.constants import (
+    ACCIDENTAL_VEHICLE_AXLE_SPACING,
+    ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM,
+    SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING,
+    TANDEM_VEHICLE_LENGTH,
+    TRAM_VEHICLE_LENGTH,
+)
 
 from .scia_enums import (
     LoadCaseActionType,
@@ -19,8 +25,6 @@ from .scia_enums import (
 from .scia_load_generators import extract_bridge_dimensions
 from .scia_loads_helper import (
     tandem_system_sequencer,
-    tandem_system_sequencer_single_axis,
-    tandem_system_sequencer_single_axis_rotated,
 )
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
@@ -258,9 +262,9 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
 
     # Get X positions using the same sequencer as tandem loads
 
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-    positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
-    positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_AXLE_SPACING)
+    positions_amsterdam = tandem_system_sequencer(length, thickness)
+    positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM)
 
     cases = {}
     case_counter = 1
@@ -447,7 +451,7 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
     cases = {}
     if rs == 3:
         # BG10000 series: double amount for both configurations
@@ -560,7 +564,7 @@ def create_tram_track_tandem_load_cases(
     else:
         raise ValueError("Track must be 1 or 2")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=30.128)  # Tram length 15G (CAF Urbos 100)
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TRAM_VEHICLE_LENGTH)  # Tram length 15G (CAF Urbos 100)
     cases = {}
     for i, pos in enumerate(positions, 1):
         case_name = f"{prefix}{i:03d}"

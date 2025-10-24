@@ -24,6 +24,7 @@ VEHICLE_INSET_FROM_BRIDGE_EDGE = 0.5  # Standard inset distance from bridge edge
 
 # Vehicle dimensions
 TANDEM_VEHICLE_LENGTH = 1.6  # Length of tandem vehicle for sequencing (meters)
+TRAM_VEHICLE_LENGTH = 30.128  # Length of tram vehicle (CAF Urbos 100) for sequencing (meters)
 
 # Tandem system spacing and positioning
 TANDEM_SPACING_LONGITUDINAL = 0.5  # Default spacing between tandem systems (meters)

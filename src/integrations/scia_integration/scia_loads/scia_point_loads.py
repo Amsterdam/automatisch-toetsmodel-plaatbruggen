@@ -374,14 +374,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         thickness = dims.thickness
         from src.integrations.scia_integration.scia_loads_helper import (
             tandem_system_sequencer,
-            tandem_system_sequencer_single_axis,
-            tandem_system_sequencer_single_axis_rotated,
         )
 
         # Obtain different x positions for the accidental vehicles
         positions = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_AXLE_SPACING)
-        positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
-        positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(
+        positions_amsterdam = tandem_system_sequencer(length, thickness)
+        positions_amsterdam_rotated = tandem_system_sequencer(
             length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM
         )
 
