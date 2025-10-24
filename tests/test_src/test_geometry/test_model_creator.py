@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import trimesh  # For type hints and potentially direct use in complex mocks
 from munch import Munch  # type: ignore[import-untyped]
+from trimesh.visual import ColorVisuals
 
 from src.geometry.model_creator import (
     BridgeSegmentDimensions,  # For test data construction
@@ -76,10 +77,11 @@ class TestModelCreator(unittest.TestCase):
 
             if hasattr(geometry.visual, "main_color"):
                 main_color = geometry.visual.main_color
-            elif hasattr(geometry.visual, "face_colors") and len(geometry.visual.face_colors) > 0:
+            elif isinstance(geometry.visual, ColorVisuals) and hasattr(geometry.visual, "face_colors") and len(geometry.visual.face_colors) > 0:
                 # Use the first face color if main_color is not available
                 main_color = geometry.visual.face_colors[0]
-            else:
+
+            if main_color is None:
                 continue  # Skip if we can't determine color
 
             # Identify axis by color (assuming X=red, Y=green, Z=blue)
