@@ -19,11 +19,13 @@ from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, 
 from src.geometry.model_creator import LoadZoneGeometryData
 from src.integrations.scia_integration.constants.geometry import (
     DEFAULT_LANE_WIDTH,
+    LANE_CENTER_OFFSET_FACTOR,
     MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES,
     TANDEM_SPACING_LONGITUDINAL,
     TANDEM_START_Y_OFFSET,
     TANDEM_START_Y_OFFSET_FACTOR,
     TANDEM_VEHICLE_LENGTH,
+    TANDEM_WHEEL_SIZE,
     TANDEM_WHEEL_SPACING_LONGITUDINAL,
     TANDEM_WHEEL_SPACING_TRANSVERSE,
 )
@@ -51,7 +53,12 @@ if TYPE_CHECKING:
 
 
 # Standard tandem wheel offsets from bottom left corner
-TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
+TANDEM_WHEEL_OFFSETS = [
+    (0, 0),
+    (TANDEM_WHEEL_SPACING_LONGITUDINAL, 0),
+    (0, TANDEM_WHEEL_SPACING_TRANSVERSE),
+    (TANDEM_WHEEL_SPACING_LONGITUDINAL, TANDEM_WHEEL_SPACING_TRANSVERSE),
+]
 
 # Bridge deck width properties for calculating lane width
 min_width = 5.4
@@ -72,33 +79,11 @@ def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
         tuple[int, float]: A tuple containing the number of notional lanes and the width per lane in meters.
 
     """
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    base_main = TANDEM_LOAD_BASE_MAIN / contact_area
-    base_second = TANDEM_LOAD_BASE_SECOND / contact_area
-    base_third = TANDEM_LOAD_BASE_THIRD / contact_area
-
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = ALPHA_Q_ONDERLIGGEND
-        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
-        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
-        load_main = base_main * load_factor
-        load_second = base_second * load_factor
-        load_third = base_third * load_factor
-    else:  # Fallback for safety
-        load_main = base_main
-        load_second = base_second
-        load_third = base_third
-
-    return load_main, load_second, load_third
+    if width_bridgedeck < min_width:
+        return 1, 3
+    if min_width <= width_bridgedeck < max_width:
+        return 2, width_bridgedeck / 2
+    return int(width_bridgedeck // 3), 3
 
 
 def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, int, float]:
@@ -119,36 +104,17 @@ def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, 
             - Width per lane (always 3.0m as per standard)
 
     """
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [ALPHA_Q_MAIN_LANE_ONDERLIGGEND, ALPHA_Q_OTHER_LANE_ONDERLIGGEND]
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        # Get the selected signage option and map to load factor
-        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
-        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
-        # Apply the load factor to all values
-        main_value = udl_value * load_factor
-        other_value = UDL_OTHER_LANE_VALUE
-        rest_value = UDL_REST_AREA_VALUE
-    else:  # Fallback for safety
-        main_value = udl_value
-        other_value = UDL_OTHER_LANE_VALUE
-        rest_value = UDL_REST_AREA_VALUE
+    # Center lane always takes DEFAULT_LANE_WIDTH
+    center_lane_width = DEFAULT_LANE_WIDTH
+    remaining_width = width_bridgedeck - center_lane_width
 
     # Calculate space on either side
     width_per_side = remaining_width / 2
 
-    # Calculate number of full 3.0m lanes that can fit on each side
-    lanes_per_side = int(width_per_side // 3.0)
+    # Calculate number of full DEFAULT_LANE_WIDTH lanes that can fit on each side
+    lanes_per_side = int(width_per_side // DEFAULT_LANE_WIDTH)
 
-    return lanes_per_side, lanes_per_side, 3.0
+    return lanes_per_side, lanes_per_side, DEFAULT_LANE_WIDTH
 
 
 def calculate_possibilities_lane_orientation(width_bridgedeck: float) -> int:
@@ -180,7 +146,7 @@ def calculate_start_of_lanes(thickness_bridgedeck: float) -> float:
         distance(float): The distance in meters from the edge of the bridge deck to the start of the tandem systems.
 
     """
-    return 0.9 * thickness_bridgedeck
+    return TANDEM_START_Y_OFFSET_FACTOR * thickness_bridgedeck
 
 
 def get_reference_period(params: "BridgeParametrization") -> int:
@@ -404,23 +370,23 @@ def calculate_real_tandem_values(
     :param alpha_trend_factor: Alpha trend factor from NEN 8701
     :returns: Tuple of (load_main, load_second, load_third)
     """
-    base_main = 300000 / (0.4 * 0.4)
-    base_second = 200000 / (0.4 * 0.4)
-    base_third = 100000 / (0.4 * 0.4)
+    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
+    base_main = TANDEM_LOAD_BASE_MAIN / contact_area
+    base_second = TANDEM_LOAD_BASE_SECOND / contact_area
+    base_third = TANDEM_LOAD_BASE_THIRD / contact_area
 
     if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)[0]
+        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
         load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = 0.8
+        alpha_q_factor = ALPHA_Q_ONDERLIGGEND
         load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
         load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-        signage_index = signage_options_list.index(params.signage)
+        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
         load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
         load_main = base_main * load_factor
         load_second = base_second * load_factor
@@ -451,28 +417,27 @@ def calculate_real_udl_values(
     :returns: Tuple of (main_value, other_value, rest_value)
     """
     if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=20000)
+        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
         main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
     elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [1.35, 1.0]
+        alpha_q_factors = [ALPHA_Q_MAIN_LANE_ONDERLIGGEND, ALPHA_Q_OTHER_LANE_ONDERLIGGEND]
         main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = 2500.0 * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
     elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
         # Get the selected signage option and map to load factor
-        signage_options_list = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
-        signage_index = signage_options_list.index(params.signage)
+        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
         load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
         # Apply the load factor to all values
         main_value = udl_value * load_factor
-        other_value = 2500.0
-        rest_value = 2500.0
+        other_value = UDL_OTHER_LANE_VALUE
+        rest_value = UDL_REST_AREA_VALUE
     else:  # Fallback for safety
         main_value = udl_value
-        other_value = 2500.0
-        rest_value = 2500.0
+        other_value = UDL_OTHER_LANE_VALUE
+        rest_value = UDL_REST_AREA_VALUE
 
     return main_value, other_value, rest_value
 
@@ -577,7 +542,8 @@ def create_material_surface_load(
         name=f"{load_zone.zone_type}_{zone_index}_{material_name}_{span}_d{load_zone.pavement_thickness}",
         load_case_name=load_case_name,
         corner_points=corners,
-        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material) * 1000,  # Convert to kN/m²
+        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material)
+        * KN_PER_SQM_TO_N_PER_SQM,  # Convert to kN/m²
     )
 
 
@@ -632,7 +598,9 @@ def add_material_loads(
 # ========================================================================
 
 
-def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float = 0.0, spacing: float = 0.5) -> list[float]:
+def tandem_system_sequencer(
+    length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float = 0.0, spacing: float = TANDEM_SPACING_LONGITUDINAL
+) -> list[float]:
     """
     Calculate the x-positions of the tandem systems in a notional lane along the length of the bridge deck.
     Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
@@ -738,10 +706,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
         max_lane_width = max_lanes * lane_width
         if max_lane_width < width_bridgedeck:
             rest_polygon = [
-                (0.0, y_positions_left[0] + max_lane_width - 0.5 * lane_width, 0.0),
-                (length_bridgedeck, y_positions_left[0] + max_lane_width - 0.5 * lane_width, 0.0),
-                (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (0.0, y_positions_left[0] + max_lane_width - LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
+                (length_bridgedeck, y_positions_left[0] + max_lane_width - LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
+                (length_bridgedeck, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (0.0, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
             ]
             load_polygons["rest"].append({"polygon": rest_polygon, "load": rest_value})
 
@@ -770,10 +738,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
         # Rest polygon for area below lanes
         if max_lane_width < width_bridgedeck:
             rest_polygon = [
-                (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (length_bridgedeck, y_positions_right[0] - max_lane_width + 0.5 * lane_width, 0.0),
-                (0.0, y_positions_right[0] - max_lane_width + 0.5 * lane_width, 0.0),
+                (0.0, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+                (length_bridgedeck, y_positions_right[0] - max_lane_width + LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
+                (0.0, y_positions_right[0] - max_lane_width + LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
             ]
             load_polygons["rest"].append({"polygon": rest_polygon, "load": rest_value})
 
@@ -785,7 +753,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     total_lanes = 1 + left_lanes + right_lanes  # Center lane + left lanes + right lanes
 
     # Get the center position and adjust for zone offsets
-    center_y = width_bridgedeck / 2 - width_firstsegment_zone3 - 0.5 * width_firstsegment_zone2
+    center_y = width_bridgedeck / 2 - width_firstsegment_zone3 - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2
 
     load_polygons = {"main": [], "other": [], "rest": []}
 
@@ -830,20 +798,20 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
     total_lanes_width = total_lanes * lane_width
 
     # Upper rest area (if exists)
-    if center_y + total_lanes_width / 2 < width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
+    if center_y + total_lanes_width / 2 < width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3:
         upper_rest = [
             (0.0, center_y + total_lanes_width / 2, 0.0),
             (length_bridgedeck, center_y + total_lanes_width / 2, 0.0),
-            (length_bridgedeck, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (0.0, width_bridgedeck - 0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (length_bridgedeck, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (0.0, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
         ]
         load_polygons["rest"].append({"polygon": upper_rest, "load": rest_value})
 
     # Lower rest area (if exists)
-    if center_y - total_lanes_width / 2 > -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3:
+    if center_y - total_lanes_width / 2 > -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3:
         lower_rest = [
-            (0.0, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            (length_bridgedeck, -0.5 * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (0.0, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
+            (length_bridgedeck, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
             (length_bridgedeck, center_y - total_lanes_width / 2, 0.0),
             (0.0, center_y - total_lanes_width / 2, 0.0),
         ]
@@ -1096,18 +1064,9 @@ def generate_theoretical_lane_positions_bg8000(
     for lane_idx in range(num_lanes):
         lane_start = lane_idx * lane_width
         lane_center = lane_start + (lane_width / 2)  # Center of each lane
-        lane_centers.append(lane_center - zone3_width - 0.5 * zone2_width)
+        lane_centers.append(lane_center - zone3_width - LANE_CENTER_OFFSET_FACTOR * zone2_width)
 
     return lane_centers
-
-
-# Standard tandem wheel offsets from bottom left corner
-TANDEM_WHEEL_OFFSETS = [
-    (0, 0),
-    (TANDEM_WHEEL_SPACING_LONGITUDINAL, 0),
-    (0, TANDEM_WHEEL_SPACING_TRANSVERSE),
-    (TANDEM_WHEEL_SPACING_LONGITUDINAL, TANDEM_WHEEL_SPACING_TRANSVERSE),
-]
 
 
 def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
@@ -1229,7 +1188,7 @@ def generate_theoretical_lane_positions_bg9000(
         # Start from the right edge
         lane_start = width_bridgedeck - lane_idx * lane_width
         lane_center = lane_start - (lane_width / 2)
-        lane_centers.append(lane_center - zone3_width - 0.5 * zone2_width)
+        lane_centers.append(lane_center - zone3_width - LANE_CENTER_OFFSET_FACTOR * zone2_width)
 
     return lane_centers
 
@@ -1335,9 +1294,9 @@ def generate_theoretical_lane_positions_bg10000(
         raise ValueError("Lane width must be positive")
 
     # Center lane
-    y_center = width_bridgedeck / 2 - zone3_width - 0.5 * zone2_width
+    y_center = width_bridgedeck / 2 - zone3_width - LANE_CENTER_OFFSET_FACTOR * zone2_width
 
-    # Only add adjacent lanes if we have at least 9m width (3 lanes of 3m each)
+    # Only add adjacent lanes if we have at least MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES width (3 lanes of DEFAULT_LANE_WIDTH each)
     if width_bridgedeck >= MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES:
         # Left lane (adjacent to center)
         y_left = y_center - lane_width
@@ -1406,9 +1365,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
             idx += 1
         return results
 
-    # For wider bridges, create configurations sequentially
-    y_left = lane_y_positions[1]
-    y_right = lane_y_positions[2]
+        # For wider bridges, create configurations sequentially
+        y_left = lane_y_positions[1]
+        y_right = lane_y_positions[2]
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
@@ -1504,7 +1463,7 @@ def generate_real_lane_positions_bg8000(
 
 def generate_real_lane_positions_bg8000_two_road_zones(
     params: "BridgeParametrization",
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """
     Generate y-positions of real traffic lanes for BG8000 load group on dual carriageway bridges.
@@ -1727,7 +1686,7 @@ def generate_real_lane_positions_bg9000(
 
 def generate_real_lane_positions_bg9000_two_road_zones(
     params: "BridgeParametrization",
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """
     Generate y-positions of real traffic lanes for BG9000 load group on dual carriageway bridges.
@@ -1779,8 +1738,8 @@ def generate_real_lane_positions_bg9000_two_road_zones(
     if num_lanes_zone_2 > 0:
         for lane_idx in range(num_lanes_zone_2):
             lane_start = y_top_zone_2 - lane_idx * lane_width
-            lane_center = lane_start - (lane_width / 2)  # Center of each lane
-            lane_centers.append(lane_center)
+        lane_center = lane_start - (lane_width / 2)  # Center of each lane
+        lane_centers.append(lane_center)
 
     return lane_centers
 
@@ -1948,7 +1907,7 @@ def generate_real_lane_positions_bg10000(
 
 def generate_real_lane_positions_bg10000_two_road_zones(
     params: "BridgeParametrization",
-    lane_width: float = 3.0,
+    lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """
     Generate Y-positions for BG10000 load case on dual carriageway bridges.
@@ -2011,7 +1970,7 @@ def generate_real_lane_positions_bg10000_two_road_zones(
     return lane_centers
 
 
-def tandem_systems_real_lanes_bg10000(  # noqa: C901
+def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,
@@ -2027,9 +1986,14 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
     :returns: List of BG10000 load cases. For narrow roads (<9m), only central tandem
     :rtype: list[dict[str, Any]]
     """
-    wheel_size = TANDEM_CONTACT_AREA_SIDE
+    wheel_size = TANDEM_WHEEL_SIZE
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
-    lane_y_positions = generate_real_lane_positions_bg10000(params, lane_width)
+
+    # Get real lane positions (NEW: replaces fixed positions)
+    if get_number_of_road_zones(params) == 2:
+        lane_y_positions = generate_real_lane_positions_bg10000_two_road_zones(params, lane_width)
+    else:
+        lane_y_positions = generate_real_lane_positions_bg10000(params, lane_width)
 
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
@@ -2061,7 +2025,7 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
                     [x0, y0 + wheel_size],
                     [x0, y0],
                 ]
-                wheels_300.append(wheel_coords)
+            wheels_300.append(wheel_coords)
 
             load_case = {
                 "load_case": f"{prefix}{idx:03d}",
@@ -2071,9 +2035,9 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
             idx += 1
         return results
 
-    # For wider roads, create configurations sequentially
-    y_left = lane_y_positions[1]
-    y_right = lane_y_positions[2]
+        # For wider roads, create configurations sequentially
+        y_left = lane_y_positions[1]
+        y_right = lane_y_positions[2]
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
@@ -2133,7 +2097,7 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
     for x in tandem_x_positions:
         # Central 300kN tandem
         wheels_300 = []
-        tandem_start_y_300 = y_center - 1.2
+        tandem_start_y_300 = y_center - TANDEM_START_Y_OFFSET
         for dx, dy in TANDEM_WHEEL_OFFSETS:
             x0 = x + dx
             y0 = tandem_start_y_300 + dy
@@ -2189,344 +2153,6 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
 # ========================================================================
 # Helper functions for service and accidental vehicle loads
 # ========================================================================
-# These functions maintain Eurocode notional lane compliance and are kept
-# for regulatory requirements and comparison purposes.
-
-
-def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
-    """
-    Calculate the number of notional lanes and their width based on the bridge deck width.
-
-    Args:
-        width_bridgedeck (float): The width of the bridge deck in meters.
-
-    Returns:
-        tuple[int, float]: A tuple containing the number of notional lanes and the width per lane in meters.
-
-    """
-    if width_bridgedeck < 5.4:
-        return 1, 3
-    if 5.4 <= width_bridgedeck < 6.0:
-        return 2, width_bridgedeck / 2
-    return int(width_bridgedeck // 3), 3
-
-
-def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, int, float]:
-    """
-    Calculate the number of notional lanes that can fit on either side of the bridge deck center.
-
-    For BG4003 (center load case), we need to determine how many lanes can fit on either side of
-    the center lane. The total width available is divided into two parts (left and right of center),
-    and we calculate how many 3m lanes can fit in each part.
-
-    Args:
-        width_bridgedeck (float): The width of the bridge deck in meters.
-
-    Returns:
-        tuple[int, int, float]: A tuple containing:
-            - Number of lanes that fit left of center
-            - Number of lanes that fit right of center
-            - Width per lane (always 3.0m as per standard)
-
-    """
-    # Center lane always takes 3.0m
-    center_lane_width = DEFAULT_LANE_WIDTH
-    remaining_width = width_bridgedeck - center_lane_width
-
-    # Calculate space on either side
-    width_per_side = remaining_width / 2
-
-    # Calculate number of full 3.0m lanes that can fit on each side
-    lanes_per_side = int(width_per_side // DEFAULT_LANE_WIDTH)
-
-    return lanes_per_side, lanes_per_side, DEFAULT_LANE_WIDTH
-
-
-def calculate_possibilities_lane_orientation(width_bridgedeck: float) -> int:
-    """
-    Calculate the number of possibilities according to which the tandemsystems can be applied.
-
-    Args:
-        width_bridgedeck (float): The width of the bridge deck in meters.
-
-    Returns:
-        int: An integer containing the amount of lane orientations possible.
-
-    """
-    amount_of_lanes = amount_of_notional_lanes(width_bridgedeck)
-    if amount_of_lanes[0] == 1 or amount_of_lanes[0] == 2:
-        return 2
-    return 4
-
-
-def calculate_start_of_lanes(thickness_bridgedeck: float) -> float:
-    """
-    Calculate the distance from the edge of the bridge deck, from where the tandem systems start.
-    Assuming a spread under 45 degrees, the distance is equal to 0.9 times the thickness of the bridge deck.
-
-    Args:
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-
-    Returns:
-        distance(float): The distance in meters from the edge of the bridge deck to the start of the tandem systems.
-
-    """
-    return TANDEM_START_Y_OFFSET_FACTOR * thickness_bridgedeck
-
-
-def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
-    """
-    Calculate the x-positions of the tandem systems in a notional lane along the length of the bridge deck.
-    Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-        length_vehicle (float): The length of the vehicle in meters.
-
-    Returns:
-        list[float]: A list containing the positions of the tandem systems along the bridge deck.
-
-    """
-    start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
-    tandem_systems = []
-    dx = TANDEM_SPACING_LONGITUDINAL  # Default spacing between tandem systems in meters
-    mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
-    end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
-
-    # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
-    pos = start_of_lanes
-    while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
-        tandem_systems.append(round(pos, 6))
-        pos += dx
-    # Always include end_span_position exactly
-    tandem_systems.append(round(end_span_position, 6))
-
-    # Ensure mid-span position is included (within tolerance)
-    if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
-        tandem_systems.append(round(mid_span_position, 6))
-
-    return sorted(set(tandem_systems))
-
-
-def tandem_system_sequencer_single_axis(length_bridgedeck: float, thickness_bridgedeck: float) -> list[float]:
-    """
-    Calculate the x-positions of the tandem system consisting of a single axis in a notional lane along the length of the bridge deck.
-    Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-
-    Returns:
-        list[float]: A list containing the positions of the tandem system along the bridge deck.
-
-    """
-    start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
-    tandem_systems = []
-    dx = TANDEM_SPACING_LONGITUDINAL  # Default spacing between tandem systems in meters
-    mid_span_position = length_bridgedeck / 2
-    end_span_position = length_bridgedeck - start_of_lanes
-
-    # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
-    pos = start_of_lanes
-    while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
-        tandem_systems.append(round(pos, 6))
-        pos += dx
-    # Always include end_span_position exactly
-    tandem_systems.append(round(end_span_position, 6))
-
-    # Ensure mid-span position is included (within tolerance)
-    if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
-        tandem_systems.append(round(mid_span_position, 6))
-
-    return sorted(set(tandem_systems))
-
-
-def tandem_system_sequencer_single_axis_rotated(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
-    """
-    Calculate the x-positions of the tandem system consisting of a rotated single axis in a notional lane along the length of the bridge deck.
-    Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-        length_vehicle (float): The length of the vehicle in meters.
-
-    Returns:
-        list[float]: A list containing the positions of the tandem system along the bridge deck.
-
-    """
-    start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
-    tandem_systems = []
-    dx = TANDEM_SPACING_LONGITUDINAL  # Default spacing between tandem systems in meters
-    mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
-    end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
-
-    # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
-    pos = start_of_lanes
-    while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
-        tandem_systems.append(round(pos, 6))
-        pos += dx
-    # Always include end_span_position exactly
-    tandem_systems.append(round(end_span_position, 6))
-
-    # Ensure mid-span position is included (within tolerance)
-    if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
-        tandem_systems.append(round(mid_span_position, 6))
-
-    return sorted(set(tandem_systems))
-
-
-def calculate_pavement_load_from_dynamic_array(
-    load_zones_array: list[dict[str, Any]],
-    thickness_field: str = "pavement_thickness",
-    material_field: str = "pavement_material",
-) -> list[float]:
-    """
-    Calculate the load (kN/m²) for each row in the load zones dynamic array.
-
-    :param load_zones_array: List of dicts from the Belastingzones DynamicArray (params.load_zones_data_array)
-    :type load_zones_array: list[dict[str, Any]]
-    :param thickness_field: Name of the thickness field in each row (default: "pavement_thickness")
-    :type thickness_field: str
-    :param material_field: Name of the material field in each row (default: "pavement_material")
-    :type material_field: str
-    :returns: List of calculated loads (kN/m²) for each row (0.0 if missing or unknown material)
-    :rtype: list[float]
-    """
-    # Build a lookup for material densities (case-insensitive)
-    density_lookup = {name.lower(): density for name, density in get_material_densities()}
-    result: list[float] = []
-    for row in load_zones_array:
-        thickness = row.get(thickness_field, 0.0)
-        material = row.get(material_field, "")
-        if not material or not isinstance(thickness, int | float):
-            result.append(0.0)
-            continue
-        density = density_lookup.get(str(material).lower(), 0.0)
-        load = thickness * density if density > 0 and thickness > 0 else 0.0
-        result.append(load)
-    return result
-
-
-def calculate_pavement_load_from_material(
-    thickness: float,
-    material: str,
-) -> float:
-    """
-    Calculate the pavement load (kN/m²) from the material properties.
-
-    :param thickness: Pavement thickness in meters
-    :type thickness: float
-    :param material: Pavement material name
-    :type material: str
-    :returns: Calculated load (kN/m²) (0.0 if missing or unknown material)
-    :rtype: float
-    """
-    # Build a lookup for material densities (case-insensitive)
-    density_lookup = {name.lower(): density for name, density in get_material_densities()}
-
-    if not material or not isinstance(thickness, int | float):
-        return 0.0
-
-    density = density_lookup.get(str(material).lower(), 0.0)
-    return thickness * density if density > 0 and thickness > 0 else 0.0
-
-
-# This function is used to create the load cases 2001/2002/2003
-def create_material_surface_load(
-    builder: "SciaModelBuilder",
-    load_config: dict[str, Any],
-    bridge_geom_data: LoadZoneGeometryData,
-) -> None:
-    """
-    Create a surface load for a specific material in a load zone span.
-
-    :param builder: SCIA model builder instance
-    :param load_config: Configuration containing all load parameters:
-        - load_zone: Load zone data containing coordinates and properties
-        - zone_index: Index of the load zone
-        - span: Span index within the load zone
-        - material_name: Name of the material for load naming
-        - load_case_name: Name of the load case to apply the load to
-    :param bridge_geom_data: Bridge geometry data
-    """
-    # Extract parameters from load_config
-    load_zone = load_config["load_zone"]
-    zone_index = load_config["zone_index"]
-    span = load_config["span"]
-    material_name = load_config["material_name"]
-    load_case_name = load_config["load_case_name"]
-
-    # Calculate coordinates for the surface load
-    y_coord_top_left = round(getattr(load_zone, "y_coords_top_current_zone", [])[span], 2)
-    y_coord_top_right = round(getattr(load_zone, "y_coords_top_current_zone", [])[span + 1], 2)
-    y_coord_bottom_left = round(y_coord_top_left - getattr(load_zone, "zone_widths_per_d", [])[span], 2)
-    y_coord_bottom_right = round(y_coord_top_right - getattr(load_zone, "zone_widths_per_d", [])[span + 1], 2)
-    x_coord_left = round(bridge_geom_data.x_coords_d_points[span], 2)
-    x_coord_right = round(bridge_geom_data.x_coords_d_points[span + 1], 2)
-
-    corners = [
-        (x_coord_left, y_coord_top_left, 0.0),
-        (x_coord_right, y_coord_top_right, 0.0),
-        (x_coord_right, y_coord_bottom_right, 0.0),
-        (x_coord_left, y_coord_bottom_left, 0.0),
-    ]
-
-    builder.create_surface_load(
-        name=f"{load_zone.zone_type}_{zone_index}_{material_name}_{span}_d{load_zone.pavement_thickness}",
-        load_case_name=load_case_name,
-        corner_points=corners,
-        load_value=-calculate_pavement_load_from_material(load_zone.pavement_thickness, load_zone.pavement_material)
-        * KN_PER_SQM_TO_N_PER_SQM,  # Convert to kN/m²
-    )
-
-
-# This function is used to create the load cases 2001/2002/2003
-def add_material_loads(
-    builder: "SciaModelBuilder",
-    params: "BridgeParametrization",
-    material_config: dict[str, str],
-) -> None:
-    """
-    Add surface loads for specified materials to the SCIA model.
-
-    :param builder: SCIA model builder instance
-    :param params: Bridge parameters
-    :param material_config: Dictionary mapping material names to their load case names
-    """
-    # Get load zone information from params using the utility functions
-    load_zones_data_params = get_load_zones_data_from_params(params)
-    bridge_geom_data = get_bridge_geom_data(params)
-
-    # Check if bridge geometry data is available
-    if bridge_geom_data is None:
-        return
-
-    # Update load zones data with geometry properties
-    load_zones_data_params = calculate_zone_geometry_properties(load_zones_data_params, bridge_geom_data)
-
-    # Iterate through load zones and apply loads for specified materials
-    for i, load_zone in enumerate(load_zones_data_params):
-        pavement_material = getattr(load_zone, "pavement_material", "")
-
-        if pavement_material in material_config:
-            load_case_name = material_config[pavement_material]
-            # Clean material name for use in load naming
-            material_name = pavement_material.replace(" ", "_").replace("(", "").replace(")", "").lower()
-
-            # Iterate through spans
-            for span in range(len(getattr(load_zone, "y_coords_top_current_zone", [])) - 1):
-                load_config = {
-                    "load_zone": load_zone,
-                    "zone_index": i,
-                    "span": span,
-                    "material_name": material_name,
-                    "load_case_name": load_case_name,
-                }
-
-                create_material_surface_load(builder, load_config, bridge_geom_data)
 
 
 # Helper function to calculate wheel corners for vehicle loads
