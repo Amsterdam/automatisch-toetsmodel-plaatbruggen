@@ -9,6 +9,23 @@ loads from vehicles and tandem systems.
 from typing import Any
 
 from src.geometry.load_zone_geometry import get_bridge_geom_data
+from src.integrations.scia_integration.constants import (
+    ACCIDENTAL_VEHICLE_AXLE_SPACING,
+    ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_FORCE_AXLE_1,
+    ACCIDENTAL_VEHICLE_FORCE_AXLE_2,
+    ACCIDENTAL_VEHICLE_INSET_DISTANCE,
+    ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD,
+    ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WIDTH_STANDARD,
+    SERVICE_VEHICLE_FORCE_PER_AXLE,
+    SERVICE_VEHICLE_INSET_DISTANCE,
+    SERVICE_VEHICLE_LENGTH,
+    SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING,
+    SERVICE_VEHICLE_WHEEL_CONTACT_AREA,
+    SERVICE_VEHICLE_WIDTH,
+)
 from src.integrations.scia_integration.scia_coordinate_utils import convert_loads_to_scia_format
 from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
 from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
@@ -225,11 +242,11 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     """
     try:
         # Dienstvoertuig volgens NEN-EN 1991-2 art. 5.3.2.3
-        vehicle_length = 3.0
-        vehicle_width = 1.75
-        force_per_axle = 25 * 1000  # Convert to N
-        wheel_contact_area = 0.25
-        inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
+        vehicle_length = SERVICE_VEHICLE_LENGTH
+        vehicle_width = SERVICE_VEHICLE_WIDTH
+        force_per_axle = SERVICE_VEHICLE_FORCE_PER_AXLE
+        wheel_contact_area = SERVICE_VEHICLE_WHEEL_CONTACT_AREA
+        inset_distance = SERVICE_VEHICLE_INSET_DISTANCE
 
         # Get bridge geometry data
         bridge_geom_data = get_bridge_geom_data(params)
@@ -242,7 +259,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         thickness = dims.thickness
         from src.integrations.scia_integration.scia_loads_helper import tandem_system_sequencer
 
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -336,15 +353,15 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     """
     try:
         # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
-        vehicle_width = 1.30  # From diagram: 1.30 m between wheel centers
-        vehicle_width_amsterdam = 2.0  # From diagram: 2.0 m between wheel centers
-        force_axle_1 = 80 * 1000  # Q_sv1 = 80 kN, convert to N
-        force_axle_2 = 40 * 1000  # Q_sv2 = 40 kN, convert to N
-        force_axle_amsterdam = 240 * 1000  # Q_sv = 240 kN, convert to N
-        wheel_contact_area = 0.20  # From diagram: 0.20 m contact area
-        wheel_contact_area_amsterdam = 0.4  # From diagram: 0.4 m contact area
-        axle_spacing = 1.2  # Derived from 3.0m total - wheel contact areas
-        inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
+        vehicle_width = ACCIDENTAL_VEHICLE_WIDTH_STANDARD  # From diagram: 1.30 m between wheel centers
+        vehicle_width_amsterdam = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM  # From diagram: 2.0 m between wheel centers
+        force_axle_1 = ACCIDENTAL_VEHICLE_FORCE_AXLE_1  # Q_sv1 = 80 kN, convert to N
+        force_axle_2 = ACCIDENTAL_VEHICLE_FORCE_AXLE_2  # Q_sv2 = 40 kN, convert to N
+        force_axle_amsterdam = ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM  # Q_sv = 240 kN, convert to N
+        wheel_contact_area = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD  # From diagram: 0.20 m contact area
+        wheel_contact_area_amsterdam = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM  # From diagram: 0.4 m contact area
+        axle_spacing = ACCIDENTAL_VEHICLE_AXLE_SPACING  # Derived from 3.0m total - wheel contact areas
+        inset_distance = ACCIDENTAL_VEHICLE_INSET_DISTANCE  # Distance from bridge edge to outer wheel (m)
 
         # Get bridge geometry data
         bridge_geom_data = get_bridge_geom_data(params)
@@ -360,9 +377,9 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         )
 
         # Obtain different x positions for the accidental vehicles
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_AXLE_SPACING)
         positions_amsterdam = tandem_system_sequencer(length, thickness)
-        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
+        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -394,7 +411,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
                 y_coord=vehicle_top_edge,
-                vehicle_length=axle_spacing,  # Distance between axles (1.2m)
+                vehicle_length=axle_spacing,  # Distance between axles
                 vehicle_width=vehicle_width,
                 wheel_contact_area=wheel_contact_area,
             )
@@ -464,12 +481,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
             if is_rotated:
                 # Rotated: 2.0m length in X-direction, 0.4m width in Y-direction
-                vehicle_length = 2.0
-                vehicle_width = 0.4
+                vehicle_length = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM
+                vehicle_width = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM
             else:
                 # Normal: 0.4m length in X-direction, 2.0m width in Y-direction
-                vehicle_length = 0.4
-                vehicle_width = vehicle_width_amsterdam  # 2.0m
+                vehicle_length = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM
+                vehicle_width = vehicle_width_amsterdam
 
             # Calculate vehicle position
             if edge_type == "y_plus":

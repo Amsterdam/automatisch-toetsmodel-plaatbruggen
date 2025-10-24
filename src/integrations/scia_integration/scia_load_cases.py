@@ -7,6 +7,8 @@ the SciaModelBuilder interface.
 
 from typing import Any
 
+from src.integrations.scia_integration.constants import SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING
+
 from .scia_enums import (
     LoadCaseActionType,
     LoadCaseDuration,
@@ -195,11 +197,10 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     dims = extract_bridge_dimensions(params)
     length = dims.total_length
     thickness = dims.thickness
-    vehicle_length = 3.25
 
     # Get X positions using the same sequencer as tandem loads
 
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length)
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
 
     cases = {}
 
