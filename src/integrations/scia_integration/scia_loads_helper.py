@@ -1406,7 +1406,7 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
             idx += 1
         return results
 
-    # For wider bridges, create configurations sequentially
+        # For wider bridges, create configurations sequentially
         y_left = lane_y_positions[1]
         y_right = lane_y_positions[2]
 
@@ -2071,7 +2071,7 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901
             idx += 1
         return results
 
-    # For wider roads, create configurations sequentially
+        # For wider roads, create configurations sequentially
         y_left = lane_y_positions[1]
         y_right = lane_y_positions[2]
 

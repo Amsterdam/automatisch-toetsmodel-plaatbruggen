@@ -564,7 +564,9 @@ def create_tram_track_tandem_load_cases(
     else:
         raise ValueError("Track must be 1 or 2")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TRAM_VEHICLE_LENGTH)  # Tram length 15G (CAF Urbos 100)
+    positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TRAM_VEHICLE_LENGTH
+    )  # Tram length 15G (CAF Urbos 100)
     cases = {}
     for i, pos in enumerate(positions, 1):
         case_name = f"{prefix}{i:03d}"

@@ -379,9 +379,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         # Obtain different x positions for the accidental vehicles
         positions = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_AXLE_SPACING)
         positions_amsterdam = tandem_system_sequencer(length, thickness)
-        positions_amsterdam_rotated = tandem_system_sequencer(
-            length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM
-        )
+        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
