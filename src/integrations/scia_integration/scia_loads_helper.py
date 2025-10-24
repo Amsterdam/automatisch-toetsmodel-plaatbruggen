@@ -30,6 +30,7 @@ TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 min_width = 5.4
 max_width = 6.0
 
+
 # =======================================================================
 # Helper functions for bridge layout properties
 # =======================================================================
@@ -563,12 +564,7 @@ def add_material_loads(
 # ========================================================================
 
 
-def tandem_system_sequencer(
-    length_bridgedeck: float,
-    thickness_bridgedeck: float,
-    length_vehicle: float = 0.0,
-    spacing: float = 0.5
-    ) -> list[float]:
+def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float = 0.0, spacing: float = 0.5) -> list[float]:
     """
     Calculate the x-positions of the tandem systems in a notional lane along the length of the bridge deck.
     Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
