@@ -75,8 +75,6 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         from src.integrations.scia_integration.scia_loads_helper import (
             generate_theoretical_lane_positions_bg8000,
             tandem_system_sequencer,
-            tandem_system_sequencer_single_axis,
-            tandem_system_sequencer_single_axis_rotated,
         )
 
         dims = extract_bridge_dimensions(params)
@@ -90,8 +88,8 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
 
         # Unintended vehicle load cases: complex calculation
         unintended_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-        amsterdam_positions = tandem_system_sequencer_single_axis(length, thickness)
-        amsterdam_rotated_positions = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+        amsterdam_positions = tandem_system_sequencer(length, thickness)
+        amsterdam_rotated_positions = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
 
         # Standard vehicle: 2 edges × 2 directions × positions
         standard_cases = len(unintended_positions) * 2 * 2  # RS1 and RS3, forward and reverse
