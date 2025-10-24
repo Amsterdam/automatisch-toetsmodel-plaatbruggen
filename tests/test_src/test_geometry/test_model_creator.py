@@ -73,7 +73,7 @@ class TestModelCreator(unittest.TestCase):
             # Get the color of this geometry
             if geometry.visual is None:
                 continue  # Skip if no visual data
-            
+
             if hasattr(geometry.visual, "main_color"):
                 main_color = geometry.visual.main_color
             elif hasattr(geometry.visual, "face_colors") and len(geometry.visual.face_colors) > 0:
