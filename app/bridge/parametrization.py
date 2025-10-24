@@ -1258,6 +1258,9 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "get_scia_1d_results_view_sls_kar",
             "get_scia_1d_results_view_sls_freq",
             "get_scia_1d_results_view_uls",
+            "get_scia_cs_results_view_uls",
+            "get_scia_cs_results_view_sls_kar",
+            "get_scia_cs_results_view_sls_freq",
             "get_scia_results_table",
         ],
     )
