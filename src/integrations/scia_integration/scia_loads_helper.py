@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 # Standard tandem wheel offsets from bottom left corner
 TANDEM_WHEEL_OFFSETS = [(0, 0), (1.2, 0), (0, 2), (1.2, 2)]
 
+# Bridge deck width properties for calculating lane width
+min_width = 5.4
+max_width = 6.0
+
 
 # =======================================================================
 # Helper functions for bridge layout properties
@@ -41,9 +45,9 @@ def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
         tuple[int, float]: A tuple containing the number of notional lanes and the width per lane in meters.
 
     """
-    if width_bridgedeck < 5.4:
+    if width_bridgedeck < min_width:
         return 1, 3
-    if 5.4 <= width_bridgedeck < 6.0:
+    if min_width <= width_bridgedeck < max_width:
         return 2, width_bridgedeck / 2
     return int(width_bridgedeck // 3), 3
 
@@ -560,7 +564,7 @@ def add_material_loads(
 # ========================================================================
 
 
-def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
+def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float = 0.0, spacing: float = 0.5) -> list[float]:
     """
     Calculate the x-positions of the tandem systems in a notional lane along the length of the bridge deck.
     Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
@@ -569,6 +573,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
         length_bridgedeck (float): The length of the bridge deck in meters.
         thickness_bridgedeck (float): The thickness of the bridge deck in meters.
         length_vehicle (float): The length of the vehicle in meters.
+        spacing (float): The spacing between tandem systems in meters.
 
     Returns:
         list[float]: A list containing the positions of the tandem systems along the bridge deck.
@@ -576,7 +581,8 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
     """
     start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
     tandem_systems = []
-    dx = 0.5  # Default spacing between tandem systems in meters
+
+    # Calculate positions based on vehicle length
     mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
     end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
 
@@ -584,76 +590,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
     pos = start_of_lanes
     while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
         tandem_systems.append(round(pos, 6))
-        pos += dx
-    # Always include end_span_position exactly
-    tandem_systems.append(round(end_span_position, 6))
-
-    # Ensure mid-span position is included (within tolerance)
-    if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
-        tandem_systems.append(round(mid_span_position, 6))
-
-    return sorted(set(tandem_systems))
-
-
-def tandem_system_sequencer_single_axis(length_bridgedeck: float, thickness_bridgedeck: float) -> list[float]:
-    """
-    Calculate the x-positions of the tandem system consisting of a single axis in a notional lane along the length of the bridge deck.
-    Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-
-    Returns:
-        list[float]: A list containing the positions of the tandem system along the bridge deck.
-
-    """
-    start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
-    tandem_systems = []
-    dx = 0.5  # Default spacing between tandem systems in meters
-    mid_span_position = length_bridgedeck / 2
-    end_span_position = length_bridgedeck - start_of_lanes
-
-    # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
-    pos = start_of_lanes
-    while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
-        tandem_systems.append(round(pos, 6))
-        pos += dx
-    # Always include end_span_position exactly
-    tandem_systems.append(round(end_span_position, 6))
-
-    # Ensure mid-span position is included (within tolerance)
-    if not any(abs(p - mid_span_position) < 1e-6 for p in tandem_systems):
-        tandem_systems.append(round(mid_span_position, 6))
-
-    return sorted(set(tandem_systems))
-
-
-def tandem_system_sequencer_single_axis_rotated(length_bridgedeck: float, thickness_bridgedeck: float, length_vehicle: float) -> list[float]:
-    """
-    Calculate the x-positions of the tandem system consisting of a rotated single axis in a notional lane along the length of the bridge deck.
-    Default spacing between tandem systems is 0.5 meters. A tandem system exactly mid-span is always included.
-
-    Args:
-        length_bridgedeck (float): The length of the bridge deck in meters.
-        thickness_bridgedeck (float): The thickness of the bridge deck in meters.
-        length_vehicle (float): The length of the vehicle in meters.
-
-    Returns:
-        list[float]: A list containing the positions of the tandem system along the bridge deck.
-
-    """
-    start_of_lanes = calculate_start_of_lanes(thickness_bridgedeck)
-    tandem_systems = []
-    dx = 0.5  # Default spacing between tandem systems in meters
-    mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
-    end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
-
-    # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
-    pos = start_of_lanes
-    while pos < end_span_position - 1e-6:  # Use a small epsilon to avoid floating-point issues
-        tandem_systems.append(round(pos, 6))
-        pos += dx
+        pos += spacing
     # Always include end_span_position exactly
     tandem_systems.append(round(end_span_position, 6))
 
