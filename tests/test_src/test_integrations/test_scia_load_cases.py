@@ -148,9 +148,7 @@ class TestStandardLoadCases:
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_unintended_vehicle_load_cases(
-        self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of unintended vehicle load case definitions with dynamic X positions."""
         from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
@@ -161,8 +159,8 @@ class TestStandardLoadCases:
         # The function calls tandem_system_sequencer 3 times with different length_vehicle values
         mock_sequencer.side_effect = [
             [2.5, 25.0, 47.5],  # First call: length_vehicle=1.2
-            [5.0, 45.0],         # Second call: length_vehicle=0 (Amsterdam)
-            [10.0, 40.0],        # Third call: length_vehicle=2.0 (Amsterdam rotated)
+            [5.0, 45.0],  # Second call: length_vehicle=0 (Amsterdam)
+            [10.0, 40.0],  # Third call: length_vehicle=2.0 (Amsterdam rotated)
         ]
         mock_params = Mock()
 
@@ -275,9 +273,7 @@ class TestCreateAllLoadCases:
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_structure(
-        self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    def test_create_all_load_cases_structure(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that create_all_load_cases returns the expected structure."""
         from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
@@ -316,9 +312,7 @@ class TestConditionalLoadCaseCreation:
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_all_enabled(
-        self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    def test_create_all_load_cases_with_all_enabled(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that all load cases are created when all are enabled in the params table."""
         from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
@@ -357,9 +351,7 @@ class TestConditionalLoadCaseCreation:
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_some_disabled(
-        self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    def test_create_all_load_cases_with_some_disabled(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that only enabled load cases are created when some are disabled."""
         from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
@@ -397,9 +389,7 @@ class TestConditionalLoadCaseCreation:
 
     @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_missing_table(
-        self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    def test_create_all_load_cases_with_missing_table(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that all load cases are created when the selection table is missing."""
         from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
 
