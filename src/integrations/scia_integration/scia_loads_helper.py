@@ -1366,8 +1366,8 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
         return results
 
         # For wider bridges, create configurations sequentially
-        y_left = lane_y_positions[1]
-        y_right = lane_y_positions[2]
+    y_left = lane_y_positions[1]
+    y_right = lane_y_positions[2]
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
@@ -1738,8 +1738,8 @@ def generate_real_lane_positions_bg9000_two_road_zones(
     if num_lanes_zone_2 > 0:
         for lane_idx in range(num_lanes_zone_2):
             lane_start = y_top_zone_2 - lane_idx * lane_width
-        lane_center = lane_start - (lane_width / 2)  # Center of each lane
-        lane_centers.append(lane_center)
+            lane_center = lane_start - (lane_width / 2)  # Center of each lane
+            lane_centers.append(lane_center)
 
     return lane_centers
 
@@ -2036,8 +2036,8 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912
         return results
 
         # For wider roads, create configurations sequentially
-        y_left = lane_y_positions[1]
-        y_right = lane_y_positions[2]
+    y_left = lane_y_positions[1]
+    y_right = lane_y_positions[2]
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
