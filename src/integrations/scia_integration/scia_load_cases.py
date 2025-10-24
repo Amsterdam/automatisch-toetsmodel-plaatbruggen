@@ -17,8 +17,6 @@ from .scia_enums import (
 from .scia_load_generators import extract_bridge_dimensions
 from .scia_loads_helper import (
     tandem_system_sequencer,
-    tandem_system_sequencer_single_axis,
-    tandem_system_sequencer_single_axis_rotated,
 )
 from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
@@ -258,8 +256,8 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     # Get X positions using the same sequencer as tandem loads
 
     positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-    positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
-    positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+    positions_amsterdam = tandem_system_sequencer(length, thickness)
+    positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
 
     cases = {}
     case_counter = 1
