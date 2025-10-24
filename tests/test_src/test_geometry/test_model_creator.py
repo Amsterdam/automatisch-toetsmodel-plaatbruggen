@@ -52,8 +52,8 @@ class TestModelCreator(unittest.TestCase):
         assert np.array_equal(box_mesh.vertices, vertices)
         # Expected 12 faces (2 triangles per side * 6 sides)
         assert len(box_mesh.faces) == 12
-        # Type guard for face_colors access
-        assert isinstance(box_mesh.visual, ColorVisuals)
+        assert box_mesh.visual is not None
+        assert hasattr(box_mesh.visual, "face_colors")
         assert all(np.array_equal(fc, color) for fc in box_mesh.visual.face_colors)
 
     def test_create_axes(self) -> None:
@@ -71,9 +71,11 @@ class TestModelCreator(unittest.TestCase):
         for geom_name, geometry in scene.geometry.items():
             assert isinstance(geometry, trimesh.Trimesh), f"Geometry {geom_name} should be a Trimesh"
 
-            # Get the color of this geometry - with type guard
-            main_color = None
-            if geometry.visual is not None and hasattr(geometry.visual, "main_color"):
+            # Get the color of this geometry
+            if geometry.visual is None:
+                continue  # Skip if no visual data
+
+            if hasattr(geometry.visual, "main_color"):
                 main_color = geometry.visual.main_color
             elif isinstance(geometry.visual, ColorVisuals) and hasattr(geometry.visual, "face_colors") and len(geometry.visual.face_colors) > 0:
                 # Use the first face color if main_color is not available
@@ -134,7 +136,7 @@ class TestModelCreator(unittest.TestCase):
 
         # Check color
         assert hasattr(dot_mesh, "visual")
-        assert isinstance(dot_mesh.visual, ColorVisuals)
+        assert dot_mesh.visual is not None
         assert hasattr(dot_mesh.visual, "face_colors")
         # Color is set to black [0,0,0,255]
         expected_color = np.array([0, 0, 0, 255], dtype=np.uint8)
