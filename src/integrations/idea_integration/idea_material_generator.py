@@ -7,13 +7,14 @@ This module provides functions to create IDEA RCS concrete and reinforcement mat
 from pathlib import Path
 from typing import Any
 
+from viktor.external import idea_rcs
+
 from src.integrations.idea_integration.constants.materials import (
     DEFAULT_STONE_DIAMETER,
     DEFAULT_YOUNGS_MODULUS,
 )
 from src.integrations.idea_integration.constants.paths import IDEA_MATERIALS_PATH
 from src.integrations.idea_integration.constants.units import MM_TO_M_IDEA
-from viktor.external import idea_rcs
 
 
 def _parse_csv_header_and_data_start(lines: list[str]) -> tuple[list[str], int]:
