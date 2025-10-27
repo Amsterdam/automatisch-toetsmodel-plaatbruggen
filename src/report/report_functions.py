@@ -9,7 +9,7 @@ from docxtpl import DocxTemplate  # type: ignore[import]
 from munch import Munch  # type: ignore[import-untyped]
 
 from app.constants import OUTPUT_REPORT_PATH
-from src.integrations.scia_integration.scia_coordinate_utils import (
+from src.integrations.scia_integration.model.scia_coordinate_utils import (
     get_bridge_deck_zone_materials_and_thickness,
 )
 from viktor.core import File

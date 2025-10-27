@@ -9,6 +9,15 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
+from src.integrations.scia_integration.model.scia_model_interface import (
+    SciaAnalysis,
+    SciaFile,
+    SciaLoadCase,
+    SciaLoadCombination,
+    SciaLoadGroup,
+    SciaModelBuilder,
+)
 from src.integrations.scia_integration.scia_enums import (
     LineLoadDirection,
     LineSupportFreedom,
@@ -21,15 +30,6 @@ from src.integrations.scia_integration.scia_enums import (
     LoadGroupRelation,
     PermanentLoadType,
     VariableLoadType,
-)
-from src.integrations.scia_integration.scia_model import define_complete_bridge_model
-from src.integrations.scia_integration.scia_model_interface import (
-    SciaAnalysis,
-    SciaFile,
-    SciaLoadCase,
-    SciaLoadCombination,
-    SciaLoadGroup,
-    SciaModelBuilder,
 )
 
 # Global VIKTOR imports with error handling for CI/testing environments

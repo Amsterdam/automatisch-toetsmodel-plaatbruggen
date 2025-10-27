@@ -7,7 +7,7 @@ and moment values from Newton-meters (Nm) to kiloNewton-meters (kNm) in SCIA res
 
 import pandas as pd
 
-from src.integrations.scia_integration.scia_result_views import (
+from src.integrations.scia_integration.results.scia_result_views import (
     create_scia_node_results_table,
     create_scia_node_table_data,
     safe_float_format,

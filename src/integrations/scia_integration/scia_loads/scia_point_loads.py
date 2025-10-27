@@ -26,9 +26,9 @@ from src.integrations.scia_integration.constants import (
     SERVICE_VEHICLE_WHEEL_CONTACT_AREA,
     SERVICE_VEHICLE_WIDTH,
 )
-from src.integrations.scia_integration.scia_coordinate_utils import convert_loads_to_scia_format
-from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
-from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+from src.integrations.scia_integration.model.scia_coordinate_utils import convert_loads_to_scia_format
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
@@ -92,7 +92,7 @@ def dispersal_function(  # noqa: C901
         for i in range(4):
             x, y, z = coords[i]
             # Import at runtime to avoid circular imports
-            from src.integrations.scia_integration.scia_coordinate_utils import get_dispersion_at_coord
+            from src.integrations.scia_integration.model.scia_coordinate_utils import get_dispersion_at_coord
 
             dispersion_deck_zone = get_dispersion_at_coord(params=params, coord=coords[i])["deck_zone"]
             dispersion_load_zone = get_dispersion_at_coord(params=params, coord=coords[i])["load_zone"]
@@ -136,7 +136,7 @@ def dispersal_function(  # noqa: C901
 
     # Clip dispersed coordinates to bridge boundaries
     from src.geometry.load_zone_geometry import get_bridge_geom_data
-    from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+    from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
     bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
     if bridge_geom_data is not None:
@@ -257,7 +257,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from src.integrations.scia_integration.scia_loads_helper import tandem_system_sequencer
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
         positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
 
@@ -293,7 +293,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             load_per_area = force_per_wheel / wheel_area  # N/m²
 
             # Use the helper function to calculate wheel positions
-            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
@@ -372,7 +372,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from src.integrations.scia_integration.scia_loads_helper import (
+        from src.integrations.scia_integration.load_system.tandem_sequencer import (
             tandem_system_sequencer,
         )
 
@@ -406,7 +406,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
             # Calculate wheel positions for the ENTIRE vehicle (not per axle)
-            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
@@ -501,7 +501,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             load_per_area = force_per_wheel / wheel_area
 
             # Use helper function to calculate wheel positions
-            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,

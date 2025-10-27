@@ -8,19 +8,19 @@ the SciaModelBuilder interface.
 from typing import Any
 
 from src.integrations.scia_integration.constants import SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING
-
-from .scia_enums import (
+from src.integrations.scia_integration.load_system.tandem_sequencer import (
+    tandem_system_sequencer,
+)
+from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCase, SciaModelBuilder
+from src.integrations.scia_integration.scia_enums import (
     LoadCaseActionType,
     LoadCaseDuration,
     LoadCaseSpecification,
     PermanentLoadType,
     VariableLoadType,
 )
+
 from .scia_load_generators import extract_bridge_dimensions
-from .scia_loads_helper import (
-    tandem_system_sequencer,
-)
-from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
 def create_load_case(  # noqa: PLR0913
