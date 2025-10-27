@@ -3,6 +3,10 @@ Vehicle load constants for SCIA integration.
 
 These constants define vehicle specifications, dimensions, and load values
 used in service vehicle and accidental vehicle load calculations.
+
+NOTE: These constants are being migrated to Pydantic models in src.data_models.vehicle_models.
+Consider using STANDARD_VEHICLES from src.data_models for new code.
+Existing constants are maintained for backward compatibility during transition.
 """
 
 # Service vehicle loads (NEN-EN 1991-2 art. 5.3.2.3)
