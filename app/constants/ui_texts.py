@@ -47,9 +47,11 @@ De laatste belastingzone loopt automatisch door tot het einde van de brug;
 hiervoor hoeft geen breedte ingevuld te worden.
 
 De tramzone dient te worden geselecteerd wanneer er een gescheiden trambaan is. In deze zone wordt enkel een tram gemodelleerd.
-Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan, en dienen tussenstukken berm etc. te worden verwaarloosd.
+Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan,
+en dienen tussenstukken berm etc. te worden verwaarloosd.
 In dit geval krijg je een brede auto zone in het midden van het brugdek, tussen de fiets- en voetpaden.
-Er wordt dan geen trambelasting gemodelleerd, maar enkel de verkeersbelasting van de auto zone omdat dit altijd maatgevend is ten opzichte van de trambelasting.
+Er wordt dan geen trambelasting gemodelleerd, maar enkel de verkeersbelasting van de auto zone
+omdat dit altijd maatgevend is ten opzichte van de trambelasting.
 
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
