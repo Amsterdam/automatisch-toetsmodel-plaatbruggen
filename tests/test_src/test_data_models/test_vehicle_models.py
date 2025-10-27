@@ -30,14 +30,15 @@ class TestVehicleGeometry:
         geometry = VehicleGeometry(
             length=3.0,
             width=2.0,
-            wheel_contact_area=0.3,
-            inset_distance=0.5,
+            wheel_dim_x=0.3,
+            wheel_dim_y=0.35,
             wheel_spacing_longitudinal=2.0,
             wheel_spacing_transverse=1.5,
         )
         assert geometry.length == 3.0
         assert geometry.width == 2.0
-        assert geometry.wheel_contact_area == 0.3
+        assert geometry.wheel_dim_x == 0.3
+        assert geometry.wheel_dim_y == 0.35
 
     def test_negative_length_rejected(self) -> None:
         """Test that negative length is rejected."""
@@ -45,8 +46,8 @@ class TestVehicleGeometry:
             VehicleGeometry(
                 length=-1.0,
                 width=2.0,
-                wheel_contact_area=0.3,
-                inset_distance=0.5,
+                wheel_dim_x=0.3,
+                wheel_dim_y=0.35,
                 wheel_spacing_longitudinal=2.0,
                 wheel_spacing_transverse=1.5,
             )
@@ -58,8 +59,8 @@ class TestVehicleGeometry:
             VehicleGeometry(
                 length=100.0,
                 width=2.0,
-                wheel_contact_area=0.3,
-                inset_distance=0.5,
+                wheel_dim_x=0.3,
+                wheel_dim_y=0.35,
                 wheel_spacing_longitudinal=2.0,
                 wheel_spacing_transverse=1.5,
             )
@@ -134,7 +135,8 @@ class TestServiceVehicle:
         assert service.force_per_axle_kn == 25.0
         assert service.length == 3.0
         assert service.width == 1.75
-        assert service.wheel_contact_area == 0.25
+        assert service.wheel_dim_x == 0.25
+        assert service.wheel_dim_y == 0.25
 
     def test_custom_service_vehicle(self) -> None:
         """Test creation of custom service vehicle."""
@@ -159,7 +161,8 @@ class TestAccidentalVehicle:
         assert accidental.force_axle_1_kn == 80.0
         assert accidental.force_axle_2_kn == 40.0
         assert accidental.width == 1.30
-        assert accidental.wheel_contact_area == 0.20
+        assert accidental.wheel_dim_x == 0.20
+        assert accidental.wheel_dim_y == 0.20
         assert accidental.axle_spacing_m == 1.2
 
 
@@ -172,7 +175,8 @@ class TestAmsterdamAccidentalVehicle:
         assert amsterdam.vehicle_type == "amsterdam_accidental"
         assert amsterdam.force_single_axle_kn == 240.0
         assert amsterdam.width == 2.0
-        assert amsterdam.wheel_contact_area == 0.4
+        assert amsterdam.wheel_dim_x == 0.4
+        assert amsterdam.wheel_dim_y == 0.4
 
 
 class TestTramVehicle:
@@ -309,8 +313,8 @@ class TestEdgeCases:
         geometry = VehicleGeometry(
             length=0.1,
             width=0.1,
-            wheel_contact_area=0.05,
-            inset_distance=0.0,
+            wheel_dim_x=0.05,
+            wheel_dim_y=0.05,
             wheel_spacing_longitudinal=0.1,
             wheel_spacing_transverse=0.1,
         )
@@ -320,8 +324,8 @@ class TestEdgeCases:
         geometry_max = VehicleGeometry(
             length=10.0,
             width=10.0,
-            wheel_contact_area=1.0,
-            inset_distance=2.0,
+            wheel_dim_x=1.0,
+            wheel_dim_y=1.0,
             wheel_spacing_longitudinal=5.0,
             wheel_spacing_transverse=5.0,
         )
@@ -333,8 +337,8 @@ class TestEdgeCases:
             VehicleGeometry(
                 length=3.0,
                 width=2.0,
-                wheel_contact_area=0.01,
-                inset_distance=0.5,
+                wheel_dim_x=0.01,
+                wheel_dim_y=0.02,
                 wheel_spacing_longitudinal=2.0,
                 wheel_spacing_transverse=1.5,
             )

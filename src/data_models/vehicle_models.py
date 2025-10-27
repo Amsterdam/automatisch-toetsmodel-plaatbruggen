@@ -18,12 +18,16 @@ class VehicleGeometry(BaseModel):
 
     Provides common dimensional and spatial properties used in load calculations
     and vehicle positioning on bridge decks.
+
+    Note: inset_distance is not included here as it is a bridge-specific parameter,
+    not a vehicle characteristic. Different bridges may apply different inset distances
+    for the same vehicle type.
     """
 
     length: float = Field(gt=0, le=10, description="Vehicle length in meters")
     width: float = Field(gt=0, le=10, description="Vehicle width in meters")
-    wheel_contact_area: float = Field(gt=0, le=1.0, description="Wheel contact patch size in meters (square)")
-    inset_distance: float = Field(ge=0, le=2.0, description="Distance from bridge edge in meters")
+    wheel_dim_x: float = Field(gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
+    wheel_dim_y: float = Field(gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
     wheel_spacing_longitudinal: float = Field(gt=0, le=5.0, description="Distance between axles in meters")
     wheel_spacing_transverse: float = Field(gt=0, le=5.0, description="Distance between left/right wheels in meters")
 
@@ -37,14 +41,14 @@ class VehicleGeometry(BaseModel):
             raise ValueError(f"Vehicle dimension {v}m is unrealistic (maximum 50m)")
         return v
 
-    @field_validator("wheel_contact_area")
+    @field_validator("wheel_dim_x", "wheel_dim_y")
     @classmethod
-    def validate_contact_area(cls, v: float) -> float:
-        """Validate wheel contact area is realistic."""
+    def validate_wheel_dimensions(cls, v: float) -> float:
+        """Validate wheel dimensions are realistic."""
         if v < 0.05:
-            raise ValueError(f"Wheel contact area {v}m is too small (minimum 0.05m)")
+            raise ValueError(f"Wheel dimension {v}m is too small (minimum 0.05m)")
         if v > 1.0:
-            raise ValueError(f"Wheel contact area {v}m is too large (maximum 1.0m)")
+            raise ValueError(f"Wheel dimension {v}m is too large (maximum 1.0m)")
         return v
 
     model_config = ConfigDict(validate_assignment=True)
@@ -105,13 +109,10 @@ class TandemSystemVehicle(BaseModel):
     # Geometry (from constants: TANDEM_WHEEL_SPACING_LONGITUDINAL, TANDEM_WHEEL_SPACING_TRANSVERSE, TANDEM_VEHICLE_LENGTH, TANDEM_WHEEL_SIZE)
     length: float = Field(default=1.6, gt=0, le=10, description="Tandem vehicle length in meters")
     width: float = Field(default=2.0, gt=0, le=10, description="Tandem vehicle width in meters")
-    wheel_contact_area: float = Field(default=0.4, gt=0, le=1.0, description="Wheel contact patch size in meters")
+    wheel_dim_x: float = Field(default=0.4, gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
+    wheel_dim_y: float = Field(default=0.4, gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
     wheel_spacing_longitudinal: float = Field(default=1.2, gt=0, le=5, description="Distance between axles in meters")
     wheel_spacing_transverse: float = Field(default=2.0, gt=0, le=5, description="Distance between left/right wheels in meters")
-    inset_distance: float = Field(default=0.5, ge=0, le=2.0, description="Distance from bridge edge in meters")
-
-    # Contact area
-    contact_area_side_m: float = Field(default=0.4, gt=0, le=1.0, description="Side dimension of contact area in meters")
 
     # Load values (from constants: TANDEM_LOAD_BASE_MAIN, TANDEM_LOAD_BASE_SECOND, TANDEM_LOAD_BASE_THIRD)
     load_main_lane_kn: float = Field(default=300.0, gt=0, le=500, description="Load for main lane in kN")
@@ -157,8 +158,8 @@ class ServiceVehicle(BaseModel):
     # Geometry (from SERVICE_VEHICLE_* constants)
     length: float = Field(default=3.0, gt=0, le=10, description="Service vehicle length in meters")
     width: float = Field(default=1.75, gt=0, le=10, description="Service vehicle width in meters")
-    wheel_contact_area: float = Field(default=0.25, gt=0, le=1.0, description="Wheel contact patch size in meters")
-    inset_distance: float = Field(default=0.5, ge=0, le=2.0, description="Distance from bridge edge in meters")
+    wheel_dim_x: float = Field(default=0.25, gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
+    wheel_dim_y: float = Field(default=0.25, gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
     wheel_spacing_longitudinal: float = Field(default=2.5, gt=0, le=5, description="Distance between axles in meters")
     wheel_spacing_transverse: float = Field(default=1.25, gt=0, le=5, description="Distance between left/right wheels in meters")
 
@@ -180,8 +181,8 @@ class AccidentalVehicle(BaseModel):
 
     # Geometry (from ACCIDENTAL_VEHICLE_* constants)
     width: float = Field(default=1.30, gt=0, le=10, description="Vehicle width in meters")
-    wheel_contact_area: float = Field(default=0.20, gt=0, le=1.0, description="Wheel contact patch size in meters")
-    inset_distance: float = Field(default=0.5, ge=0, le=2.0, description="Distance from bridge edge in meters")
+    wheel_dim_x: float = Field(default=0.20, gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
+    wheel_dim_y: float = Field(default=0.20, gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
     wheel_spacing_transverse: float = Field(default=0.8, gt=0, le=5, description="Distance between left/right wheels in meters")
 
     # Axle configuration (from ACCIDENTAL_VEHICLE_FORCE_* constants)
@@ -205,8 +206,8 @@ class AmsterdamAccidentalVehicle(BaseModel):
 
     # Geometry (from ACCIDENTAL_VEHICLE_*_AMSTERDAM constants)
     width: float = Field(default=2.0, gt=0, le=10, description="Vehicle width in meters")
-    wheel_contact_area: float = Field(default=0.4, gt=0, le=1.0, description="Wheel contact patch size in meters")
-    inset_distance: float = Field(default=0.5, ge=0, le=2.0, description="Distance from bridge edge in meters")
+    wheel_dim_x: float = Field(default=0.4, gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
+    wheel_dim_y: float = Field(default=0.4, gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
     wheel_spacing_transverse: float = Field(default=1.5, gt=0, le=5, description="Distance between left/right wheels in meters")
 
     # Load (from ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM constant = 240 kN)
@@ -228,8 +229,8 @@ class TramVehicle(BaseModel):
     # Geometry (to be defined based on project requirements)
     length: float = Field(default=20.0, gt=0, le=50, description="Tram vehicle length in meters")
     width: float = Field(default=2.4, gt=0, le=10, description="Tram vehicle width in meters")
-    wheel_contact_area: float = Field(default=0.6, gt=0, le=1.0, description="Wheel contact patch size in meters")
-    inset_distance: float = Field(default=0.3, ge=0, le=2.0, description="Distance from track edge in meters")
+    wheel_dim_x: float = Field(default=0.6, gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
+    wheel_dim_y: float = Field(default=0.6, gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
     wheel_spacing_longitudinal: float = Field(default=2.0, gt=0, le=10, description="Distance between axles in meters")
     wheel_spacing_transverse: float = Field(default=1.5, gt=0, le=5, description="Distance between left/right wheels in meters")
 
