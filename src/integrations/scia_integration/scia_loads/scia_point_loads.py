@@ -8,6 +8,7 @@ loads from vehicles and tandem systems.
 
 from typing import Any
 
+from src.combinations.load_factors import get_dynamic_load_factor
 from src.geometry.load_zone_geometry import get_bridge_geom_data, get_tram_track_y_coordinates
 from src.integrations.scia_integration.constants import (
     ACCIDENTAL_VEHICLE_AXLE_SPACING,
@@ -244,8 +245,12 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
     Tram specifications (CAF Urbos 100, drawing EE-780):
     - Total length: 30.128m
     - Track gauge: 1.435m
-    - 6 axles with 97 kN per axle
+    - 6 axles with 97 kN per axle (static load)
     - Axle spacing from front: 0m, 1.8m, 11.812m, 13.662m, 23.674m, 25.474m
+
+    Dynamic amplification according to NEN-EN 1991-2 art. 4.3.4.2 (d):
+    - Dynamic factor Φ = 1.40 - L / 500 (with Φ >= 1.0)
+    - Applied to static axle loads: Dynamic load = 97 kN × Φ
 
     :param builder: The SCIA model builder instance
     :type builder: SciaModelBuilder
@@ -259,7 +264,19 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         # Tram specifications volgens tekening EE-780 (CAF Urbos 100)
         vehicle_length = 21.824  # Total tram length (m)
         track_gauge = 1.435  # Distance between rail centerlines (m)
-        force_per_axle = 97 * 1000  # 97 kN per axle converted to N
+        static_force_per_axle = 97 * 1000  # 97 kN per axle converted to N (static load)
+
+        # Extract bridge dimensions
+        dims = extract_bridge_dimensions(params)
+        length = dims.total_length
+        thickness = dims.thickness
+
+        # Calculate dynamic load factor according to NEN-EN 1991-2 art. 4.3.4.2 (d)
+        # Φ = 1.40 - L / 500 (with Φ >= 1.0)
+        dynamic_factor = get_dynamic_load_factor(span=length)
+
+        # Apply dynamic factor to static load
+        force_per_axle = static_force_per_axle * dynamic_factor  # Dynamic load (N)
 
         # Axle distances from previous axle (m)
         # Distances between consecutive axles: 1.8, 10.012, 1.85, 10.012, 1.8
@@ -277,11 +294,6 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         if tram_tracks is None or not tram_tracks:
             # No tram tracks defined, skip tram loads
             return
-
-        # Extract bridge dimensions and get X positions for tram
-        dims = extract_bridge_dimensions(params)
-        length = dims.total_length
-        thickness = dims.thickness
         from src.integrations.scia_integration.scia_loads_helper import tandem_system_sequencer
 
         # Get positions where the front of the tram can be placed
