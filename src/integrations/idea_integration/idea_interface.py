@@ -17,10 +17,11 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-from viktor.external import idea_rcs
 
 from src.common.constants.technical import MM_TO_M
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
+from src.integrations.idea_integration.constants.materials import DEFAULT_REBAR_POSITION_BASE
+from src.integrations.idea_integration.constants.units import M_TO_MM_IDEA
 from src.integrations.idea_integration.idea_data_models import (
     BridgeGeometryConfig,
     BridgeIdeaInputData,
@@ -31,6 +32,7 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
+from viktor.external import idea_rcs
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
@@ -224,7 +226,7 @@ def _get_rebar_config(
     # It also takes into account the langswapening_buiten parameter to determine the order of reinforcement layers.
     # It uses max_reinf_diameters to ensure that the cover and heights are calculated correctly if extra reinforcement is used.
     reinf_heights = {}
-    thickness_mm = slab_thickness * 1000  # Convert thickness from m to mm
+    thickness_mm = slab_thickness * M_TO_MM_IDEA  # Convert thickness from m to mm
     # check if diameter main > extra to determine cover and reinforcement heights
     if geometry_config.langswapening_buiten:
         # If langswapening_buiten is True, we assume the reinforcement in "langswapening" is placed as first layer
@@ -304,7 +306,7 @@ def _create_reinforcement_bars(
     for location in ["top", "bottom"]:
         # Create main reinforcement bars
         bar_locations_x = [
-            x / MM_TO_M for x in calculate_rebar_positions(1000, config.main_reinf_ctc_distances[f"{location}_{direction}"])
+            x / MM_TO_M for x in calculate_rebar_positions(DEFAULT_REBAR_POSITION_BASE, config.main_reinf_ctc_distances[f"{location}_{direction}"])
         ]  # Convert positions from mm to m
         bar_locations_y = [config.reinf_heights[f"{location}_{direction}"] / MM_TO_M] * len(bar_locations_x)  # Convert heights from mm to m
         bar_diameters = [config.main_reinf_diameters[f"{location}_{direction}"] / MM_TO_M] * len(bar_locations_x)  # Convert diameters from mm to m

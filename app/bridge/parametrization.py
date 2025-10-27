@@ -5,6 +5,27 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.materials import get_reinforcement_qualities
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -27,28 +48,6 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.materials import get_reinforcement_qualities
 
 from .utils import validate_reinforcement_zone_selections
 
@@ -75,8 +74,6 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         from src.integrations.scia_integration.scia_loads_helper import (
             generate_theoretical_lane_positions_bg8000,
             tandem_system_sequencer,
-            tandem_system_sequencer_single_axis,
-            tandem_system_sequencer_single_axis_rotated,
         )
 
         dims = extract_bridge_dimensions(params)
@@ -90,8 +87,8 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
 
         # Unintended vehicle load cases: complex calculation
         unintended_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-        amsterdam_positions = tandem_system_sequencer_single_axis(length, thickness)
-        amsterdam_rotated_positions = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+        amsterdam_positions = tandem_system_sequencer(length, thickness)
+        amsterdam_rotated_positions = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
 
         # Standard vehicle: 2 edges × 2 directions × positions
         standard_cases = len(unintended_positions) * 2 * 2  # RS1 and RS3, forward and reverse
