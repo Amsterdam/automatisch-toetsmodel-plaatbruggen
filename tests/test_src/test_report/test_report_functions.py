@@ -8,10 +8,10 @@ template processing, and PDF conversion functions.
 import unittest
 from io import BytesIO
 from unittest.mock import MagicMock, patch
-from zoneinfo import ZoneInfo
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
+from zoneinfo import ZoneInfo
 
 from src.report.report_functions import create_export_report
 
