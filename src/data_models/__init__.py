@@ -30,10 +30,10 @@ from .plotting_models import (
 )
 from .scia_models import AmsterdamWheelLoadConfig, BridgeDimensionsData, WheelLoadConfig
 from .vehicle_models import (
+    STANDARD_VEHICLES,
     AccidentalVehicle,
     AmsterdamAccidentalVehicle,
     ServiceVehicle,
-    STANDARD_VEHICLES,
     TandemSystemVehicle,
     TramVehicle,
     VehiclePosition,
@@ -42,6 +42,7 @@ from .vehicle_models import (
 )
 
 __all__ = [
+    "STANDARD_VEHICLES",
     "AccidentalVehicle",
     "AmsterdamAccidentalVehicle",
     "AmsterdamWheelLoadConfig",
@@ -56,7 +57,6 @@ __all__ = [
     "PlotPresentationDetails",
     "ReinforcementConfigData",
     "ServiceVehicle",
-    "STANDARD_VEHICLES",
     "TandemSystemVehicle",
     "TheoreticalLaneResult",
     "TramVehicle",

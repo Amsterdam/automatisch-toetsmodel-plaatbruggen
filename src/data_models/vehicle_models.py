@@ -9,7 +9,7 @@ and are designed to easily accommodate future vehicles like trams.
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class VehicleGeometry(BaseModel):
@@ -78,9 +78,7 @@ class VehicleAxleConfig(BaseModel):
         """Validate that axle configuration is consistent."""
         # Number of axles must match number of loads
         if len(self.axle_loads_kn) != self.num_axles:
-            raise ValueError(
-                f"Number of axle loads ({len(self.axle_loads_kn)}) doesn't match num_axles ({self.num_axles})"
-            )
+            raise ValueError(f"Number of axle loads ({len(self.axle_loads_kn)}) doesn't match num_axles ({self.num_axles})")
 
         # If axle spacing is a list, it must have correct length
         if isinstance(self.axle_spacing_m, list):
@@ -134,6 +132,7 @@ class TandemSystemVehicle(BaseModel):
 
         Raises:
             ValueError: If lane number is invalid
+
         """
         if lane_number == 1:
             return self.load_main_lane_kn
@@ -338,4 +337,3 @@ STANDARD_VEHICLES = VehicleRegistry(
     amsterdam_accidental=AmsterdamAccidentalVehicle(),
     tram=TramVehicle(),
 )
-

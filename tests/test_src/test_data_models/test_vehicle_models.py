@@ -9,10 +9,10 @@ import pytest
 from pydantic import ValidationError
 
 from src.data_models.vehicle_models import (
+    STANDARD_VEHICLES,
     AccidentalVehicle,
     AmsterdamAccidentalVehicle,
     ServiceVehicle,
-    STANDARD_VEHICLES,
     TandemSystemVehicle,
     TramVehicle,
     VehicleAxleConfig,
@@ -347,4 +347,3 @@ class TestEdgeCases:
 
         tram_without_load = TramVehicle()
         assert tram_without_load.load_per_wheel_kn is None
-
