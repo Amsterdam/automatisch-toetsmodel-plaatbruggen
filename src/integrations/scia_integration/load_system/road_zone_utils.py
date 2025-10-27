@@ -17,6 +17,20 @@ from src.integrations.scia_integration.load_system.scia_load_generators import e
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 
+def extract_auto_zone_y_coord(zone: "BridgeParametrization") -> float:
+    """
+    Extract the top y-coordinate of an auto zone.
+
+    This function retrieves the top y-coordinate from the zone's y_coords_top_current_zone attribute.
+    If the attribute is not available or empty, it returns 0.0.
+
+    :param zone: The load zone object containing y-coordinates
+    :type zone: BridgeParametrization
+    :returns: The top y-coordinate of the auto zone, or 0.0 if not available
+    :rtype: float
+    """
+    y_coords = getattr(zone, "y_coords_top_current_zone", [])
+    return float(y_coords[0]) if y_coords else 0.0
 
 def get_number_of_road_zones(params: "BridgeParametrization") -> int:
     """
