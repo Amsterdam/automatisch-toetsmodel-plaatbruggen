@@ -670,7 +670,7 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
     @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
-    def test_create_real_udl_traffic_loads_basic_case(
+    def test_create_real_udl_traffic_loads_basic_case(  # noqa: PLR0913
         self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
     ) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""

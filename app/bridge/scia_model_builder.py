@@ -449,7 +449,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             }
 
             # Add units mapping for downstream consumers
-            from src.integrations.scia_integration.scia_unit_conversion import build_units_mapping
+            from src.integrations.scia_integration.results.scia_unit_conversion import build_units_mapping
 
             units_mapping = build_units_mapping(results)
             results["units"] = units_mapping
