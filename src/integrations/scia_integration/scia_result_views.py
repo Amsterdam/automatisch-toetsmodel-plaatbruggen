@@ -488,9 +488,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     # Create a converter for 2D elements (CS tables are cross sections on plane objects)
     converter = SciaUnitConverter("2D")
 
+    # Check if zone column exists in the DataFrame
+    has_zone_column = "zone" in processed_cs_df.columns
+
     # Create headers with units
-    headers = [
-        "Name",
+    headers = ["Name"]
+    if has_zone_column:
+        headers.append("Zone")
+    headers.extend([
         "Coordinates",
         "Vx (kN/m)",
         "Vy (kN/m)",
@@ -498,11 +503,15 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         "MxD- (kNm/m)",
         "MyD+ (kNm/m)",
         "MyD- (kNm/m)",
-    ]
+    ])
 
     # Check if we have any data
     if processed_cs_df.empty:
-        return [[f"Geen {result_type} data", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], headers
+        no_data_row = [f"Geen {result_type} data"]
+        if has_zone_column:
+            no_data_row.append("N/A")
+        no_data_row.extend(["N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"])
+        return [no_data_row], headers
 
     table_data = []
 
@@ -513,6 +522,9 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     for _, row in processed_cs_df.iterrows():
         # Get name
         name = row.get("name", "N/A")
+
+        # Get zone if available
+        zone = row.get("zone", "N/A") if has_zone_column else None
 
         # Get coordinates
         coords_xyz = row.get("coords_xyz", (0.0, 0.0, 0.0))
@@ -535,8 +547,10 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
         m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
 
-        row_data = [
-            str(name),
+        row_data = [str(name)]
+        if has_zone_column:
+            row_data.append(str(zone))
+        row_data.extend([
             coords,
             v_x_str,
             v_y_str,
@@ -544,13 +558,15 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
             m_xd_minus_str,
             m_yd_plus_str,
             m_yd_minus_str,
-        ]
+        ])
         table_data.append(row_data)
 
     return table_data, headers
 
 
-def create_scia_cs_results_table(results: dict[str, Any], table_type: str) -> TableResult:
+def create_scia_cs_results_table(
+    results: dict[str, Any], table_type: str, bridge_segments: list[Any] | None = None
+) -> TableResult:
     """
     Create a VIKTOR TableResult from CS (Cross Section) SCIA analysis results.
 
@@ -562,6 +578,8 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str) -> Ta
     :type results: dict[str, Any]
     :param table_type: Type of CS table to extract ("ULS", "SLS kar", "SLS freq")
     :type table_type: str
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
     :returns: VIKTOR TableResult with formatted CS data including units
     :rtype: TableResult
     :raises Exception: If processing fails
@@ -570,7 +588,8 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str) -> Ta
 
     try:
         # Process all CS results (gets DataFrames with unique coords and max absolute values)
-        cs_results = process_scia_cs_results(results)
+        # Pass bridge_segments to enable zone mapping
+        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
 
         # Get the specific table type we want
         processed_cs_df = cs_results.get(table_type, pd.DataFrame())
@@ -596,7 +615,9 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str) -> Ta
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
 
 
-def create_all_scia_cs_results_tables(results: dict[str, Any]) -> dict[str, TableResult]:
+def create_all_scia_cs_results_tables(
+    results: dict[str, Any], bridge_segments: list[Any] | None = None
+) -> dict[str, TableResult]:
     """
     Create VIKTOR TableResults for all CS (Cross Section) table types.
 
@@ -609,6 +630,8 @@ def create_all_scia_cs_results_tables(results: dict[str, Any]) -> dict[str, Tabl
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
     :returns: Dictionary mapping table type to TableResult
     :rtype: dict[str, TableResult]
     """
@@ -616,6 +639,6 @@ def create_all_scia_cs_results_tables(results: dict[str, Any]) -> dict[str, Tabl
     cs_tables = {}
 
     for table_type in table_types:
-        cs_tables[table_type] = create_scia_cs_results_table(results, table_type)
+        cs_tables[table_type] = create_scia_cs_results_table(results, table_type, bridge_segments=bridge_segments)
 
     return cs_tables

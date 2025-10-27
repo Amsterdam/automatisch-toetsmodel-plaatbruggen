@@ -377,7 +377,14 @@ class SciaIntegration:
             traceback.print_exc()
             _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
-        return create_scia_cs_results_table(results, "ULS")
+        # Pass bridge_segments to enable zone mapping in CS results
+        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+        print(f"\n=== DEBUG: Controller get_scia_cs_results_view_uls ===")
+        print(f"bridge_segments available: {bridge_segments is not None}")
+        print(f"Number of segments: {len(bridge_segments) if bridge_segments else 0}")
+        if bridge_segments and len(bridge_segments) > 0:
+            print(f"First segment type: {type(bridge_segments[0])}")
+        return create_scia_cs_results_table(results, "ULS", bridge_segments=bridge_segments)
 
     @TableView("SCIA CS SLS kar", duration_guess=600)
     def get_scia_cs_results_view_sls_kar(self, params: BridgeParametrization, **kwargs) -> TableResult:
@@ -423,7 +430,9 @@ class SciaIntegration:
             traceback.print_exc()
             _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
-        return create_scia_cs_results_table(results, "SLS kar")
+        # Pass bridge_segments to enable zone mapping in CS results
+        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+        return create_scia_cs_results_table(results, "SLS kar", bridge_segments=bridge_segments)
 
     @TableView("SCIA CS SLS freq", duration_guess=600)
     def get_scia_cs_results_view_sls_freq(self, params: BridgeParametrization, **kwargs) -> TableResult:
@@ -469,7 +478,9 @@ class SciaIntegration:
             traceback.print_exc()
             _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
-        return create_scia_cs_results_table(results, "SLS freq")
+        # Pass bridge_segments to enable zone mapping in CS results
+        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+        return create_scia_cs_results_table(results, "SLS freq", bridge_segments=bridge_segments)
 
     # ============================================================================================================
     # SCIA Force Envelope Analysis

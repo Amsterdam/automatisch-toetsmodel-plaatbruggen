@@ -215,9 +215,6 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
     :returns: Tuple of (basis_data, elementaire_data)
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
-    print(f"\n{'='*80}")  # noqa: T201
-    print(f"DEBUG: Searching for 2D force CS tables: {table_type}")  # noqa: T201
-    print(f"{'='*80}")  # noqa: T201
 
     # Read "basis grootheden" CS table
     basis_table_name = f"Interne 2D-krachten basis {table_type}"
@@ -229,19 +226,6 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
         .get("p1", None) # P1 is sections
     )
 
-    print(f"\nDEBUG: Basis table '{basis_table_name}':")  # noqa: T201
-    if basis_data:
-        print(f"  - Found data with {len(basis_data)} keys")  # noqa: T201
-        # Print first 10 rows for each column
-        for key, values in basis_data.items():
-            if isinstance(values, list):
-                print(f"  - Column '{key}': {len(values)} values")  # noqa: T201
-                print(f"    First 10: {values[:10]}")  # noqa: T201
-            else:
-                print(f"  - Column '{key}': {values}")  # noqa: T201
-    else:
-        print("  - Table not found or empty")  # noqa: T201
-
     # Read "elementaire ontwerpgrootheden" CS table
     elementaire_table_name = f"Interne 2D-krachten elementair {table_type}"
     elementaire_data = (
@@ -251,22 +235,6 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
         .get("data", {})
         .get("p1", None) # P1 is sections
     )
-
-    print(f"\nDEBUG: Elementaire table '{elementaire_table_name}':")  # noqa: T201
-    if elementaire_data:
-        print(f"  - Found data with {len(elementaire_data)} keys")  # noqa: T201
-        # Print first 10 rows for each column
-        for key, values in elementaire_data.items():
-            if isinstance(values, list):
-                print(f"  - Column '{key}': {len(values)} values")  # noqa: T201
-                print(f"    First 10: {values[:10]}")  # noqa: T201
-            else:
-                print(f"  - Column '{key}': {values}")  # noqa: T201
-    else:
-        print("  - Table not found or empty")  # noqa: T201
-
-    print(f"{'='*80}\n")  # noqa: T201
-
     return basis_data, elementaire_data
 
 
@@ -323,17 +291,152 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
     return selected_data_scia_cs
 
 
-def _process_single_cs_result_table(selected_data_scia_cs: dict[str, Any], selected_table: str) -> pd.DataFrame:
+def _map_cs_section_to_zone(
+    cs_name: str,
+    coords_xyz: tuple[float, float, float],
+    bridge_segments: list[Any],  # List of BridgeSegmentDimensions  # noqa: ANN401
+) -> str:
+    """
+    Map a CS section to its corresponding geometric zone based on coordinates.
+
+    This function determines which load/reinforcement zone a CS section belongs to
+    by analyzing its spatial coordinates and comparing them to the bridge geometry.
+
+    Zone numbering format: "{zone_type}-{segment_number}"
+    - zone_type: 1 (top outer/bz1), 2 (middle/bz2), 3 (bottom outer/bz3)
+    - segment_number: 1-based segment index
+
+    Bridge coordinate system:
+    - X-axis: Longitudinal direction (along bridge length)
+    - Y-axis: Transverse direction (across bridge width)
+        * Positive Y: Top/left side (zone 1 - bz1)
+        * Near 0: Middle (zone 2 - bz2)
+        * Negative Y: Bottom/right side (zone 3 - bz3)
+    - Z-axis: Vertical direction (height)
+
+    :param cs_name: Name of the CS section (load case/combination name)
+    :type cs_name: str
+    :param coords_xyz: Coordinates of the CS section as (x, y, z) tuple
+    :type coords_xyz: tuple[float, float, float]
+    :param bridge_segments: List of bridge segment objects from VIKTOR parametrization (Munch)
+                           or Pydantic models. Each segment should have:
+                           - Length: 'l' (VIKTOR) or 'segment_length' (Pydantic)
+                           - Zone widths: bz1, bz2, bz3
+    :type bridge_segments: list[Any]
+    :returns: Zone identifier (e.g., "1-1", "2-1", etc.)
+              Returns "unknown-zone" if coordinates don't match any zone
+    :rtype: str
+    :raises ValueError: If bridge_segments is empty or None
+    """
+    print(f"\n=== DEBUG: _map_cs_section_to_zone called ===")
+    print(f"CS Name: {cs_name}")
+    print(f"Coordinates: {coords_xyz}")
+    print(f"Bridge segments provided: {bridge_segments is not None}")
+    print(f"Number of segments: {len(bridge_segments) if bridge_segments else 0}")
+    
+    if not bridge_segments:
+        raise ValueError("Bridge segments data is required for zone mapping")
+
+    # Convert coordinates to float (they may be strings from DataFrame)
+    x, y, z = coords_xyz  # noqa: F841
+    x = float(x)
+    y = float(y)
+    z = float(z)
+    print(f"Extracted coordinates - x: {x}, y: {y}, z: {z}")
+    print(f"Coordinate types - x: {type(x)}, y: {type(y)}, z: {type(z)}")
+
+    # --- Step 1: Determine segment number based on x-coordinate (longitudinal position) ---
+    cumulative_length = 0.0
+    segment_number = 1  # Default to first segment
+
+    print(f"Starting segment determination with {len(bridge_segments)} segments")
+    for i in range(1, len(bridge_segments)):  # Start from index 1
+        # Get segment length - support both VIKTOR Munch (l) and Pydantic model (segment_length)
+        segment_length = getattr(bridge_segments[i], "l", None) or getattr(bridge_segments[i], "segment_length", 0.0)
+        segment_length = float(segment_length)  # Ensure it's a float
+        cumulative_length += segment_length
+        print(f"  Segment {i}: length={segment_length}, cumulative={cumulative_length}, x={x}")
+
+        if x <= cumulative_length:
+            segment_number = i
+            print(f"  -> Matched segment {i}")
+            break
+    else:
+        # If x is beyond all segments, assign to last segment
+        segment_number = len(bridge_segments) - 1
+        print(f"  -> x beyond all segments, using last segment {segment_number}")
+
+    # --- Step 2: Determine zone type based on y-coordinate (transverse position) ---
+    # Get segment geometry at the identified segment
+    segment = bridge_segments[segment_number]
+    
+    # Ensure bz values are floats (may be stored as strings or other types)
+    bz1 = float(segment.bz1)
+    bz2 = float(segment.bz2)
+    bz3 = float(segment.bz3)
+    
+    print(f"\nSegment {segment_number} geometry:")
+    print(f"  bz1: {bz1}, bz2: {bz2}, bz3: {bz3}")
+
+    # Calculate zone boundaries based on bz1, bz2, bz3 values
+    # Bridge cross-section from top to bottom (in Y direction):
+    #   Zone 1 (bz1): from (bz2/2 + bz1) to (bz2/2)
+    #   Zone 2 (bz2): from (bz2/2) to (-bz2/2)
+    #   Zone 3 (bz3): from (-bz2/2) to (-bz2/2 - bz3)
+
+    half_bz2 = bz2 / 2.0
+    y_top_zone1 = half_bz2 + bz1  # Top boundary of zone 1
+    y_bottom_zone1 = half_bz2  # Bottom boundary of zone 1 = top of zone 2
+    y_bottom_zone2 = -half_bz2  # Bottom boundary of zone 2 = top of zone 3
+    y_bottom_zone3 = -half_bz2 - bz3  # Bottom boundary of zone 3
+
+    print(f"Zone boundaries:")
+    print(f"  Zone 1: {y_top_zone1:.3f} to {y_bottom_zone1:.3f}")
+    print(f"  Zone 2: {y_bottom_zone1:.3f} to {y_bottom_zone2:.3f}")
+    print(f"  Zone 3: {y_bottom_zone2:.3f} to {y_bottom_zone3:.3f}")
+    print(f"  Y-coordinate: {y:.3f}")
+
+    # Determine zone type based on y-coordinate
+    if y > y_bottom_zone1:  # Strictly greater for zone 1
+        zone_type = 1  # Top zone (bz1)
+        print(f"  -> Zone type: 1 (y > {y_bottom_zone1:.3f})")
+    elif y > y_bottom_zone2:  # Includes boundary with zone 1
+        zone_type = 2  # Middle zone (bz2)
+        print(f"  -> Zone type: 2 (y > {y_bottom_zone2:.3f})")
+    elif y >= y_bottom_zone3:
+        zone_type = 3  # Bottom zone (bz3)
+        print(f"  -> Zone type: 3 (y >= {y_bottom_zone3:.3f})")
+    else:
+        # Y-coordinate is outside the bridge geometry
+        print(f"  -> Zone type: unknown (y < {y_bottom_zone3:.3f})")
+        return "unknown-zone"
+
+    # --- Step 3: Return formatted zone identifier ---
+    result = f"{zone_type}-{segment_number}"
+    print(f"Final zone identifier: {result}")
+    print("=== DEBUG: _map_cs_section_to_zone complete ===\n")
+    return result
+
+
+def _process_single_cs_result_table(selected_data_scia_cs: dict[str, Any], selected_table: str, bridge_segments: list[Any] | None = None) -> pd.DataFrame:  # noqa: ANN401
     """
     Process a single CS result table and return the processed DataFrame.
 
     For each unique (Name, Coordinates) combination, finds the absolute maximum values
     of force/moment columns (v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-).
 
+    Optionally adds zone identification if bridge_segments are provided, and removes
+    duplicate rows where (name, zone) combinations have identical force/moment values.
+    This handles cases where SCIA reports the same force values at different Y-coordinates
+    within the same zone (e.g., different positions across the width).
+
     :param selected_data_scia_cs: Dictionary with CS table data
     :type selected_data_scia_cs: dict[str, Any]
     :param selected_table: Table type (e.g., "ULS")
     :type selected_table: str
+    :param bridge_segments: Optional list of bridge segment objects (VIKTOR Munch or Pydantic).
+                           Each segment needs: l/segment_length (length), bz1, bz2, bz3 (widths)
+    :type bridge_segments: list[Any] | None
     :returns: Processed DataFrame with unique (name, coordinates) combinations and max absolute force values
     :rtype: pd.DataFrame
     """
@@ -370,10 +473,58 @@ def _process_single_cs_result_table(selected_data_scia_cs: dict[str, Any], selec
         if orig_col in elementaire_lookup:
             _populate_force_values_from_lookup(unique_coords_df, elementaire_lookup[orig_col], orig_col)
 
+    # Add zone mapping if bridge_segments are provided
+    if bridge_segments and len(bridge_segments) > 0:
+        print(f"\n=== DEBUG: Applying zone mapping to {len(unique_coords_df)} unique coordinates ===")
+        print(f"Bridge segments type: {type(bridge_segments)}")
+        print(f"Number of bridge segments: {len(bridge_segments)}")
+        if len(bridge_segments) > 0:
+            print(f"First segment type: {type(bridge_segments[0])}")
+            print(f"First segment attributes: {dir(bridge_segments[0])}")
+        try:
+            unique_coords_df["zone"] = unique_coords_df.apply(
+                lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
+            )
+            print(f"Zone mapping successful. Sample zones: {unique_coords_df['zone'].head()}")
+            
+            # --- Deduplication: Remove duplicate (name, zone) combinations with identical force values ---
+            print(f"\n=== DEBUG: Deduplicating by (name, zone) with identical force values ===")
+            initial_count = len(unique_coords_df)
+            
+            # Define force/moment columns to check for duplicates
+            force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-"]
+            # Only use columns that actually exist in the DataFrame
+            force_columns_present = [col for col in force_columns if col in unique_coords_df.columns]
+            
+            if force_columns_present:
+                # Group by name and zone, then check for duplicate force values
+                # Keep first occurrence of each unique (name, zone, force_values) combination
+                dedup_columns = ["name", "zone"] + force_columns_present
+                unique_coords_df = unique_coords_df.drop_duplicates(subset=dedup_columns, keep="first")
+                
+                final_count = len(unique_coords_df)
+                duplicates_removed = initial_count - final_count
+                print(f"Removed {duplicates_removed} duplicate rows with same (name, zone) and force values")
+                print(f"Rows before: {initial_count}, after: {final_count}")
+            else:
+                print("No force columns found for deduplication")
+            
+        except Exception as e:
+            # If zone mapping fails, add a column with error message
+            print(f"ERROR: Zone mapping failed for CS results: {e}")  # noqa: T201
+            print(f"Exception type: {type(e)}")
+            import traceback
+            traceback.print_exc()
+            unique_coords_df["zone"] = "mapping-failed"
+    else:
+        print(f"\n=== DEBUG: Skipping zone mapping ===")
+        print(f"bridge_segments is None: {bridge_segments is None}")
+        print(f"bridge_segments length: {len(bridge_segments) if bridge_segments else 'N/A'}")
+
     return unique_coords_df
 
 
-def process_scia_cs_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
+def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:  # noqa: ANN401
     """
     Process SCIA CS (Cross Section) force analysis results to create DataFrames.
 
@@ -385,8 +536,13 @@ def process_scia_cs_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
     - v_x, v_y: Shear forces (from basis table)
     - m_xD+, m_xD-, m_yD+, m_yD-: Moments (from elementaire table)
 
+    Optionally adds zone identification if bridge_segments are provided.
+
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
+    :param bridge_segments: Optional list of bridge segment objects (VIKTOR Munch or Pydantic).
+                           Each segment needs: l/segment_length (length), bz1, bz2, bz3 (widths)
+    :type bridge_segments: list[Any] | None
     :returns: Dictionary containing DataFrames for each CS result table type
     :rtype: dict[str, pd.DataFrame]
     """
@@ -401,7 +557,7 @@ def process_scia_cs_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
     # Create DataFrames for each selected CS result class table
     for selected_table in selected_result_tables:
-        results_cs[selected_table] = _process_single_cs_result_table(selected_data_scia_cs, selected_table)
+        results_cs[selected_table] = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
 
     return results_cs
 
