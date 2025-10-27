@@ -1555,7 +1555,7 @@ def tandem_system_sequencer(length_bridgedeck: float, thickness_bridgedeck: floa
     tandem_systems = []
     dx = 0.5  # Default spacing between tandem systems in meters
     mid_span_position = length_bridgedeck / 2 - length_vehicle / 2
-    end_span_position = length_bridgedeck - start_of_lanes - length_vehicle
+    end_span_position = length_bridgedeck - start_of_lanes
 
     # Generate positions from start_of_lanes to end_span_position (inclusive), step dx
     pos = start_of_lanes
