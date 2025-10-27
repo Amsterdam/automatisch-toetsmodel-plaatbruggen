@@ -50,7 +50,7 @@ class Span:
     span_index: int
 
 
-def _identify_spans(segments: list[Any]) -> list[Span]:  # noqa: ANN401
+def _identify_spans(segments: list[Any]) -> list[Span]:
     """
     Identify spans from the bridge segments.
 
@@ -95,13 +95,11 @@ def _identify_spans(segments: list[Any]) -> list[Span]:  # noqa: ANN401
             for seg in current_span_segments:
                 if seg.bz1 != bz1 or seg.bz2 != bz2 or seg.bz3 != bz3:
                     raise ValueError(
-                        f"Inconsistent zone widths in span {span_index + 1}. "
-                        f"All segments in a span must have the same bz1, bz2, and bz3 values."
+                        f"Inconsistent zone widths in span {span_index + 1}. All segments in a span must have the same bz1, bz2, and bz3 values."
                     )
                 if seg.dz != dz or seg.dz_2 != dz_2:
                     raise ValueError(
-                        f"Inconsistent thicknesses in span {span_index + 1}. "
-                        f"All segments in a span must have the same dz and dz_2 values."
+                        f"Inconsistent thicknesses in span {span_index + 1}. All segments in a span must have the same dz and dz_2 values."
                     )
 
             span_width = bz1 + bz2 + bz3
@@ -171,7 +169,7 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         x_offset_end = -0.9 * span.min_thickness  # Offset from span end in [m]
         y_offset_top = 0.0  # Offset from top edge in [m] (configurable for future use)
         y_offset_bottom = 0.0  # Offset from bottom edge in [m] (configurable for future use)
-        
+
         # Apply y-offsets to get the actual y-limits for sections
         y_top = y_top_outer - y_offset_top
         y_bottom = y_bottom_outer + y_offset_bottom
@@ -180,7 +178,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         # Starting at span.start_x + 0.9*min_thickness and with last section ending at or before span.end_x - 0.9*min_thickness
         x_start = span.start_x + x_offset_start
         x_end_limit = span.end_x + x_offset_end  # This is span.end_x - 0.9*min_thickness
-        
 
         # X-DIRECTION SECTIONS
         # These sections are 1m long in x-direction, repeated every 0.5m in x, and every 0.5m in y
@@ -194,7 +191,7 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         while x_current + section_length <= x_end_limit:
             x_positions_x_dir.append(x_current)
             x_current += spacing
-        
+
         # Add a final section if the last section doesn't reach the end
         if x_positions_x_dir:
             last_x_section_start = x_positions_x_dir[-1]
@@ -213,7 +210,7 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         while y_current >= y_bottom:
             y_positions.append(y_current)
             y_current -= spacing
-        
+
         # Add a final y position at y_bottom if the last position doesn't reach it
         if y_positions:
             last_y_position = y_positions[-1]
@@ -244,14 +241,14 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         while x_current <= x_end_limit:
             x_positions_y_dir.append(x_current)
             x_current += spacing
-        
+
         # Add an additional x position at x_end_limit if the last position doesn't reach it
         if x_positions_y_dir:
             last_x_position = x_positions_y_dir[-1]
             if abs(last_x_position - x_end_limit) > 0.01:  # 1cm tolerance
                 # Add x position exactly at x_end_limit
                 x_positions_y_dir.append(x_end_limit)
-        
+
         # Calculate y-positions for sections (1m long in y direction)
         # Start from the top and work downward
         # y_section_positions stores the TOP y-coordinate of each section
@@ -261,7 +258,7 @@ def create_section_definitions(params: BridgeParametrization) -> list[dict[str, 
         while y_current - section_length >= y_bottom:
             y_section_positions.append(y_current)  # Store the TOP position
             y_current -= spacing
-        
+
         # Add a final section if the last section doesn't reach the bottom
         # The section is 1m long in y direction, extending downward from y_pos to y_pos - section_length
         # We want a section starting at y_bottom + section_length (top) and ending at y_bottom (bottom)

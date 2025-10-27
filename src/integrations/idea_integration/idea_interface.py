@@ -535,13 +535,13 @@ def _process_scia_cs_results_for_idea_input(scia_results_dict: dict[str, pd.Data
     # after deduplication, but we want to use all unique zone results
     df_all = df_uls.merge(df_sls_kar, on="name", how="inner", suffixes=("", "_kar"))
     df_all = df_all.merge(df_sls_freq, on="name", how="inner", suffixes=("", "_freq"))
-    
+
     # Clean up duplicate coords_xyz columns if they exist
     if "coords_xyz_kar" in df_all.columns:
         df_all = df_all.drop(columns=["coords_xyz_kar"])
     if "coords_xyz_freq" in df_all.columns:
         df_all = df_all.drop(columns=["coords_xyz_freq"])
-    
+
     return df_all
 
 

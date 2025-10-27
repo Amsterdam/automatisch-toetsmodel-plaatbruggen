@@ -30,7 +30,7 @@ from src.integrations.scia_integration.scia_results_processor import (
 )
 
 
-def map_cs_section_to_zone(cs_name: str, coords_xyz: tuple[float, float, float], bridge_segments: list[Any]) -> str:  # noqa: ANN401
+def map_cs_section_to_zone(cs_name: str, coords_xyz: tuple[float, float, float], bridge_segments: list[Any]) -> str:
     """
     Map CS section to zone - delegates to scia_results_processor.
 
@@ -148,7 +148,7 @@ def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> 
     return {f"strip_{key}": value for key, value in idea_results_1d.items()}
 
 
-def process_scia_cs_results_for_idea(results: dict[str, Any], bridge_segments: list[Any]) -> dict[str, pd.DataFrame]:  # noqa: ANN401
+def process_scia_cs_results_for_idea(results: dict[str, Any], bridge_segments: list[Any]) -> dict[str, pd.DataFrame]:
     """
     Process SCIA CS (Cross Section) analysis results for IDEA StatiCa integration.
 
@@ -202,9 +202,7 @@ def process_scia_cs_results_for_idea(results: dict[str, Any], bridge_segments: l
         # Zone column should already be present from process_scia_cs_results
         # If not present (e.g., bridge_segments were not provided earlier), add it now
         if "zone" not in idea_df.columns and "name" in idea_df.columns and "coords_xyz" in idea_df.columns:
-            idea_df["zone"] = idea_df.apply(
-                lambda row: map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
-            )
+            idea_df["zone"] = idea_df.apply(lambda row: map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
 
         idea_results_cs[selected_table] = idea_df
 

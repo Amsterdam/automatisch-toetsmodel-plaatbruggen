@@ -68,26 +68,26 @@ def get_unique_coords_xyz_dataframe(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.
     """
     # Collect all (name, coords_xyz) pairs from both DataFrames
     pairs_list = []
-    
+
     for df in [df1, df2]:
         if df.empty or "coords_xyz" not in df.columns or "Naam" not in df.columns:
             continue
-        
+
         for _, row in df.iterrows():
             coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
             name = str(row["Naam"])
             pairs_list.append((name, coord))
-    
+
     # Remove duplicates while preserving order
     unique_pairs_set = set()
     unique_pairs_list = []
-    
+
     for name, coord in pairs_list:
         pair_key = (name, str(coord))  # Use string representation for set membership
         if pair_key not in unique_pairs_set:
             unique_pairs_set.add(pair_key)
             unique_pairs_list.append({"name": name, "coords_xyz": coord})
-    
+
     return pd.DataFrame(unique_pairs_list)
 
 
@@ -179,7 +179,7 @@ def _extract_scia_table_data(results: dict[str, Any], selected_table: str) -> tu
         .get("parsed_tables", {})
         .get(f"Interne 2D-krachten basis {selected_table}", {})
         .get("data", {})
-        .get("p0", None) # P0 is nodes
+        .get("p0", None)  # P0 is nodes
     )
 
     # Read "elementaire ontwerpgrootheden"
@@ -188,7 +188,7 @@ def _extract_scia_table_data(results: dict[str, Any], selected_table: str) -> tu
         .get("parsed_tables", {})
         .get(f"Interne 2D-krachten elementair {selected_table}", {})
         .get("data", {})
-        .get("p0", None) #p0 is nodes
+        .get("p0", None)  # p0 is nodes
     )
 
     return basis_data, elementaire_data
@@ -215,25 +215,16 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
     :returns: Tuple of (basis_data, elementaire_data)
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
-
     # Read "basis grootheden" CS table
     basis_table_name = f"Interne 2D-krachten basis {table_type}"
     basis_data = (
-        results.get("xml_parsing", {})
-        .get("parsed_tables", {})
-        .get(basis_table_name, {})
-        .get("data", {})
-        .get("p1", None) # P1 is sections
+        results.get("xml_parsing", {}).get("parsed_tables", {}).get(basis_table_name, {}).get("data", {}).get("p1", None)  # P1 is sections
     )
 
     # Read "elementaire ontwerpgrootheden" CS table
     elementaire_table_name = f"Interne 2D-krachten elementair {table_type}"
     elementaire_data = (
-        results.get("xml_parsing", {})
-        .get("parsed_tables", {})
-        .get(elementaire_table_name, {})
-        .get("data", {})
-        .get("p1", None) # P1 is sections
+        results.get("xml_parsing", {}).get("parsed_tables", {}).get(elementaire_table_name, {}).get("data", {}).get("p1", None)  # P1 is sections
     )
     return basis_data, elementaire_data
 
@@ -294,7 +285,7 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
 def _map_cs_section_to_zone(
     cs_name: str,
     coords_xyz: tuple[float, float, float],
-    bridge_segments: list[Any],  # List of BridgeSegmentDimensions  # noqa: ANN401
+    bridge_segments: list[Any],  # List of BridgeSegmentDimensions
 ) -> str:
     """
     Map a CS section to its corresponding geometric zone based on coordinates.
@@ -328,17 +319,17 @@ def _map_cs_section_to_zone(
     :rtype: str
     :raises ValueError: If bridge_segments is empty or None
     """
-    print(f"\n=== DEBUG: _map_cs_section_to_zone called ===")
+    print("\n=== DEBUG: _map_cs_section_to_zone called ===")
     print(f"CS Name: {cs_name}")
     print(f"Coordinates: {coords_xyz}")
     print(f"Bridge segments provided: {bridge_segments is not None}")
     print(f"Number of segments: {len(bridge_segments) if bridge_segments else 0}")
-    
+
     if not bridge_segments:
         raise ValueError("Bridge segments data is required for zone mapping")
 
     # Convert coordinates to float (they may be strings from DataFrame)
-    x, y, z = coords_xyz  # noqa: F841
+    x, y, z = coords_xyz
     x = float(x)
     y = float(y)
     z = float(z)
@@ -369,12 +360,12 @@ def _map_cs_section_to_zone(
     # --- Step 2: Determine zone type based on y-coordinate (transverse position) ---
     # Get segment geometry at the identified segment
     segment = bridge_segments[segment_number]
-    
+
     # Ensure bz values are floats (may be stored as strings or other types)
     bz1 = float(segment.bz1)
     bz2 = float(segment.bz2)
     bz3 = float(segment.bz3)
-    
+
     print(f"\nSegment {segment_number} geometry:")
     print(f"  bz1: {bz1}, bz2: {bz2}, bz3: {bz3}")
 
@@ -390,7 +381,7 @@ def _map_cs_section_to_zone(
     y_bottom_zone2 = -half_bz2  # Bottom boundary of zone 2 = top of zone 3
     y_bottom_zone3 = -half_bz2 - bz3  # Bottom boundary of zone 3
 
-    print(f"Zone boundaries:")
+    print("Zone boundaries:")
     print(f"  Zone 1: {y_top_zone1:.3f} to {y_bottom_zone1:.3f}")
     print(f"  Zone 2: {y_bottom_zone1:.3f} to {y_bottom_zone2:.3f}")
     print(f"  Zone 3: {y_bottom_zone2:.3f} to {y_bottom_zone3:.3f}")
@@ -418,7 +409,9 @@ def _map_cs_section_to_zone(
     return result
 
 
-def _process_single_cs_result_table(selected_data_scia_cs: dict[str, Any], selected_table: str, bridge_segments: list[Any] | None = None) -> pd.DataFrame:  # noqa: ANN401
+def _process_single_cs_result_table(
+    selected_data_scia_cs: dict[str, Any], selected_table: str, bridge_segments: list[Any] | None = None
+) -> pd.DataFrame:
     """
     Process a single CS result table and return the processed DataFrame.
 
@@ -486,45 +479,46 @@ def _process_single_cs_result_table(selected_data_scia_cs: dict[str, Any], selec
                 lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
             )
             print(f"Zone mapping successful. Sample zones: {unique_coords_df['zone'].head()}")
-            
+
             # --- Deduplication: Remove duplicate (name, zone) combinations with identical force values ---
-            print(f"\n=== DEBUG: Deduplicating by (name, zone) with identical force values ===")
+            print("\n=== DEBUG: Deduplicating by (name, zone) with identical force values ===")
             initial_count = len(unique_coords_df)
-            
+
             # Define force/moment columns to check for duplicates
             force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-"]
             # Only use columns that actually exist in the DataFrame
             force_columns_present = [col for col in force_columns if col in unique_coords_df.columns]
-            
+
             if force_columns_present:
                 # Group by name and zone, then check for duplicate force values
                 # Keep first occurrence of each unique (name, zone, force_values) combination
                 dedup_columns = ["name", "zone"] + force_columns_present
                 unique_coords_df = unique_coords_df.drop_duplicates(subset=dedup_columns, keep="first")
-                
+
                 final_count = len(unique_coords_df)
                 duplicates_removed = initial_count - final_count
                 print(f"Removed {duplicates_removed} duplicate rows with same (name, zone) and force values")
                 print(f"Rows before: {initial_count}, after: {final_count}")
             else:
                 print("No force columns found for deduplication")
-            
+
         except Exception as e:
             # If zone mapping fails, add a column with error message
             print(f"ERROR: Zone mapping failed for CS results: {e}")  # noqa: T201
             print(f"Exception type: {type(e)}")
             import traceback
+
             traceback.print_exc()
             unique_coords_df["zone"] = "mapping-failed"
     else:
-        print(f"\n=== DEBUG: Skipping zone mapping ===")
+        print("\n=== DEBUG: Skipping zone mapping ===")
         print(f"bridge_segments is None: {bridge_segments is None}")
         print(f"bridge_segments length: {len(bridge_segments) if bridge_segments else 'N/A'}")
 
     return unique_coords_df
 
 
-def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:  # noqa: ANN401
+def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:
     """
     Process SCIA CS (Cross Section) force analysis results to create DataFrames.
 
@@ -592,7 +586,7 @@ def _extract_scia_1d_table_data(results: dict[str, Any], selected_table: str) ->
 def _create_value_lookup_for_column(df: pd.DataFrame, column: str) -> dict[tuple, list[float]]:
     """
     Create value lookup dictionary for a specific column.
-    
+
     Keys are (name, coords_xyz) tuples.
 
     :param df: DataFrame to process
@@ -611,7 +605,7 @@ def _create_value_lookup_for_column(df: pd.DataFrame, column: str) -> dict[tuple
         coord = tuple(row["coords_xyz"]) if isinstance(row["coords_xyz"], list) else row["coords_xyz"]
         name = str(row["Naam"])
         key = (name, coord)
-        
+
         if key not in value_lookup:
             value_lookup[key] = []
         try:
@@ -707,9 +701,9 @@ def _process_selected_result_tables(results: dict[str, Any], selected_result_tab
 def _populate_force_values_from_lookup(unique_coords_df: pd.DataFrame, lookup_dict: dict, column_name: str) -> None:
     """
     Populate force/moment values from lookup dictionary into dataframe.
-    
+
     Lookup dictionary has (name, coords_xyz) as keys.
-    
+
     :param unique_coords_df: DataFrame with 'name' and 'coords_xyz' columns
     :type unique_coords_df: pd.DataFrame
     :param lookup_dict: Lookup dictionary with (name, coords_xyz) keys
@@ -723,7 +717,7 @@ def _populate_force_values_from_lookup(unique_coords_df: pd.DataFrame, lookup_di
         coord = row["coords_xyz"]
         coord_tuple = tuple(coord) if isinstance(coord, list) else coord
         key = (name, coord_tuple)
-        
+
         coord_values = lookup_dict.get(key, [])
         if coord_values:
             # Find value with maximum absolute value
@@ -737,7 +731,7 @@ def _populate_force_values_from_lookup(unique_coords_df: pd.DataFrame, lookup_di
 def _process_single_result_table(selected_data_scia: dict[str, Any], selected_table: str) -> pd.DataFrame:
     """
     Process a single result table and return the processed DataFrame.
-    
+
     For regular 2D node results, groups by unique (name, coordinates) combinations.
     """
     elementaire_ontwerpgrootheden = selected_data_scia.get(f"Interne 2D-krachten elementair {selected_table}", None)

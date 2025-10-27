@@ -495,15 +495,17 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     headers = ["Name"]
     if has_zone_column:
         headers.append("Zone")
-    headers.extend([
-        "Coordinates",
-        "Vx (kN/m)",
-        "Vy (kN/m)",
-        "MxD+ (kNm/m)",
-        "MxD- (kNm/m)",
-        "MyD+ (kNm/m)",
-        "MyD- (kNm/m)",
-    ])
+    headers.extend(
+        [
+            "Coordinates",
+            "Vx (kN/m)",
+            "Vy (kN/m)",
+            "MxD+ (kNm/m)",
+            "MxD- (kNm/m)",
+            "MyD+ (kNm/m)",
+            "MyD- (kNm/m)",
+        ]
+    )
 
     # Check if we have any data
     if processed_cs_df.empty:
@@ -550,23 +552,23 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         row_data = [str(name)]
         if has_zone_column:
             row_data.append(str(zone))
-        row_data.extend([
-            coords,
-            v_x_str,
-            v_y_str,
-            m_xd_plus_str,
-            m_xd_minus_str,
-            m_yd_plus_str,
-            m_yd_minus_str,
-        ])
+        row_data.extend(
+            [
+                coords,
+                v_x_str,
+                v_y_str,
+                m_xd_plus_str,
+                m_xd_minus_str,
+                m_yd_plus_str,
+                m_yd_minus_str,
+            ]
+        )
         table_data.append(row_data)
 
     return table_data, headers
 
 
-def create_scia_cs_results_table(
-    results: dict[str, Any], table_type: str, bridge_segments: list[Any] | None = None
-) -> TableResult:
+def create_scia_cs_results_table(results: dict[str, Any], table_type: str, bridge_segments: list[Any] | None = None) -> TableResult:
     """
     Create a VIKTOR TableResult from CS (Cross Section) SCIA analysis results.
 
@@ -615,9 +617,7 @@ def create_scia_cs_results_table(
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
 
 
-def create_all_scia_cs_results_tables(
-    results: dict[str, Any], bridge_segments: list[Any] | None = None
-) -> dict[str, TableResult]:
+def create_all_scia_cs_results_tables(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, TableResult]:
     """
     Create VIKTOR TableResults for all CS (Cross Section) table types.
 
