@@ -58,6 +58,9 @@ Per belastingzone kan de dikte en het materiaal van de wegverharding worden opge
 Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
 wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
 
+In het geval van een tramzone moet als breedte de spoorwijdte van 1,435 m worden aangehouden. Ieder tramspoor wordt afzonderlijk
+ingevoerd. De overige delen tussen- en naast de trambaan worden als berm gedefinieerd.
+
 De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
 
 # SCIA ZIP readme content

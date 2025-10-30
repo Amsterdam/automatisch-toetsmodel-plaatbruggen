@@ -1,5 +1,7 @@
 ## [`v0.0.16`] - 2025-XX-XX
 ### Added
+- Added dynamic load factor for tram load
+- Tram loads VIKTOR input and modelling of the loads in SCIA
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
 - **Bridge Database Management System**: Complete workflow for managing bridge inventory data
   - New "Brug Database Management" page in OverviewBridges entity for centralized data management
