@@ -51,7 +51,7 @@ van 1,5 m worden aangehouden. Ieder tramspoor wordt afzonderlijk ingevoerd. De o
 gedefinieerd. De breedte van 1,5 m is praktisch gekozen om overige belastingzones in te passen. De voertuigbreedte van de tram is 1,435 m,
 gelijk aan de spoorbreedte.
 
-Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan en dienen tussenstukken zoals berm etc. 
+Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan en dienen tussenstukken zoals berm etc.
 te worden verwaarloosd. In dit geval krijg je een brede auto zone in het midden van het dek, tussen de fiets- en voetpaden. Er wordt dan
 geen trambelasting gemodelleerd, maar enkel de verkeersbelasting van de auto zone omdat dit altijd maatgevend is ten opzichte van de
 trambelasting.
