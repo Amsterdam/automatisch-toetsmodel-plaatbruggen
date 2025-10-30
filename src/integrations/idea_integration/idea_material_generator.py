@@ -9,6 +9,13 @@ from typing import Any
 
 from viktor.external import idea_rcs
 
+from src.integrations.idea_integration.constants.materials import (
+    DEFAULT_STONE_DIAMETER,
+    DEFAULT_YOUNGS_MODULUS,
+)
+from src.integrations.idea_integration.constants.paths import IDEA_MATERIALS_PATH
+from src.integrations.idea_integration.constants.units import MM_TO_M_IDEA
+
 
 def _parse_csv_header_and_data_start(lines: list[str]) -> tuple[list[str], int]:
     """
@@ -157,7 +164,7 @@ def get_reinforcement_material_from_csv(material_name: str) -> dict[str, Any]:
     :raises ValueError: If the material is not found in any CSV file
     """
     # Base path to CSV files
-    csv_base_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials"
+    csv_base_path = IDEA_MATERIALS_PATH
     csv_files_to_check = _get_csv_files_for_reinforcement()
 
     # Search for the material in all reinforcement CSV files
@@ -213,7 +220,7 @@ def create_idea_reinforcement_material(model: idea_rcs.Model, material_name: str
         unit_mass = material_data.get("UnitMass", 7850.0)  # Unit mass in kg/m³
 
         # Optional parameters with defaults
-        e_modulus = material_data.get("E", 200000.0)  # Young's modulus in MPa
+        e_modulus = material_data.get("E", DEFAULT_YOUNGS_MODULUS)  # Young's modulus in MPa
         ftk = material_data.get("Ftk", fyk * 1.08)  # Tensile strength (default: 1.08 * fyk)
         ftk_by_fyk = ftk / fyk  # Calculate the ratio for API
         epsuk = material_data.get("Epsuk", 50.0)  # Ultimate strain (already in 1e-4 units for API)
@@ -291,7 +298,7 @@ def get_concrete_material_from_csv(material_name: str) -> dict[str, Any]:
         raise ValueError(f"Modern Eurocode material '{material_name}' should use IDEA RCS built-in materials, not CSV data")
 
     # Base path to CSV files
-    csv_base_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials"
+    csv_base_path = IDEA_MATERIALS_PATH
     csv_files_to_check = _get_csv_files_for_concrete(material_prefix)
 
     # Search for the material in the appropriate CSV files
@@ -347,7 +354,7 @@ def create_idea_concrete_material(model: idea_rcs.Model, material_name: str, cus
         unit_mass = material_data.get("UnitMass", 2450.0)  # Unit mass in kg/m³
 
         # Optional parameters with defaults
-        stone_diameter = material_data.get("StoneDiameter", 16.0) / 1000.0  # Convert mm to m
+        stone_diameter = material_data.get("StoneDiameter", DEFAULT_STONE_DIAMETER) / MM_TO_M_IDEA  # Convert mm to m
         cement_class_value = material_data.get("CementClass", 1)
         aggregate_type_value = material_data.get("AggregateType", 0)
 

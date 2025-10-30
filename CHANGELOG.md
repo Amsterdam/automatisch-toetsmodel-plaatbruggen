@@ -22,6 +22,7 @@
   - Displays "Statisch onbepaald" for all other support configurations
   - Live updates as user modifies support selections
 - **Management summary**: Added basic param values and unity check values to the management summary.
+- **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
 
 ### Changed
 - **Refactored cache code**: code cleanup
@@ -31,8 +32,14 @@
   - Ensures data consistency between uploaded CSV files and VIKTOR entities
 - **Support System Overhaul**: Replaced automatic support calculation with user-controlled OptionField for each bridge segment
   - Updated SCIA model integration to handle multiple support types with correct structural constraints
-  - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
 - **Report template**: Changed the report template to a shorter management summary.
+- **Explanatory text loadzones**: Added explanation for the application of a separated tram zone on the loadzones tab. 
+- **Refactored cache code**: code cleanup
+
+### Fixed
+- Fixed a typo on the calculation page, changed "werden" to "worden".
+- Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
+
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added

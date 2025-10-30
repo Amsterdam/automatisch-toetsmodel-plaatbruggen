@@ -10,6 +10,7 @@ Components:
 - GeometryViews: 3D models and 2D section views
 - SciaIntegration: SCIA Engineer analysis integration
 - IdeaIntegration: IDEA StatiCa RCS integration
+- Optimization: Load zone optimization functionality
 - ReportViews: PDF report generation
 - ControllerUtils: Common utilities and error handling
 
@@ -21,6 +22,7 @@ from app.bridge.bridgeController.controller_utils import ControllerUtils
 from app.bridge.bridgeController.geometry_views import GeometryViews
 from app.bridge.bridgeController.idea_integration import IdeaIntegration
 from app.bridge.bridgeController.info_views import InfoViews
+from app.bridge.bridgeController.optimization import Optimization
 from app.bridge.bridgeController.report_views import ReportViews
 from app.bridge.bridgeController.scia_integration import SciaIntegration
 from app.bridge.parametrization import BridgeParametrization
@@ -33,6 +35,7 @@ class BridgeController(
     GeometryViews,  # 3D and 2D geometry visualizations
     SciaIntegration,  # SCIA Engineer integration
     IdeaIntegration,  # IDEA StatiCa integration
+    Optimization,  # Load zone optimization
     ReportViews,  # PDF report generation
     ViktorController,  # Must be last - base VIKTOR controller
 ):
@@ -44,6 +47,7 @@ class BridgeController(
     - 3D models and 2D section views (GeometryViews)
     - SCIA Engineer analysis integration (SciaIntegration)
     - IDEA StatiCa RCS integration (IdeaIntegration)
+    - Load zone optimization (Optimization)
     - PDF report generation (ReportViews)
     - Common utilities and error handling (ControllerUtils)
     """
@@ -85,6 +89,9 @@ class BridgeController(
     get_view_idea_rcs_results = IdeaIntegration.get_view_idea_rcs_results
     download_idea_xml_file = IdeaIntegration.download_idea_xml_file
     download_idea_analysis_results = IdeaIntegration.download_idea_analysis_results
+
+    # From Optimization
+    perform_optimization = Optimization.perform_optimization
 
     # From ReportViews
     get_output_report = ReportViews.get_output_report

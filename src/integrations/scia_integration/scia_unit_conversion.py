@@ -7,6 +7,7 @@ to ensure they stay in sync.
 
 from typing import Any, ClassVar
 
+from .constants.units import N_TO_KN, NM_TO_KNM
 from .types import UnitConversion
 
 
@@ -22,52 +23,52 @@ class SciaUnitConverter:
     # Define conversions for 2D plate elements (forces/moments per unit length)
     _CONVERSIONS_2D: ClassVar[dict[str, UnitConversion]] = {
         # Bending moments per unit length (2D plates) - from Nm to kNm
-        "m_x": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_y": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_xy": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
+        "m_x": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_y": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_xy": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
         # Shear forces per unit length (2D plates) - from N to kN
-        "v_x": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "v_y": UnitConversion("kN/m", 1 / 1000, "N/m"),
+        "v_x": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "v_y": UnitConversion("kN/m", N_TO_KN, "N/m"),
         # Membrane forces per unit length (2D plates) - from N to kN
-        "n_x": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "n_y": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "n_xy": UnitConversion("kN/m", 1 / 1000, "N/m"),
+        "n_x": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "n_y": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "n_xy": UnitConversion("kN/m", N_TO_KN, "N/m"),
         # Envelope components for 2D plates - from Nm to kNm
-        "m_xD+": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_xD-": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_yD+": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_yD-": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_cD+": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "m_cD-": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
+        "m_xD+": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_xD-": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_yD+": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_yD-": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_cD+": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "m_cD-": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
         # Envelope components for 2D plates - from N to kN
-        "n_xD": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "n_yD": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "n_cD": UnitConversion("kN/m", 1 / 1000, "N/m"),
+        "n_xD": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "n_yD": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "n_cD": UnitConversion("kN/m", N_TO_KN, "N/m"),
         # Standard naming conventions used downstream
-        "N": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "Vy": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "Vz": UnitConversion("kN/m", 1 / 1000, "N/m"),
-        "Mxd+": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "Mxd-": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "Myd+": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
-        "Myd-": UnitConversion("kNm/m", 1 / 1000, "Nm/m"),
+        "N": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "Vy": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "Vz": UnitConversion("kN/m", N_TO_KN, "N/m"),
+        "Mxd+": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "Mxd-": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "Myd+": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
+        "Myd-": UnitConversion("kNm/m", NM_TO_KNM, "Nm/m"),
     }
 
     # Define conversions for 1D beam elements (absolute forces/moments)
     _CONVERSIONS_1D: ClassVar[dict[str, UnitConversion]] = {
         # Standard 1D beam forces - from N to kN
-        "N": UnitConversion("kN", 1 / 1000, "N"),
-        "Vy": UnitConversion("kN", 1 / 1000, "N"),
-        "Vz": UnitConversion("kN", 1 / 1000, "N"),
+        "N": UnitConversion("kN", N_TO_KN, "N"),
+        "Vy": UnitConversion("kN", N_TO_KN, "N"),
+        "Vz": UnitConversion("kN", N_TO_KN, "N"),
         # Standard 1D beam moments - from Nm to kNm
-        "Mx": UnitConversion("kNm", 1 / 1000, "Nm"),
-        "My": UnitConversion("kNm", 1 / 1000, "Nm"),
-        "Mz": UnitConversion("kNm", 1 / 1000, "Nm"),
+        "Mx": UnitConversion("kNm", NM_TO_KNM, "Nm"),
+        "My": UnitConversion("kNm", NM_TO_KNM, "Nm"),
+        "Mz": UnitConversion("kNm", NM_TO_KNM, "Nm"),
         # Envelope-style moment keys
-        "Mxd+": UnitConversion("kNm", 1 / 1000, "Nm"),
-        "Mxd-": UnitConversion("kNm", 1 / 1000, "Nm"),
-        "Myd+": UnitConversion("kNm", 1 / 1000, "Nm"),
-        "Myd-": UnitConversion("kNm", 1 / 1000, "Nm"),
+        "Mxd+": UnitConversion("kNm", NM_TO_KNM, "Nm"),
+        "Mxd-": UnitConversion("kNm", NM_TO_KNM, "Nm"),
+        "Myd+": UnitConversion("kNm", NM_TO_KNM, "Nm"),
+        "Myd-": UnitConversion("kNm", NM_TO_KNM, "Nm"),
     }
 
     def __init__(self, element_type: str = "1D") -> None:
@@ -122,9 +123,9 @@ class SciaUnitConverter:
         # Fallback - assume force/moment conversion based on component name
         # Check for moment indicators first (more specific)
         if any(moment_key in force_component.lower() for moment_key in ["m_", "mx", "my", "mz", "moment"]):
-            return float_value / 1000.0  # Nm to kNm
+            return float_value * NM_TO_KNM  # Nm to kNm
         # Default to force conversion
-        return float_value / 1000.0  # N to kN
+        return float_value * N_TO_KN  # N to kN
 
     def format_value_with_unit(self, value: str | float, force_component: str, decimals: int = 1, default: str = "N/A") -> str:
         """

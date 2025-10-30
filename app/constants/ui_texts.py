@@ -46,6 +46,13 @@ Vul alleen breedtes in voor de daadwerkelijk gedefinieerde brugsegmenten (D-numm
 De laatste belastingzone loopt automatisch door tot het einde van de brug;
 hiervoor hoeft geen breedte ingevuld te worden.
 
+De tramzone dient te worden geselecteerd wanneer er een gescheiden trambaan is. In deze zone wordt enkel een tram gemodelleerd.
+Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan,
+en dienen tussenstukken berm etc. te worden verwaarloosd.
+In dit geval krijg je een brede auto zone in het midden van het brugdek, tussen de fiets- en voetpaden.
+Er wordt dan geen trambelasting gemodelleerd, maar enkel de verkeersbelasting van de auto zone
+omdat dit altijd maatgevend is ten opzichte van de trambelasting.
+
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
 Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
@@ -160,7 +167,7 @@ Bij de theoretische wegindeling worden de standaard verkeersbelastingen uit de n
 Bij de werkelijke wegindeling worden de verkeersbelastingen verdeeld over de verschillende zones zoals opgegeven in het tabblad 'Belastingzones'.
 Wanneer de brug hierop niet voldoet, kan er gekozen worden om de brug te berekenen op het onderliggend wegennet, of met een lastbeperking.
 Hierbij wordt de grootte van de verkeersbelasting aangepast.
-De aanpassingen van de verkeersbelastingen zijn niet te zien in de Viktor app, maar werden direct doorgestuurd naar het SCIA model.
+De aanpassingen van de verkeersbelastingen zijn niet te zien in de Viktor app, maar worden direct doorgestuurd naar het SCIA model.
 Vergeet de pagina niet op te slaan na het maken van wijzigingen, voordat je het SCIA model aanmaakt."""
 
 # Load case selection header text
@@ -178,14 +185,13 @@ Tijdens de optimalisatie worden de volgende berekeningsniveaus doorlopen:
 1.  Theoretische wegindeling
 2.  Werkelijke wegindeling
 3.  Werkelijke wegindeling onderliggend wegennet
-4.  Werkelijke wegindeling met bebording - 60 ton (standaard)
-5.  Werkelijke wegindeling met bebording - 50 ton
-6.  Werkelijke wegindeling met bebording - 45 ton
-7.  Werkelijke wegindeling met bebording - 40 ton
-8.  Werkelijke wegindeling met bebording - 35 ton
-9.  Werkelijke wegindeling met bebording - 30 ton
-10.  Werkelijke wegindeling met bebording - 25 ton
-11.  Werkelijke wegindeling met bebording - 20 ton
+4.  Werkelijke wegindeling met bebording - 50 ton
+5.  Werkelijke wegindeling met bebording - 45 ton
+6.  Werkelijke wegindeling met bebording - 40 ton
+7.  Werkelijke wegindeling met bebording - 35 ton
+8.  Werkelijke wegindeling met bebording - 30 ton
+9.  Werkelijke wegindeling met bebording - 25 ton
+10.  Werkelijke wegindeling met bebording - 20 ton
 
 Tijdens elke stap worden de resultaten gecontroleerd op slagingscriteria (IDEA capaciteit en schuifsterkte toetsing).
 Als de resultaten voldoen aan de slagingscriteria, wordt de optimalisatie gestopt en worden de resultaten weergegeven.
