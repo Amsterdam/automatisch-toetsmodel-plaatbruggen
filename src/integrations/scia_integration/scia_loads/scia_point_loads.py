@@ -294,7 +294,7 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         if tram_tracks is None or not tram_tracks:
             # No tram tracks defined, skip tram loads
             return
-        from src.integrations.scia_integration.scia_loads_helper import tandem_system_sequencer
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
         # Get positions where the front of the tram can be placed
         positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length)
