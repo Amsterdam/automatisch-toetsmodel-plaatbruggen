@@ -20,7 +20,10 @@
   - Updated SCIA model integration to handle multiple support types with correct structural constraints
   - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization 
 - **Refactored cache code**: code cleanup
-- **Report template**: Changed the report template to a shorter management summary. 
+- **Report template**: Changed the report template to a shorter management summary.
+
+### Fixed
+- Fixed a typo on the calculation page, changed "werden" to "worden".
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added

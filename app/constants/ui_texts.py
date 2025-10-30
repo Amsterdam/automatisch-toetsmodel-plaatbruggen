@@ -163,7 +163,7 @@ Bij de theoretische wegindeling worden de standaard verkeersbelastingen uit de n
 Bij de werkelijke wegindeling worden de verkeersbelastingen verdeeld over de verschillende zones zoals opgegeven in het tabblad 'Belastingzones'.
 Wanneer de brug hierop niet voldoet, kan er gekozen worden om de brug te berekenen op het onderliggend wegennet, of met een lastbeperking.
 Hierbij wordt de grootte van de verkeersbelasting aangepast.
-De aanpassingen van de verkeersbelastingen zijn niet te zien in de Viktor app, maar werden direct doorgestuurd naar het SCIA model.
+De aanpassingen van de verkeersbelastingen zijn niet te zien in de Viktor app, maar worden direct doorgestuurd naar het SCIA model.
 Vergeet de pagina niet op te slaan na het maken van wijzigingen, voordat je het SCIA model aanmaakt."""
 
 # Load case selection header text
