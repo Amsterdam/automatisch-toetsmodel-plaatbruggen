@@ -315,7 +315,6 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
 
         # Calculate lane width based on combined width
         max_lanes, lane_width = amount_of_notional_lanes(width_zone_1 + width_zone_2)
-        print("laneweidth", lane_width)
 
         # BG4001: leftmost lanes (BG8000 logic) - lanes from bottom upward
         y_positions_left = generate_real_lane_positions_two_road_zones(params, "bg8000", lane_width=3)

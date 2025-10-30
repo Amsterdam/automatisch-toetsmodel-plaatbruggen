@@ -5,9 +5,10 @@ This module provides functions for extracting road zone information from
 bridge parametrization, including zone counts, widths, and coordinates.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.geometry.load_zone_geometry import (
+    LoadZoneData,
     calculate_zone_geometry_properties,
     get_bridge_geom_data,
     get_load_zones_data_from_params,
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 
 
-def extract_auto_zone_y_coord(zone: "BridgeParametrization") -> float:
+def extract_auto_zone_y_coord(zone: LoadZoneData) -> float:
     """
     Extract the top y-coordinate of an auto zone.
 
@@ -54,7 +55,7 @@ def get_number_of_road_zones(params: "BridgeParametrization") -> int:
     return sum(1 for zone in load_zones_data if zone.zone_type == "Auto")
 
 
-def _find_auto_zones_with_indices(load_zones_data: list) -> list[tuple[int, any]]:
+def _find_auto_zones_with_indices(load_zones_data: list) -> list[tuple[int, Any]]:
     """
     Find all auto zones and return them with their indices.
 
@@ -69,12 +70,12 @@ def _find_auto_zones_with_indices(load_zones_data: list) -> list[tuple[int, any]
     return [(i, zone) for i, zone in enumerate(load_zones_data) if zone.zone_type == "Auto"]
 
 
-def _calculate_zone_width(
+def _calculate_zone_width( # noqa: PLR0913
     zone_position: int,
     zone_index: int,
-    zone: any,
+    zone: Any,
     load_zones_data: list,
-    auto_zones_with_indices: list[tuple[int, any]],
+    auto_zones_with_indices: list[tuple[int, Any]],
     total_bridge_width: float,
 ) -> float:
     """
@@ -90,11 +91,11 @@ def _calculate_zone_width(
     :param zone_index: Index of this zone in the full load zones array
     :type zone_index: int
     :param zone: The zone object to calculate width for
-    :type zone: any
+    :type zone: Any
     :param load_zones_data: Complete list of all load zones
     :type load_zones_data: list
     :param auto_zones_with_indices: List of all auto zones with their indices
-    :type auto_zones_with_indices: list[tuple[int, any]]
+    :type auto_zones_with_indices: list[tuple[int, Any]]
     :param total_bridge_width: Total width of the bridge in meters
     :type total_bridge_width: float
     :returns: Width of the zone in meters

@@ -170,7 +170,7 @@ def generate_real_lane_positions_bg8000(
 # ========================================================================
 
 
-def generate_real_lane_positions_two_road_zones(
+def generate_real_lane_positions_two_road_zones( # noqa: C901
     params: "BridgeParametrization",
     positioning_strategy: str,
     lane_width: float = 3.0,
@@ -203,7 +203,7 @@ def generate_real_lane_positions_two_road_zones(
     num_lanes_zone_2 = int(width_zone_2 // lane_width)
     # Generate lane center positions based on strategy
     lane_centers = []
-    print(num_lanes_zone_1, num_lanes_zone_2)
+
     if positioning_strategy == "bg8000":
         if num_lanes_zone_1 > 0:
             lane_centers.extend(_generate_lanes_bg8000_strategy(y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width))
