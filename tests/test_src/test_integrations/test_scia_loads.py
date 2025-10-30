@@ -1369,6 +1369,7 @@ def test_generate_real_lane_positions_bg10000_two_road_zones(  # noqa: PLR0913
     for i, (actual, expected) in enumerate(zip(lane_positions, expected_positions)):
         assert abs(actual - expected) < 0.001, f"Lane {i}: expected {expected}, got {actual}"
 
+
 class TestLoadBoundaryCompliance:
     """Tests to ensure all generated loads stay within bridge boundaries."""
 
