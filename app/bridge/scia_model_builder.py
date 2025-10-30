@@ -179,9 +179,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
 
         # Store the section for later reference
-        if not hasattr(self, "sections_on_plane"):
-            self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}
-
         self.sections_on_plane[name] = section
         return section
 

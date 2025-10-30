@@ -147,6 +147,10 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
 
     # Get bridge segments for CS results zone mapping
     bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+    
+    # Ensure bridge_segments is a list for type checking
+    if bridge_segments is None:
+        bridge_segments = []
 
     # Get node results (2D forces), CS results (cross sections), and integration strip results (1D forces)
     progress_message("Verwerken SCIA resultaten voor IDEA...")
