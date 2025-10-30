@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.integrations.scia_integration.scia_results_creator import (
+from src.integrations.scia_integration.results.scia_results_creator import (
     extract_analysis_results,
     get_result_summary,
     validate_analysis_results,

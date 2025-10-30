@@ -4,6 +4,7 @@
 # Imports
 # ============================================================================================================
 
+import csv  # Import csv module
 import json  # Import json module
 import os  # Import os to construct path
 import typing  # Import typing for ClassVar
@@ -12,12 +13,8 @@ from io import StringIO
 # Add GeoPandas import (ensure it's installed in your venv)
 import geopandas as gpd
 import markdown
-import viktor.api_v1 as api  # Import VIKTOR API
-from viktor.core import ViktorController  # Import Color, ViktorController
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
+import viktor.api_v1 as api  # Import VIKTOR API
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
     get_filtered_bridges_json_path,
@@ -31,6 +28,11 @@ from app.constants import (  # Replace relative imports with absolute imports
     CSS_PATH,
     README_PATH,
 )
+from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
+from viktor.errors import UserError  # Import UserError
+from viktor.parametrization import Parametrization  # Import for type hint
+from viktor.result import DownloadResult  # Import DownloadResult
+from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
 from .parametrization import OverviewBridgesParametrization
@@ -268,6 +270,65 @@ class OverviewBridgesController(ViktorController):
         except Exception as e:
             raise UserError(f"Fout bij het ophalen van bestaande kind-entiteiten: {e}")
 
+    def _create_and_update_children(
+        self,
+        parent_entity_id: int,
+        filtered_bridge_data: list[dict],
+        objectnumm_to_name: dict[str, str | None],
+    ) -> tuple[int, int]:
+        """
+        Creates new child entities and updates existing ones with data from filtered_bridges.json.
+
+        :param parent_entity_id: ID of the parent entity.
+        :type parent_entity_id: int
+        :param filtered_bridge_data: Bridge data from JSON.
+        :type filtered_bridge_data: list[dict]
+        :param objectnumm_to_name: Mapping of OBJECTNUMM to bridge names.
+        :type objectnumm_to_name: dict[str, str | None]
+        :returns: Tuple of (updated_count, created_count).
+        :rtype: tuple[int, int]
+        :raises UserError: If creation/update fails.
+        """
+        try:
+            viktor_api = api.API()
+            parent_entity = viktor_api.get_entity(parent_entity_id)
+            existing_children = parent_entity.children(entity_type_names=["Bridge"])
+
+            # Create mapping of OBJECTNUMM -> entity
+            existing_entities_map = {}
+            for child in existing_children:
+                obj_numm = child.last_saved_params.get("bridge_objectnumm")
+                if obj_numm:
+                    existing_entities_map[str(obj_numm)] = child
+
+            updated_count = 0
+            created_count = 0
+
+            for bridge_data in filtered_bridge_data:
+                objectnumm = bridge_data.get("OBJECTNUMM")
+                if not objectnumm:
+                    continue
+
+                objectnumm_str = str(objectnumm)
+                bridge_name = objectnumm_to_name.get(objectnumm_str)
+                child_name = f"{objectnumm_str} - {bridge_name}" if bridge_name else objectnumm_str
+                child_params = self._build_child_params(bridge_data, objectnumm_str, bridge_name)
+
+                if objectnumm_str in existing_entities_map:
+                    # Update existing entity
+                    existing_entity = existing_entities_map[objectnumm_str]
+                    existing_entity.set_params(child_params)
+                    updated_count += 1
+                else:
+                    # Create new entity
+                    parent_entity.create_child(entity_type_name="Bridge", name=child_name, params=child_params)
+                    created_count += 1
+
+            return updated_count, created_count  # noqa: TRY300
+
+        except Exception as e:
+            raise UserError(f"Fout tijdens het aanmaken/bijwerken van bruggen: {e}")
+
     def _create_missing_children(
         self,
         parent_entity_id: int,
@@ -430,11 +491,172 @@ class OverviewBridgesController(ViktorController):
             return "Nee"
         return "Onbekend"
 
+    # --- Data Download Method ---
+
+    def download_current_bridges_csv(self, **kwargs) -> DownloadResult:  # noqa: ARG002
+        """
+        Download the current filtered_bridges.json as a CSV file.
+
+        This provides a template that users can edit and re-upload.
+
+        :returns: DownloadResult with CSV file.
+        :rtype: DownloadResult
+        :raises UserError: If download fails.
+        """
+        try:
+            # Load current bridge data
+            json_path = get_filtered_bridges_json_path()
+
+            if not os.path.exists(json_path):
+                raise UserError("Geen bruggegevens gevonden. Upload eerst een CSV bestand.")  # noqa: TRY301
+
+            with open(json_path, encoding="utf-8") as f:
+                bridges_data = json.load(f)
+
+            if not bridges_data:
+                raise UserError("Geen bruggegevens beschikbaar om te downloaden.")  # noqa: TRY301
+
+            # Create reverse mapping: JSON field -> CSV column
+            from src.common.csv_parser import COLUMN_MAPPINGS
+
+            reverse_mapping = {v: k for k, v in COLUMN_MAPPINGS.items()}
+
+            # Get all possible CSV columns
+            csv_columns = list(COLUMN_MAPPINGS.keys())
+
+            # Create CSV in memory
+            output = StringIO()
+            writer = csv.DictWriter(output, fieldnames=csv_columns, delimiter=";", lineterminator="\n")
+            writer.writeheader()
+
+            # Convert each bridge record back to CSV format
+            for bridge in bridges_data:
+                csv_row = {}
+                for json_field, value in bridge.items():
+                    csv_column = reverse_mapping.get(json_field)
+                    if csv_column:
+                        # Convert boolean back to ja/nee
+                        if isinstance(value, bool):
+                            csv_row[csv_column] = "ja" if value else "nee"
+                        else:
+                            csv_row[csv_column] = str(value) if value is not None else ""
+                writer.writerow(csv_row)
+
+            # Convert to bytes
+            csv_content = output.getvalue().encode("utf-8-sig")  # Add BOM for Excel compatibility
+
+            # Create File object
+            csv_file = File.from_data(csv_content)
+
+            return DownloadResult(csv_file, "bruggegevens.csv")
+
+        except UserError:
+            raise
+        except Exception as e:
+            raise UserError(f"Fout bij downloaden van bruggegevens: {e}")
+
+    # --- Data Upload Helper Methods ---
+
+    @staticmethod
+    def _clean_bridge_data(bridges_data: list[dict]) -> list[dict]:
+        """
+        Clean bridge data by removing problematic Unicode characters.
+
+        :param bridges_data: List of bridge data dictionaries.
+        :type bridges_data: list[dict]
+        :returns: Cleaned bridge data.
+        :rtype: list[dict]
+        """
+
+        def clean_value(value: dict | list | str | float | bool | None) -> dict | list | str | int | float | bool | None:
+            """Recursively clean values in the data structure."""
+            if isinstance(value, str):
+                # Remove Unicode replacement character and other problematic characters
+                cleaned = value.replace("\ufffd", "")
+                # Remove other control characters except newlines and tabs
+                return "".join(char for char in cleaned if char >= " " or char in "\n\t")
+            if isinstance(value, dict):
+                return {k: clean_value(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [clean_value(item) for item in value]
+            return value
+
+        return [clean_value(bridge) for bridge in bridges_data]  # type: ignore[misc]
+
+    # --- Data Upload Action Method ---
+
+    def process_bridge_data_upload(self, params: Parametrization, **kwargs) -> None:  # noqa: ARG002
+        """
+        Process uploaded CSV or Excel file and update filtered_bridges.json.
+
+        :param params: The parametrization containing the uploaded file.
+        :type params: Parametrization
+        :raises UserError: If file processing fails.
+        """
+        from src.common.csv_parser import parse_bridge_csv, parse_bridge_excel
+
+        # Get uploaded file
+        uploaded_file = params.data_upload.bridge_data_file
+        if not uploaded_file:
+            raise UserError("Geen bestand geüpload. Upload eerst een CSV of Excel bestand.")
+
+        try:
+            # Get filename from FileResource
+            file_name = uploaded_file.filename if hasattr(uploaded_file, "filename") else "unknown"
+            file_extension = os.path.splitext(file_name.lower())[1]
+
+            # Validate file type
+            if file_extension not in [".csv", ".xlsx", ".xls"]:
+                raise UserError(f"Ongeldig bestandstype: {file_extension}. Alleen .csv en .xlsx zijn toegestaan.")  # noqa: TRY301
+
+            # Read file content using VIKTOR's File API
+            with uploaded_file.file.open_binary() as f:
+                file_content = f.read()
+
+            # Parse based on file type
+            if file_extension == ".csv":
+                bridges_data = parse_bridge_csv(file_content)
+            elif file_extension in [".xlsx", ".xls"]:
+                bridges_data = parse_bridge_excel(file_content)
+            else:
+                raise UserError(f"Ongeldig bestandstype: {file_extension}. Alleen .csv en .xlsx zijn toegestaan.")  # noqa: TRY301
+
+            # Clean data: remove Unicode replacement characters and other problematic characters
+            bridges_data = self._clean_bridge_data(bridges_data)
+
+            # Get path to filtered_bridges.json
+            json_path = get_filtered_bridges_json_path()
+
+            # Write to JSON file
+            # Use ensure_ascii=True to avoid any encoding issues - characters will be escaped
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(bridges_data, f, indent=2, ensure_ascii=True)
+
+            # Show success message to user
+            bridge_count = len(bridges_data)
+            UserMessage.success(
+                f"Upload succesvol! {bridge_count} bruggen verwerkt en opgeslagen. "
+                f"Gebruik nu de '(Her)genereer Bruggen' knop op de 'Overzicht Bruggen' pagina om de bruggen te laden."
+            )
+
+        except ValueError as e:
+            # Clean error message to avoid encoding issues
+            error_msg = str(e).replace("\ufffd", "?").encode("ascii", errors="replace").decode("ascii")
+            raise UserError(f"Fout bij verwerken van bestand: {error_msg}")
+        except Exception as e:
+            # Clean error message to avoid encoding issues
+            error_msg = str(e).replace("\ufffd", "?").encode("ascii", errors="replace").decode("ascii")
+            raise UserError(f"Onverwachte fout bij verwerken van bestand: {error_msg}")
+
     # --- Main Action Method ---
 
     def regenerate_bridges_action(self, entity_id: int, **kwargs) -> None:  # noqa: ARG002
-        """Loads bridges from filtered_bridges.json and creates child entities if they don't exist."""
-        # even if it is unused within the method body.
+        """
+        Loads bridges from filtered_bridges.json and creates/updates child entities.
+
+        Creates new entities for bridges that don't exist yet.
+        Updates existing entities with new data from the JSON file.
+        """
         # 1. Get paths
         _resources_dir, shapefile_path, filtered_bridges_path = self._get_resource_paths()
 
@@ -442,14 +664,12 @@ class OverviewBridgesController(ViktorController):
         filtered_bridge_data = self._load_filtered_bridges(filtered_bridges_path)
         objectnumm_to_name = self._load_shapefile_and_names(shapefile_path)
 
-        # 3. Get existing children
-        existing_objectnumms = self._get_existing_child_objectnumms(entity_id)
-
-        # 4. Create missing children
-        self._create_missing_children(
+        # 3. Get existing children and update them
+        updated_count, created_count = self._create_and_update_children(
             parent_entity_id=entity_id,
             filtered_bridge_data=filtered_bridge_data,
             objectnumm_to_name=objectnumm_to_name,
-            existing_objectnumms=existing_objectnumms,
         )
-        # No explicit return needed (implicitly returns None)
+
+        # 4. Show success message
+        UserMessage.success(f"Bruggen (her)gegenereerd: {created_count} nieuwe bruggen aangemaakt, {updated_count} bestaande bruggen bijgewerkt.")

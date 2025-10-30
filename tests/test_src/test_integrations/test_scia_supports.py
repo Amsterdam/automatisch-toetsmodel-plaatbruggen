@@ -8,8 +8,8 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from src.integrations.scia_integration.model.scia_supports import create_all_supports, create_line_supports
 from src.integrations.scia_integration.scia_enums import LineSupportFreedom
-from src.integrations.scia_integration.scia_supports import create_all_supports, create_line_supports
 
 
 @pytest.fixture
@@ -159,7 +159,7 @@ class TestCreateLineSupports:
 class TestCreateAllSupports:
     """Tests for the create_all_supports function."""
 
-    @patch("src.integrations.scia_integration.scia_supports.create_line_supports")
+    @patch("src.integrations.scia_integration.model.scia_supports.create_line_supports")
     def test_create_all_supports_orchestration(self, mock_create_line: Mock, mock_builder: Mock) -> None:
         """Test that the main support function calls the line support helper."""
         plate_names = ["plate1", "plate2"]

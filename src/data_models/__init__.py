@@ -29,8 +29,22 @@ from .plotting_models import (
     ZoneStylingDefaults,
 )
 from .scia_models import AmsterdamWheelLoadConfig, BridgeDimensionsData, WheelLoadConfig
+from .vehicle_models import (
+    STANDARD_VEHICLES,
+    AccidentalVehicle,
+    AmsterdamAccidentalVehicle,
+    ServiceVehicle,
+    TandemSystemVehicle,
+    TramVehicle,
+    VehiclePosition,
+    VehicleRegistry,
+    WheelLoad,
+)
 
 __all__ = [
+    "STANDARD_VEHICLES",
+    "AccidentalVehicle",
+    "AmsterdamAccidentalVehicle",
     "AmsterdamWheelLoadConfig",
     "BridgeBaseGeometry",
     "BridgeDimensionsData",
@@ -42,7 +56,13 @@ __all__ = [
     "MaterialConfig",
     "PlotPresentationDetails",
     "ReinforcementConfigData",
+    "ServiceVehicle",
+    "TandemSystemVehicle",
     "TheoreticalLaneResult",
+    "TramVehicle",
+    "VehiclePosition",
+    "VehicleRegistry",
+    "WheelLoad",
     "WheelLoadConfig",
     "ZoneBoundaryLineStyle",
     "ZonePlottingGeometry",

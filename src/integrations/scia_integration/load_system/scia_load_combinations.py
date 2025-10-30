@@ -10,7 +10,6 @@ by calling methods on the SciaModelBuilder interface.
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -21,21 +20,12 @@ from src.combinations.load_factors import (
     get_project_scope,
     prepare_combination_table,
 )
-
-from .scia_enums import LoadCombinationType
-from .scia_model_interface import SciaLoadCombination, SciaModelBuilder
+from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCombination, SciaModelBuilder
+from src.integrations.scia_integration.scia_enums import LoadCombinationType
 
 # Type aliases for SCIA objects
 SciaModel = Any
 SciaLoadCase = Any
-
-# ===================================================================================================================
-# Paths
-# ===================================================================================================================
-
-PROJECT_PATH = Path(__file__).parent.parent.parent.parent
-PSI_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Psi_NEN_8700.csv"
-GAMMA_NEN_8700_PATH = PROJECT_PATH / "resources" / "data" / "code_tables" / "Gamma_NEN_8700.csv"
 
 # ===================================================================================================================
 # Functions

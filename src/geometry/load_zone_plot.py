@@ -3,8 +3,14 @@
 from typing import Any
 
 import plotly.graph_objects as go
-from plotly.colors import qualitative as qual_colors  # For default colors
 
+from src.common.constants.plotting import (
+    DEFAULT_PLOTLY_COLORS,
+    DEFAULT_ZONE_APPEARANCE_MAP,
+    ZONE_BOUNDARY_ABSOLUTE_EDGE_THICKNESS,
+    ZONE_BOUNDARY_SBS_LINE_THICKNESS,
+    ZONE_BOUNDARY_SBS_OFFSET,
+)
 from src.data_models.load_models import LoadZoneData
 from src.data_models.plotting_models import (
     BridgeBaseGeometry,
@@ -14,43 +20,6 @@ from src.data_models.plotting_models import (
     ZoneStylingDefaults,
 )
 from src.geometry.load_zone_geometry import calculate_zone_bottom_y_coords
-
-DEFAULT_PLOTLY_COLORS = qual_colors.Plotly
-
-
-# TypedDict definitions moved to src/data_models/plotting_models.py
-
-DEFAULT_ZONE_APPEARANCE_MAP: dict[str, dict[str, Any]] = {
-    "Voetgangers": {
-        "line_color": "silver",
-        "pattern_shape": "+",
-        "pattern_fgcolor": "silver",
-        "fill_color": "rgba(192,192,192,0.2)",
-        "pattern_solidity": 0.5,
-    },
-    "Fietsers": {
-        "line_color": "crimson",
-        "pattern_shape": "",
-        "fill_color": "rgba(220,20,60,0.3)",
-    },
-    "Auto": {
-        "line_color": "darkslategrey",
-        "pattern_shape": "",
-        "fill_color": "rgba(47,79,79,0.15)",
-    },
-    "Tram": {
-        "line_color": "blue",
-        "pattern_shape": "",
-        "fill_color": "rgba(0,0,255,0.15)",
-    },
-    "Berm": {
-        "line_color": "goldenrod",  # Or another suitable border color
-        "pattern_shape": "x",  # Cross-hatch pattern
-        "pattern_fgcolor": "darkgoldenrod",  # Color for the pattern lines
-        "fill_color": "rgba(255, 255, 0, 0.3)",  # Yellow with transparency
-        "pattern_solidity": 0.5,
-    },
-}
 
 
 def get_zone_appearance_properties(
@@ -280,9 +249,9 @@ def build_load_zones_figure(
     figure_title = presentation_details.figure_title
 
     # Style for shared boundary lines
-    sbs_line_thickness = 0.7
-    sbs_offset = 0.003  # Small offset for shared lines
-    absolute_edge_thickness = 1.5
+    sbs_line_thickness = ZONE_BOUNDARY_SBS_LINE_THICKNESS
+    sbs_offset = ZONE_BOUNDARY_SBS_OFFSET
+    absolute_edge_thickness = ZONE_BOUNDARY_ABSOLUTE_EDGE_THICKNESS
 
     for zone_idx, zone_param_data in enumerate(load_zones_data_params):
         zone_type_text = getattr(zone_param_data, "zone_type", f"Zone {zone_idx + 1}")

@@ -8,14 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.integrations.scia_integration.scia_enums import (
-    LoadCaseActionType,
-    LoadCaseDuration,
-    LoadCaseSpecification,
-    PermanentLoadType,
-    VariableLoadType,
-)
-from src.integrations.scia_integration.scia_load_cases import (
+from src.integrations.scia_integration.load_system.scia_load_cases import (
     create_all_load_cases,
     create_dead_load_cases,
     create_pedestrian_load_case,
@@ -25,6 +18,13 @@ from src.integrations.scia_integration.scia_load_cases import (
     create_temperature_load_cases,
     create_udl_traffic_load_cases,
     create_unintended_vehicle_load_cases,
+)
+from src.integrations.scia_integration.scia_enums import (
+    LoadCaseActionType,
+    LoadCaseDuration,
+    LoadCaseSpecification,
+    PermanentLoadType,
+    VariableLoadType,
 )
 
 
@@ -101,12 +101,12 @@ class TestStandardLoadCases:
         create_pedestrian_load_case(mock_builder)
         mock_builder.create_load_case.assert_called_once()
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_service_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of service vehicle load case definitions with dynamic X positions."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
@@ -146,22 +146,22 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
-    def test_create_unintended_vehicle_load_cases(
-        self, mock_rotated: Mock, mock_single: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of unintended vehicle load case definitions with dynamic X positions."""
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
-        mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_single.return_value = [5.0, 45.0]
-        mock_rotated.return_value = [10.0, 40.0]
+        # Mock returns positions for all vehicle types (sequencer is now universal)
+        # The function calls tandem_system_sequencer 3 times with different length_vehicle values
+        mock_sequencer.side_effect = [
+            [2.5, 25.0, 47.5],  # First call: length_vehicle=1.2
+            [5.0, 45.0],  # Second call: length_vehicle=0 (Amsterdam)
+            [10.0, 40.0],  # Third call: length_vehicle=2.0 (Amsterdam rotated)
+        ]
         mock_params = Mock()
 
         cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
@@ -195,13 +195,13 @@ class TestTandemLoadCases:
             (3, "LG10000 - TS rijstrook 3", "BG10", 6),  # RS3 has 2 configurations: 3 × 2 = 6 cases
         ],
     )
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_tandem_rs_load_cases(  # noqa: PLR0913
         self, mock_sequencer: Mock, mock_extract: Mock, rs: int, group_name: str, prefix: str, positions_count: int, mock_builder: Mock
     ) -> None:
         """Test creation of tandem load case definitions for different RS."""
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
@@ -233,14 +233,14 @@ class TestTandemLoadCases:
 class TestCreateAllLoadCases:
     """Tests for the orchestration function that creates all load cases."""
 
-    @patch("src.integrations.scia_integration.scia_load_cases.create_self_weight_load_case")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_dead_load_cases")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_temperature_load_cases")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_udl_traffic_load_cases")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_pedestrian_load_case")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_service_vehicle_load_cases")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_unintended_vehicle_load_cases")
-    @patch("src.integrations.scia_integration.scia_load_cases.create_tandem_rs_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_tandem_rs_load_cases")
     def test_create_all_load_cases_calls_helpers(  # noqa: PLR0913
         self,
         mock_tandem: Mock,
@@ -271,22 +271,17 @@ class TestCreateAllLoadCases:
         # Tandem should be called 3 times (RS 1, 2, 3)
         assert mock_tandem.call_count == 3
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
-    def test_create_all_load_cases_structure(
-        self, mock_rotated: Mock, mock_single: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_all_load_cases_structure(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that create_all_load_cases returns the expected structure."""
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
+        # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_single.return_value = [5.0, 45.0]
-        mock_rotated.return_value = [10.0, 40.0]
 
         from tests.test_data.seed_loader import load_bridge_default_params
 
@@ -315,22 +310,17 @@ class TestCreateAllLoadCases:
 class TestConditionalLoadCaseCreation:
     """Tests for conditional load case creation based on load case selection table."""
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
-    def test_create_all_load_cases_with_all_enabled(
-        self, mock_rotated: Mock, mock_single: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_all_load_cases_with_all_enabled(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that all load cases are created when all are enabled in the params table."""
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
+        # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_single.return_value = [5.0, 45.0]
-        mock_rotated.return_value = [10.0, 40.0]
 
         # Create mock params with load case selection table where all are enabled
         from tests.test_data.seed_loader import load_bridge_default_params
@@ -359,22 +349,17 @@ class TestConditionalLoadCaseCreation:
         assert "unintended_vehicle_cases" in cases
         assert "tandem_cases" in cases
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
-    def test_create_all_load_cases_with_some_disabled(
-        self, mock_rotated: Mock, mock_single: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_all_load_cases_with_some_disabled(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that only enabled load cases are created when some are disabled."""
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
+        # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_single.return_value = [5.0, 45.0]
-        mock_rotated.return_value = [10.0, 40.0]
 
         # Create mock params with some load cases disabled
         from tests.test_data.seed_loader import load_bridge_default_params
@@ -402,22 +387,17 @@ class TestConditionalLoadCaseCreation:
         assert "self_weight" in cases
         assert "dead_load_cases" in cases
 
-    @patch("src.integrations.scia_integration.scia_load_cases.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis")
-    @patch("src.integrations.scia_integration.scia_load_cases.tandem_system_sequencer_single_axis_rotated")
-    def test_create_all_load_cases_with_missing_table(
-        self, mock_rotated: Mock, mock_single: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock
-    ) -> None:
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_all_load_cases_with_missing_table(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that all load cases are created when the selection table is missing."""
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
         mock_extract.return_value = BridgeDimensions(
             total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
         )
+        # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_single.return_value = [5.0, 45.0]
-        mock_rotated.return_value = [10.0, 40.0]
 
         # Create mock params without load case selection table
         from tests.test_data.seed_loader import load_bridge_default_params

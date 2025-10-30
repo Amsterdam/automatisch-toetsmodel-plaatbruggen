@@ -10,7 +10,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
-from src.integrations.scia_integration.scia_coordinate_utils import (
+from src.integrations.scia_integration.load_system.scia_load_generators import (
+    extract_bridge_dimensions,
+    generate_tandem_loads,
+)
+from src.integrations.scia_integration.model.scia_coordinate_utils import (
     align_bridge_coordinates_to_scia,
     convert_loads_to_scia_format,
     convert_wheel_coordinates_to_3d,
@@ -22,10 +26,6 @@ from src.integrations.scia_integration.scia_coordinate_utils import (
     get_deck_mat_and_thick_at_coord,
     get_dispersion_at_coord,
     get_load_mat_and_thick_at_coord,
-)
-from src.integrations.scia_integration.scia_load_generators import (
-    extract_bridge_dimensions,
-    generate_tandem_loads,
 )
 
 
@@ -175,7 +175,7 @@ class TestTandemLoadGeneration:
         params.load_zones_data_array = []
 
         # Mock the road geometry function to avoid the "Road width must be positive" error
-        with patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_road:
+        with patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road") as mock_road:
             mock_road.return_value = (10.0, 9.0)  # y_top=10.0, width=9.0
 
             # This should call the new clean function (mode parameter is ignored)

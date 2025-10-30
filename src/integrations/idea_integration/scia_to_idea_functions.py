@@ -25,7 +25,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.integrations.scia_integration.scia_results_processor import (
+from src.integrations.scia_integration.results.scia_results_processor import (
     process_scia_1d_results,
     process_scia_2d_results,
 )
@@ -73,7 +73,7 @@ def map_cs_section_to_zone(cs_name: str, coords_xyz: tuple[float, float, float],
     :returns: Zone identifier (e.g., "1-1", "2-1")
     :rtype: str
     """
-    from src.integrations.scia_integration.scia_results_processor import _map_cs_section_to_zone
+    from src.integrations.scia_integration.results.scia_results_processor import _map_cs_section_to_zone
 
     return _map_cs_section_to_zone(cs_name, coords_xyz, bridge_segments)
 
@@ -198,7 +198,7 @@ def process_scia_cs_results_for_idea(  # noqa: C901
         raise ValueError("Bridge segments data is required for CS results processing")
 
     # Use the general CS processing function with bridge_segments for zone mapping
-    from src.integrations.scia_integration.scia_results_processor import process_scia_cs_results
+    from src.integrations.scia_integration.results.scia_results_processor import process_scia_cs_results
 
     raw_results_cs = process_scia_cs_results(results, bridge_segments)
 

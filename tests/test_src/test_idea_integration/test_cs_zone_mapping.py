@@ -1,7 +1,7 @@
 """Tests for CS section zone mapping functionality."""
 
 from src.data_models.bridge_models import BridgeSegmentDimensions
-from src.integrations.scia_integration.scia_results_processor import _map_cs_section_to_zone
+from src.integrations.scia_integration.results.scia_results_processor import _map_cs_section_to_zone
 
 
 class TestCSZoneMapping:

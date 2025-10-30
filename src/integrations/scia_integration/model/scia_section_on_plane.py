@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .scia_model_interface import SciaModelBuilder, SciaSectionOnPlane
-from .types import BridgeParametrization
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder, SciaSectionOnPlane
+from src.integrations.scia_integration.types import BridgeParametrization
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:

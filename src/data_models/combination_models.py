@@ -24,7 +24,6 @@ class LoadCombinationConfig(BaseModel):
     Validates consequence class, design code, and construction year parameters
     according to NEN 8700 standards.
     """
-
     cc_class: str = Field(description=f"Consequence class according to NEN 8700 ({', '.join(CC_CLASS_OPTIONS)})")
     design_code: str = Field(description=f"Design code and safety level for load factor selection ({', '.join(DESIGN_CODE_OPTIONS)})")
     construction_year: int = Field(ge=1850, le=2100, description="Year of construction for load factor selection")
@@ -80,7 +79,6 @@ class LoadCombinationConfig(BaseModel):
 
     model_config = ConfigDict(
         validate_assignment=True,
-        use_enum_values=True,
         str_strip_whitespace=True,  # Automatically strip whitespace from string inputs
     )
 

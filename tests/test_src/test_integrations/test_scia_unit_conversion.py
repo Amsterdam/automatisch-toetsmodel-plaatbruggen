@@ -10,8 +10,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.integrations.scia_integration.scia_results_creator import extract_analysis_results
-from src.integrations.scia_integration.scia_unit_conversion import (
+from src.integrations.scia_integration.results.scia_results_creator import extract_analysis_results
+from src.integrations.scia_integration.results.scia_unit_conversion import (
     SciaUnitConverter,
     UnitConversion,
     build_units_mapping,

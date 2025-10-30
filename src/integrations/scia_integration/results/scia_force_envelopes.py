@@ -9,7 +9,12 @@ import contextlib
 from collections.abc import Mapping
 from typing import Any
 
-from src.integrations.scia_integration.scia_results_processor import merge_xyz_to_coords_xyz
+from src.integrations.scia_integration.constants import (
+    N_TO_KN,
+    NMM_TO_KNM,
+)
+
+from .scia_results_processor import merge_xyz_to_coords_xyz
 
 
 def _extract_basis_data(parsed_tables: Mapping[str, Any], section_key: str = "Basis grootheden") -> dict[str, Any]:
@@ -302,7 +307,7 @@ def _extract_normal_forces(row: dict[str, Any] | object) -> dict[str, float]:
 
     if n_values:
         # Convert from N to kN, use component with largest magnitude
-        force_values["N"] = max(n_values, key=abs) / 1000.0
+        force_values["N"] = max(n_values, key=abs) * N_TO_KN
 
     return force_values
 
@@ -315,13 +320,13 @@ def _extract_shear_forces(row: dict[str, Any] | object) -> dict[str, float]:
     val = _get_row_value(row, "v_y")
     if val is not None and val != "":
         with contextlib.suppress(ValueError, TypeError):
-            force_values["Vy"] = float(val) / 1000.0  # Convert from N to kN
+            force_values["Vy"] = float(val) * N_TO_KN  # Convert from N to kN
 
     # Vz = v_x (shear force in X direction, mapped to Vz for consistency)
     val = _get_row_value(row, "v_x")
     if val is not None and val != "":
         with contextlib.suppress(ValueError, TypeError):
-            force_values["Vz"] = float(val) / 1000.0  # Convert from N to kN
+            force_values["Vz"] = float(val) * N_TO_KN  # Convert from N to kN
 
     return force_values
 
@@ -334,13 +339,13 @@ def _extract_moment_component(row: dict[str, Any] | object, design_pos: str, des
     val = _get_row_value(row, design_pos)
     if val is not None and val != "":
         with contextlib.suppress(ValueError, TypeError):
-            force_values[design_pos.replace("m_", "M")] = float(val) / 1000000.0  # Convert from Nmm to kNm
+            force_values[design_pos.replace("m_", "M")] = float(val) * NMM_TO_KNM  # Convert from Nmm to kNm
     else:
         # Fallback to basic quantity for positive part
         val = _get_row_value(row, basic)
         if val is not None and val != "":
             try:
-                moment = float(val) / 1000000.0  # Convert from Nmm to kNm
+                moment = float(val) * NMM_TO_KNM  # Convert from Nmm to kNm
                 force_values[design_pos.replace("m_", "M")] = max(0, moment)  # Positive part
             except (ValueError, TypeError):
                 pass
@@ -348,13 +353,13 @@ def _extract_moment_component(row: dict[str, Any] | object, design_pos: str, des
     val = _get_row_value(row, design_neg)
     if val is not None and val != "":
         with contextlib.suppress(ValueError, TypeError):
-            force_values[design_neg.replace("m_", "M")] = float(val) / 1000000.0  # Convert from Nmm to kNm
+            force_values[design_neg.replace("m_", "M")] = float(val) * NMM_TO_KNM  # Convert from Nmm to kNm
     elif design_pos.replace("m_", "M") not in force_values:
         # Fallback to basic quantity for negative part
         val = _get_row_value(row, basic)
         if val is not None and val != "":
             try:
-                moment = float(val) / 1000000.0  # Convert from Nmm to kNm
+                moment = float(val) * NMM_TO_KNM  # Convert from Nmm to kNm
                 force_values[design_neg.replace("m_", "M")] = min(0, moment)  # Negative part
             except (ValueError, TypeError):
                 pass

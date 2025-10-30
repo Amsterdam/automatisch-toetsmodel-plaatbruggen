@@ -2,12 +2,13 @@
 Pure load generation functions without circular dependencies.
 
 This module contains the core load generation logic extracted from scia_bridge_geometry.py
-to eliminate circular imports. It only depends on scia_loads_helper for the actual calculations.
+to eliminate circular imports. It coordinates between theoretical and real tandem/UDL generators.
 """
 
 from typing import Any, Callable
 
-from .types import BridgeDimensions, BridgeParams, LoadGroup, LoadMode, LoadType
+from src.integrations.scia_integration.constants import DEFAULT_UDL_VALUE
+from src.integrations.scia_integration.types import BridgeDimensions, BridgeParams, LoadGroup, LoadMode, LoadType
 
 # Type aliases for different function signatures
 TheoreticalTandemFunc = Callable[[BridgeParams, float, float, float, float, float], list[dict[str, Any]]]
@@ -89,10 +90,12 @@ def generate_tandem_loads(params: BridgeParams, mode: LoadMode | str | None = No
     # Always use mode from parameters (berekeningsniveau)
     mode = get_load_mode_from_params(params)
     # Import here to avoid circular imports
-    from .scia_loads_helper import (
+    from .real_tandem_generators import (
         tandem_systems_real_lanes_bg8000,
         tandem_systems_real_lanes_bg9000,
         tandem_systems_real_lanes_bg10000,
+    )
+    from .theoretical_tandem_generators import (
         tandem_systems_theoretical_lanes_bg8000,
         tandem_systems_theoretical_lanes_bg9000,
         tandem_systems_theoretical_lanes_bg10000,
@@ -157,20 +160,20 @@ def generate_tandem_loads(params: BridgeParams, mode: LoadMode | str | None = No
     return all_loads
 
 
-def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None, udl_value: float = 9000.0) -> list[dict[str, Any]]:
+def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None, udl_value: float = DEFAULT_UDL_VALUE) -> list[dict[str, Any]]:
     """
     Generate all UDL loads for a bridge.
 
     :param params: Bridge parameters
     :param mode: Load generation mode (ignored - always uses berekeningsniveau parameter)
-    :param udl_value: UDL value in N/m² (default: 9000.0)
+    :param udl_value: UDL value in N/m² (default: DEFAULT_UDL_VALUE)
     :returns: List of all UDL load cases (BG4001, BG4002, BG4003)
     :raises ValueError: When mode is invalid or generation fails
     """
     # Always use mode from parameters (berekeningsniveau)
     mode = get_load_mode_from_params(params)
     # Import here to avoid circular imports
-    from .scia_loads_helper import create_real_udl_traffic_loads, create_theoretical_udl_traffic_loads
+    from .udl_generators import create_real_udl_traffic_loads, create_theoretical_udl_traffic_loads
 
     # Convert string to enum if needed
     if isinstance(mode, str):
@@ -216,7 +219,7 @@ def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None,
 
 
 def generate_all_loads(
-    params: BridgeParams, load_types: list[LoadType] | None = None, mode: LoadMode | str | None = None, udl_value: float = 9000.0
+    params: BridgeParams, load_types: list[LoadType] | None = None, mode: LoadMode | str | None = None, udl_value: float = DEFAULT_UDL_VALUE
 ) -> dict[str, list[dict[str, Any]]]:
     """
     Generate all types of loads for a bridge.

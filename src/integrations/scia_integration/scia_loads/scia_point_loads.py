@@ -8,10 +8,28 @@ loads from vehicles and tandem systems.
 
 from typing import Any
 
-from src.geometry.load_zone_geometry import get_bridge_geom_data
-from src.integrations.scia_integration.scia_coordinate_utils import convert_loads_to_scia_format
-from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
-from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.combinations.load_factors import get_dynamic_load_factor
+from src.geometry.load_zone_geometry import get_bridge_geom_data, get_tram_track_y_coordinates
+from src.integrations.scia_integration.constants import (
+    ACCIDENTAL_VEHICLE_AXLE_SPACING,
+    ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_FORCE_AXLE_1,
+    ACCIDENTAL_VEHICLE_FORCE_AXLE_2,
+    ACCIDENTAL_VEHICLE_INSET_DISTANCE,
+    ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD,
+    ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WIDTH_STANDARD,
+    SERVICE_VEHICLE_FORCE_PER_AXLE,
+    SERVICE_VEHICLE_INSET_DISTANCE,
+    SERVICE_VEHICLE_LENGTH,
+    SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING,
+    SERVICE_VEHICLE_WHEEL_CONTACT_AREA,
+    SERVICE_VEHICLE_WIDTH,
+)
+from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+from src.integrations.scia_integration.model.scia_coordinate_utils import convert_loads_to_scia_format
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
@@ -75,7 +93,7 @@ def dispersal_function(  # noqa: C901
         for i in range(4):
             x, y, z = coords[i]
             # Import at runtime to avoid circular imports
-            from src.integrations.scia_integration.scia_coordinate_utils import get_dispersion_at_coord
+            from src.integrations.scia_integration.model.scia_coordinate_utils import get_dispersion_at_coord
 
             dispersion_deck_zone = get_dispersion_at_coord(params=params, coord=coords[i])["deck_zone"]
             dispersion_load_zone = get_dispersion_at_coord(params=params, coord=coords[i])["load_zone"]
@@ -119,14 +137,25 @@ def dispersal_function(  # noqa: C901
 
     # Clip dispersed coordinates to bridge boundaries
     from src.geometry.load_zone_geometry import get_bridge_geom_data
-    from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+    from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
     bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
     if bridge_geom_data is not None:
         dispersed_load_coords = clip_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
 
+    # Calculate load areas and load value
     initial_load_area = _calculate_quadrilateral_area(coords=corner_points)
+
+    # For point forces (area = 0), use area of 1 to avoid division by zero
+    if initial_load_area == 0:
+        initial_load_area = 1.0
+
     dispersed_load_area = _calculate_quadrilateral_area(coords=dispersed_load_coords)
+
+    # Also check dispersed area to avoid division by zero
+    if dispersed_load_area == 0:
+        dispersed_load_area = 1.0
+
     dispersed_load_value = load_value * (initial_load_area / dispersed_load_area)
 
     return dispersed_load_coords, dispersed_load_value
@@ -209,6 +238,136 @@ def add_actual_tandem_loads(
     return []
 
 
+def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:  # noqa: C901
+    """
+    Add tram loads to the SCIA model at tram track centerlines.
+
+    Tram specifications (CAF Urbos 100, drawing EE-780):
+    - Total length: 30.128m
+    - Track gauge: 1.435m
+    - 6 axles with 97 kN per axle (static load)
+    - Axle spacing from front: 0m, 1.8m, 11.812m, 13.662m, 23.674m, 25.474m
+
+    Dynamic amplification according to NEN-EN 1991-2 art. 4.3.4.2 (d):
+    - Dynamic factor Φ = 1.40 - L / 500 (with Φ >= 1.0)
+    - Applied to static axle loads: Dynamic load = 97 kN × Φ
+
+    :param builder: The SCIA model builder instance
+    :type builder: SciaModelBuilder
+    :param params: Bridge parameters
+    :type params: BridgeParametrization
+    :param load_cases: Dictionary of created load cases
+    :type load_cases: dict[str, Any]
+    :raises ValueError: When tram load creation fails
+    """
+    try:
+        # Tram specifications volgens tekening EE-780 (CAF Urbos 100)
+        vehicle_length = 21.824  # Total tram length (m)
+        track_gauge = 1.435  # Distance between rail centerlines (m)
+        static_force_per_axle = 97 * 1000  # 97 kN per axle converted to N (static load)
+
+        # Extract bridge dimensions
+        dims = extract_bridge_dimensions(params)
+        length = dims.total_length
+        thickness = dims.thickness
+
+        # Calculate dynamic load factor according to NEN-EN 1991-2 art. 4.3.4.2 (d)
+        # Φ = 1.40 - L / 500 (with Φ >= 1.0)
+        dynamic_factor = get_dynamic_load_factor(span=length)
+
+        # Apply dynamic factor to static load
+        force_per_axle = static_force_per_axle * dynamic_factor  # Dynamic load (N)
+
+        # Axle distances from previous axle (m)
+        # Distances between consecutive axles: 1.8, 10.012, 1.85, 10.012, 1.8
+        axle_distances = [1.8, 10.012, 1.85, 10.012, 1.8]
+
+        # Calculate cumulative axle positions from front of tram
+        axle_positions = [0.0]  # First axle at front
+        cumulative = 0.0
+        for distance in axle_distances:
+            cumulative += distance
+            axle_positions.append(cumulative)
+
+        # Get tram track centerline coordinates
+        tram_tracks = get_tram_track_y_coordinates(params)
+        if tram_tracks is None or not tram_tracks:
+            # No tram tracks defined, skip tram loads
+            return
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
+
+        # Get positions where the front of the tram can be placed
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length)
+
+        # Get load cases dictionary for tram tracks
+        tram_load_cases = load_cases.get("tram_track_tandem_cases", {})
+        if not tram_load_cases:
+            return
+
+        def create_tram_axle_loads(x_pos: float, track_idx: int, track_y_coords: list[float]) -> None:
+            """Create all 6 axle loads for a tram at a specific X position on a specific track."""
+            # Get the appropriate load case for this position and track
+            load_case_key = f"tandem_tram_track{track_idx}_x{x_pos}"
+            if load_case_key not in tram_load_cases:
+                return
+
+            load_case_name = tram_load_cases[load_case_key].name
+
+            # Calculate wheel parameters
+            force_per_wheel = force_per_axle / 2  # Each axle has 2 wheels (N)
+
+            # Half gauge for wheel positioning (distance from centerline to each wheel)
+            half_gauge = track_gauge / 2.0
+
+            # Get track centerline y-coordinate at first D-point (assumed constant along length)
+            track_centerline_y = track_y_coords[0]
+
+            # Create loads for each of the 6 axles
+            for axle_idx, axle_offset in enumerate(axle_positions, start=1):
+                # Calculate X position of this axle
+                x_axle = x_pos + axle_offset
+
+                # Create loads for both wheels of this axle (left and right of centerline)
+                for wheel_side, y_offset in [("left", half_gauge), ("right", -half_gauge)]:
+                    y_wheel_center = track_centerline_y + y_offset
+                    wheel_corners = [(x_axle, y_wheel_center, 0.0)] * 4  # Point load: all corners at same location
+
+                    # Apply load dispersion if enabled
+                    if params.spreiding:
+                        corner_points_dispersed, load_value_dispersed = dispersal_function(
+                            params=params,
+                            corner_points=wheel_corners,
+                            load_value=force_per_wheel,
+                            load_case_type="axle_load",
+                            _load_case_name=load_case_name,
+                        )
+
+                        builder.create_surface_load(
+                            name=f"tram_track{track_idx}_x{x_pos}_axle{axle_idx}_{wheel_side}",
+                            load_case_name=load_case_name,
+                            corner_points=corner_points_dispersed,
+                            load_value=-load_value_dispersed,  # Negative for downward load (N/m²)
+                        )
+                    else:
+                        builder.create_surface_load(
+                            name=f"tram_track{track_idx}_x{x_pos}_axle{axle_idx}_{wheel_side}",
+                            load_case_name=load_case_name,
+                            corner_points=wheel_corners,
+                            load_value=-force_per_wheel,  # Negative for downward load (N/m²)
+                        )
+
+        # Create loads for each tram position on each track
+        for track_name, track_y_coords in tram_tracks.items():
+            # Extract track index from track name (e.g., "tram_track_1" -> 1)
+            track_idx = int(track_name.split("_")[-1])
+
+            for x_pos in positions:
+                create_tram_axle_loads(x_pos, track_idx, track_y_coords)
+
+    except Exception as e:
+        raise ValueError(f"Failed to add tram loads: {e}") from e
+
+
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """
     Add service vehicle loads to the SCIA model using sequenced X positions.
@@ -225,11 +384,11 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     """
     try:
         # Dienstvoertuig volgens NEN-EN 1991-2 art. 5.3.2.3
-        vehicle_length = 3.0
-        vehicle_width = 1.75
-        force_per_axle = 25 * 1000  # Convert to N
-        wheel_contact_area = 0.25
-        inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
+        vehicle_length = SERVICE_VEHICLE_LENGTH
+        vehicle_width = SERVICE_VEHICLE_WIDTH
+        force_per_axle = SERVICE_VEHICLE_FORCE_PER_AXLE
+        wheel_contact_area = SERVICE_VEHICLE_WHEEL_CONTACT_AREA
+        inset_distance = SERVICE_VEHICLE_INSET_DISTANCE
 
         # Get bridge geometry data
         bridge_geom_data = get_bridge_geom_data(params)
@@ -240,9 +399,9 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from src.integrations.scia_integration.scia_loads_helper import tandem_system_sequencer
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -276,7 +435,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             load_per_area = force_per_wheel / wheel_area  # N/m²
 
             # Use the helper function to calculate wheel positions
-            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
@@ -336,15 +495,15 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     """
     try:
         # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
-        vehicle_width = 1.30  # From diagram: 1.30 m between wheel centers
-        vehicle_width_amsterdam = 2.0  # From diagram: 2.0 m between wheel centers
-        force_axle_1 = 80 * 1000  # Q_sv1 = 80 kN, convert to N
-        force_axle_2 = 40 * 1000  # Q_sv2 = 40 kN, convert to N
-        force_axle_amsterdam = 240 * 1000  # Q_sv = 240 kN, convert to N
-        wheel_contact_area = 0.20  # From diagram: 0.20 m contact area
-        wheel_contact_area_amsterdam = 0.4  # From diagram: 0.4 m contact area
-        axle_spacing = 1.2  # Derived from 3.0m total - wheel contact areas
-        inset_distance = 0.5  # Distance from bridge edge to outer wheel (m)
+        vehicle_width = ACCIDENTAL_VEHICLE_WIDTH_STANDARD  # From diagram: 1.30 m between wheel centers
+        vehicle_width_amsterdam = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM  # From diagram: 2.0 m between wheel centers
+        force_axle_1 = ACCIDENTAL_VEHICLE_FORCE_AXLE_1  # Q_sv1 = 80 kN, convert to N
+        force_axle_2 = ACCIDENTAL_VEHICLE_FORCE_AXLE_2  # Q_sv2 = 40 kN, convert to N
+        force_axle_amsterdam = ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM  # Q_sv = 240 kN, convert to N
+        wheel_contact_area = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD  # From diagram: 0.20 m contact area
+        wheel_contact_area_amsterdam = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM  # From diagram: 0.4 m contact area
+        axle_spacing = ACCIDENTAL_VEHICLE_AXLE_SPACING  # Derived from 3.0m total - wheel contact areas
+        inset_distance = ACCIDENTAL_VEHICLE_INSET_DISTANCE  # Distance from bridge edge to outer wheel (m)
 
         # Get bridge geometry data
         bridge_geom_data = get_bridge_geom_data(params)
@@ -355,16 +514,14 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from src.integrations.scia_integration.scia_loads_helper import (
+        from src.integrations.scia_integration.load_system.tandem_sequencer import (
             tandem_system_sequencer,
-            tandem_system_sequencer_single_axis,
-            tandem_system_sequencer_single_axis_rotated,
         )
 
         # Obtain different x positions for the accidental vehicles
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-        positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
-        positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_AXLE_SPACING)
+        positions_amsterdam = tandem_system_sequencer(length, thickness)
+        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -391,12 +548,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
             # Calculate wheel positions for the ENTIRE vehicle (not per axle)
-            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
                 y_coord=vehicle_top_edge,
-                vehicle_length=axle_spacing,  # Distance between axles (1.2m)
+                vehicle_length=axle_spacing,  # Distance between axles
                 vehicle_width=vehicle_width,
                 wheel_contact_area=wheel_contact_area,
             )
@@ -466,12 +623,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
 
             if is_rotated:
                 # Rotated: 2.0m length in X-direction, 0.4m width in Y-direction
-                vehicle_length = 2.0
-                vehicle_width = 0.4
+                vehicle_length = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM
+                vehicle_width = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM
             else:
                 # Normal: 0.4m length in X-direction, 2.0m width in Y-direction
-                vehicle_length = 0.4
-                vehicle_width = vehicle_width_amsterdam  # 2.0m
+                vehicle_length = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM
+                vehicle_width = vehicle_width_amsterdam
 
             # Calculate vehicle position
             if edge_type == "y_plus":
@@ -486,7 +643,7 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             load_per_area = force_per_wheel / wheel_area
 
             # Use helper function to calculate wheel positions
-            from src.integrations.scia_integration.scia_loads_helper import calc_vehicle_load_locations
+            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,

@@ -8,16 +8,16 @@ SciaModelBuilder interface. It is independent of the VIKTOR SDK.
 from typing import Any
 
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
-
-from .scia_integration_strips import create_all_integration_strips, create_strip_definitions
-from .scia_load_cases import (
+from src.integrations.scia_integration.load_system.scia_load_cases import (
     create_all_load_cases,
 )
-from .scia_load_combinations import create_all_load_combinations
-from .scia_load_group import create_all_load_groups
-from .scia_loads import create_all_loads
+from src.integrations.scia_integration.load_system.scia_load_combinations import create_all_load_combinations
+from src.integrations.scia_integration.load_system.scia_load_group import create_all_load_groups
+from src.integrations.scia_integration.results.scia_result_classes import create_all_result_classes
+from src.integrations.scia_integration.scia_loads import create_all_loads
+
+from .scia_integration_strips import create_all_integration_strips, create_strip_definitions
 from .scia_model_interface import SciaModelBuilder
-from .scia_result_classes import create_all_result_classes
 from .scia_section_on_plane import create_all_sections_on_plane, create_section_definitions
 from .scia_supports import create_all_supports
 

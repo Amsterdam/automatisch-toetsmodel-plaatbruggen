@@ -3,7 +3,6 @@
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
-from viktor.errors import UserError
 
 from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
 from src.data_models.bridge_models import BridgeSegmentDimensions  # Import the Pydantic data model
@@ -13,6 +12,7 @@ from src.geometry.model_creator import (
     LoadZoneGeometryData,  # Import the dataclass
     prepare_load_zone_geometry_data,
 )
+from viktor.errors import UserError
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:
@@ -399,3 +399,77 @@ def get_load_zones_data_from_params(params: Any) -> list[LoadZoneData]:  # noqa:
                 raise UserError(f"Ongeldige belastingzone data: {'; '.join(error_details)}") from e
 
     return load_zones_data_params
+
+
+def get_tram_track_y_coordinates(params: Any) -> dict[str, list[float]] | None:  # noqa: ANN401
+    """
+    Calculate the centerline y-coordinates of tram tracks if tram zones are present.
+
+    This function counts the number of tram zones and calculates the centerline
+    y-coordinate for each tram track at each D-point.
+
+    Args:
+        params: Bridge parametrization containing load zone data array and bridge segments
+
+    Returns:
+        Dictionary mapping track name to list of centerline y-coordinates at each D-point.
+        Returns None if no tram zones are found.
+
+        Example: {"tram_track_1": [y1_d1, y1_d2, ...], "tram_track_2": [y2_d1, y2_d2, ...]}
+
+    Raises:
+        UserError: If tram zone configuration is invalid
+
+    Notes:
+        - Each tram zone represents one track
+        - Track centerline is the average of zone top and bottom y-coordinates
+        - Y-coordinates are measured from the bridge centerline
+        - Positive y is towards the top of the bridge (zone 1 side)
+
+    """
+    # Get bridge geometry
+    bridge_geom_data = get_bridge_geom_data(params)
+    if bridge_geom_data is None:
+        return None
+
+    # Get load zones data
+    load_zones_data = get_load_zones_data_from_params(params)
+
+    # Calculate zone geometry properties
+    load_zones_with_geometry = calculate_zone_geometry_properties(load_zones_data, bridge_geom_data)
+
+    # Find all tram zones
+    tram_zones = [zone for zone in load_zones_with_geometry if zone.zone_type == "Tram"]
+
+    if not tram_zones:
+        return None
+
+    num_d_points = bridge_geom_data.num_defined_d_points
+
+    # Build result dictionary with track names and centerlines
+    result: dict[str, list[float]] = {}
+
+    # Process each tram zone (each zone = one track)
+    for track_idx, tram_zone in enumerate(tram_zones, start=1):
+        # Check if we have valid geometry data
+        if not tram_zone.y_coords_top_current_zone or not tram_zone.zone_widths_per_d:
+            raise UserError("Tramzone mist geometrische gegevens. Controleer de belastingzones configuratie.")
+
+        if len(tram_zone.y_coords_top_current_zone) != num_d_points:
+            raise UserError(f"Tramzone geometrie komt niet overeen met aantal D-punten ({num_d_points}).")
+
+        # Calculate centerline for this track at each D-point
+        centerline_coords: list[float] = []
+        for d_idx in range(num_d_points):
+            y_top = tram_zone.y_coords_top_current_zone[d_idx]
+            zone_width = tram_zone.zone_widths_per_d[d_idx]
+
+            # Centerline is at the middle of the zone (average of top and bottom)
+            y_bottom = y_top - zone_width
+            y_centerline = (y_top + y_bottom) / 2.0
+
+            centerline_coords.append(y_centerline)
+
+        result[f"tram_track_{track_idx}"] = centerline_coords
+
+    return result

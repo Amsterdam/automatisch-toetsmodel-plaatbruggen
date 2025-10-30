@@ -1,6 +1,19 @@
 ## [`v0.0.16`] - 2025-XX-XX
 ### Added
+- Added dynamic load factor for tram load
+- Tram loads VIKTOR input and modelling of the loads in SCIA
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+- **Bridge Database Management System**: Complete workflow for managing bridge inventory data
+  - New "Brug Database Management" page in OverviewBridges entity for centralized data management
+  - CSV and Excel file upload functionality to update bridge database (`filtered_bridges.json`)
+  - Download current bridge data as CSV template for easy editing
+  - Automatic creation of new bridge entities and updating of existing entities from uploaded data
+  - Robust file parsing with multi-tier encoding detection (UTF-8, Latin-1, with BOM support)
+  - Automatic handling of empty rows and whitespace in column headers
+  - Clear step-by-step instructions with requirements and workflow guidance
+  - Excel-compatible CSV export with UTF-8 BOM for proper character display
+  - Comprehensive test suite for CSV/Excel parsing with 18 test cases covering various scenarios
+  - User-friendly success/error messages with detailed feedback on created/updated bridge counts
 - **Manual Support Selection**: Users can now manually select support types for each D-point location instead of automatic first/last positioning.
   - Support options: "Nee" (no support), "Verende oplegging (x,y)" (roller), "Inklemming" (fixed), "Scharnieroplegging" (pinned)
   - Supports visualization and SCIA integration for all support types
@@ -12,14 +25,24 @@
   - Live updates as user modifies support selections
 - **Management summary**: Added basic param values and unity check values to the management summary.
 - **2D sections on 2d members**: Added 2D sections in SCIA and the link with with IDEA 
+- **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
 
 ### Changed
 - **Refactored cache code**: code cleanup
+- **Bridge Entity Management**: Enhanced regeneration workflow to update existing entities instead of only creating new ones
+  - `regenerate_bridges_action` now updates parameters of existing bridge entities based on uploaded data
+  - Provides detailed feedback showing count of newly created vs. updated bridges
+  - Ensures data consistency between uploaded CSV files and VIKTOR entities
 - **Support System Overhaul**: Replaced automatic support calculation with user-controlled OptionField for each bridge segment
   - Updated SCIA model integration to handle multiple support types with correct structural constraints
-  - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization 
+- **Report template**: Changed the report template to a shorter management summary.
+- **Explanatory text loadzones**: Added explanation for the application of a separated tram zone on the loadzones tab. 
 - **Refactored cache code**: code cleanup
-- **Report template**: Changed the report template to a shorter management summary. 
+
+### Fixed
+- Fixed a typo on the calculation page, changed "werden" to "worden".
+- Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
+
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added

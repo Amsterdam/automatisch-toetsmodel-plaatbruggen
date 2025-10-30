@@ -8,7 +8,7 @@ different load types.
 
 from typing import Any
 
-from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
@@ -57,11 +57,7 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
     """
     try:
         # Import load functions from their respective modules
-        from .scia_point_loads import (
-            add_accidental_vehicle_loads,
-            add_service_vehicle_loads,
-            add_theoretical_tandem_loads,
-        )
+        from .scia_point_loads import add_accidental_vehicle_loads, add_service_vehicle_loads, add_theoretical_tandem_loads, add_tram_loads
         from .scia_surface_loads import (
             add_asfalt_loads,
             add_concrete_fill_loads,
@@ -94,6 +90,10 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
         # Apply unintended vehicle loads
         if "unintended_vehicle_cases" in load_cases:
             add_accidental_vehicle_loads(builder, params, load_cases)
+
+        # Apply tram loads
+        if "tram_track_tandem_cases" in load_cases:
+            add_tram_loads(builder, params, load_cases)
 
         # TODO: Add calls to other load functions when they are implemented
         # add_actual_tandem_loads(builder, params, load_cases)  # noqa: ERA001

@@ -7,20 +7,20 @@ the SciaModelBuilder interface.
 
 from typing import Any
 
-from .scia_enums import (
+from src.integrations.scia_integration.constants import SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING
+from src.integrations.scia_integration.load_system.tandem_sequencer import (
+    tandem_system_sequencer,
+)
+from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCase, SciaModelBuilder
+from src.integrations.scia_integration.scia_enums import (
     LoadCaseActionType,
     LoadCaseDuration,
     LoadCaseSpecification,
     PermanentLoadType,
     VariableLoadType,
 )
+
 from .scia_load_generators import extract_bridge_dimensions
-from .scia_loads_helper import (
-    tandem_system_sequencer,
-    tandem_system_sequencer_single_axis,
-    tandem_system_sequencer_single_axis_rotated,
-)
-from .scia_model_interface import SciaLoadCase, SciaModelBuilder
 
 
 def create_load_case(  # noqa: PLR0913
@@ -197,11 +197,10 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     dims = extract_bridge_dimensions(params)
     length = dims.total_length
     thickness = dims.thickness
-    vehicle_length = 3.25
 
     # Get X positions using the same sequencer as tandem loads
 
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length)
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
 
     cases = {}
 
@@ -258,8 +257,8 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     # Get X positions using the same sequencer as tandem loads
 
     positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-    positions_amsterdam = tandem_system_sequencer_single_axis(length, thickness)
-    positions_amsterdam_rotated = tandem_system_sequencer_single_axis_rotated(length, thickness, length_vehicle=2.0)
+    positions_amsterdam = tandem_system_sequencer(length, thickness)
+    positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
 
     cases = {}
     case_counter = 1
@@ -382,6 +381,28 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
         case_counter += 1
 
     return cases
+
+
+def count_tram_tracks_from_params(params: Any) -> int:  # noqa: ANN401
+    """
+    Count the number of tram tracks from the load zones data.
+
+    Tram tracks are identified by zone_type == "Tram" in the load_zones_data_array.
+
+    :param params: Bridge parameters containing load_zones_data_array.
+    :type params: Any
+    :returns: Number of tram tracks (zones with zone_type "Tram").
+    :rtype: int
+    """
+    try:
+        load_zones = params.load_zones_data_array
+        if load_zones is None or not isinstance(load_zones, list):
+            return 0
+
+        # Count zones where zone_type is "Tram"
+        return sum(1 for zone in load_zones if zone.get("zone_type") == "Tram")
+    except (AttributeError, TypeError):
+        return 0
 
 
 def create_dynamic_tandem_load_cases(
@@ -520,8 +541,8 @@ def create_dynamic_tram_track_tandem_load_cases(
     length = dims.total_length
     thickness = dims.thickness
 
-    # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
-    num_tracks = 2
+    # Determine the number of tracks based on bridge parameters
+    num_tracks = count_tram_tracks_from_params(params)
 
     # Create tandem load cases for each road system (RS)
     for track in range(1, num_tracks + 1):
@@ -559,11 +580,11 @@ def create_tram_track_tandem_load_cases(
     else:
         raise ValueError("Track must be 1 or 2")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=30.128)  # Tram length 15G (CAF Urbos 100)
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=21.824)  # Tram length 15G (CAF Urbos 100)
     cases = {}
     for i, pos in enumerate(positions, 1):
         case_name = f"{prefix}{i:03d}"
-        description = f"Tram, dek - LM1 tramspoor {track} - x = {pos:g} m"
+        description = f"Tram, dek - Tramspoor {track} - x = {pos:g} m"
         cases[f"tandem_tram_track{track}_x{pos}"] = create_load_case(
             builder,
             group_name=group_name,
