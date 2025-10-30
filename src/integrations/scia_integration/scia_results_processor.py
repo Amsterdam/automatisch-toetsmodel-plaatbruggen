@@ -17,9 +17,36 @@ CS Table Types (results from SCIA section on plane objects):
 """
 
 import functools
+from pathlib import Path
 from typing import Any, Callable, Union
 
 import pandas as pd
+
+
+def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
+    """
+    Export DataFrame to Excel file for debugging (view processing).
+
+    Creates files in C:/temp/ directory for easy manual inspection.
+
+    :param df: DataFrame to export
+    :type df: pd.DataFrame
+    :param filename: Name of the Excel file (without extension)
+    :type filename: str
+    :param sheet_name: Name of the Excel sheet
+    :type sheet_name: str
+    """
+    try:
+        # Create temp directory if it doesn't exist
+        temp_dir = Path("C:/temp")
+        temp_dir.mkdir(exist_ok=True)
+
+        # Export to Excel
+        filepath = temp_dir / f"{filename}.xlsx"
+        df.to_excel(filepath, sheet_name=sheet_name, index=False)
+        print(f"✓ VIEW EXPORT: {len(df)} rows to: {filepath}")
+    except Exception as e:
+        print(f"✗ VIEW EXPORT FAILED {filename}: {e}")
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -283,7 +310,7 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
 
 
 def _map_cs_section_to_zone(
-    cs_name: str,
+    cs_name: str,  # noqa: ARG001
     coords_xyz: tuple[float, float, float],
     bridge_segments: list[Any],  # List of BridgeSegmentDimensions
 ) -> str:
@@ -319,12 +346,6 @@ def _map_cs_section_to_zone(
     :rtype: str
     :raises ValueError: If bridge_segments is empty or None
     """
-    print("\n=== DEBUG: _map_cs_section_to_zone called ===")
-    print(f"CS Name: {cs_name}")
-    print(f"Coordinates: {coords_xyz}")
-    print(f"Bridge segments provided: {bridge_segments is not None}")
-    print(f"Number of segments: {len(bridge_segments) if bridge_segments else 0}")
-
     if not bridge_segments:
         raise ValueError("Bridge segments data is required for zone mapping")
 
@@ -333,29 +354,23 @@ def _map_cs_section_to_zone(
     x = float(x)
     y = float(y)
     z = float(z)
-    print(f"Extracted coordinates - x: {x}, y: {y}, z: {z}")
-    print(f"Coordinate types - x: {type(x)}, y: {type(y)}, z: {type(z)}")
 
     # --- Step 1: Determine segment number based on x-coordinate (longitudinal position) ---
     cumulative_length = 0.0
     segment_number = 1  # Default to first segment
 
-    print(f"Starting segment determination with {len(bridge_segments)} segments")
     for i in range(1, len(bridge_segments)):  # Start from index 1
         # Get segment length - support both VIKTOR Munch (l) and Pydantic model (segment_length)
         segment_length = getattr(bridge_segments[i], "l", None) or getattr(bridge_segments[i], "segment_length", 0.0)
         segment_length = float(segment_length)  # Ensure it's a float
         cumulative_length += segment_length
-        print(f"  Segment {i}: length={segment_length}, cumulative={cumulative_length}, x={x}")
 
         if x <= cumulative_length:
             segment_number = i
-            print(f"  -> Matched segment {i}")
             break
     else:
         # If x is beyond all segments, assign to last segment
         segment_number = len(bridge_segments) - 1
-        print(f"  -> x beyond all segments, using last segment {segment_number}")
 
     # --- Step 2: Determine zone type based on y-coordinate (transverse position) ---
     # Get segment geometry at the identified segment
@@ -366,9 +381,6 @@ def _map_cs_section_to_zone(
     bz2 = float(segment.bz2)
     bz3 = float(segment.bz3)
 
-    print(f"\nSegment {segment_number} geometry:")
-    print(f"  bz1: {bz1}, bz2: {bz2}, bz3: {bz3}")
-
     # Calculate zone boundaries based on bz1, bz2, bz3 values
     # Bridge cross-section from top to bottom (in Y direction):
     #   Zone 1 (bz1): from (bz2/2 + bz1) to (bz2/2)
@@ -376,37 +388,23 @@ def _map_cs_section_to_zone(
     #   Zone 3 (bz3): from (-bz2/2) to (-bz2/2 - bz3)
 
     half_bz2 = bz2 / 2.0
-    y_top_zone1 = half_bz2 + bz1  # Top boundary of zone 1
     y_bottom_zone1 = half_bz2  # Bottom boundary of zone 1 = top of zone 2
     y_bottom_zone2 = -half_bz2  # Bottom boundary of zone 2 = top of zone 3
     y_bottom_zone3 = -half_bz2 - bz3  # Bottom boundary of zone 3
 
-    print("Zone boundaries:")
-    print(f"  Zone 1: {y_top_zone1:.3f} to {y_bottom_zone1:.3f}")
-    print(f"  Zone 2: {y_bottom_zone1:.3f} to {y_bottom_zone2:.3f}")
-    print(f"  Zone 3: {y_bottom_zone2:.3f} to {y_bottom_zone3:.3f}")
-    print(f"  Y-coordinate: {y:.3f}")
-
     # Determine zone type based on y-coordinate
     if y > y_bottom_zone1:  # Strictly greater for zone 1
         zone_type = 1  # Top zone (bz1)
-        print(f"  -> Zone type: 1 (y > {y_bottom_zone1:.3f})")
     elif y > y_bottom_zone2:  # Includes boundary with zone 1
         zone_type = 2  # Middle zone (bz2)
-        print(f"  -> Zone type: 2 (y > {y_bottom_zone2:.3f})")
     elif y >= y_bottom_zone3:
         zone_type = 3  # Bottom zone (bz3)
-        print(f"  -> Zone type: 3 (y >= {y_bottom_zone3:.3f})")
     else:
         # Y-coordinate is outside the bridge geometry
-        print(f"  -> Zone type: unknown (y < {y_bottom_zone3:.3f})")
         return "unknown-zone"
 
     # --- Step 3: Return formatted zone identifier ---
-    result = f"{zone_type}-{segment_number}"
-    print(f"Final zone identifier: {result}")
-    print("=== DEBUG: _map_cs_section_to_zone complete ===\n")
-    return result
+    return f"{zone_type}-{segment_number}"
 
 
 def _process_single_cs_result_table(
@@ -468,22 +466,12 @@ def _process_single_cs_result_table(
 
     # Add zone mapping if bridge_segments are provided
     if bridge_segments and len(bridge_segments) > 0:
-        print(f"\n=== DEBUG: Applying zone mapping to {len(unique_coords_df)} unique coordinates ===")
-        print(f"Bridge segments type: {type(bridge_segments)}")
-        print(f"Number of bridge segments: {len(bridge_segments)}")
-        if len(bridge_segments) > 0:
-            print(f"First segment type: {type(bridge_segments[0])}")
-            print(f"First segment attributes: {dir(bridge_segments[0])}")
         try:
             unique_coords_df["zone"] = unique_coords_df.apply(
                 lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
             )
-            print(f"Zone mapping successful. Sample zones: {unique_coords_df['zone'].head()}")
 
             # --- Deduplication: Remove duplicate (name, zone) combinations with identical force values ---
-            print("\n=== DEBUG: Deduplicating by (name, zone) with identical force values ===")
-            initial_count = len(unique_coords_df)
-
             # Define force/moment columns to check for duplicates
             force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-"]
             # Only use columns that actually exist in the DataFrame
@@ -492,28 +480,15 @@ def _process_single_cs_result_table(
             if force_columns_present:
                 # Group by name and zone, then check for duplicate force values
                 # Keep first occurrence of each unique (name, zone, force_values) combination
-                dedup_columns = ["name", "zone"] + force_columns_present
+                dedup_columns = ["name", "zone", *force_columns_present]
                 unique_coords_df = unique_coords_df.drop_duplicates(subset=dedup_columns, keep="first")
 
-                final_count = len(unique_coords_df)
-                duplicates_removed = initial_count - final_count
-                print(f"Removed {duplicates_removed} duplicate rows with same (name, zone) and force values")
-                print(f"Rows before: {initial_count}, after: {final_count}")
-            else:
-                print("No force columns found for deduplication")
-
-        except Exception as e:
+        except Exception:
             # If zone mapping fails, add a column with error message
-            print(f"ERROR: Zone mapping failed for CS results: {e}")  # noqa: T201
-            print(f"Exception type: {type(e)}")
             import traceback
 
             traceback.print_exc()
             unique_coords_df["zone"] = "mapping-failed"
-    else:
-        print("\n=== DEBUG: Skipping zone mapping ===")
-        print(f"bridge_segments is None: {bridge_segments is None}")
-        print(f"bridge_segments length: {len(bridge_segments) if bridge_segments else 'N/A'}")
 
     return unique_coords_df
 
@@ -551,7 +526,13 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
 
     # Create DataFrames for each selected CS result class table
     for selected_table in selected_result_tables:
-        results_cs[selected_table] = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
+        df_result = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
+        results_cs[selected_table] = df_result
+        
+        # DEBUG EXPORT: Export processed CS results for view
+        if not df_result.empty:
+            safe_table_name = selected_table.replace(" ", "_")
+            _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
 
     return results_cs
 

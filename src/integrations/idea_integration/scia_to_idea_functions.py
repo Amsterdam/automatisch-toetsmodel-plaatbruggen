@@ -20,6 +20,7 @@ This module processes three types of SCIA results for use in IDEA RCS:
    - Note: Requires bridge_segments to be passed for zone identification
 """
 
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -28,6 +29,32 @@ from src.integrations.scia_integration.scia_results_processor import (
     process_scia_1d_results,
     process_scia_2d_results,
 )
+
+
+def _export_cs_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
+    """
+    Export CS DataFrame to Excel file for debugging (SCIA to IDEA conversion).
+
+    Creates files in C:/temp/ directory for easy manual inspection.
+
+    :param df: DataFrame to export
+    :type df: pd.DataFrame
+    :param filename: Name of the Excel file (without extension)
+    :type filename: str
+    :param sheet_name: Name of the Excel sheet
+    :type sheet_name: str
+    """
+    try:
+        # Create temp directory if it doesn't exist
+        temp_dir = Path("C:/temp")
+        temp_dir.mkdir(exist_ok=True)
+
+        # Export to Excel
+        filepath = temp_dir / f"{filename}.xlsx"
+        df.to_excel(filepath, sheet_name=sheet_name, index=False)
+        print(f"✓ SCIA→IDEA EXPORT: {len(df)} rows to: {filepath}")
+    except Exception as e:
+        print(f"✗ SCIA→IDEA EXPORT FAILED {filename}: {e}")
 
 
 def map_cs_section_to_zone(cs_name: str, coords_xyz: tuple[float, float, float], bridge_segments: list[Any]) -> str:
@@ -173,6 +200,12 @@ def process_scia_cs_results_for_idea(results: dict[str, Any], bridge_segments: l
 
     raw_results_cs = process_scia_cs_results(results, bridge_segments)
 
+    # DEBUG EXPORT: Export raw CS results from SCIA processor (before IDEA conversion)
+    for selected_table, df_raw in raw_results_cs.items():
+        if not df_raw.empty:
+            safe_table_name = selected_table.replace(" ", "_")
+            _export_cs_dataframe_to_excel(df_raw, f"cs_scia_to_idea_raw_{safe_table_name}", f"CS_{safe_table_name}_Raw")
+
     # Convert to IDEA-specific format
     idea_results_cs = {}
 
@@ -205,6 +238,12 @@ def process_scia_cs_results_for_idea(results: dict[str, Any], bridge_segments: l
             idea_df["zone"] = idea_df.apply(lambda row: map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
 
         idea_results_cs[selected_table] = idea_df
+
+    # DEBUG EXPORT: Export IDEA-formatted CS results (after conversion)
+    for selected_table, df_idea in idea_results_cs.items():
+        if not df_idea.empty:
+            safe_table_name = selected_table.replace(" ", "_")
+            _export_cs_dataframe_to_excel(df_idea, f"cs_scia_to_idea_converted_{safe_table_name}", f"CS_{safe_table_name}_IDEA")
 
     # Add cs_ prefix to all keys to distinguish from node and strip results
     return {f"cs_{key}": value for key, value in idea_results_cs.items()}
