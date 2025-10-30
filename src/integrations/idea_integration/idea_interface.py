@@ -55,9 +55,8 @@ def _export_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str 
         # Export to Excel
         filepath = temp_dir / f"{filename}.xlsx"
         df.to_excel(filepath, sheet_name=sheet_name, index=False)
-        print(f"✓ Exported {len(df)} rows to: {filepath}")
-    except Exception as e:
-        print(f"✗ Failed to export {filename}: {e}")
+    except Exception:
+        pass
 
 
 # SDK import only for TYPE_CHECKING and analysis execution
@@ -517,7 +516,9 @@ def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.Da
     return df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
 
 
-def _process_scia_cs_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
+def _process_scia_cs_results_for_idea_input(  # noqa: C901, PLR0912
+    scia_results_dict: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
     """
     Process SCIA CS (Cross Section) results into a single merged dataframe.
 
@@ -577,74 +578,36 @@ def _process_scia_cs_results_for_idea_input(scia_results_dict: dict[str, pd.Data
     # which keeps only one row per unique (name, zone, force_values) combination.
     # Multiple rows with same (name, zone) but different coords_xyz that have identical force values
     # are deduplicated here to prevent cartesian product during merge.
-    print("\n=== PRE-MERGE DEDUPLICATION ===")
-    print(f"ULS before dedup: {len(df_uls)} rows, unique (name, zone): {len(df_uls[['name', 'zone']].drop_duplicates())}")
-    print(f"SLS kar before dedup: {len(df_sls_kar)} rows, unique (name, zone): {len(df_sls_kar[['name', 'zone']].drop_duplicates())}")
-    print(f"SLS freq before dedup: {len(df_sls_freq)} rows, unique (name, zone): {len(df_sls_freq[['name', 'zone']].drop_duplicates())}")
 
     # For each load case, remove rows where (name, zone, coords_xyz) are identical
     # This prevents Cartesian products during merge while preserving multiple physical locations
     # within the same zone that have different coordinates and force values.
-    for df_name, df, prefix in [("ULS", df_uls, "ULS"), ("SLS kar", df_sls_kar, "SLS_kar"), ("SLS freq", df_sls_freq, "SLS_freq")]:
-        if df is not None and not df.empty:
-            before_count = len(df)
 
-            # DEBUG: Show columns available in this DataFrame
-            print(f"\n  {df_name} columns: {list(df.columns)}")
+    # Drop duplicates based on (name, zone, coords_xyz) - keep first occurrence
+    # This ensures we don't get Cartesian products during merge while preserving
+    # multiple distinct physical locations (different coords) within the same zone
+    if "coords_xyz" in df_uls.columns:
+        dedup_columns = ["name", "zone", "coords_xyz"]
+        df_uls = df_uls.drop_duplicates(subset=dedup_columns, keep="first")
+    else:
+        # Fallback: if coords_xyz not found, drop based on (name, zone) only
+        df_uls = df_uls.drop_duplicates(subset=["name", "zone"], keep="first")
 
-            # DEBUG: Check for specific problematic case
-            if "name" in df.columns:
-                problem_rows = df[df["name"].str.contains("span_1_x_sec_3_0", na=False)]
-                if not problem_rows.empty:
-                    print(f"\n  DEBUG: Found {len(problem_rows)} rows for 'span_1_x_sec_3_0' BEFORE dedup:")
-                    for idx, row in problem_rows.iterrows():
-                        print(f"    Row {idx}: zone={row.get('zone', 'N/A')}, coords={row.get('coords_xyz', 'N/A')}")
+    if "coords_xyz" in df_sls_kar.columns:
+        dedup_columns = ["name", "zone", "coords_xyz"]
+        df_sls_kar = df_sls_kar.drop_duplicates(subset=dedup_columns, keep="first")
+    else:
+        df_sls_kar = df_sls_kar.drop_duplicates(subset=["name", "zone"], keep="first")
 
-            # Drop duplicates based on (name, zone, coords_xyz) - keep first occurrence
-            # This ensures we don't get Cartesian products during merge while preserving
-            # multiple distinct physical locations (different coords) within the same zone
-            if "coords_xyz" in df.columns:
-                dedup_columns = ["name", "zone", "coords_xyz"]
-                df.drop_duplicates(subset=dedup_columns, keep="first", inplace=True)
-            else:
-                # Fallback: if coords_xyz not found, drop based on (name, zone) only
-                df.drop_duplicates(subset=["name", "zone"], keep="first", inplace=True)
-
-            after_count = len(df)
-
-            # DEBUG: Check for specific problematic case AFTER dedup
-            if "name" in df.columns:
-                problem_rows_after = df[df["name"].str.contains("span_1_x_sec_3_0", na=False)]
-                if not problem_rows_after.empty:
-                    print(f"\n  DEBUG: Found {len(problem_rows_after)} rows for 'span_1_x_sec_3_0' AFTER dedup:")
-                    for idx, row in problem_rows_after.iterrows():
-                        print(f"    Row {idx}: zone={row.get('zone', 'N/A')}, coords={row.get('coords_xyz', 'N/A')}")
-
-            if before_count != after_count:
-                print(f"  {df_name}: Removed {before_count - after_count} duplicate (name, zone, coords) rows ({before_count} → {after_count})")
-
-    print(f"ULS after dedup: {len(df_uls)} rows")
-    print(f"SLS kar after dedup: {len(df_sls_kar)} rows")
-    print(f"SLS freq after dedup: {len(df_sls_freq)} rows")
+    if "coords_xyz" in df_sls_freq.columns:
+        dedup_columns = ["name", "zone", "coords_xyz"]
+        df_sls_freq = df_sls_freq.drop_duplicates(subset=dedup_columns, keep="first")
+    else:
+        df_sls_freq = df_sls_freq.drop_duplicates(subset=["name", "zone"], keep="first")
 
     # Merge dataframes - handle empty cases
     if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
         return pd.DataFrame()  # Return empty DataFrame if any component is empty
-
-    # DEBUG: Check unique (name, zone) combinations before merge
-    print("\n=== MERGE DEBUG ===")
-    print(f"ULS unique (name, zone): {len(df_uls[['name', 'zone']].drop_duplicates())}")
-    print(f"SLS kar unique (name, zone): {len(df_sls_kar[['name', 'zone']].drop_duplicates())}")
-    print(f"SLS freq unique (name, zone): {len(df_sls_freq[['name', 'zone']].drop_duplicates())}")
-
-    # DEBUG: Check for specific problematic case in each DataFrame before merge
-    for df_name, df in [("ULS", df_uls), ("SLS kar", df_sls_kar), ("SLS freq", df_sls_freq)]:
-        if "name" in df.columns:
-            problem_rows = df[df["name"].str.contains("span_1_x_sec_3_0", na=False)]
-            if not problem_rows.empty:
-                print(f"\n  {df_name} has {len(problem_rows)} 'span_1_x_sec_3_0' rows before merge:")
-                for idx, row in problem_rows.iterrows():
-                    print(f"    zone={row.get('zone', 'N/A')}, coords={row.get('coords_xyz', 'N/A')}")
 
     # Merge on 'name', 'zone', AND 'coords_xyz' to prevent Cartesian products
     # Multiple coordinates can exist in the same zone (different physical locations)
@@ -652,28 +615,8 @@ def _process_scia_cs_results_for_idea_input(scia_results_dict: dict[str, pd.Data
     merge_keys = ["name", "zone", "coords_xyz"]
 
     df_all = df_uls.merge(df_sls_kar, on=merge_keys, how="inner", suffixes=("", "_kar"))
-    print(f"After ULS + SLS kar merge: {len(df_all)} rows")
-
-    # DEBUG: Check for problematic case after first merge
-    if "name" in df_all.columns:
-        problem_rows = df_all[df_all["name"].str.contains("span_1_x_sec_3_0", na=False)]
-        if not problem_rows.empty:
-            print(f"\n  After ULS+SLS kar merge: {len(problem_rows)} 'span_1_x_sec_3_0' rows:")
-            for idx, row in problem_rows.iterrows():
-                print(f"    zone={row.get('zone', 'N/A')}, coords={row.get('coords_xyz', 'N/A')}")
 
     df_all = df_all.merge(df_sls_freq, on=merge_keys, how="inner", suffixes=("", "_freq"))
-    print(f"After adding SLS freq merge: {len(df_all)} rows")
-    print(f"Final unique (name, zone): {len(df_all[['name', 'zone']].drop_duplicates())}")
-    print(f"Final unique (name, zone, coords_xyz): {len(df_all[['name', 'zone', 'coords_xyz']].drop_duplicates())}")
-
-    # DEBUG: Check for problematic case after final merge
-    if "name" in df_all.columns:
-        problem_rows = df_all[df_all["name"].str.contains("span_1_x_sec_3_0", na=False)]
-        if not problem_rows.empty:
-            print(f"\n  After FINAL merge: {len(problem_rows)} 'span_1_x_sec_3_0' rows:")
-            for idx, row in problem_rows.iterrows():
-                print(f"    zone={row.get('zone', 'N/A')}, coords={row.get('coords_xyz', 'N/A')}")
 
     # Clean up duplicate coords_xyz columns if they exist
     if "coords_xyz_kar" in df_all.columns:
@@ -987,7 +930,11 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
                 builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def _apply_cs_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401
+def _apply_cs_loads_to_slabs(  # noqa: C901
+    created_slabs: dict[str, dict],
+    df_all: pd.DataFrame,
+    builder: Any,  # noqa: ANN401
+) -> None:
     """
     Apply load cases from SCIA CS (Cross Section) results to each slab using builder pattern.
 
@@ -1032,19 +979,6 @@ def _apply_cs_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFram
         if df_slab.empty:
             continue
 
-        # DEBUG: Check for problematic case in this slab's data
-        if "name" in df_slab.columns:
-            problem_rows = df_slab[df_slab["name"].str.contains("span_1_x_sec_3_0", na=False)]
-            if not problem_rows.empty:
-                print(f"\n=== CS LOADS DEBUG for {slab_key} ===")
-                print(f"Slab zones: {zones}")
-                print(f"Found {len(problem_rows)} 'span_1_x_sec_3_0' rows for this slab:")
-                for idx, row in problem_rows.iterrows():
-                    coords_str = _format_coords(row.get("coords_xyz"))
-                    print(f"  Row {idx}: name={row.get('name', 'N/A')}, zone={row.get('zone', 'N/A')}, coords={coords_str}")
-                    print(f"    ULS_v_x_max={row.get('ULS_v_x_max', 'N/A')}, ULS_v_y_max={row.get('ULS_v_y_max', 'N/A')}")
-                    print(f"    ULS_Mx={row.get('ULS_Mx', 'N/A')}, ULS_My={row.get('ULS_My', 'N/A')}")
-
         desc_prefix = slab_key.replace(".", "_")
 
         for direction, cfg in orient.items():
@@ -1080,18 +1014,13 @@ def _apply_cs_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFram
                 coords_str = _format_coords(row.get("coords_xyz"))
                 description = f"{desc_prefix} - {zone_name} - {cs_name}_{coords_str}"
 
-                # DEBUG: Print when creating specific load case
-                if "span_1_x_sec_3_0" in cs_name:
-                    print(f"\n  Creating IDEA load for {direction} direction:")
-                    print(f"    Description: {description}")
-                    print(
-                        f"    v_{axis}_max: ULS={row.get(f'ULS_v_{axis}_max', 0)}, SLS_kar={row.get(f'SLS_kar_v_{axis}_max', 0)}, SLS_freq={row.get(f'SLS_freq_v_{axis}_max', 0)}"
-                    )
-                    print(
-                        f"    M{axis}: ULS={row.get(f'ULS_M{axis}', 0)}, SLS_kar={row.get(f'SLS_kar_M{axis}', 0)}, SLS_freq={row.get(f'SLS_freq_M{axis}', 0)}"
-                    )
-
-                builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
+                builder.create_extreme_on_slab(
+                    slab,
+                    description=description,
+                    characteristic=char,
+                    frequent=freq,
+                    fundamental=fund,
+                )
 
 
 def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":  # noqa: ANN401

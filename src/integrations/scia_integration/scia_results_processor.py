@@ -44,9 +44,8 @@ def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name:
         # Export to Excel
         filepath = temp_dir / f"{filename}.xlsx"
         df.to_excel(filepath, sheet_name=sheet_name, index=False)
-        print(f"✓ VIEW EXPORT: {len(df)} rows to: {filepath}")
-    except Exception as e:
-        print(f"✗ VIEW EXPORT FAILED {filename}: {e}")
+    except Exception:
+        pass
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -377,7 +376,6 @@ def _map_cs_section_to_zone(
     segment = bridge_segments[segment_number]
 
     # Ensure bz values are floats (may be stored as strings or other types)
-    bz1 = float(segment.bz1)
     bz2 = float(segment.bz2)
     bz3 = float(segment.bz3)
 

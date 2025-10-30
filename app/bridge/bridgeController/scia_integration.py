@@ -379,11 +379,6 @@ class SciaIntegration:
 
         # Pass bridge_segments to enable zone mapping in CS results
         bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-        print("\n=== DEBUG: Controller get_scia_cs_results_view_uls ===")
-        print(f"bridge_segments available: {bridge_segments is not None}")
-        print(f"Number of segments: {len(bridge_segments) if bridge_segments else 0}")
-        if bridge_segments and len(bridge_segments) > 0:
-            print(f"First segment type: {type(bridge_segments[0])}")
         return create_scia_cs_results_table(results, "ULS", bridge_segments=bridge_segments)
 
     @TableView("SCIA CS SLS kar", duration_guess=600)

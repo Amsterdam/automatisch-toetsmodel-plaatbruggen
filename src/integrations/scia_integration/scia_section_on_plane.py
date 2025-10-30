@@ -129,7 +129,7 @@ def _identify_spans(segments: list[Any]) -> list[Span]:
     return spans
 
 
-def create_section_definitions(params: BridgeParametrization) -> list[dict[str, Any]]:
+def create_section_definitions(params: BridgeParametrization) -> list[dict[str, Any]]:  # noqa: C901, PLR0912
     """
     Create section on plane definitions for the bridge model.
 

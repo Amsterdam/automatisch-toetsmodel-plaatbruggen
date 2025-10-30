@@ -52,9 +52,8 @@ def _export_cs_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: s
         # Export to Excel
         filepath = temp_dir / f"{filename}.xlsx"
         df.to_excel(filepath, sheet_name=sheet_name, index=False)
-        print(f"✓ SCIA→IDEA EXPORT: {len(df)} rows to: {filepath}")
-    except Exception as e:
-        print(f"✗ SCIA→IDEA EXPORT FAILED {filename}: {e}")
+    except Exception:
+        pass
 
 
 def map_cs_section_to_zone(cs_name: str, coords_xyz: tuple[float, float, float], bridge_segments: list[Any]) -> str:
@@ -175,7 +174,10 @@ def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> 
     return {f"strip_{key}": value for key, value in idea_results_1d.items()}
 
 
-def process_scia_cs_results_for_idea(results: dict[str, Any], bridge_segments: list[Any]) -> dict[str, pd.DataFrame]:
+def process_scia_cs_results_for_idea(  # noqa: C901
+    results: dict[str, Any],
+    bridge_segments: list[Any],
+) -> dict[str, pd.DataFrame]:
     """
     Process SCIA CS (Cross Section) analysis results for IDEA StatiCa integration.
 

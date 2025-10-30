@@ -150,7 +150,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         point_2: tuple[float, float, float],
         *,
         name: str,
-        draw: Any | None = None,
+        draw: scia.Draw | None = None,
         direction_of_cut: tuple[float, float, float] | None = None,
     ) -> scia.SectionOnPlane:
         """
