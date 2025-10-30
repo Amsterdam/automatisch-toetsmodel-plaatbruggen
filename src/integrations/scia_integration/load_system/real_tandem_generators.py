@@ -170,7 +170,7 @@ def generate_real_lane_positions_bg8000(
 # ========================================================================
 
 
-def generate_real_lane_positions_two_road_zones( # noqa: C901
+def generate_real_lane_positions_two_road_zones(  # noqa: C901
     params: "BridgeParametrization",
     positioning_strategy: str,
     lane_width: float = 3.0,

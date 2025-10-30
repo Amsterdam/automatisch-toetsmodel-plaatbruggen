@@ -70,7 +70,7 @@ def _find_auto_zones_with_indices(load_zones_data: list) -> list[tuple[int, Any]
     return [(i, zone) for i, zone in enumerate(load_zones_data) if zone.zone_type == "Auto"]
 
 
-def _calculate_zone_width( # noqa: PLR0913
+def _calculate_zone_width(  # noqa: PLR0913
     zone_position: int,
     zone_index: int,
     zone: Any,
