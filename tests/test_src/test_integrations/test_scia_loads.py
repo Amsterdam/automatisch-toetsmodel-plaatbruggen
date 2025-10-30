@@ -1236,6 +1236,19 @@ def test_generate_real_lane_positions_bg8000_two_road_zones(  # noqa: PLR0913
             f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
         )
 
+@pytest.mark.parametrize(
+    ("width_zone_1", "width_zone_2", "expected_lanes_zone_1", "expected_lanes_zone_2"),
+    [
+        (10.0, 10.0, 3, 3),  # Both zones > 9m
+        (10.0, 7.5, 3, 2),  # Zone 1 > 9m, Zone 2 between 6-9m
+        (7.5, 7.5, 2, 2),  # Both zones between 6-9m
+        (7.5, 4.5, 2, 1),  # Zone 1 between 6-9m, Zone 2 between 3-6m
+        (4.5, 4.5, 1, 1),  # Both zones between 3-6m
+        (4.5, 2.5, 1, 0),  # Zone 1 between 3-6m, Zone 2 < 3m
+        (7.5, 2.5, 2, 0),  # Zone 1 between 6-9m, Zone 2 < 3m
+        (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
+    ],
+)
 
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
@@ -1299,7 +1312,20 @@ def test_generate_real_lane_positions_bg9000_two_road_zones(  # noqa: PLR0913
         assert lane_positions[i] < lane_positions[i + 1], (
             f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
         )
-
+        
+@pytest.mark.parametrize(
+    ("width_zone_1", "width_zone_2", "expected_lanes_zone_1", "expected_lanes_zone_2"),
+    [
+        (10.0, 10.0, 3, 3),  # Both zones > 9m
+        (10.0, 7.5, 3, 2),  # Zone 1 > 9m, Zone 2 between 6-9m
+        (7.5, 7.5, 2, 2),  # Both zones between 6-9m
+        (7.5, 4.5, 2, 1),  # Zone 1 between 6-9m, Zone 2 between 3-6m
+        (4.5, 4.5, 1, 1),  # Both zones between 3-6m
+        (4.5, 2.5, 1, 0),  # Zone 1 between 3-6m, Zone 2 < 3m
+        (7.5, 2.5, 2, 0),  # Zone 1 between 6-9m, Zone 2 < 3m
+        (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
+    ],
+)
 
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
