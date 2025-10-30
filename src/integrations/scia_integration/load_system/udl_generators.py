@@ -54,14 +54,15 @@ def generate_real_lane_positions_bg8000(
     return _impl(params, lane_width)
 
 
-def generate_real_lane_positions_bg8000_two_road_zones(
+def generate_real_lane_positions_two_road_zones(
     params: "BridgeParametrization",
+    positioning_strategy: str,
     lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """Forward declaration - implemented in real_tandem_generators."""
-    from .real_tandem_generators import generate_real_lane_positions_bg8000_two_road_zones as _impl
+    from .real_tandem_generators import generate_real_lane_positions_two_road_zones as _impl
 
-    return _impl(params, lane_width)
+    return _impl(params, positioning_strategy, lane_width)
 
 
 def generate_real_lane_positions_bg9000(
@@ -74,32 +75,12 @@ def generate_real_lane_positions_bg9000(
     return _impl(params, lane_width)
 
 
-def generate_real_lane_positions_bg9000_two_road_zones(
-    params: "BridgeParametrization",
-    lane_width: float = DEFAULT_LANE_WIDTH,
-) -> list[float]:
-    """Forward declaration - implemented in real_tandem_generators."""
-    from .real_tandem_generators import generate_real_lane_positions_bg9000_two_road_zones as _impl
-
-    return _impl(params, lane_width)
-
-
 def generate_real_lane_positions_bg10000(
     params: "BridgeParametrization",
     lane_width: float = DEFAULT_LANE_WIDTH,
 ) -> list[float]:
     """Forward declaration - implemented in real_tandem_generators."""
     from .real_tandem_generators import generate_real_lane_positions_bg10000 as _impl
-
-    return _impl(params, lane_width)
-
-
-def generate_real_lane_positions_bg10000_two_road_zones(
-    params: "BridgeParametrization",
-    lane_width: float = DEFAULT_LANE_WIDTH,
-) -> list[float]:
-    """Forward declaration - implemented in real_tandem_generators."""
-    from .real_tandem_generators import generate_real_lane_positions_bg10000_two_road_zones as _impl
 
     return _impl(params, lane_width)
 
@@ -334,9 +315,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
 
         # Calculate lane width based on combined width
         max_lanes, lane_width = amount_of_notional_lanes(width_zone_1 + width_zone_2)
+        print("laneweidth", lane_width)
 
         # BG4001: leftmost lanes (BG8000 logic) - lanes from bottom upward
-        y_positions_left = generate_real_lane_positions_bg8000_two_road_zones(params, lane_width)
+        y_positions_left = generate_real_lane_positions_two_road_zones(params, "bg8000", lane_width=3)
 
         if y_positions_left:
             load_polygons: dict[str, list[dict[str, list[tuple[float, float, float]] | float]]] = {"main": [], "other": [], "rest": []}
@@ -414,7 +396,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             results["BG4001"] = load_polygons
 
         # BG4002: rightmost lanes (BG9000 logic) - lanes from top downward
-        y_positions_right = generate_real_lane_positions_bg9000_two_road_zones(params, lane_width)
+        y_positions_right = generate_real_lane_positions_two_road_zones(params, "bg9000", lane_width)
 
         if y_positions_right:
             load_polygons = {"main": [], "other": [], "rest": []}
@@ -489,7 +471,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             results["BG4002"] = load_polygons
 
         # BG4003: center lane positioning (BG10000 logic)
-        y_positions_center = generate_real_lane_positions_bg10000_two_road_zones(params, lane_width)
+        y_positions_center = generate_real_lane_positions_two_road_zones(params, "bg10000", lane_width)
 
         if y_positions_center and len(y_positions_center) > 0:
             load_polygons = {"main": [], "other": [], "rest": []}
