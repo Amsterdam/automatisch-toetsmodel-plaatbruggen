@@ -361,10 +361,7 @@ def _map_cs_section_to_zone(
     for i in range(1, len(bridge_segments)):  # Start from index 1
         # Get segment length - support both VIKTOR Munch (l) and Pydantic model (segment_length)
         segment_length = getattr(bridge_segments[i], "l", None) or getattr(bridge_segments[i], "segment_length", 0.0)
-        if segment_length is not None:
-            segment_length = float(segment_length)  # Ensure it's a float
-        else:
-            segment_length = 0.0
+        segment_length = float(segment_length) if segment_length is not None else 0.0
         cumulative_length += segment_length
 
         if x <= cumulative_length:
