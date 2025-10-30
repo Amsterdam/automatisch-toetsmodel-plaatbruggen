@@ -528,7 +528,7 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     for selected_table in selected_result_tables:
         df_result = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
         results_cs[selected_table] = df_result
-        
+
         # DEBUG EXPORT: Export processed CS results for view
         if not df_result.empty:
             safe_table_name = selected_table.replace(" ", "_")
