@@ -5,27 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.materials import get_reinforcement_qualities
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -48,6 +27,28 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
+
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.materials import get_reinforcement_qualities
 
 from .utils import validate_reinforcement_zone_selections
 
@@ -1097,7 +1098,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             _create_default_load_zone_row(LOAD_ZONE_TYPES[0], 1.5),  # Voetgangers
             _create_default_load_zone_row(LOAD_ZONE_TYPES[1], 3.0),  # Fietsers
             _create_default_load_zone_row(LOAD_ZONE_TYPES[2], 10.5),  # Auto (Rijbaan)
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[3], 3.0),  # Tram
+            _create_default_load_zone_row(LOAD_ZONE_TYPES[3], 1.435),  # Tram (standaardbreedte spoorwijdte)
             _create_default_load_zone_row(LOAD_ZONE_TYPES[4], 0.5),  # Berm
         ],
     )

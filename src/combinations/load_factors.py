@@ -480,6 +480,46 @@ def get_alpha_trend_nen_8701(span: float, design_life: int) -> float:
     return float(result.item())
 
 
+def get_dynamic_load_factor(span: float) -> float:
+    """
+    Calculate the dynamic factor Φ for tram loads according to NEN-EN 1991-2 art. 4.3.4.2 (d).
+
+    The dynamic factor accounts for dynamic amplification of static loads due to
+    vehicle-structure interaction for railway and tramway traffic.
+
+    According to NEN-EN 1991-2 art. 4.3.4.2 (d), for tram traffic:
+    Φ = 1.40 - L / 500
+
+    Where:
+    - L is the span length in meters
+
+    The dynamic factor is limited to a minimum value:
+    - Minimum Φ = 1.0 (no amplification below static load)
+
+    For single-span bridges, L is the span length. For multi-span continuous bridges,
+    L should be determined according to the standard.
+
+    :param span: Length of the span in meters (L)
+    :type span: float
+    :returns: Dynamic factor Φ for tram loads (Φ ≥ 1.0)
+    :rtype: float
+
+    :raises ValueError: If span <= 0
+
+    """
+    if span <= 0:
+        raise ValueError("Span length must be greater than 0")
+
+    # Calculate dynamic factor: 1.40 minus span divided by 500
+    # According to NEN-EN 1991-2 art. 4.3.4.2 (d)
+    dynamic_factor = 1.40 - span / 500.0
+
+    # Apply minimum limit
+    dynamic_factor = max(1.0, dynamic_factor)
+
+    return float(dynamic_factor)
+
+
 def get_alpha_q_nen_en_1991_2(span: float, nobs: int) -> list:
     """
     Calculate the alpha_Q, alpha_q and alpha_qr factors according to NEN-EN 1991-2 based on span length and number of trucks per year.

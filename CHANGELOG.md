@@ -1,5 +1,7 @@
 ## [`v0.0.16`] - 2025-XX-XX
 ### Added
+- Added dynamic load factor for tram load
+- Tram loads VIKTOR input and modelling of the loads in SCIA
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
 - **Manual Support Selection**: Users can now manually select support types for each D-point location instead of automatic first/last positioning.
   - Support options: "Nee" (no support), "Verende oplegging (x,y)" (roller), "Inklemming" (fixed), "Scharnieroplegging" (pinned)
@@ -19,7 +21,11 @@
   - Updated SCIA model integration to handle multiple support types with correct structural constraints
   - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization 
 - **Refactored cache code**: code cleanup
-- **Report template**: Changed the report template to a shorter management summary. 
+- **Report template**: Changed the report template to a shorter management summary.
+- **Explanatory text loadzones**: Added explanation for the application of a separated tram zone on the loadzones tab. 
+
+### Fixed
+- Fixed a typo on the calculation page, changed "werden" to "worden".
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added
