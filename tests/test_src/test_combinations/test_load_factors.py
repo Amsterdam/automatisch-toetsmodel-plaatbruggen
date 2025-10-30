@@ -15,6 +15,7 @@ from src.combinations.load_factors import (
     create_load_combination_table,
     get_alpha_q_nen_en_1991_2,
     get_alpha_trend_nen_8701,
+    get_dynamic_load_factor,
     get_gamma_factors,
     get_psi_nen_8701,
 )
@@ -312,6 +313,117 @@ class TestGetAlphaQNenEn19912(unittest.TestCase):
         assert isinstance(result_high, list)
         assert len(result_low) == 2
         assert len(result_high) == 2
+
+
+class TestGetDynamicTramLoad(unittest.TestCase):
+    """Test cases for the get_dynamic_tram_load function."""
+
+    def test_get_dynamic_tram_load_short_span(self) -> None:
+        """Test get_dynamic_tram_load with a short span."""
+        # Act - Short span 20m
+        result = get_dynamic_load_factor(span=20.0)
+
+        # Assert
+        assert isinstance(result, float)
+        # Expected: Φ = 1.40 - 20 / 500 = 1.40 - 0.04 = 1.36
+        assert result == pytest.approx(1.36, rel=1e-9)
+
+    def test_get_dynamic_tram_load_medium_span(self) -> None:
+        """Test get_dynamic_tram_load with a medium span."""
+        # Act - Medium span 50m
+        result = get_dynamic_load_factor(span=50.0)
+
+        # Assert
+        assert isinstance(result, float)
+        # Expected: Φ = 1.40 - 50 / 500 = 1.40 - 0.10 = 1.30
+        assert result == pytest.approx(1.30, rel=1e-9)
+
+    def test_get_dynamic_tram_load_long_span(self) -> None:
+        """Test get_dynamic_tram_load with a long span."""
+        # Act - Long span 150m
+        result = get_dynamic_load_factor(span=150.0)
+
+        # Assert
+        assert isinstance(result, float)
+        # Expected: Φ = 1.40 - 150 / 500 = 1.40 - 0.30 = 1.10
+        assert result == pytest.approx(1.10, rel=1e-9)
+
+    def test_get_dynamic_tram_load_minimum_factor(self) -> None:
+        """Test get_dynamic_tram_load returns minimum factor of 1.0 for very long spans."""
+        # Act - Very long span 200m (at the boundary)
+        result_200 = get_dynamic_load_factor(span=200.0)
+        # Expected: Φ = 1.40 - 200 / 500 = 1.40 - 0.40 = 1.00
+
+        # Act - Very long span 250m (beyond boundary)
+        result_250 = get_dynamic_load_factor(span=250.0)
+        # Expected: Φ = 1.40 - 250 / 500 = 1.40 - 0.50 = 0.90 -> clamped to 1.00
+
+        # Act - Extremely long span 500m
+        result_500 = get_dynamic_load_factor(span=500.0)
+        # Expected: Φ = 1.40 - 500 / 500 = 1.40 - 1.00 = 0.40 -> clamped to 1.00
+
+        # Assert
+        assert isinstance(result_200, float)
+        assert isinstance(result_250, float)
+        assert isinstance(result_500, float)
+        assert result_200 == pytest.approx(1.00, rel=1e-9)
+        assert result_250 == 1.0  # Clamped to minimum
+        assert result_500 == 1.0  # Clamped to minimum
+
+    def test_get_dynamic_tram_load_boundary_span(self) -> None:
+        """Test get_dynamic_tram_load at the exact boundary where Φ = 1.0."""
+        # Act - Span where Φ = 1.0: 1.40 - L / 500 = 1.0 => L = 200m
+        result = get_dynamic_load_factor(span=200.0)
+
+        # Assert
+        assert isinstance(result, float)
+        assert result == pytest.approx(1.0, rel=1e-9)
+
+    def test_get_dynamic_tram_load_zero_span_raises_error(self) -> None:
+        """Test get_dynamic_tram_load raises ValueError for zero span."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Span length must be greater than 0"):
+            get_dynamic_load_factor(span=0.0)
+
+    def test_get_dynamic_tram_load_negative_span_raises_error(self) -> None:
+        """Test get_dynamic_tram_load raises ValueError for negative span."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Span length must be greater than 0"):
+            get_dynamic_load_factor(span=-10.0)
+
+    def test_get_dynamic_tram_load_typical_bridge_spans(self) -> None:
+        """Test get_dynamic_tram_load with typical Amsterdam bridge spans."""
+        # Arrange - Test typical spans from 10m to 100m
+        test_cases = [
+            (10.0, 1.38),  # Φ = 1.40 - 10/500 = 1.38
+            (20.0, 1.36),  # Φ = 1.40 - 20/500 = 1.36
+            (30.0, 1.34),  # Φ = 1.40 - 30/500 = 1.34
+            (40.0, 1.32),  # Φ = 1.40 - 40/500 = 1.32
+            (50.0, 1.30),  # Φ = 1.40 - 50/500 = 1.30
+            (75.0, 1.25),  # Φ = 1.40 - 75/500 = 1.25
+            (100.0, 1.20),  # Φ = 1.40 - 100/500 = 1.20
+        ]
+
+        # Act & Assert
+        for span, expected_phi in test_cases:
+            result = get_dynamic_load_factor(span=span)
+            assert isinstance(result, float)
+            assert result == pytest.approx(expected_phi, rel=1e-9)
+
+    def test_get_dynamic_tram_load_decreases_with_span(self) -> None:
+        """Test that dynamic factor decreases linearly with increasing span."""
+        # Arrange
+        spans = [10.0, 30.0, 50.0, 75.0, 100.0, 150.0]
+
+        # Act
+        results = [get_dynamic_load_factor(span=s) for s in spans]
+
+        # Assert
+        assert all(isinstance(r, float) for r in results)
+        assert all(r >= 1.0 for r in results)
+        # Dynamic factor should strictly decrease with increasing span (until minimum)
+        for i in range(len(results) - 1):
+            assert results[i] > results[i + 1]
 
 
 class TestCreateLoadCombinationTable(unittest.TestCase):
