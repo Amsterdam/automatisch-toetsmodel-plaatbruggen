@@ -10,11 +10,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.integrations.scia_integration.scia_loads_helper import (
+from src.integrations.scia_integration.load_system.load_value_calculators import (
     calculate_real_tandem_values,
     calculate_real_udl_values,
-    create_material_surface_load,
+)
+from src.integrations.scia_integration.load_system.real_tandem_generators import (
     generate_real_lane_positions_bg10000_two_road_zones,
+)
+from src.integrations.scia_integration.scia_loads.material_load_helpers import (
+    create_material_surface_load,
 )
 
 BridgeParametrization: Any
@@ -118,7 +122,7 @@ class TestTheoreticalTandemLoads:
     ) -> None:
         """Test theoretical tandem loads with multiple wheels."""
         # Setup mocks for multiple wheels - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
         from src.integrations.scia_integration.scia_loads import add_theoretical_tandem_loads
 
         mock_extract.return_value = BridgeDimensions(
@@ -151,15 +155,15 @@ class TestServiceVehicleLoads:
     """Test service vehicle load application."""
 
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer")
+    @patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data")
-    @patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations")
+    @patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations")
     def test_add_service_vehicle_loads_success(  # noqa: PLR0913
         self, mock_calc_vehicle: Mock, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
     ) -> None:
         """Test successful service vehicle load addition."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
         from src.integrations.scia_integration.scia_loads import add_service_vehicle_loads
 
         mock_extract.return_value = BridgeDimensions(
@@ -218,16 +222,16 @@ class TestServiceVehicleLoads:
 class TestAccidentalVehicleLoads:
     """Test accidental vehicle load application."""
 
-    @patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations")
+    @patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer")
+    @patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data")
     def test_add_accidental_vehicle_loads_bidirectional(  # noqa: PLR0913
         self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_calc_locations: Mock, mock_builder: Mock, mock_params: Mock
     ) -> None:
         """Test accidental vehicle loads with bidirectional placement."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
 
         mock_extract.return_value = BridgeDimensions(
@@ -323,13 +327,13 @@ class TestAccidentalVehicleLoads:
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
 
         with (
-            patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations") as mock_calc_locations,
+            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
-            patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer") as mock_sequencer,
+            patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
         ):
             # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-            from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
             mock_extract.return_value = BridgeDimensions(
                 total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
@@ -405,11 +409,11 @@ class TestAccidentalVehicleLoads:
 
         with (
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
-            patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer") as mock_sequencer,
+            patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
         ):
             # Setup mocks
-            from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
             mock_extract.return_value = BridgeDimensions(
                 total_length=10.0, total_width=6.0, thickness=0.5, zone1_width=2.0, zone2_width=2.0, zone3_width=2.0, first_segment_thickness=0.5
@@ -593,7 +597,7 @@ class TestUniformlyDistributedLoads:
         2. 5.4m ≤ width < 6.0m: 2 lanes of width/2
         3. width ≥ 6.0m: width//3 lanes of 3m
         """
-        from src.integrations.scia_integration.scia_loads_helper import amount_of_notional_lanes
+        from src.integrations.scia_integration.load_system.lane_calculations import amount_of_notional_lanes
 
         # Test case 1: width < 5.4m
         num_lanes, lane_width = amount_of_notional_lanes(5.0)
@@ -622,7 +626,7 @@ class TestUniformlyDistributedLoads:
         This is used for BG4003 (center load case) where we need to determine how many lanes
         can fit on either side of a center lane.
         """
-        from src.integrations.scia_integration.scia_loads_helper import amount_of_notional_lanes_from_center
+        from src.integrations.scia_integration.load_system.lane_calculations import amount_of_notional_lanes_from_center
 
         # Test narrow bridge - only center lane possible
         left_lanes, right_lanes, lane_width = amount_of_notional_lanes_from_center(5.0)
@@ -661,15 +665,16 @@ class TestUniformlyDistributedLoads:
         """Fixture to provide a mock load cases dictionary."""
         return {}
 
-    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
-    def test_create_real_udl_traffic_loads_basic_case(
-        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y: Mock, mock_params: Mock
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
+    def test_create_real_udl_traffic_loads_basic_case(  # noqa: PLR0913
+        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
     ) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""
-        from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
+        from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
@@ -707,8 +712,9 @@ class TestUniformlyDistributedLoads:
         mock_params.__contains__ = Mock(return_value=True)
         mock_params.berekeningsniveau = "Werkelijke wegindeling"  # Set the calculation mode explicitly
 
-        # Mock obtain_y_coordinates_road to return valid road geometry
-        mock_obtain_y.return_value = (6.5, 10.5)  # (y_top, width_road)
+        # Mock obtain_y_coordinates_road to return valid road geometry (both patches)
+        mock_obtain_y_udl.return_value = (6.5, 10.5)  # (y_top, width_road)
+        mock_obtain_y_real.return_value = (6.5, 10.5)  # (y_top, width_road)
 
         # Execute the function
         result = create_real_udl_traffic_loads(
@@ -748,24 +754,26 @@ class TestUniformlyDistributedLoads:
         expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
         assert abs(main_polygon["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}"
 
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_number_of_road_zones")
-    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_reference_period")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_number_of_road_zones")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_reference_period")
     def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
         self,
         mock_ref_period: Mock,
         mock_alpha_q: Mock,
         mock_alpha_trend: Mock,
         mock_psi: Mock,
-        mock_obtain_y: Mock,
+        mock_obtain_y_udl: Mock,
         mock_num_zones: Mock,
+        mock_obtain_y_real: Mock,
         mock_params: Mock,
     ) -> None:
         """Test real UDL traffic loads creation with edge cases."""
-        from src.integrations.scia_integration.scia_loads_helper import create_real_udl_traffic_loads
+        from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
         # Configure mock params and reference period
         mock_params.reference_period = 50  # years
@@ -803,8 +811,9 @@ class TestUniformlyDistributedLoads:
         mock_zone_narrow.y_coords_top_current_zone = [3.0, 3.0, 3.0, 3.0]
         mock_params.load_zones_data_array = [mock_zone_narrow]
 
-        # Mock obtain_y_coordinates_road to return valid road geometry for narrow road
-        mock_obtain_y.return_value = (3.0, 3.0)  # (y_top, width_road)
+        # Mock obtain_y_coordinates_road to return valid road geometry for narrow road (both patches)
+        mock_obtain_y_udl.return_value = (3.0, 3.0)  # (y_top, width_road)
+        mock_obtain_y_real.return_value = (3.0, 3.0)  # (y_top, width_road)
 
         result_narrow = create_real_udl_traffic_loads(
             params=mock_params,
@@ -848,14 +857,15 @@ class TestUniformlyDistributedLoads:
         main_load = result_zero_load["BG4001"]["main"][0] if result_zero_load["BG4001"]["main"] else {"load": 0.0}
         assert main_load["load"] == 0.0, "Should handle zero load value"
 
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_load_zones_data_from_params")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data")
-    @patch("src.integrations.scia_integration.scia_loads_helper.calculate_zone_geometry_properties")
+    @patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.road_zone_utils.get_load_zones_data_from_params")
+    @patch("src.integrations.scia_integration.load_system.road_zone_utils.get_bridge_geom_data")
+    @patch("src.integrations.scia_integration.load_system.road_zone_utils.calculate_zone_geometry_properties")
     def test_obtain_y_coordinates_road_basic_case(
-        self, mock_calc_geom: Mock, mock_bridge_geom: Mock, mock_load_zones: Mock, mock_params: Mock
+        self, mock_calc_geom: Mock, mock_bridge_geom: Mock, mock_load_zones: Mock, mock_extract_dims: Mock, mock_params: Mock
     ) -> None:
         """Test obtaining y-coordinates for road section in basic case."""
-        from src.integrations.scia_integration.scia_loads_helper import obtain_y_coordinates_road
+        from src.integrations.scia_integration.load_system.road_zone_utils import obtain_y_coordinates_road
 
         # Setup mock bridge segments array for extract_bridge_dimensions
         mock_segment = Mock()
@@ -868,6 +878,11 @@ class TestUniformlyDistributedLoads:
         mock_segment.dz = 0.5  # deck thickness
         mock_params.bridge_segments_array = [mock_segment, mock_segment]
         mock_params.load_zones_data_array = []
+
+        # Setup mock bridge dimensions
+        mock_dims = Mock()
+        mock_dims.total_width = 10.0  # Match bz1+bz2+bz3
+        mock_extract_dims.return_value = mock_dims
 
         # Setup mock bridge geometry data
         mock_bridge_geom_data = Mock()
@@ -891,7 +906,7 @@ class TestUniformlyDistributedLoads:
 
         # Verify results
         assert y_coord == 6.5, "Y-coordinate should match the top of Auto zone"
-        assert width == 10.0, "Width should match total bridge width (bz1+bz2+bz3 = 3+4+3)"
+        assert width == 10.0, "Width should match total_width since Auto zone is the last (and only) zone"
 
         # Verify mocks were called correctly
         mock_load_zones.assert_called_once_with(mock_params)
@@ -900,7 +915,7 @@ class TestUniformlyDistributedLoads:
 
     def test_obtain_y_coordinates_road_edge_cases(self, mock_params: Mock) -> None:
         """Test obtaining y-coordinates for road section in edge cases."""
-        from src.integrations.scia_integration.scia_loads_helper import obtain_y_coordinates_road
+        from src.integrations.scia_integration.load_system.road_zone_utils import obtain_y_coordinates_road
 
         # Setup mock bridge segments array for extract_bridge_dimensions
         mock_segment = Mock()
@@ -914,7 +929,15 @@ class TestUniformlyDistributedLoads:
         mock_params.bridge_segments_array = [mock_segment, mock_segment]
         mock_params.load_zones_data_array = []
 
-        with patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data") as mock_bridge_geom:
+        with (
+            patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions") as mock_extract_dims,
+            patch("src.integrations.scia_integration.load_system.road_zone_utils.get_bridge_geom_data") as mock_bridge_geom,
+        ):
+            # Setup mock bridge dimensions
+            mock_dims = Mock()
+            mock_dims.total_width = 10.0  # Match bz1+bz2+bz3
+            mock_extract_dims.return_value = mock_dims
+
             # Test case: No bridge geometry data
             mock_bridge_geom.return_value = None
             y_coord, width = obtain_y_coordinates_road(mock_params)
@@ -922,11 +945,15 @@ class TestUniformlyDistributedLoads:
             assert width == 0.0, "Should return 0.0 when no bridge geometry data"
 
         with (
-            patch("src.integrations.scia_integration.scia_loads_helper.get_load_zones_data_from_params") as mock_load_zones,
-            patch("src.integrations.scia_integration.scia_loads_helper.get_bridge_geom_data") as mock_bridge_geom,
-            patch("src.integrations.scia_integration.scia_loads_helper.calculate_zone_geometry_properties") as mock_calc_geom,
+            patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions") as mock_extract_dims,
+            patch("src.integrations.scia_integration.load_system.road_zone_utils.get_load_zones_data_from_params") as mock_load_zones,
+            patch("src.integrations.scia_integration.load_system.road_zone_utils.get_bridge_geom_data") as mock_bridge_geom,
+            patch("src.integrations.scia_integration.load_system.road_zone_utils.calculate_zone_geometry_properties") as mock_calc_geom,
         ):
             # Setup for remaining tests
+            mock_dims = Mock()
+            mock_dims.total_width = 10.0  # Match bz1+bz2+bz3
+            mock_extract_dims.return_value = mock_dims
             mock_bridge_geom.return_value = Mock()
 
             # Test case: No Auto zone
@@ -958,13 +985,13 @@ class TestUniformlyDistributedLoads:
             mock_calc_geom.return_value = mock_load_zones.return_value
             y_coord, width = obtain_y_coordinates_road(mock_params)
             assert y_coord == 5.0, "Should return correct y-coordinate"
-            assert width == 10.0, "Should return total bridge width (from bridge_segments_array)"
+            assert width == 10.0, "Should return total_width since Auto zone is the last (and only) zone"
 
     def test_generate_real_lane_positions_bg8000(self, mock_params: Mock) -> None:
         """Test generation of lane positions for BG8000 load group."""
-        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg8000
+        from src.integrations.scia_integration.load_system.real_tandem_generators import generate_real_lane_positions_bg8000
 
-        with patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_obtain_coords:
+        with patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road") as mock_obtain_coords:
             # Test case: Normal road width with multiple lanes
             mock_obtain_coords.return_value = (10.0, 9.0)  # y_top = 10.0, width = 9.0
             lane_positions = generate_real_lane_positions_bg8000(mock_params)
@@ -992,9 +1019,9 @@ class TestUniformlyDistributedLoads:
 
     def test_generate_real_lane_positions_bg9000(self, mock_params: Mock) -> None:
         """Test generation of lane positions for BG9000 load group."""
-        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg9000
+        from src.integrations.scia_integration.load_system.real_tandem_generators import generate_real_lane_positions_bg9000
 
-        with patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_road") as mock_obtain_coords:
+        with patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road") as mock_obtain_coords:
             # Test case: Normal road width with multiple lanes
             mock_obtain_coords.return_value = (10.0, 9.0)  # y_top = 10.0, width = 9.0
             lane_positions = generate_real_lane_positions_bg9000(mock_params)
@@ -1019,12 +1046,15 @@ class TestUniformlyDistributedLoads:
             with pytest.raises(ValueError, match="Lane width must be positive"):
                 generate_real_lane_positions_bg9000(mock_params, lane_width=0)
 
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_alpha_q_nen_en_1991_2")
-    def test_create_udl_traffic_loads_basic_case(self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_params: Mock) -> None:
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_reference_period")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_q_nen_en_1991_2")
+    def test_create_udl_traffic_loads_basic_case(
+        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_ref_period: Mock, mock_params: Mock
+    ) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
-        from src.integrations.scia_integration.scia_loads_helper import create_theoretical_udl_traffic_loads
+        from src.integrations.scia_integration.load_system.udl_generators import create_theoretical_udl_traffic_loads
 
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
@@ -1038,6 +1068,7 @@ class TestUniformlyDistributedLoads:
         mock_params.__contains__ = Mock(return_value=True)
 
         # Mock the load factors
+        mock_ref_period.return_value = 30  # Standard reference period
         mock_psi.return_value = 0.95  # Example psi factor
         mock_alpha_trend.return_value = 0.99  # Example alpha trend factor
         mock_alpha_q.return_value = [0.95, 1.0]  # Example alpha q factors for main and other lanes
@@ -1093,7 +1124,7 @@ class TestUniformlyDistributedLoads:
 
     def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
         """Test UDL traffic loads creation with edge cases."""
-        from src.integrations.scia_integration.scia_loads_helper import create_theoretical_udl_traffic_loads
+        from src.integrations.scia_integration.load_system.udl_generators import create_theoretical_udl_traffic_loads
 
         # Configure mock params to handle dictionary-style access
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
@@ -1144,8 +1175,8 @@ class TestUniformlyDistributedLoads:
             (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
         ],
     )
-    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_two_road_zones")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_widths_of_two_road_zones")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
     def test_generate_real_lane_positions_bg8000_two_road_zones(  # noqa: PLR0913
         self,
         mock_get_widths: Mock,
@@ -1161,7 +1192,7 @@ class TestUniformlyDistributedLoads:
         BG8000 positions lanes from bottom upward in each zone.
         Lane positions are returned sorted by y-coordinate.
         """
-        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg8000_two_road_zones
+        from src.integrations.scia_integration.load_system.real_tandem_generators import generate_real_lane_positions_bg8000_two_road_zones
 
         # Arrange
         y_top_zone_1 = 5.0
@@ -1215,8 +1246,8 @@ class TestUniformlyDistributedLoads:
             (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
         ],
     )
-    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_two_road_zones")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_widths_of_two_road_zones")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
     def test_generate_real_lane_positions_bg9000_two_road_zones(  # noqa: PLR0913
         self,
         mock_get_widths: Mock,
@@ -1231,7 +1262,7 @@ class TestUniformlyDistributedLoads:
 
         BG9000 positions lanes from top downward in each zone (opposite of BG8000).
         """
-        from src.integrations.scia_integration.scia_loads_helper import generate_real_lane_positions_bg9000_two_road_zones
+        from src.integrations.scia_integration.load_system.real_tandem_generators import generate_real_lane_positions_bg9000_two_road_zones
 
         # Arrange
         y_top_zone_1 = 5.0
@@ -1276,8 +1307,8 @@ class TestUniformlyDistributedLoads:
             (10.0, 2.5, 3, 0),  # Zone 1 > 9m, Zone 2 < 3m
         ],
     )
-    @patch("src.integrations.scia_integration.scia_loads_helper.obtain_y_coordinates_two_road_zones")
-    @patch("src.integrations.scia_integration.scia_loads_helper.get_widths_of_two_road_zones")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
+    @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
     def test_generate_real_lane_positions_bg10000_two_road_zones(  # noqa: PLR0913
         self,
         mock_get_widths: Mock,
@@ -1404,11 +1435,11 @@ class TestLoadBoundaryCompliance:
 
         with (
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
-            patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer") as mock_sequencer,
+            patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-            patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations") as mock_calc_locations,
+            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
-            from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
             mock_extract.return_value = BridgeDimensions(
                 total_length=30.0, total_width=16.0, thickness=0.8, zone1_width=5.0, zone2_width=6.0, zone3_width=5.0, first_segment_thickness=0.8
@@ -1477,11 +1508,11 @@ class TestLoadBoundaryCompliance:
 
         with (
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
-            patch("src.integrations.scia_integration.scia_loads_helper.tandem_system_sequencer") as mock_sequencer,
+            patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-            patch("src.integrations.scia_integration.scia_loads_helper.calc_vehicle_load_locations") as mock_calc_locations,
+            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
-            from src.integrations.scia_integration.scia_load_generators import BridgeDimensions
+            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
 
             mock_extract.return_value = BridgeDimensions(
                 total_length=40.0, total_width=20.0, thickness=1.0, zone1_width=8.0, zone2_width=4.0, zone3_width=8.0, first_segment_thickness=1.0
@@ -1529,7 +1560,7 @@ class TestLoadBoundaryCompliance:
 
     def test_clip_polygon_to_bridge_boundaries_function(self, mock_bridge_geometry: Mock) -> None:
         """Test the clip_polygon_to_bridge_boundaries function directly."""
-        from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+        from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
         # Test with coordinates that extend beyond boundaries
         corner_points = [
@@ -1557,7 +1588,7 @@ class TestLoadBoundaryCompliance:
 
     def test_clip_polygon_with_coordinates_within_boundaries(self, mock_bridge_geometry: Mock) -> None:
         """Test that coordinates already within boundaries are not modified."""
-        from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+        from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
         # Test with coordinates already within boundaries
         corner_points = [
@@ -1574,7 +1605,7 @@ class TestLoadBoundaryCompliance:
 
     def test_clip_polygon_with_empty_input(self, mock_bridge_geometry: Mock) -> None:
         """Test that empty input returns empty output."""
-        from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+        from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
         clipped_points = clip_polygon_to_bridge_boundaries([], mock_bridge_geometry)
         assert clipped_points == [], "Empty input should return empty output"

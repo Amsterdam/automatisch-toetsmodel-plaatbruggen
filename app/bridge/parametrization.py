@@ -5,27 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.materials import get_reinforcement_qualities
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -49,6 +28,28 @@ from viktor.parametrization import (
     TextField,
 )
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.materials import get_reinforcement_qualities
+
 from .utils import validate_reinforcement_zone_selections
 
 
@@ -70,10 +71,10 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
 
     try:
         # For dynamic load cases, we need to calculate based on bridge geometry
-        from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions
-        from src.integrations.scia_integration.scia_loads_helper import (
+        from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
+        from src.integrations.scia_integration.load_system.theoretical_tandem_generators import (
             generate_theoretical_lane_positions_bg8000,
-            tandem_system_sequencer,
         )
 
         dims = extract_bridge_dimensions(params)

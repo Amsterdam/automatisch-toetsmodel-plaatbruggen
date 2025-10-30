@@ -4,7 +4,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.integrations.scia_integration.scia_results_processor import (
+from src.integrations.scia_integration.results.scia_results_processor import (
     process_scia_1d_results,
     process_scia_2d_results,
 )

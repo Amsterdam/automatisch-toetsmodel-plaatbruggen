@@ -13,16 +13,17 @@ import zipfile
 from io import BytesIO
 from typing import Any, NoReturn
 
-from app.bridge.analysis_cache import get_cached_analysis_results
-from app.bridge.parametrization import BridgeParametrization
-from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_analysis_results
-from src.common.constants.technical import AnalysisType
-from src.integrations.scia_integration.scia_force_envelopes import extract_force_envelopes, get_force_envelope_summary
-from src.integrations.scia_integration.scia_result_views import create_scia_integration_strip_results_table, create_scia_node_results_table
 from viktor.core import File, progress_message
 from viktor.errors import UserError
 from viktor.result import DownloadResult
 from viktor.views import TableResult, TableView
+
+from app.bridge.analysis_cache import get_cached_analysis_results
+from app.bridge.parametrization import BridgeParametrization
+from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_analysis_results
+from src.common.constants.technical import AnalysisType
+from src.integrations.scia_integration.results.scia_force_envelopes import extract_force_envelopes, get_force_envelope_summary
+from src.integrations.scia_integration.results.scia_result_views import create_scia_integration_strip_results_table, create_scia_node_results_table
 
 
 class SciaIntegration:

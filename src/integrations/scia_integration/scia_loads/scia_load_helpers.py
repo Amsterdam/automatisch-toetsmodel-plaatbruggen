@@ -8,7 +8,7 @@ different load types.
 
 from typing import Any
 
-from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
