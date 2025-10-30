@@ -13,8 +13,8 @@ from src.integrations.scia_integration.constants import (
     CROWD_LOAD_PER_SQM_N,
     KN_PER_M_TO_N_PER_M,
 )
-from src.integrations.scia_integration.scia_load_generators import generate_udl_loads
-from src.integrations.scia_integration.scia_model_interface import SciaModelBuilder
+from src.integrations.scia_integration.load_system.scia_load_generators import generate_udl_loads
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
@@ -182,7 +182,7 @@ def add_asfalt_loads(
         load_case_name = asphalt_load_case.name
 
         material_config = {"Asfalt": load_case_name}
-        from src.integrations.scia_integration.scia_loads_helper import add_material_loads
+        from src.integrations.scia_integration.scia_loads.material_load_helpers import add_material_loads
 
         add_material_loads(builder, params, material_config)
     except Exception as e:
@@ -218,7 +218,7 @@ def add_concrete_fill_loads(
             "Beton (normaal)": load_case_name,
             "Beton (gewapend)": load_case_name,
         }
-        from src.integrations.scia_integration.scia_loads_helper import add_material_loads
+        from src.integrations.scia_integration.scia_loads.material_load_helpers import add_material_loads
 
         add_material_loads(builder, params, material_config)
     except Exception as e:
@@ -255,7 +255,7 @@ def add_pavement_loads(
             "Grind": load_case_name,
             "Tegels": load_case_name,
         }
-        from src.integrations.scia_integration.scia_loads_helper import add_material_loads
+        from src.integrations.scia_integration.scia_loads.material_load_helpers import add_material_loads
 
         add_material_loads(builder, params, material_config)
     except Exception as e:

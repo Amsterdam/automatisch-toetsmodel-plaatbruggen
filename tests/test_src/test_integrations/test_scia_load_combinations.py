@@ -13,8 +13,8 @@ import pandas as pd
 import pytest
 
 from app.bridge.parametrization import BridgeParametrization
+from src.integrations.scia_integration.load_system.scia_load_combinations import create_all_load_combinations, create_load_combination
 from src.integrations.scia_integration.scia_enums import LoadCombinationType
-from src.integrations.scia_integration.scia_load_combinations import create_all_load_combinations, create_load_combination
 
 
 @pytest.fixture
@@ -58,9 +58,9 @@ class TestCreateLoadCombination:
 class TestCreateAllLoadCombinationsPipeline:
     """Tests for the table-driven pipeline in create_all_load_combinations."""
 
-    @patch("src.integrations.scia_integration.scia_load_combinations.get_leading_action_positions")
-    @patch("src.integrations.scia_integration.scia_load_combinations.get_project_scope")
-    @patch("src.integrations.scia_integration.scia_load_combinations.prepare_combination_table")
+    @patch("src.integrations.scia_integration.load_system.scia_load_combinations.get_leading_action_positions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_combinations.get_project_scope")
+    @patch("src.integrations.scia_integration.load_system.scia_load_combinations.prepare_combination_table")
     def test_uls_sls_fatigue_created_from_table(
         self,
         mock_prepare: Mock,
@@ -120,9 +120,9 @@ class TestCreateAllLoadCombinationsPipeline:
         other_types = [c.kwargs["combination_type"] for c in mock_builder.create_load_combination.call_args_list[1:]]
         assert all(t == LoadCombinationType.ENVELOPE_SERVICEABILITY for t in other_types)
 
-    @patch("src.integrations.scia_integration.scia_load_combinations.get_leading_action_positions")
-    @patch("src.integrations.scia_integration.scia_load_combinations.get_project_scope")
-    @patch("src.integrations.scia_integration.scia_load_combinations.prepare_combination_table")
+    @patch("src.integrations.scia_integration.load_system.scia_load_combinations.get_leading_action_positions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_combinations.get_project_scope")
+    @patch("src.integrations.scia_integration.load_system.scia_load_combinations.prepare_combination_table")
     def test_no_rows_after_filter_returns_empty(
         self,
         mock_prepare: Mock,

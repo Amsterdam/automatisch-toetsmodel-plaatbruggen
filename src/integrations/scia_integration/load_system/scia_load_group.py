@@ -5,12 +5,12 @@ These functions call the SciaModelBuilder to directly construct SCIA load groups
 This keeps this module independent of the VIKTOR SDK by programming against an interface.
 """
 
-from .scia_enums import (
+from src.integrations.scia_integration.model.scia_model_interface import SciaLoadGroup, SciaModelBuilder
+from src.integrations.scia_integration.scia_enums import (
     LoadGroupLoadType,
     LoadGroupOption,
     LoadGroupRelation,
 )
-from .scia_model_interface import SciaLoadGroup, SciaModelBuilder
 
 
 def create_permanent_load_group(builder: SciaModelBuilder) -> SciaLoadGroup:

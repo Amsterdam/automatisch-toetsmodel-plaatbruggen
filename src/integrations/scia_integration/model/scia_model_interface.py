@@ -15,7 +15,7 @@ This approach decouples the core logic from the specific SDK implementation.
 from io import BytesIO
 from typing import Any, Protocol
 
-from .scia_enums import (
+from src.integrations.scia_integration.scia_enums import (
     LineLoadDirection,
     LineSupportFreedom,
     LoadCaseActionType,

@@ -13,7 +13,7 @@ from unittest.mock import Mock
 import pytest
 from munch import Munch
 
-from src.integrations.scia_integration.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
 
 
 class TestLoadBoundaryCompliance:

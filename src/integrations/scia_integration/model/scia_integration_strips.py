@@ -3,10 +3,10 @@
 from typing import TYPE_CHECKING, Any
 
 from src.common.constants.technical import EDGE_OFFSET, INTEGRATION_STRIP_WIDTH
+from src.integrations.scia_integration.load_system.road_zone_utils import obtain_y_coordinates_road
+from src.integrations.scia_integration.types import BridgeParametrization, SegmentGeometry
 
-from .scia_loads_helper import obtain_y_coordinates_road
 from .scia_model_interface import SciaIntegrationStrip, SciaModelBuilder
-from .types import BridgeParametrization, SegmentGeometry
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:

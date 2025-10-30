@@ -11,10 +11,10 @@ The package provides a clean separation of concerns for load creation functional
 
 # Re-export main functions for backward compatibility
 from src.geometry.load_zone_geometry import get_bridge_geom_data
+from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
 
 # Re-export functions from other modules that tests need
-from src.integrations.scia_integration.scia_coordinate_utils import convert_loads_to_scia_format
-from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
+from src.integrations.scia_integration.model.scia_coordinate_utils import convert_loads_to_scia_format
 
 # Re-export types for backward compatibility
 from src.integrations.scia_integration.types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig

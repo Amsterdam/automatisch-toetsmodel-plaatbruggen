@@ -10,4 +10,5 @@ setuptools<81  # Pin to avoid pkg_resources deprecation warning from docxcompose
 types-shapely
 types-Markdown
 types-psutil
+types-openpyxl
 pandas-stubs

@@ -199,12 +199,10 @@ class TestOverviewBridgesController(unittest.TestCase):
     @patch.object(OverviewBridgesController, "_get_resource_paths")
     @patch.object(OverviewBridgesController, "_load_filtered_bridges")
     @patch.object(OverviewBridgesController, "_load_shapefile_and_names")
-    @patch.object(OverviewBridgesController, "_get_existing_child_objectnumms")
-    @patch.object(OverviewBridgesController, "_create_missing_children")
+    @patch.object(OverviewBridgesController, "_create_and_update_children")
     def test_regenerate_bridges_action_success(
         self,
-        mock_create_children: MagicMock,
-        mock_get_existing: MagicMock,
+        mock_create_and_update: MagicMock,
         mock_load_shapefile: MagicMock,
         mock_load_filtered: MagicMock,
         mock_get_paths: MagicMock,
@@ -216,14 +214,18 @@ class TestOverviewBridgesController(unittest.TestCase):
         mock_get_paths.return_value = ("/resources", "/shapefile.shp", "/filtered.json")
         mock_load_filtered.return_value = [{"OBJECTNUMM": "BRIDGE-001"}]
         mock_load_shapefile.return_value = {"BRIDGE-001": "Test Bridge"}
-        mock_get_existing.return_value = set()
+        mock_create_and_update.return_value = (1, 0)  # 1 updated, 0 created
 
         # Act
         self.controller.regenerate_bridges_action(entity_id)
 
         # Assert
-        # Method returns None implicitly
-        mock_create_children.assert_called_once()
+        # Method should be called with the correct parameters
+        mock_create_and_update.assert_called_once_with(
+            parent_entity_id=entity_id,
+            filtered_bridge_data=[{"OBJECTNUMM": "BRIDGE-001"}],
+            objectnumm_to_name={"BRIDGE-001": "Test Bridge"},
+        )
 
     def test_params_structure_validation(self) -> None:
         """Test that the mock params structure is valid."""
