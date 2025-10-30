@@ -1233,7 +1233,10 @@ def test_generate_real_lane_positions_bg8000_two_road_zones(  # noqa: PLR0913
 
     # Additional validation: verify lanes are properly sorted
     for i in range(len(lane_positions) - 1):
-        assert lane_positions[i] < lane_positions[i + 1], f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i+1} ({lane_positions[i+1]})"
+        assert lane_positions[i] < lane_positions[i + 1], (
+            f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
+        )
+
 
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
@@ -1295,7 +1298,10 @@ def test_generate_real_lane_positions_bg9000_two_road_zones(  # noqa: PLR0913
 
     # Additional validation: verify lanes are properly sorted
     for i in range(len(lane_positions) - 1):
-        assert lane_positions[i] < lane_positions[i + 1], f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i+1} ({lane_positions[i+1]})"
+        assert lane_positions[i] < lane_positions[i + 1], (
+            f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
+        )
+
 
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
@@ -1357,7 +1363,10 @@ def test_generate_real_lane_positions_bg10000_two_road_zones(  # noqa: PLR0913
 
     # Additional validation: verify lanes are properly sorted
     for i in range(len(lane_positions) - 1):
-        assert lane_positions[i] < lane_positions[i + 1], f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i+1} ({lane_positions[i+1]})"
+        assert lane_positions[i] < lane_positions[i + 1], (
+            f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
+        )
+
 
 class TestLoadBoundaryCompliance:
     """Tests to ensure all generated loads stay within bridge boundaries."""
