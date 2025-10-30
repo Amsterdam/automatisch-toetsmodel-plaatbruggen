@@ -1,4 +1,3 @@
-
 """
 Road zone utility functions for bridge load analysis.
 
@@ -18,6 +17,7 @@ from src.integrations.scia_integration.load_system.scia_load_generators import e
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 
+
 def extract_auto_zone_y_coord(zone: "BridgeParametrization") -> float:
     """
     Extract the top y-coordinate of an auto zone.
@@ -32,6 +32,7 @@ def extract_auto_zone_y_coord(zone: "BridgeParametrization") -> float:
     """
     y_coords = getattr(zone, "y_coords_top_current_zone", [])
     return float(y_coords[0]) if y_coords else 0.0
+
 
 def get_number_of_road_zones(params: "BridgeParametrization") -> int:
     """

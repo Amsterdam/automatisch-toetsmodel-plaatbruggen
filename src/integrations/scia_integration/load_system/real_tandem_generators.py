@@ -59,15 +59,17 @@ def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) ->
         wheels.append(wheel_coords)
     return wheels
 
+
 # ========================================================================
 # Helper functions for the real lane positions in case of two road zones
 # ========================================================================
+
 
 def _generate_lanes_bg8000_strategy(y_top: float, width: float, num_lanes: int, lane_width: float) -> list[float]:
     """Generate lanes from bottom upward."""
     if num_lanes <= 0:
         return []
-    
+
     y_bottom = y_top - width
     lane_centers = []
     for lane_idx in range(num_lanes):
@@ -80,7 +82,7 @@ def _generate_lanes_bg9000_strategy(y_top: float, num_lanes: int, lane_width: fl
     """Generate lanes from top downward."""
     if num_lanes <= 0:
         return []
-    
+
     lane_centers = []
     for lane_idx in range(num_lanes):
         lane_start = y_top - (lane_idx * lane_width)
@@ -93,7 +95,7 @@ def _generate_lanes_bg10000_strategy1(y_top: float, width: float, num_lanes: int
     """Generate lanes from interior to exterior."""
     if num_lanes <= 0:
         return []
-    
+
     y_bottom = y_top - width
     lane_centers = []
     for lane_idx in range(num_lanes):
@@ -101,16 +103,18 @@ def _generate_lanes_bg10000_strategy1(y_top: float, width: float, num_lanes: int
         lane_centers.append(lane_center)
     return lane_centers
 
+
 def _generate_lanes_bg10000_strategy2(y_top: float, num_lanes: int, lane_width: float) -> list[float]:
     """Generate lanes from interior to exterior."""
     if num_lanes <= 0:
         return []
-    
+
     lane_centers = []
     for lane_idx in range(num_lanes):
         lane_center = y_top - (lane_width / 2) - (lane_idx * lane_width)
         lane_centers.append(lane_center)
     return lane_centers
+
 
 # ========================================================================
 # Generation of lane positions for real lane distribution (BG8000)
@@ -160,9 +164,11 @@ def generate_real_lane_positions_bg8000(
 
     return lane_centers
 
+
 # ========================================================================
 # Generation of lane positions for real lane distribution in case of two road zones
 # ========================================================================
+
 
 def generate_real_lane_positions_two_road_zones(
     params: "BridgeParametrization",
@@ -171,14 +177,15 @@ def generate_real_lane_positions_two_road_zones(
 ) -> list[float]:
     """
     Generate Y-positions for traffic lanes on dual carriageway bridges.
-    
+
     Args:
         params: Bridge parametrization containing load zones data and geometry
         positioning_strategy: Strategy for lane positioning ("bg8000", "bg9000", "bg10000")
         lane_width: Standard lane width in meters (default 3.0m)
-    
+
     Returns:
         List of Y-coordinates for lane centers
+
     """
     if lane_width <= 0:
         raise ValueError("Lane width must be positive")
@@ -199,33 +206,21 @@ def generate_real_lane_positions_two_road_zones(
     print(num_lanes_zone_1, num_lanes_zone_2)
     if positioning_strategy == "bg8000":
         if num_lanes_zone_1 > 0:
-            lane_centers.extend(_generate_lanes_bg8000_strategy(
-                y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width
-            ))
+            lane_centers.extend(_generate_lanes_bg8000_strategy(y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width))
         if num_lanes_zone_2 > 0:
-            lane_centers.extend(_generate_lanes_bg8000_strategy(
-                y_top_zone_2, width_zone_2, num_lanes_zone_2, lane_width
-            ))
+            lane_centers.extend(_generate_lanes_bg8000_strategy(y_top_zone_2, width_zone_2, num_lanes_zone_2, lane_width))
         lane_centers = sorted(lane_centers)  # Sort lane centers to match the function's return (which is sorted)
     elif positioning_strategy == "bg9000":
         if num_lanes_zone_1 > 0:
-            lane_centers.extend(_generate_lanes_bg9000_strategy(
-                y_top_zone_1, num_lanes_zone_1, lane_width
-        ))
+            lane_centers.extend(_generate_lanes_bg9000_strategy(y_top_zone_1, num_lanes_zone_1, lane_width))
         if num_lanes_zone_2 > 0:
-            lane_centers.extend(_generate_lanes_bg9000_strategy(
-                y_top_zone_2, num_lanes_zone_2, lane_width
-        ))
-    
+            lane_centers.extend(_generate_lanes_bg9000_strategy(y_top_zone_2, num_lanes_zone_2, lane_width))
+
     elif positioning_strategy == "bg10000":
         if num_lanes_zone_1 > 0:
-            lane_centers.extend(_generate_lanes_bg10000_strategy1(
-                y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width
-        ))
+            lane_centers.extend(_generate_lanes_bg10000_strategy1(y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width))
         if num_lanes_zone_2 > 0:
-            lane_centers.extend(_generate_lanes_bg10000_strategy2(
-                y_top_zone_2, num_lanes_zone_2, lane_width
-        ))
+            lane_centers.extend(_generate_lanes_bg10000_strategy2(y_top_zone_2, num_lanes_zone_2, lane_width))
 
     else:
         raise ValueError(f"Unknown positioning strategy: {positioning_strategy}")
@@ -395,6 +390,7 @@ def generate_real_lane_positions_bg9000(
 
     return lane_centers
 
+
 def tandem_systems_real_lanes_bg9000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
@@ -554,6 +550,7 @@ def generate_real_lane_positions_bg10000(
         return [y_center, y_left, y_right]
     # For narrow roads, only return center lane
     return [y_center]
+
 
 def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912, PLR0915
     params: "BridgeParametrization",

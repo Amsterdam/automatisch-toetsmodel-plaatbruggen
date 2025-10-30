@@ -14,9 +14,6 @@ from src.integrations.scia_integration.load_system.load_value_calculators import
     calculate_real_tandem_values,
     calculate_real_udl_values,
 )
-from src.integrations.scia_integration.load_system.real_tandem_generators import (
-    generate_real_lane_positions_bg10000_two_road_zones,
-)
 from src.integrations.scia_integration.scia_loads.material_load_helpers import (
     create_material_surface_load,
 )
