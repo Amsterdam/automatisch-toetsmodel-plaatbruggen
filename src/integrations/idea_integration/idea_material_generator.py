@@ -7,14 +7,19 @@ This module provides functions to create IDEA RCS concrete and reinforcement mat
 from pathlib import Path
 from typing import Any
 
-from viktor.external import idea_rcs
-
+from src.integrations.idea_integration.constants.formatting import STRAIN_CONVERSION_FACTOR
 from src.integrations.idea_integration.constants.materials import (
+    DEFAULT_CONCRETE_UNIT_MASS,
+    DEFAULT_EPSUK,
+    DEFAULT_FTK_TO_FYK_RATIO,
+    DEFAULT_REINFORCEMENT_CLASS,
+    DEFAULT_STEEL_UNIT_MASS,
     DEFAULT_STONE_DIAMETER,
     DEFAULT_YOUNGS_MODULUS,
 )
 from src.integrations.idea_integration.constants.paths import IDEA_MATERIALS_PATH
 from src.integrations.idea_integration.constants.units import MM_TO_M_IDEA
+from viktor.external import idea_rcs
 
 
 def _parse_csv_header_and_data_start(lines: list[str]) -> tuple[list[str], int]:
@@ -217,16 +222,16 @@ def create_idea_reinforcement_material(model: idea_rcs.Model, material_name: str
     try:
         # Required parameters for create_reinforcement_material
         fyk = material_data["Fyk"]  # Characteristic yield strength
-        unit_mass = material_data.get("UnitMass", 7850.0)  # Unit mass in kg/m³
+        unit_mass = material_data.get("UnitMass", DEFAULT_STEEL_UNIT_MASS)  # Unit mass in kg/m³
 
         # Optional parameters with defaults
         e_modulus = material_data.get("E", DEFAULT_YOUNGS_MODULUS)  # Young's modulus in MPa
-        ftk = material_data.get("Ftk", fyk * 1.08)  # Tensile strength (default: 1.08 * fyk)
+        ftk = material_data.get("Ftk", fyk * DEFAULT_FTK_TO_FYK_RATIO)  # Tensile strength (default ratio * fyk)
         ftk_by_fyk = ftk / fyk  # Calculate the ratio for API
-        epsuk = material_data.get("Epsuk", 50.0)  # Ultimate strain (already in 1e-4 units for API)
+        epsuk = material_data.get("Epsuk", DEFAULT_EPSUK)  # Ultimate strain (already in 1e-4 units for API)
 
         # Map reinforcement class from CSV
-        class_value = material_data.get("Class", "B")
+        class_value = material_data.get("Class", DEFAULT_REINFORCEMENT_CLASS)
         reinforcement_class_map = {
             "A": idea_rcs.ReinfClass.A,
             "B": idea_rcs.ReinfClass.B,
@@ -351,7 +356,7 @@ def create_idea_concrete_material(model: idea_rcs.Model, material_name: str, cus
     try:
         # Required parameters for create_concrete_material
         fck = material_data["Fck"]  # Characteristic compressive strength
-        unit_mass = material_data.get("UnitMass", 2450.0)  # Unit mass in kg/m³
+        unit_mass = material_data.get("UnitMass", DEFAULT_CONCRETE_UNIT_MASS)  # Unit mass in kg/m³
 
         # Optional parameters with defaults
         stone_diameter = material_data.get("StoneDiameter", DEFAULT_STONE_DIAMETER) / MM_TO_M_IDEA  # Convert mm to m
@@ -387,12 +392,12 @@ def create_idea_concrete_material(model: idea_rcs.Model, material_name: str, cus
         ):
             dep_params = idea_rcs.ConcDependentParams(
                 E_cm=material_data["Ecm"],
-                eps_c1=material_data["Epsc1"] * 1e-4,  # Convert from 1e-4 to actual strain
-                eps_c2=material_data["Epsc2"] * 1e-4,
-                eps_c3=material_data["Epsc3"] * 1e-4,
-                eps_cu1=material_data["Epscu1"] * 1e-4,
-                eps_cu2=material_data["Epscu2"] * 1e-4,
-                eps_cu3=material_data["Epscu3"] * 1e-4,
+                eps_c1=material_data["Epsc1"] * STRAIN_CONVERSION_FACTOR,  # Convert from 1e-4 to actual strain
+                eps_c2=material_data["Epsc2"] * STRAIN_CONVERSION_FACTOR,
+                eps_c3=material_data["Epsc3"] * STRAIN_CONVERSION_FACTOR,
+                eps_cu1=material_data["Epscu1"] * STRAIN_CONVERSION_FACTOR,
+                eps_cu2=material_data["Epscu2"] * STRAIN_CONVERSION_FACTOR,
+                eps_cu3=material_data["Epscu3"] * STRAIN_CONVERSION_FACTOR,
                 F_ctm=material_data["Fctm"],
                 F_ctk_0_05=material_data["Fctk_0_05"],
                 F_ctk_0_95=material_data["Fctk_0_95"],

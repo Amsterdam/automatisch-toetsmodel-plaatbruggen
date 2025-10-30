@@ -80,7 +80,6 @@ class LoadCombinationConfig(BaseModel):
 
     model_config = ConfigDict(
         validate_assignment=True,
-        use_enum_values=True,
         str_strip_whitespace=True,  # Automatically strip whitespace from string inputs
     )
 

@@ -26,3 +26,9 @@ PAVEMENT_MATERIAL_OPTIONS = [
     "Grind",
     "Tegels",
 ]
+
+# Support type options for bridge supports
+SUPPORT_TYPE_OPTIONS = ["Nee", "Verende oplegging (x,y)", "Inklemming"]
+SUPPORT_TYPE_NONE = "Nee"
+SUPPORT_TYPE_FLEXIBLE = "Verende oplegging (x,y)"
+SUPPORT_TYPE_FIXED = "Inklemming"

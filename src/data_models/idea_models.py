@@ -83,18 +83,20 @@ class ReinforcementConfigData(BaseModel):
     @classmethod
     def validate_rebar_config(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Validate rebar configuration parameters."""
-        # Check for required keys if present
-        if v:
-            required_keys = {"material", "grade", "cover"}
-            missing_keys = required_keys - set(v.keys())
-            if missing_keys:
-                raise ValueError(f"Rebar config missing required keys: {missing_keys}")
+        # For IDEA integration, rebar_config contains zone-specific data (e.g., heeft_bijlegwapening, zone_number)
+        # This validator allows flexible dict structure for compatibility with different config sources
+        # but validates specific fields when present for legacy test compatibility
+        if not isinstance(v, dict):
+            raise ValueError("rebar_config must be a dictionary")
 
-            # Validate material grade if present
-            if "grade" in v:
-                grade = v["grade"]
-                if isinstance(grade, str) and grade not in {"B500A", "B500B", "B500C"}:
-                    raise ValueError(f"Invalid reinforcement grade '{grade}'. Must be B500A, B500B, or B500C")
+        # Validate grade if present (optional validation for legacy test compatibility)
+        if "grade" in v:
+            grade = v["grade"]
+            if isinstance(grade, str) and grade not in {"B500A", "B500B", "B500C"}:
+                raise ValueError(f"Invalid reinforcement grade '{grade}'. Must be B500A, B500B, or B500C")
+
+        # Note: We no longer enforce required keys (material, grade, cover) as the field is flexible
+        # to support IDEA integration use cases where different keys may be present
 
         return v
 

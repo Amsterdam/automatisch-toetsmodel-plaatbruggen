@@ -119,11 +119,18 @@ class TestTheoreticalTandemLoads:
     ) -> None:
         """Test theoretical tandem loads with multiple wheels."""
         # Setup mocks for multiple wheels - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
         from src.integrations.scia_integration.scia_loads import add_theoretical_tandem_loads
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=100.0, total_width=30.0, thickness=0.8, zone1_width=10.0, zone2_width=10.0, zone3_width=10.0, first_segment_thickness=0.8
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=100.0,
+            total_width=30.0,
+            thickness=0.8,
+            zone1_width=10.0,
+            zone2_width=10.0,
+            zone3_width=10.0,
+            first_segment_thickness=0.8,
+            first_segment_thickness_2=0.7,
         )
         mock_generate.return_value = [{"load_case": "LC1", "wheels": [1, 2], "load": 100}]
         mock_scia_data = [
@@ -160,11 +167,18 @@ class TestServiceVehicleLoads:
     ) -> None:
         """Test successful service vehicle load addition."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
         from src.integrations.scia_integration.scia_loads import add_service_vehicle_loads
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
@@ -228,11 +242,18 @@ class TestAccidentalVehicleLoads:
     ) -> None:
         """Test accidental vehicle loads with bidirectional placement."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         # tandem_system_sequencer is called 3 times: standard, amsterdam, amsterdam_rotated
         mock_sequencer.side_effect = [
@@ -330,10 +351,17 @@ class TestAccidentalVehicleLoads:
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
         ):
             # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+            from src.data_models.scia_models import BridgeDimensionsData
 
-            mock_extract.return_value = BridgeDimensions(
-                total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+            mock_extract.return_value = BridgeDimensionsData(
+                total_length=50.0,
+                total_width=20.0,
+                thickness=0.5,
+                zone1_width=7.0,
+                zone2_width=6.0,
+                zone3_width=7.0,
+                first_segment_thickness=0.5,
+                first_segment_thickness_2=0.4,
             )
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
@@ -410,10 +438,17 @@ class TestAccidentalVehicleLoads:
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
         ):
             # Setup mocks
-            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+            from src.data_models.scia_models import BridgeDimensionsData
 
-            mock_extract.return_value = BridgeDimensions(
-                total_length=10.0, total_width=6.0, thickness=0.5, zone1_width=2.0, zone2_width=2.0, zone3_width=2.0, first_segment_thickness=0.5
+            mock_extract.return_value = BridgeDimensionsData(
+                total_length=10.0,
+                total_width=6.0,
+                thickness=0.5,
+                zone1_width=2.0,
+                zone2_width=2.0,
+                zone3_width=2.0,
+                first_segment_thickness=0.5,
+                first_segment_thickness_2=0.4,
             )
 
             # Mock returns positions for all three vehicle types
@@ -498,12 +533,14 @@ class TestAllLoads:
         mock_segment1.bz2 = 3.0
         mock_segment1.bz3 = 2.0
         mock_segment1.dz = 0.5  # thickness - needed for extract_bridge_dimensions
+        mock_segment1.dz_2 = 0.4  # second thickness
         mock_segment2 = Mock()
         mock_segment2.l = 15.0
         mock_segment2.bz1 = 2.0
         mock_segment2.bz2 = 3.0
         mock_segment2.bz3 = 2.0
         mock_segment2.dz = 0.5  # thickness
+        mock_segment2.dz_2 = 0.4  # second thickness
         mock_params.bridge_segments_array = [mock_segment1, mock_segment2]
 
         # Mock the bridge geometry data
@@ -1452,10 +1489,17 @@ class TestLoadBoundaryCompliance:
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
             patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
-            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+            from src.data_models.scia_models import BridgeDimensionsData
 
-            mock_extract.return_value = BridgeDimensions(
-                total_length=30.0, total_width=16.0, thickness=0.8, zone1_width=5.0, zone2_width=6.0, zone3_width=5.0, first_segment_thickness=0.8
+            mock_extract.return_value = BridgeDimensionsData(
+                total_length=30.0,
+                total_width=16.0,
+                thickness=0.8,
+                zone1_width=5.0,
+                zone2_width=6.0,
+                zone3_width=5.0,
+                first_segment_thickness=0.8,
+                first_segment_thickness_2=0.7,
             )
             mock_sequencer.return_value = [1.0, 15.0, 29.0]  # Positions near edges
             mock_get_geom.return_value = mock_bridge_geom
@@ -1525,10 +1569,17 @@ class TestLoadBoundaryCompliance:
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
             patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
-            from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+            from src.data_models.scia_models import BridgeDimensionsData
 
-            mock_extract.return_value = BridgeDimensions(
-                total_length=40.0, total_width=20.0, thickness=1.0, zone1_width=8.0, zone2_width=4.0, zone3_width=8.0, first_segment_thickness=1.0
+            mock_extract.return_value = BridgeDimensionsData(
+                total_length=40.0,
+                total_width=20.0,
+                thickness=1.0,
+                zone1_width=8.0,
+                zone2_width=4.0,
+                zone3_width=8.0,
+                first_segment_thickness=1.0,
+                first_segment_thickness_2=0.9,
             )
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
