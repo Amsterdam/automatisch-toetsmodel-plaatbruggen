@@ -22,6 +22,9 @@
 - **Report template**: Changed the report template to a shorter management summary.
 - **Explanatory text loadzones**: Added explanation for the application of a separated tram zone on the loadzones tab. 
 
+### Fixed
+- Fixed a typo on the calculation page, changed "werden" to "worden".
+
 ## [`v0.0.15`] - 2025-10-02
 ### Added
 - **Invoer - Dimensies**: minimum values for the dimension field.
