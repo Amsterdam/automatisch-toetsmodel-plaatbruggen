@@ -46,20 +46,20 @@ Vul alleen breedtes in voor de daadwerkelijk gedefinieerde brugsegmenten (D-numm
 De laatste belastingzone loopt automatisch door tot het einde van de brug;
 hiervoor hoeft geen breedte ingevuld te worden.
 
-De tramzone dient te worden geselecteerd wanneer er een gescheiden trambaan is. In deze zone wordt enkel een tram gemodelleerd.
-Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan,
-en dienen tussenstukken berm etc. te worden verwaarloosd.
-In dit geval krijg je een brede auto zone in het midden van het brugdek, tussen de fiets- en voetpaden.
-Er wordt dan geen trambelasting gemodelleerd, maar enkel de verkeersbelasting van de auto zone
-omdat dit altijd maatgevend is ten opzichte van de trambelasting.
+De tramzone dient te worden geselecteerd wanneer er een gescheiden trambaan is. In het geval van een tramzone moet een breedte
+van 1,5 m worden aangehouden. Ieder tramspoor wordt afzonderlijk ingevoerd. De overige delen tussen- en naast de trambaan worden als berm
+gedefinieerd. De breedte van 1,5 m is praktisch gekozen om overige belastingzones in te passen. De voertuigbreedte van de tram is 1,435 m,
+gelijk aan de spoorbreedte.
+
+Wanneer er autoverkeer op de trambaan kan komen, dient dit te worden gemodelleerd als rijbaan en dienen tussenstukken zoals berm etc. 
+te worden verwaarloosd. In dit geval krijg je een brede auto zone in het midden van het dek, tussen de fiets- en voetpaden. Er wordt dan
+geen trambelasting gemodelleerd, maar enkel de verkeersbelasting van de auto zone omdat dit altijd maatgevend is ten opzichte van de
+trambelasting.
 
 **Verharding eigenschappen:**
 Per belastingzone kan de dikte en het materiaal van de wegverharding worden opgegeven.
 Dit wordt gebruikt om het eigengewicht van de verharding te berekenen (dikte * soortelijke massa),
 wat vervolgens als extra belasting in kN/m2 wordt toegepast in het SCIA model.
-
-In het geval van een tramzone moet als breedte de spoorwijdte van 1,435 m worden aangehouden. Ieder tramspoor wordt afzonderlijk
-ingevoerd. De overige delen tussen- en naast de trambaan worden als berm gedefinieerd.
 
 De lijnlast van de leuningbelasting kan hieronder worden opgegeven, deze staat standaard op 1 kN/m."""
 
