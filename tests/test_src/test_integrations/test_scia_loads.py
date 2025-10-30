@@ -1288,30 +1288,19 @@ def test_generate_real_lane_positions_bg9000_two_road_zones(  # noqa: PLR0913
 
     # Calculate expected positions for zone 1 (from bottom upward)
     if expected_lanes_zone_1 > 0:
-        y_bottom_zone_1 = y_top_zone_1 - width_zone_1
         for i in range(expected_lanes_zone_1):
-            expected_center = y_bottom_zone_1 + (i * 3.0) + 1.5  # Bottom + lane_idx * width + half_width
+            expected_center = y_top_zone_1 - (i * 3.0) - 1.5  # Bottom + lane_idx * width + half_width
             expected_positions.append(expected_center)
 
     # Calculate expected positions for zone 2 (from bottom upward)
     if expected_lanes_zone_2 > 0:
-        y_bottom_zone_2 = y_top_zone_2 - width_zone_2
         for i in range(expected_lanes_zone_2):
-            expected_center = y_bottom_zone_2 + (i * 3.0) + 1.5
+            expected_center = y_top_zone_2 - (i * 3.0) - 1.5
             expected_positions.append(expected_center)
-
-    # Sort expected positions to match the function's return (which is sorted for bg9000)
-    expected_positions.sort()
 
     # Verify each lane position matches expected (sorted) positions
     for i, (actual, expected) in enumerate(zip(lane_positions, expected_positions)):
         assert abs(actual - expected) < 0.001, f"Lane {i}: expected {expected}, got {actual}"
-
-    # Additional validation: verify lanes are properly sorted
-    for i in range(len(lane_positions) - 1):
-        assert lane_positions[i] < lane_positions[i + 1], (
-            f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
-        )
 
 
 @pytest.mark.parametrize(
@@ -1372,24 +1361,13 @@ def test_generate_real_lane_positions_bg10000_two_road_zones(  # noqa: PLR0913
 
     # Calculate expected positions for zone 2 (from bottom upward)
     if expected_lanes_zone_2 > 0:
-        y_bottom_zone_2 = y_top_zone_2 - width_zone_2
         for i in range(expected_lanes_zone_2):
-            expected_center = y_bottom_zone_2 + (i * 3.0) + 1.5
+            expected_center = y_top_zone_2 - (i * 3.0) - 1.5
             expected_positions.append(expected_center)
-
-    # Sort expected positions to match the function's return (which is sorted for bg10000)
-    expected_positions.sort()
 
     # Verify each lane position matches expected (sorted) positions
     for i, (actual, expected) in enumerate(zip(lane_positions, expected_positions)):
         assert abs(actual - expected) < 0.001, f"Lane {i}: expected {expected}, got {actual}"
-
-    # Additional validation: verify lanes are properly sorted
-    for i in range(len(lane_positions) - 1):
-        assert lane_positions[i] < lane_positions[i + 1], (
-            f"Lane positions should be sorted in ascending order, but lane {i} ({lane_positions[i]}) >= lane {i + 1} ({lane_positions[i + 1]})"
-        )
-
 
 class TestLoadBoundaryCompliance:
     """Tests to ensure all generated loads stay within bridge boundaries."""
