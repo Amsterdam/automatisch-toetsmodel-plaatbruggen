@@ -1,6 +1,7 @@
 """Module for defining SCIA support elements."""
 
-from .scia_enums import LineSupportFreedom
+from src.integrations.scia_integration.scia_enums import LineSupportFreedom
+
 from .scia_model_interface import SciaLineSupport, SciaModelBuilder
 
 

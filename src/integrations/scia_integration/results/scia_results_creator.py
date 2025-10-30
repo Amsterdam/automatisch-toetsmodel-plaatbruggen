@@ -7,7 +7,7 @@ These functions are pure Python and can be used by the app layer to retrieve ana
 
 from typing import Any
 
-from .scia_model_interface import SciaAnalysis, SciaModelBuilder
+from src.integrations.scia_integration.model.scia_model_interface import SciaAnalysis, SciaModelBuilder
 
 
 def extract_analysis_results(builder: SciaModelBuilder, analysis: SciaAnalysis) -> dict[str, Any]:

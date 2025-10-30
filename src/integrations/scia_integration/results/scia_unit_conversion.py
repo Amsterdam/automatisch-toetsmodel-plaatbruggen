@@ -7,8 +7,8 @@ to ensure they stay in sync.
 
 from typing import Any, ClassVar
 
-from .constants.units import N_TO_KN, NM_TO_KNM
-from .types import UnitConversion
+from src.integrations.scia_integration.constants.units import N_TO_KN, NM_TO_KNM
+from src.integrations.scia_integration.types import UnitConversion
 
 
 class SciaUnitConverter:

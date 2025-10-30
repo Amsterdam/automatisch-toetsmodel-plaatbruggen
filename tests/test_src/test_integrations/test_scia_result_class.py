@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pandas as pd
 
-from src.integrations.scia_integration import scia_result_classes
+from src.integrations.scia_integration.results import scia_result_classes
 
 
 class DummyLoadCombination:

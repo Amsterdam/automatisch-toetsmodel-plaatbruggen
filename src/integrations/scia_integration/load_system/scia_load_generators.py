@@ -2,14 +2,13 @@
 Pure load generation functions without circular dependencies.
 
 This module contains the core load generation logic extracted from scia_bridge_geometry.py
-to eliminate circular imports. It only depends on scia_loads_helper for the actual calculations.
+to eliminate circular imports. It coordinates between theoretical and real tandem/UDL generators.
 """
 
 from typing import Any, Callable
 
 from src.integrations.scia_integration.constants import DEFAULT_UDL_VALUE
-
-from .types import BridgeDimensions, BridgeParams, LoadGroup, LoadMode, LoadType
+from src.integrations.scia_integration.types import BridgeDimensions, BridgeParams, LoadGroup, LoadMode, LoadType
 
 # Type aliases for different function signatures
 TheoreticalTandemFunc = Callable[[BridgeParams, float, float, float, float, float], list[dict[str, Any]]]
@@ -91,10 +90,12 @@ def generate_tandem_loads(params: BridgeParams, mode: LoadMode | str | None = No
     # Always use mode from parameters (berekeningsniveau)
     mode = get_load_mode_from_params(params)
     # Import here to avoid circular imports
-    from .scia_loads_helper import (
+    from .real_tandem_generators import (
         tandem_systems_real_lanes_bg8000,
         tandem_systems_real_lanes_bg9000,
         tandem_systems_real_lanes_bg10000,
+    )
+    from .theoretical_tandem_generators import (
         tandem_systems_theoretical_lanes_bg8000,
         tandem_systems_theoretical_lanes_bg9000,
         tandem_systems_theoretical_lanes_bg10000,
@@ -172,7 +173,7 @@ def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None,
     # Always use mode from parameters (berekeningsniveau)
     mode = get_load_mode_from_params(params)
     # Import here to avoid circular imports
-    from .scia_loads_helper import create_real_udl_traffic_loads, create_theoretical_udl_traffic_loads
+    from .udl_generators import create_real_udl_traffic_loads, create_theoretical_udl_traffic_loads
 
     # Convert string to enum if needed
     if isinstance(mode, str):

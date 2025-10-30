@@ -6,12 +6,7 @@ This module tests the creation of SCIA load group definitions by mocking the Sci
 
 from unittest.mock import Mock
 
-from src.integrations.scia_integration.scia_enums import (
-    LoadGroupLoadType,
-    LoadGroupOption,
-    LoadGroupRelation,
-)
-from src.integrations.scia_integration.scia_load_group import (
+from src.integrations.scia_integration.load_system.scia_load_group import (
     create_accidental_vehicle_group,
     create_all_load_groups,
     create_crowd_load_group,
@@ -23,6 +18,11 @@ from src.integrations.scia_integration.scia_load_group import (
     create_ts_lane_2_group,
     create_ts_lane_3_group,
     create_udl_group,
+)
+from src.integrations.scia_integration.scia_enums import (
+    LoadGroupLoadType,
+    LoadGroupOption,
+    LoadGroupRelation,
 )
 
 

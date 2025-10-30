@@ -15,7 +15,7 @@ from viktor.errors import UserError
 from viktor.views import MapPoint, MapResult
 
 from app.constants import SCIA_TEMPLATE_PATH
-from src.integrations.scia_integration.scia_force_envelopes import get_force_envelope_summary
+from src.integrations.scia_integration.results.scia_force_envelopes import get_force_envelope_summary
 
 
 class ControllerUtils:
@@ -479,7 +479,7 @@ class ControllerUtils:
         :param results: Dictionary containing SCIA analysis results
         """
         try:
-            from src.integrations.scia_integration.scia_force_envelopes import extract_force_envelopes
+            from src.integrations.scia_integration.results.scia_force_envelopes import extract_force_envelopes
 
             envelopes = extract_force_envelopes(results)
 

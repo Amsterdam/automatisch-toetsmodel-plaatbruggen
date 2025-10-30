@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
 
-from src.integrations.scia_integration.scia_model import create_bridge_geometry, define_complete_bridge_model
+from src.integrations.scia_integration.model.scia_model import create_bridge_geometry, define_complete_bridge_model
 from tests.test_data.seed_loader import load_bridge_default_params
 
 
@@ -29,7 +29,7 @@ def mock_params() -> MagicMock:
 class TestCreateBridgeGeometry:
     """Test cases for the create_bridge_geometry function."""
 
-    @patch("src.integrations.scia_integration.scia_model.create_node_and_thickness_dict")
+    @patch("src.integrations.scia_integration.model.scia_model.create_node_and_thickness_dict")
     def test_create_bridge_geometry_logic(self, mock_create_node_dict: MagicMock, mock_builder: Mock, mock_params: MagicMock) -> None:
         """Test the logic for creating materials, nodes, and plates."""
         # Arrange
@@ -71,12 +71,12 @@ class TestCreateBridgeGeometry:
 class TestDefineCompleteBridgeModel:
     """Test cases for the define_complete_bridge_model function."""
 
-    @patch("src.integrations.scia_integration.scia_model.create_bridge_geometry")
-    @patch("src.integrations.scia_integration.scia_model.create_all_supports")
-    @patch("src.integrations.scia_integration.scia_model.create_all_load_groups")
-    @patch("src.integrations.scia_integration.scia_model.create_all_load_cases")
-    @patch("src.integrations.scia_integration.scia_model.create_all_loads")
-    @patch("src.integrations.scia_integration.scia_model.create_all_load_combinations")
+    @patch("src.integrations.scia_integration.model.scia_model.create_bridge_geometry")
+    @patch("src.integrations.scia_integration.model.scia_model.create_all_supports")
+    @patch("src.integrations.scia_integration.model.scia_model.create_all_load_groups")
+    @patch("src.integrations.scia_integration.model.scia_model.create_all_load_cases")
+    @patch("src.integrations.scia_integration.model.scia_model.create_all_loads")
+    @patch("src.integrations.scia_integration.model.scia_model.create_all_load_combinations")
     def test_define_complete_model_orchestration(  # noqa: PLR0913
         self,
         mock_combinations: Mock,

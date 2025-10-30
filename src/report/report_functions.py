@@ -11,7 +11,7 @@ from viktor.core import File
 from viktor.utils import convert_word_to_pdf
 
 from app.constants import OUTPUT_REPORT_PATH
-from src.integrations.scia_integration.scia_coordinate_utils import (
+from src.integrations.scia_integration.model.scia_coordinate_utils import (
     get_bridge_deck_zone_materials_and_thickness,
 )
 

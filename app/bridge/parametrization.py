@@ -71,10 +71,10 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
 
     try:
         # For dynamic load cases, we need to calculate based on bridge geometry
-        from src.integrations.scia_integration.scia_load_generators import extract_bridge_dimensions
-        from src.integrations.scia_integration.scia_loads_helper import (
+        from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
+        from src.integrations.scia_integration.load_system.theoretical_tandem_generators import (
             generate_theoretical_lane_positions_bg8000,
-            tandem_system_sequencer,
         )
 
         dims = extract_bridge_dimensions(params)

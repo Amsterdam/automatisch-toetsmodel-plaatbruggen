@@ -20,9 +20,8 @@ from src.combinations.load_factors import (
     get_project_scope,
     prepare_combination_table,
 )
-
-from .scia_enums import LoadCombinationType
-from .scia_model_interface import SciaLoadCombination, SciaModelBuilder
+from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCombination, SciaModelBuilder
+from src.integrations.scia_integration.scia_enums import LoadCombinationType
 
 # Type aliases for SCIA objects
 SciaModel = Any

@@ -13,7 +13,8 @@ from src.integrations.scia_integration.constants import (
     N_TO_KN,
     NMM_TO_KNM,
 )
-from src.integrations.scia_integration.scia_results_processor import merge_xyz_to_coords_xyz
+
+from .scia_results_processor import merge_xyz_to_coords_xyz
 
 
 def _extract_basis_data(parsed_tables: Mapping[str, Any], section_key: str = "Basis grootheden") -> dict[str, Any]:

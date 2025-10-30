@@ -12,9 +12,8 @@ from typing import Any
 
 from pandas import DataFrame
 
-from src.integrations.scia_integration.scia_load_combinations import load_combination_table_without_rounding
-
-from .scia_model_interface import SciaModelBuilder, SciaResultClass
+from src.integrations.scia_integration.load_system.scia_load_combinations import load_combination_table_without_rounding
+from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder, SciaResultClass
 
 # ===================================================================================================================
 # Functions
