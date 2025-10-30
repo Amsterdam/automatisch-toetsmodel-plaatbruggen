@@ -1176,7 +1176,6 @@ class TestUniformlyDistributedLoads:
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
 def test_generate_real_lane_positions_bg8000_two_road_zones(  # noqa: PLR0913
-    self,
     mock_get_widths: Mock,
     mock_get_y_coords: Mock,
     width_zone_1: float,
@@ -1241,7 +1240,6 @@ def test_generate_real_lane_positions_bg8000_two_road_zones(  # noqa: PLR0913
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
 def test_generate_real_lane_positions_bg9000_two_road_zones(  # noqa: PLR0913
-    self,
     mock_get_widths: Mock,
     mock_get_y_coords: Mock,
     width_zone_1: float,
@@ -1306,7 +1304,6 @@ def test_generate_real_lane_positions_bg9000_two_road_zones(  # noqa: PLR0913
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_two_road_zones")
 @patch("src.integrations.scia_integration.load_system.real_tandem_generators.get_widths_of_two_road_zones")
 def test_generate_real_lane_positions_bg10000_two_road_zones(  # noqa: PLR0913
-    self,
     mock_get_widths: Mock,
     mock_get_y_coords: Mock,
     width_zone_1: float,

@@ -73,7 +73,7 @@ def _find_auto_zones_with_indices(load_zones_data: list) -> list[tuple[int, Any]
 def _calculate_zone_width(  # noqa: PLR0913
     zone_position: int,
     zone_index: int,
-    zone: Any,
+    zone: LoadZoneData,
     load_zones_data: list,
     auto_zones_with_indices: list[tuple[int, Any]],
     total_bridge_width: float,
@@ -91,7 +91,7 @@ def _calculate_zone_width(  # noqa: PLR0913
     :param zone_index: Index of this zone in the full load zones array
     :type zone_index: int
     :param zone: The zone object to calculate width for
-    :type zone: Any
+    :type zone: LoadZoneData
     :param load_zones_data: Complete list of all load zones
     :type load_zones_data: list
     :param auto_zones_with_indices: List of all auto zones with their indices
