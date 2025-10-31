@@ -36,12 +36,12 @@ from .scia_loads.scia_surface_loads import (
 )
 
 # Re-export types for backward compatibility
-from .types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
+# Note: WheelConfig and AmsterdamWheelConfig TypedDicts are deprecated.
+# Use WheelLoadConfig and AmsterdamWheelLoadConfig from src.data_models.scia_models instead.
+from .types import BridgeParametrization
 
 __all__ = [
-    "AmsterdamWheelConfig",
     "BridgeParametrization",
-    "WheelConfig",
     "add_accidental_vehicle_loads",
     "add_actual_tandem_loads",
     "add_asfalt_loads",

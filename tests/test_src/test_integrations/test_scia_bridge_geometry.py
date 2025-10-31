@@ -40,8 +40,8 @@ class TestBridgeDimensionExtraction:
         segment.bz1 = 8.0
         segment.bz2 = 4.0
         segment.bz3 = 12.0
-        segment.dz = 1.5
-        segment.dz_2 = 2.0
+        segment.dz = 2.0
+        segment.dz_2 = 1.5
         params.bridge_segments_array = [segment]
 
         result = extract_bridge_dimensions(params)
@@ -51,14 +51,14 @@ class TestBridgeDimensionExtraction:
         assert result.zone_widths["bz1"] == 8.0
         assert result.zone_widths["bz2"] == 4.0
         assert result.zone_widths["bz3"] == 12.0
-        assert result.first_segment_thickness == 1.5
-        assert result.first_segment_thickness_2 == 2.0
+        assert result.first_segment_thickness == 2.0
+        assert result.first_segment_thickness_2 == 1.5
 
     def test_extract_bridge_dimensions_multiple_segments(self) -> None:
         """Test extracting dimensions from multiple segments."""
         params = Mock()
         params.bridge_segments_array = [
-            Mock(l=0, bz1=5.0, bz2=3.0, bz3=7.0, dz=1.8, dz_2=2.2),
+            Mock(l=0, bz1=5.0, bz2=3.0, bz3=7.0, dz=2.2, dz_2=1.8),
             Mock(l=15, bz1=6.0, bz2=4.0, bz3=8.0, dz=2.0, dz_2=2.5),
             Mock(l=20, bz1=7.0, bz2=5.0, bz3=9.0, dz=2.2, dz_2=2.8),
         ]
@@ -67,7 +67,7 @@ class TestBridgeDimensionExtraction:
 
         assert result.total_length == 35.0  # 0+15+20
         assert result.total_width == 15.0  # 5+3+7 (from first segment)
-        assert result.first_segment_thickness == 1.8
+        assert result.first_segment_thickness == 2.2
 
     def test_extract_bridge_dimensions_empty_segments(self) -> None:
         """Test error handling with empty segments."""
@@ -134,8 +134,8 @@ class TestTandemLoadGeneration:
         mock_segment.bz1 = 8.0
         mock_segment.bz2 = 4.0
         mock_segment.bz3 = 12.0
-        mock_segment.dz = 1.8
-        mock_segment.dz_2 = 2.0  # Add missing attribute
+        mock_segment.dz = 2.0
+        mock_segment.dz_2 = 1.5  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
 
         # Set berekeningsniveau to theoretical mode
@@ -160,8 +160,8 @@ class TestTandemLoadGeneration:
         mock_segment.bz1 = 8.0
         mock_segment.bz2 = 4.0
         mock_segment.bz3 = 12.0
-        mock_segment.dz = 1.8
-        mock_segment.dz_2 = 2.0  # Add missing attribute
+        mock_segment.dz = 2.0
+        mock_segment.dz_2 = 1.5  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
 
         # Set berekeningsniveau to actual mode
@@ -188,7 +188,7 @@ class TestTandemLoadGeneration:
         """Test error handling for invalid berekeningsniveau value."""
         params = Mock()
         params.bridge_segments_array = [
-            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
+            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8, dz_2=1.5),
         ]
         # Set an invalid berekeningsniveau value (should fallback to theoretical)
         params.berekeningsniveau = "Invalid value"

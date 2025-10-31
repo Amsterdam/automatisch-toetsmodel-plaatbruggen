@@ -29,5 +29,9 @@ ALPHA_Q_MAIN_LANE_ONDERLIGGEND = 1.35  # Alpha Q for main lane, underlying netwo
 ALPHA_Q_OTHER_LANE_ONDERLIGGEND = 1.0  # Alpha Q for other lanes
 NOBS_DEFAULT = 20000  # Default number of trucks per year for NEN-EN 1991-2
 
+# Reference period values for load factor calculations
+REFERENCE_PERIOD_AFKEUR = 15  # Years for NEN 8700 afkeur design code
+REFERENCE_PERIOD_DEFAULT = 30  # Years for other design codes (gebruik, verbouw)
+
 # Signage options (must match app/constants/technical.py SIGNAGE_OPTIONS)
 SIGNAGE_WEIGHT_OPTIONS = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]

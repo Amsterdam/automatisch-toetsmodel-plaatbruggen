@@ -5,9 +5,10 @@ This module provides functions for extracting road zone information from
 bridge parametrization, including zone counts, widths, and coordinates.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.geometry.load_zone_geometry import (
+    LoadZoneData,
     calculate_zone_geometry_properties,
     get_bridge_geom_data,
     get_load_zones_data_from_params,
@@ -16,6 +17,22 @@ from src.integrations.scia_integration.load_system.scia_load_generators import e
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
+
+
+def extract_auto_zone_y_coord(zone: LoadZoneData) -> float:
+    """
+    Extract the top y-coordinate of an auto zone.
+
+    This function retrieves the top y-coordinate from the zone's y_coords_top_current_zone attribute.
+    If the attribute is not available or empty, it returns 0.0.
+
+    :param zone: The load zone object containing y-coordinates
+    :type zone: BridgeParametrization
+    :returns: The top y-coordinate of the auto zone, or 0.0 if not available
+    :rtype: float
+    """
+    y_coords = getattr(zone, "y_coords_top_current_zone", [])
+    return float(y_coords[0]) if y_coords else 0.0
 
 
 def get_number_of_road_zones(params: "BridgeParametrization") -> int:
@@ -36,6 +53,83 @@ def get_number_of_road_zones(params: "BridgeParametrization") -> int:
 
     # Count zones where zone_type is "Auto"
     return sum(1 for zone in load_zones_data if zone.zone_type == "Auto")
+
+
+def _find_auto_zones_with_indices(load_zones_data: list) -> list[tuple[int, Any]]:
+    """
+    Find all auto zones and return them with their indices.
+
+    This helper function filters the load zones data to find all zones with zone_type "Auto"
+    and returns them along with their original indices in the load zones array.
+
+    :param load_zones_data: List of load zone objects
+    :type load_zones_data: list
+    :returns: List of tuples containing (zone_index, zone_object) for each auto zone
+    :rtype: list[tuple[int, any]]
+    """
+    return [(i, zone) for i, zone in enumerate(load_zones_data) if zone.zone_type == "Auto"]
+
+
+def _calculate_zone_width(  # noqa: PLR0913
+    zone_position: int,
+    zone_index: int,
+    zone: LoadZoneData,
+    load_zones_data: list,
+    auto_zones_with_indices: list[tuple[int, Any]],
+    total_bridge_width: float,
+) -> float:
+    """
+    Calculate the width of a specific auto zone.
+
+    This helper function calculates the width of an auto zone by:
+    1. Accumulating widths of all zones before it
+    2. Getting the zone's d1_width value
+    3. If the zone is the last zone in the array, calculating remaining width
+
+    :param zone_position: Position of this zone in the auto zones list (0-indexed)
+    :type zone_position: int
+    :param zone_index: Index of this zone in the full load zones array
+    :type zone_index: int
+    :param zone: The zone object to calculate width for
+    :type zone: LoadZoneData
+    :param load_zones_data: Complete list of all load zones
+    :type load_zones_data: list
+    :param auto_zones_with_indices: List of all auto zones with their indices
+    :type auto_zones_with_indices: list[tuple[int, Any]]
+    :param total_bridge_width: Total width of the bridge in meters
+    :type total_bridge_width: float
+    :returns: Width of the zone in meters
+    :rtype: float
+    """
+    cumulative_width = 0.0
+
+    # For each auto zone, accumulate widths of all zones before it
+    if zone_position == 0:
+        # First auto zone: accumulate all zones before it
+        for i in range(zone_index):
+            prev_zone = load_zones_data[i]
+            width_value = getattr(prev_zone, "d1_width", None)
+            prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+            cumulative_width += prev_width
+    else:
+        # Second auto zone: accumulate all zones between first and second auto zone
+        # (including the first auto zone itself)
+        prev_auto_index = auto_zones_with_indices[zone_position - 1][0]
+        for i in range(prev_auto_index, zone_index):
+            prev_zone = load_zones_data[i]
+            width_value = getattr(prev_zone, "d1_width", None)
+            prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+            cumulative_width += prev_width
+
+    # Get the width of this auto zone
+    width_value = getattr(zone, "d1_width", None)
+    zone_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+
+    # If this auto zone is the last zone in the array, calculate remaining width
+    if zone_index == len(load_zones_data) - 1:
+        zone_width = total_bridge_width - cumulative_width
+
+    return zone_width
 
 
 def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float, float]:
@@ -64,43 +158,23 @@ def get_widths_of_two_road_zones(params: "BridgeParametrization") -> tuple[float
     # Extract bridge dimensions
     dims = extract_bridge_dimensions(params)
 
-    # Find all auto zones
-    auto_zones_with_indices = [(i, zone) for i, zone in enumerate(load_zones_data) if zone.zone_type == "Auto"]
+    # Find all auto zones using helper function
+    auto_zones_with_indices = _find_auto_zones_with_indices(load_zones_data)
 
     if len(auto_zones_with_indices) < 2:
         raise ValueError(f"Expected 2 road zones, but found {len(auto_zones_with_indices)}")
 
-    # Extract widths for the first two auto zones
+    # Extract widths for the first two auto zones using helper function
     widths = []
-    cumulative_width = 0.0
-
     for zone_position, (zone_index, zone) in enumerate(auto_zones_with_indices[:2]):
-        # For each auto zone, accumulate widths of all zones before it
-        if zone_position == 0:
-            # First auto zone: accumulate all zones before it
-            for i in range(zone_index):
-                prev_zone = load_zones_data[i]
-                width_value = getattr(prev_zone, "d1_width", None)
-                prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
-                cumulative_width += prev_width
-        else:
-            # Second auto zone: accumulate all zones between first and second auto zone
-            # (including the first auto zone itself)
-            prev_auto_index = auto_zones_with_indices[zone_position - 1][0]
-            for i in range(prev_auto_index, zone_index):
-                prev_zone = load_zones_data[i]
-                width_value = getattr(prev_zone, "d1_width", None)
-                prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
-                cumulative_width += prev_width
-
-        # Get the width of this auto zone
-        width_value = getattr(zone, "d1_width", None)
-        zone_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
-
-        # If this auto zone is the last zone in the array, calculate remaining width
-        if zone_index == len(load_zones_data) - 1:
-            zone_width = dims.total_width - cumulative_width
-
+        zone_width = _calculate_zone_width(
+            zone_position=zone_position,
+            zone_index=zone_index,
+            zone=zone,
+            load_zones_data=load_zones_data,
+            auto_zones_with_indices=auto_zones_with_indices,
+            total_bridge_width=dims.total_width,
+        )
         widths.append(zone_width)
 
     width_1, width_2 = widths[0], widths[1]
@@ -157,10 +231,8 @@ def obtain_y_coordinates_road(
             d1_width = dims.total_width - cumulative_width
 
         if zone.zone_type == "Auto":
-            # Get y-coordinates, ensure we have a valid list and first value
-            y_coords = getattr(zone, "y_coords_top_current_zone", [])
-            y_coord = float(y_coords[0]) if y_coords else 0.0
-
+            # Use the helper function to extract y-coordinate
+            y_coord = extract_auto_zone_y_coord(zone)
             return y_coord, d1_width
 
     return 0.0, 0.0
@@ -203,9 +275,8 @@ def obtain_y_coordinates_two_road_zones(
 
     for zone in load_zones_data_params:
         if zone.zone_type == "Auto":
-            # Get y-coordinates, ensure we have a valid list and first value
-            y_coords = getattr(zone, "y_coords_top_current_zone", [])
-            y_coord = float(y_coords[0]) if y_coords else 0.0
+            # Use the helper function to extract y-coordinate
+            y_coord = extract_auto_zone_y_coord(zone)
             auto_zone_y_coords.append(y_coord)
 
     # Return the first two y-coordinates if available, otherwise default to (0.0, 0.0)

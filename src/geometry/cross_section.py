@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import trimesh
 from munch import Munch  # type: ignore[import-untyped]
 
+from src.common.constants.geometry import ANNOTATION_Y_OFFSET_CROSS_SECTION
 from src.geometry.model_creator import create_3d_model, create_cross_section
 
 
@@ -127,7 +128,7 @@ def create_cross_section_annotations(params: dict | Munch, all_z: list[float]) -
     zone_width_annotations = [
         go.layout.Annotation(
             x=zone1_center_y[segment_index],
-            y=min_z - 1.0,
+            y=min_z - ANNOTATION_Y_OFFSET_CROSS_SECTION,
             text=f"<b>b = {b_values_1[segment_index]}m</b>",
             showarrow=False,
             font={"size": 12, "color": "green"},
@@ -140,7 +141,7 @@ def create_cross_section_annotations(params: dict | Munch, all_z: list[float]) -
         ),
         go.layout.Annotation(
             x=zone2_center_y[segment_index],
-            y=min_z - 1.0,
+            y=min_z - ANNOTATION_Y_OFFSET_CROSS_SECTION,
             text=f"<b>b = {b_values_2[segment_index]}m</b>",
             showarrow=False,
             font={"size": 12, "color": "green"},
@@ -153,7 +154,7 @@ def create_cross_section_annotations(params: dict | Munch, all_z: list[float]) -
         ),
         go.layout.Annotation(
             x=zone3_center_y[segment_index],
-            y=min_z - 1.0,
+            y=min_z - ANNOTATION_Y_OFFSET_CROSS_SECTION,
             text=f"<b>b = {b_values_3[segment_index]}m</b>",
             showarrow=False,
             font={"size": 12, "color": "green"},

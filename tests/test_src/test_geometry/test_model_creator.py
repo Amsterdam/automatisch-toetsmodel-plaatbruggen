@@ -15,9 +15,9 @@ import trimesh  # For type hints and potentially direct use in complex mocks
 from munch import Munch  # type: ignore[import-untyped]
 from trimesh.visual import ColorVisuals
 
+from src.data_models.bridge_models import BridgeSegmentDimensions  # For test data construction
+from src.data_models.geometry_data_models import LoadZoneGeometryData  # For type hints in assertions
 from src.geometry.model_creator import (
-    BridgeSegmentDimensions,  # For test data construction
-    LoadZoneGeometryData,  # For type hints in assertions
     create_2d_top_view,  # Added for future tests
     create_3d_model,  # Added for future tests
     create_axes,

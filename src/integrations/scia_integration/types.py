@@ -1,14 +1,14 @@
 """
 Centralized type definitions for SCIA integration.
 
-This module contains all enums, TypedDicts, and dataclasses used throughout
+This module contains all enums and dataclasses used throughout
 the SCIA integration modules to ensure consistency and avoid circular imports.
 """
 
 from dataclasses import dataclass
 from enum import Enum
 from io import BytesIO
-from typing import Any, TypedDict
+from typing import Any
 
 # ===================================================================================================================
 # Enums
@@ -94,89 +94,8 @@ class LoadMode(Enum):
 
 
 # ===================================================================================================================
-# TypedDicts
-# ===================================================================================================================
-
-
-class WheelConfig(TypedDict):
-    """
-    Type definition for standard vehicle wheel configuration.
-
-    :param position: Position identifier for the wheel (e.g., "front", "rear")
-    :param side: Side of the vehicle ("left" or "right")
-    :param corners_key: Key identifying the corner points for load application
-    :param load: Load value in Newtons
-    :param axle_locations: Dictionary mapping axle names to coordinate lists
-    """
-
-    position: str
-    side: str
-    corners_key: str
-    load: float
-    axle_locations: dict[str, list[tuple[float, float, float]]]
-
-
-class AmsterdamWheelConfig(TypedDict):
-    """
-    Type definition for Amsterdam vehicle wheel configuration.
-
-    Simplified wheel configuration used for Amsterdam-specific vehicle types.
-
-    :param position: Position identifier for the wheel
-    :param corners_key: Key identifying the corner points for load application
-    :param load: Load value in Newtons
-    """
-
-    position: str
-    corners_key: str
-    load: float
-
-
-# ===================================================================================================================
 # Dataclasses
 # ===================================================================================================================
-
-
-@dataclass(frozen=True)
-class BridgeDimensions:
-    """
-    Bridge dimensions extracted from parametrization.
-
-    This dataclass provides a structured way to access key bridge dimensions
-    that are frequently used throughout the SCIA integration process.
-
-    :param total_length: Total length of the bridge in meters
-    :param total_width: Total width of the bridge in meters
-    :param thickness: Bridge deck thickness in meters
-    :param zone1_width: Width of zone 1 (bz1) in meters
-    :param zone2_width: Width of zone 2 (bz2) in meters
-    :param zone3_width: Width of zone 3 (bz3) in meters
-    :param first_segment_thickness: Thickness of the first segment in meters
-    :param first_segment_thickness_2: Secondary thickness parameter (optional)
-    """
-
-    total_length: float
-    total_width: float
-    thickness: float
-    zone1_width: float
-    zone2_width: float
-    zone3_width: float
-    first_segment_thickness: float
-    first_segment_thickness_2: float = 0.0
-
-    @property
-    def zone_widths(self) -> dict[str, float]:
-        """
-        Get zone widths as a dictionary for backward compatibility.
-
-        :returns: Dictionary mapping zone names to widths
-        :rtype: dict[str, float]
-        """
-        return {
-            "bz1": self.zone1_width,
-            "bz2": self.zone2_width,
-            "bz3": self.zone3_width,
-        }
 
 
 @dataclass
