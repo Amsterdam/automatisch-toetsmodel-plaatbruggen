@@ -280,12 +280,11 @@ def get_bridge_deck_zone_materials_and_thickness(params: object) -> dict[str, di
         }
 
         zone2_name = f"zone_2_{zone_num}"
-        zone2_start = max(prev_thickness_secondary - prev_thickness_primary, 0.0)
-        zone2_end = max(curr_thickness_secondary - curr_thickness_primary, 0.0)
+        # Zone 2 uses the secondary (dz_2) thickness directly for dispersion calculations
         zone_materials_thickness[zone2_name] = {
             "material": applied_material,
-            "thickness_start_d_line": round(zone2_start, 3),
-            "thickness_end_d_line": round(zone2_end, 3),
+            "thickness_start_d_line": prev_thickness_secondary,
+            "thickness_end_d_line": curr_thickness_secondary,
             "distance_between_d_lines": distance_between_d_lines,
         }
 
@@ -417,15 +416,20 @@ def get_bridge_load_zone_materials_and_thickness(params: object) -> dict[str, di
         raise IndexError("No bridge load zones provided")
 
     load_zone_materials_thickness: dict[str, dict[str, Any]] = {}
+
     for segment_idx in range(1, len(bridge_segments)):
         for zone_idx, load_zone in enumerate(load_zones):
             zone_name = f"load_zone_{zone_idx + 1}_{segment_idx}"
-            pavement_material = getattr(load_zone, "material", None)
-            pavement_thickness = getattr(load_zone, "thickness", None)
+
+            # Extract pavement material and thickness from load zone data
+            pavement_material = getattr(load_zone, "pavement_material", None)
+            pavement_thickness = getattr(load_zone, "pavement_thickness", None)
+
             load_zone_materials_thickness[zone_name] = {
                 "material": pavement_material,
                 "thickness": pavement_thickness,
             }
+
     return load_zone_materials_thickness
 
 
@@ -584,20 +588,12 @@ def clip_polygon_to_bridge_boundaries(
     return clipped_points
 
 
-def get_dispersion_at_coord(
-    params: object,
-    coord: tuple[float, float, float] | tuple[int, int, int] | list[float] | list[int],
-) -> dict[str, float | None]:
+def _get_material_dispersion_angle(material: str) -> int | None:
     """
-    Calculate horizontal dispersion distances for deck and load zones at a coordinate.
+    Get the dispersion angle for a given material.
 
-    The function checks both deck and load zones at the specified coordinate and returns
-    the horizontal dispersion distance for each zone type (if found).
-
-    :param params: Bridge parameters
-    :param coord: 3D coordinate as a tuple (x, y, z) or list
-    :returns: Dictionary with keys 'deck_zone' and 'load_zone', values are horizontal dispersion distances or None
-    :rtype: dict[str, float | None]
+    :param material: Material name
+    :returns: Dispersion angle in degrees, or None if material not found
     """
     material_dispersion_angles: dict[str, int] = {
         "beton": 45,
@@ -606,40 +602,163 @@ def get_dispersion_at_coord(
         "grind": 35,
         "tegels": 45,
     }
-    result: dict[str, float | None] = {"deck_zone": None, "load_zone": None}
+    mat_str = str(material)
+    starts_with_kbc_and_digit = len(mat_str) > 1 and mat_str[0] in "KBC" and mat_str[1].isdigit()
+    if starts_with_kbc_and_digit or "Beton" in mat_str:
+        return material_dispersion_angles["beton"]
 
-    def get_dispersion(material: str | None, thickness: float | None) -> float | None:
-        if material is None or thickness is None:
-            return None
-        mat_str = str(material)
-        starts_with_kbc_and_digit = len(mat_str) > 1 and mat_str[0] in "KBC" and mat_str[1].isdigit()
-        if starts_with_kbc_and_digit or "Beton" in mat_str:
-            angle_deg = material_dispersion_angles["beton"]
-        else:
-            angle_deg = None
-            for key, value in material_dispersion_angles.items():
-                if key.lower() in mat_str.lower():
-                    angle_deg = value
-                    break
-        if angle_deg is not None:
-            angle_rad = radians(angle_deg)
-            return thickness * tan(angle_rad)
+    for key, value in material_dispersion_angles.items():
+        if key.lower() in mat_str.lower():
+            return value
+    return None
+
+
+def _calculate_dispersion_from_thickness(material: str | None, thickness: float | None) -> float | None:
+    """
+    Calculate horizontal dispersion distance based on material and thickness.
+
+    :param material: Material name
+    :param thickness: Thickness of the layer
+    :returns: Horizontal dispersion distance, or None if invalid inputs
+    """
+    if material is None or thickness is None:
         return None
 
+    angle_deg = _get_material_dispersion_angle(material)
+    if angle_deg is not None:
+        angle_rad = radians(angle_deg)
+        return thickness * tan(angle_rad)
+    return None
+
+
+def _normalize_material_string(material: str | None) -> str | None:
+    """
+    Normalize material string for dispersion calculation.
+
+    :param material: Material input (string or None)
+    :returns: Normalized string or None
+    """
+    if material is None:
+        return None
+    return material if isinstance(material, str) else str(material)
+
+
+def _interpolate_thickness_at_x(
+    x: float,
+    x_start: float,
+    x_end: float,
+    thickness_start: float,
+    thickness_end: float,
+) -> float:
+    """
+    Interpolate thickness at a given x-coordinate.
+
+    :param x: X-coordinate for interpolation
+    :param x_start: Starting x-coordinate
+    :param x_end: Ending x-coordinate
+    :param thickness_start: Thickness at start
+    :param thickness_end: Thickness at end
+    :returns: Interpolated thickness value
+    """
+    if x_end != x_start:
+        interpolation_factor = (float(x) - x_start) / (x_end - x_start)
+        interpolation_factor = max(0.0, min(1.0, interpolation_factor))
+    else:
+        interpolation_factor = 0.0
+    return thickness_start + interpolation_factor * (thickness_end - thickness_start)
+
+
+def _collect_deck_zone_dispersions(
+    params: object,
+    x: float,
+    y: float,
+) -> list[float]:
+    """
+    Collect dispersion values from all matching deck zones.
+
+    :param params: Bridge parameters
+    :param x: X-coordinate
+    :param y: Y-coordinate
+    :returns: List of dispersion values for matching deck zones
+    """
+    deck_zones_coords = get_bridge_deck_zone_coordinates(params)
+    deck_zones_materials = get_bridge_deck_zone_materials_and_thickness(params)
+
+    deck_dispersions = []
+    for zone_name, zone_corners in deck_zones_coords.items():
+        if _point_in_polygon(float(x), float(y), zone_corners):
+            zone_data = deck_zones_materials[zone_name]
+            x_start = zone_corners[0][0]
+            x_end = zone_corners[1][0]
+            thickness_start = zone_data["thickness_start_d_line"]
+            thickness_end = zone_data["thickness_end_d_line"]
+
+            interpolated_thickness = _interpolate_thickness_at_x(x, x_start, x_end, thickness_start, thickness_end)
+            material = _normalize_material_string(zone_data["material"])
+            dispersion = _calculate_dispersion_from_thickness(material, interpolated_thickness)
+
+            if dispersion is not None:
+                deck_dispersions.append(dispersion)
+
+    return deck_dispersions if deck_dispersions else [0.0]
+
+
+def _collect_load_zone_dispersions(
+    params: object,
+    x: float,
+    y: float,
+) -> list[float]:
+    """
+    Collect dispersion values from all matching load zones.
+
+    :param params: Bridge parameters
+    :param x: X-coordinate
+    :param y: Y-coordinate
+    :returns: List of dispersion values for matching load zones
+    """
+    load_zones_coords = get_bridge_load_zone_coordinates(params)
+    load_zones_materials = get_bridge_load_zone_materials_and_thickness(params)
+
+    load_dispersions = []
+    for zone_name, zone_corners in load_zones_coords.items():
+        if _point_in_polygon(float(x), float(y), zone_corners):
+            material = _normalize_material_string(load_zones_materials[zone_name]["material"])
+            thickness = load_zones_materials[zone_name]["thickness"]
+            dispersion = _calculate_dispersion_from_thickness(material, thickness)
+
+            if dispersion is not None:
+                load_dispersions.append(dispersion)
+
+    return load_dispersions if load_dispersions else [0.0]
+
+
+def get_dispersion_at_coord(
+    params: object,
+    coord: tuple[float, float, float] | tuple[int, int, int] | list[float] | list[int],
+) -> dict[str, list[float]]:
+    """
+    Calculate horizontal dispersion distances for deck and load zones at a coordinate.
+
+    The function checks both deck and load zones at the specified coordinate and returns
+    all matching horizontal dispersion distances for each zone type.
+
+    When a coordinate is on the boundary between multiple zones (edge case),
+    all dispersion values from matching zones are returned.
+
+    :param params: Bridge parameters
+    :param coord: 3D coordinate as a tuple (x, y, z) or list
+    :returns: Dictionary with keys 'deck_zone' and 'load_zone', values are lists of horizontal dispersion distances
+    :rtype: dict[str, list[float]]
+    """
     if isinstance(coord, (list, tuple)) and len(coord) == 3:
         coord_f: tuple[float, float, float] = (float(coord[0]), float(coord[1]), float(coord[2]))
     else:
         coord_f = (0.0, 0.0, 0.0)
 
-    deck_mat, deck_thick = get_deck_mat_and_thick_at_coord(params, coord_f)
-    result["deck_zone"] = get_dispersion(deck_mat if isinstance(deck_mat, str) else str(deck_mat) if deck_mat is not None else None, deck_thick)
+    x, y, _ = coord_f
 
-    load_mat, load_thick = get_load_mat_and_thick_at_coord(params, coord_f)
-    result["load_zone"] = get_dispersion(load_mat if isinstance(load_mat, str) else str(load_mat) if load_mat is not None else None, load_thick)
+    # Collect dispersion values for all matching zones
+    deck_dispersions = _collect_deck_zone_dispersions(params, x, y)
+    load_dispersions = _collect_load_zone_dispersions(params, x, y)
 
-    if deck_mat is None or deck_thick is None:
-        result["deck_zone"] = 0.0
-    if load_mat is None or load_thick is None:
-        result["load_zone"] = 0.0
-
-    return result
+    return {"deck_zone": deck_dispersions, "load_zone": load_dispersions}

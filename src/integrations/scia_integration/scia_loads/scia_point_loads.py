@@ -20,7 +20,6 @@ from src.integrations.scia_integration.constants import (
     ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD,
     ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM,
     ACCIDENTAL_VEHICLE_WIDTH_STANDARD,
-    MINIMUM_LOAD_DISPERSION,
     SERVICE_VEHICLE_FORCE_PER_AXLE,
     SERVICE_VEHICLE_INSET_DISTANCE,
     SERVICE_VEHICLE_LENGTH,
@@ -86,27 +85,44 @@ def dispersal_function(  # noqa: C901
         """
         Expands the quadrilateral defined by four coordinates to include dispersion in x and y directions for each corner.
         Dispersion is calculated using get_dispersion_at_coord for each corner.
+        The minimum dispersion_tot across all corners is used to ensure conservative results.
         Assumes corners are ordered: [bottom-right, top-right, top-left, bottom-left].
         """
         if len(coords) != 4:
             raise ValueError("Exactly four coordinates are required.")
-        expanded_coords = []
+
+        # Import at runtime to avoid circular imports
+        from src.integrations.scia_integration.model.scia_coordinate_utils import get_dispersion_at_coord
+
+        # First pass: calculate dispersion_tot for each corner
+        dispersion_tots = []
         for i in range(4):
             x, y, z = coords[i]
-            # Import at runtime to avoid circular imports
-            from src.integrations.scia_integration.model.scia_coordinate_utils import get_dispersion_at_coord
+            dispersion_result = get_dispersion_at_coord(params=params, coord=coords[i])
+            dispersion_deck_zones = dispersion_result["deck_zone"]  # List of dispersions
+            dispersion_load_zones = dispersion_result["load_zone"]  # List of dispersions
 
-            dispersion_deck_zone = get_dispersion_at_coord(params=params, coord=coords[i])["deck_zone"]
-            dispersion_load_zone = get_dispersion_at_coord(params=params, coord=coords[i])["load_zone"]
+            # For boundary cases with multiple matches, take the minimum of each layer
+            # A coordinate can only physically be in one deck zone AND one load zone at a time
+            min_deck_disp = min(dispersion_deck_zones) if dispersion_deck_zones else 0.0
+            min_load_disp = min(dispersion_load_zones) if dispersion_load_zones else 0.0
 
-            # Add half the deck zone dispersion and the full load zone dispersion for each corner. Distinguish in x- and y-direction
-            # Handle None values robustly
-            deck_half = (dispersion_deck_zone / 2) if isinstance(dispersion_deck_zone, (int, float)) else 0.0
-            load_full = dispersion_load_zone if isinstance(dispersion_load_zone, (int, float)) else 0.0
-            dispersion_tot = max((deck_half + load_full), MINIMUM_LOAD_DISPERSION)  # Ensure minimum dispersion distance
-            dispersion_x_tot = dispersion_tot if load_case_type == "axle_load" else 0.0
-            dispersion_y_tot = dispersion_tot
+            # Add half the deck zone dispersion and the full load zone dispersion
+            deck_half = min_deck_disp / 2
+            load_full = min_load_disp
+            dispersion_tot = min((deck_half + load_full), 0.5)  # Ensure maximum dispersion of 0.5m to either side
+            dispersion_tots.append(dispersion_tot)
 
+        # Take minimum dispersion_tot across all corners for conservative results
+        min_dispersion_tot = min(dispersion_tots)
+
+        # Second pass: expand corners using the minimum dispersion_tot
+        expanded_coords = []
+        dispersion_x_tot = min_dispersion_tot if load_case_type == "axle_load" else 0.0
+        dispersion_y_tot = min_dispersion_tot
+
+        for i in range(4):
+            x, y, z = coords[i]
             # Expand in the correct direction for each corner based on its position
             if i == 0:  # bottom-right
                 expanded_coords.append((x + dispersion_x_tot, y - dispersion_y_tot, z))
