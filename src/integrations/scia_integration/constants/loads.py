@@ -35,3 +35,9 @@ REFERENCE_PERIOD_DEFAULT = 30  # Years for other design codes (gebruik, verbouw)
 
 # Signage options (must match app/constants/technical.py SIGNAGE_OPTIONS)
 SIGNAGE_WEIGHT_OPTIONS = ["50 ton", "45 ton", "40 ton", "35 ton", "30 ton", "25 ton", "20 ton"]
+
+# Temperature loads
+DELTA_T_N_CON = 27 # Constant temperature component for contraction
+DELTA_T_N_EXP = 22 # Constant temperature component for expansion
+W_N = 0.35 # Load combination factor
+W_M = 0.75 # Load combination factor
