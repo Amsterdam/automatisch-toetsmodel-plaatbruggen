@@ -172,7 +172,7 @@ class TestBridgeSegmentDimensions(unittest.TestCase):
 
         # Check that model config values are set correctly
         assert dimensions.model_config["validate_assignment"] is True
-        # BridgeSegmentDimensions doesn't use enums, so use_enum_values is not set
+        # use_enum_values removed - model doesn't use enums
 
     def test_realistic_bridge_scenarios(self) -> None:
         """Test realistic bridge dimension scenarios."""

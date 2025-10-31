@@ -53,7 +53,7 @@ class MaterialConfig(BaseModel):
             raise ValueError(f"Prestressing steel type '{v}' not found in database. Available: {available}...")
         return v
 
-    model_config = ConfigDict(validate_assignment=True, use_enum_values=True)
+    model_config = ConfigDict(validate_assignment=True, str_strip_whitespace=True)
 
     @classmethod
     def from_params_dict(cls, params: dict) -> "MaterialConfig":

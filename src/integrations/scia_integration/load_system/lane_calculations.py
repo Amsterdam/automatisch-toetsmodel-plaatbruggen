@@ -7,14 +7,16 @@ and their properties based on bridge deck dimensions.
 
 from typing import TYPE_CHECKING
 
-from src.integrations.scia_integration.constants.geometry import DEFAULT_LANE_WIDTH
+from src.common.constants.parametrization import DESIGN_CODE_OPTIONS
+from src.integrations.scia_integration.constants.geometry import (
+    DEFAULT_LANE_WIDTH,
+    MAX_BRIDGE_WIDTH_TWO_LANES,
+    MIN_BRIDGE_WIDTH_SINGLE_LANE,
+)
+from src.integrations.scia_integration.constants.loads import REFERENCE_PERIOD_AFKEUR, REFERENCE_PERIOD_DEFAULT
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
-
-# Bridge deck width properties for calculating lane width
-min_width = 5.4
-max_width = 6.0
 
 
 def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
@@ -28,11 +30,11 @@ def amount_of_notional_lanes(width_bridgedeck: float) -> tuple[int, float]:
         tuple[int, float]: A tuple containing the number of notional lanes and the width per lane in meters.
 
     """
-    if width_bridgedeck < min_width:
-        return 1, 3
-    if min_width <= width_bridgedeck < max_width:
+    if width_bridgedeck < MIN_BRIDGE_WIDTH_SINGLE_LANE:
+        return 1, DEFAULT_LANE_WIDTH
+    if MIN_BRIDGE_WIDTH_SINGLE_LANE <= width_bridgedeck < MAX_BRIDGE_WIDTH_TWO_LANES:
         return 2, width_bridgedeck / 2
-    return int(width_bridgedeck // 3), 3
+    return int(width_bridgedeck // DEFAULT_LANE_WIDTH), DEFAULT_LANE_WIDTH
 
 
 def amount_of_notional_lanes_from_center(width_bridgedeck: float) -> tuple[int, int, float]:
@@ -85,13 +87,14 @@ def calculate_possibilities_lane_orientation(width_bridgedeck: float) -> int:
 
 def get_reference_period(params: "BridgeParametrization") -> int:
     """
-    Return the reference period (in years) based on the veiligheidsniveau input.
+    Return the reference period (in years) based on the design code input.
 
-    :param veiligheidsniveau: The value of the veiligheidsniveau field from parametrization.py
-    :type veiligheidsniveau: str
+    :param params: Bridge parameters containing design_code field
+    :type params: BridgeParametrization
     :returns: Reference period in years (30 or 15)
     :rtype: int
     """
-    if params["design_code"] == "NEN 8700 afkeur":
-        return 15
-    return 30
+    # Use constant for design code comparison
+    if params["design_code"] == DESIGN_CODE_OPTIONS[2]:  # "NEN 8700 afkeur"
+        return REFERENCE_PERIOD_AFKEUR
+    return REFERENCE_PERIOD_DEFAULT

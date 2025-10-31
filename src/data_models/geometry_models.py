@@ -4,7 +4,7 @@ Pydantic models for geometric data structures.
 This module contains models for geometric calculations, coordinates, and spatial data.
 """
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class TheoreticalLaneResult(BaseModel):
@@ -31,3 +31,5 @@ class TheoreticalLaneResult(BaseModel):
                     f"num_lanes x lane_width = {info.data['num_lanes']} x {info.data['lane_width']} = {expected}m"
                 )
         return v
+
+    model_config = ConfigDict(validate_assignment=True)
