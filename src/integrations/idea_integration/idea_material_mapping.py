@@ -133,7 +133,7 @@ def is_historical_material(concrete_quality: str) -> bool:
     return False
 
 
-def get_all_supported_materials() -> dict[str, str]:
+def get_all_supported_materials() -> dict[str, str]:  # noqa: C901
     """
     Get all supported concrete materials with their types.
 
@@ -191,8 +191,8 @@ def get_all_supported_materials() -> dict[str, str]:
                     continue
 
                 # Extract material names from data rows
-                for line in lines[data_start_idx:]:
-                    line = line.strip()
+                for raw_line in lines[data_start_idx:]:
+                    line = raw_line.strip()
                     if not line:
                         continue
 
@@ -337,17 +337,16 @@ def is_historical_reinforcement_material(reinforcement_type: str) -> bool:
     # This provides backward compatibility for old code using base names like "QR22", "HK"
     # Use rsplit to handle names with spaces like "St. 37"
     for material_name, material_type in all_materials.items():
-        if material_type == "historical":
+        if material_type == "historical" and "_" in material_name:
             # Extract base name from suffixed material
-            if "_" in material_name:
-                base_name = material_name.rsplit("_", 1)[0]
-                if base_name == reinforcement_type:
-                    return True
+            base_name = material_name.rsplit("_", 1)[0]
+            if base_name == reinforcement_type:
+                return True
 
     return False
 
 
-def get_all_supported_reinforcement_materials() -> dict[str, str]:
+def get_all_supported_reinforcement_materials() -> dict[str, str]:  # noqa: C901
     """
     Get all supported reinforcement materials with their types.
 
@@ -390,8 +389,8 @@ def get_all_supported_reinforcement_materials() -> dict[str, str]:
                     continue
 
                 # Extract material names from data rows
-                for line in lines[data_start_idx:]:
-                    line = line.strip()
+                for raw_line in lines[data_start_idx:]:
+                    line = raw_line.strip()
                     if not line:
                         continue
 

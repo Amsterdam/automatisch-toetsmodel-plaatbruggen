@@ -37,9 +37,6 @@ def _get_material_name_with_suffix(base_material_name: str, material_type: str) 
     :returns: Material name with suffix if found, None otherwise
     :rtype: str | None
     """
-    # Material suffix mapping based on the source CSV files
-    # Format: {base_name: suffix}
-
     if material_type == "concrete":
         # Concrete materials mapping
         concrete_mapping = {
@@ -47,10 +44,6 @@ def _get_material_name_with_suffix(base_material_name: str, material_type: str) 
             "K150": "K150_GBV1940",
             "K200": "K200_GBV1940",
             "K250": "K250_GBV1940",
-            # GBV 1950 materials (prefer 1950 over 1940 for duplicates)
-            # "K150": "K150_GBV1950",  # Commented - prefer 1940
-            # "K200": "K200_GBV1950",  # Commented - prefer 1940
-            # "K250": "K250_GBV1950",  # Commented - prefer 1940
             # GBV 1962 materials
             "K160": "K160_GBV1962",
             "K225": "K225_GBV1962",
