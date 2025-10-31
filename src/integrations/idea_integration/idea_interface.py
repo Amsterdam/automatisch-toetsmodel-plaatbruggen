@@ -78,9 +78,24 @@ def _get_unique_matching_zone_keys(
     # TODO: Refactor create_node_and_thickness_dict to work with bridge_segments data
     # Create temporary params object for geometry extraction
     # This is technical debt that should be addressed in future refactoring
+    class SegmentWrapper:
+        """Wrapper to provide attribute access to segment dictionaries."""
+        def __init__(self, segment_dict: dict) -> None:
+            self._data = segment_dict
+        
+        def __getattr__(self, name: str) -> Any:
+            """Allow attribute-style access to dictionary keys."""
+            if name.startswith("_"):
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            return self._data.get(name)
+    
     class TempParams:
         def __init__(self, segments: list) -> None:
-            self.bridge_segments_array = segments
+            # Wrap dictionaries to provide attribute access
+            self.bridge_segments_array = [
+                SegmentWrapper(seg) if isinstance(seg, dict) else seg
+                for seg in segments
+            ]
 
     temp_params = TempParams(input_data.bridge_segments)
     nodes_dict, thickness_dict = create_node_and_thickness_dict(temp_params)  # type: ignore[arg-type]
@@ -743,6 +758,10 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
     :param builder: IDEA model builder instance
     :type builder: Any
     """
+    # Handle empty DataFrame case
+    if df_all.empty:
+        return
+    
     # For langs cs link IDEA vz to scia vy and IDEA My to scia My
     # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
     # Direction → axis + corresponding moment component

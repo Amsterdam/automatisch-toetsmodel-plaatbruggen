@@ -4,8 +4,8 @@ This project adheres to the following Python coding standards and conventions:
 
 ## Style Guide
 
-*   Code **must** follow the [PEP 8](mdc:https:/peps.python.org/pep-0008) style guide.
-*   Style adherence is enforced using **Ruff**. Configuration can be found in [automatisch-toetsmodel-plaatbruggen/.ruff.toml](mdc:automatisch-toetsmodel-plaatbruggen/.ruff.toml).
+*   Code **must** follow the PEP 8 style guide: https://peps.python.org/pep-0008/
+*   Style adherence is enforced using **Ruff**. Configuration can be found in `.ruff.toml`.
 *   Use **double quotes (`"`)** for strings (Ruff rule `Q000`). Single quotes are disallowed.
 *   Ensure imports are sorted (Ruff rule `I001`). Ruff can automatically fix this.
 *   Avoid commented-out code (Ruff rule `ERA001`). Remove it instead.
@@ -52,28 +52,88 @@ The main project folder is **`automatisch-toetsmodel-plaatbruggen/`** and all wo
 Within the `automatisch-toetsmodel-plaatbruggen/` folder:
 
 *   **`app/`**: Contains all code related to the VIKTOR SDK interface. **No core calculation logic should reside here.** Organized by feature/entity type.
-    *   `app/overview_bridges/`: Logic related to the batch calculation entity.
+    *   `app/overview_bridges/`: Logic related to the batch calculation entity (parent entity).
         *   `controller.py`: Controller and Views for the batch entity.
         *   `parametrization.py`: Parametrization for the batch entity.
-        *   `utils.py`: Utility functions specific to the batch entity UI/logic (optional).
-    *   `app/bridge/`: Logic related to the individual bridge entity.
-        *   `controller.py`: Controller and Views for the bridge entity.
+        *   `utils.py`: Utility functions specific to the batch entity UI/logic.
+    *   `app/bridge/`: Logic related to the individual bridge entity (child entity).
+        *   `controller.py`: Main controller entry point - imports component-based controllers.
         *   `parametrization.py`: Parametrization for the bridge entity.
-        *   `utils.py`: Utility functions specific to the bridge entity UI/logic (optional).
+        *   `analysis_cache.py`: Caching mechanism for bridge analysis results.
+        *   `cache_parameters.py`: Parameters used for cache invalidation.
+        *   `scia_model_builder.py`: Builds SCIA Engineer models from bridge parameters.
+        *   `idea_model_builder.py`: Builds IDEA StatiCa RCS models from bridge parameters.
+        *   `utils.py`: Utility functions specific to the bridge entity UI/logic.
+        *   `bridgeController/`: Component-based controller modules (InfoViews, GeometryViews, SciaIntegration, IdeaIntegration, Optimization, ReportViews, ControllerUtils).
+    *   `app/common/`: Shared utilities across app modules.
+        *   `map_utils.py`: Utilities for map views and GIS functionality.
+    *   `app/constants/`: VIKTOR layer constants.
+        *   `paths.py`: File paths and resource locations.
+        *   `technical.py`: Technical constants like standard rebar diameters.
+        *   `ui_texts.py`: User interface text constants.
 *   **`src/`**: Contains the core calculation logic, domain models, and external tool integrations. **This layer must NOT import the `viktor` SDK.**
-    *   `src/bridge_analysis/`: Main logic for bridge calculations.
-        *   `src/bridge_analysis/calculators/`: Modules for specific calculation types (loads, checks).
-        *   `src/bridge_analysis/models/`: Data structures (Pydantic recommended) for bridges, loads, results.
-        *   `src/bridge_analysis/types/`: Logic specific to different bridge types.
-        *   `src/bridge_analysis/utils.py`: Utility functions for analysis.
+    *   `src/data_models/`: Pydantic data models for type-safe data structures.
+        *   `bridge_models.py`: Bridge geometry and configuration models.
+        *   `load_models.py`: Load case and combination models.
+        *   `material_models.py`: Material property models.
+        *   `scia_models.py`: SCIA Engineer specific models.
+        *   `idea_models.py`: IDEA StatiCa RCS specific models.
+        *   `geometry_models.py`: Geometric element models.
+        *   `geometry_data_models.py`: Geometric data structures.
+        *   `combination_models.py`: Load combination models.
+        *   `vehicle_models.py`: Vehicle load models.
+        *   `plotting_models.py`: Plotting and visualization models.
+    *   `src/geometry/`: Geometry creation and visualization logic.
+        *   `bridge_geometry_data.py`: Bridge geometry data extraction.
+        *   `cross_section.py`: Cross-section geometry.
+        *   `horizontal_section.py`: Horizontal section views.
+        *   `longitudinal_section.py`: Longitudinal section views.
+        *   `top_view_plot.py`: Top view plotting.
+        *   `load_zone_geometry.py`: Load zone geometry calculations.
+        *   `load_zone_plot.py`: Load zone visualization.
+        *   `model_creator.py`: 3D model creation.
+    *   `src/combinations/`: Load combination logic.
+        *   `load_factors.py`: Load factors and combination rules.
+    *   `src/loads/`: Load calculation modules (currently being developed).
+    *   `src/integrations/`: Code for interacting with external software.
+        *   `scia_integration/`: SCIA Engineer integration (model generation, analysis execution, result parsing).
+        *   `idea_integration/`: IDEA StatiCa RCS integration (model generation, analysis execution, result parsing).
     *   `src/common/`: Shared utilities/models across `src/` modules.
-    *   `src/integrations/`: Code for interacting with external software like SCIA Engineer ([scia_interface.py](mdc:automatisch-toetsmodel-plaatbruggen/src/integrations/scia_interface.py)).
-    *   `src/constants/`: Stores shared configuration data like materials ([materials.json](mdc:automatisch-toetsmodel-plaatbruggen/src/config/materials.json)).
+        *   `csv_parser.py`: CSV file parsing utilities.
+        *   `gis_utils.py`: GIS and coordinate conversion utilities.
+        *   `materials.py`: Material property utilities.
+        *   `plot_utils.py`: Plotting helper functions.
+        *   `constants/`: Shared constants across src modules.
+    *   `src/report/`: Report generation logic.
+        *   `report_functions.py`: Functions for generating PDF reports.
+*   **`resources/`**: Static resources and data files.
+    *   `resources/data/`: Data files and configuration.
+        *   `bridges/`: Bridge-specific data files.
+        *   `code_tables/`: Code tables and standards data.
+        *   `materials/`: Material properties (CSV files: betonkwaliteit.csv, betonstaalkwaliteit.csv, etc.).
+        *   `idea_materials/`: IDEA StatiCa material definitions.
+    *   `resources/gis/`: GIS shapefiles (Bruggenkaart.shp, etc.).
+    *   `resources/styles/`: CSS styles for reports.
+    *   `resources/templates/`: Templates for external tools (model.esa for SCIA).
 *   **`tests/`**: Contains all tests.
-    *   `tests/test_app/`: Tests for the `app` layer (viktor layer).
+    *   `tests/test_app/`: Tests for the `app` layer (VIKTOR layer).
     *   `tests/test_src/`: High-priority unit tests for the core logic in `src/`.
-*   **`doc/`**: Contains project documentation.
-    *   [architecture.md](mdc:automatisch-toetsmodel-plaatbruggen/doc/architecture.md): Detailed description of the project architecture.
+    *   `tests/test_data/`: Test data files.
+    *   `conftest.py`: Pytest configuration and fixtures.
+    *   `test_utils.py`: Testing utility functions.
+*   **`docs/`**: Contains project documentation.
+    *   `architecture.md`: Detailed description of the project architecture.
+    *   `code_style.md`: Coding standards and style guide.
+    *   `development_workflow.md`: Development workflow and guidelines.
+    *   `pydantic_developer_guide.md`: Guide for using Pydantic models.
+    *   `testing_uitleg.md`: Testing explanation and guidelines.
+*   **`scripts/`**: Development and CI/CD scripts.
+    *   `quality_check_and_push.py`: Pre-push quality checks.
+    *   `run_enhanced_tests.py`: Enhanced test runner.
+    *   `run_mypy.py`: Type checking script.
+    *   `run_ruff_check.py`: Linting script.
+    *   `run_ruff_format.py`: Code formatting script.
+    *   `run_viktor_tests.py`: VIKTOR-specific test runner.
 
 ## Core Principle
 
@@ -87,7 +147,7 @@ alwaysApply: false
 ---
 # VIKTOR SDK 3D Modeling Tips & Tricks
 
-This document summarizes lessons learned while creating 3D geometry using the VIKTOR SDK, particularly focusing on potential pitfalls and recommended practices observed in [automatisch-toetsmodel-plaatbruggen/app/bridge/controller.py](mdc:automatisch-toetsmodel-plaatbruggen/app/bridge/controller.py).
+This document summarizes lessons learned while creating 3D geometry using the VIKTOR SDK, particularly focusing on potential pitfalls and recommended practices observed in `app/bridge/bridgeController/controller.py`.
 
 ## Geometry Creation Issues & Recommendations
 
@@ -119,10 +179,10 @@ This document summarizes lessons learned while creating 3D geometry using the VI
     3.  Translate the entire `Group` to its final position using a single `.translate()` operation.
     *   This ensures all relative positions are maintained correctly during the final placement.
 
-See [automatisch-toetsmodel-plaatbruggen/app/bridge/controller.py](mdc:automatisch-toetsmodel-plaatbruggen/app/bridge/controller.py) for examples of applying these principles.
+See `app/bridge/bridgeController/controller.py` for examples of applying these principles.
 
 
-This cursor rule may need updating as the codebase has undergone signigficant reactoring...
+This cursor rule may need updating as the codebase has undergone significant refactoring...
 
 
 ---
@@ -341,65 +401,65 @@ When working within the `viktor/` layer, refer to the official VIKTOR documentat
 
 *   **Parametrization (`viktor.parametrization`)**: Defines the user interface (input fields, pages, tabs, buttons).
     *   Use classes like `Page`, `Tab`, `TextField`, `NumberField`, `OptionField`, `ActionButton`, `DownloadButton`, `ChildEntityManager`, etc.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/parametrization/](mdc:https:/docs.viktor.ai/sdk/api/parametrization)
+    *   Documentation: https://docs.viktor.ai/sdk/api/parametrization/
 
 *   **Views (`viktor.views`)**: Defines how data and results are presented to the user.
     *   Use classes like `GeometryView`, `PlotlyView`, `DataView`, `MapView`, `PDFView`, etc.
     *   Decorate controller methods with the corresponding view decorator (e.g., `@GeometryView(...)`).
-    *   Documentation: [https://docs.viktor.ai/sdk/api/views/](mdc:https:/docs.viktor.ai/sdk/api/views) 
+    *   Documentation: https://docs.viktor.ai/sdk/api/views/
 
 *   **Controller (`viktor.core.ViktorController`)**: The central class connecting parametrization, views, and logic.
     *   Defines methods called by `ActionButton`, `DownloadButton`, and view decorators.
     *   Manages interaction between the VIKTOR layer (`viktor/`) and the core logic layer (`src/`).
-    *   Main Documentation: [https://docs.viktor.ai/sdk/api/core/](mdc:https:/docs.viktor.ai/sdk/api/core)
+    *   Main Documentation: https://docs.viktor.ai/sdk/api/core/
 
 ### Data & Results
 
 *   **Result Objects (`viktor.result`)**: Defines the structure for results returned by download or analysis methods.
     *   Use classes like `DownloadResult`, `OptimizationResult`, etc.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/result/](mdc:https:/docs.viktor.ai/sdk/api/result)
+    *   Documentation: https://docs.viktor.ai/sdk/api/result/
 
 *   **Geometry (`viktor.geometry`)**: Classes for creating and manipulating 3D geometry objects (Points, Lines, Polygons, Extrusions, etc.).
     *   Used for generating visualizations in `GeometryView` or preparing data for external tools.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/geometry/](mdc:https:/docs.viktor.ai/sdk/api/geometry)
+    *   Documentation: https://docs.viktor.ai/sdk/api/geometry/
 
 *   **Core Utilities (`viktor.core`)**: Fundamental classes like `File`, `Color`, `Storage`, `UserMessage`.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/core/](mdc:https:/docs.viktor.ai/sdk/api/core)
+    *   Documentation: https://docs.viktor.ai/sdk/api/core/
 
 ### External Integrations (`viktor.external`)
 
 *   Modules for interacting with external software.
 *   **SCIA Engineer (`viktor.external.scia`)**: Specific classes and methods (`Model`, `SciaAnalysis`, etc.) for generating SCIA input (XML), running analyses, and parsing results.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/external/scia/](mdc:https:/docs.viktor.ai/sdk/api/external/scia)
+    *   Documentation: https://docs.viktor.ai/sdk/api/external/scia/
 *   **Word (`viktor.external.word`)**: For generating reports using Word templates (`render_word_file`, `WordFileTag`, `WordFileImage`).
-    *   Documentation: [https://docs.viktor.ai/sdk/api/external/word/](mdc:https:/docs.viktor.ai/sdk/api/external/word)
+    *   Documentation: https://docs.viktor.ai/sdk/api/external/word/
 *   **IDEA StatiCa Concrete (`viktor.external.idea`)**: For interacting with IDEA StatiCa RCS.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/external/idea/](mdc:https:/docs.viktor.ai/sdk/api/external/idea)
+    *   Documentation: https://docs.viktor.ai/sdk/api/external/idea/
 *   **Generic (`viktor.external.generic`)**: For running generic external command-line programs (`GenericAnalysis`).
-    *   Documentation: [https://docs.viktor.ai/sdk/api/external/generic/](mdc:https:/docs.viktor.ai/sdk/api/external/generic)
+    *   Documentation: https://docs.viktor.ai/sdk/api/external/generic/
 *   *(Check documentation for other specific software integrations if needed)*
 
 ### Development & Utilities
 
 *   **Testing (`viktor.testing`)**: Utilities for testing VIKTOR applications.
     *   Provides tools to mock VIKTOR components and simulate parametrization.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/testing/](mdc:https:/docs.viktor.ai/sdk/api/testing)
+    *   Documentation: https://docs.viktor.ai/sdk/api/testing/
 
 *   **Errors (`viktor.errors`)**: Custom VIKTOR exception types.
     *   Use `UserError` to show user-friendly error messages in the interface, `InternalError` for other exceptions.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/errors/](mdc:https:/docs.viktor.ai/sdk/api/errors)
+    *   Documentation: https://docs.viktor.ai/sdk/api/errors/
 
 *   **Utilities (`viktor.utils`)**: Helper functions for common tasks.
     *   Includes functions like `memoize`, `convert_word_to_pdf`, `merge_pdf_files`, `render_jinja_template`, etc.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/utils/](mdc:https:/docs.viktor.ai/sdk/api/utils)
+    *   Documentation: https://docs.viktor.ai/sdk/api/utils/
 
 ### General References
 
 *   **Top-Level API Reference**: Overview of all available modules.
-    *   Documentation: [https://docs.viktor.ai/sdk/api/api-v1/](mdc:https:/docs.viktor.ai/sdk/api/api-v1)
+    *   Documentation: https://docs.viktor.ai/sdk/api/api-v1/
 
 *   **Changelog**: Check for recent SDK updates, new features, or deprecations.
-    *   Documentation: [https://docs.viktor.ai/sdk/changelog/](mdc:https:/docs.viktor.ai/sdk/changelog)
+    *   Documentation: https://docs.viktor.ai/sdk/changelog/
 
 ## Finding Data
 
@@ -445,6 +505,32 @@ When working within the `viktor/` layer, refer to the official VIKTOR documentat
 *   Use `print(dir(params))` to see available attributes on the `params` object
 *   Use `hasattr(params, "field_name")` to check if a field with `name` attribute exists
 *   When in doubt, print the `params` object structure to understand the access pattern
+
+## Callback Function Signatures
+
+**CRITICAL**: All callback functions used in VIKTOR parametrization fields **must** include `**kwargs` in their signature.
+
+*   **Required signature**: `func(..., **kwargs)` or `func(params, **kwargs)` for parametrization callbacks
+*   **Example**: Functions used in `OptionField.options`, `visible` callbacks, `Lookup` functions, etc.
+
+```python
+# ✅ Correct - includes **kwargs
+def _get_rebar_diameter_options(**kwargs) -> list[int]:  # noqa: ARG001
+    return sorted(STANDARD_REBAR_DIAMETERS)
+
+# ✅ Correct - includes params and **kwargs
+def _show_field_callback(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
+    return params.some_condition
+
+# ❌ Incorrect - missing **kwargs (will cause TypeError)
+def _get_options() -> list[int]:
+    return sorted(STANDARD_REBAR_DIAMETERS)
+```
+
+*   Add `# noqa: ARG001` to suppress unused argument warnings from linters
+*   This is a VIKTOR SDK requirement, even if `**kwargs` is not used in the function body
+
+## General Guidelines
 
 *   When writing new code, make use of comments and docstrings to explain the purpose and functionality of your code.
 *   When modifying code, don't delete existing comments or docstrings.
