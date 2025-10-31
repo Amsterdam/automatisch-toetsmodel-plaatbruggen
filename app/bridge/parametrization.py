@@ -475,7 +475,8 @@ def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: A
 
         if first_is_support and last_is_support:
             return f"🟢 Eerste en laatste sectie zijn beide opleggingen ({first_support} / {last_support})"
-        return "🔴 Eerste en laatste sectie zijn geen opleggingen"
+        else:  # noqa: TRY300
+            return "🔴 Eerste en laatste sectie zijn geen opleggingen"
 
     except (AttributeError, IndexError):
         return "🔴 Fout bij ophalen opleggingsgegevens"
@@ -497,7 +498,7 @@ def _validate_first_and_last_supports(params: Mapping, **kwargs) -> None:  # noq
     try:
         segments = params.bridge_segments_array
         if not segments or len(segments) < 2:
-            raise UserError(
+            raise UserError(  # noqa: TRY301
                 "Onvoldoende brugdimensies gedefinieerd. Er moeten minimaal 2 secties zijn.",
             )
 
@@ -508,15 +509,15 @@ def _validate_first_and_last_supports(params: Mapping, **kwargs) -> None:  # noq
         last_is_support = last_support != "Nee"
 
         if not first_is_support and not last_is_support:
-            raise UserError(
+            raise UserError(  # noqa: TRY301
                 "De eerste en laatste sectie moeten beide een oplegging hebben. Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
             )
         if not first_is_support:
-            raise UserError(
+            raise UserError(  # noqa: TRY301
                 "De eerste sectie (D-0) moet een oplegging hebben. Selecteer een opleggingstype bij de eerste sectie.",
             )
         if not last_is_support:
-            raise UserError(
+            raise UserError(  # noqa: TRY301
                 f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. Selecteer een opleggingstype bij de laatste sectie.",
             )
 
