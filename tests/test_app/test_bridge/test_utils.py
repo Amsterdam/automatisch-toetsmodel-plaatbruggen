@@ -11,7 +11,7 @@ from typing import Any
 from munch import Munch  # type: ignore[import-untyped]
 
 from app.bridge.utils import ParamsForLoadZones, validate_load_zone_widths
-from src.geometry.model_creator import LoadZoneGeometryData
+from src.data_models.geometry_data_models import DPointLabelData, LoadZoneGeometryData
 
 
 class TestValidateLoadZoneWidths(unittest.TestCase):
@@ -26,9 +26,9 @@ class TestValidateLoadZoneWidths(unittest.TestCase):
             y_top_structural_edge_at_d_points=[3.0, 4.0, 3.0],
             y_bridge_bottom_at_d_points=[-3.0, -4.0, -3.0],
             d_point_label_data=[
-                type("", (), {"text": "D1", "x": 0.0, "y": 3.0})(),
-                type("", (), {"text": "D2", "x": 10.0, "y": 4.0})(),
-                type("", (), {"text": "D3", "x": 20.0, "y": 3.0})(),
+                DPointLabelData(text="D1", x=0.0, y=3.0),
+                DPointLabelData(text="D2", x=10.0, y=4.0),
+                DPointLabelData(text="D3", x=20.0, y=3.0),
             ],
         )
 
@@ -212,7 +212,7 @@ class TestValidateLoadZoneWidths(unittest.TestCase):
             total_widths_at_d_points=[10.0],  # Total available
             y_top_structural_edge_at_d_points=[5.0],
             y_bridge_bottom_at_d_points=[-5.0],
-            d_point_label_data=[type("", (), {"text": "D1", "x": 0.0, "y": 5.0})()],
+            d_point_label_data=[DPointLabelData(text="D1", x=0.0, y=5.0)],
         )
 
         zone1 = self._create_load_zone_row(d1_width=3.0)  # Uses 3.0m
@@ -313,7 +313,7 @@ class TestParamsForLoadZonesProtocol(unittest.TestCase):
             total_widths_at_d_points=[10.0],
             y_top_structural_edge_at_d_points=[5.0],
             y_bridge_bottom_at_d_points=[-5.0],
-            d_point_label_data=[],
+            d_point_label_data=[DPointLabelData(text="D1", x=0.0, y=5.0)],
         )
 
         warnings = validate_load_zone_widths(params, geometry_data)

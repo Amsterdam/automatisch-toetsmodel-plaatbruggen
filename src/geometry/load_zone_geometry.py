@@ -5,13 +5,16 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
+from src.common.constants.geometry import (
+    DEFAULT_AUTO_ZONE_PAVEMENT_THICKNESS,
+    DEFAULT_BERM_ZONE_PAVEMENT_THICKNESS,
+    DEFAULT_LANE_WIDTH,
+)
 from src.data_models.bridge_models import BridgeSegmentDimensions  # Import the Pydantic data model
+from src.data_models.geometry_data_models import LoadZoneGeometryData
 from src.data_models.geometry_models import TheoreticalLaneResult
 from src.data_models.load_models import LoadZoneData
-from src.geometry.model_creator import (
-    LoadZoneGeometryData,  # Import the dataclass
-    prepare_load_zone_geometry_data,
-)
+from src.geometry.model_creator import prepare_load_zone_geometry_data
 from viktor.errors import UserError
 
 # Use string annotation to avoid circular import
@@ -75,12 +78,13 @@ def _get_d_point_widths_dict(num_d_points: int, width: float) -> dict[str, float
     :rtype: dict[str, float]
     """
     width_dict = {}
-    for i in range(1, min(num_d_points + 1, 16)):  # Max 15 D-points
+    max_d_points = MAX_LOAD_ZONE_SEGMENT_FIELDS + 1  # MAX_LOAD_ZONE_SEGMENT_FIELDS is 15, so max index is 16
+    for i in range(1, min(num_d_points + 1, max_d_points)):
         width_dict[f"d{i}_width"] = width
     return width_dict
 
 
-def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float = 3.0) -> TheoreticalLaneResult:
+def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float = DEFAULT_LANE_WIDTH) -> TheoreticalLaneResult:
     """
     Calculate MINIMAL theoretical traffic lane distribution based on bridge width.
 
@@ -139,7 +143,7 @@ def calculate_theoretical_traffic_lanes(bridge_width: float, lane_width: float =
     )
 
 
-def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane_width: float = 3.0) -> list[LoadZoneData]:
+def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane_width: float = DEFAULT_LANE_WIDTH) -> list[LoadZoneData]:
     """
     Generate MINIMAL theoretical load zone data structures for bridge analysis.
 
@@ -200,7 +204,7 @@ def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane
 
         zone = LoadZoneData(
             zone_type="Auto",
-            pavement_thickness=0.1,  # 10cm asphalt for traffic lanes
+            pavement_thickness=DEFAULT_AUTO_ZONE_PAVEMENT_THICKNESS,  # 10cm asphalt for traffic lanes
             pavement_material="Asfalt",
             zone_widths_per_d=[lane_width] * num_d_points,
             y_coords_top_current_zone=[],  # Will be calculated by controller
@@ -216,7 +220,7 @@ def generate_theoretical_load_zones(bridge_width: float, num_d_points: int, lane
 
         rest_zone = LoadZoneData(
             zone_type="Berm",
-            pavement_thickness=0.05,  # 5cm gravel for rest area
+            pavement_thickness=DEFAULT_BERM_ZONE_PAVEMENT_THICKNESS,  # 5cm gravel for rest area
             pavement_material="Grind",  # Use valid material from Literal
             zone_widths_per_d=[lane_calc.rest_width] * num_d_points,
             y_coords_top_current_zone=[],  # Will be calculated by controller
@@ -375,7 +379,7 @@ def get_load_zones_data_from_params(params: Any) -> list[LoadZoneData]:  # noqa:
             # Construct a dictionary that matches LoadZoneData fields with explicit type conversion
             temp_row_data: dict[str, Any] = {
                 "zone_type": str(row_param.zone_type),
-                "pavement_thickness": float(getattr(row_param, "pavement_thickness", 0.05)),  # Default 5cm
+                "pavement_thickness": float(getattr(row_param, "pavement_thickness", DEFAULT_BERM_ZONE_PAVEMENT_THICKNESS)),  # Default 5cm
                 "pavement_material": str(getattr(row_param, "pavement_material", "Asfalt")),  # Default Asfalt
             }
             for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):

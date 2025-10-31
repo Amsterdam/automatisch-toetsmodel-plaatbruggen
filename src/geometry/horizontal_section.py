@@ -6,6 +6,10 @@ import plotly.graph_objects as go
 import trimesh
 from munch import Munch  # type: ignore[import-untyped]
 
+from src.common.constants.geometry import (
+    ANNOTATION_Y_OFFSET_CROSS_SECTION,
+    ANNOTATION_Y_OFFSET_HORIZONTAL,
+)
 from src.geometry.model_creator import create_3d_model, create_cross_section
 
 if TYPE_CHECKING:
@@ -57,7 +61,7 @@ def create_horizontal_section_annotations(params: dict | Munch, all_y: list[floa
     cross_section_labels = [
         go.layout.Annotation(
             x=cs_x,
-            y=max(all_y) + 0.5,
+            y=max(all_y) + ANNOTATION_Y_OFFSET_HORIZONTAL,
             text=f"<b>D-{i + 1}</b>",
             showarrow=False,
             font={"size": 15, "color": "black"},
@@ -131,7 +135,7 @@ def create_horizontal_section_annotations(params: dict | Munch, all_y: list[floa
     dimension_annotations = [
         go.layout.Annotation(
             x=zcx,
-            y=min(all_y) - 1.0,
+            y=min(all_y) - ANNOTATION_Y_OFFSET_CROSS_SECTION,
             text=f"<b>l = {length}m</b>",
             showarrow=False,
             font={"size": 12, "color": "red"},

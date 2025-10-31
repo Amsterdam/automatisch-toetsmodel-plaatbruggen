@@ -1680,8 +1680,8 @@ class TestMaterialSurfaceLoad:
 
     def test_create_material_surface_load_with_pydantic_model(self, mock_builder: Mock) -> None:
         """Test that create_material_surface_load works with Pydantic LoadZoneData objects."""
+        from src.data_models.geometry_data_models import DPointLabelData, LoadZoneGeometryData
         from src.data_models.load_models import LoadZoneData
-        from src.geometry.model_creator import LoadZoneGeometryData
 
         # Create a real Pydantic LoadZoneData object
         load_zone = LoadZoneData(
@@ -1700,7 +1700,10 @@ class TestMaterialSurfaceLoad:
             total_widths_at_d_points=[10.0, 10.0],
             y_bridge_bottom_at_d_points=[0.0, 0.0],
             num_defined_d_points=2,
-            d_point_label_data=[],
+            d_point_label_data=[
+                DPointLabelData(text="D1", x=0.0, y=5.0),
+                DPointLabelData(text="D2", x=10.0, y=5.0),
+            ],
         )
 
         # Create load config

@@ -87,7 +87,7 @@ class ReinforcementConfigData(BaseModel):
         # This validator allows flexible dict structure for compatibility with different config sources
         # but validates specific fields when present for legacy test compatibility
         if not isinstance(v, dict):
-            raise ValueError("rebar_config must be a dictionary")
+            raise TypeError("rebar_config must be a dictionary")
 
         # Validate grade if present (optional validation for legacy test compatibility)
         if "grade" in v:

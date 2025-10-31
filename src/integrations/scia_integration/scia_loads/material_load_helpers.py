@@ -7,8 +7,8 @@ to SCIA models based on pavement material properties.
 
 from typing import TYPE_CHECKING, Any
 
+from src.data_models.geometry_data_models import LoadZoneGeometryData
 from src.geometry.load_zone_geometry import calculate_zone_geometry_properties, get_bridge_geom_data, get_load_zones_data_from_params
-from src.geometry.model_creator import LoadZoneGeometryData
 from src.integrations.scia_integration.constants.units import KN_PER_SQM_TO_N_PER_SQM
 from src.integrations.scia_integration.load_system.load_value_calculators import calculate_pavement_load_from_material
 

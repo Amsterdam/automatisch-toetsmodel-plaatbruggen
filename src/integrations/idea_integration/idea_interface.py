@@ -131,7 +131,7 @@ def calculate_rebar_positions(width: float, hoh: float, y_offset: float = 0) -> 
 
     if n_rebars % 2 == 0:  # Even number of rebars
         for i in range(n_rebars // 2):
-            offset拦 = (i + REBAR_POSITION_HALF_OFFSET) * actual_hoh
+            offset = (i + REBAR_POSITION_HALF_OFFSET) * actual_hoh
             positions.extend([-offset, offset])
     else:  # Odd number of rebars
         positions = [0]  # Center rebar
