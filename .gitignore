@@ -71,6 +71,8 @@ instance/
 # Cursor stuff
 .cursor/
 
+# GitHub Copilot
+.github/copilot-instructions.md
 
 # Sphinx documentation
 docs/_build/
