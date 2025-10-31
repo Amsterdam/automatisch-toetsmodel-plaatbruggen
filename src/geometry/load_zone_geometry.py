@@ -14,7 +14,9 @@ from src.data_models.bridge_models import BridgeSegmentDimensions  # Import the 
 from src.data_models.geometry_data_models import LoadZoneGeometryData
 from src.data_models.geometry_models import TheoreticalLaneResult
 from src.data_models.load_models import LoadZoneData
-from src.geometry.model_creator import prepare_load_zone_geometry_data
+from src.geometry.model_creator import (
+    prepare_load_zone_geometry_data,
+)
 from viktor.errors import UserError
 
 # Use string annotation to avoid circular import
