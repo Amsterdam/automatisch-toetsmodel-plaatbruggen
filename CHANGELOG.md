@@ -27,6 +27,9 @@
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
 
 ### Changed
+- **Dynamic Material Loading**: Replaced all hardcoded material lists with dynamic CSV file reading
+  - Material lists now loaded at runtime from `Concrete_All.csv` and `Reinforcement_All.csv`
+  - Adding new materials to CSV files automatically makes them available throughout the application
 - **Refactored cache code**: code cleanup
 - **Bridge Entity Management**: Enhanced regeneration workflow to update existing entities instead of only creating new ones
   - `regenerate_bridges_action` now updates parameters of existing bridge entities based on uploaded data

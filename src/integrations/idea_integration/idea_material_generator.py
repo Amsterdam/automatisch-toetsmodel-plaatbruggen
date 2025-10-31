@@ -23,6 +23,87 @@ from src.integrations.idea_integration.constants.paths import IDEA_MATERIALS_PAT
 from src.integrations.idea_integration.constants.units import MM_TO_M_IDEA
 
 
+def _get_material_name_with_suffix(base_material_name: str, material_type: str) -> str | None:
+    """
+    Try to find the suffixed material name in the combined CSV based on the base name.
+
+    This function implements a mapping from old material names (without suffix)
+    to new material names (with suffix) for backward compatibility.
+
+    :param base_material_name: Original material name without suffix (e.g., "B25", "QR22")
+    :type base_material_name: str
+    :param material_type: Type of material ("concrete" or "reinforcement")
+    :type material_type: str
+    :returns: Material name with suffix if found, None otherwise
+    :rtype: str | None
+    """
+    # Material suffix mapping based on the source CSV files
+    # Format: {base_name: suffix}
+
+    if material_type == "concrete":
+        # Concrete materials mapping
+        concrete_mapping = {
+            # GBV 1940 materials
+            "K150": "K150_GBV1940",
+            "K200": "K200_GBV1940",
+            "K250": "K250_GBV1940",
+            # GBV 1950 materials (prefer 1950 over 1940 for duplicates)
+            # "K150": "K150_GBV1950",  # Commented - prefer 1940
+            # "K200": "K200_GBV1950",  # Commented - prefer 1940
+            # "K250": "K250_GBV1950",  # Commented - prefer 1940
+            # GBV 1962 materials
+            "K160": "K160_GBV1962",
+            "K225": "K225_GBV1962",
+            "K300": "K300_GBV1962",
+            "K400": "K400_GBV1962",
+            "K450": "K450_GBV1962",
+            # NEN 6720 materials
+            "B25": "B25_NEN6720",
+            "B35": "B35_NEN6720",
+            "B45": "B45_NEN6720",
+            "B55": "B55_NEN6720",
+            "B65": "B65_NEN6720",
+            # VB 74+84 materials
+            "B12,5": "B12,5_VB7484",
+            "B17,5": "B17,5_VB7484",
+            "B22,5": "B22,5_VB7484",
+            "B30": "B30_VB7484",
+            "B37,5": "B37,5_VB7484",
+            "B52,5": "B52,5_VB7484",
+            "B60": "B60_VB7484",
+        }
+        return concrete_mapping.get(base_material_name)
+
+    if material_type == "reinforcement":
+        # Reinforcement materials mapping
+        reinforcement_mapping = {
+            # GBV 1940 materials
+            "St. 37": "St. 37_GBV1940",
+            "HK": "HK_GBV1940",  # Note: "HK" appears in GBV 1940 but not in our CSV list
+            # GBV 1950 materials
+            "QR22": "QR22_GBV1950",  # Prefer 1950 over 1962
+            "QR24": "QR24_GBV1950",  # Prefer 1950 over 1962
+            "QR30": "QR30_GBV1950",
+            "QR36": "QR36_GBV1950",
+            "QR42": "QR42_GBV1950",
+            # GBV 1962 materials (unique ones)
+            "QR32": "QR32_GBV1962",
+            "QR40": "QR40_GBV1962",
+            "QR48": "QR48_GBV1962",
+            # NEN 6720 materials
+            "FeB500 HWL, HK": "FeB500 HWL, HK_NEN6720",
+            "FeB400 HWL, HK": "FeB400 HWL, HK_NEN6720",
+            "FeB220 HWL": "FeB220 HWL_NEN6720",
+            # VB 74+84 materials
+            "FeB220 HW": "FeB220 HW_VB7484",
+            "FeB400 HW": "FeB400 HW_VB7484",
+            "FeB500 HW": "FeB500 HW_VB7484",
+        }
+        return reinforcement_mapping.get(base_material_name)
+
+    return None
+
+
 def _parse_csv_header_and_data_start(lines: list[str]) -> tuple[list[str], int]:
     """
     Parse CSV lines to extract header columns and find data start index.
@@ -133,36 +214,29 @@ def _get_csv_files_for_reinforcement() -> list[str]:
     :returns: List of CSV filenames for reinforcement materials
     :rtype: list[str]
     """
-    return [
-        "Wapening_GBV 1940.csv",
-        "Wapening_GBV 1950.csv",
-        "Wapening_GBV 1962.csv",
-        "Wapening_NEN 6720.csv",
-        "Wapening_VB 74+84.csv",
-    ]
+    return ["Reinforcement_All.csv"]
 
 
-def _get_csv_files_for_concrete(material_prefix: str) -> list[str]:
+def _get_csv_files_for_concrete(material_prefix: str) -> list[str]:  # noqa: ARG001
     """
-    Get the list of CSV files to check for concrete materials based on material prefix.
+    Get the list of CSV files to check for concrete materials.
 
-    :param material_prefix: First character of the material name
+    :param material_prefix: First character of the material name (kept for backward compatibility)
     :type material_prefix: str
     :returns: List of CSV filenames to check
     :rtype: list[str]
     """
-    csv_file_mapping = {
-        "K": ["Beton_GBV 1940.csv", "Beton_GBV 1950.csv", "Beton_GBV 1962.csv"],
-        "B": ["Beton_NEN 6720.csv", "Beton_VB 74+84.csv"],
-    }
-    return csv_file_mapping.get(material_prefix, [])
+    return ["Concrete_All.csv"]
 
 
 def get_reinforcement_material_from_csv(material_name: str) -> dict[str, Any]:
     """
-    Read reinforcement material properties from the appropriate CSV file.
+    Read reinforcement material properties from the combined CSV file.
 
-    :param material_name: Name of the reinforcement material (e.g., "FeB500 HWL, HK", "HK", "St. 37")
+    Supports both old material names (without suffix) and new material names (with suffix).
+
+    :param material_name: Name of the reinforcement material (e.g., "FeB500 HWL, HK", "QR22", "St. 37")
+                         Can be with or without suffix (e.g., "QR22" or "QR22_GBV1950")
     :type material_name: str
     :returns: Dictionary containing material properties from CSV
     :rtype: dict[str, Any]
@@ -173,7 +247,7 @@ def get_reinforcement_material_from_csv(material_name: str) -> dict[str, Any]:
     csv_base_path = IDEA_MATERIALS_PATH
     csv_files_to_check = _get_csv_files_for_reinforcement()
 
-    # Search for the material in all reinforcement CSV files
+    # Try with the exact name first
     for filename in csv_files_to_check:
         csv_path = csv_base_path / filename
 
@@ -181,6 +255,17 @@ def get_reinforcement_material_from_csv(material_name: str) -> dict[str, Any]:
             return _parse_csv_for_material(csv_path, material_name)
         except (FileNotFoundError, ValueError):
             continue
+
+    # If not found, try to map old name to new name with suffix
+    suffixed_name = _get_material_name_with_suffix(material_name, "reinforcement")
+    if suffixed_name and suffixed_name != material_name:
+        for filename in csv_files_to_check:
+            csv_path = csv_base_path / filename
+
+            try:
+                return _parse_csv_for_material(csv_path, suffixed_name)
+            except (FileNotFoundError, ValueError):
+                continue
 
     raise ValueError(f"Reinforcement material '{material_name}' not found in any CSV file")
 
@@ -288,9 +373,12 @@ def create_idea_reinforcement_material(model: idea_rcs.Model, material_name: str
 
 def get_concrete_material_from_csv(material_name: str) -> dict[str, Any]:
     """
-    Read concrete material properties from the appropriate CSV file.
+    Read concrete material properties from the combined CSV file.
+
+    Supports both old material names (without suffix) and new material names (with suffix).
 
     :param material_name: Name of the concrete material (e.g., "K150", "C30/37", "B25")
+                         Can be with or without suffix (e.g., "B25" or "B25_NEN6720")
     :type material_name: str
     :returns: Dictionary containing material properties from CSV
     :rtype: dict[str, Any]
@@ -307,7 +395,7 @@ def get_concrete_material_from_csv(material_name: str) -> dict[str, Any]:
     csv_base_path = IDEA_MATERIALS_PATH
     csv_files_to_check = _get_csv_files_for_concrete(material_prefix)
 
-    # Search for the material in the appropriate CSV files
+    # Try with the exact name first
     for filename in csv_files_to_check:
         csv_path = csv_base_path / filename
 
@@ -315,6 +403,17 @@ def get_concrete_material_from_csv(material_name: str) -> dict[str, Any]:
             return _parse_csv_for_material(csv_path, material_name)
         except (FileNotFoundError, ValueError):
             continue
+
+    # If not found, try to map old name to new name with suffix
+    suffixed_name = _get_material_name_with_suffix(material_name, "concrete")
+    if suffixed_name and suffixed_name != material_name:
+        for filename in csv_files_to_check:
+            csv_path = csv_base_path / filename
+
+            try:
+                return _parse_csv_for_material(csv_path, suffixed_name)
+            except (FileNotFoundError, ValueError):
+                continue
 
     raise ValueError(f"Material '{material_name}' not found in any CSV file")
 

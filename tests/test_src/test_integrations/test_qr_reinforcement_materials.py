@@ -49,24 +49,36 @@ class TestQRReinforcementMaterials:
         assert material_data["Fyk"] == expected_fyk, f"Material {material} should have Fyk={expected_fyk} MPa"
 
     def test_qr_materials_included_in_supported_materials(self) -> None:
-        """Test that all QR materials are included in the supported materials list."""
+        """Test that all QR materials (with suffixes) are included in the supported materials list."""
         all_materials = get_all_supported_reinforcement_materials()
 
-        gbv_1950_materials = ["QR22", "QR24", "QR30", "QR36", "QR42"]
-        gbv_1962_materials = ["QR32", "QR40", "QR48"]
+        # Test suffixed materials (as they appear in CSV)
+        gbv_1950_materials = ["QR22_GBV1950", "QR24_GBV1950", "QR30_GBV1950", "QR36_GBV1950", "QR42_GBV1950"]
+        gbv_1962_materials = ["QR32_GBV1962", "QR40_GBV1962", "QR48_GBV1962"]
 
         for material in gbv_1950_materials + gbv_1962_materials:
             assert material in all_materials, f"QR material {material} should be in supported materials list"
             assert all_materials[material] == "historical", f"QR material {material} should be marked as historical"
 
     def test_total_historical_material_count(self) -> None:
-        """Test that the total number of historical materials includes all QR materials."""
+        """Test that the total number of historical materials includes all suffixed materials from CSV."""
         all_materials = get_all_supported_reinforcement_materials()
         historical_materials = [name for name, mat_type in all_materials.items() if mat_type == "historical"]
 
-        # Should include the 8 QR materials plus the other historical materials
-        assert len(historical_materials) >= 16, f"Should have at least 16 historical materials, got {len(historical_materials)}"
+        # Should have exactly 18 historical materials (from Reinforcement_All.csv)
+        assert len(historical_materials) == 18, f"Should have exactly 18 historical materials, got {len(historical_materials)}"
 
-        # Verify specific QR materials are present
+        # Verify specific QR materials are present (suffixed versions only)
         qr_materials = [mat for mat in historical_materials if mat.startswith("QR")]
-        assert len(qr_materials) == 8, f"Should have exactly 8 QR materials, got {len(qr_materials)}: {qr_materials}"
+        # Should have 10 QR materials with suffixes: 5 from GBV1950 + 5 from GBV1962 (QR22 and QR24 appear in both)
+        assert len(qr_materials) == 10, f"Should have exactly 10 QR materials (with suffixes), got {len(qr_materials)}: {qr_materials}"
+
+        # Check that suffixed QR materials are present (not base names)
+        suffixed_qr_materials = [
+            # GBV 1950
+            "QR22_GBV1950", "QR24_GBV1950", "QR30_GBV1950", "QR36_GBV1950", "QR42_GBV1950",
+            # GBV 1962 (QR22 and QR24 also appear here)
+            "QR22_GBV1962", "QR24_GBV1962", "QR32_GBV1962", "QR40_GBV1962", "QR48_GBV1962"
+        ]
+        for material in suffixed_qr_materials:
+            assert material in all_materials, f"Suffixed QR material {material} should be in supported materials"

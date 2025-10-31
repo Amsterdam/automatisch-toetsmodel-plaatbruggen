@@ -27,6 +27,7 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
+from viktor.errors import UserError
 
 from app.constants import (
     BRIDGE_DATA_PATH,
@@ -542,7 +543,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         except Exception:
             # Fallback to basic modern materials if CSV reading fails
             modern_materials = ["B400A", "B400B", "B400C", "B500A", "B500B", "B500C"]
-
         # Add historical materials from IDEA integration
         # Import here to avoid circular imports between app and src layers
         try:
@@ -550,31 +550,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
             all_supported = get_all_supported_reinforcement_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
-        except ImportError:
-            # Fallback to hardcoded list if import fails
-            historical_materials = [
-                # GBV 1940 materials
-                "HK",
-                "St. 37",
-                # GBV 1950 materials
-                "QR22",
-                "QR24",
-                "QR30",
-                "QR36",
-                "QR42",
-                # GBV 1962 materials
-                "QR32",
-                "QR40",
-                "QR48",
-                # NEN 6720 materials
-                "FeB500 HWL, HK",
-                "FeB400 HWL, HK",
-                "FeB220 HWL",
-                # VB 74+84 materials
-                "FeB500 HW",
-                "FeB400 HW",
-                "FeB220 HW",
-            ]
+        except ImportError as e:
+            msg = (
+                "Fout bij laden van historische staalsoorten. "
+                "De IDEA StatiCa materiaal integratie module kon niet worden geladen. "
+                f"Technische details: {e}"
+            )
+            raise UserError(msg) from e
 
         # Combine: modern materials first, then historical materials
         all_materials = modern_materials + historical_materials
@@ -657,33 +639,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
             all_supported = get_all_supported_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
-        except ImportError:
-            # Fallback to hardcoded list if import fails
-            historical_materials = [
-                # Historical materials from GBV 1940/1950/1962
-                "K150",
-                "K200",
-                "K250",
-                "K160",
-                "K225",
-                "K300",
-                "K400",
-                "K450",
-                # NEN 6720 materials (B-class)
-                "B25",
-                "B35",
-                "B45",
-                "B55",
-                "B65",
-                # VB 74+84 materials (B-class with decimals)
-                "B12,5",
-                "B17,5",
-                "B22,5",
-                "B30",
-                "B37,5",
-                "B52,5",
-                "B60",
-            ]
+        except ImportError as e:
+            msg = (
+                "Fout bij laden van historische betonkwaliteiten. "
+                "De IDEA StatiCa materiaal integratie module kon niet worden geladen. "
+                f"Technische details: {e}"
+            )
+            raise UserError(msg) from e
 
         # Combine: modern materials first, then historical materials
         all_materials = modern_materials + historical_materials
