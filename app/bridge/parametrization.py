@@ -26,6 +26,7 @@ from app.constants import (
     SIGNAGE_OPTIONS,
 )
 from src.common.materials import get_reinforcement_qualities
+from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -449,6 +450,85 @@ def _get_bridge_type_based_on_supports(params: Mapping, **kwargs) -> str:  # noq
     return "Statisch onbepaald"
 
 
+def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: ARG001
+    """
+    Check if the first and last sections in the bridge dimensions array are supports.
+
+    :param params: Parameters containing bridge_segments_array
+    :type params: Mapping
+    :param **kwargs: Additional keyword arguments (unused).
+
+    :returns: Status message indicating whether first and last sections are supports (with colored symbols)
+    :rtype: str
+    """
+    try:
+        segments = params.bridge_segments_array
+        if not segments or len(segments) < 2:
+            return "🔴 Onvoldoende segmenten gedefinieerd"
+
+        first_support = segments[0].is_support
+        last_support = segments[-1].is_support
+
+        first_is_support = first_support != "Nee"
+        last_is_support = last_support != "Nee"
+
+        if first_is_support and last_is_support:
+            return f"🟢 Eerste en laatste sectie zijn beide opleggingen ({first_support} / {last_support})"
+        else:
+            return "🔴 Eerste en laatste sectie zijn geen opleggingen"
+
+    except (AttributeError, IndexError):
+        return "🔴 Fout bij ophalen opleggingsgegevens"
+
+
+def _validate_first_and_last_supports(params: Mapping, **kwargs) -> None:  # noqa: ARG001
+    """
+    Validate that the first and last sections in the bridge dimensions array are supports.
+
+    Raises UserError if either the first or last section is not a support.
+
+    :param params: Parameters containing bridge_segments_array
+    :type params: Mapping
+    :param **kwargs: Additional keyword arguments (unused).
+
+    :raises UserError: If first or last section is not a support
+    :rtype: None
+    """
+    try:
+        segments = params.bridge_segments_array
+        if not segments or len(segments) < 2:
+            raise UserError(
+                "Onvoldoende brugdimensies gedefinieerd. Er moeten minimaal 2 secties zijn.",
+            )
+
+        first_support = segments[0].is_support
+        last_support = segments[-1].is_support
+
+        first_is_support = first_support != "Nee"
+        last_is_support = last_support != "Nee"
+
+        if not first_is_support and not last_is_support:
+            raise UserError(
+                "De eerste en laatste sectie moeten beide een oplegging hebben. "
+                "Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
+            )
+        elif not first_is_support:
+            raise UserError(
+                "De eerste sectie (D-0) moet een oplegging hebben. "
+                "Selecteer een opleggingstype bij de eerste sectie.",
+            )
+        elif not last_is_support:
+            raise UserError(
+                f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. "
+                "Selecteer een opleggingstype bij de laatste sectie.",
+            )
+
+    except UserError:
+        raise
+    except (AttributeError, IndexError) as e:
+        raise UserError(f"Fout bij valideren van opleggingen: {e!s}") from e
+
+
 # ----------------------------------
 # --- Main Parametrization Class ---
 # ----------------------------------
@@ -849,6 +929,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     input.dimensions.array.is_support = OptionField(
         "Oplegging", options=["Nee", "Verende oplegging (x,y)", "Inklemming"], default="Nee", description="Type oplegging op deze locatie"
+    )
+
+    input.dimensions.support_check_output = OutputField(
+        "### Controle eerste en laatste oplegging:",
+        value=_check_first_and_last_supports,
+        description="Controleert of de eerste en laatste sectie in de brugdimensies een oplegging heeft",
+        flex=100,
     )
 
     input.dimensions.bridge_type_output = OutputField(
