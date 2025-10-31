@@ -7,10 +7,10 @@ options to find the optimal configuration.
 """
 
 import pandas as pd
+from viktor.result import OptimizationResult, OptimizationResultElement
 
 from app.bridge.parametrization import BridgeParametrization
 from app.constants import CALCULATION_LEVEL_OPTIONS, SIGNAGE_OPTIONS
-from viktor.result import OptimizationResult, OptimizationResultElement
 
 
 class Optimization:

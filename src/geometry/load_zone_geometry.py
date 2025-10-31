@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
+from viktor.errors import UserError
 
 from src.common.constants import MAX_LOAD_ZONE_SEGMENT_FIELDS
 from src.common.constants.geometry import (
@@ -17,7 +18,6 @@ from src.data_models.load_models import LoadZoneData
 from src.geometry.model_creator import (
     prepare_load_zone_geometry_data,
 )
-from viktor.errors import UserError
 
 # Use string annotation to avoid circular import
 if TYPE_CHECKING:

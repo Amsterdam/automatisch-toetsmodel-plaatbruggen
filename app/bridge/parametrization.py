@@ -5,27 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.materials import get_reinforcement_qualities
 from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
@@ -49,6 +28,28 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
+
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.materials import get_reinforcement_qualities
 
 from .utils import validate_reinforcement_zone_selections
 
@@ -474,8 +475,7 @@ def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: A
 
         if first_is_support and last_is_support:
             return f"🟢 Eerste en laatste sectie zijn beide opleggingen ({first_support} / {last_support})"
-        else:
-            return "🔴 Eerste en laatste sectie zijn geen opleggingen"
+        return "🔴 Eerste en laatste sectie zijn geen opleggingen"
 
     except (AttributeError, IndexError):
         return "🔴 Fout bij ophalen opleggingsgegevens"
@@ -509,18 +509,15 @@ def _validate_first_and_last_supports(params: Mapping, **kwargs) -> None:  # noq
 
         if not first_is_support and not last_is_support:
             raise UserError(
-                "De eerste en laatste sectie moeten beide een oplegging hebben. "
-                "Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
+                "De eerste en laatste sectie moeten beide een oplegging hebben. Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
             )
-        elif not first_is_support:
+        if not first_is_support:
             raise UserError(
-                "De eerste sectie (D-0) moet een oplegging hebben. "
-                "Selecteer een opleggingstype bij de eerste sectie.",
+                "De eerste sectie (D-0) moet een oplegging hebben. Selecteer een opleggingstype bij de eerste sectie.",
             )
-        elif not last_is_support:
+        if not last_is_support:
             raise UserError(
-                f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. "
-                "Selecteer een opleggingstype bij de laatste sectie.",
+                f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. Selecteer een opleggingstype bij de laatste sectie.",
             )
 
     except UserError:
