@@ -29,6 +29,82 @@ This project adheres to the following Python coding standards and conventions:
 *   Use `__init__.py` files (even if empty) to create explicit packages. Implicit namespace packages are discouraged (Ruff rule `INP001`).
 *   Unused imports (`F401`) are generally disallowed, **except** in `app/**/__init__.py` files where they are explicitly ignored via `.ruff.toml` configuration. This allows importing controllers/symbols to define the package structure or make them easily accessible.
 
+## Import Organization
+
+All Python files **must** structure their imports according to PEP 8 standards and the following rules:
+
+### Import Order
+
+Imports must be organized in the following order, with each group separated by a blank line:
+
+1.  **Standard library imports**: Built-in Python modules (e.g., `os`, `sys`, `pathlib`, `json`).
+2.  **Third-party imports**: External packages installed via pip (e.g., `viktor`, `pydantic`, `numpy`, `pandas`).
+3.  **Local application imports**: Modules from the current project (e.g., `from src.data_models import...`, `from app.constants import...`).
+
+### Import Style
+
+*   **Absolute imports** are preferred over relative imports for clarity.
+*   **Relative imports** (using `.` or `..`) may be used within a package when it improves readability, but must be consistent within that package.
+*   Use `from module import SpecificClass` for specific imports rather than `import module` when only a few items are needed.
+*   Avoid wildcard imports (`from module import *`) as they pollute the namespace and make it unclear what is being imported.
+
+### Sorting Within Groups
+
+*   Within each group, imports should be sorted alphabetically by module name.
+*   `from` imports should come after direct `import` statements within the same group.
+*   Multi-line imports should use parentheses for clarity:
+    ```python
+    from module import (
+        FirstClass,
+        SecondClass,
+        ThirdClass,
+    )
+    ```
+
+### Type Hint Imports
+
+*   Type hint imports from `typing` or `collections.abc` should be placed in the third-party imports section.
+*   Use `from __future__ import annotations` at the very top of the file (before any other imports) when using forward references or to enable postponed evaluation of annotations (PEP 563).
+*   For imports only used in type hints, use `if TYPE_CHECKING:` blocks to avoid runtime overhead:
+    ```python
+    from typing import TYPE_CHECKING
+    
+    if TYPE_CHECKING:
+        from module import ExpensiveClass
+    ```
+
+### Example
+
+```python
+"""Module docstring explaining the module's purpose."""
+from __future__ import annotations
+
+# Standard library imports
+import json
+import os
+from pathlib import Path
+
+# Third-party imports
+from pydantic import BaseModel, Field
+from viktor.core import ViktorController
+from viktor.parametrization import NumberField, Page
+
+# Local application imports
+from app.constants.technical import DEFAULT_CONCRETE_STRENGTH
+from src.data_models.bridge_models import BridgeGeometry
+from src.loads.load_calculator import calculate_dead_load
+
+
+class MyClass:
+    """Class implementation."""
+    pass
+```
+
+### Enforcement
+
+*   Ruff automatically checks and can fix import sorting (rule `I001`).
+*   Run `ruff check --fix` to automatically organize imports according to these rules.
+
 ## General
 
 *   Comments should be clear, concise, and explain the *why* behind non-obvious code, not just *what* the code does.
