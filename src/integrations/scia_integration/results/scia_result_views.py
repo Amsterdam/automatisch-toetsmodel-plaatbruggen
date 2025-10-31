@@ -3,10 +3,16 @@
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+
 from viktor.views import TableResult
 
 if TYPE_CHECKING:
     from .scia_unit_conversion import SciaUnitConverter
+
+from src.integrations.scia_integration.constants.results import (
+    CS_TABLE_TYPES,
+    MAX_ERROR_MESSAGE_LENGTH,
+)
 
 from .scia_results_processor import (
     get_processed_integration_strip_results_with_cache,
@@ -468,6 +474,32 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
 
 
+def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
+    """
+    Generate headers for CS (Cross Section) result tables.
+
+    :param include_zone: Whether to include the Zone column
+    :type include_zone: bool
+    :returns: List of header strings
+    :rtype: list[str]
+    """
+    headers = ["Name"]
+    if include_zone:
+        headers.append("Zone")
+    headers.extend(
+        [
+            "Coordinates",
+            "Vx (kN/m)",
+            "Vy (kN/m)",
+            "MxD+ (kNm/m)",
+            "MxD- (kNm/m)",
+            "MyD+ (kNm/m)",
+            "MyD- (kNm/m)",
+        ]
+    )
+    return headers
+
+
 def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -> tuple[list[list[str]], list[str]]:
     """
     Create table data and headers from processed CS (Cross Section) SCIA results.
@@ -492,20 +524,7 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     has_zone_column = "zone" in processed_cs_df.columns
 
     # Create headers with units
-    headers = ["Name"]
-    if has_zone_column:
-        headers.append("Zone")
-    headers.extend(
-        [
-            "Coordinates",
-            "Vx (kN/m)",
-            "Vy (kN/m)",
-            "MxD+ (kNm/m)",
-            "MxD- (kNm/m)",
-            "MyD+ (kNm/m)",
-            "MyD- (kNm/m)",
-        ]
-    )
+    headers = _get_cs_table_headers(include_zone=has_zone_column)
 
     # Check if we have any data
     if processed_cs_df.empty:
@@ -603,18 +622,12 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str, bridg
 
     except Exception as e:
         # Handle errors from processing function
-        error_message = f"Fout bij verwerken {table_type} resultaten: {str(e)[:100]}..."
-        default_headers = [
-            "Name",
-            "Coordinates",
-            "Vx (kN/m)",
-            "Vy (kN/m)",
-            "MxD+ (kNm/m)",
-            "MxD- (kNm/m)",
-            "MyD+ (kNm/m)",
-            "MyD- (kNm/m)",
-        ]
-        return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
+        error_message = f"Fout bij verwerken {table_type} resultaten: {str(e)[:MAX_ERROR_MESSAGE_LENGTH]}..."
+        # Use headers without Zone column for error case (zone mapping may have failed)
+        default_headers = _get_cs_table_headers(include_zone=False)
+        # Create error row with appropriate number of N/A values
+        error_row = ["Verwerkingsfout", error_message] + ["N/A"] * (len(default_headers) - 2)
+        return TableResult([error_row], column_headers=default_headers)
 
 
 def create_all_scia_cs_results_tables(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, TableResult]:
@@ -635,10 +648,9 @@ def create_all_scia_cs_results_tables(results: dict[str, Any], bridge_segments: 
     :returns: Dictionary mapping table type to TableResult
     :rtype: dict[str, TableResult]
     """
-    table_types = ["ULS", "SLS kar", "SLS freq"]
-    cs_tables = {}
+    cs_tables: dict[str, TableResult] = {}
 
-    for table_type in table_types:
+    for table_type in CS_TABLE_TYPES:
         cs_tables[table_type] = create_scia_cs_results_table(results, table_type, bridge_segments=bridge_segments)
 
     return cs_tables

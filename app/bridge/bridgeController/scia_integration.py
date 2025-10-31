@@ -13,11 +13,6 @@ import zipfile
 from io import BytesIO
 from typing import Any, NoReturn
 
-from viktor.core import File, progress_message
-from viktor.errors import UserError
-from viktor.result import DownloadResult
-from viktor.views import TableResult, TableView
-
 from app.bridge.analysis_cache import get_cached_analysis_results
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_analysis_results
@@ -28,6 +23,10 @@ from src.integrations.scia_integration.results.scia_result_views import (
     create_scia_integration_strip_results_table,
     create_scia_node_results_table,
 )
+from viktor.core import File, progress_message
+from viktor.errors import UserError
+from viktor.result import DownloadResult
+from viktor.views import TableResult, TableView
 
 
 class SciaIntegration:
@@ -333,19 +332,23 @@ class SciaIntegration:
     # SCIA CS (Cross Section) Results Table Views
     # ============================================================================================================
 
-    @TableView("SCIA CS ULS", duration_guess=600)
-    def get_scia_cs_results_view_uls(self, params: BridgeParametrization, **kwargs) -> TableResult:
+    def _get_scia_cs_results_table(
+        self,
+        params: BridgeParametrization,
+        analysis_type: str,
+        **kwargs,
+    ) -> TableResult:
         """
-        Display CS (Cross Section) ULS results from SCIA section on plane objects.
+        Internal helper method to get SCIA CS (Cross Section) results table.
 
-        Shows force and moment values per meter for cross sections at specific locations.
-
-        Note: SCIA analysis can take up to 10 minutes for complex models.
+        Handles the common logic for fetching and processing CS results for different analysis types.
 
         :param params: Bridge parametrization object
         :type params: BridgeParametrization
+        :param analysis_type: Type of analysis (e.g., "ULS", "SLS kar", "SLS freq")
+        :type analysis_type: str
         :param kwargs: Additional arguments including entity_id
-        :returns: TableResult with CS ULS analysis results
+        :returns: TableResult with CS analysis results
         :rtype: TableResult
         :raises UserError: If analysis fails or bridge segments are missing
         """
@@ -357,10 +360,10 @@ class SciaIntegration:
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        def _raise_scia_error(error_msg: str = "SCIA CS ULS resultaten konden niet worden opgehaald.") -> NoReturn:
+        def _raise_scia_error(error_msg: str = f"SCIA CS {analysis_type} resultaten konden niet worden opgehaald.") -> NoReturn:
             raise UserError(error_msg)
 
-        progress_message("Laden van gecachte SCIA CS ULS analyse of starten nieuwe analyse...")
+        progress_message(f"Laden van gecachte SCIA CS {analysis_type} analyse of starten nieuwe analyse...")
         try:
             results = get_cached_analysis_results(
                 params=params,
@@ -379,7 +382,25 @@ class SciaIntegration:
 
         # Pass bridge_segments to enable zone mapping in CS results
         bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-        return create_scia_cs_results_table(results, "ULS", bridge_segments=bridge_segments)
+        return create_scia_cs_results_table(results, analysis_type, bridge_segments=bridge_segments)
+
+    @TableView("SCIA CS ULS", duration_guess=600)
+    def get_scia_cs_results_view_uls(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display CS (Cross Section) ULS results from SCIA section on plane objects.
+
+        Shows force and moment values per meter for cross sections at specific locations.
+
+        Note: SCIA analysis can take up to 10 minutes for complex models.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with CS ULS analysis results
+        :rtype: TableResult
+        :raises UserError: If analysis fails or bridge segments are missing
+        """
+        return self._get_scia_cs_results_table(params, "ULS", **kwargs)
 
     @TableView("SCIA CS SLS kar", duration_guess=600)
     def get_scia_cs_results_view_sls_kar(self, params: BridgeParametrization, **kwargs) -> TableResult:
@@ -397,37 +418,7 @@ class SciaIntegration:
         :rtype: TableResult
         :raises UserError: If analysis fails or bridge segments are missing
         """
-        if not params.bridge_segments_array:
-            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
-
-        template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
-        entity_id = kwargs.get("entity_id")
-        if not isinstance(entity_id, int):
-            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
-
-        def _raise_scia_error(error_msg: str = "SCIA CS SLS kar resultaten konden niet worden opgehaald.") -> NoReturn:
-            raise UserError(error_msg)
-
-        progress_message("Laden van gecachte SCIA CS SLS kar analyse of starten nieuwe analyse...")
-        try:
-            results = get_cached_analysis_results(
-                params=params,
-                analysis_type=AnalysisType.SCIA,
-                entity_id=entity_id,
-                analysis_function=get_scia_analysis_results,
-                template_path=str(template_path),
-            )
-            if results is None:
-                _raise_scia_error()
-        except TimeoutError:
-            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
-        except Exception as e:
-            traceback.print_exc()
-            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
-
-        # Pass bridge_segments to enable zone mapping in CS results
-        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-        return create_scia_cs_results_table(results, "SLS kar", bridge_segments=bridge_segments)
+        return self._get_scia_cs_results_table(params, "SLS kar", **kwargs)
 
     @TableView("SCIA CS SLS freq", duration_guess=600)
     def get_scia_cs_results_view_sls_freq(self, params: BridgeParametrization, **kwargs) -> TableResult:
@@ -445,37 +436,7 @@ class SciaIntegration:
         :rtype: TableResult
         :raises UserError: If analysis fails or bridge segments are missing
         """
-        if not params.bridge_segments_array:
-            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
-
-        template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
-        entity_id = kwargs.get("entity_id")
-        if not isinstance(entity_id, int):
-            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
-
-        def _raise_scia_error(error_msg: str = "SCIA CS SLS freq resultaten konden niet worden opgehaald.") -> NoReturn:
-            raise UserError(error_msg)
-
-        progress_message("Laden van gecachte SCIA CS SLS freq analyse of starten nieuwe analyse...")
-        try:
-            results = get_cached_analysis_results(
-                params=params,
-                analysis_type=AnalysisType.SCIA,
-                entity_id=entity_id,
-                analysis_function=get_scia_analysis_results,
-                template_path=str(template_path),
-            )
-            if results is None:
-                _raise_scia_error()
-        except TimeoutError:
-            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
-        except Exception as e:
-            traceback.print_exc()
-            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
-
-        # Pass bridge_segments to enable zone mapping in CS results
-        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-        return create_scia_cs_results_table(results, "SLS freq", bridge_segments=bridge_segments)
+        return self._get_scia_cs_results_table(params, "SLS freq", **kwargs)
 
     # ============================================================================================================
     # SCIA Force Envelope Analysis

@@ -22,6 +22,17 @@ from typing import Any, Callable, Union
 
 import pandas as pd
 
+from src.integrations.scia_integration.constants.results import (
+    CS_BASIS_TABLE_PATTERN,
+    CS_ELEMENTAIRE_TABLE_PATTERN,
+    CS_FORCE_MOMENT_COLUMNS,
+    CS_MOMENT_COLUMNS,
+    CS_SHEAR_FORCE_COLUMNS,
+    CS_TABLE_TYPES,
+)
+
+from .scia_result_helpers import get_nested_result_data
+
 
 def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
     """
@@ -242,20 +253,18 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
     # Read "basis grootheden" CS table
-    basis_table_name = f"Interne 2D-krachten basis {table_type}"
-    basis_data = (
-        results.get("xml_parsing", {}).get("parsed_tables", {}).get(basis_table_name, {}).get("data", {}).get("p1", None)  # P1 is sections
-    )
+    basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
+    basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
 
     # Read "elementaire ontwerpgrootheden" CS table
-    elementaire_table_name = f"Interne 2D-krachten elementair {table_type}"
-    elementaire_data = (
-        results.get("xml_parsing", {}).get("parsed_tables", {}).get(elementaire_table_name, {}).get("data", {}).get("p1", None)  # P1 is sections
-    )
+    elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
+    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
     return basis_data, elementaire_data
 
 
-def find_all_2d_cs_force_tables(results: dict[str, Any]) -> dict[str, tuple[dict[str, Any] | None, dict[str, Any] | None]]:
+def find_all_2d_cs_force_tables(
+    results: dict[str, Any],
+) -> dict[str, tuple[dict[str, Any] | None, dict[str, Any] | None]]:
     """
     Find all CS (Cross Section) 2D force tables at once.
 
@@ -271,12 +280,11 @@ def find_all_2d_cs_force_tables(results: dict[str, Any]) -> dict[str, tuple[dict
     :returns: Dictionary mapping table type to (basis_data, elementaire_data) tuples
     :rtype: dict[str, tuple[dict[str, Any] | None, dict[str, Any] | None]]
     """
-    table_types = ["ULS", "SLS kar", "SLS freq"]
-    all_tables = {}
+    all_tables: dict[str, tuple[dict[str, Any] | None, dict[str, Any] | None]] = {}
 
-    for table_type in table_types:
+    for table_type in CS_TABLE_TYPES:
         basis_data, elementaire_data = find_2d_force_tables_cs(results, table_type)
-        all_tables[table_type] = (basis_data, elementaire_data)
+        all_tables[str(table_type)] = (basis_data, elementaire_data)
 
     return all_tables
 
@@ -297,8 +305,8 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
     # Read the selected CS data from the "results" into a new dict
     for selected_table in selected_result_tables:
         basis_data, elementaire_data = find_2d_force_tables_cs(results, selected_table)
-        selected_data_scia_cs[f"Interne 2D-krachten basis {selected_table}"] = basis_data
-        selected_data_scia_cs[f"Interne 2D-krachten elementair {selected_table}"] = elementaire_data
+        selected_data_scia_cs[CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)] = basis_data
+        selected_data_scia_cs[CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)] = elementaire_data
 
     # Merge x, y, z into coords_xyz for CS force tables
     for key, data in selected_data_scia_cs.items():
@@ -309,7 +317,7 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
 
 
 def _map_cs_section_to_zone(
-    cs_name: str,  # noqa: ARG001
+    _cs_name: str,
     coords_xyz: tuple[float, float, float],
     bridge_segments: list[Any],  # List of BridgeSegmentDimensions
 ) -> str:
@@ -331,8 +339,8 @@ def _map_cs_section_to_zone(
         * Negative Y: Bottom/right side (zone 3 - bz3)
     - Z-axis: Vertical direction (height)
 
-    :param cs_name: Name of the CS section (load case/combination name)
-    :type cs_name: str
+    :param _cs_name: Name of the CS section (currently unused, kept for future error messages/debugging)
+    :type _cs_name: str
     :param coords_xyz: Coordinates of the CS section as (x, y, z) tuple
     :type coords_xyz: tuple[float, float, float]
     :param bridge_segments: List of bridge segment objects from VIKTOR parametrization (Munch)
@@ -429,8 +437,8 @@ def _process_single_cs_result_table(
     :returns: Processed DataFrame with unique (name, coordinates) combinations and max absolute force values
     :rtype: pd.DataFrame
     """
-    elementaire_ontwerpgrootheden = selected_data_scia_cs.get(f"Interne 2D-krachten elementair {selected_table}", None)
-    basis_grootheden = selected_data_scia_cs.get(f"Interne 2D-krachten basis {selected_table}", None)
+    elementaire_ontwerpgrootheden = selected_data_scia_cs.get(CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table), None)
+    basis_grootheden = selected_data_scia_cs.get(CS_BASIS_TABLE_PATTERN.format(table_type=selected_table), None)
 
     # Convert elementaire_ontwerpgrootheden and basis_grootheden to DataFrames
     df_elementaire = pd.DataFrame(elementaire_ontwerpgrootheden) if elementaire_ontwerpgrootheden is not None else pd.DataFrame()
@@ -445,8 +453,8 @@ def _process_single_cs_result_table(
     # CS tables have different columns than regular 2D tables
     # Basis columns: v_x, v_y (shear forces) - same as regular 2D
     # Elementaire columns: m_xD+, m_xD-, m_yD+, m_yD- (moments) - same as regular 2D
-    elementaire_columns = ["m_xD+", "m_xD-", "m_yD+", "m_yD-"]
-    basis_columns = ["v_x", "v_y"]
+    elementaire_columns = list(CS_MOMENT_COLUMNS)
+    basis_columns = list(CS_SHEAR_FORCE_COLUMNS)
 
     # Create lookup dictionaries for faster (name, coordinate)-based access
     _, elementaire_lookup = _create_lookup_dictionaries(df_elementaire, elementaire_columns)
@@ -471,7 +479,7 @@ def _process_single_cs_result_table(
 
             # --- Deduplication: Remove duplicate (name, zone) combinations with identical force values ---
             # Define force/moment columns to check for duplicates
-            force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-"]
+            force_columns = list(CS_FORCE_MOMENT_COLUMNS)
             # Only use columns that actually exist in the DataFrame
             force_columns_present = [col for col in force_columns if col in unique_coords_df.columns]
 
