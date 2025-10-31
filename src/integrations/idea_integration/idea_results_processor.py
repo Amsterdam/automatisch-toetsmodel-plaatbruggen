@@ -107,7 +107,7 @@ class IdeaResultsProcessor:
         return (str(result), str(check_value))
 
     @staticmethod
-    def safe_extract_crack_width_result(result_list: list[dict[str, Any]] | None) -> tuple[str, str]:
+    def safe_extract_crack_width_result(result_list: list[dict[str, Any]] | None) -> tuple[str, str]:  # noqa: C901, PLR0912
         """
         Safely extract crack width result and check values from parser output.
 

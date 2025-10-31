@@ -150,12 +150,24 @@ class TestReinforcementConfigData(unittest.TestCase):
         )
         assert config.reinf_heights["zone1"] == 100.0
 
-        # Negative height
+        # Negative height is allowed (represents position below reference point)
+        config_negative = ReinforcementConfigData(
+            main_reinf_ctc_distances={"zone1": 150.0},
+            main_reinf_diameters={"zone1": 12.0},
+            reinf_heights={"zone1": -10.0},  # Negative is valid
+            extra_reinf_diameter={},
+            extra_reinf_ctc_distances={},
+            has_extra_reinforcement=False,
+            rebar_config={},
+        )
+        assert config_negative.reinf_heights["zone1"] == -10.0
+
+        # Unrealistically low height
         with pytest.raises(ValidationError) as exc_info:
             ReinforcementConfigData(
                 main_reinf_ctc_distances={"zone1": 150.0},
                 main_reinf_diameters={"zone1": 12.0},
-                reinf_heights={"zone1": -10.0},  # Negative
+                reinf_heights={"zone1": -2500.0},  # Below minimum
                 extra_reinf_diameter={},
                 extra_reinf_ctc_distances={},
                 has_extra_reinforcement=False,
@@ -163,7 +175,7 @@ class TestReinforcementConfigData(unittest.TestCase):
             )
 
         error = exc_info.value
-        assert "Reinforcement height -10.0mm in zone 'zone1' cannot be negative" in str(error)
+        assert "unrealistically low" in str(error)
 
         # Unrealistic height
         with pytest.raises(ValidationError) as exc_info:

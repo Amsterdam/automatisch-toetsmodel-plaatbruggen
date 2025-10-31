@@ -41,7 +41,7 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
     """Run IDEA analysis and extract results."""
     # First get SCIA results needed for IDEA
     progress_message("Ophalen SCIA resultaten voor IDEA analyse...")

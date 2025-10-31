@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from viktor.external.idea_rcs import Model, OneWaySlab, ReinforcementMaterial
 
 
-def _get_unique_matching_zone_keys(
+def _get_unique_matching_zone_keys(  # noqa: C901
     input_data: BridgeIdeaInputData,
 ) -> tuple[
     list[tuple[float, str, list[str]]],
@@ -84,7 +84,7 @@ def _get_unique_matching_zone_keys(
         def __init__(self, segment_dict: dict) -> None:
             self._data = segment_dict
 
-        def __getattr__(self, name: str) -> Any:
+        def __getattr__(self, name: str) -> Any:  # noqa: ANN401
             """Allow attribute-style access to dictionary keys."""
             if name.startswith("_"):
                 raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
@@ -745,7 +745,7 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
             builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401
+def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401, C901
     """
     Apply load cases from SCIA node results to each slab using builder pattern.
 
