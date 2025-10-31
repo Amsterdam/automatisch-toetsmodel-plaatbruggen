@@ -39,6 +39,4 @@ class BridgeSegmentDimensions(BaseModel):
     model_config = ConfigDict(
         # Allow validation on assignment (validates when fields are changed)
         validate_assignment=True,
-        # Use enum values instead of enum objects in serialization
-        use_enum_values=True,
     )

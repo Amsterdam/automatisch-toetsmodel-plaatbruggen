@@ -40,8 +40,8 @@ class TestBridgeDimensionExtraction:
         segment.bz1 = 8.0
         segment.bz2 = 4.0
         segment.bz3 = 12.0
-        segment.dz = 1.5
-        segment.dz_2 = 2.0
+        segment.dz = 2.0
+        segment.dz_2 = 1.5
         params.bridge_segments_array = [segment]
 
         result = extract_bridge_dimensions(params)
@@ -51,14 +51,14 @@ class TestBridgeDimensionExtraction:
         assert result.zone_widths["bz1"] == 8.0
         assert result.zone_widths["bz2"] == 4.0
         assert result.zone_widths["bz3"] == 12.0
-        assert result.first_segment_thickness == 1.5
-        assert result.first_segment_thickness_2 == 2.0
+        assert result.first_segment_thickness == 2.0
+        assert result.first_segment_thickness_2 == 1.5
 
     def test_extract_bridge_dimensions_multiple_segments(self) -> None:
         """Test extracting dimensions from multiple segments."""
         params = Mock()
         params.bridge_segments_array = [
-            Mock(l=0, bz1=5.0, bz2=3.0, bz3=7.0, dz=1.8, dz_2=2.2),
+            Mock(l=0, bz1=5.0, bz2=3.0, bz3=7.0, dz=2.2, dz_2=1.8),
             Mock(l=15, bz1=6.0, bz2=4.0, bz3=8.0, dz=2.0, dz_2=2.5),
             Mock(l=20, bz1=7.0, bz2=5.0, bz3=9.0, dz=2.2, dz_2=2.8),
         ]
@@ -67,7 +67,7 @@ class TestBridgeDimensionExtraction:
 
         assert result.total_length == 35.0  # 0+15+20
         assert result.total_width == 15.0  # 5+3+7 (from first segment)
-        assert result.first_segment_thickness == 1.8
+        assert result.first_segment_thickness == 2.2
 
     def test_extract_bridge_dimensions_empty_segments(self) -> None:
         """Test error handling with empty segments."""
@@ -134,8 +134,8 @@ class TestTandemLoadGeneration:
         mock_segment.bz1 = 8.0
         mock_segment.bz2 = 4.0
         mock_segment.bz3 = 12.0
-        mock_segment.dz = 1.8
-        mock_segment.dz_2 = 2.0  # Add missing attribute
+        mock_segment.dz = 2.0
+        mock_segment.dz_2 = 1.5  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
 
         # Set berekeningsniveau to theoretical mode
@@ -160,8 +160,8 @@ class TestTandemLoadGeneration:
         mock_segment.bz1 = 8.0
         mock_segment.bz2 = 4.0
         mock_segment.bz3 = 12.0
-        mock_segment.dz = 1.8
-        mock_segment.dz_2 = 2.0  # Add missing attribute
+        mock_segment.dz = 2.0
+        mock_segment.dz_2 = 1.5  # Add missing attribute
         params.bridge_segments_array = [mock_segment]
 
         # Set berekeningsniveau to actual mode
@@ -188,7 +188,7 @@ class TestTandemLoadGeneration:
         """Test error handling for invalid berekeningsniveau value."""
         params = Mock()
         params.bridge_segments_array = [
-            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8),
+            Mock(l=50, bz1=8.0, bz2=4.0, bz3=12.0, dz=1.8, dz_2=1.5),
         ]
         # Set an invalid berekeningsniveau value (should fallback to theoretical)
         params.berekeningsniveau = "Invalid value"
@@ -350,7 +350,7 @@ class TestFullOutputDeckAndLoadZone:
     def make_params() -> Mock:
         """Create mock parameters for full output deck/load/load zone tests."""
         # D-parameters (bridge segments)
-        # dz_2 values calculated to match expected zone_2 thickness: dz_2 = dz + expected_thickness
+        # dz_2 values represent the zone_2 thickness directly (used for dispersion calculations)
         d1 = Mock(bz1=10, bz2=3, bz3=16, dz=2.0, dz_2=2.8, afstand=None, oplegging=True, l=0)
         d2 = Mock(bz1=12, bz2=7, bz3=20, dz=2.4, dz_2=3.7, afstand=12, oplegging=False, l=12)
         d3 = Mock(bz1=15, bz2=4, bz3=17, dz=0.06, dz_2=0.4, afstand=9, oplegging=False, l=9)
@@ -359,10 +359,10 @@ class TestFullOutputDeckAndLoadZone:
         params.bridge_segments_array = [d1, d2, d3, d4]
 
         # Load zones
-        lz1 = Mock(type="Voetgangers", thickness=0.1, material="Asfalt", width_at_d=[1, 5, 9, 6])
-        lz2 = Mock(type="Fietsers", thickness=0.445, material="Grind", width_at_d=[17, 7, 4, 3])
-        lz3 = Mock(type="Berm", thickness=0.781, material="Beton (gewapend)", width_at_d=[7, 4, 8, 6])
-        lz4 = Mock(type="Auto", thickness=0.873, material="Tegels", width_at_d=[9, 23, 16, None])
+        lz1 = Mock(type="Voetgangers", pavement_thickness=0.1, pavement_material="Asfalt", width_at_d=[1, 5, 9, 6])
+        lz2 = Mock(type="Fietsers", pavement_thickness=0.445, pavement_material="Grind", width_at_d=[17, 7, 4, 3])
+        lz3 = Mock(type="Berm", pavement_thickness=0.781, pavement_material="Beton (gewapend)", width_at_d=[7, 4, 8, 6])
+        lz4 = Mock(type="Auto", pavement_thickness=0.873, pavement_material="Tegels", width_at_d=[9, 23, 16, None])
         params.load_zones = [lz1, lz2, lz3, lz4]
         params.load_zones_data_array = params.load_zones  # Fix for function expectation
         return params
@@ -402,13 +402,13 @@ class TestFullOutputDeckAndLoadZone:
         deck_zone_materials = get_bridge_deck_zone_materials_and_thickness(params=params)
         assert deck_zone_materials == {
             "zone_1_1": {"material": "C40/50", "thickness_start_d_line": 2, "thickness_end_d_line": 2.4, "distance_between_d_lines": 12},
-            "zone_2_1": {"material": "C40/50", "thickness_start_d_line": 0.8, "thickness_end_d_line": 1.3, "distance_between_d_lines": 12},
+            "zone_2_1": {"material": "C40/50", "thickness_start_d_line": 2.8, "thickness_end_d_line": 3.7, "distance_between_d_lines": 12},
             "zone_3_1": {"material": "C40/50", "thickness_start_d_line": 2, "thickness_end_d_line": 2.4, "distance_between_d_lines": 12},
             "zone_1_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.06, "distance_between_d_lines": 9},
-            "zone_2_2": {"material": "C40/50", "thickness_start_d_line": 1.3, "thickness_end_d_line": 0.34, "distance_between_d_lines": 9},
+            "zone_2_2": {"material": "C40/50", "thickness_start_d_line": 3.7, "thickness_end_d_line": 0.4, "distance_between_d_lines": 9},
             "zone_3_2": {"material": "C40/50", "thickness_start_d_line": 2.4, "thickness_end_d_line": 0.06, "distance_between_d_lines": 9},
             "zone_1_3": {"material": "C40/50", "thickness_start_d_line": 0.06, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
-            "zone_2_3": {"material": "C40/50", "thickness_start_d_line": 0.34, "thickness_end_d_line": 1.234, "distance_between_d_lines": 4},
+            "zone_2_3": {"material": "C40/50", "thickness_start_d_line": 0.4, "thickness_end_d_line": 2.019, "distance_between_d_lines": 4},
             "zone_3_3": {"material": "C40/50", "thickness_start_d_line": 0.06, "thickness_end_d_line": 0.785, "distance_between_d_lines": 4},
         }
         load_zone_materials = get_bridge_load_zone_materials_and_thickness(params=params)
@@ -438,9 +438,11 @@ class TestFullOutputDeckAndLoadZone:
         assert load_thickness is not None
         assert pytest.approx(load_thickness, rel=1e-2) == 0.445
         assert dispersion["deck_zone"] is not None
-        assert isinstance(dispersion["deck_zone"], float)
+        assert isinstance(dispersion["deck_zone"], list)
+        assert len(dispersion["deck_zone"]) > 0
         assert dispersion["load_zone"] is not None
-        assert isinstance(dispersion["load_zone"], float)
+        assert isinstance(dispersion["load_zone"], list)
+        assert len(dispersion["load_zone"]) > 0
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ import traceback
 from io import BytesIO
 from typing import Any
 
+from src.integrations.idea_integration.constants.formatting import CHECK_VALUE_PRECISION_2, CHECK_VALUE_PRECISION_3
+
 
 class IdeaResultsProcessor:
     """Class for processing IDEA RCS analysis results."""
@@ -78,7 +80,7 @@ class IdeaResultsProcessor:
             check_value = value.get("CheckValue", "N/A")
             # Format CheckValue if it's a number
             if isinstance(check_value, (int, float)):
-                check_value = f"{check_value:.2f}"
+                check_value = f"{check_value:.{CHECK_VALUE_PRECISION_2}f}"
             return (str(result), str(check_value))
         return (str(value), "N/A")
 
@@ -101,7 +103,7 @@ class IdeaResultsProcessor:
         check_value = result_dict.get("CheckValue", "N/A")
         # Format CheckValue if it's a number
         if isinstance(check_value, (int, float)):
-            check_value = f"{check_value:.3f}"
+            check_value = f"{check_value:.{CHECK_VALUE_PRECISION_3}f}"
         return (str(result), str(check_value))
 
     @staticmethod

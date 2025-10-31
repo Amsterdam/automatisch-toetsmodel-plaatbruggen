@@ -61,6 +61,62 @@ def _create_tandem_wheels(x_start: float, y_center: float, wheel_size: float) ->
 
 
 # ========================================================================
+# Helper functions for the real lane positions in case of two road zones
+# ========================================================================
+
+
+def _generate_lanes_bg8000_strategy(y_top: float, width: float, num_lanes: int, lane_width: float) -> list[float]:
+    """Generate lanes from bottom upward."""
+    if num_lanes <= 0:
+        return []
+
+    y_bottom = y_top - width
+    lane_centers = []
+    for lane_idx in range(num_lanes):
+        lane_center = y_bottom + (lane_idx * lane_width) + (lane_width / 2)
+        lane_centers.append(lane_center)
+    return lane_centers
+
+
+def _generate_lanes_bg9000_strategy(y_top: float, num_lanes: int, lane_width: float) -> list[float]:
+    """Generate lanes from top downward."""
+    if num_lanes <= 0:
+        return []
+
+    lane_centers = []
+    for lane_idx in range(num_lanes):
+        lane_start = y_top - (lane_idx * lane_width)
+        lane_center = lane_start - (lane_width / 2)
+        lane_centers.append(lane_center)
+    return lane_centers
+
+
+def _generate_lanes_bg10000_strategy1(y_top: float, width: float, num_lanes: int, lane_width: float) -> list[float]:
+    """Generate lanes from interior to exterior."""
+    if num_lanes <= 0:
+        return []
+
+    y_bottom = y_top - width
+    lane_centers = []
+    for lane_idx in range(num_lanes):
+        lane_center = y_bottom + (lane_width / 2) + (lane_idx * lane_width)
+        lane_centers.append(lane_center)
+    return lane_centers
+
+
+def _generate_lanes_bg10000_strategy2(y_top: float, num_lanes: int, lane_width: float) -> list[float]:
+    """Generate lanes from interior to exterior."""
+    if num_lanes <= 0:
+        return []
+
+    lane_centers = []
+    for lane_idx in range(num_lanes):
+        lane_center = y_top - (lane_width / 2) - (lane_idx * lane_width)
+        lane_centers.append(lane_center)
+    return lane_centers
+
+
+# ========================================================================
 # Generation of lane positions for real lane distribution (BG8000)
 # ========================================================================
 
@@ -109,27 +165,26 @@ def generate_real_lane_positions_bg8000(
     return lane_centers
 
 
-def generate_real_lane_positions_bg8000_two_road_zones(
+# ========================================================================
+# Generation of lane positions for real lane distribution in case of two road zones
+# ========================================================================
+
+
+def generate_real_lane_positions_two_road_zones(  # noqa: C901
     params: "BridgeParametrization",
-    lane_width: float = DEFAULT_LANE_WIDTH,
+    positioning_strategy: str,
+    lane_width: float = 3.0,
 ) -> list[float]:
     """
-    Generate y-positions of real traffic lanes for BG8000 load group on dual carriageway bridges.
-
-    This function calculates the y-coordinates for lane centers based on the actual road sections defined
-    in the bridge parametrization. It finds the two 'Auto' zones from the load zones data and uses their geometry
-    to determine lane positions. Lanes are positioned from the bottom of each road zone upward.
+    Generate Y-positions for traffic lanes on dual carriageway bridges.
 
     Args:
         params: Bridge parametrization containing load zones data and geometry
+        positioning_strategy: Strategy for lane positioning ("bg8000", "bg9000", "bg10000")
         lane_width: Standard lane width in meters (default 3.0m)
 
     Returns:
-        List of Y-coordinates for lane centers, combining lanes from both road zones.
-        Each road zone contributes lanes based on its width (3m per lane minimum).
-
-    Raises:
-        ValueError: If road widths or lane width is not positive
+        List of Y-coordinates for lane centers
 
     """
     if lane_width <= 0:
@@ -146,27 +201,31 @@ def generate_real_lane_positions_bg8000_two_road_zones(
     # Calculate number of complete lanes that fit in each zone
     num_lanes_zone_1 = int(width_zone_1 // lane_width)
     num_lanes_zone_2 = int(width_zone_2 // lane_width)
-
-    # Generate lane center positions for all lanes
+    # Generate lane center positions based on strategy
     lane_centers = []
 
-    # Process first road zone - lanes positioned from bottom upward
-    if num_lanes_zone_1 > 0:
-        y_bottom_zone_1 = y_top_zone_1 - width_zone_1
-        for lane_idx in range(num_lanes_zone_1):
-            lane_start = lane_idx * lane_width
-            lane_center = lane_start + (lane_width / 2)  # Center of each lane
-            lane_centers.append(y_bottom_zone_1 + lane_center)
+    if positioning_strategy == "bg8000":
+        if num_lanes_zone_1 > 0:
+            lane_centers.extend(_generate_lanes_bg8000_strategy(y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width))
+        if num_lanes_zone_2 > 0:
+            lane_centers.extend(_generate_lanes_bg8000_strategy(y_top_zone_2, width_zone_2, num_lanes_zone_2, lane_width))
+        lane_centers = sorted(lane_centers)  # Sort lane centers to match the function's return (which is sorted)
+    elif positioning_strategy == "bg9000":
+        if num_lanes_zone_1 > 0:
+            lane_centers.extend(_generate_lanes_bg9000_strategy(y_top_zone_1, num_lanes_zone_1, lane_width))
+        if num_lanes_zone_2 > 0:
+            lane_centers.extend(_generate_lanes_bg9000_strategy(y_top_zone_2, num_lanes_zone_2, lane_width))
 
-    # Process second road zone - lanes positioned from bottom upward
-    if num_lanes_zone_2 > 0:
-        y_bottom_zone_2 = y_top_zone_2 - width_zone_2
-        for lane_idx in range(num_lanes_zone_2):
-            lane_start = lane_idx * lane_width
-            lane_center = lane_start + (lane_width / 2)  # Center of each lane
-            lane_centers.append(y_bottom_zone_2 + lane_center)
+    elif positioning_strategy == "bg10000":
+        if num_lanes_zone_1 > 0:
+            lane_centers.extend(_generate_lanes_bg10000_strategy1(y_top_zone_1, width_zone_1, num_lanes_zone_1, lane_width))
+        if num_lanes_zone_2 > 0:
+            lane_centers.extend(_generate_lanes_bg10000_strategy2(y_top_zone_2, num_lanes_zone_2, lane_width))
 
-    return sorted(lane_centers)
+    else:
+        raise ValueError(f"Unknown positioning strategy: {positioning_strategy}")
+
+    return lane_centers
 
 
 def tandem_systems_real_lanes_bg8000(
@@ -208,7 +267,7 @@ def tandem_systems_real_lanes_bg8000(
 
     # Get real lane positions (NEW: replaces fixed positions)
     if get_number_of_road_zones(params) == 2:
-        lane_y_positions = generate_real_lane_positions_bg8000_two_road_zones(params, lane_width)
+        lane_y_positions = generate_real_lane_positions_two_road_zones(params, "bg8000", lane_width)
     else:
         lane_y_positions = generate_real_lane_positions_bg8000(params, lane_width)
 
@@ -332,66 +391,6 @@ def generate_real_lane_positions_bg9000(
     return lane_centers
 
 
-def generate_real_lane_positions_bg9000_two_road_zones(
-    params: "BridgeParametrization",
-    lane_width: float = DEFAULT_LANE_WIDTH,
-) -> list[float]:
-    """
-    Generate y-positions of real traffic lanes for BG9000 load group on dual carriageway bridges.
-
-    This function calculates the y-coordinates for lane centers based on the actual road sections defined
-    in the bridge parametrization. It finds the two 'Auto' zones from the load zones data and uses their geometry
-    to determine lane positions. Lanes are positioned from the top of each road zone downward (opposite direction
-    from BG8000).
-
-    Args:
-        params: Bridge parametrization containing load zones data and geometry
-        lane_width: Standard lane width in meters (default 3.0m)
-
-    Returns:
-        List of Y-coordinates for lane centers, combining lanes from both road zones.
-        Each road zone contributes lanes based on its width (3m per lane minimum).
-        Lanes are positioned starting from the top y-coordinate working downward.
-
-    Raises:
-        ValueError: If road widths or lane width is not positive
-
-    """
-    if lane_width <= 0:
-        raise ValueError("Lane width must be positive")
-
-    # Get widths and top y-coordinates for both road zones
-    width_zone_1, width_zone_2 = get_widths_of_two_road_zones(params)
-    y_top_zone_1, y_top_zone_2 = obtain_y_coordinates_two_road_zones(params)
-
-    # Validate that widths are positive
-    if width_zone_1 <= 0 or width_zone_2 <= 0:
-        raise ValueError("Road zone widths must be positive values")
-
-    # Calculate number of complete lanes that fit in each zone
-    num_lanes_zone_1 = int(width_zone_1 // lane_width)
-    num_lanes_zone_2 = int(width_zone_2 // lane_width)
-
-    # Generate lane center positions for all lanes
-    lane_centers = []
-
-    # Process first road zone - lanes positioned from top downward
-    if num_lanes_zone_1 > 0:
-        for lane_idx in range(num_lanes_zone_1):
-            lane_start = y_top_zone_1 - lane_idx * lane_width
-            lane_center = lane_start - (lane_width / 2)  # Center of each lane
-            lane_centers.append(lane_center)
-
-    # Process second road zone - lanes positioned from top downward
-    if num_lanes_zone_2 > 0:
-        for lane_idx in range(num_lanes_zone_2):
-            lane_start = y_top_zone_2 - lane_idx * lane_width
-            lane_center = lane_start - (lane_width / 2)  # Center of each lane
-            lane_centers.append(lane_center)
-
-    return lane_centers
-
-
 def tandem_systems_real_lanes_bg9000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
@@ -431,7 +430,7 @@ def tandem_systems_real_lanes_bg9000(
 
     # Get real lane positions (NEW: replaces fixed positions)
     if get_number_of_road_zones(params) == 2:
-        lane_y_positions = generate_real_lane_positions_bg9000_two_road_zones(params, lane_width)
+        lane_y_positions = generate_real_lane_positions_two_road_zones(params, "bg9000", lane_width)
     else:
         lane_y_positions = generate_real_lane_positions_bg9000(params, lane_width)
 
@@ -553,71 +552,6 @@ def generate_real_lane_positions_bg10000(
     return [y_center]
 
 
-def generate_real_lane_positions_bg10000_two_road_zones(
-    params: "BridgeParametrization",
-    lane_width: float = DEFAULT_LANE_WIDTH,
-) -> list[float]:
-    """
-    Generate Y-positions for BG10000 load case on dual carriageway bridges.
-
-    This function positions notional lanes starting from the interior (center-facing side)
-    of each road zone and working outward toward the bridge edges. The highest loaded lane
-    (300 kN tandem) is placed closest to the center of the bridge, with decreasing loads
-    (200 kN, 100 kN) as lanes move toward the edges.
-
-    The function places lanes on both road zones starting from their interior-facing edges
-    (the edges closest to the bridge center) and working outward:
-    - Zone 1 (bottom zone): from bottom edge (interior) upward toward top edge
-    - Zone 2 (top zone): from top edge (interior) downward toward bottom edge
-
-    :param params: Bridge parametrization containing load zones data and geometry
-    :type params: BridgeParametrization
-    :param lane_width: Standard lane width in meters (default 3.0m)
-    :type lane_width: float
-    :returns: List of Y-coordinates for lane centers, ordered from interior to exterior
-    :rtype: list[float]
-    :raises ValueError: If road widths or lane width is not positive
-    """
-    if lane_width <= 0:
-        raise ValueError("Lane width must be positive")
-
-    # Get widths and top y-coordinates for both road zones
-    width_zone_1, width_zone_2 = get_widths_of_two_road_zones(params)
-    y_top_zone_1, y_top_zone_2 = obtain_y_coordinates_two_road_zones(params)
-
-    # Validate that widths are positive
-    if width_zone_1 <= 0 or width_zone_2 <= 0:
-        raise ValueError("Road zone widths must be positive values")
-
-    # Calculate number of complete lanes that fit in each zone
-    num_lanes_zone_1 = int(width_zone_1 // lane_width)
-    num_lanes_zone_2 = int(width_zone_2 // lane_width)
-
-    # Calculate bottom y-coordinates for both zones
-    y_bottom_zone_1 = y_top_zone_1 - width_zone_1
-
-    # Generate lane center positions
-    lane_centers = []
-
-    # Process first road zone (bottom zone) - lanes positioned from top (interior) downward (toward edge)
-    # The top of the bottom zone faces the center of the bridge
-    if num_lanes_zone_1 > 0:
-        for lane_idx in range(num_lanes_zone_1):
-            # Place lane center starting from half a lane width below the top edge, then each subsequent lane is one full lane width lower
-            lane_center = y_bottom_zone_1 + (lane_width / 2) + (lane_idx * lane_width)
-            lane_centers.append(lane_center)
-
-    # Process second road zone (top zone) - lanes positioned from top (interior) downward (toward edge)
-    # The top of the top zone (which is actually the lower boundary of zone 2) faces the center
-    if num_lanes_zone_2 > 0:
-        for lane_idx in range(num_lanes_zone_2):
-            # Place lane center starting from half a lane width below the top edge, then each subsequent lane is one full lane width lower
-            lane_center = y_top_zone_2 - (lane_width / 2) - (lane_idx * lane_width)
-            lane_centers.append(lane_center)
-
-    return lane_centers
-
-
 def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
@@ -639,7 +573,7 @@ def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912, PLR0915
 
     # Get real lane positions (NEW: replaces fixed positions)
     if get_number_of_road_zones(params) == 2:
-        lane_y_positions = generate_real_lane_positions_bg10000_two_road_zones(params, lane_width)
+        lane_y_positions = generate_real_lane_positions_two_road_zones(params, "bg10000", lane_width)
     else:
         lane_y_positions = generate_real_lane_positions_bg10000(params, lane_width)
 

@@ -106,10 +106,17 @@ class TestStandardLoadCases:
     def test_create_service_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of service vehicle load case definitions with dynamic X positions."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
@@ -150,10 +157,17 @@ class TestStandardLoadCases:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test creation of unintended vehicle load case definitions with dynamic X positions."""
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         # Mock returns positions for all vehicle types (sequencer is now universal)
         # The function calls tandem_system_sequencer 3 times with different length_vehicle values
@@ -201,10 +215,17 @@ class TestTandemLoadCases:
         self, mock_sequencer: Mock, mock_extract: Mock, rs: int, group_name: str, prefix: str, positions_count: int, mock_builder: Mock
     ) -> None:
         """Test creation of tandem load case definitions for different RS."""
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
@@ -275,10 +296,17 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_structure(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that create_all_load_cases returns the expected structure."""
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
@@ -314,10 +342,17 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_with_all_enabled(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that all load cases are created when all are enabled in the params table."""
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
@@ -353,10 +388,17 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_with_some_disabled(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that only enabled load cases are created when some are disabled."""
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
@@ -391,10 +433,17 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_with_missing_table(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
         """Test that all load cases are created when the selection table is missing."""
-        from src.integrations.scia_integration.load_system.scia_load_generators import BridgeDimensions
+        from src.data_models.scia_models import BridgeDimensionsData
 
-        mock_extract.return_value = BridgeDimensions(
-            total_length=50.0, total_width=20.0, thickness=0.5, zone1_width=7.0, zone2_width=6.0, zone3_width=7.0, first_segment_thickness=0.5
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]

@@ -17,7 +17,9 @@ from src.integrations.scia_integration.load_system.scia_load_generators import e
 from src.integrations.scia_integration.model.scia_coordinate_utils import convert_loads_to_scia_format
 
 # Re-export types for backward compatibility
-from src.integrations.scia_integration.types import AmsterdamWheelConfig, BridgeParametrization, WheelConfig
+# Note: WheelConfig and AmsterdamWheelConfig TypedDicts are deprecated.
+# Use WheelLoadConfig and AmsterdamWheelLoadConfig from src.data_models.scia_models instead.
+from src.integrations.scia_integration.types import BridgeParametrization
 
 from .scia_load_helpers import add_pedestrian_loads, create_all_loads
 from .scia_point_loads import (
@@ -37,9 +39,7 @@ from .scia_surface_loads import (
 )
 
 __all__ = [
-    "AmsterdamWheelConfig",
     "BridgeParametrization",
-    "WheelConfig",
     "add_accidental_vehicle_loads",
     "add_actual_tandem_loads",
     "add_asfalt_loads",

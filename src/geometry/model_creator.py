@@ -6,14 +6,33 @@ generating a 3D representation of a bridge deck based on input parameters.
 
 import contextlib
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 import numpy as np
 import trimesh
 from munch import Munch  # type: ignore[import-untyped]
 
+# Import constants for geometry calculations
+from src.common.constants.geometry import (
+    AXES_CYLINDER_SECTIONS,
+    AXES_LENGTH_DEFAULT,
+    AXES_RADIUS_DEFAULT,
+    BLACK_DOT_RADIUS,
+    CYLINDER_SECTIONS_DEFAULT,
+    DEFAULT_LABEL_Y_OFFSET,
+    DIMENSION_TEXT_Y_OFFSET,
+    MIDPOINT_DIVISOR,
+    MODEL_PADDING,
+    PLANE_THICKNESS,
+    REBAR_POSITION_HALF_OFFSET,
+    SUPPORT_ANNOTATION_OFFSET,
+    TEXT_X_OFFSET_CROSS_SECTION,
+    TOP_VIEW_LABEL_Y_OFFSET,
+)
+from src.common.constants.technical import MM_TO_M
+
 # Import Pydantic data models from dedicated data_models package
 from src.data_models.bridge_models import BridgeSegmentDimensions
+from src.data_models.geometry_data_models import DPointLabelData, LoadZoneGeometryData
 
 
 # Function to create a box by specifying its vertices and faces
@@ -112,14 +131,14 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
         params = {
             "zone_number": zone_entry.zone_number,
             # Main reinforcement parameters
-            "diam_long_bottom": zone_entry.hoofdwapening_langs_onder_diameter / 1000,
-            "hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,
-            "diam_long_top": zone_entry.hoofdwapening_langs_boven_diameter / 1000,
-            "hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,
-            "diam_shear_top": zone_entry.hoofdwapening_dwars_boven_diameter / 1000,
-            "hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,
-            "diam_shear_bottom": zone_entry.hoofdwapening_dwars_onder_diameter / 1000,
-            "hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,
+            "diam_long_bottom": zone_entry.hoofdwapening_langs_onder_diameter / MM_TO_M,
+            "hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / MM_TO_M,
+            "diam_long_top": zone_entry.hoofdwapening_langs_boven_diameter / MM_TO_M,
+            "hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / MM_TO_M,
+            "diam_shear_top": zone_entry.hoofdwapening_dwars_boven_diameter / MM_TO_M,
+            "hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / MM_TO_M,
+            "diam_shear_bottom": zone_entry.hoofdwapening_dwars_onder_diameter / MM_TO_M,
+            "hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / MM_TO_M,
         }
 
         # Add additional reinforcement parameters if present
@@ -127,14 +146,14 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
             params.update(
                 {
                     "heeft_bijlegwapening": True,
-                    "bijleg_diam_long_bottom": zone_entry.bijlegwapening_langs_onder_diameter / 1000,
-                    "bijleg_hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / 1000,  # Same as main reinforcement
-                    "bijleg_diam_long_top": zone_entry.bijlegwapening_langs_boven_diameter / 1000,
-                    "bijleg_hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / 1000,  # Same as main reinforcement
-                    "bijleg_diam_shear_bottom": zone_entry.bijlegwapening_dwars_onder_diameter / 1000,
-                    "bijleg_hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / 1000,  # Same as main reinforcement
-                    "bijleg_diam_shear_top": zone_entry.bijlegwapening_dwars_boven_diameter / 1000,
-                    "bijleg_hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / 1000,  # Same as main reinforcement
+                    "bijleg_diam_long_bottom": zone_entry.bijlegwapening_langs_onder_diameter / MM_TO_M,
+                    "bijleg_hoh_long_bottom": zone_entry.hoofdwapening_langs_onder_hart_op_hart / MM_TO_M,  # Same as main reinforcement
+                    "bijleg_diam_long_top": zone_entry.bijlegwapening_langs_boven_diameter / MM_TO_M,
+                    "bijleg_hoh_long_top": zone_entry.hoofdwapening_langs_boven_hart_op_hart / MM_TO_M,  # Same as main reinforcement
+                    "bijleg_diam_shear_bottom": zone_entry.bijlegwapening_dwars_onder_diameter / MM_TO_M,
+                    "bijleg_hoh_shear_bottom": zone_entry.hoofdwapening_dwars_onder_hart_op_hart / MM_TO_M,  # Same as main reinforcement
+                    "bijleg_diam_shear_top": zone_entry.bijlegwapening_dwars_boven_diameter / MM_TO_M,
+                    "bijleg_hoh_shear_top": zone_entry.hoofdwapening_dwars_boven_hart_op_hart / MM_TO_M,  # Same as main reinforcement
                 }
             )
 
@@ -162,26 +181,30 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
         pos = {}
         if langswapening_buiten:
             # Bottom configuration - longitudinal outside, shear inside
-            pos["long_bottom"] = z_position_bottom + dekking_onder + 0.5 * zone_params["diam_long_bottom"]
-            pos["shear_bottom"] = pos["long_bottom"] + 0.5 * (zone_params["diam_long_bottom"] + zone_params["diam_shear_bottom"])
+            pos["long_bottom"] = z_position_bottom + dekking_onder + REBAR_POSITION_HALF_OFFSET * zone_params["diam_long_bottom"]
+            pos["shear_bottom"] = pos["long_bottom"] + REBAR_POSITION_HALF_OFFSET * (
+                zone_params["diam_long_bottom"] + zone_params["diam_shear_bottom"]
+            )
 
             # Top configuration - longitudinal outside, shear inside
             if is_middle_zone:
-                pos["long_top"] = z_position_top - (dekking_boven + 0.5 * zone_params["diam_long_top"])
+                pos["long_top"] = z_position_top - (dekking_boven + REBAR_POSITION_HALF_OFFSET * zone_params["diam_long_top"])
             else:
-                pos["long_top"] = -(dekking_boven + 0.5 * zone_params["diam_long_top"])
-            pos["shear_top"] = pos["long_top"] - 0.5 * (zone_params["diam_long_top"] + zone_params["diam_shear_top"])
+                pos["long_top"] = -(dekking_boven + REBAR_POSITION_HALF_OFFSET * zone_params["diam_long_top"])
+            pos["shear_top"] = pos["long_top"] - REBAR_POSITION_HALF_OFFSET * (zone_params["diam_long_top"] + zone_params["diam_shear_top"])
         else:
             # Bottom configuration - shear outside, longitudinal inside
-            pos["shear_bottom"] = z_position_bottom + dekking_onder + 0.5 * zone_params["diam_shear_bottom"]
-            pos["long_bottom"] = pos["shear_bottom"] + 0.5 * (zone_params["diam_shear_bottom"] + zone_params["diam_long_bottom"])
+            pos["shear_bottom"] = z_position_bottom + dekking_onder + REBAR_POSITION_HALF_OFFSET * zone_params["diam_shear_bottom"]
+            pos["long_bottom"] = pos["shear_bottom"] + REBAR_POSITION_HALF_OFFSET * (
+                zone_params["diam_shear_bottom"] + zone_params["diam_long_bottom"]
+            )
 
             # Top configuration - shear outside, longitudinal inside
             if is_middle_zone:
-                pos["shear_top"] = z_position_top - (dekking_boven + 0.5 * zone_params["diam_shear_top"])
+                pos["shear_top"] = z_position_top - (dekking_boven + REBAR_POSITION_HALF_OFFSET * zone_params["diam_shear_top"])
             else:
-                pos["shear_top"] = -(dekking_boven + 0.5 * zone_params["diam_shear_top"])
-            pos["long_top"] = pos["shear_top"] - 0.5 * (zone_params["diam_shear_top"] + zone_params["diam_long_top"])
+                pos["shear_top"] = -(dekking_boven + REBAR_POSITION_HALF_OFFSET * zone_params["diam_shear_top"])
+            pos["long_top"] = pos["shear_top"] - REBAR_POSITION_HALF_OFFSET * (zone_params["diam_shear_top"] + zone_params["diam_long_top"])
 
         return pos
 
@@ -207,7 +230,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
 
         if n_rebars % 2 == 0:  # Even number of rebars
             for i in range(n_rebars // 2):
-                offset = (i + 0.5) * actual_hoh
+                offset = (i + REBAR_POSITION_HALF_OFFSET) * actual_hoh
                 positions.extend([-offset, offset])
         else:  # Odd number of rebars
             positions = [0]  # Center rebar
@@ -226,7 +249,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
         # Calculate midpoint between each pair of consecutive positions
         bijleg_positions = []
         for i in range(len(positions) - 1):
-            midpoint = (positions[i] + positions[i + 1]) / 2.0
+            midpoint = (positions[i] + positions[i + 1]) / MIDPOINT_DIVISOR
             bijleg_positions.append(midpoint)
 
         # Add y_offset to all positions
@@ -239,13 +262,13 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
             return []
 
         actual_hoh = width_eff / n_rebars
-        start_offset = min(dekking_boven, dekking_onder) + 0.5 * diameter_shear
-        mid_x = width_eff / 2 + start_offset
+        start_offset = min(dekking_boven, dekking_onder) + REBAR_POSITION_HALF_OFFSET * diameter_shear
+        mid_x = width_eff / MIDPOINT_DIVISOR + start_offset
         positions = []
 
         if n_rebars % 2 == 0:
             for i in range(n_rebars // 2):
-                x_offset = (i + 0.5) * actual_hoh
+                x_offset = (i + REBAR_POSITION_HALF_OFFSET) * actual_hoh
                 positions.extend([mid_x - x_offset, mid_x + x_offset])
         else:
             positions = [mid_x]
@@ -273,7 +296,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
 
         for y_pos in positions:
             # Create a cylinder that spans the segment length
-            rebar = trimesh.creation.cylinder(radius=diameter / 2, height=segment_length, sections=16)
+            rebar = trimesh.creation.cylinder(radius=diameter / MIDPOINT_DIVISOR, height=segment_length, sections=CYLINDER_SECTIONS_DEFAULT)
 
             # Rotate to align with X axis
             rebar.apply_transform(trimesh.transformations.rotation_matrix(angle=np.pi / 2, direction=[0, 1, 0]))
@@ -317,11 +340,11 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
             # Add the cumulative x_offset to position the rebar in the correct segment
             x_pos = x_offset + relative_x_pos
 
-            interpolation_factor = x_positions.index(relative_x_pos) / (len(x_positions) - 1) if len(x_positions) > 1 else 0.5
+            interpolation_factor = x_positions.index(relative_x_pos) / (len(x_positions) - 1) if len(x_positions) > 1 else REBAR_POSITION_HALF_OFFSET
             height_at_x = height_start + (height_end - height_start) * interpolation_factor
 
             # Create shear rebar
-            shear_rebar = trimesh.creation.cylinder(radius=rebar_diameter / 2, height=height_at_x, sections=16)
+            shear_rebar = trimesh.creation.cylinder(radius=rebar_diameter / MIDPOINT_DIVISOR, height=height_at_x, sections=CYLINDER_SECTIONS_DEFAULT)
 
             # Rotate to align vertically
             rotation_matrix = trimesh.transformations.rotation_matrix(angle=np.pi / 2, direction=[1, 0, 0])
@@ -338,8 +361,8 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
     bridge_segments_array = params.bridge_segments_array
     reinforcement_zones_array = params.reinforcement_zones_array
     langswapening_buiten = params.input.geometrie_wapening.langswapening_buiten
-    dekking_onder = params.input.geometrie_wapening.dekking_onder / 1000
-    dekking_boven = params.input.geometrie_wapening.dekking_boven / 1000
+    dekking_onder = params.input.geometrie_wapening.dekking_onder / MM_TO_M
+    dekking_boven = params.input.geometrie_wapening.dekking_boven / MM_TO_M
     z_position_bottom = -params.bridge_segments_array[0].dz
     z_position_top = params.bridge_segments_array[0].dz_2 - params.bridge_segments_array[0].dz
     rebar_scene = trimesh.Scene()
@@ -510,7 +533,7 @@ def create_rebars(params: Munch, color: list) -> trimesh.Trimesh:  # noqa: C901,
 
 
 # Function to create the X, Y, and Z axes
-def create_axes(length: float = 5.0, radius: float = 0.05) -> trimesh.Scene:
+def create_axes(length: float = AXES_LENGTH_DEFAULT, radius: float = AXES_RADIUS_DEFAULT) -> trimesh.Scene:
     """
     Create X, Y, Z axes as cylinders or lines at the origin.
 
@@ -523,9 +546,9 @@ def create_axes(length: float = 5.0, radius: float = 0.05) -> trimesh.Scene:
 
     """
     # Create cylinder meshes for each axis
-    x_axis = trimesh.creation.cylinder(radius=radius, height=length, sections=20)
-    y_axis = trimesh.creation.cylinder(radius=radius, height=length, sections=20)
-    z_axis = trimesh.creation.cylinder(radius=radius, height=length, sections=20)
+    x_axis = trimesh.creation.cylinder(radius=radius, height=length, sections=AXES_CYLINDER_SECTIONS)
+    y_axis = trimesh.creation.cylinder(radius=radius, height=length, sections=AXES_CYLINDER_SECTIONS)
+    z_axis = trimesh.creation.cylinder(radius=radius, height=length, sections=AXES_CYLINDER_SECTIONS)
 
     # Rotate cylinders to align with their respective axes
     x_axis.vertices = (
@@ -600,7 +623,7 @@ def create_cross_section(mesh: trimesh.Trimesh, plane_origin: list | np.ndarray,
         combined_scene_2d.add_geometry(axes_scene)
 
         # Add the black dot at the origin to the scene
-        black_dot = create_black_dot(radius=0.1)
+        black_dot = create_black_dot(radius=BLACK_DOT_RADIUS)
         combined_scene_2d.add_geometry(black_dot)
 
     return combined_scene_2d
@@ -634,21 +657,21 @@ def create_section_planes(params: dict | Munch) -> trimesh.Scene:
     max_hight_dz_2 = max(segment.dz_2 for segment in params.bridge_segments_array)
 
     # Add some padding to bounds
-    padding = 5
+    padding = MODEL_PADDING
     length = original_length + padding
     max_width = original_width + padding
     max_height = max_hight_dz_2 + padding
 
     # Create planes with appropriate dimensions and positions
     # Planes start at -padding/2 and extend to original_length + padding/2
-    horizontal_plane = trimesh.creation.box(extents=[length, max_width, 0.01])
-    horizontal_plane.apply_translation([original_length / 2, -padding / 2, h_loc])
+    horizontal_plane = trimesh.creation.box(extents=[length, max_width, PLANE_THICKNESS])
+    horizontal_plane.apply_translation([original_length / MIDPOINT_DIVISOR, -padding / MIDPOINT_DIVISOR, h_loc])
 
-    longitudinal_plane = trimesh.creation.box(extents=[length, 0.01, max_height])
-    longitudinal_plane.apply_translation([original_length / 2, l_loc, -padding / 2])
+    longitudinal_plane = trimesh.creation.box(extents=[length, PLANE_THICKNESS, max_height])
+    longitudinal_plane.apply_translation([original_length / MIDPOINT_DIVISOR, l_loc, -padding / MIDPOINT_DIVISOR])
 
-    cross_plane = trimesh.creation.box(extents=[0.01, max_width, max_height])
-    cross_plane.apply_translation([c_loc, -padding / 2, -padding / 2])
+    cross_plane = trimesh.creation.box(extents=[PLANE_THICKNESS, max_width, max_height])
+    cross_plane.apply_translation([c_loc, -padding / MIDPOINT_DIVISOR, -padding / MIDPOINT_DIVISOR])
 
     # Set transparent grey color for all planes and use PBRMaterial with alphaMode='BLEND'
     grey_color = [128, 128, 128, 150]  # RGBA with alpha=30 for higher transparency (less visible)
@@ -812,7 +835,7 @@ def create_3d_model(params: (dict | Munch), axes: bool = True, section_planes: b
         combined_scene.add_geometry(axes_scene)
 
         # Add the black dot at the origin to the scene
-        black_dot = create_black_dot(radius=0.1)
+        black_dot = create_black_dot(radius=BLACK_DOT_RADIUS)
         combined_scene.add_geometry(black_dot)
 
     rebars_scene = create_rebars(params, color=[0, 0, 0, 255])  # Call the function to create rebars
@@ -881,9 +904,9 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
     max_y_top_outer = 0
     if segments_data:
         max_y_top_outer = max(seg.bz1 + seg.bz2 / 2.0 for seg in segments_data)
-    label_y_offset = 0.5  # Reduced offset above the highest point for D labels
+    label_y_offset = TOP_VIEW_LABEL_Y_OFFSET  # Reduced offset above the highest point for D labels
 
-    def interpolate(y_start: float, y_end: float, factor: float = 0.5) -> float:
+    def interpolate(y_start: float, y_end: float, factor: float = REBAR_POSITION_HALF_OFFSET) -> float:
         return y_start + (y_end - y_start) * factor
 
     # --- Process Segments (for bridge lines, l-dimensions, and zone annotations) ---
@@ -972,7 +995,7 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
 
             # L-Dimension Text for this segment
             # Position it below the segment, aligned with its center
-            l_text_y_offset = 1.0
+            l_text_y_offset = DIMENSION_TEXT_Y_OFFSET
             y_pos_for_l_text = min(y_bottom_outer_start, y_bottom_outer_end) - l_text_y_offset
             dimension_texts_data.append(
                 {"text": f"l = {segment_length}m", "x": current_x + segment_length / 2.0, "y": y_pos_for_l_text, "type": "length", "textangle": 0}
@@ -1038,7 +1061,7 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
             bridge_lines.append({"start": [cs_x, y_top_inner], "end": [cs_x, y_bottom_inner]})
 
         # BZ Dimension Texts for this cross-section
-        text_x_offset = 0.75  # Increased offset to move text further left
+        text_x_offset = TEXT_X_OFFSET_CROSS_SECTION  # Increased offset to move text further left
         cross_section_number = j + 1  # 1-based index for labeling
 
         # bz1 text
@@ -1085,7 +1108,7 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
         # --- Add support annotation if support position is True ---
         if j < len(support_positions) and support_positions[j]:
             # Place support just below the bottom outer edge
-            support_y = y_bottom_outer - 0.5  # 0.5m below the lowest point (adjust as needed)
+            support_y = y_bottom_outer - SUPPORT_ANNOTATION_OFFSET  # Offset below the lowest point
 
             # Get the support type for this position
             support_type = "Inklemming"  # Default to fixed support
@@ -1104,34 +1127,13 @@ def create_2d_top_view(viktor_params: Munch) -> dict:  # noqa: C901, PLR0912, PL
     }
 
 
-# Define dataclasses for structured data
-# Note: BridgeSegmentDimensions has been moved to src/models/bridge_models.py
-
-
-@dataclass
-class DPointLabel:
-    """Represents the data for a D-point label."""
-
-    text: str
-    x: float
-    y: float
-
-
-@dataclass
-class LoadZoneGeometryData:
-    """Holds calculated geometric data for load zone visualization."""
-
-    x_coords_d_points: list[float]
-    y_top_structural_edge_at_d_points: list[float]
-    total_widths_at_d_points: list[float]
-    y_bridge_bottom_at_d_points: list[float]
-    num_defined_d_points: int
-    d_point_label_data: list[DPointLabel]
+# Pydantic models are imported from src.data_models.geometry_data_models
+# DPointLabelData and LoadZoneGeometryData are now Pydantic models with validation
 
 
 def prepare_load_zone_geometry_data(
     bridge_dimensions_array: Sequence[BridgeSegmentDimensions],
-    label_y_offset: float = 1.5,  # Exposed parameter with default
+    label_y_offset: float = DEFAULT_LABEL_Y_OFFSET,  # Exposed parameter with default
 ) -> LoadZoneGeometryData:
     """
     Calculates geometric data needed for load zone visualization based on bridge segments.
@@ -1150,7 +1152,14 @@ def prepare_load_zone_geometry_data(
     num_defined_d_points = len(bridge_dimensions_array)
 
     if num_defined_d_points == 0:
-        return LoadZoneGeometryData([], [], [], [], 0, [])
+        return LoadZoneGeometryData(
+            x_coords_d_points=[],
+            y_top_structural_edge_at_d_points=[],
+            total_widths_at_d_points=[],
+            y_bridge_bottom_at_d_points=[],
+            num_defined_d_points=0,
+            d_point_label_data=[],
+        )
 
     # Input Validation
     for i, segment_data in enumerate(bridge_dimensions_array):
@@ -1167,7 +1176,7 @@ def prepare_load_zone_geometry_data(
     x_coords_d_points = []
     y_top_structural_edge_at_d_points = []
     total_widths_at_d_points = []
-    d_point_label_data: list[DPointLabel] = []  # Explicitly typed list
+    d_point_label_data: list[DPointLabelData] = []  # Explicitly typed list
     current_x = 0.0
     # label_y_offset is now a parameter
 
@@ -1189,7 +1198,7 @@ def prepare_load_zone_geometry_data(
         current_total_width_at_di = segment_params.bz1 + segment_params.bz2 + segment_params.bz3
         total_widths_at_d_points.append(current_total_width_at_di)
 
-        d_point_label_data.append(DPointLabel(text=f"D{i + 1}", x=x_coords_d_points[i], y=y_top + label_y_offset))
+        d_point_label_data.append(DPointLabelData(text=f"D{i + 1}", x=x_coords_d_points[i], y=y_top + label_y_offset))
 
     y_bridge_bottom_at_d_points = [
         y_top_structural_edge_at_d_points[d_idx] - total_widths_at_d_points[d_idx] for d_idx in range(num_defined_d_points)
@@ -1213,7 +1222,7 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
     # Calculate midpoint between each pair of consecutive positions
     bijleg_positions = []
     for i in range(len(positions) - 1):
-        midpoint = (positions[i] + positions[i + 1]) / 2.0
+        midpoint = (positions[i] + positions[i + 1]) / MIDPOINT_DIVISOR
         bijleg_positions.append(midpoint)
 
     # Add y_offset to all positions

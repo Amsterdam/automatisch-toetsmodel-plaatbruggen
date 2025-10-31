@@ -75,4 +75,4 @@ class LoadZoneData(BaseModel):
                 raise ValueError(f"{zone_type} zones require minimum 2cm pavement thickness, got {v * 100:.1f}cm")
         return v
 
-    model_config = ConfigDict(validate_assignment=True, use_enum_values=True)
+    model_config = ConfigDict(validate_assignment=True, str_strip_whitespace=True)
