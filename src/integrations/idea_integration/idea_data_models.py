@@ -130,20 +130,20 @@ class BridgeIdeaInputData(BaseModel):
     def validate_concrete_strength_class(cls, v: str, _info: ValidationInfo) -> str:
         """
         Validate concrete strength class against material database.
-        
+
         Accepts both modern (C-class) and historical (B-class, K-class) materials
         that are supported by IDEA StatiCa.
         """
         if isinstance(v, str):
             v = v.strip()
-        
+
         # Import here to avoid circular dependency
         from src.integrations.idea_integration.idea_material_mapping import get_all_supported_materials
-        
+
         # Check against both modern and historical materials
         valid_concretes = get_concrete_qualities()
         supported_materials = get_all_supported_materials()
-        
+
         # Accept if it's in the standard database OR if it's a historical material supported by IDEA
         if v not in valid_concretes and v not in supported_materials:
             available = ", ".join(valid_concretes[:5])
@@ -155,20 +155,20 @@ class BridgeIdeaInputData(BaseModel):
     def validate_steel_quality(cls, v: str, _info: ValidationInfo) -> str:
         """
         Validate steel quality against material database.
-        
+
         Accepts both modern (B-class) and historical (QR, FeB, HK, St. 37, etc.) materials
         that are supported by IDEA StatiCa.
         """
         if isinstance(v, str):
             v = v.strip()
-        
+
         # Import here to avoid circular dependency
         from src.integrations.idea_integration.idea_material_mapping import get_all_supported_reinforcement_materials
-        
+
         # Check against both modern and historical materials
         valid_reinforcement = get_reinforcement_qualities()
         supported_materials = get_all_supported_reinforcement_materials()
-        
+
         # Accept if it's in the standard database OR if it's a historical material supported by IDEA
         if v not in valid_reinforcement and v not in supported_materials:
             available = ", ".join(valid_reinforcement[:5])

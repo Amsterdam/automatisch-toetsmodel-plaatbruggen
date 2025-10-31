@@ -13,6 +13,10 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
+from viktor.core import File, Storage, progress_message
+from viktor.errors import UserError
+from viktor.external import idea_rcs
+
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
@@ -21,9 +25,6 @@ from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_integration_strip_results_for_idea,
     process_scia_node_results_for_idea,
 )
-from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
-from viktor.external import idea_rcs
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -79,27 +80,27 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
             if crack_width_data:
                 short_term = crack_width_data.get("short")
                 long_term = crack_width_data.get("long")
-                
+
                 # Collect valid check values
                 check_values = []
                 crack_width_results_list = []
-                
+
                 if short_term and isinstance(short_term, dict):
                     if "CheckValue" in short_term and short_term["CheckValue"] is not None:
                         check_values.append(short_term["CheckValue"])
                     if "Result" in short_term:
                         crack_width_results_list.append(short_term["Result"])
-                
+
                 if long_term and isinstance(long_term, dict):
                     if "CheckValue" in long_term and long_term["CheckValue"] is not None:
                         check_values.append(long_term["CheckValue"])
                     if "Result" in long_term:
                         crack_width_results_list.append(long_term["Result"])
-                
+
                 # Use the maximum CheckValue (worst case)
                 if check_values:
                     crack_width_result["CheckValue"] = max(check_values)
-                
+
                 # Use the worst result (prioritize "FAILED" over "PASSED")
                 if crack_width_results_list:
                     if any(r == "FAILED" for r in crack_width_results_list if r):
@@ -108,7 +109,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
                         crack_width_result["Result"] = "PASSED"
                     else:
                         crack_width_result["Result"] = crack_width_results_list[0] if crack_width_results_list[0] else "N/A"
-            
+
             section_data = {
                 "id": section.id_,
                 "capacity": section.capacity()[0] if section.capacity() else {"Result": "N/A"},

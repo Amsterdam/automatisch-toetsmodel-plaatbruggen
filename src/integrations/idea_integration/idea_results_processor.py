@@ -121,37 +121,37 @@ class IdeaResultsProcessor:
         """
         if not result_list or len(result_list) == 0:
             return ("N/A", "N/A")
-        
+
         result_dict = result_list[0]
         if result_dict is None or not isinstance(result_dict, dict):
             return ("N/A", "N/A")
-        
+
         # Extract short and long term crack width data
         short_term = result_dict.get("short")
         long_term = result_dict.get("long")
-        
+
         # Collect valid check values and results
         check_values = []
         results = []
-        
+
         if short_term and isinstance(short_term, dict):
             if "CheckValue" in short_term and short_term["CheckValue"] is not None:
                 check_values.append(short_term["CheckValue"])
             if "Result" in short_term:
                 results.append(short_term["Result"])
-        
+
         if long_term and isinstance(long_term, dict):
             if "CheckValue" in long_term and long_term["CheckValue"] is not None:
                 check_values.append(long_term["CheckValue"])
             if "Result" in long_term:
                 results.append(long_term["Result"])
-        
+
         # Determine the worst case CheckValue
         check_value_str = "N/A"
         if check_values:
             max_check_value = max(check_values)
             check_value_str = f"{max_check_value:.{CHECK_VALUE_PRECISION_3}f}"
-        
+
         # Determine the worst case Result
         result_str = "N/A"
         if results:
@@ -161,7 +161,7 @@ class IdeaResultsProcessor:
                 result_str = "PASSED"
             else:
                 result_str = results[0] if results[0] else "N/A"
-        
+
         return (str(result_str), str(check_value_str))
 
     @staticmethod

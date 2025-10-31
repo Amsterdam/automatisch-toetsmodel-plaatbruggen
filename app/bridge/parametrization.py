@@ -5,28 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
-from src.common.materials import get_reinforcement_qualities
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -50,8 +28,30 @@ from viktor.parametrization import (
     TextField,
 )
 
-from .utils import validate_reinforcement_zone_selections
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
+from src.common.materials import get_reinforcement_qualities
 
+from .utils import validate_reinforcement_zone_selections
 
 # --- Helper function for rebar diameter options ---
 
@@ -1037,7 +1037,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Additional reinforcement - Longitudinal top
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = OptionField(
-        "Ø bijlegwapening langsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening langsrichting boven",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting boven",
@@ -1051,7 +1056,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Additional reinforcement - Transverse top
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = OptionField(
-        "Ø bijlegwapening dwarsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening dwarsrichting boven",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting boven",
@@ -1065,7 +1075,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Additional reinforcement - Longitudinal bottom
     input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = OptionField(
-        "Ø bijlegwapening langsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening langsrichting onder",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting onder",
@@ -1079,7 +1094,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Additional reinforcement - Transverse bottom
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = OptionField(
-        "Ø bijlegwapening dwarsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+        "Ø bijlegwapening dwarsrichting onder",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting onder",

@@ -17,6 +17,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from viktor.external import idea_rcs
 
 from src.common.constants.technical import MM_TO_M
 from src.data_models.idea_models import ReinforcementConfigData
@@ -40,7 +41,6 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
-from viktor.external import idea_rcs
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
@@ -80,22 +80,20 @@ def _get_unique_matching_zone_keys(
     # This is technical debt that should be addressed in future refactoring
     class SegmentWrapper:
         """Wrapper to provide attribute access to segment dictionaries."""
+
         def __init__(self, segment_dict: dict) -> None:
             self._data = segment_dict
-        
+
         def __getattr__(self, name: str) -> Any:
             """Allow attribute-style access to dictionary keys."""
             if name.startswith("_"):
                 raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
             return self._data.get(name)
-    
+
     class TempParams:
         def __init__(self, segments: list) -> None:
             # Wrap dictionaries to provide attribute access
-            self.bridge_segments_array = [
-                SegmentWrapper(seg) if isinstance(seg, dict) else seg
-                for seg in segments
-            ]
+            self.bridge_segments_array = [SegmentWrapper(seg) if isinstance(seg, dict) else seg for seg in segments]
 
     temp_params = TempParams(input_data.bridge_segments)
     nodes_dict, thickness_dict = create_node_and_thickness_dict(temp_params)  # type: ignore[arg-type]
@@ -761,7 +759,7 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
     # Handle empty DataFrame case
     if df_all.empty:
         return
-    
+
     # For langs cs link IDEA vz to scia vy and IDEA My to scia My
     # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
     # Direction → axis + corresponding moment component

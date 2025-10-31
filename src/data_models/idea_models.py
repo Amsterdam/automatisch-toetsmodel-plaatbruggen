@@ -52,7 +52,7 @@ class ReinforcementConfigData(BaseModel):
             # Allow 0mm diameter when has_extra_reinforcement=False
             if diameter == 0:
                 continue
-                
+
             if diameter not in STANDARD_REBAR_DIAMETERS:
                 raise ValueError(
                     f"Reinforcement diameter {diameter}mm in zone '{zone}' is not standard. Standard sizes: {sorted(STANDARD_REBAR_DIAMETERS)}mm"
@@ -84,7 +84,7 @@ class ReinforcementConfigData(BaseModel):
             # Allow 0mm distance when has_extra_reinforcement=False
             if distance == 0:
                 continue
-                
+
             if distance < 50:  # mm
                 raise ValueError(f"Center-to-center distance {distance}mm in zone '{zone}' is too small (minimum 50mm)")
             if distance > 500:  # mm
@@ -97,7 +97,7 @@ class ReinforcementConfigData(BaseModel):
     def validate_reinforcement_heights(cls, v: dict[str, float]) -> dict[str, float]:
         """
         Validate reinforcement heights/positions.
-        
+
         Allows negative values as they can represent positions below a reference point
         in certain coordinate systems.
         """
