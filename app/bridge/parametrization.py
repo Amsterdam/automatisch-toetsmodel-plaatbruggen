@@ -475,8 +475,7 @@ def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: A
 
         if first_is_support and last_is_support:
             return f"🟢 Eerste en laatste sectie zijn beide opleggingen ({first_support} / {last_support})"
-        else:
-            return "🔴 Eerste en laatste sectie zijn geen opleggingen"
+        return "🔴 Eerste en laatste sectie zijn geen opleggingen"
 
     except (AttributeError, IndexError):
         return "🔴 Fout bij ophalen opleggingsgegevens"
