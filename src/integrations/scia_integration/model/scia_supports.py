@@ -1,5 +1,13 @@
 """Module for defining SCIA support elements."""
 
+from src.common.constants.parametrization import SUPPORT_TYPE_FIXED, SUPPORT_TYPE_FLEXIBLE, SUPPORT_TYPE_NONE
+from src.integrations.scia_integration.constants.geometry import (
+    PLATES_PER_SEGMENT,
+    SUPPORT_EDGE_END,
+    SUPPORT_EDGE_START,
+    SUPPORT_STIFFNESS_X_DEFAULT,
+    SUPPORT_STIFFNESS_Y_DEFAULT,
+)
 from src.integrations.scia_integration.scia_enums import LineSupportFreedom
 
 from .scia_model_interface import SciaLineSupport, SciaModelBuilder
@@ -12,7 +20,7 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, Lin
     :param support_type: The support type string
     :return: Tuple of (freedom dict, stiffness dict)
     """
-    if support_type == "Inklemming":
+    if support_type == SUPPORT_TYPE_FIXED:
         freedom = {
             "x": LineSupportFreedom.RIGID,
             "y": LineSupportFreedom.RIGID,
@@ -22,7 +30,7 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, Lin
             "rz": LineSupportFreedom.RIGID,
         }
         stiffness: dict[str, float] = {}  # Rigid supports don't need stiffness values
-    else:  # support_type == "Verende oplegging (x,y)":
+    else:  # support_type == SUPPORT_TYPE_FLEXIBLE
         freedom = {
             "x": LineSupportFreedom.FLEXIBLE,
             "y": LineSupportFreedom.FLEXIBLE,
@@ -31,7 +39,7 @@ def _get_support_freedom_and_stiffness(support_type: str) -> tuple[dict[str, Lin
             "ry": LineSupportFreedom.RIGID,
             "rz": LineSupportFreedom.RIGID,
         }
-        stiffness = {"stiffness_x": 1e7, "stiffness_y": 1e6}
+        stiffness = {"stiffness_x": SUPPORT_STIFFNESS_X_DEFAULT, "stiffness_y": SUPPORT_STIFFNESS_Y_DEFAULT}
 
     return freedom, stiffness
 
@@ -47,22 +55,22 @@ def _get_plates_and_edge_for_support(d_point_index: int, num_d_points: int, plat
     """
     if d_point_index == 0:
         # First D-point: supports at start of bridge (first 3 plates, edge index 4)
-        plates_for_support = plate_names[:3]
-        edge_index = 4
+        plates_for_support = plate_names[:PLATES_PER_SEGMENT]
+        edge_index = SUPPORT_EDGE_START
         section_number = 1
     elif d_point_index == num_d_points - 1:
         # Last D-point: supports at end of bridge (last 3 plates, edge index 2)
-        plates_for_support = plate_names[-3:]
-        edge_index = 2
+        plates_for_support = plate_names[-PLATES_PER_SEGMENT:]
+        edge_index = SUPPORT_EDGE_END
         section_number = d_point_index + 1
     else:
         # Intermediate D-point: need to find the correct plates for this section
-        segment_end_idx = d_point_index * 3  # Current segment's plates
+        segment_end_idx = d_point_index * PLATES_PER_SEGMENT  # Current segment's plates
 
         if segment_end_idx < len(plate_names):
             # Support at the boundary between segments - use edge 2 of current segment plates
-            plates_for_support = plate_names[segment_end_idx : segment_end_idx + 3]
-            edge_index = 4  # Start edge of current segment
+            plates_for_support = plate_names[segment_end_idx : segment_end_idx + PLATES_PER_SEGMENT]
+            edge_index = SUPPORT_EDGE_START  # Start edge of current segment
         else:
             # Fallback if we can't find the right plates
             return None
@@ -94,11 +102,11 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str], supp
     # Handle support types
     if support_types is None:
         # Fallback: create supports at first and last positions only (legacy behavior)
-        support_types = ["Verende oplegging (x,y)"] + ["Nee"] * (num_d_points - 2) + (["Verende oplegging (x,y)"] if num_d_points > 1 else [])
+        support_types = [SUPPORT_TYPE_FLEXIBLE] + [SUPPORT_TYPE_NONE] * (num_d_points - 2) + ([SUPPORT_TYPE_FLEXIBLE] if num_d_points > 1 else [])
 
     # Ensure support_types list matches number of D-points
     while len(support_types) < num_d_points:
-        support_types.append("Nee")
+        support_types.append(SUPPORT_TYPE_NONE)
 
     support_objects = []
 
@@ -107,7 +115,7 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str], supp
         support_type = support_types[d_point_index]
 
         # Skip if no support is specified
-        if support_type == "Nee":
+        if support_type == SUPPORT_TYPE_NONE:
             continue
 
         # Determine which plates and edge to use for this D-point

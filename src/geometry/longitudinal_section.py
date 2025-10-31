@@ -5,6 +5,11 @@ from typing import TYPE_CHECKING
 import plotly.graph_objects as go
 import trimesh
 
+from src.common.constants.geometry import (
+    ANNOTATION_Y_OFFSET_CROSS_SECTION,
+    ANNOTATION_Y_OFFSET_HORIZONTAL,
+    DIMENSION_TEXT_X_OFFSET,
+)
 from src.geometry.model_creator import create_3d_model, create_cross_section
 
 if TYPE_CHECKING:
@@ -123,7 +128,7 @@ def create_longitudinal_section(params: "BridgeParametrization", section_loc: fl
     cross_section_labels = [
         go.layout.Annotation(
             x=cs_x,
-            y=max(all_z) + 0.5,  # Position above the highest point
+            y=max(all_z) + ANNOTATION_Y_OFFSET_HORIZONTAL,  # Position above the highest point
             text=f"<b>D-{i + 1}</b>",
             showarrow=False,
             font={"size": 15, "color": "black"},
@@ -163,7 +168,7 @@ def create_longitudinal_section(params: "BridgeParametrization", section_loc: fl
         # Length dimension
         go.layout.Annotation(
             x=zcx,
-            y=min(all_z) - 1.0,
+            y=min(all_z) - ANNOTATION_Y_OFFSET_CROSS_SECTION,
             text=f"<b>l = {length}m</b>",
             showarrow=False,
             font={"size": 12, "color": "red"},
@@ -181,7 +186,7 @@ def create_longitudinal_section(params: "BridgeParametrization", section_loc: fl
         [
             # Height dimension
             go.layout.Annotation(
-                x=cs_x - 0.5,
+                x=cs_x - DIMENSION_TEXT_X_OFFSET,
                 y=ch_y,
                 text=f"<b>h = {ch}m</b>",
                 showarrow=False,

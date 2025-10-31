@@ -281,25 +281,21 @@ class TestReinforcementConfigData(unittest.TestCase):
         error = exc_info.value
         assert "Invalid reinforcement grade 'B400A'" in str(error)
 
-        # Missing required keys
-        with pytest.raises(ValidationError) as exc_info:
-            ReinforcementConfigData(
-                main_reinf_ctc_distances={"zone1": 150.0},
-                main_reinf_diameters={"zone1": 12.0},
-                reinf_heights={"zone1": 50.0},
-                extra_reinf_diameter={},
-                extra_reinf_ctc_distances={},
-                has_extra_reinforcement=False,
-                rebar_config={
-                    "material": "steel"
-                    # Missing "grade" and "cover"
-                },
-            )
-
-        error = exc_info.value
-        assert "Rebar config missing required keys" in str(error)
-        assert "grade" in str(error)
-        assert "cover" in str(error)
+        # Flexible config - missing keys are allowed (for IDEA integration compatibility)
+        # IDEA integration uses different keys (heeft_bijlegwapening, zone_number) so strict validation removed
+        config = ReinforcementConfigData(
+            main_reinf_ctc_distances={"zone1": 150.0},
+            main_reinf_diameters={"zone1": 12.0},
+            reinf_heights={"zone1": 50.0},
+            extra_reinf_diameter={},
+            extra_reinf_ctc_distances={},
+            has_extra_reinforcement=False,
+            rebar_config={
+                "material": "steel"
+                # Missing "grade" and "cover" - allowed for flexible structure
+            },
+        )
+        assert config.rebar_config["material"] == "steel"
 
     def test_realistic_scenarios(self) -> None:
         """Test realistic reinforcement scenarios."""

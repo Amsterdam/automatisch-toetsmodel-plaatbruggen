@@ -7,8 +7,9 @@ to eliminate circular imports. It coordinates between theoretical and real tande
 
 from typing import Any, Callable
 
+from src.data_models.scia_models import BridgeDimensionsData
 from src.integrations.scia_integration.constants import DEFAULT_UDL_VALUE
-from src.integrations.scia_integration.types import BridgeDimensions, BridgeParams, LoadGroup, LoadMode, LoadType
+from src.integrations.scia_integration.types import BridgeParams, LoadGroup, LoadMode, LoadType
 
 # Type aliases for different function signatures
 TheoreticalTandemFunc = Callable[[BridgeParams, float, float, float, float, float], list[dict[str, Any]]]
@@ -48,13 +49,16 @@ def get_load_mode_from_params(params: BridgeParams) -> LoadMode:
     return LoadMode.THEORETICAL
 
 
-def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensions:
+def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensionsData:
     """
-    Extract key bridge dimensions from parametrization.
+    Extract and validate key bridge dimensions from parametrization.
+
+    Uses Pydantic validation to ensure dimensions are realistic and consistent.
 
     :param params: Bridge parameters with bridge_segments_array
-    :returns: Bridge dimensions as a structured dataclass
+    :returns: Bridge dimensions as a validated Pydantic model
     :raises IndexError: When no bridge segments are provided
+    :raises ValidationError: When dimensions fail Pydantic validation (e.g., negative widths, unrealistic sizes)
     """
     if not params.bridge_segments_array:
         raise IndexError("No bridge segments provided")
@@ -66,7 +70,8 @@ def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensions:
     total_length = sum(segment.l for segment in params.bridge_segments_array)
     total_width = first_segment.bz1 + first_segment.bz2 + first_segment.bz3
 
-    return BridgeDimensions(
+    # Pydantic validates all fields and cross-field constraints here
+    return BridgeDimensionsData(
         total_length=total_length,
         total_width=total_width,
         thickness=first_segment.dz,

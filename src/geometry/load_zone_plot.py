@@ -4,6 +4,7 @@ from typing import Any
 
 import plotly.graph_objects as go
 
+from src.common.constants.geometry import MIDPOINT_DIVISOR, MIN_DISPLAY_WIDTH, ZONE_LABEL_X_OFFSET
 from src.common.constants.plotting import (
     DEFAULT_PLOTLY_COLORS,
     DEFAULT_ZONE_APPEARANCE_MAP,
@@ -154,7 +155,7 @@ def create_zone_main_label_annotation(
     zone_idx: int,
     zone_type_text: str,
     geometry: ZonePlottingGeometry,  # Using ZonePlottingGeometry
-    x_offset: float = 2.0,
+    x_offset: float = ZONE_LABEL_X_OFFSET,
 ) -> go.layout.Annotation:
     """Creates the main label annotation for a load zone (e.g., 'bz1: Type')."""
     # Unpack relevant coordinates from geometry
@@ -198,11 +199,11 @@ def create_zone_width_annotations(
         # Display width is either the parameter or the calculated remaining space for the last zone
         display_width = current_zone_calculated_width if is_last_zone else width_val
 
-        if display_width > 0.01:
+        if display_width > MIN_DISPLAY_WIDTH:
             annotations.append(
                 go.layout.Annotation(
                     x=x_coords_d_points[d_idx],
-                    y=(y_coords_top_current_zone[d_idx] + y_coords_bottom_current_zone[d_idx]) / 2.0,
+                    y=(y_coords_top_current_zone[d_idx] + y_coords_bottom_current_zone[d_idx]) / MIDPOINT_DIVISOR,
                     text=f"{display_width:.2f}m",
                     showarrow=False,
                     font={"size": 8, "color": "black"},

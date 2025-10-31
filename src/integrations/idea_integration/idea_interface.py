@@ -20,13 +20,21 @@ import pandas as pd
 from viktor.external import idea_rcs
 
 from src.common.constants.technical import MM_TO_M
+from src.data_models.idea_models import ReinforcementConfigData
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
+from src.integrations.idea_integration.constants.geometry import (
+    DEFAULT_DIRECTION_VECTOR_X,
+    DIRECTION_VECTOR_THRESHOLD,
+    MIDPOINT_DIVISOR,
+    REBAR_POSITION_HALF_OFFSET,
+    SLAB_EDGE_SPACE_BOUNDARY,
+    SLAB_WIDTH,
+)
 from src.integrations.idea_integration.constants.materials import DEFAULT_REBAR_POSITION_BASE
 from src.integrations.idea_integration.constants.units import M_TO_MM_IDEA
 from src.integrations.idea_integration.idea_data_models import (
     BridgeGeometryConfig,
     BridgeIdeaInputData,
-    ReinforcementConfig,
     ReinforcementZoneConfig,
 )
 from src.integrations.idea_integration.idea_material_mapping import (
@@ -123,7 +131,7 @@ def calculate_rebar_positions(width: float, hoh: float, y_offset: float = 0) -> 
 
     if n_rebars % 2 == 0:  # Even number of rebars
         for i in range(n_rebars // 2):
-            offset = (i + 0.5) * actual_hoh
+            offset = (i + REBAR_POSITION_HALF_OFFSET) * actual_hoh
             positions.extend([-offset, offset])
     else:  # Odd number of rebars
         positions = [0]  # Center rebar
@@ -143,7 +151,7 @@ def calculate_bijleg_positions(positions: list[float], y_offset: float = 0) -> l
     # Calculate midpoint between each pair of consecutive positions
     bijleg_positions = []
     for i in range(len(positions) - 1):
-        midpoint = (positions[i] + positions[i + 1]) / 2.0
+        midpoint = (positions[i] + positions[i + 1]) / MIDPOINT_DIVISOR
         bijleg_positions.append(midpoint)
 
     # Add y_offset to all positions
@@ -288,7 +296,7 @@ def _create_idea_model_with_concrete_and_reinforcement_materials(
 def _create_reinforcement_bars(
     slab: "OneWaySlab",
     direction: str,
-    config: ReinforcementConfig,
+    config: ReinforcementConfigData,
     mat_reinf: "ReinforcementMaterial",
 ) -> None:
     """
@@ -315,8 +323,8 @@ def _create_reinforcement_bars(
         for coords, diameter in zip(bar_locations, bar_diameters):
             slab.create_bar(coords, diameter, mat_reinf)
 
-        # Create additional reinforcement if needed (using attribute access for Pydantic model)
-        if config.rebar_config.heeft_bijlegwapening:
+        # Create additional reinforcement if needed (rebar_config is now a dict)
+        if config.rebar_config.get("heeft_bijlegwapening", False):
             _create_additional_reinforcement(slab, f"{location}_{direction}", bar_locations_x, config, mat_reinf)
 
 
@@ -324,7 +332,7 @@ def _create_additional_reinforcement(
     slab: "OneWaySlab",
     location_direction: str,  # Combined "top_langs", "bottom_dwars", etc.
     main_bar_locations_x: list[float],
-    config: ReinforcementConfig,
+    config: ReinforcementConfigData,
     mat_reinf: "ReinforcementMaterial",
 ) -> None:
     """
@@ -348,12 +356,12 @@ def _create_additional_reinforcement(
     loc_max_main_bar = float(max(main_bar_locations_x)) if main_bar_locations_x else 0.0
     loc_min_main_bar = float(min(main_bar_locations_x)) if main_bar_locations_x else 0.0
     ctc_dist_main_bar = float(config.main_reinf_ctc_distances[location_direction]) / MM_TO_M or 0.0  # Convert mm to m
-    remaining_space = 0.5 - loc_max_main_bar  # Remaining space at the end of the slab
+    remaining_space = SLAB_EDGE_SPACE_BOUNDARY - loc_max_main_bar  # Remaining space at the end of the slab
 
     # Add extra bars at the beginning and end of the slab if there is enough space
     if remaining_space >= ctc_dist_main_bar:
-        extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar / 2)  # Insert at end
-        extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar / 2)  # Insert at beginning
+        extra_bar_locations_x.append(loc_max_main_bar + ctc_dist_main_bar / MIDPOINT_DIVISOR)  # Insert at end
+        extra_bar_locations_x.insert(0, loc_min_main_bar - ctc_dist_main_bar / MIDPOINT_DIVISOR)  # Insert at beginning
 
     extra_bar_locations_y = [config.reinf_heights[location_direction] / MM_TO_M] * len(extra_bar_locations_x)  # Convert heights from mm to m
     extra_bar_diameters = [config.extra_reinf_diameter[location_direction] / MM_TO_M] * len(extra_bar_locations_x)  # Convert diameters from mm to m
@@ -407,15 +415,20 @@ def _create_slabs_with_reinforcement(
             rebar_config, input_data.geometry_config, slab_thickness
         )
 
-        # Create reinforcement configuration object
-        reinf_config = ReinforcementConfig(
+        # Create reinforcement configuration object using Pydantic model
+        # Convert ReinforcementZoneConfig to dict for rebar_config field
+        rebar_config_dict = {
+            "heeft_bijlegwapening": rebar_config.heeft_bijlegwapening,
+            "zone_number": rebar_config.zone_number,
+        }
+        reinf_config = ReinforcementConfigData(
             main_reinf_ctc_distances=main_reinf_ctc_distances,
             main_reinf_diameters=main_reinf_diameters,
             reinf_heights=reinf_heights,
             extra_reinf_diameter=extra_reinf_diameter,
             extra_reinf_ctc_distances=extra_reinf_ctc_distances,
             has_extra_reinforcement=rebar_config.heeft_bijlegwapening,
-            rebar_config=rebar_config,
+            rebar_config=rebar_config_dict,
         )
 
         # Create slab for each rebar direction
@@ -423,7 +436,7 @@ def _create_slabs_with_reinforcement(
             # Create rectangular cross-section for the slab using builder
             # cs_dwars should be paired with rebar_langs and vice versa so we use opposite_direction here
             opposite_direction = "dwars" if direction == "langs" else "langs"
-            cs = builder.create_rect_section(1.0, slab_thickness)
+            cs = builder.create_rect_section(SLAB_WIDTH, slab_thickness)
             slab = builder.create_one_way_slab(
                 model, cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
             )
@@ -691,13 +704,13 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
             row.get("ULS_direction_vector")
             or row.get("SLS_kar_direction_vector")
             or row.get("SLS_freq_direction_vector")
-            or (1.0, 0.0, 0.0)  # Default to x-direction if not found
+            or DEFAULT_DIRECTION_VECTOR_X  # Default to x-direction if not found
         )
 
         # Determine moment component based on strip orientation and slab direction
-        if abs(direction_vector[0]) > 0.7:  # Strip is primarily in X-direction (longitudinal)
+        if abs(direction_vector[0]) > DIRECTION_VECTOR_THRESHOLD:  # Strip is primarily in X-direction (longitudinal)
             moment_component = "m_y_max" if direction == "langs" else "m_x_max"
-        elif abs(direction_vector[1]) > 0.7:  # Strip is primarily in Y-direction (transverse)
+        elif abs(direction_vector[1]) > DIRECTION_VECTOR_THRESHOLD:  # Strip is primarily in Y-direction (transverse)
             moment_component = "m_x_max" if direction == "langs" else "m_y_max"
         else:
             # Error for diagonal or unclear orientations - this indicates a problem with strip geometry

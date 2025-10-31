@@ -60,7 +60,7 @@ class BridgeBaseGeometry(BaseModel):
 
         return v
 
-    model_config = ConfigDict(validate_assignment=True, use_enum_values=True)
+    model_config = ConfigDict(validate_assignment=True)
 
 
 class ZoneStylingDefaults(BaseModel):
