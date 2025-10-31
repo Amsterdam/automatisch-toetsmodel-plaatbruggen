@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -27,7 +28,6 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
-from viktor.errors import UserError
 
 from app.constants import (
     BRIDGE_DATA_PATH,

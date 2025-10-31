@@ -76,9 +76,17 @@ class TestQRReinforcementMaterials:
         # Check that suffixed QR materials are present (not base names)
         suffixed_qr_materials = [
             # GBV 1950
-            "QR22_GBV1950", "QR24_GBV1950", "QR30_GBV1950", "QR36_GBV1950", "QR42_GBV1950",
+            "QR22_GBV1950",
+            "QR24_GBV1950",
+            "QR30_GBV1950",
+            "QR36_GBV1950",
+            "QR42_GBV1950",
             # GBV 1962 (QR22 and QR24 also appear here)
-            "QR22_GBV1962", "QR24_GBV1962", "QR32_GBV1962", "QR40_GBV1962", "QR48_GBV1962"
+            "QR22_GBV1962",
+            "QR24_GBV1962",
+            "QR32_GBV1962",
+            "QR40_GBV1962",
+            "QR48_GBV1962",
         ]
         for material in suffixed_qr_materials:
             assert material in all_materials, f"Suffixed QR material {material} should be in supported materials"

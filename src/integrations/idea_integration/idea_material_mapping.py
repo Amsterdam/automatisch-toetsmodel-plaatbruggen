@@ -119,17 +119,17 @@ def is_historical_material(concrete_quality: str) -> bool:
     """
     # Get all supported materials
     all_materials = get_all_supported_materials()
-    
+
     # Check if it's directly in the list (suffixed name)
     if all_materials.get(concrete_quality) == "historical":
         return True
-    
+
     # Check if it's a base name by looking for any material that starts with this base name
     # This provides backward compatibility for old code using base names like "B45", "K150"
     for material_name, material_type in all_materials.items():
         if material_type == "historical" and material_name.startswith(concrete_quality + "_"):
             return True
-    
+
     return False
 
 
@@ -167,8 +167,8 @@ def get_all_supported_materials() -> dict[str, str]:
 
     # Historical materials - read dynamically from CSV files
     try:
-        from .idea_material_generator import _get_csv_files_for_concrete
         from .constants.paths import IDEA_MATERIALS_PATH
+        from .idea_material_generator import _get_csv_files_for_concrete
 
         csv_files = _get_csv_files_for_concrete("")  # Pass empty string (arg is ignored)
         for csv_file in csv_files:
@@ -328,11 +328,11 @@ def is_historical_reinforcement_material(reinforcement_type: str) -> bool:
     """
     # Get all supported materials
     all_materials = get_all_supported_reinforcement_materials()
-    
+
     # Check if it's directly in the list (suffixed name)
     if all_materials.get(reinforcement_type) == "historical":
         return True
-    
+
     # Check if it's a base name by looking for any material that starts with this base name + "_"
     # This provides backward compatibility for old code using base names like "QR22", "HK"
     # Use rsplit to handle names with spaces like "St. 37"
@@ -343,7 +343,7 @@ def is_historical_reinforcement_material(reinforcement_type: str) -> bool:
                 base_name = material_name.rsplit("_", 1)[0]
                 if base_name == reinforcement_type:
                     return True
-    
+
     return False
 
 
@@ -366,8 +366,8 @@ def get_all_supported_reinforcement_materials() -> dict[str, str]:
 
     # Historical materials - read dynamically from CSV files
     try:
-        from .idea_material_generator import _get_csv_files_for_reinforcement
         from .constants.paths import IDEA_MATERIALS_PATH
+        from .idea_material_generator import _get_csv_files_for_reinforcement
 
         csv_files = _get_csv_files_for_reinforcement()
         for csv_file in csv_files:
