@@ -28,6 +28,7 @@
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
 
 ### Changed
+- **SCIA material selection**: SCIA model now uses `params.concrete_strength_class` with fallback to `DEFAULT_CONCRETE_STRENGTH_CLASS` (C30/37).
 - **Dynamic Material Loading**: Replaced all hardcoded material lists with dynamic CSV file reading
   - Material lists now loaded at runtime from `Concrete_All.csv` and `Reinforcement_All.csv`
   - Adding new materials to CSV files automatically makes them available throughout the application
