@@ -104,9 +104,8 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     """
     Generate tandem loads positioned at theoretical traffic lane centers.
 
-    This function replaces the fixed Eurocode notional lane positions with
-    theoretical lane positions based on geometric bridge width division.
-    Provides comprehensive coverage across full bridge width.
+    This function creates separate load cases for each vehicle (tandem system) positioned at
+    theoretical lane centers based on geometric bridge width division.
 
     :param length_bridgedeck: Bridge length in meters
     :type length_bridgedeck: float
@@ -116,14 +115,12 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     :type thickness_bridgedeck: float
     :param lane_width: Standard lane width in meters (default 3.0m)
     :type lane_width: float
-    :returns: List of tandem load cases with full width coverage
-    :rtype: list[dict[str, Any]]
-
-    Load Case Structure:
-        Each load case contains:
-        - load_case: "TH6001", "TH6002", etc. (TH = Theoretical)
+    :returns: List of tandem load cases. Each dictionary contains:
+        - load_case: Identifier string (e.g., "BG8001", "BG8002", "BG8003")
+        - title: Title string (e.g., "rs 1 - Conf. A", "rs 2 - Conf. A", "rs 3 - Conf. A")
         - wheels: List of 4 wheel coordinates per tandem
         - load: Load intensity in N/m²
+    :rtype: list[dict[str, Any]]
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
 
@@ -143,36 +140,49 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    # Only generate for BG8 (first lane position)
+    # Generate separate load cases for each vehicle
     if lane_y_positions:
-        y_lane_center = lane_y_positions[0]
         prefix = "BG8"
-        for tandem_idx, x in enumerate(tandem_x_positions, 1):
-            # Create main tandem wheels
-            wheels_main = _create_tandem_wheels(x, y_lane_center, wheel_size)
+        load_case_counter = 1
+        
+        for x in tandem_x_positions:
+            # Vehicle 1: Main vehicle (rs 1) - always exists if there are lanes
+            wheels_main = _create_tandem_wheels(x, lane_y_positions[0], wheel_size)
 
-            # Add load_case
-            load_case: dict[str, Any] = {
-                "load_case": f"{prefix}{tandem_idx:03d}",
+            load_case_main: dict[str, Any] = {
+                "load_case": f"{prefix}{load_case_counter:03d}",
+                "title": f"rs 1 - Conf. A - x = {x:g} m",
+                "wheels": wheels_main,
+                "load": load_main,
             }
+            results.append(load_case_main)
+            load_case_counter += 1
 
-            # Add 200 kN tandem in next lane (if exists)
-            wheels_200 = []
+            # Vehicle 2: 200 kN tandem in next lane (rs 2) - if exists
             if len(lane_y_positions) > 1:
                 wheels_200 = _create_tandem_wheels(x, lane_y_positions[1], wheel_size)
 
-            # Add 100 kN tandem in next-next lane (if exists)
-            wheels_100 = []
+                load_case_200: dict[str, Any] = {
+                    "load_case": f"{prefix}{load_case_counter:03d}",
+                    "title": f"rs 2 - Conf. A - x = {x:g} m",
+                    "wheels": wheels_200,
+                    "load": load_second,
+                }
+                results.append(load_case_200)
+                load_case_counter += 1
+
+            # Vehicle 3: 100 kN tandem in next-next lane (rs 3) - if exists
             if len(lane_y_positions) > 2:
                 wheels_100 = _create_tandem_wheels(x, lane_y_positions[2], wheel_size)
 
-            load_case["loads"] = [
-                {"wheels": wheels_main, "load": load_main},
-                {"wheels": wheels_200, "load": load_second},
-                {"wheels": wheels_100, "load": load_third},
-            ]
-
-            results.append(load_case)
+                load_case_100: dict[str, Any] = {
+                    "load_case": f"{prefix}{load_case_counter:03d}",
+                    "title": f"rs 3 - Conf. A - x = {x:g} m",
+                    "wheels": wheels_100,
+                    "load": load_third,
+                }
+                results.append(load_case_100)
+                load_case_counter += 1
 
     return results
 
@@ -225,7 +235,8 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     """
     Generate tandem loads positioned at theoretical traffic lane centers, starting from the right edge.
 
-    This function creates a critical loading scenario by mirroring the lane division and decreasing loads inwards.
+    This function creates separate load cases for each vehicle (tandem system) positioned at
+    theoretical lane centers, starting from the right edge.
 
     :param length_bridgedeck: Bridge length in meters
     :type length_bridgedeck: float
@@ -235,7 +246,11 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     :type thickness_bridgedeck: float
     :param lane_width: Standard lane width in meters (default 3.0m)
     :type lane_width: float
-    :returns: List of tandem load cases with full width coverage, reversed
+    :returns: List of tandem load cases. Each dictionary contains:
+        - load_case: Identifier string (e.g., "BG9001", "BG9002", "BG9003")
+        - title: Title string (e.g., "rs 1 - Conf. B", "rs 2 - Conf. B", "rs 3 - Conf. B")
+        - wheels: List of wheel coordinates per tandem
+        - load: Load intensity in N/m²
     :rtype: list[dict[str, Any]]
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
@@ -252,35 +267,49 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
     load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    # Only generate for BG9 (first lane position, reversed)
+    # Generate separate load cases for each vehicle
     if lane_y_positions:
-        y_lane_center = lane_y_positions[0]
         prefix = "BG9"
-        for tandem_idx, x in enumerate(tandem_x_positions, 1):
-            # Create the main tandem wheels using our helper function
-            wheels_main = _create_tandem_wheels(x, y_lane_center, wheel_size)
+        load_case_counter = 1
+        
+        for x in tandem_x_positions:
+            # Vehicle 1: Main vehicle (rs 1) - always exists if there are lanes
+            wheels_main = _create_tandem_wheels(x, lane_y_positions[0], wheel_size)
 
-            load_case: dict[str, Any] = {
-                "load_case": f"{prefix}{tandem_idx:03d}",
+            load_case_main: dict[str, Any] = {
+                "load_case": f"{prefix}{load_case_counter:03d}",
+                "title": f"rs 1 - Conf. B - x = {x:g} m",
+                "wheels": wheels_main,
+                "load": load_main,
             }
+            results.append(load_case_main)
+            load_case_counter += 1
 
-            # 200 kN tandem in next lane (if exists)
-            wheels_200 = []
+            # Vehicle 2: 200 kN tandem in next lane (rs 2) - if exists
             if len(lane_y_positions) > 1:
                 wheels_200 = _create_tandem_wheels(x, lane_y_positions[1], wheel_size)
 
-            # 100 kN tandem in next-next lane (if exists)
-            wheels_100 = []
+                load_case_200: dict[str, Any] = {
+                    "load_case": f"{prefix}{load_case_counter:03d}",
+                    "title": f"rs 2 - Conf. B - x = {x:g} m",
+                    "wheels": wheels_200,
+                    "load": load_second,
+                }
+                results.append(load_case_200)
+                load_case_counter += 1
+
+            # Vehicle 3: 100 kN tandem in next-next lane (rs 3) - if exists
             if len(lane_y_positions) > 2:
                 wheels_100 = _create_tandem_wheels(x, lane_y_positions[2], wheel_size)
 
-            load_case["loads"] = [
-                {"wheels": wheels_main, "load": load_main},
-                {"wheels": wheels_200, "load": load_second},
-                {"wheels": wheels_100, "load": load_third},
-            ]
-
-            results.append(load_case)
+                load_case_100: dict[str, Any] = {
+                    "load_case": f"{prefix}{load_case_counter:03d}",
+                    "title": f"rs 3 - Conf. B - x = {x:g} m",
+                    "wheels": wheels_100,
+                    "load": load_third,
+                }
+                results.append(load_case_100)
+                load_case_counter += 1
 
     return results
 
@@ -334,6 +363,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     """
     Generate BG10000 load cases: 300 kN tandem in center always, 200/100 kN adjacent only if width permits.
 
+    This function creates separate load cases for each vehicle (tandem system). Each vehicle gets its own
+    load case with lane indicators (rs 1, rs 2, rs 3) and configuration designation (Conf. C).
+
     :param params: Bridge parametrization for load factors
     :param length_bridgedeck: Bridge length in meters
     :param width_bridgedeck: Bridge width in meters
@@ -341,7 +373,11 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     :param width_firstsegment_zone3: Width of zone 3 in first segment
     :param width_firstsegment_zone2: Width of zone 2 in first segment
     :param lane_width: Standard lane width in meters (default 3.0m)
-    :returns: List of BG10000 load cases. For narrow bridges (< 9m), only central tandem
+    :returns: List of BG10000 load cases. Each dictionary contains:
+        - load_case: Identifier string (e.g., "BG10001", "BG10002", etc.)
+        - title: Title string (e.g., "rs 1 - Conf. C", "rs 2 - Conf. C", "rs 3 - Conf. C")
+        - wheels: List of wheel coordinates for the tandem system
+        - load: Load intensity in N/m²
     :rtype: list[dict[str, Any]]
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
@@ -373,12 +409,14 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     # Case 1: Only 1 lane - just create central tandem
     if num_lanes == 1:
         for x in tandem_x_positions:
-            # Create central 300kN tandem (always present)
+            # Central 300kN tandem (rs 1)
             wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
 
             load_case = {
                 "load_case": f"{prefix}{idx:03d}",
-                "loads": [{"wheels": wheels_300, "load": load_main}],
+                "title": f"rs 1 - Conf. C - x = {x:g} m",
+                "wheels": wheels_300,
+                "load": load_main,
             }
             results.append(load_case)
             idx += 1
@@ -388,17 +426,26 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     if num_lanes == 2:
         y_adjacent = lane_y_positions[1]
         for x in tandem_x_positions:
+            # Center vehicle (rs 1)
             wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
-            wheels_200 = _create_tandem_wheels(x, y_adjacent, wheel_size)
-
-            load_case = {
+            load_case_center = {
                 "load_case": f"{prefix}{idx:03d}",
-                "loads": [
-                    {"wheels": wheels_300, "load": load_main},
-                    {"wheels": wheels_200, "load": load_second},
-                ],
+                "title": f"rs 1 - Conf. C - x = {x:g} m",
+                "wheels": wheels_300,
+                "load": load_main,
             }
-            results.append(load_case)
+            results.append(load_case_center)
+            idx += 1
+
+            # Adjacent vehicle (rs 2)
+            wheels_200 = _create_tandem_wheels(x, y_adjacent, wheel_size)
+            load_case_adjacent = {
+                "load_case": f"{prefix}{idx:03d}",
+                "title": f"rs 2 - Conf. C - x = {x:g} m",
+                "wheels": wheels_200,
+                "load": load_second,
+            }
+            results.append(load_case_adjacent)
             idx += 1
         return results
 
@@ -408,42 +455,72 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
 
     # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
-        # Create central 300kN tandem
+        # Center vehicle (rs 1)
         wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
-
-        # Configuration A: 200 kN left, 100 kN right
-        wheels_200_left = _create_tandem_wheels(x, y_left, wheel_size)
-        wheels_100_right = _create_tandem_wheels(x, y_right, wheel_size)
-
-        load_case_a = {
+        load_case_center = {
             "load_case": f"{prefix}{idx:03d}",
-            "loads": [
-                {"wheels": wheels_300, "load": load_main},
-                {"wheels": wheels_200_left, "load": load_second},
-                {"wheels": wheels_100_right, "load": load_third},
-            ],
+            "title": "rs 1 - Conf. C",
+            "wheels": wheels_300,
+            "load": load_main,
         }
-        results.append(load_case_a)
+        results.append(load_case_center)
+        idx += 1
+
+        # Left vehicle (rs 2) - Configuration A: 200 kN
+        wheels_200_left = _create_tandem_wheels(x, y_left, wheel_size)
+        load_case_left_a = {
+            "load_case": f"{prefix}{idx:03d}",
+            "title": f"rs 2 - Conf. C - x = {x:g} m",
+            "wheels": wheels_200_left,
+            "load": load_second,
+        }
+        results.append(load_case_left_a)
+        idx += 1
+
+        # Right vehicle (rs 3) - Configuration A: 100 kN
+        wheels_100_right = _create_tandem_wheels(x, y_right, wheel_size)
+        load_case_right_a = {
+            "load_case": f"{prefix}{idx:03d}",
+            "title": f"rs 3 - Conf. C - x = {x:g} m",
+            "wheels": wheels_100_right,
+            "load": load_third,
+        }
+        results.append(load_case_right_a)
         idx += 1
 
     # Then, generate ALL Configuration B load cases (300 kN center, 100 kN left, 200 kN right)
     for x in tandem_x_positions:
-        # Create central 300kN tandem
+        # Center vehicle (rs 1)
         wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
-
-        # Configuration B: 100 kN left, 200 kN right
-        wheels_100_left = _create_tandem_wheels(x, y_left, wheel_size)
-        wheels_200_right = _create_tandem_wheels(x, y_right, wheel_size)
-
-        load_case_b = {
+        load_case_center = {
             "load_case": f"{prefix}{idx:03d}",
-            "loads": [
-                {"wheels": wheels_300, "load": load_main},
-                {"wheels": wheels_100_left, "load": load_third},
-                {"wheels": wheels_200_right, "load": load_second},
-            ],
+            "title": "rs 1 - Conf. C",
+            "wheels": wheels_300,
+            "load": load_main,
         }
-        results.append(load_case_b)
+        results.append(load_case_center)
+        idx += 1
+
+        # Left vehicle (rs 2) - Configuration B: 100 kN
+        wheels_100_left = _create_tandem_wheels(x, y_left, wheel_size)
+        load_case_left_b = {
+            "load_case": f"{prefix}{idx:03d}",
+            "title": f"rs 2 - Conf. C - x = {x:g} m",
+            "wheels": wheels_100_left,
+            "load": load_third,
+        }
+        results.append(load_case_left_b)
+        idx += 1
+
+        # Right vehicle (rs 3) - Configuration B: 200 kN
+        wheels_200_right = _create_tandem_wheels(x, y_right, wheel_size)
+        load_case_right_b = {
+            "load_case": f"{prefix}{idx:03d}",
+            "title": f"rs 3 - Conf. C - x = {x:g} m",
+            "wheels": wheels_200_right,
+            "load": load_second,
+        }
+        results.append(load_case_right_b)
         idx += 1
 
     return results

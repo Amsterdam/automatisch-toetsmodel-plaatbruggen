@@ -412,28 +412,57 @@ def create_dynamic_tandem_load_cases(
     """
     Create dynamic tandem load cases based on bridge geometry.
 
-    This function determines the number of theoretical lanes and creates
-    the corresponding tandem system (TS) load cases for each lane (RS).
+    This function generates tandem loads first to determine what load cases are needed,
+    then creates the corresponding tandem system (TS) load cases dynamically.
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
     :return: A dictionary of all created tandem system load cases.
     :rtype: dict[str, SciaLoadCase]
     """
+    from src.integrations.scia_integration.load_system.scia_load_generators import generate_tandem_loads
+
     load_cases = {}
 
-    # Extract bridge dimensions needed for tandem load case generation
-    dims = extract_bridge_dimensions(params)
-    length = dims.total_length
-    thickness = dims.thickness
+    # Generate tandem loads to determine what load cases we need
+    tandem_loads = generate_tandem_loads(params)
 
-    # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
-    num_lanes = 3
+    # Create load cases based on the generated loads
+    for tandem_load in tandem_loads:
+        load_case_name = tandem_load["load_case"]
+        
+        # Skip if already created
+        if load_case_name in load_cases:
+            continue
 
-    # Create tandem load cases for each road system (RS)
-    for rs in range(1, num_lanes + 1):
-        tandem_cases_dict = create_tandem_rs_load_cases(builder, rs, length, thickness)
-        load_cases.update(tandem_cases_dict)
+        # Determine group name and description from load_case name
+        if load_case_name.startswith("BG8"):
+            group_name = "LG8000 - TS rijstrook 1"
+            rs_num = 1
+        elif load_case_name.startswith("BG9"):
+            group_name = "LG9000 - TS rijstrook 2"
+            rs_num = 2
+        elif load_case_name.startswith("BG10"):
+            group_name = "LG10000 - TS rijstrook 3"
+            rs_num = 3
+        else:
+            # Skip unknown load case types
+            continue
+
+        # Get title from tandem_load if available, otherwise generate description
+        title = tandem_load.get("title", f"rs {rs_num} - x = unknown")
+        description = f"Verkeer, dek - LM1 TS - {title}"
+
+        load_cases[load_case_name] = create_load_case(
+            builder,
+            group_name=group_name,
+            case_name=load_case_name,
+            description=description,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
+        )
 
     return load_cases
 
