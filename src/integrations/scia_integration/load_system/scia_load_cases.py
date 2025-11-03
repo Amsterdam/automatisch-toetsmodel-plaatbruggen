@@ -151,13 +151,13 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
     :returns: Dictionary of created UDL traffic load cases, keyed by BG4xxx names and rs_1/rs_2/rs_3.
     :rtype: dict[str, SciaLoadCase]
     """
-    from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions, get_load_mode_from_params
     from src.integrations.scia_integration.constants import DEFAULT_UDL_VALUE
-    from src.integrations.scia_integration.types import LoadMode
+    from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions, get_load_mode_from_params
     from src.integrations.scia_integration.load_system.udl_generators import (
         create_real_udl_traffic_loads,
         create_theoretical_udl_traffic_loads,
     )
+    from src.integrations.scia_integration.types import LoadMode
 
     # Get load mode from params
     mode = get_load_mode_from_params(params)
@@ -177,7 +177,7 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
     # Create a load case for each generated UDL load
     for load_case_name, load_data in sorted(udl_results.items()):  # Sort to ensure consistent ordering
         title = load_data.get("title", "")
-        
+
         # Extract configuration from title to maintain backward compatibility
         config = None
         if "Conf. A" in title:
@@ -189,7 +189,7 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
 
         # Create the load case with the title as description
         description = f"Verkeer, dek - LM1 UDL {title}" if title else f"Verkeer, dek - LM1 UDL {load_case_name}"
-        
+
         cases[load_case_name] = create_load_case(
             builder,
             group_name="LG4000 - UDL",
