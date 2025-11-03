@@ -9,6 +9,7 @@ from typing import Any
 
 from app.bridge.utils import _validate_first_and_last_supports
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
+from src.integrations.idea_integration.constants.materials import DEFAULT_CONCRETE_STRENGTH_CLASS
 from src.integrations.scia_integration.load_system.scia_load_cases import (
     create_all_load_cases,
 )
@@ -32,8 +33,14 @@ def create_bridge_geometry(builder: SciaModelBuilder, params: Any) -> list[str]:
     :return: An ordered list of the created plate names.
     :rtype: list[str]
     """
+    # Extract material properties
+    concrete_strength_value = getattr(params, "concrete_strength_class", "")
+    concrete_strength_class = concrete_strength_value.strip() if concrete_strength_value else DEFAULT_CONCRETE_STRENGTH_CLASS
+    if not concrete_strength_class:
+        concrete_strength_class = DEFAULT_CONCRETE_STRENGTH_CLASS
+
     # Define and create the material
-    material_name = "C30/37"
+    material_name = concrete_strength_class
     builder.create_material(name=material_name)
 
     # Get geometry data (node coordinates and plate thicknesses)
