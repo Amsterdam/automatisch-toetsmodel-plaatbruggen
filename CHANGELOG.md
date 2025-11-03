@@ -24,6 +24,7 @@
   - Displays "Statisch onbepaald" for all other support configurations
   - Live updates as user modifies support selections
 - **Management summary**: Added basic param values and unity check values to the management summary.
+- **2D sections on 2d members**: Added 2D sections in SCIA and the link with with IDEA 
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
 
 ### Changed
