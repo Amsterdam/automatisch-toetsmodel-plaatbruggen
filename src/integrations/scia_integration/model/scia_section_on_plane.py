@@ -8,7 +8,6 @@ For detailed documentation on how section plane creation works, see:
 docs/scia_section_on_plane_logic.md
 """
 
-import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -495,7 +494,6 @@ def _filter_and_adjust_y_positions_for_zone_boundaries(
     # 2. Section starting at bottom boundary + offset (extending to bottom of span)
     if bottom_boundary is not None:
         section_top_edge_bottom = bottom_boundary + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        section_bottom_edge_bottom = section_top_edge_bottom - section_length
         filtered_positions.append(section_top_edge_bottom)
 
     # Step 3: Final check - remove any positions that still cross boundaries or are exactly on boundaries
@@ -510,25 +508,21 @@ def _filter_and_adjust_y_positions_for_zone_boundaries(
         section_bottom = pos - section_length
 
         should_remove = False
-        removal_reason = ""
 
         for boundary_y in zone_boundary_y_positions:
             # Check if section crosses the boundary (boundary is strictly between top and bottom)
             if section_bottom < boundary_y < section_top:
                 should_remove = True
-                removal_reason = f"CROSSES boundary at {boundary_y:.4f}m"
                 break
 
             # Check if section top is exactly at boundary (use strict tolerance)
             if abs(section_top - boundary_y) < strict_tolerance:
                 should_remove = True
-                removal_reason = f"top EXACTLY AT boundary {boundary_y:.4f}m (diff={abs(section_top - boundary_y):.6f}m)"
                 break
 
             # Check if section bottom is exactly at boundary (use strict tolerance)
             if abs(section_bottom - boundary_y) < strict_tolerance:
                 should_remove = True
-                removal_reason = f"bottom EXACTLY AT boundary {boundary_y:.4f}m (diff={abs(section_bottom - boundary_y):.6f}m)"
                 break
 
         if not should_remove:
@@ -628,8 +622,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[SectionOnP
 
         # For spans with more than 2 segment definitions, filter positions and add intermediate boundary positions
         if span.num_segment_definitions > 2:
-            original_count = len(x_positions_x_dir)
-
             # Filter and adjust x-direction sections that would cross intermediate segment boundaries
             # This also adds sections before and after boundaries automatically
             x_positions_x_dir = _filter_section_positions_for_intermediate_segments(
@@ -655,7 +647,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[SectionOnP
                 y_positions.append(y_bottom)
 
         # Filter y-positions to avoid zone boundaries and add sections at boundaries
-        original_y_count = len(y_positions)
         y_positions = _filter_y_positions_for_zone_boundaries_x_sections(
             y_positions,
             zone_boundary_y_positions,
@@ -709,8 +700,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[SectionOnP
 
         # For spans with more than 2 segment definitions, filter positions and add intermediate boundary positions
         if span.num_segment_definitions > 2:
-            original_count = len(x_positions_y_dir)
-
             # Filter out x-positions that are too close to intermediate boundaries
             x_positions_y_dir = _filter_section_positions_for_intermediate_segments(
                 x_positions_y_dir,
@@ -748,7 +737,6 @@ def create_section_definitions(params: BridgeParametrization) -> list[SectionOnP
 
         # Apply zone boundary filtering to y-section positions
         # Y-direction sections extend downward, so they can cross zone boundaries
-        original_y_count = len(y_section_positions)
         y_section_positions = _filter_and_adjust_y_positions_for_zone_boundaries(
             y_section_positions,
             section_length,
