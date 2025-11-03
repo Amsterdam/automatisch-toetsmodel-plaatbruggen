@@ -271,7 +271,6 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
         return [column_data]
 
     num_rows = len(first_column)
-    print(f"DEBUG: Converting {num_rows} rows from {len(column_data)} columns")  # noqa: T201
 
     rows = []
     for i in range(num_rows):

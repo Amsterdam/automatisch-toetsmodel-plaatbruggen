@@ -47,6 +47,7 @@ SciaAnalysis = Any
 SciaResults = Any
 SciaResultClass = Any
 SciaIntegrationStrip = Any
+SciaSectionOnPlane = Any
 
 # Type aliases for file objects
 SciaFile = BytesIO | bytes
@@ -222,6 +223,27 @@ class SciaModelBuilder(Protocol):
         width: float,
     ) -> SciaIntegrationStrip:
         """Creates an integration strip in the SCIA model."""
+        ...
+
+    def create_section_on_plane(
+        self,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        *,
+        name: str,
+        draw: Any | None = None,  # noqa: ANN401
+        direction_of_cut: tuple[float, float, float] | None = None,
+    ) -> SciaSectionOnPlane:
+        """
+        Creates a section on a plane in the SCIA model.
+
+        :param point_1: Start coordinates (x, y, z) in [m]
+        :param point_2: End coordinates (x, y, z) in [m]
+        :param name: Name which will be shown in SCIA
+        :param draw: Defines the plane in which the section is drawn (default: Z_DIRECTION)
+        :param direction_of_cut: In-plane vector (x, y, z) defining the direction of cut in [m]
+        :return: The created SectionOnPlane object
+        """
         ...
 
     def get_model(self) -> SciaModel:

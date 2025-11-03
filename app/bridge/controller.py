@@ -79,6 +79,9 @@ class BridgeController(
     get_scia_1d_results_view_sls_kar = SciaIntegration.get_scia_1d_results_view_sls_kar
     get_scia_1d_results_view_sls_freq = SciaIntegration.get_scia_1d_results_view_sls_freq
     get_scia_1d_results_view_uls = SciaIntegration.get_scia_1d_results_view_uls
+    get_scia_cs_results_view_uls = SciaIntegration.get_scia_cs_results_view_uls
+    get_scia_cs_results_view_sls_kar = SciaIntegration.get_scia_cs_results_view_sls_kar
+    get_scia_cs_results_view_sls_freq = SciaIntegration.get_scia_cs_results_view_sls_freq
     get_scia_results_table = SciaIntegration.get_scia_results_table
     get_force_envelopes = SciaIntegration.get_force_envelopes
     download_scia_esa_model = SciaIntegration.download_scia_esa_model
