@@ -725,13 +725,27 @@ class TestUniformlyDistributedLoads:
         mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Add bridge segments data that get_bridge_geom_data needs
+        # Create a single span bridge (first segment + one segment = single span)
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0  # First segment has l=0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 8.0  # zone 1 width
+        mock_first_segment.bz2 = 4.0  # zone 2 width
+        mock_first_segment.bz3 = 12.0  # zone 3 width
+        mock_first_segment.dz = 1.8  # thickness
+        mock_first_segment.dz_2 = 1.8  # thickness 2
+
         mock_segment = Mock()
         mock_segment.l = 20.0  # length
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"  # No support at end = single span
         mock_segment.bz1 = 8.0  # zone 1 width
         mock_segment.bz2 = 4.0  # zone 2 width
         mock_segment.bz3 = 12.0  # zone 3 width
         mock_segment.dz = 1.8  # thickness
-        mock_params.bridge_segments_array = [mock_segment]
+        mock_segment.dz_2 = 1.8  # thickness 2
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
         # Create proper mock objects instead of dictionaries
         mock_zone = Mock()
@@ -764,7 +778,7 @@ class TestUniformlyDistributedLoads:
         load_case_keys = [key for key in result if key.startswith("BG4")]
         num_load_cases = len(load_case_keys)
 
-        # For a 10.5m wide road with 3 configurations (A, B, C), we expect:
+        # For a 10.5m wide road with 3 configurations (A, B, C) and 1 span, we expect:
         # - Configuration A: lanes + rest area
         # - Configuration B: lanes + rest area
         # - Configuration C: center lane + adjacent lanes + rest areas
@@ -772,8 +786,9 @@ class TestUniformlyDistributedLoads:
         # - Conf A: ~3-4 cases (2-3 lanes + 1 rest)
         # - Conf B: ~3-4 cases (2-3 lanes + 1 rest)
         # - Conf C: ~4-6 cases (center + adjacent + rest)
-        # Total: approximately 10-14 cases, but at least 9
-        assert num_load_cases >= 9, f"Should generate at least 9 load cases, got {num_load_cases}"
+        # Total: approximately 10-14 cases per span, but at least 9
+        # With 1 span, we expect at least 9 load cases
+        assert num_load_cases >= 9, f"Should generate at least 9 load cases for 1 span, got {num_load_cases}"
 
         # Check that load cases are numbered sequentially starting from BG4001
         sorted_keys = sorted([k for k in result if k.startswith("BG4")])
@@ -793,9 +808,19 @@ class TestUniformlyDistributedLoads:
         assert len(polygon_coords) == 4, "Each polygon should have 4 corners"
         assert all(len(point) == 3 for point in polygon_coords), "Each point should have x, y, z coordinates"
         assert all(point[2] == 0.0 for point in polygon_coords), "All z-coordinates should be 0.0"
+        
+        # Check that polygon coordinates are span-specific (not full bridge length)
+        # For a single span, x-coordinates should span from ~0.0 to ~20.0
+        x_coords = [point[0] for point in polygon_coords]
+        min_x = min(x_coords)
+        max_x = max(x_coords)
+        # Allow for small tolerance
+        assert 0.0 <= min_x < 1.0, f"Polygon should start near span start (x={min_x})"
+        assert 19.0 < max_x <= 20.0, f"Polygon should end near span end (x={max_x})"
 
-        # Check title format (should contain configuration info)
+        # Check title format (should contain configuration and span info)
         assert "Conf." in udl_data["title"], f"Title should contain configuration info, got: {udl_data['title']}"
+        assert "Span" in udl_data["title"], f"Title should contain span information, got: {udl_data['title']}"
 
         # Calculate expected main lane load value with factors (if this is a main lane)
         if "RS 1" in udl_data["title"]:
@@ -841,13 +866,27 @@ class TestUniformlyDistributedLoads:
         mock_params.berekeningsniveau = "Werkelijke wegindeling"
 
         # Add bridge segments data that get_bridge_geom_data needs
+        # Create a single span bridge
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0  # First segment has l=0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 3.0  # zone 1 width
+        mock_first_segment.bz2 = 2.0  # zone 2 width
+        mock_first_segment.bz3 = 3.0  # zone 3 width
+        mock_first_segment.dz = 1.5  # thickness
+        mock_first_segment.dz_2 = 1.5  # thickness 2
+
         mock_segment = Mock()
         mock_segment.l = 10.0  # length
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"  # No support at end = single span
         mock_segment.bz1 = 3.0  # zone 1 width
         mock_segment.bz2 = 2.0  # zone 2 width
         mock_segment.bz3 = 3.0  # zone 3 width
         mock_segment.dz = 1.5  # thickness
-        mock_params.bridge_segments_array = [mock_segment]
+        mock_segment.dz_2 = 1.5  # thickness 2
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
         # Test with minimal road width
         mock_zone_narrow = Mock()
@@ -877,6 +916,9 @@ class TestUniformlyDistributedLoads:
         # Check structure
         assert "polygon" in result_narrow["BG4001"], "Each load case should have a polygon"
         assert "load" in result_narrow["BG4001"], "Each load case should have a load value"
+        assert "title" in result_narrow["BG4001"], "Each load case should have a title"
+        # Check that title includes span information
+        assert "Span" in result_narrow["BG4001"]["title"], f"Title should include span info: {result_narrow['BG4001']['title']}"
 
         # Test with no auto zone (should handle gracefully)
         mock_zone_pedestrian = Mock()
@@ -1132,6 +1174,28 @@ class TestUniformlyDistributedLoads:
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
         mock_params.__contains__ = Mock(return_value=True)
 
+        # Add bridge segments data for span identification (single span)
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 5.0
+        mock_first_segment.bz2 = 2.0
+        mock_first_segment.bz3 = 3.0
+        mock_first_segment.dz = 0.5
+        mock_first_segment.dz_2 = 0.5
+
+        mock_segment = Mock()
+        mock_segment.l = 20.0
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"
+        mock_segment.bz1 = 5.0
+        mock_segment.bz2 = 2.0
+        mock_segment.bz3 = 3.0
+        mock_segment.dz = 0.5
+        mock_segment.dz_2 = 0.5
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
+
         # Mock the load factors
         mock_ref_period.return_value = 30  # Standard reference period
         mock_psi.return_value = 0.95  # Example psi factor
@@ -1185,8 +1249,17 @@ class TestUniformlyDistributedLoads:
         assert all(len(point) == 3 for point in polygon_coords), "Each point should have x, y, z coordinates"
         assert all(point[2] == 0.0 for point in polygon_coords), "All z-coordinates should be 0.0"
 
-        # Check title format (should contain configuration info)
+        # Check title format (should contain configuration and span info)
         assert "Conf." in bg4001["title"], f"Title should contain configuration info, got: {bg4001['title']}"
+        assert "Span" in bg4001["title"], f"Title should contain span information, got: {bg4001['title']}"
+        
+        # Verify polygon coordinates are span-specific
+        x_coords = [point[0] for point in polygon_coords]
+        min_x = min(x_coords)
+        max_x = max(x_coords)
+        # For a single span, polygons should span from ~0.0 to ~20.0
+        assert 0.0 <= min_x < 1.0, f"Polygon should start near span start (x={min_x})"
+        assert 19.0 < max_x <= 20.0, f"Polygon should end near span end (x={max_x})"
 
         # Calculate expected load values with factors
         expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
@@ -1221,6 +1294,28 @@ class TestUniformlyDistributedLoads:
         mock_params.input = Mock()
         mock_params.input.belastingsfactoren = Mock()
         mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
+        
+        # Add bridge segments data for span identification (single span)
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 3.0
+        mock_first_segment.bz2 = 1.0
+        mock_first_segment.bz3 = 1.5
+        mock_first_segment.dz = 0.5
+        mock_first_segment.dz_2 = 0.5
+
+        mock_segment = Mock()
+        mock_segment.l = 10.0
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"
+        mock_segment.bz1 = 3.0
+        mock_segment.bz2 = 1.0
+        mock_segment.bz3 = 1.5
+        mock_segment.dz = 0.5
+        mock_segment.dz_2 = 0.5
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
         # Test with minimal bridge width (just enough for one lane)
         result_narrow = create_theoretical_udl_traffic_loads(
@@ -1242,6 +1337,8 @@ class TestUniformlyDistributedLoads:
         assert "polygon" in result_narrow["BG4001"], "Each load case should have a polygon"
         assert "load" in result_narrow["BG4001"], "Each load case should have a load value"
         assert "title" in result_narrow["BG4001"], "Each load case should have a title"
+        # Check that title includes span information
+        assert "Span" in result_narrow["BG4001"]["title"], f"Title should include span info: {result_narrow['BG4001']['title']}"
 
         # Test with zero load value (although unrealistic, should handle gracefully)
         result_zero_load = create_theoretical_udl_traffic_loads(
@@ -1261,6 +1358,8 @@ class TestUniformlyDistributedLoads:
         # Check that BG4001 has zero load (if it's a main lane) or check any case
         if "RS 1" in result_zero_load["BG4001"].get("title", ""):
             assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # Check that titles include span information
+        assert "Span" in result_zero_load["BG4001"]["title"], f"Title should include span info: {result_zero_load['BG4001']['title']}"
 
 
 @pytest.mark.parametrize(
