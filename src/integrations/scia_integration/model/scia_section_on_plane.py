@@ -355,9 +355,7 @@ def _add_intermediate_boundary_positions(
         added_count += 1
 
     # Sort and return
-    sorted_positions = sorted(all_positions)
-
-    return sorted_positions
+    return sorted(all_positions)
 
 
 def _filter_y_positions_for_zone_boundaries_x_sections(
@@ -406,7 +404,7 @@ def _filter_y_positions_for_zone_boundaries_x_sections(
     return sorted(filtered_positions, reverse=True)  # Sort descending (top to bottom)
 
 
-def _filter_and_adjust_y_positions_for_zone_boundaries(
+def _filter_and_adjust_y_positions_for_zone_boundaries(  # noqa: C901, PLR0912
     y_positions: list[float],
     section_length: float,
     zone_boundary_y_positions: list[float],
