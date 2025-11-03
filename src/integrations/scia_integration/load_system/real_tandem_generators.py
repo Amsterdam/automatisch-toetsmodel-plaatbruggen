@@ -284,7 +284,7 @@ def tandem_systems_real_lanes_bg8000(
     if lane_y_positions:
         prefix = "BG8"
         load_case_counter = 1
-        
+
         for x in tandem_x_positions:
             # Vehicle 1: Main vehicle (rs 1) - always exists if there are lanes
             wheels_main = []
@@ -465,7 +465,7 @@ def tandem_systems_real_lanes_bg9000(
     if lane_y_positions:
         prefix = "BG9"
         load_case_counter = 1
-        
+
         for x in tandem_x_positions:
             # Vehicle 1: Main vehicle (rs 1) - always exists if there are lanes
             wheels_main = []
@@ -588,7 +588,7 @@ def generate_real_lane_positions_bg10000(
     return [y_center]
 
 
-def tandem_systems_real_lanes_bg10000(  # noqa: C901, PLR0912, PLR0915
+def tandem_systems_real_lanes_bg10000(
     params: "BridgeParametrization",
     length_bridgedeck: float,
     thickness_bridgedeck: float,

@@ -430,7 +430,7 @@ def create_dynamic_tandem_load_cases(
     # Create load cases based on the generated loads
     for tandem_load in tandem_loads:
         load_case_name = tandem_load["load_case"]
-        
+
         # Skip if already created
         if load_case_name in load_cases:
             continue

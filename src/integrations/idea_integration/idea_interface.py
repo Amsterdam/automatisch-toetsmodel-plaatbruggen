@@ -43,6 +43,7 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_reinforcement_material_for_idea,
 )
 
+
 def _export_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
     """
     Export DataFrame to Excel file for debugging.

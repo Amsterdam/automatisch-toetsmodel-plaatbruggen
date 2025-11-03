@@ -144,7 +144,7 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     if lane_y_positions:
         prefix = "BG8"
         load_case_counter = 1
-        
+
         for x in tandem_x_positions:
             # Vehicle 1: Main vehicle (rs 1) - always exists if there are lanes
             wheels_main = _create_tandem_wheels(x, lane_y_positions[0], wheel_size)
@@ -271,7 +271,7 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     if lane_y_positions:
         prefix = "BG9"
         load_case_counter = 1
-        
+
         for x in tandem_x_positions:
             # Vehicle 1: Main vehicle (rs 1) - always exists if there are lanes
             wheels_main = _create_tandem_wheels(x, lane_y_positions[0], wheel_size)
