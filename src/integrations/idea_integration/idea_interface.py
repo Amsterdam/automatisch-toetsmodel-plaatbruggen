@@ -14,6 +14,7 @@ Future enhancements needed:
 
 import contextlib
 from collections import defaultdict
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -41,6 +42,31 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
+
+def _export_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
+    """
+    Export DataFrame to Excel file for debugging.
+
+    Creates files in C:/temp/ directory for easy manual inspection.
+
+    :param df: DataFrame to export
+    :type df: pd.DataFrame
+    :param filename: Name of the Excel file (without extension)
+    :type filename: str
+    :param sheet_name: Name of the Excel sheet
+    :type sheet_name: str
+    """
+    try:
+        # Create temp directory if it doesn't exist
+        temp_dir = Path("C:/temp")
+        temp_dir.mkdir(exist_ok=True)
+
+        # Export to Excel
+        filepath = temp_dir / f"{filename}.xlsx"
+        df.to_excel(filepath, sheet_name=sheet_name, index=False)
+    except Exception:
+        pass
+
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
@@ -484,7 +510,7 @@ def _process_node_dataframes(dataframes: list[pd.DataFrame]) -> None:
 def _rename_dataframe_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
     """Rename columns in dataframe with prefix, excluding specific columns."""
     if df is not None and not df.empty:
-        return df.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["name", "coords_xyz"] else x)
+        return df.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["name", "zone", "coords_xyz"] else x)
     return df
 
 
@@ -515,6 +541,121 @@ def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.Da
 
     df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
     return df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
+
+
+def _process_scia_cs_results_for_idea_input(  # noqa: C901, PLR0912
+    scia_results_dict: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    """
+    Process SCIA CS (Cross Section) results into a single merged dataframe.
+
+    CS results come from SCIA section on plane objects (cross sections) and contain
+    force/moment values per meter. The 'name' column contains CS identifiers like
+    'cs_dwars' or 'cs_langs' which indicate the cross-section orientation.
+
+    Zone mapping and deduplication are handled by process_scia_cs_results which:
+    - Merges coordinates from both basis and elementaire tables
+    - Maps coordinates to zones based on bridge segments
+    - Removes duplicates where (name, zone, force/moment values) are identical
+
+    This ensures only unique (name, zone) combinations with different forces are kept,
+    matching the scia_results_view filtering logic.
+
+    :param scia_results_dict: Dictionary containing SCIA CS results for different load cases
+    :returns: Merged dataframe with all load cases
+    :rtype: pd.DataFrame
+    """
+    # Get load cases from SCIA results with cs prefixes
+    df_uls = _get_load_case_dataframe(scia_results_dict, "cs_ULS")
+    df_sls_kar = _get_load_case_dataframe(scia_results_dict, "cs_SLS kar")
+    df_sls_freq = _get_load_case_dataframe(scia_results_dict, "cs_SLS freq")
+
+    # DEBUG EXPORT: Export raw CS data before any processing
+    if not df_uls.empty:
+        _export_dataframe_to_excel(df_uls, "cs_01_raw_uls", "CS_ULS_Raw")
+    if not df_sls_kar.empty:
+        _export_dataframe_to_excel(df_sls_kar, "cs_02_raw_sls_kar", "CS_SLS_kar_Raw")
+    if not df_sls_freq.empty:
+        _export_dataframe_to_excel(df_sls_freq, "cs_03_raw_sls_freq", "CS_SLS_freq_Raw")
+
+    # Add moment columns - select value with maximum absolute magnitude while preserving sign
+    # CS results have _max suffix from process_scia_cs_results_for_idea
+    for df in [df_uls, df_sls_kar, df_sls_freq]:
+        if df is not None and not df.empty:
+            if all(col in df.columns for col in ["m_xD+_max", "m_xD-_max"]):
+                df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+            if all(col in df.columns for col in ["m_yD+_max", "m_yD-_max"]):
+                df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+
+    # DEBUG EXPORT: Export after adding Mx/My columns
+    if not df_uls.empty:
+        _export_dataframe_to_excel(df_uls, "cs_04_with_mx_my_uls", "CS_ULS_MxMy")
+
+    # Rename columns to prevent clashes (but preserve 'name' and 'zone')
+    df_uls = _rename_dataframe_columns(df_uls, "ULS")
+    df_sls_kar = _rename_dataframe_columns(df_sls_kar, "SLS_kar")
+    df_sls_freq = _rename_dataframe_columns(df_sls_freq, "SLS_freq")
+
+    # DEBUG EXPORT: Export after renaming
+    if not df_uls.empty:
+        _export_dataframe_to_excel(df_uls, "cs_05_renamed_uls", "CS_ULS_Renamed")
+
+    # Remove duplicate (name, zone, force_values) combinations
+    # This matches the filtering logic in scia_results_processor._process_single_cs_result_table()
+    # which keeps only one row per unique (name, zone, force_values) combination.
+    # Multiple rows with same (name, zone) but different coords_xyz that have identical force values
+    # are deduplicated here to prevent cartesian product during merge.
+
+    # For each load case, remove rows where (name, zone, coords_xyz) are identical
+    # This prevents Cartesian products during merge while preserving multiple physical locations
+    # within the same zone that have different coordinates and force values.
+
+    # Drop duplicates based on (name, zone, coords_xyz) - keep first occurrence
+    # This ensures we don't get Cartesian products during merge while preserving
+    # multiple distinct physical locations (different coords) within the same zone
+    if "coords_xyz" in df_uls.columns:
+        dedup_columns = ["name", "zone", "coords_xyz"]
+        df_uls = df_uls.drop_duplicates(subset=dedup_columns, keep="first")
+    else:
+        # Fallback: if coords_xyz not found, drop based on (name, zone) only
+        df_uls = df_uls.drop_duplicates(subset=["name", "zone"], keep="first")
+
+    if "coords_xyz" in df_sls_kar.columns:
+        dedup_columns = ["name", "zone", "coords_xyz"]
+        df_sls_kar = df_sls_kar.drop_duplicates(subset=dedup_columns, keep="first")
+    else:
+        df_sls_kar = df_sls_kar.drop_duplicates(subset=["name", "zone"], keep="first")
+
+    if "coords_xyz" in df_sls_freq.columns:
+        dedup_columns = ["name", "zone", "coords_xyz"]
+        df_sls_freq = df_sls_freq.drop_duplicates(subset=dedup_columns, keep="first")
+    else:
+        df_sls_freq = df_sls_freq.drop_duplicates(subset=["name", "zone"], keep="first")
+
+    # Merge dataframes - handle empty cases
+    if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
+        return pd.DataFrame()  # Return empty DataFrame if any component is empty
+
+    # Merge on 'name', 'zone', AND 'coords_xyz' to prevent Cartesian products
+    # Multiple coordinates can exist in the same zone (different physical locations)
+    # so we must match on coords to get a 1:1:1 merge
+    merge_keys = ["name", "zone", "coords_xyz"]
+
+    df_all = df_uls.merge(df_sls_kar, on=merge_keys, how="inner", suffixes=("", "_kar"))
+
+    df_all = df_all.merge(df_sls_freq, on=merge_keys, how="inner", suffixes=("", "_freq"))
+
+    # Clean up duplicate coords_xyz columns if they exist
+    if "coords_xyz_kar" in df_all.columns:
+        df_all = df_all.drop(columns=["coords_xyz_kar"])
+    if "coords_xyz_freq" in df_all.columns:
+        df_all = df_all.drop(columns=["coords_xyz_freq"])
+
+    # DEBUG EXPORT: Export final merged result
+    if not df_all.empty:
+        _export_dataframe_to_excel(df_all, "cs_06_final_merged_for_idea", "CS_Final_Merged")
+
+    return df_all
 
 
 def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -820,6 +961,99 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
                 builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
+def _apply_cs_loads_to_slabs(  # noqa: C901
+    created_slabs: dict[str, dict],
+    df_all: pd.DataFrame,
+    builder: Any,  # noqa: ANN401
+) -> None:
+    """
+    Apply load cases from SCIA CS (Cross Section) results to each slab using builder pattern.
+
+    CS results contain a 'name' column with section names and a 'zone' column.
+    Each row is applied to both slab_langs and slab_dwars with different force components.
+
+    Deduplication is handled by process_scia_cs_results which:
+    - Merges coordinates from both basis and elementaire tables
+    - Removes duplicates where (name, zone, force/moment values) are identical
+
+    :param created_slabs: Dictionary of created slabs with zones and slab objects
+    :type created_slabs: dict[str, dict]
+    :param df_all: Merged dataframe with all load cases
+    :type df_all: pd.DataFrame
+    :param builder: IDEA model builder instance
+    :type builder: Any
+    """
+    if df_all.empty:
+        return
+
+    # For langs cs link IDEA vz to scia vy and IDEA My to scia My
+    # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
+    # Direction → axis + corresponding moment component
+    orient = {
+        "langs": {"axis": "y", "moment": "My"},
+        "dwars": {"axis": "x", "moment": "Mx"},
+    }
+
+    def _format_coords(coords: list | tuple | str | float | None) -> str:
+        if coords is None:
+            return "No coords"
+        if isinstance(coords, (list, tuple)):
+            return f"({', '.join(map(str, coords))})"
+        return str(coords)
+
+    for slab_key, slab_data in created_slabs.items():
+        zones = slab_data.get("zones") or []
+        if not zones:
+            continue
+
+        df_slab = df_all[df_all["zone"].isin(zones)]
+        if df_slab.empty:
+            continue
+
+        desc_prefix = slab_key.replace(".", "_")
+
+        for direction, cfg in orient.items():
+            slab = slab_data.get(f"slab_{direction}")
+            if slab is None:
+                continue
+
+            axis = cfg["axis"]  # "x" or "y"
+
+            for _, row in df_slab.iterrows():
+                # Build internal forces with dynamic moment component (vx/y and Mx/My) using builder
+                # CS results have _max suffix on force columns
+                internal_forces_char = builder.create_result_of_internal_forces(
+                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
+                    My=row.get(f"SLS_kar_M{axis}", 0),
+                )
+                char = builder.create_loading_sls(internal_forces_char)
+
+                internal_forces_freq = builder.create_result_of_internal_forces(
+                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
+                    My=row.get(f"SLS_freq_M{axis}", 0),
+                )
+                freq = builder.create_loading_sls(internal_forces_freq)
+
+                internal_forces_fund = builder.create_result_of_internal_forces(
+                    Qz=row.get(f"ULS_v_{axis}_max", 0),
+                    My=row.get(f"ULS_M{axis}", 0),
+                )
+                fund = builder.create_loading_uls(internal_forces_fund)
+
+                cs_name = row.get("name", "Unknown")
+                zone_name = row.get("zone", "Unknown")
+                coords_str = _format_coords(row.get("coords_xyz"))
+                description = f"{desc_prefix} - {zone_name} - {cs_name}_{coords_str}"
+
+                builder.create_extreme_on_slab(
+                    slab,
+                    description=description,
+                    characteristic=char,
+                    frequent=freq,
+                    fundamental=fund,
+                )
+
+
 def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":  # noqa: ANN401
     """
     Create IDEA StatiCa RCS model from bridge parameters.
@@ -876,6 +1110,11 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
     df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
     # Apply node loads to slabs using builder
     _apply_node_loads_to_slabs(created_slabs, df_node_all, builder)
+
+    # Process SCIA CS (Cross Section) results for idea input
+    df_cs_all = _process_scia_cs_results_for_idea_input(scia_results_dict)
+    # Apply CS loads to slabs using builder
+    _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
 
     # Process SCIA integration strip results for idea input
     df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
