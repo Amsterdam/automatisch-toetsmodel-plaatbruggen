@@ -43,7 +43,6 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_reinforcement_material_for_idea,
 )
 
-
 def _export_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
     """
     Export DataFrame to Excel file for debugging.
@@ -77,7 +76,7 @@ if TYPE_CHECKING:
     from viktor.external.idea_rcs import Model, OneWaySlab, ReinforcementMaterial
 
 
-def _get_unique_matching_zone_keys(
+def _get_unique_matching_zone_keys(  # noqa: C901
     input_data: BridgeIdeaInputData,
 ) -> tuple[
     list[tuple[float, str, list[str]]],
@@ -105,9 +104,22 @@ def _get_unique_matching_zone_keys(
     # TODO: Refactor create_node_and_thickness_dict to work with bridge_segments data
     # Create temporary params object for geometry extraction
     # This is technical debt that should be addressed in future refactoring
+    class SegmentWrapper:
+        """Wrapper to provide attribute access to segment dictionaries."""
+
+        def __init__(self, segment_dict: dict) -> None:
+            self._data = segment_dict
+
+        def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+            """Allow attribute-style access to dictionary keys."""
+            if name.startswith("_"):
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            return self._data.get(name)
+
     class TempParams:
         def __init__(self, segments: list) -> None:
-            self.bridge_segments_array = segments
+            # Wrap dictionaries to provide attribute access
+            self.bridge_segments_array = [SegmentWrapper(seg) if isinstance(seg, dict) else seg for seg in segments]
 
     temp_params = TempParams(input_data.bridge_segments)
     nodes_dict, thickness_dict = create_node_and_thickness_dict(temp_params)  # type: ignore[arg-type]
@@ -874,7 +886,7 @@ def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_
             builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
 
 
-def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401
+def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401, C901
     """
     Apply load cases from SCIA node results to each slab using builder pattern.
 
@@ -885,6 +897,10 @@ def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFr
     :param builder: IDEA model builder instance
     :type builder: Any
     """
+    # Handle empty DataFrame case
+    if df_all.empty:
+        return
+
     # For langs cs link IDEA vz to scia vy and IDEA My to scia My
     # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
     # Direction → axis + corresponding moment component

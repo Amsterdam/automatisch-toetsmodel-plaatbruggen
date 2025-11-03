@@ -28,6 +28,9 @@
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
 
 ### Changed
+- **Dynamic Material Loading**: Replaced all hardcoded material lists with dynamic CSV file reading
+  - Material lists now loaded at runtime from `Concrete_All.csv` and `Reinforcement_All.csv`
+  - Adding new materials to CSV files automatically makes them available throughout the application
 - **Refactored cache code**: code cleanup
 - **Bridge Entity Management**: Enhanced regeneration workflow to update existing entities instead of only creating new ones
   - `regenerate_bridges_action` now updates parameters of existing bridge entities based on uploaded data
@@ -38,10 +41,13 @@
 - **Report template**: Changed the report template to a shorter management summary.
 - **Explanatory text loadzones**: Added explanation for the application of a separated tram zone on the loadzones tab. 
 - **Refactored cache code**: code cleanup
+- **Rebar input fields**: Changed all rebar diameter fields from `NumberField` to `OptionField` in the parametrization, using a single source of truth for standard diameters.
 
 ### Fixed
 - Fixed a typo on the calculation page, changed "werden" to "worden".
 - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
+- IDEA crack width results: Fixed extraction and display of crack width results from IDEA StatiCa (handles both short- and long-term, no longer shows N/A when results exist).
+- Pydantic validation: Improved legacy material support and reinforcement validation (historical concrete/steel, 0mm/negative heights, etc.).
 
 
 ## [`v0.0.15`] - 2025-10-02

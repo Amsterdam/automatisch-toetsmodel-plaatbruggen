@@ -24,6 +24,7 @@ from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_ana
 from src.common.constants.technical import AnalysisType
 from src.integrations.scia_integration.results.scia_force_envelopes import extract_force_envelopes, get_force_envelope_summary
 
+
 from src.integrations.scia_integration.results.scia_result_views import (
     create_scia_cs_results_table,
     create_scia_integration_strip_results_table,

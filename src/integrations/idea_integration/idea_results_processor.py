@@ -107,6 +107,64 @@ class IdeaResultsProcessor:
         return (str(result), str(check_value))
 
     @staticmethod
+    def safe_extract_crack_width_result(result_list: list[dict[str, Any]] | None) -> tuple[str, str]:  # noqa: C901, PLR0912
+        """
+        Safely extract crack width result and check values from parser output.
+
+        Crack width has a nested structure with 'short' and 'long' term results.
+        We extract both and return the worst case (maximum CheckValue).
+
+        :param result_list: List of result dictionaries from parser
+        :type result_list: list[dict[str, Any]] | None
+        :returns: Tuple of (Result value, CheckValue) or ("N/A", "N/A") if not found
+        :rtype: tuple[str, str]
+        """
+        if not result_list or len(result_list) == 0:
+            return ("N/A", "N/A")
+
+        result_dict = result_list[0]
+        if result_dict is None or not isinstance(result_dict, dict):
+            return ("N/A", "N/A")
+
+        # Extract short and long term crack width data
+        short_term = result_dict.get("short")
+        long_term = result_dict.get("long")
+
+        # Collect valid check values and results
+        check_values = []
+        results = []
+
+        if short_term and isinstance(short_term, dict):
+            if "CheckValue" in short_term and short_term["CheckValue"] is not None:
+                check_values.append(short_term["CheckValue"])
+            if "Result" in short_term:
+                results.append(short_term["Result"])
+
+        if long_term and isinstance(long_term, dict):
+            if "CheckValue" in long_term and long_term["CheckValue"] is not None:
+                check_values.append(long_term["CheckValue"])
+            if "Result" in long_term:
+                results.append(long_term["Result"])
+
+        # Determine the worst case CheckValue
+        check_value_str = "N/A"
+        if check_values:
+            max_check_value = max(check_values)
+            check_value_str = f"{max_check_value:.{CHECK_VALUE_PRECISION_3}f}"
+
+        # Determine the worst case Result
+        result_str = "N/A"
+        if results:
+            if any(r == "FAILED" for r in results if r):
+                result_str = "FAILED"
+            elif any(r == "PASSED" for r in results if r):
+                result_str = "PASSED"
+            else:
+                result_str = results[0] if results[0] else "N/A"
+
+        return (str(result_str), str(check_value_str))
+
+    @staticmethod
     def process_preparsed_results(section_results: list[dict[str, Any]]) -> list[list[str]]:
         """
         Process pre-parsed section results into table data.
@@ -183,7 +241,7 @@ class IdeaResultsProcessor:
             shear_result, shear_check = IdeaResultsProcessor.safe_extract_result(section.shear())
             torsion_result, torsion_check = IdeaResultsProcessor.safe_extract_result(section.torsion())
             interaction_result, interaction_check = IdeaResultsProcessor.safe_extract_result(section.interaction())
-            crack_width_result, crack_width_check = IdeaResultsProcessor.safe_extract_result(section.crack_width())
+            crack_width_result, crack_width_check = IdeaResultsProcessor.safe_extract_crack_width_result(section.crack_width())
             detailing_result, detailing_check = IdeaResultsProcessor.safe_extract_result(section.detailing())
             stress_limitation_result, stress_limitation_check = IdeaResultsProcessor.safe_extract_result(section.stress_limitation())
 
