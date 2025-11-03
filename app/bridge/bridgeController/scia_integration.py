@@ -70,10 +70,6 @@ class SciaIntegration:
         :rtype: TableResult
         :raises UserError: If analysis fails or bridge segments are missing
         """
-        # Validate support configuration before running analysis
-        from app.bridge.parametrization import _validate_first_and_last_supports
-
-        _validate_first_and_last_supports(params)
 
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
