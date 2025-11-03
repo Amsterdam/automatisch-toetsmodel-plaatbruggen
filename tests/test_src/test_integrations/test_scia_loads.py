@@ -761,7 +761,7 @@ class TestUniformlyDistributedLoads:
         assert isinstance(result, dict), "Result should be a dictionary"
 
         # Count the number of load cases generated
-        load_case_keys = [key for key in result.keys() if key.startswith("BG4")]
+        load_case_keys = [key for key in result if key.startswith("BG4")]
         num_load_cases = len(load_case_keys)
 
         # For a 10.5m wide road with 3 configurations (A, B, C), we expect:
@@ -776,7 +776,7 @@ class TestUniformlyDistributedLoads:
         assert num_load_cases >= 9, f"Should generate at least 9 load cases, got {num_load_cases}"
 
         # Check that load cases are numbered sequentially starting from BG4001
-        sorted_keys = sorted([k for k in result.keys() if k.startswith("BG4")])
+        sorted_keys = sorted([k for k in result if k.startswith("BG4")])
         assert sorted_keys[0] == "BG4001", f"First load case should be BG4001, got {sorted_keys[0]}"
 
         # Check the structure of one load case (BG4001 should exist)
@@ -872,7 +872,7 @@ class TestUniformlyDistributedLoads:
         assert isinstance(result_narrow, dict), "Result should be a dictionary"
         assert "BG4001" in result_narrow, "Should contain BG4001 key"
         # For a 3m wide road, we can fit 1 lane, so expect fewer cases but at least some
-        narrow_load_cases = [key for key in result_narrow.keys() if key.startswith("BG4")]
+        narrow_load_cases = [key for key in result_narrow if key.startswith("BG4")]
         assert len(narrow_load_cases) >= 3, f"Should generate at least 3 load cases for narrow road, got {len(narrow_load_cases)}"
         # Check structure
         assert "polygon" in result_narrow["BG4001"], "Each load case should have a polygon"
@@ -894,7 +894,7 @@ class TestUniformlyDistributedLoads:
         # This is the actual behavior - it doesn't require Auto zones specifically
         assert isinstance(result_no_auto, dict), "Result should be a dictionary"
         # May or may not generate load cases depending on geometry
-        no_auto_load_cases = [key for key in result_no_auto.keys() if key.startswith("BG4")]
+        no_auto_load_cases = [key for key in result_no_auto if key.startswith("BG4")]
         if len(no_auto_load_cases) > 0:
             assert "BG4001" in result_no_auto, "Should contain BG4001 if any cases are generated"
             assert "polygon" in result_no_auto["BG4001"], "Each load case should have a polygon"
@@ -916,7 +916,7 @@ class TestUniformlyDistributedLoads:
         assert "BG4001" in result_zero_load, "Should contain BG4001 key"
         # Check that zero load value is handled correctly
         # Find the first RS 1 case (main lane) or use BG4001
-        zero_load_cases = [key for key in result_zero_load.keys() if key.startswith("BG4")]
+        zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 3, f"Should generate at least 3 load cases even with zero load, got {len(zero_load_cases)}"
         # Check that BG4001 has zero load (if it's a main lane) or check any case
         if "RS 1" in result_zero_load["BG4001"].get("title", ""):
@@ -1152,7 +1152,7 @@ class TestUniformlyDistributedLoads:
         assert isinstance(result, dict), "Result should be a dictionary"
 
         # Count the number of load cases generated
-        load_case_keys = [key for key in result.keys() if key.startswith("BG4")]
+        load_case_keys = [key for key in result if key.startswith("BG4")]
         num_load_cases = len(load_case_keys)
 
         # For a 10m wide bridge with 3 configurations (A, B, C), we expect:
@@ -1167,7 +1167,7 @@ class TestUniformlyDistributedLoads:
         assert num_load_cases >= 9, f"Should generate at least 9 load cases, got {num_load_cases}"
 
         # Check that load cases are numbered sequentially starting from BG4001
-        sorted_keys = sorted([k for k in result.keys() if k.startswith("BG4")])
+        sorted_keys = sorted([k for k in result if k.startswith("BG4")])
         assert sorted_keys[0] == "BG4001", f"First load case should be BG4001, got {sorted_keys[0]}"
 
         # Check the structure of load cases
@@ -1236,7 +1236,7 @@ class TestUniformlyDistributedLoads:
         assert isinstance(result_narrow, dict), "Result should be a dictionary"
         assert "BG4001" in result_narrow, "Should contain BG4001 key"
         # For a 5.5m wide bridge, we can fit 1 lane, so expect fewer cases but at least some
-        narrow_load_cases = [key for key in result_narrow.keys() if key.startswith("BG4")]
+        narrow_load_cases = [key for key in result_narrow if key.startswith("BG4")]
         assert len(narrow_load_cases) >= 3, f"Should generate at least 3 load cases for narrow bridge, got {len(narrow_load_cases)}"
         # Check structure
         assert "polygon" in result_narrow["BG4001"], "Each load case should have a polygon"
@@ -1256,7 +1256,7 @@ class TestUniformlyDistributedLoads:
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"
         assert "BG4001" in result_zero_load, "Should contain BG4001 key"
         # Find the first RS 1 case (main lane) or use BG4001
-        zero_load_cases = [key for key in result_zero_load.keys() if key.startswith("BG4")]
+        zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 9, f"Should generate at least 9 load cases even with zero load, got {len(zero_load_cases)}"
         # Check that BG4001 has zero load (if it's a main lane) or check any case
         if "RS 1" in result_zero_load["BG4001"].get("title", ""):

@@ -345,7 +345,7 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_structure(
-        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_real: Mock, mock_builder: Mock
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that create_all_load_cases returns the expected structure."""
         from src.data_models.scia_models import BridgeDimensionsData
@@ -408,7 +408,7 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_with_all_enabled(
-        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_real: Mock, mock_builder: Mock
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that all load cases are created when all are enabled in the params table."""
         from src.data_models.scia_models import BridgeDimensionsData
@@ -471,7 +471,7 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_with_some_disabled(
-        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_real: Mock, mock_builder: Mock
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that only enabled load cases are created when some are disabled."""
         from src.data_models.scia_models import BridgeDimensionsData
@@ -533,7 +533,7 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
     def test_create_all_load_cases_with_missing_table(
-        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_real: Mock, mock_builder: Mock
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that all load cases are created when the selection table is missing."""
         from src.data_models.scia_models import BridgeDimensionsData
