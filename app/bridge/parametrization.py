@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from viktor.errors import UserError
+
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -49,9 +50,23 @@ from app.constants import (
     SCIA_INFO_TEXT,
     SIGNAGE_OPTIONS,
 )
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
 from src.common.materials import get_reinforcement_qualities
 
 from .utils import validate_reinforcement_zone_selections
+
+# --- Helper function for rebar diameter options ---
+
+
+def _get_rebar_diameter_options(**kwargs) -> list[int]:  # noqa: ARG001
+    """
+    Get standard rebar diameter options as a sorted list.
+
+    :param kwargs: Additional keyword arguments (unused, required by VIKTOR SDK)
+    :returns: Sorted list of standard rebar diameters in millimeters
+    :rtype: list[int]
+    """
+    return sorted(STANDARD_REBAR_DIAMETERS)
 
 
 def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
@@ -604,7 +619,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         except Exception:
             # Fallback to basic modern materials if CSV reading fails
             modern_materials = ["B400A", "B400B", "B400C", "B500A", "B500B", "B500C"]
-
         # Add historical materials from IDEA integration
         # Import here to avoid circular imports between app and src layers
         try:
@@ -612,31 +626,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
             all_supported = get_all_supported_reinforcement_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
-        except ImportError:
-            # Fallback to hardcoded list if import fails
-            historical_materials = [
-                # GBV 1940 materials
-                "HK",
-                "St. 37",
-                # GBV 1950 materials
-                "QR22",
-                "QR24",
-                "QR30",
-                "QR36",
-                "QR42",
-                # GBV 1962 materials
-                "QR32",
-                "QR40",
-                "QR48",
-                # NEN 6720 materials
-                "FeB500 HWL, HK",
-                "FeB400 HWL, HK",
-                "FeB220 HWL",
-                # VB 74+84 materials
-                "FeB500 HW",
-                "FeB400 HW",
-                "FeB220 HW",
-            ]
+        except ImportError as e:
+            msg = (
+                "Fout bij laden van historische staalsoorten. "
+                "De IDEA StatiCa materiaal integratie module kon niet worden geladen. "
+                f"Technische details: {e}"
+            )
+            raise UserError(msg) from e
 
         # Combine: modern materials first, then historical materials
         all_materials = modern_materials + historical_materials
@@ -719,33 +715,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
             all_supported = get_all_supported_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
-        except ImportError:
-            # Fallback to hardcoded list if import fails
-            historical_materials = [
-                # Historical materials from GBV 1940/1950/1962
-                "K150",
-                "K200",
-                "K250",
-                "K160",
-                "K225",
-                "K300",
-                "K400",
-                "K450",
-                # NEN 6720 materials (B-class)
-                "B25",
-                "B35",
-                "B45",
-                "B55",
-                "B65",
-                # VB 74+84 materials (B-class with decimals)
-                "B12,5",
-                "B17,5",
-                "B22,5",
-                "B30",
-                "B37,5",
-                "B52,5",
-                "B60",
-            ]
+        except ImportError as e:
+            msg = (
+                "Fout bij laden van historische betonkwaliteiten. "
+                "De IDEA StatiCa materiaal integratie module kon niet worden geladen. "
+                f"Technische details: {e}"
+            )
+            raise UserError(msg) from e
 
         # Combine: modern materials first, then historical materials
         all_materials = modern_materials + historical_materials
@@ -1029,19 +1005,19 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=[
             {
                 "zone_number": ["1-1", "2-1", "3-1"],  # Default to all zones for the first configuration
-                "hoofdwapening_langs_boven_diameter": 12.0,
+                "hoofdwapening_langs_boven_diameter": 12,
                 "hoofdwapening_langs_boven_hart_op_hart": 150.0,
-                "hoofdwapening_dwars_boven_diameter": 12.0,
+                "hoofdwapening_dwars_boven_diameter": 12,
                 "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
-                "hoofdwapening_langs_onder_diameter": 12.0,
+                "hoofdwapening_langs_onder_diameter": 12,
                 "hoofdwapening_langs_onder_hart_op_hart": 150.0,
-                "hoofdwapening_dwars_onder_diameter": 12.0,
+                "hoofdwapening_dwars_onder_diameter": 12,
                 "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
                 "heeft_bijlegwapening": False,
-                "bijlegwapening_langs_boven_diameter": 12.0,
-                "bijlegwapening_dwars_boven_diameter": 12.0,
-                "bijlegwapening_langs_onder_diameter": 12.0,
-                "bijlegwapening_dwars_onder_diameter": 12.0,
+                "bijlegwapening_langs_boven_diameter": 12,
+                "bijlegwapening_dwars_boven_diameter": 12,
+                "bijlegwapening_langs_onder_diameter": 12,
+                "bijlegwapening_dwars_onder_diameter": 12,
             },
         ],
     )
@@ -1056,8 +1032,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb2 = LineBreak()
 
     # Main reinforcement - Longitudinal top
-    input.geometrie_wapening.zones.hoofdwapening_langs_boven_diameter = NumberField(
-        "Ø hoofdwapening langsrichting boven", default=12.0, min=6.0, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_langs_boven_diameter = OptionField(
+        "Ø hoofdwapening langsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_boven_hart_op_hart = NumberField(
         "H.o.h. afstand hoofdwapening langsrichting boven", default=150.0, min=50, suffix="mm", flex=53
@@ -1066,8 +1042,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb3 = LineBreak()
 
     # Main reinforcement - Transverse Top
-    input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = NumberField(
-        "Ø hoofdwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = OptionField(
+        "Ø hoofdwapening dwarsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_hart_op_hart = NumberField(
@@ -1077,8 +1053,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb4 = LineBreak()
 
     # Main reinforcement - Longitudinal bottom
-    input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = NumberField(
-        "Ø hoofdwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = OptionField(
+        "Ø hoofdwapening langsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_onder_hart_op_hart = NumberField(
         "H.o.h. afstand hoofdwapening langsrichting onder", default=150.0, min=50, suffix="mm", flex=53
@@ -1087,8 +1063,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb5 = LineBreak()
 
     # Main reinforcement - Transverse Bottom
-    input.geometrie_wapening.zones.hoofdwapening_dwars_onder_diameter = NumberField(
-        "Ø hoofdwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_dwars_onder_diameter = OptionField(
+        "Ø hoofdwapening dwarsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_onder_hart_op_hart = NumberField(
@@ -1105,8 +1081,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb7 = LineBreak()
 
     # Additional reinforcement - Longitudinal top
-    input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = NumberField(
-        "Ø bijlegwapening langsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = OptionField(
+        "Ø bijlegwapening langsrichting boven",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting boven",
@@ -1119,8 +1100,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb8 = LineBreak()
 
     # Additional reinforcement - Transverse top
-    input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = NumberField(
-        "Ø bijlegwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = OptionField(
+        "Ø bijlegwapening dwarsrichting boven",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting boven",
@@ -1133,8 +1119,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb9 = LineBreak()
 
     # Additional reinforcement - Longitudinal bottom
-    input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = NumberField(
-        "Ø bijlegwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = OptionField(
+        "Ø bijlegwapening langsrichting onder",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting onder",
@@ -1147,8 +1138,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb10 = LineBreak()
 
     # Additional reinforcement - Transverse bottom
-    input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = NumberField(
-        "Ø bijlegwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = OptionField(
+        "Ø bijlegwapening dwarsrichting onder",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting onder",
@@ -1339,6 +1335,9 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "get_scia_1d_results_view_sls_kar",
             "get_scia_1d_results_view_sls_freq",
             "get_scia_1d_results_view_uls",
+            "get_scia_cs_results_view_uls",
+            "get_scia_cs_results_view_sls_kar",
+            "get_scia_cs_results_view_sls_freq",
             "get_scia_results_table",
         ],
     )

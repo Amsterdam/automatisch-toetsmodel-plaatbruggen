@@ -328,10 +328,13 @@ class TestApplyLoadsToSlabs:
         mock_builder = MagicMock()
 
         # The function should handle empty dataframes gracefully
-        # When the dataframe is empty, df_all["name"].isin(zones) will raise KeyError
-        # because there's no "name" column in an empty dataframe
-        with pytest.raises(KeyError, match="name"):
-            _apply_node_loads_to_slabs(created_slabs, empty_dataframe, mock_builder)
+        # It returns early when df_all.empty is True
+        _apply_node_loads_to_slabs(created_slabs, empty_dataframe, mock_builder)
+
+        # Verify that no builder methods were called (since we returned early)
+        mock_builder.create_result_of_internal_forces.assert_not_called()
+        mock_builder.create_loading_sls.assert_not_called()
+        mock_builder.create_extreme_on_slab.assert_not_called()
 
 
 if __name__ == "__main__":

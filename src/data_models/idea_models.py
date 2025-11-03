@@ -9,6 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
+
 
 class ReinforcementConfigData(BaseModel):
     """
@@ -26,16 +28,14 @@ class ReinforcementConfigData(BaseModel):
     has_extra_reinforcement: bool = Field(description="Whether extra reinforcement is present")
     rebar_config: dict[str, Any] = Field(description="Additional rebar configuration parameters")
 
-    @field_validator("main_reinf_diameters", "extra_reinf_diameter")
+    @field_validator("main_reinf_diameters")
     @classmethod
-    def validate_reinforcement_diameters(cls, v: dict[str, float]) -> dict[str, float]:
-        """Validate reinforcement diameters against standard sizes."""
-        standard_diameters = {6, 8, 10, 12, 14, 16, 20, 25, 32, 40}  # mm
-
+    def validate_main_reinforcement_diameters(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate main reinforcement diameters against standard sizes."""
         for zone, diameter in v.items():
-            if diameter not in standard_diameters:
+            if diameter not in STANDARD_REBAR_DIAMETERS:
                 raise ValueError(
-                    f"Reinforcement diameter {diameter}mm in zone '{zone}' is not standard. Standard sizes: {sorted(standard_diameters)}mm"
+                    f"Reinforcement diameter {diameter}mm in zone '{zone}' is not standard. Standard sizes: {sorted(STANDARD_REBAR_DIAMETERS)}mm"
                 )
             if diameter < 6:
                 raise ValueError(f"Reinforcement diameter {diameter}mm in zone '{zone}' is too small (minimum 6mm)")
@@ -44,11 +44,47 @@ class ReinforcementConfigData(BaseModel):
 
         return v
 
-    @field_validator("main_reinf_ctc_distances", "extra_reinf_ctc_distances")
+    @field_validator("extra_reinf_diameter")
     @classmethod
-    def validate_ctc_distances(cls, v: dict[str, float]) -> dict[str, float]:
-        """Validate center-to-center distances."""
+    def validate_extra_reinforcement_diameters(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate extra reinforcement diameters - allows 0mm when extra reinforcement is not used."""
+        for zone, diameter in v.items():
+            # Allow 0mm diameter when has_extra_reinforcement=False
+            if diameter == 0:
+                continue
+
+            if diameter not in STANDARD_REBAR_DIAMETERS:
+                raise ValueError(
+                    f"Reinforcement diameter {diameter}mm in zone '{zone}' is not standard. Standard sizes: {sorted(STANDARD_REBAR_DIAMETERS)}mm"
+                )
+            if diameter < 6:
+                raise ValueError(f"Reinforcement diameter {diameter}mm in zone '{zone}' is too small (minimum 6mm)")
+            if diameter > 40:
+                raise ValueError(f"Reinforcement diameter {diameter}mm in zone '{zone}' is too large (maximum 40mm)")
+
+        return v
+
+    @field_validator("main_reinf_ctc_distances")
+    @classmethod
+    def validate_main_ctc_distances(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate main reinforcement center-to-center distances."""
         for zone, distance in v.items():
+            if distance < 50:  # mm
+                raise ValueError(f"Center-to-center distance {distance}mm in zone '{zone}' is too small (minimum 50mm)")
+            if distance > 500:  # mm
+                raise ValueError(f"Center-to-center distance {distance}mm in zone '{zone}' is too large (maximum 500mm)")
+
+        return v
+
+    @field_validator("extra_reinf_ctc_distances")
+    @classmethod
+    def validate_extra_ctc_distances(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate extra reinforcement center-to-center distances - allows 0mm when extra reinforcement is not used."""
+        for zone, distance in v.items():
+            # Allow 0mm distance when has_extra_reinforcement=False
+            if distance == 0:
+                continue
+
             if distance < 50:  # mm
                 raise ValueError(f"Center-to-center distance {distance}mm in zone '{zone}' is too small (minimum 50mm)")
             if distance > 500:  # mm
@@ -59,12 +95,18 @@ class ReinforcementConfigData(BaseModel):
     @field_validator("reinf_heights")
     @classmethod
     def validate_reinforcement_heights(cls, v: dict[str, float]) -> dict[str, float]:
-        """Validate reinforcement heights/positions."""
+        """
+        Validate reinforcement heights/positions.
+
+        Allows negative values as they can represent positions below a reference point
+        in certain coordinate systems.
+        """
         for zone, height in v.items():
-            if height < 0:
-                raise ValueError(f"Reinforcement height {height}mm in zone '{zone}' cannot be negative")
+            # Allow negative heights (positions below reference point)
+            if height < -2000:  # mm
+                raise ValueError(f"Reinforcement height {height}mm in zone '{zone}' is unrealistically low (minimum -2000mm)")
             if height > 2000:  # mm
-                raise ValueError(f"Reinforcement height {height}mm in zone '{zone}' is unrealistic (maximum 2000mm)")
+                raise ValueError(f"Reinforcement height {height}mm in zone '{zone}' is unrealistically high (maximum 2000mm)")
 
         return v
 

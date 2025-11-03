@@ -8,6 +8,11 @@ from viktor.views import TableResult
 if TYPE_CHECKING:
     from .scia_unit_conversion import SciaUnitConverter
 
+from src.integrations.scia_integration.constants.results import (
+    CS_TABLE_TYPES,
+    MAX_ERROR_MESSAGE_LENGTH,
+)
+
 from .scia_results_processor import (
     get_processed_integration_strip_results_with_cache,
     get_processed_results_with_cache,
@@ -41,7 +46,7 @@ def safe_float_format(value: str | float, unit: str = "", default: str = "N/A") 
 
 def format_coordinates_safe(coords: tuple[float, ...] | list[float] | str | None) -> str:
     """
-    Safely format coordinates as a string.
+    Safely format coordinates as a string with 2 decimal places.
 
     :param coords: Coordinate data (tuple, list, or other)
     :type coords: tuple[float, ...] | list[float] | str | None
@@ -57,7 +62,7 @@ def format_coordinates_safe(coords: tuple[float, ...] | list[float] | str | None
             x = float(coords[0]) if coords[0] is not None else 0.0
             y = float(coords[1]) if coords[1] is not None else 0.0
             z = float(coords[2]) if coords[2] is not None else 0.0
-            return f"({x:.1f}, {y:.1f}, {z:.1f})"
+            return f"({x:.2f}, {y:.2f}, {z:.2f})"
         return str(coords)
     except (ValueError, TypeError, IndexError):
         return "N/A"
@@ -132,7 +137,7 @@ def create_scia_node_table_data(df: pd.DataFrame, result_type: str, units_mappin
         if col in df.columns:
             component = column_to_component.get(col, "")
             # Use converter to format values with consistent conversion
-            formatted_cols[col] = df[col].apply(lambda x: converter.format_value_with_unit(x, component, decimals=1, default="N/A"))
+            formatted_cols[col] = df[col].apply(lambda x: converter.format_value_with_unit(x, component, decimals=2, default="N/A"))
         else:
             formatted_cols[col] = pd.Series(["N/A"] * len(df))
 
@@ -227,7 +232,7 @@ def _format_numeric_columns(df: pd.DataFrame, converter: "SciaUnitConverter") ->
         if col in df.columns:
             component = column_to_component.get(col, "")
             # Use converter to format values with consistent conversion
-            formatted_cols[col] = df[col].apply(lambda x: converter.format_value_with_unit(x, component, decimals=1, default="N/A"))
+            formatted_cols[col] = df[col].apply(lambda x: converter.format_value_with_unit(x, component, decimals=2, default="N/A"))
         else:
             formatted_cols[col] = pd.Series(["N/A"] * len(df))
 
@@ -466,3 +471,185 @@ def create_scia_integration_strip_results_table(results: dict[str, Any], result_
             "Mz Max (kNm)",
         ]
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
+
+
+def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
+    """
+    Generate headers for CS (Cross Section) result tables.
+
+    :param include_zone: Whether to include the Zone column
+    :type include_zone: bool
+    :returns: List of header strings
+    :rtype: list[str]
+    """
+    headers = ["Name"]
+    if include_zone:
+        headers.append("Zone")
+    headers.extend(
+        [
+            "Coordinates",
+            "Vx (kN/m)",
+            "Vy (kN/m)",
+            "MxD+ (kNm/m)",
+            "MxD- (kNm/m)",
+            "MyD+ (kNm/m)",
+            "MyD- (kNm/m)",
+        ]
+    )
+    return headers
+
+
+def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -> tuple[list[list[str]], list[str]]:
+    """
+    Create table data and headers from processed CS (Cross Section) SCIA results.
+
+    CS tables contain results from SCIA section on plane objects (cross sections).
+    This function takes a processed DataFrame where each row represents a unique coordinate
+    with maximum absolute force/moment values already calculated.
+
+    :param processed_cs_df: Processed DataFrame with unique coordinates and max absolute values
+    :type processed_cs_df: pd.DataFrame
+    :param result_type: Type of results (cs ULS, cs SLS kar, cs SLS freq)
+    :type result_type: str
+    :returns: Tuple of (table_data, headers)
+    :rtype: tuple[list[list[str]], list[str]]
+    """
+    from .scia_unit_conversion import SciaUnitConverter
+
+    # Create a converter for 2D elements (CS tables are cross sections on plane objects)
+    converter = SciaUnitConverter("2D")
+
+    # Check if zone column exists in the DataFrame
+    has_zone_column = "zone" in processed_cs_df.columns
+
+    # Create headers with units
+    headers = _get_cs_table_headers(include_zone=has_zone_column)
+
+    # Check if we have any data
+    if processed_cs_df.empty:
+        no_data_row = [f"Geen {result_type} data"]
+        if has_zone_column:
+            no_data_row.append("N/A")
+        no_data_row.extend(["N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"])
+        return [no_data_row], headers
+
+    table_data = []
+
+    # Column mapping (processed DataFrame uses same column names as raw SCIA data)
+    # CS tables use lowercase with underscores: v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-
+
+    # Format each row
+    for _, row in processed_cs_df.iterrows():
+        # Get name
+        name = row.get("name", "N/A")
+
+        # Get zone if available
+        zone = row.get("zone", "N/A") if has_zone_column else None
+
+        # Get coordinates
+        coords_xyz = row.get("coords_xyz", (0.0, 0.0, 0.0))
+        coords = format_coordinates_safe(coords_xyz)
+
+        # Get force/moment values (already max absolute values from processing)
+        # Use lowercase column names with underscores as in the raw SCIA data
+        v_x = row.get("v_x", 0.0)
+        v_y = row.get("v_y", 0.0)
+        m_xd_plus = row.get("m_xD+", 0.0)
+        m_xd_minus = row.get("m_xD-", 0.0)
+        m_yd_plus = row.get("m_yD+", 0.0)
+        m_yd_minus = row.get("m_yD-", 0.0)
+
+        # Format values with units (using appropriate component names for converter)
+        v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
+        v_y_str = converter.format_value_with_unit(v_y, "v_y", decimals=2, default="N/A")
+        m_xd_plus_str = converter.format_value_with_unit(m_xd_plus, "m_xD+", decimals=2, default="N/A")
+        m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
+        m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
+        m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
+
+        row_data = [str(name)]
+        if has_zone_column:
+            row_data.append(str(zone))
+        row_data.extend(
+            [
+                coords,
+                v_x_str,
+                v_y_str,
+                m_xd_plus_str,
+                m_xd_minus_str,
+                m_yd_plus_str,
+                m_yd_minus_str,
+            ]
+        )
+        table_data.append(row_data)
+
+    return table_data, headers
+
+
+def create_scia_cs_results_table(results: dict[str, Any], table_type: str, bridge_segments: list[Any] | None = None) -> TableResult:
+    """
+    Create a VIKTOR TableResult from CS (Cross Section) SCIA analysis results.
+
+    CS tables contain results from SCIA section on plane objects (cross sections).
+    This function processes the CS data to find unique coordinate locations and
+    their maximum absolute force/moment values.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param table_type: Type of CS table to extract ("ULS", "SLS kar", "SLS freq")
+    :type table_type: str
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: VIKTOR TableResult with formatted CS data including units
+    :rtype: TableResult
+    :raises Exception: If processing fails
+    """
+    from .scia_results_processor import process_scia_cs_results
+
+    try:
+        # Process all CS results (gets DataFrames with unique coords and max absolute values)
+        # Pass bridge_segments to enable zone mapping
+        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+
+        # Get the specific table type we want
+        processed_cs_df = cs_results.get(table_type, pd.DataFrame())
+
+        # Create table data from the processed DataFrame
+        table_data, headers = create_scia_cs_table_data(processed_cs_df, table_type)
+
+        return TableResult(table_data, column_headers=headers)
+
+    except Exception as e:
+        # Handle errors from processing function
+        error_message = f"Fout bij verwerken {table_type} resultaten: {str(e)[:MAX_ERROR_MESSAGE_LENGTH]}..."
+        # Use headers without Zone column for error case (zone mapping may have failed)
+        default_headers = _get_cs_table_headers(include_zone=False)
+        # Create error row with appropriate number of N/A values
+        error_row = ["Verwerkingsfout", error_message] + ["N/A"] * (len(default_headers) - 2)
+        return TableResult([error_row], column_headers=default_headers)
+
+
+def create_all_scia_cs_results_tables(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, TableResult]:
+    """
+    Create VIKTOR TableResults for all CS (Cross Section) table types.
+
+    CS tables contain results from SCIA section on plane objects (cross sections).
+
+    Creates tables for:
+    - ULS (Ultimate Limit State)
+    - SLS kar (Serviceability Limit State - characteristic)
+    - SLS freq (Serviceability Limit State - frequent)
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: Dictionary mapping table type to TableResult
+    :rtype: dict[str, TableResult]
+    """
+    cs_tables: dict[str, TableResult] = {}
+
+    for table_type in CS_TABLE_TYPES:
+        cs_tables[table_type] = create_scia_cs_results_table(results, table_type, bridge_segments=bridge_segments)
+
+    return cs_tables

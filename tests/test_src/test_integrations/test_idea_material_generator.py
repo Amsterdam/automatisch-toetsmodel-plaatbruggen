@@ -134,13 +134,13 @@ class TestCSVFileStructure:
     """Test cases for CSV file structure and format validation."""
 
     def test_csv_file_exists(self) -> None:
-        """Test that the required CSV file exists."""
-        csv_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials" / "Beton_GBV 1950.csv"
+        """Test that the required combined CSV file exists."""
+        csv_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials" / "Concrete_All.csv"
         assert csv_path.exists(), f"CSV file not found at {csv_path}"
 
     def test_csv_file_readable(self) -> None:
-        """Test that the CSV file is readable and has expected structure."""
-        csv_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials" / "Beton_GBV 1950.csv"
+        """Test that the combined CSV file is readable and has expected structure."""
+        csv_path = Path(__file__).parent.parent.parent.parent / "resources" / "data" / "idea_materials" / "Concrete_All.csv"
 
         with open(csv_path, encoding="utf-8") as file:
             content = file.read()
@@ -149,7 +149,8 @@ class TestCSVFileStructure:
             assert '"Header"' in content, "CSV should contain Header line"
             assert '"Data"' in content, "CSV should contain Data marker"
             assert '"Fck"' in content, "CSV should contain Fck column"
-            assert '"K200"' in content, "CSV should contain K200 material"
+            # Check for material with suffix (new naming convention)
+            assert '"K200_GBV1940"' in content or '"K200_GBV1950"' in content, "CSV should contain K200 material with suffix"
 
 
 if __name__ == "__main__":

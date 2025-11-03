@@ -150,3 +150,78 @@ class BridgeDimensionsData(BaseModel):
         }
 
     model_config = ConfigDict(validate_assignment=True)
+
+
+class SectionOnPlaneDefinition(BaseModel):
+    """
+    Definition for a section on plane object in SCIA analysis.
+
+    Represents a cross-section cutting plane defined by two 3D points.
+    Validates coordinate ranges and ensures geometric consistency.
+
+    :param name: Name identifier for the section
+    :param point_1: Start coordinates (x, y, z) in meters
+    :param point_2: End coordinates (x, y, z) in meters
+    :param draw: Optional plane direction (default: None, uses Z_DIRECTION)
+    :param direction_of_cut: Optional in-plane vector defining cut direction (default: None, uses (0, 0, 1))
+    """
+
+    name: str = Field(min_length=1, description="Section name identifier")
+    point_1: tuple[float, float, float] = Field(description="Start coordinates (x, y, z) in meters")
+    point_2: tuple[float, float, float] = Field(description="End coordinates (x, y, z) in meters")
+    draw: str | None = Field(default=None, description="Optional plane direction")
+    direction_of_cut: tuple[float, float, float] | None = Field(default=None, description="Optional cut direction vector")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate section name is not empty."""
+        if not v.strip():
+            raise ValueError("Section name cannot be empty or whitespace only")
+        return v.strip()
+
+    @field_validator("point_1", "point_2")
+    @classmethod
+    def validate_point_tuple(cls, v: tuple[float, float, float]) -> tuple[float, float, float]:
+        """Validate coordinate tuple has exactly 3 elements and reasonable ranges."""
+        if len(v) != 3:
+            raise ValueError(f"Coordinate tuple must have exactly 3 values (x, y, z), got {len(v)}")
+
+        x, y, z = v
+
+        # Validate coordinate ranges (reasonable bridge dimensions)
+        if not (-1000 <= x <= 1000):
+            raise ValueError(f"X-coordinate {x}m is unrealistic (must be between -1000 and 1000m)")
+        if not (-1000 <= y <= 1000):
+            raise ValueError(f"Y-coordinate {y}m is unrealistic (must be between -1000 and 1000m)")
+        if not (-100 <= z <= 100):
+            raise ValueError(f"Z-coordinate {z}m is unrealistic (must be between -100 and 100m)")
+
+        return v
+
+    @field_validator("direction_of_cut")
+    @classmethod
+    def validate_direction_of_cut(cls, v: tuple[float, float, float] | None) -> tuple[float, float, float] | None:
+        """Validate direction of cut vector if provided."""
+        if v is None:
+            return None
+
+        if len(v) != 3:
+            raise ValueError(f"Direction of cut vector must have exactly 3 values, got {len(v)}")
+
+        # Normalize check - vector should not be zero
+        x, y, z = v
+        magnitude = (x**2 + y**2 + z**2) ** 0.5
+        if magnitude < 1e-10:
+            raise ValueError("Direction of cut vector cannot be zero (all components cannot be zero)")
+
+        return v
+
+    @model_validator(mode="after")
+    def validate_points_different(self) -> "SectionOnPlaneDefinition":
+        """Validate that point_1 and point_2 are different points."""
+        if self.point_1 == self.point_2:
+            raise ValueError("point_1 and point_2 must be different coordinates")
+        return self
+
+    model_config = ConfigDict(validate_assignment=True)
