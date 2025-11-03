@@ -184,7 +184,7 @@ def validate_reinforcement_zone_selections(params: ParamsForReinforcementZones) 
         error_message = "Er mag per zone maar één wapeningsconfiguratie worden toegepast. "
         raise UserError(error_message, input_violations=violations)
 
-        
+
 def _validate_first_and_last_supports(params: Mapping, **kwargs) -> None:  # noqa: ARG001
     """
     Validate that the first and last sections in the bridge dimensions array are supports.

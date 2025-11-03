@@ -6,7 +6,6 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from viktor.errors import UserError
-
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -457,7 +456,6 @@ def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: A
     :returns: Status message indicating whether first and last sections are supports (with colored symbols)
     :rtype: str
     """
-
     try:
         segments = params.bridge_segments_array
         if not segments or len(segments) < 2:
@@ -475,6 +473,7 @@ def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: A
 
     except (AttributeError, IndexError):
         return "🔴 Fout bij ophalen opleggingsgegevens"
+
 
 # ----------------------------------
 # --- Main Parametrization Class ---
