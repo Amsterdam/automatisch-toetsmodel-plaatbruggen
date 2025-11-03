@@ -6,7 +6,6 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from viktor.errors import UserError
-
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
