@@ -1202,7 +1202,7 @@ class TestUniformlyDistributedLoads:
             assert abs(bg4001["load"] - expected_rest_load) < 0.1, f"Rest area load should be {expected_rest_load}, got {bg4001['load']}"
 
         # Check other load cases have correct structure
-        for key in sorted_keys[:min(5, len(sorted_keys))]:  # Check first 5 cases
+        for key in sorted_keys[: min(5, len(sorted_keys))]:  # Check first 5 cases
             case_data = result[key]
             assert "polygon" in case_data, f"{key} should have a polygon"
             assert "load" in case_data, f"{key} should have a load value"
