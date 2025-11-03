@@ -81,13 +81,60 @@ class TestStandardLoadCases:
             permanent_type=None,
         )
 
-    def test_create_udl_traffic_load_cases(self, mock_builder: Mock) -> None:
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_real_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_theoretical_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.get_load_mode_from_params")
+    def test_create_udl_traffic_load_cases(
+        self,
+        mock_get_mode: Mock,
+        mock_extract: Mock,
+        mock_theoretical: Mock,
+        mock_real: Mock,
+        mock_builder: Mock,
+    ) -> None:
         """Test creation of UDL traffic load case definitions."""
-        create_udl_traffic_load_cases(mock_builder)
-        assert mock_builder.create_load_case.call_count == 3
+        from src.data_models.scia_models import BridgeDimensionsData
+        from src.integrations.scia_integration.types import LoadMode
+
+        # Setup mocks
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
+        )
+        mock_get_mode.return_value = LoadMode.THEORETICAL
+
+        # Mock UDL generator to return sample data
+        mock_theoretical.return_value = {
+            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
+            "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
+            "BG4004": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. B"},
+            "BG4005": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. B"},
+            "BG4006": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. B"},
+            "BG4007": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. C"},
+            "BG4008": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. C"},
+            "BG4009": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. C"},
+        }
+
+        mock_params = Mock()
+
+        cases = create_udl_traffic_load_cases(mock_builder, mock_params)
+
+        # Should create 9 load cases
+        assert mock_builder.create_load_case.call_count == 9
+        assert len(cases) >= 9  # May include rs_1, rs_2, rs_3 for backward compatibility
+
+        # Check first case (BG4001)
         mock_builder.create_load_case.assert_any_call(
             name="BG4001",
-            description="Verkeer, dek - LM1 UDL RS 1",
+            description="Verkeer, dek - LM1 UDL RS 1 - Conf. A",
             group_name="LG4000 - UDL",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,

@@ -90,7 +90,7 @@ def generate_real_lane_positions_bg10000(
 # ========================================================================
 
 
-def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901
+def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
