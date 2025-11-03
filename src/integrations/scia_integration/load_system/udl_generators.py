@@ -126,17 +126,19 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
     spans = _identify_spans(params.bridge_segments_array)
     # If no spans identified, fall back to single span covering entire bridge
     if not spans:
-        spans = [Span(
-            start_x=0.0,
-            end_x=length_bridgedeck,
-            length=length_bridgedeck,
-            width=width_bridgedeck,
-            bz1=0.0,  # Not used for lane calculations
-            bz2=0.0,
-            bz3=0.0,
-            min_thickness=0.0,
-            span_index=1,
-        )]
+        spans = [
+            Span(
+                start_x=0.0,
+                end_x=length_bridgedeck,
+                length=length_bridgedeck,
+                width=width_bridgedeck,
+                bz1=0.0,  # Not used for lane calculations
+                bz2=0.0,
+                bz3=0.0,
+                min_thickness=0.0,
+                span_index=1,
+            )
+        ]
 
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
@@ -152,7 +154,9 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
     # Loop through each span to generate polygons
     for span in spans:
         # Configuration A: leftmost lanes (BG8000 logic)
-        y_positions_left = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+        y_positions_left = generate_theoretical_lane_positions_bg8000(
+            width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
+        )
         if y_positions_left:
             # Create lane polygons for up to max_lanes, starting from leftmost
             for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
@@ -198,7 +202,9 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
                 load_case_counter += 1
 
         # Configuration B: Rightmost lanes (BG9000 logic)
-        y_positions_right = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
+        y_positions_right = generate_theoretical_lane_positions_bg9000(
+            width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
+        )
         if y_positions_right:
             for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
                 y_min = y_center - lane_width / 2
@@ -375,17 +381,19 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     spans = _identify_spans(params.bridge_segments_array)
     # If no spans identified, fall back to single span covering entire bridge
     if not spans:
-        spans = [Span(
-            start_x=0.0,
-            end_x=length_bridgedeck,
-            length=length_bridgedeck,
-            width=0.0,  # Not used for lane calculations
-            bz1=0.0,
-            bz2=0.0,
-            bz3=0.0,
-            min_thickness=0.0,
-            span_index=1,
-        )]
+        spans = [
+            Span(
+                start_x=0.0,
+                end_x=length_bridgedeck,
+                length=length_bridgedeck,
+                width=0.0,  # Not used for lane calculations
+                bz1=0.0,
+                bz2=0.0,
+                bz3=0.0,
+                min_thickness=0.0,
+                span_index=1,
+            )
+        ]
 
     # Obtain required factors for vertical traffic loading (LM1 and LM2)
     psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))

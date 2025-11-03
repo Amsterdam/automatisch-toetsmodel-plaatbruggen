@@ -808,7 +808,7 @@ class TestUniformlyDistributedLoads:
         assert len(polygon_coords) == 4, "Each polygon should have 4 corners"
         assert all(len(point) == 3 for point in polygon_coords), "Each point should have x, y, z coordinates"
         assert all(point[2] == 0.0 for point in polygon_coords), "All z-coordinates should be 0.0"
-        
+
         # Check that polygon coordinates are span-specific (not full bridge length)
         # For a single span, x-coordinates should span from ~0.0 to ~20.0
         x_coords = [point[0] for point in polygon_coords]
@@ -1252,7 +1252,7 @@ class TestUniformlyDistributedLoads:
         # Check title format (should contain configuration and span info)
         assert "Conf." in bg4001["title"], f"Title should contain configuration info, got: {bg4001['title']}"
         assert "Span" in bg4001["title"], f"Title should contain span information, got: {bg4001['title']}"
-        
+
         # Verify polygon coordinates are span-specific
         x_coords = [point[0] for point in polygon_coords]
         min_x = min(x_coords)
@@ -1294,7 +1294,7 @@ class TestUniformlyDistributedLoads:
         mock_params.input = Mock()
         mock_params.input.belastingsfactoren = Mock()
         mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
-        
+
         # Add bridge segments data for span identification (single span)
         mock_first_segment = Mock()
         mock_first_segment.l = 0.0
