@@ -1247,16 +1247,16 @@ _processed_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
 
 def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.DataFrame] | None:
     """
-    Get processed SCIA results with caching to avoid reprocessing.
+    Get processed SCIA 2D node results with caching to avoid reprocessing.
+
+    Note: This function now uses the direct 2D processing instead of the removed
+    process_scia_node_results_for_idea function.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
     :returns: Processed results or None if failed
     :rtype: dict[str, pd.DataFrame] | None
     """
-    # Import here to avoid circular imports
-    from src.integrations.idea_integration.scia_to_idea_functions import process_scia_node_results_for_idea
-
     # Use simple caching to avoid reprocessing the same results
     try:
         results_hash = _get_results_hash(results)
@@ -1267,7 +1267,8 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
         return _processed_results_cache[results_hash]
 
     try:
-        processed_results = process_scia_node_results_for_idea(results)
+        # Use the direct 2D processing function
+        processed_results = process_scia_2d_results(results)
 
         # Cache the results (limit cache size to prevent memory issues)
         if len(_processed_results_cache) > 10:
@@ -1287,16 +1288,16 @@ _integration_strip_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
 
 def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) -> dict[str, pd.DataFrame] | None:
     """
-    Get processed SCIA integration strip results with caching to avoid reprocessing.
+    Get processed SCIA integration strip (1D) results with caching to avoid reprocessing.
+
+    Note: This function now uses the direct 1D processing instead of the removed
+    process_scia_integration_strip_results_for_idea function.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
     :returns: Processed integration strip results or None if failed
     :rtype: dict[str, pd.DataFrame] | None
     """
-    # Import here to avoid circular imports
-    from src.integrations.idea_integration.scia_to_idea_functions import process_scia_integration_strip_results_for_idea
-
     # Use simple caching to avoid reprocessing the same results
     try:
         results_hash = _get_results_hash(results)
@@ -1307,7 +1308,8 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
         return _integration_strip_results_cache[results_hash]
 
     try:
-        processed_results = process_scia_integration_strip_results_for_idea(results)
+        # Use the direct 1D processing function
+        processed_results = process_scia_1d_results(results)
 
         # Cache the results (limit cache size to prevent memory issues)
         if len(_integration_strip_results_cache) > 10:
@@ -1318,4 +1320,5 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
     except Exception:
         return None
     else:
+        return processed_results
         return processed_results
