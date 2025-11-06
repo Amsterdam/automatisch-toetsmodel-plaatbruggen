@@ -12,9 +12,7 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
-import contextlib
 from collections import defaultdict
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -41,7 +39,6 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_reinforcement_material_for_idea,
 )
 from src.integrations.idea_integration.scia_to_idea_functions import process_scia_cs_results_for_idea
-
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
@@ -488,10 +485,10 @@ def _process_scia_cs_results_for_idea_input(
 
     # Add Mx and My columns - select value with maximum absolute magnitude while preserving sign
     df = scia_envelope_df.copy()
-    
+
     if all(col in df.columns for col in ["m_xD+_max", "m_xD-_max"]):
         df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-    
+
     if all(col in df.columns for col in ["m_yD+_max", "m_yD-_max"]):
         df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
@@ -515,7 +512,7 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
     For each unique zone and direction (langs/dwars), creates ONE extreme combining:
     - ULS row for that zone
     - SLS freq row for that zone
-    
+
     Each extreme has:
     - Shear forces (v_x or v_y depending on direction) → Qz in IDEA
     - Bending moments (Mx or My depending on direction) → My in IDEA
@@ -528,7 +525,6 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
     :param builder: IDEA model builder instance
     :type builder: Any
     """
-
     # For langs cs: link IDEA vz to SCIA vy and IDEA My to SCIA My
     # For dwars cs: link IDEA vz to SCIA vx and IDEA My to SCIA Mx
     orient = {
@@ -556,18 +552,17 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
 
         # Get unique combinations of (zone, max_for_column)
         unique_combinations = df_slab[["zone", "max_for_column"]].drop_duplicates()
-        
+
         for _, combo_row in unique_combinations.iterrows():
             zone = combo_row["zone"]
             max_for = combo_row["max_for_column"]
-            
+
             # Filter data for this specific (zone, max_for_column) combination
             df_combo = df_slab[(df_slab["zone"] == zone) & (df_slab["max_for_column"] == max_for)]
-            
+
             # Split by result_type
             df_uls = df_combo[df_combo["result_type"] == "ULS"]
             df_sls = df_combo[df_combo["result_type"] == "SLS freq"]
-            
 
             # Get the rows (should be one ULS and one SLS freq for this combination)
             uls_row = df_uls.iloc[0]
@@ -598,7 +593,7 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
                 coords = _format_coords(uls_row.get("coords_xyz"))
                 belasting_uls = uls_row.get("belasting", "Unknown")
                 belasting_sls = sls_row.get("belasting", "Unknown")
-                
+
                 description = f"{desc_prefix}_{direction}-{zone}-{cs_name}-{coords}-{max_for}-ULS:{belasting_uls}/SLS:{belasting_sls}"
 
                 # Create internal forces for ULS (fundamental)
@@ -698,14 +693,11 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
         df_cs_envelope = scia_results_dict["cs_envelope"]
     else:
         # Process SCIA results to get envelope DataFrame
-        df_cs_envelope = process_scia_cs_results_for_idea(
-            scia_results_dict.get("results", {}), 
-            input_data.bridge_segments
-        )
-    
+        df_cs_envelope = process_scia_cs_results_for_idea(scia_results_dict.get("results", {}), input_data.bridge_segments)
+
     # Process the envelope DataFrame for IDEA input (merges ULS and SLS freq)
     df_cs_all = _process_scia_cs_results_for_idea_input(df_cs_envelope)
-    
+
     # Apply CS loads to slabs using builder
     _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
 

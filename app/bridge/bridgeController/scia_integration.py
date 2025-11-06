@@ -11,7 +11,7 @@ This component provides all SCIA-related functionality including:
 import traceback
 import zipfile
 from io import BytesIO
-from typing import Any, NoReturn
+from typing import NoReturn
 
 from viktor.core import File, progress_message
 from viktor.errors import UserError

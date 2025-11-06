@@ -612,7 +612,7 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 n_xd_str,
                 n_yd_str,
             ]
-        
+
         table_data.append(row_data)
 
     return table_data, headers
