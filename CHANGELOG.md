@@ -31,6 +31,10 @@ Introduced a new naming system with span, lane and configuration identification.
   - Displays "Statisch bepaald" for exactly 2 supports (Scharnieroplegging + Roloplegging) at begin/end positions
   - Displays "Statisch onbepaald" for all other support configurations
   - Live updates as user modifies support selections
+- **Support Configuration Validation**: Added visual feedback and validation for first/last section support requirements
+  - Real-time output field with colored status indicators (🟢 valid / 🔴 invalid)
+  - Automatic validation when running SCIA analysis with clear error messages
+  - Ensures bridge model has required supports before analysis execution
 - **Management summary**: Added basic param values and unity check values to the management summary.
 - **2D sections on 2d members**: Added 2D sections in SCIA and the link with with IDEA 
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
