@@ -130,7 +130,7 @@ class TestTheoreticalTandemLoads:
             zone2_width=10.0,
             zone3_width=10.0,
             first_segment_thickness=0.8,
-            first_segment_thickness_2=0.7,
+            first_segment_thickness_2=0.8,  # Must equal first_segment_thickness
         )
         mock_generate.return_value = [{"load_case": "LC1", "wheels": [1, 2], "load": 100}]
         mock_scia_data = [
@@ -178,7 +178,7 @@ class TestServiceVehicleLoads:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
@@ -253,7 +253,7 @@ class TestAccidentalVehicleLoads:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         # tandem_system_sequencer is called 3 times: standard, amsterdam, amsterdam_rotated
         mock_sequencer.side_effect = [
@@ -361,7 +361,7 @@ class TestAccidentalVehicleLoads:
                 zone2_width=6.0,
                 zone3_width=7.0,
                 first_segment_thickness=0.5,
-                first_segment_thickness_2=0.4,
+                first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
             )
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
@@ -448,7 +448,7 @@ class TestAccidentalVehicleLoads:
                 zone2_width=2.0,
                 zone3_width=2.0,
                 first_segment_thickness=0.5,
-                first_segment_thickness_2=0.4,
+                first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
             )
 
             # Mock returns positions for all three vehicle types
@@ -1664,7 +1664,7 @@ class TestLoadBoundaryCompliance:
                 zone2_width=6.0,
                 zone3_width=5.0,
                 first_segment_thickness=0.8,
-                first_segment_thickness_2=0.7,
+                first_segment_thickness_2=0.8,  # Must equal first_segment_thickness
             )
             mock_sequencer.return_value = [1.0, 15.0, 29.0]  # Positions near edges
             mock_get_geom.return_value = mock_bridge_geom
@@ -1743,8 +1743,8 @@ class TestLoadBoundaryCompliance:
                 zone1_width=8.0,
                 zone2_width=4.0,
                 zone3_width=8.0,
-                first_segment_thickness=1.0,
-                first_segment_thickness_2=0.9,
+            first_segment_thickness=1.0,
+            first_segment_thickness_2=1.0,  # Must equal first_segment_thickness
             )
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
