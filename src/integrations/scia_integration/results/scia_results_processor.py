@@ -423,6 +423,104 @@ def _map_cs_section_to_zone(
     return f"{zone_type}-{segment_number}"
 
 
+
+def _prepare_basis_dataframe(df_basis: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare basis DataFrame with required columns.
+
+    :param df_basis: Raw basis DataFrame
+    :type df_basis: pd.DataFrame
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, and shear forces
+    :rtype: pd.DataFrame
+    """
+    if not df_basis.empty and "coords_xyz" in df_basis.columns:
+        return df_basis[["Naam", "coords_xyz", "Belasting", "v_x", "v_y"]].copy()
+    return pd.DataFrame()
+
+
+def _prepare_elementaire_dataframe(df_elementaire: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare elementaire DataFrame with required columns.
+
+    :param df_elementaire: Raw elementaire DataFrame
+    :type df_elementaire: pd.DataFrame
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, moments, and normal forces
+    :rtype: pd.DataFrame
+    """
+    if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
+        elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+        elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
+        return df_elementaire[elementaire_cols_present].copy()
+    return pd.DataFrame()
+
+
+def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_merge: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge basis and elementaire DataFrames on (Naam, coords_xyz, Belasting).
+
+    :param df_basis_merge: Prepared basis DataFrame
+    :type df_basis_merge: pd.DataFrame
+    :param df_elementaire_merge: Prepared elementaire DataFrame
+    :type df_elementaire_merge: pd.DataFrame
+    :returns: Merged DataFrame
+    :rtype: pd.DataFrame
+    """
+    if not df_basis_merge.empty and not df_elementaire_merge.empty:
+        return df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
+    if not df_basis_merge.empty:
+        return df_basis_merge.copy()
+    if not df_elementaire_merge.empty:
+        return df_elementaire_merge.copy()
+    return pd.DataFrame()
+
+
+def _extract_max_force_rows(df_combined: pd.DataFrame, force_columns: list[str]) -> list[pd.Series]:  # type: ignore[type-arg]
+    """
+    Extract rows with maximum absolute values for each force column.
+
+    :param df_combined: Combined DataFrame with all forces
+    :type df_combined: pd.DataFrame
+    :param force_columns: List of force column names
+    :type force_columns: list[str]
+    :returns: List of rows representing max values
+    :rtype: list[pd.Series]
+    """
+    result_rows: list[pd.Series] = []  # type: ignore[type-arg]
+    for (name, coords_xyz), group in df_combined.groupby(["name", "coords_xyz"]):
+        for force_col in force_columns:
+            if force_col in group.columns:
+                abs_max_idx = group[force_col].abs().idxmax()
+                if pd.notna(abs_max_idx):
+                    max_row = group.loc[abs_max_idx].copy()
+                    max_row["max_for_column"] = force_col
+                    result_rows.append(max_row)  # type: ignore[arg-type]
+    return result_rows
+
+
+def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None) -> pd.DataFrame:
+    """
+    Add zone mapping to the result DataFrame.
+
+    :param df_result: Result DataFrame
+    :type df_result: pd.DataFrame
+    :param bridge_segments: Optional list of bridge segment objects
+    :type bridge_segments: list[Any] | None
+    :returns: DataFrame with zone column added
+    :rtype: pd.DataFrame
+    """
+    if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
+        try:
+            df_result["zone"] = df_result.apply(
+                lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
+            )
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
+            df_result["zone"] = "mapping-failed"
+    return df_result
+
+
 def _process_single_cs_result_table(
     selected_data_scia_cs: dict[str, Any], selected_table: str, bridge_segments: list[Any] | None = None
 ) -> pd.DataFrame:
@@ -455,39 +553,16 @@ def _process_single_cs_result_table(
     if df_elementaire.empty and df_basis.empty:
         return pd.DataFrame()
 
-    # Step 1: coords_xyz already merged (done in _process_cs_selected_result_tables)
+    # Prepare and merge dataframes
+    df_basis_merge = _prepare_basis_dataframe(df_basis)
+    df_elementaire_merge = _prepare_elementaire_dataframe(df_elementaire)
+    df_combined = _merge_basis_and_elementaire(df_basis_merge, df_elementaire_merge)
 
-    # Step 2: Combine basis and elementaire tables based on (Naam, coords_xyz, Belasting)
-    # Prepare basis DataFrame with required columns
-    if not df_basis.empty and "coords_xyz" in df_basis.columns:
-        # Keep name, coords_xyz, belasting, and shear force columns
-        df_basis_merge = df_basis[["Naam", "coords_xyz", "Belasting", "v_x", "v_y"]].copy()
-    else:
-        df_basis_merge = pd.DataFrame()
-
-    # Prepare elementaire DataFrame with required columns
-    if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
-        # Keep name, coords_xyz, belasting, moments, and normal forces
-        elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
-        # Only use columns that exist
-        elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
-        df_elementaire_merge = df_elementaire[elementaire_cols_present].copy()
-    else:
-        df_elementaire_merge = pd.DataFrame()
-
-    # Merge basis and elementaire on (Naam, coords_xyz, Belasting)
-    if not df_basis_merge.empty and not df_elementaire_merge.empty:
-        # Perform merge
-        df_combined = pd.merge(df_basis_merge, df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
-    elif not df_basis_merge.empty:
-        df_combined = df_basis_merge.copy()
-    elif not df_elementaire_merge.empty:
-        df_combined = df_elementaire_merge.copy()
-    else:
+    if df_combined.empty:
         return pd.DataFrame()
 
-    # Rename Naam to name and Belasting to belasting for consistency
-    df_combined.rename(columns={"Naam": "name", "Belasting": "belasting"}, inplace=True)
+    # Rename columns for consistency
+    df_combined = df_combined.rename(columns={"Naam": "name", "Belasting": "belasting"})
 
     # Convert force columns to numeric
     force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
@@ -496,49 +571,18 @@ def _process_single_cs_result_table(
             df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
 
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
-    # CS sections have duplicate data at two coordinates (start and end of section line)
-    # Group by name and keep only the first coords_xyz for each name
     df_combined = (
         df_combined.groupby("name", as_index=False, group_keys=False)
         .apply(lambda group: group[group["coords_xyz"] == group["coords_xyz"].iloc[0]])
         .reset_index(drop=True)
     )
 
-    # Step 3: For each unique (name, coords_xyz), find rows with absolute max values
-    # for each of the 8 force/moment columns
-    result_rows = []
+    # Extract rows with max absolute values
+    result_rows = _extract_max_force_rows(df_combined, force_columns)
+    df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
 
-    # Group by (name, coords_xyz)
-    for (name, coords_xyz), group in df_combined.groupby(["name", "coords_xyz"]):
-        # For each force column, find the row with max absolute value
-        for force_col in force_columns:
-            if force_col in group.columns:
-                # Find index of max absolute value
-                abs_max_idx = group[force_col].abs().idxmax()
-                if pd.notna(abs_max_idx):
-                    max_row = group.loc[abs_max_idx].copy()
-                    # Add a column to indicate which force this row represents
-                    max_row["max_for_column"] = force_col
-                    result_rows.append(max_row)
-
-    # Create final DataFrame from result rows
-    if result_rows:
-        df_result = pd.DataFrame(result_rows)
-    else:
-        df_result = pd.DataFrame()
-
-    # Add zone mapping if bridge_segments are provided
-    if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
-        try:
-            df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
-        except Exception:
-            # If zone mapping fails, add a column with error message
-            import traceback
-
-            traceback.print_exc()
-            df_result["zone"] = "mapping-failed"
-
-    return df_result
+    # Add zone mapping if bridge_segments are provided and return
+    return _add_zone_mapping(df_result, bridge_segments)
 
 
 def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:
@@ -587,6 +631,75 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     return results_cs
 
 
+
+def _combine_uls_and_sls_dataframes(df_uls: pd.DataFrame, df_sls_freq: pd.DataFrame) -> pd.DataFrame:
+    """
+    Combine ULS and SLS freq DataFrames with result_type labels.
+
+    :param df_uls: ULS DataFrame
+    :type df_uls: pd.DataFrame
+    :param df_sls_freq: SLS freq DataFrame
+    :type df_sls_freq: pd.DataFrame
+    :returns: Combined DataFrame with result_type column
+    :rtype: pd.DataFrame
+    """
+    combined_dfs = []
+
+    if not df_uls.empty:
+        df_uls_copy = df_uls.copy()
+        df_uls_copy["result_type"] = "ULS"
+        combined_dfs.append(df_uls_copy)
+
+    if not df_sls_freq.empty:
+        df_sls_copy = df_sls_freq.copy()
+        df_sls_copy["result_type"] = "SLS freq"
+        combined_dfs.append(df_sls_copy)
+
+    if not combined_dfs:
+        return pd.DataFrame()
+
+    return pd.concat(combined_dfs, ignore_index=True)
+
+
+def _extract_envelope_for_zone_and_type(
+    df_combined: pd.DataFrame, zone: str, result_type: str, force_columns: list[str], seen_combinations: set
+) -> list[pd.Series]:  # type: ignore[type-arg]
+    """
+    Extract envelope rows for a specific zone and result type.
+
+    :param df_combined: Combined DataFrame with all data
+    :type df_combined: pd.DataFrame
+    :param zone: Zone identifier
+    :type zone: str
+    :param result_type: Result type (ULS or SLS freq)
+    :type result_type: str
+    :param force_columns: List of force column names
+    :type force_columns: list[str]
+    :param seen_combinations: Set of already seen combinations to avoid duplicates
+    :type seen_combinations: set
+    :returns: List of envelope rows
+    :rtype: list[pd.Series]
+    """
+    envelope_rows: list[pd.Series] = []  # type: ignore[type-arg]
+    zone_type_data = df_combined[(df_combined["zone"] == zone) & (df_combined["result_type"] == result_type)]
+
+    if zone_type_data.empty:
+        return envelope_rows
+
+    for force_col in force_columns:
+        if force_col in zone_type_data.columns:
+            abs_max_idx = zone_type_data[force_col].abs().idxmax()
+            if pd.notna(abs_max_idx):
+                combination_key = (zone, result_type, force_col, abs_max_idx)
+                if combination_key not in seen_combinations:
+                    seen_combinations.add(combination_key)
+                    row = zone_type_data.loc[abs_max_idx].copy()
+                    row["max_for_column"] = force_col
+                    envelope_rows.append(row)  # type: ignore[arg-type]
+
+    return envelope_rows
+
+
 def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> pd.DataFrame:
     """
     Extract force envelopes from CS (Cross Section) results for ULS and SLS freq combined.
@@ -609,27 +722,11 @@ def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[An
     df_uls = cs_results.get("ULS", pd.DataFrame())
     df_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
 
-    # Check if we have zone column and data
-    if df_uls.empty and df_sls_freq.empty:
-        return pd.DataFrame()
-
     # Combine ULS and SLS freq tables
-    combined_dfs = []
+    df_combined = _combine_uls_and_sls_dataframes(df_uls, df_sls_freq)
 
-    if not df_uls.empty:
-        df_uls_copy = df_uls.copy()
-        df_uls_copy["result_type"] = "ULS"
-        combined_dfs.append(df_uls_copy)
-
-    if not df_sls_freq.empty:
-        df_sls_copy = df_sls_freq.copy()
-        df_sls_copy["result_type"] = "SLS freq"
-        combined_dfs.append(df_sls_copy)
-
-    if not combined_dfs:
+    if df_combined.empty:
         return pd.DataFrame()
-
-    df_combined = pd.concat(combined_dfs, ignore_index=True)
 
     # Check if zone column exists
     if "zone" not in df_combined.columns:
@@ -638,41 +735,19 @@ def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[An
     # Force columns to find max absolute values for
     force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
 
-    # For each unique combination of (zone, result_type), find rows with max absolute values
-    envelope_rows = []
-    seen_combinations = set()  # Track (zone, result_type, force_col, index) to avoid duplicates
+    # Extract envelope rows for all zones and result types
+    envelope_rows: list[pd.Series] = []  # type: ignore[type-arg]
+    seen_combinations: set = set()
 
     for zone in sorted(df_combined["zone"].unique()):
         for result_type in ["ULS", "SLS freq"]:
-            # Filter data for this zone and result type
-            zone_type_data = df_combined[(df_combined["zone"] == zone) & (df_combined["result_type"] == result_type)]
+            zone_envelope = _extract_envelope_for_zone_and_type(df_combined, zone, result_type, force_columns, seen_combinations)
+            envelope_rows.extend(zone_envelope)
 
-            if zone_type_data.empty:
-                continue
-
-            # For each force column, find the row with max absolute value
-            for force_col in force_columns:
-                if force_col in zone_type_data.columns:
-                    # Find index of max absolute value
-                    abs_max_idx = zone_type_data[force_col].abs().idxmax()
-                    if pd.notna(abs_max_idx):
-                        # Create unique key for this combination
-                        combination_key = (zone, result_type, force_col, abs_max_idx)
-
-                        # Only add if we haven't seen this exact combination
-                        if combination_key not in seen_combinations:
-                            seen_combinations.add(combination_key)
-                            row = zone_type_data.loc[abs_max_idx].copy()
-                            # Store which force column this row represents the max for
-                            row["max_for_column"] = force_col
-                            envelope_rows.append(row)
-
-    # Create result DataFrame and sort by zone, result_type, then by max_for_column
+    # Create result DataFrame and sort
     if envelope_rows:
         df_envelope = pd.DataFrame(envelope_rows)
-        # Sort by zone, result_type, and then by the force column name for consistent ordering
-        df_envelope = df_envelope.sort_values(by=["zone", "result_type", "max_for_column"]).reset_index(drop=True)
-        return df_envelope
+        return df_envelope.sort_values(by=["zone", "result_type", "max_for_column"]).reset_index(drop=True)
 
     return pd.DataFrame()
 

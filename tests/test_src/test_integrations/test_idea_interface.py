@@ -5,7 +5,7 @@ This module provides comprehensive testing for the IDEA StatiCa integration,
 including model creation, parameter extraction, and analysis functionality.
 
 Key test coverage:
-- _apply_node_loads_to_slabs function: Tests the application of SCIA analysis results
+- _apply_cs_loads_to_slabs function: Tests the application of SCIA analysis results
   to IDEA slab models, including proper force/moment assignment, error handling
   for edge cases, and correct formatting of load descriptions.
 """
@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from src.integrations.idea_integration.idea_interface import _apply_node_loads_to_slabs
+from src.integrations.idea_integration.idea_interface import _apply_cs_loads_to_slabs
 
 # Mock the problematic imports to avoid circular import issues
 sys.modules["app.bridge.parametrization"] = MagicMock()
@@ -26,7 +26,7 @@ sys.modules["app.bridge.analysis_cache"] = MagicMock()
 
 class TestApplyLoadsToSlabs:
     """
-    Test cases for the _apply_node_loads_to_slabs function.
+    Test cases for the _apply_cs_loads_to_slabs function.
 
     This function applies load cases from SCIA results to IDEA slab models.
     It processes loads for both longitudinal ("langs") and transverse ("dwars")
@@ -113,7 +113,7 @@ class TestApplyLoadsToSlabs:
         mock_slab_langs: MagicMock,  # noqa: ARG002
         mock_slab_dwars: MagicMock,  # noqa: ARG002
     ) -> None:
-        """Test basic functionality of _apply_node_loads_to_slabs."""
+        """Test basic functionality of _apply_cs_loads_to_slabs."""
         # Configure mock builder with proper return values
         mock_loading_sls = MagicMock()
         mock_loading_uls = MagicMock()
@@ -126,7 +126,7 @@ class TestApplyLoadsToSlabs:
         mock_builder.create_extreme_on_slab = MagicMock()
 
         # Execute the function
-        _apply_node_loads_to_slabs(sample_created_slabs, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(sample_created_slabs, sample_scia_dataframe, mock_builder)
 
         # Verify that create_extreme_on_slab was called on builder for each matching zone
         # CS_d0.2_1: zones ["1-1", "1-2"] → 2 zones × 2 directions = 4 calls
@@ -138,7 +138,7 @@ class TestApplyLoadsToSlabs:
         assert mock_builder.create_extreme_on_slab.call_count == expected_calls
 
     def test_apply_loads_with_empty_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_node_loads_to_slabs with empty zones."""
+        """Test _apply_cs_loads_to_slabs with empty zones."""
         created_slabs_empty_zones: dict[str, dict[str, Any]] = {
             "CS_d0.2_1": {
                 "zones": [],  # Empty zones
@@ -149,13 +149,13 @@ class TestApplyLoadsToSlabs:
 
         # Execute the function with mock builder
         mock_builder = MagicMock()
-        _apply_node_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs_empty_zones, sample_scia_dataframe, mock_builder)
 
         # Verify no create_extreme_on_slab calls were made
         assert mock_builder.create_extreme_on_slab.call_count == 0
 
     def test_apply_loads_with_missing_slab_direction(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_node_loads_to_slabs with missing slab direction."""
+        """Test _apply_cs_loads_to_slabs with missing slab direction."""
         mock_slab_langs = MagicMock()
         created_slabs_missing_direction: dict[str, dict[str, Any]] = {
             "CS_d0.2_1": {
@@ -167,7 +167,7 @@ class TestApplyLoadsToSlabs:
 
         # Execute the function - should not raise an error with mock builder
         mock_builder = MagicMock()
-        _apply_node_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe, mock_builder)
 
         # Verify only one direction was processed (1 zone × 1 direction = 1 call)
         assert mock_builder.create_extreme_on_slab.call_count == 1
@@ -177,7 +177,7 @@ class TestApplyLoadsToSlabs:
         assert call_args[0][0] == mock_slab_langs  # First positional arg is the slab
 
     def test_apply_loads_with_nonexistent_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_node_loads_to_slabs with zones not present in SCIA dataframe."""
+        """Test _apply_cs_loads_to_slabs with zones not present in SCIA dataframe."""
         mock_slab = MagicMock()
         created_slabs_nonexistent_zones = {
             "CS_d0.2_1": {
@@ -189,13 +189,13 @@ class TestApplyLoadsToSlabs:
 
         # Execute the function with mock builder
         mock_builder = MagicMock()
-        _apply_node_loads_to_slabs(created_slabs_nonexistent_zones, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs_nonexistent_zones, sample_scia_dataframe, mock_builder)
 
         # Verify no create_extreme_on_slab calls were made
         assert mock_builder.create_extreme_on_slab.call_count == 0
 
     def test_apply_loads_with_none_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
-        """Test _apply_node_loads_to_slabs with None zones."""
+        """Test _apply_cs_loads_to_slabs with None zones."""
         mock_slab = MagicMock()
         created_slabs_none_zones = {
             "CS_d0.2_1": {
@@ -207,7 +207,7 @@ class TestApplyLoadsToSlabs:
 
         # Execute the function with mock builder
         mock_builder = MagicMock()
-        _apply_node_loads_to_slabs(created_slabs_none_zones, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs_none_zones, sample_scia_dataframe, mock_builder)
 
         # Verify no create_extreme_on_slab calls were made
         assert mock_builder.create_extreme_on_slab.call_count == 0
@@ -240,7 +240,7 @@ class TestApplyLoadsToSlabs:
         mock_builder.create_extreme_on_slab = MagicMock()
 
         # Execute the function
-        _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs, sample_scia_dataframe, mock_builder)
 
         # Check that create_result_of_internal_forces was called with correct parameters
         # For 'langs' direction: uses y-axis forces and My moments
@@ -255,7 +255,7 @@ class TestApplyLoadsToSlabs:
         assert mock_builder.create_extreme_on_slab.call_count == 2
 
     def test_apply_loads_with_missing_dataframe_columns(self) -> None:
-        """Test _apply_node_loads_to_slabs with missing columns in dataframe."""
+        """Test _apply_cs_loads_to_slabs with missing columns in dataframe."""
         incomplete_dataframe = pd.DataFrame(
             {
                 "name": ["1-1"],
@@ -275,7 +275,7 @@ class TestApplyLoadsToSlabs:
 
         # Execute the function - should handle missing columns gracefully with mock builder
         mock_builder = MagicMock()
-        _apply_node_loads_to_slabs(created_slabs, incomplete_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs, incomplete_dataframe, mock_builder)
 
         # Function should still execute but with default values (0) for missing columns
         # One zone × 2 directions = 2 calls to create_extreme_on_slab
@@ -297,7 +297,7 @@ class TestApplyLoadsToSlabs:
 
         # Execute the function with mock builder
         mock_builder = MagicMock()
-        _apply_node_loads_to_slabs(created_slabs, sample_scia_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs, sample_scia_dataframe, mock_builder)
 
         # Check that create_extreme_on_slab was called with proper description formatting
         calls = mock_builder.create_extreme_on_slab.call_args_list
@@ -313,7 +313,7 @@ class TestApplyLoadsToSlabs:
         assert "node_" in description  # node prefix
 
     def test_apply_loads_with_empty_dataframe(self) -> None:
-        """Test _apply_node_loads_to_slabs with empty SCIA dataframe."""
+        """Test _apply_cs_loads_to_slabs with empty SCIA dataframe."""
         empty_dataframe = pd.DataFrame()
 
         mock_slab = MagicMock()
@@ -329,7 +329,7 @@ class TestApplyLoadsToSlabs:
 
         # The function should handle empty dataframes gracefully
         # It returns early when df_all.empty is True
-        _apply_node_loads_to_slabs(created_slabs, empty_dataframe, mock_builder)
+        _apply_cs_loads_to_slabs(created_slabs, empty_dataframe, mock_builder)
 
         # Verify that no builder methods were called (since we returned early)
         mock_builder.create_result_of_internal_forces.assert_not_called()
@@ -339,3 +339,4 @@ class TestApplyLoadsToSlabs:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+

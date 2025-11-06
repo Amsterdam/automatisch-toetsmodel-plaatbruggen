@@ -484,21 +484,21 @@ def _process_scia_cs_results_for_idea_input(
         return pd.DataFrame()
 
     # Add Mx and My columns - select value with maximum absolute magnitude while preserving sign
-    df = scia_envelope_df.copy()
+    df_processed = scia_envelope_df.copy()
 
-    if all(col in df.columns for col in ["m_xD+_max", "m_xD-_max"]):
-        df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+    if all(col in df_processed.columns for col in ["m_xD+_max", "m_xD-_max"]):
+        df_processed["Mx"] = df_processed[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
-    if all(col in df.columns for col in ["m_yD+_max", "m_yD-_max"]):
-        df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
+    if all(col in df_processed.columns for col in ["m_yD+_max", "m_yD-_max"]):
+        df_processed["My"] = df_processed[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
     # Add normal force columns (Nx, Ny) if present
-    if "n_xD_max" in df.columns:
-        df["Nx"] = df["n_xD_max"]
-    if "n_yD_max" in df.columns:
-        df["Ny"] = df["n_yD_max"]
+    if "n_xD_max" in df_processed.columns:
+        df_processed["Nx"] = df_processed["n_xD_max"]
+    if "n_yD_max" in df_processed.columns:
+        df_processed["Ny"] = df_processed["n_yD_max"]
 
-    return df
+    return df_processed
 
 
 def _apply_cs_loads_to_slabs(  # noqa: C901
@@ -693,7 +693,10 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
         df_cs_envelope = scia_results_dict["cs_envelope"]
     else:
         # Process SCIA results to get envelope DataFrame
-        df_cs_envelope = process_scia_cs_results_for_idea(scia_results_dict.get("results", {}), input_data.bridge_segments)
+        # Get the results dict, ensuring it's a dict type
+        results_data_raw: pd.DataFrame | dict[str, Any] = scia_results_dict.get("results", {})
+        results_data: dict[str, Any] = results_data_raw if isinstance(results_data_raw, dict) else {}
+        df_cs_envelope = process_scia_cs_results_for_idea(results_data, input_data.bridge_segments)
 
     # Process the envelope DataFrame for IDEA input (merges ULS and SLS freq)
     df_cs_all = _process_scia_cs_results_for_idea_input(df_cs_envelope)
