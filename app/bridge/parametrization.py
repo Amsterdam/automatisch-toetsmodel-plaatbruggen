@@ -445,36 +445,6 @@ def _get_bridge_type_based_on_supports(params: Mapping, **kwargs) -> str:  # noq
     return "Statisch onbepaald"
 
 
-def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: ARG001
-    """
-    Check if the first and last sections in the bridge dimensions array are supports.
-
-    :param params: Parameters containing bridge_segments_array
-    :type params: Mapping
-    :param **kwargs: Additional keyword arguments (unused).
-
-    :returns: Status message indicating whether first and last sections are supports (with colored symbols)
-    :rtype: str
-    """
-    try:
-        segments = params.bridge_segments_array
-        if not segments or len(segments) < 2:
-            return "🔴 Onvoldoende segmenten gedefinieerd"
-
-        first_support = segments[0].is_support
-        last_support = segments[-1].is_support
-
-        first_is_support = first_support != "Nee"
-        last_is_support = last_support != "Nee"
-
-        if first_is_support and last_is_support:
-            return f"🟢 Eerste en laatste sectie zijn beide opleggingen ({first_support} / {last_support})"
-        return "🔴 Eerste en laatste sectie zijn geen opleggingen"  # noqa: TRY300
-
-    except (AttributeError, IndexError):
-        return "🔴 Fout bij ophalen opleggingsgegevens"
-
-
 # ----------------------------------
 # --- Main Parametrization Class ---
 # ----------------------------------
@@ -836,13 +806,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     input.dimensions.array.is_support = OptionField(
         "Oplegging", options=["Nee", "Verende oplegging (x,y)", "Inklemming"], default="Nee", description="Type oplegging op deze locatie"
-    )
-
-    input.dimensions.support_check_output = OutputField(
-        "### Controle eerste en laatste oplegging:",
-        value=_check_first_and_last_supports,
-        description="Controleert of de eerste en laatste sectie in de brugdimensies een oplegging heeft",
-        flex=100,
     )
 
     input.dimensions.bridge_type_output = OutputField(

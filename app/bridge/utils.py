@@ -191,13 +191,13 @@ def _validate_first_and_last_supports(params: BridgeParametrization, **kwargs) -
     """
     Validate that the first and last sections in the bridge dimensions array are supports.
 
-    Raises UserError if either the first or last section is not a support.
+    Raises UserError with InputViolations marking the specific is_support fields if validation fails.
 
     :param params: Parameters containing bridge_segments_array
-    :type params: Mapping
+    :type params: BridgeParametrization
     :param **kwargs: Additional keyword arguments (unused).
 
-    :raises UserError: If first or last section is not a support
+    :raises UserError: If first or last section is not a support, with InputViolations marking the invalid fields
     :rtype: None
     """
     try:
@@ -213,18 +213,34 @@ def _validate_first_and_last_supports(params: BridgeParametrization, **kwargs) -
         first_is_support = first_support != "Nee"
         last_is_support = last_support != "Nee"
 
-        if not first_is_support and not last_is_support:
-            raise UserError(  # noqa: TRY301
-                "De eerste en laatste sectie moeten beide een oplegging hebben. Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
-            )
+        violations = []
+        error_parts = []
+
         if not first_is_support:
-            raise UserError(  # noqa: TRY301
-                "De eerste sectie (D-0) moet een oplegging hebben. Selecteer een opleggingstype bij de eerste sectie.",
+            violations.append(
+                InputViolation(
+                    "De eerste sectie (D-0) moet een oplegging hebben.",
+                    fields=["input.dimensions.array[0].is_support"],
+                )
             )
+            error_parts.append("eerste sectie (D-0)")
+
         if not last_is_support:
-            raise UserError(  # noqa: TRY301
-                f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. Selecteer een opleggingstype bij de laatste sectie.",
+            last_idx = len(segments) - 1
+            violations.append(
+                InputViolation(
+                    f"De laatste sectie (D-{last_idx}) moet een oplegging hebben.",
+                    fields=[f"input.dimensions.array[{last_idx}].is_support"],
+                )
             )
+            error_parts.append(f"laatste sectie (D-{last_idx})")
+
+        if violations:
+            if len(error_parts) == 2:
+                error_message = f"De {error_parts[0]} en {error_parts[1]} moeten beide een oplegging hebben."
+            else:
+                error_message = f"De {error_parts[0]} moet een oplegging hebben."
+            raise UserError(error_message, input_violations=violations)
 
     except UserError:
         raise
