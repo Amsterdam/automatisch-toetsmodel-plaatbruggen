@@ -1107,20 +1107,20 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
     # Create slabs with reinforcement using builder
     created_slabs = _create_slabs_with_reinforcement(input_data, model, cs_mat, mat_reinf, builder)
 
-    # Process SCIA node results for idea input
-    df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
-    # Apply node loads to slabs using builder
-    _apply_node_loads_to_slabs(created_slabs, df_node_all, builder)
+    # # Process SCIA node results for idea input
+    # df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
+    # # Apply node loads to slabs using builder
+    # _apply_node_loads_to_slabs(created_slabs, df_node_all, builder)
 
     # Process SCIA CS (Cross Section) results for idea input
     df_cs_all = _process_scia_cs_results_for_idea_input(scia_results_dict)
     # Apply CS loads to slabs using builder
     _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
 
-    # Process SCIA integration strip results for idea input
-    df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
-    # Apply integration strip loads to slabs using builder
-    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all, builder)
+    # # Process SCIA integration strip results for idea input
+    # df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
+    # # Apply integration strip loads to slabs using builder
+    # _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all, builder)
 
     return model
 

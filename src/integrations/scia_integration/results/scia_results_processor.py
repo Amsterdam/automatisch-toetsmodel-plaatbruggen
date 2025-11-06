@@ -255,10 +255,19 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
     # Read "basis grootheden" CS table
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
     basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
+    
+    # If not found with p1, try p0 (nodes)
+    if basis_data is None:
+        basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
 
     # Read "elementaire ontwerpgrootheden" CS table
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
     elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
+    
+    # If not found with p1, try p0 (nodes)
+    if elementaire_data is None:
+        elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
+    
     return basis_data, elementaire_data
 
 
@@ -305,8 +314,12 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
     # Read the selected CS data from the "results" into a new dict
     for selected_table in selected_result_tables:
         basis_data, elementaire_data = find_2d_force_tables_cs(results, selected_table)
-        selected_data_scia_cs[CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)] = basis_data
-        selected_data_scia_cs[CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)] = elementaire_data
+        
+        basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)
+        elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)
+        
+        selected_data_scia_cs[basis_table_name] = basis_data
+        selected_data_scia_cs[elementaire_table_name] = elementaire_data
 
     # Merge x, y, z into coords_xyz for CS force tables
     for key, data in selected_data_scia_cs.items():
@@ -419,84 +432,121 @@ def _process_single_cs_result_table(
     """
     Process a single CS result table and return the processed DataFrame.
 
-    For each unique (Name, Coordinates) combination, finds the absolute maximum values
-    of force/moment columns (v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-).
-
-    Optionally adds zone identification if bridge_segments are provided, and removes
-    duplicate rows where (name, zone) combinations have identical force/moment values.
-    This handles cases where SCIA reports the same force values at different Y-coordinates
-    within the same zone (e.g., different positions across the width).
+    New processing logic:
+    1. Merge x,y,z into coords_xyz (already done)
+    2. Combine basis and elementaire tables based on (name, coords_xyz, belasting)
+    3. For each unique (name, coords_xyz), find rows with max absolute values
+       for v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-, n_xD, n_yD (8 rows per unique combination)
 
     :param selected_data_scia_cs: Dictionary with CS table data
     :type selected_data_scia_cs: dict[str, Any]
-    :param selected_table: Table type (e.g., "ULS")
+    :param selected_table: Table type (e.g., "ULS", "SLS freq")
     :type selected_table: str
     :param bridge_segments: Optional list of bridge segment objects (VIKTOR Munch or Pydantic).
                            Each segment needs: l/segment_length (length), bz1, bz2, bz3 (widths)
     :type bridge_segments: list[Any] | None
-    :returns: Processed DataFrame with unique (name, coordinates) combinations and max absolute force values
+    :returns: Processed DataFrame with filtered rows (8 per unique name+coords combination)
     :rtype: pd.DataFrame
     """
     elementaire_ontwerpgrootheden = selected_data_scia_cs.get(CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table), None)
     basis_grootheden = selected_data_scia_cs.get(CS_BASIS_TABLE_PATTERN.format(table_type=selected_table), None)
 
-    # Convert elementaire_ontwerpgrootheden and basis_grootheden to DataFrames
+    # Convert to DataFrames
     df_elementaire = pd.DataFrame(elementaire_ontwerpgrootheden) if elementaire_ontwerpgrootheden is not None else pd.DataFrame()
     df_basis = pd.DataFrame(basis_grootheden) if basis_grootheden is not None else pd.DataFrame()
 
-    # Create a DataFrame containing all unique (name, coords_xyz) combinations from both DataFrames
-    unique_coords_df = get_unique_coords_xyz_dataframe(df_elementaire, df_basis)
+    if df_elementaire.empty and df_basis.empty:
+        return pd.DataFrame()
 
-    if unique_coords_df.empty:
-        return unique_coords_df
+    # Step 1: coords_xyz already merged (done in _process_cs_selected_result_tables)
 
-    # CS tables have different columns than regular 2D tables
-    # Basis columns: v_x, v_y (shear forces) - same as regular 2D
-    # Elementaire columns: m_xD+, m_xD-, m_yD+, m_yD- (moments) - same as regular 2D
-    elementaire_columns = list(CS_MOMENT_COLUMNS)
-    basis_columns = list(CS_SHEAR_FORCE_COLUMNS)
+    # Step 2: Combine basis and elementaire tables based on (Naam, coords_xyz, Belasting)
+    # Prepare basis DataFrame with required columns
+    if not df_basis.empty and "coords_xyz" in df_basis.columns:
+        # Keep name, coords_xyz, belasting, and shear force columns
+        df_basis_merge = df_basis[["Naam", "coords_xyz", "Belasting", "v_x", "v_y"]].copy()
+    else:
+        df_basis_merge = pd.DataFrame()
 
-    # Create lookup dictionaries for faster (name, coordinate)-based access
-    _, elementaire_lookup = _create_lookup_dictionaries(df_elementaire, elementaire_columns)
-    _, basis_lookup = _create_lookup_dictionaries(df_basis, basis_columns)
+    # Prepare elementaire DataFrame with required columns
+    if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
+        # Keep name, coords_xyz, belasting, moments, and normal forces
+        elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+        # Only use columns that exist
+        elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
+        df_elementaire_merge = df_elementaire[elementaire_cols_present].copy()
+    else:
+        df_elementaire_merge = pd.DataFrame()
 
-    # Populate force values from basis lookup (shear forces)
-    for orig_col in basis_columns:
-        if orig_col in basis_lookup:
-            _populate_force_values_from_lookup(unique_coords_df, basis_lookup[orig_col], orig_col)
+    # Merge basis and elementaire on (Naam, coords_xyz, Belasting)
+    if not df_basis_merge.empty and not df_elementaire_merge.empty:
+        # Perform merge
+        df_combined = pd.merge(
+            df_basis_merge,
+            df_elementaire_merge,
+            on=["Naam", "coords_xyz", "Belasting"],
+            how="outer"
+        )
+    elif not df_basis_merge.empty:
+        df_combined = df_basis_merge.copy()
+    elif not df_elementaire_merge.empty:
+        df_combined = df_elementaire_merge.copy()
+    else:
+        return pd.DataFrame()
 
-    # Populate moment values from elementaire lookup
-    for orig_col in elementaire_columns:
-        if orig_col in elementaire_lookup:
-            _populate_force_values_from_lookup(unique_coords_df, elementaire_lookup[orig_col], orig_col)
+    # Rename Naam to name and Belasting to belasting for consistency
+    df_combined.rename(columns={"Naam": "name", "Belasting": "belasting"}, inplace=True)
+
+    # Convert force columns to numeric
+    force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+    for col in force_columns:
+        if col in df_combined.columns:
+            df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
+
+    # DEDUPLICATION: For each CS name, keep only the first unique coordinate
+    # CS sections have duplicate data at two coordinates (start and end of section line)
+    # Group by name and keep only the first coords_xyz for each name
+    df_combined = df_combined.groupby("name", as_index=False, group_keys=False).apply(
+        lambda group: group[group["coords_xyz"] == group["coords_xyz"].iloc[0]]
+    ).reset_index(drop=True)
+
+    # Step 3: For each unique (name, coords_xyz), find rows with absolute max values
+    # for each of the 8 force/moment columns
+    result_rows = []
+
+    # Group by (name, coords_xyz)
+    for (name, coords_xyz), group in df_combined.groupby(["name", "coords_xyz"]):
+        # For each force column, find the row with max absolute value
+        for force_col in force_columns:
+            if force_col in group.columns:
+                # Find index of max absolute value
+                abs_max_idx = group[force_col].abs().idxmax()
+                if pd.notna(abs_max_idx):
+                    max_row = group.loc[abs_max_idx].copy()
+                    # Add a column to indicate which force this row represents
+                    max_row["max_for_column"] = force_col
+                    result_rows.append(max_row)
+
+    # Create final DataFrame from result rows
+    if result_rows:
+        df_result = pd.DataFrame(result_rows)
+    else:
+        df_result = pd.DataFrame()
 
     # Add zone mapping if bridge_segments are provided
-    if bridge_segments and len(bridge_segments) > 0:
+    if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
         try:
-            unique_coords_df["zone"] = unique_coords_df.apply(
+            df_result["zone"] = df_result.apply(
                 lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
             )
-
-            # --- Deduplication: Remove duplicate (name, zone) combinations with identical force values ---
-            # Define force/moment columns to check for duplicates
-            force_columns = list(CS_FORCE_MOMENT_COLUMNS)
-            # Only use columns that actually exist in the DataFrame
-            force_columns_present = [col for col in force_columns if col in unique_coords_df.columns]
-
-            if force_columns_present:
-                # Group by name and zone, then check for duplicate force values
-                # Keep first occurrence of each unique (name, zone, force_values) combination
-                dedup_columns = ["name", "zone", *force_columns_present]
-                unique_coords_df = unique_coords_df.drop_duplicates(subset=dedup_columns, keep="first")
-
         except Exception:
             # If zone mapping fails, add a column with error message
             import traceback
 
             traceback.print_exc()
-            unique_coords_df["zone"] = "mapping-failed"
+            df_result["zone"] = "mapping-failed"
 
-    return unique_coords_df
+    return df_result
 
 
 def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:
@@ -510,6 +560,8 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     CS tables contain:
     - v_x, v_y: Shear forces (from basis table)
     - m_xD+, m_xD-, m_yD+, m_yD-: Moments (from elementaire table)
+    - n_xD, n_yD: Normal forces (from elementaire table)
+    - belasting: Load case name
 
     Optionally adds zone identification if bridge_segments are provided.
 
@@ -521,8 +573,8 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     :returns: Dictionary containing DataFrames for each CS result table type
     :rtype: dict[str, pd.DataFrame]
     """
-    # Setting to read SCIA xml for CS forces
-    selected_result_tables = ["ULS", "SLS kar", "SLS freq"]
+    # Setting to read SCIA xml for CS forces - only ULS and SLS freq
+    selected_result_tables = ["ULS", "SLS freq"]
 
     # Process selected CS result tables
     selected_data_scia_cs = _process_cs_selected_result_tables(results, selected_result_tables)
@@ -541,6 +593,98 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
             _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
 
     return results_cs
+
+
+def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> pd.DataFrame:
+    """
+    Extract force envelopes from CS (Cross Section) results for ULS and SLS freq combined.
+
+    For each unique zone and result type (ULS/SLS freq), finds rows with maximum absolute values 
+    for each force component (v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-, n_xD, n_yD).
+
+    Returns a combined DataFrame sorted by zone and result type.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param bridge_segments: Optional list of bridge segment objects for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: Combined DataFrame with envelope results sorted by zone and result type
+    :rtype: pd.DataFrame
+    """
+    # Process CS results to get ULS and SLS freq DataFrames
+    cs_results = process_scia_cs_results(results, bridge_segments)
+    
+    df_uls = cs_results.get("ULS", pd.DataFrame())
+    df_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
+    
+    # Check if we have zone column and data
+    if df_uls.empty and df_sls_freq.empty:
+        return pd.DataFrame()
+    
+    # Combine ULS and SLS freq tables
+    combined_dfs = []
+    
+    if not df_uls.empty:
+        df_uls_copy = df_uls.copy()
+        df_uls_copy["result_type"] = "ULS"
+        combined_dfs.append(df_uls_copy)
+    
+    if not df_sls_freq.empty:
+        df_sls_copy = df_sls_freq.copy()
+        df_sls_copy["result_type"] = "SLS freq"
+        combined_dfs.append(df_sls_copy)
+    
+    if not combined_dfs:
+        return pd.DataFrame()
+    
+    df_combined = pd.concat(combined_dfs, ignore_index=True)
+    
+    # Check if zone column exists
+    if "zone" not in df_combined.columns:
+        return df_combined  # Return as-is if no zone mapping
+    
+    # Force columns to find max absolute values for
+    force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+    
+    # For each unique combination of (zone, result_type), find rows with max absolute values
+    envelope_rows = []
+    seen_combinations = set()  # Track (zone, result_type, force_col, index) to avoid duplicates
+    
+    for zone in sorted(df_combined["zone"].unique()):
+        for result_type in ["ULS", "SLS freq"]:
+            # Filter data for this zone and result type
+            zone_type_data = df_combined[
+                (df_combined["zone"] == zone) & (df_combined["result_type"] == result_type)
+            ]
+            
+            if zone_type_data.empty:
+                continue
+            
+            # For each force column, find the row with max absolute value
+            for force_col in force_columns:
+                if force_col in zone_type_data.columns:
+                    # Find index of max absolute value
+                    abs_max_idx = zone_type_data[force_col].abs().idxmax()
+                    if pd.notna(abs_max_idx):
+                        # Create unique key for this combination
+                        combination_key = (zone, result_type, force_col, abs_max_idx)
+                        
+                        # Only add if we haven't seen this exact combination
+                        if combination_key not in seen_combinations:
+                            seen_combinations.add(combination_key)
+                            row = zone_type_data.loc[abs_max_idx].copy()
+                            # Store which force column this row represents the max for
+                            row["max_for_column"] = force_col
+                            envelope_rows.append(row)
+    
+    # Create result DataFrame and sort by zone, result_type, then by max_for_column
+    if envelope_rows:
+        df_envelope = pd.DataFrame(envelope_rows)
+        # Sort by zone, result_type, and then by the force column name for consistent ordering
+        df_envelope = df_envelope.sort_values(by=["zone", "result_type", "max_for_column"]).reset_index(drop=True)
+        return df_envelope
+    
+    return pd.DataFrame()
 
 
 def _extract_scia_1d_table_data(results: dict[str, Any], selected_table: str) -> dict[str, Any] | None:

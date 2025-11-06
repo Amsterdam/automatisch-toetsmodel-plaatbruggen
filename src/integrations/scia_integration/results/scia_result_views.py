@@ -488,12 +488,16 @@ def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
     headers.extend(
         [
             "Coordinates",
+            "Belasting",
+            "Max For",
             "Vx (kN/m)",
             "Vy (kN/m)",
             "MxD+ (kNm/m)",
             "MxD- (kNm/m)",
             "MyD+ (kNm/m)",
             "MyD- (kNm/m)",
+            "NxD (kN/m)",
+            "NyD (kN/m)",
         ]
     )
     return headers
@@ -519,36 +523,38 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     # Create a converter for 2D elements (CS tables are cross sections on plane objects)
     converter = SciaUnitConverter("2D")
 
-    # Check if zone column exists in the DataFrame
-    has_zone_column = "zone" in processed_cs_df.columns
+    # Check if zone column exists in the DataFrame and is not empty
+    has_zone_column = "zone" in processed_cs_df.columns and not processed_cs_df.empty
 
     # Create headers with units
     headers = _get_cs_table_headers(include_zone=has_zone_column)
 
     # Check if we have any data
     if processed_cs_df.empty:
-        no_data_row = [f"Geen {result_type} data"]
-        if has_zone_column:
-            no_data_row.append("N/A")
-        no_data_row.extend(["N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"])
+        # Create a row with "No data" message plus N/A for all other columns
+        # Number of N/A values = len(headers) - 1 (for the message)
+        no_data_row = [f"Geen {result_type} data"] + ["N/A"] * (len(headers) - 1)
         return [no_data_row], headers
 
     table_data = []
 
     # Column mapping (processed DataFrame uses same column names as raw SCIA data)
-    # CS tables use lowercase with underscores: v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-
+    # CS tables use lowercase with underscores: v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-, n_xD, n_yD
 
     # Format each row
     for _, row in processed_cs_df.iterrows():
         # Get name
         name = row.get("name", "N/A")
 
-        # Get zone if available
-        zone = row.get("zone", "N/A") if has_zone_column else None
-
         # Get coordinates
         coords_xyz = row.get("coords_xyz", (0.0, 0.0, 0.0))
         coords = format_coordinates_safe(coords_xyz)
+
+        # Get belasting (load case name)
+        belasting = row.get("belasting", "N/A")
+
+        # Get which column this row represents the max for
+        max_for_column = row.get("max_for_column", "N/A")
 
         # Get force/moment values (already max absolute values from processing)
         # Use lowercase column names with underscores as in the raw SCIA data
@@ -558,6 +564,8 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         m_xd_minus = row.get("m_xD-", 0.0)
         m_yd_plus = row.get("m_yD+", 0.0)
         m_yd_minus = row.get("m_yD-", 0.0)
+        n_xd = row.get("n_xD", 0.0)
+        n_yd = row.get("n_yD", 0.0)
 
         # Format values with units (using appropriate component names for converter)
         v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
@@ -566,21 +574,45 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
         m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
         m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
+        n_xd_str = converter.format_value_with_unit(n_xd, "n_xD", decimals=2, default="N/A")
+        n_yd_str = converter.format_value_with_unit(n_yd, "n_yD", decimals=2, default="N/A")
 
-        row_data = [str(name)]
+        # Build row data - order must match headers exactly
         if has_zone_column:
-            row_data.append(str(zone))
-        row_data.extend(
-            [
+            # With zone: Name, Zone, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (13 columns)
+            zone = row.get("zone", "N/A")
+            row_data = [
+                str(name),
+                str(zone),
                 coords,
+                str(belasting),
+                str(max_for_column),
                 v_x_str,
                 v_y_str,
                 m_xd_plus_str,
                 m_xd_minus_str,
                 m_yd_plus_str,
                 m_yd_minus_str,
+                n_xd_str,
+                n_yd_str,
             ]
-        )
+        else:
+            # Without zone: Name, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (12 columns)
+            row_data = [
+                str(name),
+                coords,
+                str(belasting),
+                str(max_for_column),
+                v_x_str,
+                v_y_str,
+                m_xd_plus_str,
+                m_xd_minus_str,
+                m_yd_plus_str,
+                m_yd_minus_str,
+                n_xd_str,
+                n_yd_str,
+            ]
+        
         table_data.append(row_data)
 
     return table_data, headers
@@ -596,7 +628,7 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str, bridg
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
-    :param table_type: Type of CS table to extract ("ULS", "SLS kar", "SLS freq")
+    :param table_type: Type of CS table to extract ("ULS", "SLS freq")
     :type table_type: str
     :param bridge_segments: Optional list of bridge segments for zone mapping
     :type bridge_segments: list[Any] | None
@@ -637,7 +669,6 @@ def create_all_scia_cs_results_tables(results: dict[str, Any], bridge_segments: 
 
     Creates tables for:
     - ULS (Ultimate Limit State)
-    - SLS kar (Serviceability Limit State - characteristic)
     - SLS freq (Serviceability Limit State - frequent)
 
     :param results: SCIA analysis results dictionary
@@ -653,3 +684,145 @@ def create_all_scia_cs_results_tables(results: dict[str, Any], bridge_segments: 
         cs_tables[table_type] = create_scia_cs_results_table(results, table_type, bridge_segments=bridge_segments)
 
     return cs_tables
+
+
+def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> TableResult:
+    """
+    Create a VIKTOR TableResult for CS force envelopes (ULS and SLS freq combined).
+
+    For each unique zone, shows rows with maximum absolute values for each force component.
+    Combines ULS and SLS freq results and sorts by zone.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: TableResult with envelope data
+    :rtype: TableResult
+    """
+    from .scia_results_processor import extract_cs_force_envelopes
+    from .scia_unit_conversion import SciaUnitConverter
+
+    try:
+        # Extract force envelopes from CS results
+        df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
+
+        if df_envelope.empty:
+            return TableResult(
+                [["Geen gegevens", "Geen CS resultaten beschikbaar", "", "", "", "", "", "", "", "", "", "", "", ""]],
+                column_headers=[
+                    "Zone",
+                    "Type",
+                    "Naam",
+                    "Coördinaten",
+                    "Belasting",
+                    "Max For",
+                    "Vx (kN/m)",
+                    "Vy (kN/m)",
+                    "MxD+ (kNm/m)",
+                    "MxD- (kNm/m)",
+                    "MyD+ (kNm/m)",
+                    "MyD- (kNm/m)",
+                    "NxD (kN/m)",
+                    "NyD (kN/m)",
+                ],
+            )
+
+        # Create converter for formatting values
+        converter = SciaUnitConverter("2D")
+
+        # Build table headers
+        headers = [
+            "Zone",
+            "Type",
+            "Naam",
+            "Coördinaten",
+            "Belasting",
+            "Max For",
+            "Vx (kN/m)",
+            "Vy (kN/m)",
+            "MxD+ (kNm/m)",
+            "MxD- (kNm/m)",
+            "MyD+ (kNm/m)",
+            "MyD- (kNm/m)",
+            "NxD (kN/m)",
+            "NyD (kN/m)",
+        ]
+
+        table_data = []
+
+        # Format each row
+        for _, row in df_envelope.iterrows():
+            zone = row.get("zone", "N/A")
+            result_type = row.get("result_type", "N/A")
+            name = row.get("name", "N/A")
+            coords_xyz = row.get("coords_xyz", (0.0, 0.0, 0.0))
+            coords = format_coordinates_safe(coords_xyz)
+            belasting = row.get("belasting", "N/A")
+            max_for_column = row.get("max_for_column", "N/A")
+
+            # Get force/moment values
+            v_x = row.get("v_x", 0.0)
+            v_y = row.get("v_y", 0.0)
+            m_xd_plus = row.get("m_xD+", 0.0)
+            m_xd_minus = row.get("m_xD-", 0.0)
+            m_yd_plus = row.get("m_yD+", 0.0)
+            m_yd_minus = row.get("m_yD-", 0.0)
+            n_xd = row.get("n_xD", 0.0)
+            n_yd = row.get("n_yD", 0.0)
+
+            # Format values with units
+            v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
+            v_y_str = converter.format_value_with_unit(v_y, "v_y", decimals=2, default="N/A")
+            m_xd_plus_str = converter.format_value_with_unit(m_xd_plus, "m_xD+", decimals=2, default="N/A")
+            m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
+            m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
+            m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
+            n_xd_str = converter.format_value_with_unit(n_xd, "n_xD", decimals=2, default="N/A")
+            n_yd_str = converter.format_value_with_unit(n_yd, "n_yD", decimals=2, default="N/A")
+
+            row_data = [
+                str(zone),
+                str(result_type),
+                str(name),
+                coords,
+                str(belasting),
+                str(max_for_column),
+                v_x_str,
+                v_y_str,
+                m_xd_plus_str,
+                m_xd_minus_str,
+                m_yd_plus_str,
+                m_yd_minus_str,
+                n_xd_str,
+                n_yd_str,
+            ]
+
+            table_data.append(row_data)
+
+        return TableResult(table_data, column_headers=headers)
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        error_message = f"Fout bij verwerken CS envelopes: {str(e)[:100]}..."
+        return TableResult(
+            [["Fout", error_message, "", "", "", "", "", "", "", "", "", "", "", ""]],
+            column_headers=[
+                "Zone",
+                "Type",
+                "Naam",
+                "Coördinaten",
+                "Belasting",
+                "Max For",
+                "Vx (kN/m)",
+                "Vy (kN/m)",
+                "MxD+ (kNm/m)",
+                "MxD- (kNm/m)",
+                "MyD+ (kNm/m)",
+                "MyD- (kNm/m)",
+                "NxD (kN/m)",
+                "NyD (kN/m)",
+            ],
+        )
