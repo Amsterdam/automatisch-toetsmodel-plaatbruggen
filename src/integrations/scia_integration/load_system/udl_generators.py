@@ -14,6 +14,13 @@ from src.integrations.scia_integration.constants.geometry import (
     DEFAULT_LANE_WIDTH,
     LANE_CENTER_OFFSET_FACTOR,
 )
+from src.integrations.scia_integration.constants.load_cases import (
+    CONFIGURATION_A,
+    CONFIGURATION_B,
+    CONFIGURATION_C,
+    LANE_TITLE_PREFIX,
+    REST_AREA_TITLE_PREFIX,
+)
 from src.integrations.scia_integration.constants.loads import (
     DEFAULT_UDL_VALUE,
     NOBS_DEFAULT,
@@ -90,11 +97,191 @@ def generate_real_lane_positions_bg10000(
 
 
 # ========================================================================
+# HELPER FUNCTIONS FOR UDL LOAD CASE GENERATION
+# ========================================================================
+
+
+def _create_rectangular_polygon(
+    span: "Span",  # type: ignore[name-defined]
+    y_min: float,
+    y_max: float,
+    z: float = 0.0,
+) -> list[tuple[float, float, float]]:
+    """
+    Create a rectangular polygon for a lane or rest area.
+
+    :param span: Span object with start_x and end_x
+    :type span: Span
+    :param y_min: Minimum Y coordinate
+    :type y_min: float
+    :param y_max: Maximum Y coordinate
+    :type y_max: float
+    :param z: Z coordinate (default 0.0)
+    :type z: float
+    :returns: List of 4 corner points (counter-clockwise)
+    :rtype: list[tuple[float, float, float]]
+    """
+    return [
+        (span.start_x, y_min, z),
+        (span.end_x, y_min, z),
+        (span.end_x, y_max, z),
+        (span.start_x, y_max, z),
+    ]
+
+
+def _calculate_lane_boundaries(
+    y_center: float,
+    lane_width: float,
+) -> tuple[float, float]:
+    """
+    Calculate lane Y boundaries from center position.
+
+    :param y_center: Center Y coordinate
+    :type y_center: float
+    :param lane_width: Width of the lane
+    :type lane_width: float
+    :returns: (y_min, y_max) tuple
+    :rtype: tuple[float, float]
+    """
+    half_width = lane_width * LANE_CENTER_OFFSET_FACTOR
+    return y_center - half_width, y_center + half_width
+
+
+def _format_load_case_name(counter: int) -> str:
+    """
+    Format UDL load case name.
+
+    :param counter: Load case counter
+    :type counter: int
+    :returns: Formatted name like "BG4001"
+    :rtype: str
+    """
+    from src.integrations.scia_integration.constants.load_cases import LOAD_CASE_NUMBER_WIDTH, UDL_LOAD_CASE_PREFIX
+
+    return f"{UDL_LOAD_CASE_PREFIX}{counter:0{LOAD_CASE_NUMBER_WIDTH}d}"
+
+
+def _format_load_case_title(
+    lane_type: str,
+    lane_number: int,
+    configuration: str,
+    span_index: int,
+) -> str:
+    """
+    Format load case title.
+
+    :param lane_type: "RS" or "rest"
+    :type lane_type: str
+    :param lane_number: Lane/rest area number
+    :type lane_number: int
+    :param configuration: Configuration string (e.g., "Conf. A")
+    :type configuration: str
+    :param span_index: Span index (1-based)
+    :type span_index: int
+    :returns: Formatted title like "RS 1 - Conf. A - Span 1"
+    :rtype: str
+    """
+    from src.integrations.scia_integration.constants.load_cases import SPAN_LABEL, TITLE_SEPARATOR
+
+    return f"{lane_type} {lane_number}{TITLE_SEPARATOR}{configuration}{TITLE_SEPARATOR}{SPAN_LABEL} {span_index}"
+
+
+def _create_load_case_entry(  # noqa: PLR0913
+    counter: int,
+    span: "Span",  # type: ignore[name-defined]
+    y_min: float,
+    y_max: float,
+    load_value: float,
+    lane_type: str,
+    lane_number: int,
+    configuration: str,
+) -> tuple[str, dict[str, Any]]:
+    """
+    Create a complete load case entry.
+
+    :param counter: Load case counter
+    :type counter: int
+    :param span: Span object
+    :type span: Span
+    :param y_min: Minimum Y coordinate
+    :type y_min: float
+    :param y_max: Maximum Y coordinate
+    :type y_max: float
+    :param load_value: Load value in N/m²
+    :type load_value: float
+    :param lane_type: Type of lane ("RS" or "rest")
+    :type lane_type: str
+    :param lane_number: Lane or rest area number
+    :type lane_number: int
+    :param configuration: Configuration string
+    :type configuration: str
+    :returns: (case_name, case_data) tuple
+    :rtype: tuple[str, dict[str, Any]]
+    """
+    polygon = _create_rectangular_polygon(span, y_min, y_max)
+    title = _format_load_case_title(lane_type, lane_number, configuration, span.span_index)
+
+    case_name = _format_load_case_name(counter)
+    case_data = {"polygon": polygon, "load": load_value, "title": title}
+
+    return case_name, case_data
+
+
+def _generate_lane_load_cases(  # noqa: PLR0913
+    span: "Span",  # type: ignore[name-defined]
+    y_positions: list[float],
+    lane_width: float,
+    max_lanes: int,
+    main_value: float,
+    other_value: float,
+    configuration: str,
+    load_case_counter: int,
+) -> tuple[dict[str, dict[str, Any]], int]:
+    """
+    Generate lane load cases for a configuration.
+
+    :param span: Span object
+    :type span: Span
+    :param y_positions: List of lane center Y positions
+    :type y_positions: list[float]
+    :param lane_width: Width of lanes
+    :type lane_width: float
+    :param max_lanes: Maximum number of lanes to generate
+    :type max_lanes: int
+    :param main_value: Load value for main lane in N/m²
+    :type main_value: float
+    :param other_value: Load value for other lanes in N/m²
+    :type other_value: float
+    :param configuration: Configuration string (e.g., "Conf. A")
+    :type configuration: str
+    :param load_case_counter: Current load case counter
+    :type load_case_counter: int
+    :returns: (results_dict, updated_counter) tuple
+    :rtype: tuple[dict[str, dict[str, Any]], int]
+    """
+    from src.integrations.scia_integration.constants.load_cases import LANE_TITLE_PREFIX
+
+    results = {}
+
+    for lane_idx, y_center in enumerate(y_positions[:max_lanes]):
+        y_min, y_max = _calculate_lane_boundaries(y_center, lane_width)
+        rs_number = lane_idx + 1
+        load_value = main_value if lane_idx == 0 else other_value
+
+        case_name, case_data = _create_load_case_entry(load_case_counter, span, y_min, y_max, load_value, LANE_TITLE_PREFIX, rs_number, configuration)
+
+        results[case_name] = case_data
+        load_case_counter += 1
+
+    return results, load_case_counter
+
+
+# ========================================================================
 # UNIFORMLY DISTRIBUTED TRAFFIC LOADS (UDL) FOR MAIN NOTIONAL LANES
 # ========================================================================
 
 
-def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR0915
+def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
     params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
@@ -132,10 +319,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
                 end_x=length_bridgedeck,
                 length=length_bridgedeck,
                 width=width_bridgedeck,
-                bz1=0.0,  # Not used for lane calculations
-                bz2=0.0,
-                bz3=0.0,
-                min_thickness=0.0,
+                bz1=width_bridgedeck / 3,  # Distribute width evenly across zones
+                bz2=width_bridgedeck / 3,
+                bz3=width_bridgedeck / 3,
+                min_thickness=0.5,  # Default fallback thickness in meters
                 span_index=1,
             )
         ]
@@ -158,47 +345,21 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
             width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
         )
         if y_positions_left:
-            # Create lane polygons for up to max_lanes, starting from leftmost
-            for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
-                y_min = y_center - lane_width / 2
-                y_max = y_center + lane_width / 2
-                lane_polygon = [
-                    (span.start_x, y_min, 0.0),
-                    (span.end_x, y_min, 0.0),
-                    (span.end_x, y_max, 0.0),
-                    (span.start_x, y_max, 0.0),
-                ]
-
-                # First lane is "main", others are "other"
-                rs_number = lane_idx + 1
-                if lane_idx == 0:
-                    results[f"BG4{load_case_counter:03d}"] = {
-                        "polygon": lane_polygon,
-                        "load": main_value,
-                        "title": f"RS {rs_number} - Conf. A - Span {span.span_index}",
-                    }
-                else:
-                    results[f"BG4{load_case_counter:03d}"] = {
-                        "polygon": lane_polygon,
-                        "load": other_value,
-                        "title": f"RS {rs_number} - Conf. A - Span {span.span_index}",
-                    }
-                load_case_counter += 1
+            # Generate lane load cases using helper
+            lane_results, load_case_counter = _generate_lane_load_cases(
+                span, y_positions_left, lane_width, max_lanes, main_value, other_value, CONFIGURATION_A, load_case_counter
+            )
+            results.update(lane_results)
 
             # Create rest polygon for areas not covered by lanes
             max_lane_width = max_lanes * lane_width
             if max_lane_width < width_bridgedeck:
-                rest_polygon = [
-                    (span.start_x, y_positions_left[0] + max_lane_width - LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
-                    (span.end_x, y_positions_left[0] + max_lane_width - LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
-                    (span.end_x, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                    (span.start_x, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                ]
-                results[f"BG4{load_case_counter:03d}"] = {
-                    "polygon": rest_polygon,
-                    "load": rest_value,
-                    "title": f"rest 1 - Conf. A - Span {span.span_index}",
-                }
+                y_rest_bottom = y_positions_left[0] + max_lane_width - LANE_CENTER_OFFSET_FACTOR * lane_width
+                y_rest_top = width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3
+                case_name, case_data = _create_load_case_entry(
+                    load_case_counter, span, y_rest_bottom, y_rest_top, rest_value, REST_AREA_TITLE_PREFIX, 1, CONFIGURATION_A
+                )
+                results[case_name] = case_data
                 load_case_counter += 1
 
         # Configuration B: Rightmost lanes (BG9000 logic)
@@ -206,45 +367,21 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
             width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2
         )
         if y_positions_right:
-            for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
-                y_min = y_center - lane_width / 2
-                y_max = y_center + lane_width / 2
-                lane_polygon = [
-                    (span.start_x, y_min, 0.0),
-                    (span.end_x, y_min, 0.0),
-                    (span.end_x, y_max, 0.0),
-                    (span.start_x, y_max, 0.0),
-                ]
-
-                rs_number = lane_idx + 1
-                if lane_idx == 0:
-                    results[f"BG4{load_case_counter:03d}"] = {
-                        "polygon": lane_polygon,
-                        "load": main_value,
-                        "title": f"RS {rs_number} - Conf. B - Span {span.span_index}",
-                    }
-                else:
-                    results[f"BG4{load_case_counter:03d}"] = {
-                        "polygon": lane_polygon,
-                        "load": other_value,
-                        "title": f"RS {rs_number} - Conf. B - Span {span.span_index}",
-                    }
-                load_case_counter += 1
+            # Generate lane load cases using helper
+            lane_results, load_case_counter = _generate_lane_load_cases(
+                span, y_positions_right, lane_width, max_lanes, main_value, other_value, CONFIGURATION_B, load_case_counter
+            )
+            results.update(lane_results)
 
             # Rest polygon for area below lanes
             max_lane_width = max_lanes * lane_width
             if max_lane_width < width_bridgedeck:
-                rest_polygon = [
-                    (span.start_x, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                    (span.end_x, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                    (span.end_x, y_positions_right[0] - max_lane_width + LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
-                    (span.start_x, y_positions_right[0] - max_lane_width + LANE_CENTER_OFFSET_FACTOR * lane_width, 0.0),
-                ]
-                results[f"BG4{load_case_counter:03d}"] = {
-                    "polygon": rest_polygon,
-                    "load": rest_value,
-                    "title": f"rest 1 - Conf. B - Span {span.span_index}",
-                }
+                y_rest_bottom = -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3
+                y_rest_top = y_positions_right[0] - max_lane_width + LANE_CENTER_OFFSET_FACTOR * lane_width
+                case_name, case_data = _create_load_case_entry(
+                    load_case_counter, span, y_rest_bottom, y_rest_top, rest_value, REST_AREA_TITLE_PREFIX, 1, CONFIGURATION_B
+                )
+                results[case_name] = case_data
                 load_case_counter += 1
 
         # Configuration C: center lanes with dynamic number of lanes on each side
@@ -258,17 +395,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
         # Create center (main) lane
         center_y_min = center_y - lane_width / 2
         center_y_max = center_y + lane_width / 2
-        center_polygon = [
-            (span.start_x, center_y_min, 0.0),
-            (span.end_x, center_y_min, 0.0),
-            (span.end_x, center_y_max, 0.0),
-            (span.start_x, center_y_max, 0.0),
-        ]
-        results[f"BG4{load_case_counter:03d}"] = {
-            "polygon": center_polygon,
-            "load": main_value,
-            "title": f"RS 1 - Conf. C - Span {span.span_index}",
-        }
+        case_name, case_data = _create_load_case_entry(
+            load_case_counter, span, center_y_min, center_y_max, main_value, LANE_TITLE_PREFIX, 1, CONFIGURATION_C
+        )
+        results[case_name] = case_data
         load_case_counter += 1
 
         # Track RS numbers for other lanes
@@ -279,17 +409,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
             y_center = center_y - (i + 1) * lane_width
             y_min = y_center - lane_width / 2
             y_max = y_center + lane_width / 2
-            lane_polygon = [
-                (span.start_x, y_min, 0.0),
-                (span.end_x, y_min, 0.0),
-                (span.end_x, y_max, 0.0),
-                (span.start_x, y_max, 0.0),
-            ]
-            results[f"BG4{load_case_counter:03d}"] = {
-                "polygon": lane_polygon,
-                "load": other_value,
-                "title": f"RS {rs_counter} - Conf. C - Span {span.span_index}",
-            }
+            case_name, case_data = _create_load_case_entry(
+                load_case_counter, span, y_min, y_max, other_value, LANE_TITLE_PREFIX, rs_counter, CONFIGURATION_C
+            )
+            results[case_name] = case_data
             rs_counter += 1
             load_case_counter += 1
 
@@ -298,17 +421,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
             y_center = center_y + (i + 1) * lane_width
             y_min = y_center - lane_width / 2
             y_max = y_center + lane_width / 2
-            lane_polygon = [
-                (span.start_x, y_min, 0.0),
-                (span.end_x, y_min, 0.0),
-                (span.end_x, y_max, 0.0),
-                (span.start_x, y_max, 0.0),
-            ]
-            results[f"BG4{load_case_counter:03d}"] = {
-                "polygon": lane_polygon,
-                "load": other_value,
-                "title": f"RS {rs_counter} - Conf. C - Span {span.span_index}",
-            }
+            case_name, case_data = _create_load_case_entry(
+                load_case_counter, span, y_min, y_max, other_value, LANE_TITLE_PREFIX, rs_counter, CONFIGURATION_C
+            )
+            results[case_name] = case_data
             rs_counter += 1
             load_case_counter += 1
 
@@ -317,34 +433,24 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0912, PLR0913, C901, PLR09
         rest_counter = 1
 
         # Upper rest area (if exists)
-        if center_y + total_lanes_width / 2 < width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3:
-            upper_rest = [
-                (span.start_x, center_y + total_lanes_width / 2, 0.0),
-                (span.end_x, center_y + total_lanes_width / 2, 0.0),
-                (span.end_x, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (span.start_x, width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-            ]
-            results[f"BG4{load_case_counter:03d}"] = {
-                "polygon": upper_rest,
-                "load": rest_value,
-                "title": f"rest {rest_counter} - Conf. C - Span {span.span_index}",
-            }
+        y_upper_rest_bottom = center_y + total_lanes_width / 2
+        y_upper_rest_top = width_bridgedeck - LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3
+        if y_upper_rest_bottom < y_upper_rest_top:
+            case_name, case_data = _create_load_case_entry(
+                load_case_counter, span, y_upper_rest_bottom, y_upper_rest_top, rest_value, REST_AREA_TITLE_PREFIX, rest_counter, CONFIGURATION_C
+            )
+            results[case_name] = case_data
             rest_counter += 1
             load_case_counter += 1
 
         # Lower rest area (if exists)
-        if center_y - total_lanes_width / 2 > -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3:
-            lower_rest = [
-                (span.start_x, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (span.end_x, -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3, 0.0),
-                (span.end_x, center_y - total_lanes_width / 2, 0.0),
-                (span.start_x, center_y - total_lanes_width / 2, 0.0),
-            ]
-            results[f"BG4{load_case_counter:03d}"] = {
-                "polygon": lower_rest,
-                "load": rest_value,
-                "title": f"rest {rest_counter} - Conf. C - Span {span.span_index}",
-            }
+        y_lower_rest_bottom = -LANE_CENTER_OFFSET_FACTOR * width_firstsegment_zone2 - width_firstsegment_zone3
+        y_lower_rest_top = center_y - total_lanes_width / 2
+        if y_lower_rest_top > y_lower_rest_bottom:
+            case_name, case_data = _create_load_case_entry(
+                load_case_counter, span, y_lower_rest_bottom, y_lower_rest_top, rest_value, REST_AREA_TITLE_PREFIX, rest_counter, CONFIGURATION_C
+            )
+            results[case_name] = case_data
             load_case_counter += 1
 
     return results
@@ -381,16 +487,18 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     spans = _identify_spans(params.bridge_segments_array)
     # If no spans identified, fall back to single span covering entire bridge
     if not spans:
+        # Fallback span - use minimal valid values since actual geometry comes from params
+        fallback_width = 1.0  # Minimal valid width
         spans = [
             Span(
                 start_x=0.0,
                 end_x=length_bridgedeck,
                 length=length_bridgedeck,
-                width=0.0,  # Not used for lane calculations
-                bz1=0.0,
-                bz2=0.0,
-                bz3=0.0,
-                min_thickness=0.0,
+                width=fallback_width,
+                bz1=fallback_width / 3,  # Distribute width evenly
+                bz2=fallback_width / 3,
+                bz3=fallback_width / 3,
+                min_thickness=0.5,  # Default fallback thickness in meters
                 span_index=1,
             )
         ]
@@ -418,35 +526,14 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             max_lanes, lane_width = amount_of_notional_lanes(width_zone_1 + width_zone_2)
 
             # Configuration A: leftmost lanes (BG8000 logic) - lanes from bottom upward
-            y_positions_left = generate_real_lane_positions_two_road_zones(params, "bg8000", lane_width=3)
+            y_positions_left = generate_real_lane_positions_two_road_zones(params, "bg8000", lane_width)
 
             if y_positions_left:
-                # Create lane polygons for up to max_lanes
-                for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
-                    y_min = y_center - lane_width / 2
-                    y_max = y_center + lane_width / 2
-                    lane_polygon = [
-                        (span.start_x, y_min, 0.0),
-                        (span.end_x, y_min, 0.0),
-                        (span.end_x, y_max, 0.0),
-                        (span.start_x, y_max, 0.0),
-                    ]
-
-                    # First lane is "main", others are "other"
-                    rs_number = lane_idx + 1
-                    if lane_idx == 0:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": main_value,
-                            "title": f"RS {rs_number} - Conf. A - Span {span.span_index}",
-                        }
-                    else:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": other_value,
-                            "title": f"RS {rs_number} - Conf. A - Span {span.span_index}",
-                        }
-                    load_case_counter += 1
+                # Generate lane load cases using helper
+                lane_results, load_case_counter = _generate_lane_load_cases(
+                    span, y_positions_left, lane_width, max_lanes, main_value, other_value, CONFIGURATION_A, load_case_counter
+                )
+                results.update(lane_results)
 
                 # Create rest polygons for uncovered areas in each zone
                 # Determine which lanes belong to which zone and calculate rest areas
@@ -530,30 +617,11 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             y_positions_right = generate_real_lane_positions_two_road_zones(params, "bg9000", lane_width)
 
             if y_positions_right:
-                for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
-                    y_min = y_center - lane_width / 2
-                    y_max = y_center + lane_width / 2
-                    lane_polygon = [
-                        (span.start_x, y_min, 0.0),
-                        (span.end_x, y_min, 0.0),
-                        (span.end_x, y_max, 0.0),
-                        (span.start_x, y_max, 0.0),
-                    ]
-
-                    rs_number = lane_idx + 1
-                    if lane_idx == 0:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": main_value,
-                            "title": f"RS {rs_number} - Conf. B - Span {span.span_index}",
-                        }
-                    else:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": other_value,
-                            "title": f"RS {rs_number} - Conf. B - Span {span.span_index}",
-                        }
-                    load_case_counter += 1
+                # Generate lane load cases using helper
+                lane_results, load_case_counter = _generate_lane_load_cases(
+                    span, y_positions_right, lane_width, max_lanes, main_value, other_value, CONFIGURATION_B, load_case_counter
+                )
+                results.update(lane_results)
 
                 # Create rest polygons for uncovered areas in each zone
                 lanes_covered_zone_1 = sum(1 for y in y_positions_right[:max_lanes] if y_bottom_zone_1 <= y <= y_top_zone_1)
@@ -796,90 +864,40 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             y_positions_left = generate_real_lane_positions_bg8000(params, lane_width)
 
             if y_positions_left:
-                for lane_idx, y_center in enumerate(y_positions_left[:max_lanes]):
-                    y_min = y_center - lane_width / 2
-                    y_max = y_center + lane_width / 2
-                    lane_polygon = [
-                        (span.start_x, y_min, 0.0),
-                        (span.end_x, y_min, 0.0),
-                        (span.end_x, y_max, 0.0),
-                        (span.start_x, y_max, 0.0),
-                    ]
-
-                    rs_number = lane_idx + 1
-                    if lane_idx == 0:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": main_value,
-                            "title": f"RS {rs_number} - Conf. A - Span {span.span_index}",
-                        }
-                    else:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": other_value,
-                            "title": f"RS {rs_number} - Conf. A - Span {span.span_index}",
-                        }
-                    load_case_counter += 1
+                # Generate lane load cases using helper
+                lane_results, load_case_counter = _generate_lane_load_cases(
+                    span, y_positions_left, lane_width, max_lanes, main_value, other_value, CONFIGURATION_A, load_case_counter
+                )
+                results.update(lane_results)
 
                 # Create rest polygon for areas not covered by lanes
                 max_lane_width = max_lanes * lane_width
                 if max_lane_width < width_road:
-                    rest_polygon = [
-                        (span.start_x, y_top, 0.0),
-                        (span.end_x, y_top, 0.0),
-                        (span.end_x, y_bottom + max_lane_width, 0.0),
-                        (span.start_x, y_bottom + max_lane_width, 0.0),
-                    ]
-                    results[f"BG4{load_case_counter:03d}"] = {
-                        "polygon": rest_polygon,
-                        "load": rest_value,
-                        "title": f"rest 1 - Conf. A - Span {span.span_index}",
-                    }
+                    y_rest_bottom = y_bottom + max_lane_width
+                    case_name, case_data = _create_load_case_entry(
+                        load_case_counter, span, y_rest_bottom, y_top, rest_value, REST_AREA_TITLE_PREFIX, 1, CONFIGURATION_A
+                    )
+                    results[case_name] = case_data
                     load_case_counter += 1
 
             # Configuration B: Rightmost lanes (BG9000 logic)
             y_positions_right = generate_real_lane_positions_bg9000(params, lane_width)
 
             if y_positions_right:
-                for lane_idx, y_center in enumerate(y_positions_right[:max_lanes]):
-                    y_min = y_center - lane_width / 2
-                    y_max = y_center + lane_width / 2
-                    lane_polygon = [
-                        (span.start_x, y_min, 0.0),
-                        (span.end_x, y_min, 0.0),
-                        (span.end_x, y_max, 0.0),
-                        (span.start_x, y_max, 0.0),
-                    ]
-
-                    rs_number = lane_idx + 1
-                    if lane_idx == 0:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": main_value,
-                            "title": f"RS {rs_number} - Conf. B - Span {span.span_index}",
-                        }
-                    else:
-                        results[f"BG4{load_case_counter:03d}"] = {
-                            "polygon": lane_polygon,
-                            "load": other_value,
-                            "title": f"RS {rs_number} - Conf. B - Span {span.span_index}",
-                        }
-                    load_case_counter += 1
+                # Generate lane load cases using helper
+                lane_results, load_case_counter = _generate_lane_load_cases(
+                    span, y_positions_right, lane_width, max_lanes, main_value, other_value, CONFIGURATION_B, load_case_counter
+                )
+                results.update(lane_results)
 
                 # Rest polygon for area below lanes
                 max_lane_width = max_lanes * lane_width
                 if max_lane_width < width_road:
-                    rest_polygon = [
-                        (span.start_x, y_top - max_lane_width, 0.0),
-                        (span.end_x, y_top - max_lane_width, 0.0),
-                        (span.end_x, y_bottom, 0.0),
-                        (span.start_x, y_bottom, 0.0),
-                    ]
-                    results[f"BG4{load_case_counter:03d}"] = {
-                        "polygon": rest_polygon,
-                        "load": rest_value,
-                        "title": f"rest 1 - Conf. B - Span {span.span_index}",
-                    }
+                    y_rest_bottom = y_top - max_lane_width
+                    case_name, case_data = _create_load_case_entry(
+                        load_case_counter, span, y_rest_bottom, y_bottom, rest_value, REST_AREA_TITLE_PREFIX, 1, CONFIGURATION_B
+                    )
+                    results[case_name] = case_data
                     load_case_counter += 1
 
             # Configuration C: center lanes with dynamic number of lanes on each side
@@ -891,17 +909,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             # Create center (main) lane
             center_y_min = center_y - lane_width / 2
             center_y_max = center_y + lane_width / 2
-            center_polygon = [
-                (span.start_x, center_y_min, 0.0),
-                (span.end_x, center_y_min, 0.0),
-                (span.end_x, center_y_max, 0.0),
-                (span.start_x, center_y_max, 0.0),
-            ]
-            results[f"BG4{load_case_counter:03d}"] = {
-                "polygon": center_polygon,
-                "load": main_value,
-                "title": f"RS 1 - Conf. C - Span {span.span_index}",
-            }
+            case_name, case_data = _create_load_case_entry(
+                load_case_counter, span, center_y_min, center_y_max, main_value, LANE_TITLE_PREFIX, 1, CONFIGURATION_C
+            )
+            results[case_name] = case_data
             load_case_counter += 1
 
             # Track RS numbers for other lanes
@@ -912,17 +923,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
                 y_center = center_y - (i + 1) * lane_width
                 y_min = y_center - lane_width / 2
                 y_max = y_center + lane_width / 2
-                lane_polygon = [
-                    (span.start_x, y_min, 0.0),
-                    (span.end_x, y_min, 0.0),
-                    (span.end_x, y_max, 0.0),
-                    (span.start_x, y_max, 0.0),
-                ]
-                results[f"BG4{load_case_counter:03d}"] = {
-                    "polygon": lane_polygon,
-                    "load": other_value,
-                    "title": f"RS {rs_counter} - Conf. C - Span {span.span_index}",
-                }
+                case_name, case_data = _create_load_case_entry(
+                    load_case_counter, span, y_min, y_max, other_value, LANE_TITLE_PREFIX, rs_counter, CONFIGURATION_C
+                )
+                results[case_name] = case_data
                 rs_counter += 1
                 load_case_counter += 1
 
@@ -931,17 +935,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
                 y_center = center_y + (i + 1) * lane_width
                 y_min = y_center - lane_width / 2
                 y_max = y_center + lane_width / 2
-                lane_polygon = [
-                    (span.start_x, y_min, 0.0),
-                    (span.end_x, y_min, 0.0),
-                    (span.end_x, y_max, 0.0),
-                    (span.start_x, y_max, 0.0),
-                ]
-                results[f"BG4{load_case_counter:03d}"] = {
-                    "polygon": lane_polygon,
-                    "load": other_value,
-                    "title": f"RS {rs_counter} - Conf. C - Span {span.span_index}",
-                }
+                case_name, case_data = _create_load_case_entry(
+                    load_case_counter, span, y_min, y_max, other_value, LANE_TITLE_PREFIX, rs_counter, CONFIGURATION_C
+                )
+                results[case_name] = case_data
                 rs_counter += 1
                 load_case_counter += 1
 
@@ -950,34 +947,22 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             rest_counter = 1
 
             # Upper rest area (if exists)
-            if center_y + total_lanes_width / 2 < y_top:
-                upper_rest = [
-                    (span.start_x, center_y + total_lanes_width / 2, 0.0),
-                    (span.end_x, center_y + total_lanes_width / 2, 0.0),
-                    (span.end_x, y_top, 0.0),
-                    (span.start_x, y_top, 0.0),
-                ]
-                results[f"BG4{load_case_counter:03d}"] = {
-                    "polygon": upper_rest,
-                    "load": rest_value,
-                    "title": f"rest {rest_counter} - Conf. C - Span {span.span_index}",
-                }
+            y_upper_rest_bottom = center_y + total_lanes_width / 2
+            if y_upper_rest_bottom < y_top:
+                case_name, case_data = _create_load_case_entry(
+                    load_case_counter, span, y_upper_rest_bottom, y_top, rest_value, REST_AREA_TITLE_PREFIX, rest_counter, CONFIGURATION_C
+                )
+                results[case_name] = case_data
                 rest_counter += 1
                 load_case_counter += 1
 
             # Lower rest area (if exists)
-            if center_y - total_lanes_width / 2 > y_bottom:
-                lower_rest = [
-                    (span.start_x, y_bottom, 0.0),
-                    (span.end_x, y_bottom, 0.0),
-                    (span.end_x, center_y - total_lanes_width / 2, 0.0),
-                    (span.start_x, center_y - total_lanes_width / 2, 0.0),
-                ]
-                results[f"BG4{load_case_counter:03d}"] = {
-                    "polygon": lower_rest,
-                    "load": rest_value,
-                    "title": f"rest {rest_counter} - Conf. C - Span {span.span_index}",
-                }
+            y_lower_rest_top = center_y - total_lanes_width / 2
+            if y_lower_rest_top > y_bottom:
+                case_name, case_data = _create_load_case_entry(
+                    load_case_counter, span, y_bottom, y_lower_rest_top, rest_value, REST_AREA_TITLE_PREFIX, rest_counter, CONFIGURATION_C
+                )
+                results[case_name] = case_data
                 load_case_counter += 1
 
     return results

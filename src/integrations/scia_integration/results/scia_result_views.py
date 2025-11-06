@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+
 from viktor.views import TableResult
 
 if TYPE_CHECKING:

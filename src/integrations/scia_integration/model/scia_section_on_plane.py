@@ -1,7 +1,8 @@
 """Module for defining section on plane objects in SCIA."""
 
-from dataclasses import dataclass
 from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from src.data_models.scia_models import SectionOnPlaneDefinition
 from src.integrations.scia_integration.constants.geometry import (
@@ -14,8 +15,7 @@ from src.integrations.scia_integration.model.scia_model_interface import SciaMod
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
-@dataclass
-class Span:
+class Span(BaseModel):
     """
     Represents a span in the bridge structure.
 
@@ -42,15 +42,91 @@ class Span:
     :type span_index: int
     """
 
-    start_x: float
-    end_x: float
-    length: float
-    width: float
-    bz1: float
-    bz2: float
-    bz3: float
-    min_thickness: float
-    span_index: int
+    start_x: float = Field(ge=0, description="X-coordinate where span starts [m]")
+    end_x: float = Field(gt=0, description="X-coordinate where span ends [m]")
+    length: float = Field(gt=0, description="Total span length [m]")
+    width: float = Field(gt=0, description="Total width (bz1+bz2+bz3) [m]")
+    bz1: float = Field(ge=0, description="Zone 1 width [m]")
+    bz2: float = Field(ge=0, description="Zone 2 width [m]")
+    bz3: float = Field(ge=0, description="Zone 3 width [m]")
+    min_thickness: float = Field(gt=0, description="Minimum thickness [m]")
+    span_index: int = Field(ge=1, description="Span index (1-based)")
+
+    @field_validator("end_x")
+    @classmethod
+    def validate_end_after_start(cls, v: float, info: ValidationInfo) -> float:
+        """
+        Validate that end_x is greater than start_x.
+
+        :param v: Value of end_x
+        :type v: float
+        :param info: Validation context containing other field values
+        :type info: ValidationInfo
+        :returns: Validated end_x value
+        :rtype: float
+        :raises ValueError: If end_x <= start_x
+        """
+        if info.data and "start_x" in info.data and v <= info.data["start_x"]:
+            raise ValueError(f"end_x ({v}) must be greater than start_x ({info.data['start_x']})")
+        return v
+
+    @field_validator("length")
+    @classmethod
+    def validate_length_matches(cls, v: float, info: ValidationInfo) -> float:
+        """
+        Validate that length matches end_x - start_x.
+
+        :param v: Value of length
+        :type v: float
+        :param info: Validation context containing other field values
+        :type info: ValidationInfo
+        :returns: Validated length value
+        :rtype: float
+        :raises ValueError: If length doesn't match end_x - start_x within tolerance
+        """
+        if info.data and "start_x" in info.data and "end_x" in info.data:
+            expected = info.data["end_x"] - info.data["start_x"]
+            if abs(v - expected) > 0.001:
+                raise ValueError(f"Length {v} doesn't match end_x - start_x = {expected}")
+        return v
+
+    @field_validator("width")
+    @classmethod
+    def validate_width_matches_zones(cls, v: float, info: ValidationInfo) -> float:
+        """
+        Validate that width matches sum of zone widths.
+
+        :param v: Value of width
+        :type v: float
+        :param info: Validation context containing other field values
+        :type info: ValidationInfo
+        :returns: Validated width value
+        :rtype: float
+        :raises ValueError: If width doesn't match bz1 + bz2 + bz3 within tolerance
+        """
+        if info.data and all(k in info.data for k in ["bz1", "bz2", "bz3"]):
+            expected = info.data["bz1"] + info.data["bz2"] + info.data["bz3"]
+            if abs(v - expected) > 0.001:
+                raise ValueError(f"Width {v} doesn't match sum of zones {expected}")
+        return v
+
+    @model_validator(mode="after")
+    def validate_width_sum_after_all_fields(self) -> "Span":
+        """
+        Validate that width equals sum of zone widths after all fields are validated.
+
+        This runs after all field validators to ensure bz1, bz2, bz3 are available.
+
+        :returns: The validated Span instance
+        :rtype: Span
+        :raises ValueError: If width doesn't match bz1 + bz2 + bz3
+        """
+        expected_width = self.bz1 + self.bz2 + self.bz3
+        if abs(self.width - expected_width) > 0.001:
+            raise ValueError(f"Width {self.width} doesn't match sum of zones {expected_width}")
+        return self
+
+    model_config = ConfigDict(validate_assignment=True)
 
 
 def _create_span_from_segments(
