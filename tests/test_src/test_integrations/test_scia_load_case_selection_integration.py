@@ -108,7 +108,7 @@ class TestLoadCaseSelectionIntegration:
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
-            mock_udl.assert_called_once_with(mock_builder)
+            mock_udl.assert_called_once_with(mock_builder, params)
             mock_pedestrian.assert_called_once_with(mock_builder)
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
@@ -168,7 +168,7 @@ class TestLoadCaseSelectionIntegration:
             mock_self_weight.assert_called_once_with(mock_builder)  # Enabled
             mock_dead_loads.assert_called_once_with(mock_builder)  # Enabled
             mock_temperature.assert_not_called()  # Disabled
-            mock_udl.assert_called_once_with(mock_builder)  # Enabled
+            mock_udl.assert_called_once_with(mock_builder, params)  # Enabled
             mock_pedestrian.assert_not_called()  # Disabled
             mock_service.assert_called_once_with(mock_builder, params)  # Enabled
             mock_unintended.assert_not_called()  # Disabled
@@ -216,7 +216,7 @@ class TestLoadCaseSelectionIntegration:
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
-            mock_udl.assert_called_once_with(mock_builder)
+            mock_udl.assert_called_once_with(mock_builder, params)
             mock_pedestrian.assert_called_once_with(mock_builder)
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
@@ -267,7 +267,7 @@ class TestLoadCaseSelectionIntegration:
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
-            mock_udl.assert_called_once_with(mock_builder)
+            mock_udl.assert_called_once_with(mock_builder, params)
             mock_pedestrian.assert_called_once_with(mock_builder)
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
@@ -323,7 +323,7 @@ class TestLoadCaseSelectionIntegration:
             mock_self_weight.assert_called_once_with(mock_builder)  # Valid and enabled
             mock_dead_loads.assert_called_once_with(mock_builder)  # Valid but not in table (defaults to enabled)
             mock_temperature.assert_called_once_with(mock_builder)  # Valid and enabled
-            mock_udl.assert_called_once_with(mock_builder)  # Valid but not in table (defaults to enabled)
+            mock_udl.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_pedestrian.assert_called_once_with(mock_builder)  # Valid but not in table (defaults to enabled)
             mock_service.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_unintended.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)

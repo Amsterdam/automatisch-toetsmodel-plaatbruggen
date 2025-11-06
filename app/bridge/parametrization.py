@@ -51,6 +51,8 @@ from viktor.parametrization import (
     TextField,
 )
 
+from .utils import validate_reinforcement_zone_selections
+
 # --- Helper function for rebar diameter options ---
 
 
