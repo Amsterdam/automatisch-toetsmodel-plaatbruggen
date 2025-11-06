@@ -42,34 +42,103 @@ class TestApplyLoadsToSlabs:
 
     @pytest.fixture
     def sample_scia_dataframe(self) -> pd.DataFrame:
-        """Create a sample SCIA results dataframe for testing."""
-        return pd.DataFrame(
-            {
-                "name": ["1-1", "1-2", "2-1", "2-2", "3-1"],
-                "coords_xyz": [
-                    (10.0, 5.0, 0.0),
-                    (20.0, 5.0, 0.0),
-                    (10.0, 15.0, 0.0),
-                    (20.0, 15.0, 0.0),
-                    (30.0, 25.0, 0.0),
-                ],
-                # SLS karakteristiek values
-                "SLS_kar_v_x_max": [100.0, 150.0, 200.0, 180.0, 120.0],
-                "SLS_kar_v_y_max": [80.0, 120.0, 160.0, 140.0, 90.0],
-                "SLS_kar_Mx": [50.0, 75.0, 100.0, 90.0, 60.0],
-                "SLS_kar_My": [40.0, 60.0, 80.0, 70.0, 45.0],
-                # SLS frequent values
-                "SLS_freq_v_x_max": [70.0, 105.0, 140.0, 126.0, 84.0],
-                "SLS_freq_v_y_max": [56.0, 84.0, 112.0, 98.0, 63.0],
-                "SLS_freq_Mx": [35.0, 52.5, 70.0, 63.0, 42.0],
-                "SLS_freq_My": [28.0, 42.0, 56.0, 49.0, 31.5],
-                # ULS values
-                "ULS_v_x_max": [140.0, 210.0, 280.0, 252.0, 168.0],
-                "ULS_v_y_max": [112.0, 168.0, 224.0, 196.0, 126.0],
-                "ULS_Mx": [70.0, 105.0, 140.0, 126.0, 84.0],
-                "ULS_My": [56.0, 84.0, 112.0, 98.0, 63.0],
-            }
-        )
+        """
+        Create a sample SCIA results dataframe for testing.
+
+        This DataFrame simulates the output from _process_scia_cs_results_for_idea_input(),
+        which includes zone, result_type, max_for_column, and processed force columns.
+
+        Each (zone, max_for_column) combination appears twice: once for ULS and once for SLS freq.
+        """
+        # Create data for zone 1-1 with two force components (v_x and v_y)
+        data = []
+
+        zones_data = [
+            ("1-1", "SEC_1_1", (10.0, 5.0, 0.0), "BG_ULS", "BG_SLS"),
+            ("1-2", "SEC_1_2", (20.0, 5.0, 0.0), "BG_ULS", "BG_SLS"),
+        ]
+
+        for zone, name, coords, uls_belasting, sls_belasting in zones_data:
+            # For each zone, create entries for v_x force component
+            # ULS row for v_x
+            data.append(
+                {
+                    "zone": zone,
+                    "name": name,
+                    "coords_xyz": coords,
+                    "max_for_column": "v_x",
+                    "result_type": "ULS",
+                    "belasting": uls_belasting,
+                    "v_x_max": 140.0,
+                    "v_y_max": 112.0,
+                    "m_xD+_max": 70.0,
+                    "m_xD-_max": -65.0,
+                    "m_yD+_max": 56.0,
+                    "m_yD-_max": -50.0,
+                    "Mx": 70.0,
+                    "My": 56.0,
+                }
+            )
+            # SLS freq row for v_x
+            data.append(
+                {
+                    "zone": zone,
+                    "name": name,
+                    "coords_xyz": coords,
+                    "max_for_column": "v_x",
+                    "result_type": "SLS freq",
+                    "belasting": sls_belasting,
+                    "v_x_max": 70.0,
+                    "v_y_max": 56.0,
+                    "m_xD+_max": 35.0,
+                    "m_xD-_max": -32.0,
+                    "m_yD+_max": 28.0,
+                    "m_yD-_max": -25.0,
+                    "Mx": 35.0,
+                    "My": 28.0,
+                }
+            )
+
+            # ULS row for v_y
+            data.append(
+                {
+                    "zone": zone,
+                    "name": name,
+                    "coords_xyz": coords,
+                    "max_for_column": "v_y",
+                    "result_type": "ULS",
+                    "belasting": uls_belasting,
+                    "v_x_max": 140.0,
+                    "v_y_max": 112.0,
+                    "m_xD+_max": 70.0,
+                    "m_xD-_max": -65.0,
+                    "m_yD+_max": 56.0,
+                    "m_yD-_max": -50.0,
+                    "Mx": 70.0,
+                    "My": 56.0,
+                }
+            )
+            # SLS freq row for v_y
+            data.append(
+                {
+                    "zone": zone,
+                    "name": name,
+                    "coords_xyz": coords,
+                    "max_for_column": "v_y",
+                    "result_type": "SLS freq",
+                    "belasting": sls_belasting,
+                    "v_x_max": 70.0,
+                    "v_y_max": 56.0,
+                    "m_xD+_max": 35.0,
+                    "m_xD-_max": -32.0,
+                    "m_yD+_max": 28.0,
+                    "m_yD-_max": -25.0,
+                    "Mx": 35.0,
+                    "My": 28.0,
+                }
+            )
+
+        return pd.DataFrame(data)
 
     @pytest.fixture
     def mock_slab_langs(self) -> MagicMock:
@@ -128,13 +197,14 @@ class TestApplyLoadsToSlabs:
         # Execute the function
         _apply_cs_loads_to_slabs(sample_created_slabs, sample_scia_dataframe, mock_builder)
 
-        # Verify that create_extreme_on_slab was called on builder for each matching zone
-        # CS_d0.2_1: zones ["1-1", "1-2"] → 2 zones × 2 directions = 4 calls
-        # CS_d0.25_2: zones ["2-1", "2-2"] → 2 zones × 2 directions = 4 calls
-        # CS_d0.3_3: zones ["3-1"] → 1 zone × 2 directions = 2 calls
-        # Total: 5 zones × 2 directions = 10 calls
+        # Verify that create_extreme_on_slab was called on builder
+        # Test data has zones 1-1 and 1-2, each with 2 max_for_column values (v_x, v_y)
+        # CS_d0.2_1: zones ["1-1", "1-2"] → 2 zones × 2 max_for_column × 2 directions = 8 calls
+        # CS_d0.25_2: zones ["2-1", "2-2"] → not in test data = 0 calls
+        # CS_d0.3_3: zones ["3-1"] → not in test data = 0 calls
+        # Total: 2 zones × 2 max_for_column × 2 directions = 8 calls
 
-        expected_calls = 10  # Total: zones × directions
+        expected_calls = 8  # 2 zones × 2 max_for_column × 2 directions
         assert mock_builder.create_extreme_on_slab.call_count == expected_calls
 
     def test_apply_loads_with_empty_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
@@ -169,12 +239,12 @@ class TestApplyLoadsToSlabs:
         mock_builder = MagicMock()
         _apply_cs_loads_to_slabs(created_slabs_missing_direction, sample_scia_dataframe, mock_builder)
 
-        # Verify only one direction was processed (1 zone × 1 direction = 1 call)
-        assert mock_builder.create_extreme_on_slab.call_count == 1
-        # Verify the slab_langs was passed to builder
-        mock_builder.create_extreme_on_slab.assert_called_once()
-        call_args = mock_builder.create_extreme_on_slab.call_args
-        assert call_args[0][0] == mock_slab_langs  # First positional arg is the slab
+        # Verify only one direction was processed
+        # 1 zone ("1-1") × 2 max_for_column (v_x, v_y) × 1 direction (langs only) = 2 calls
+        assert mock_builder.create_extreme_on_slab.call_count == 2
+        # Verify that only 'langs' direction was used
+        for call_args in mock_builder.create_extreme_on_slab.call_args_list:
+            assert call_args[0][0] == mock_slab_langs  # First positional arg is the slab
 
     def test_apply_loads_with_nonexistent_zones(self, sample_scia_dataframe: pd.DataFrame) -> None:
         """Test _apply_cs_loads_to_slabs with zones not present in SCIA dataframe."""
@@ -246,21 +316,26 @@ class TestApplyLoadsToSlabs:
         # For 'langs' direction: uses y-axis forces and My moments
         # For 'dwars' direction: uses x-axis forces and Mx moments
 
-        # We expect 6 calls to create_result_of_internal_forces:
-        # - 3 for langs (SLS_kar, SLS_freq, ULS)
-        # - 3 for dwars (SLS_kar, SLS_freq, ULS)
-        assert mock_builder.create_result_of_internal_forces.call_count == 6
+        # We expect 8 calls to create_result_of_internal_forces:
+        # 1 zone × 2 max_for_column × 2 directions × 2 result_types (ULS + SLS freq) = 8 calls
+        assert mock_builder.create_result_of_internal_forces.call_count == 8
 
-        # Verify 2 calls to create_extreme_on_slab (one per direction)
-        assert mock_builder.create_extreme_on_slab.call_count == 2
+        # Verify 4 calls to create_extreme_on_slab
+        # 1 zone × 2 max_for_column × 2 directions = 4 calls
+        assert mock_builder.create_extreme_on_slab.call_count == 4
 
     def test_apply_loads_with_missing_dataframe_columns(self) -> None:
         """Test _apply_cs_loads_to_slabs with missing columns in dataframe."""
+        # Need both ULS and SLS freq rows for each (zone, max_for_column) combination
         incomplete_dataframe = pd.DataFrame(
             {
-                "name": ["1-1"],
-                "coords_xyz": [(10.0, 5.0, 0.0)],
-                # Missing most required columns
+                "name": ["1-1", "1-1"],
+                "zone": ["1-1", "1-1"],
+                "coords_xyz": [(10.0, 5.0, 0.0), (10.0, 5.0, 0.0)],
+                "max_for_column": ["v_x", "v_x"],
+                "result_type": ["ULS", "SLS freq"],
+                "belasting": ["BG_ULS", "BG_SLS"],
+                # Missing force columns - should handle gracefully
             }
         )
 
@@ -301,16 +376,22 @@ class TestApplyLoadsToSlabs:
 
         # Check that create_extreme_on_slab was called with proper description formatting
         calls = mock_builder.create_extreme_on_slab.call_args_list
-        assert len(calls) == 1
+        # 1 zone × 2 max_for_column × 1 direction = 2 calls
+        assert len(calls) == 2
 
         # Extract the description from the call (keyword argument)
         _, kwargs = calls[0]
         description = kwargs.get("description", "")
 
         # Check that description follows expected format
+        # Format: {slab_key}_{direction}-{zone}-{cs_name}-{coords}-{max_for}-ULS:{belasting_uls}/SLS:{belasting_sls}
         assert "CS_d0_2_1" in description  # slab_key with dots replaced
+        assert "langs" in description  # direction
         assert "1-1" in description  # zone name
-        assert "node_" in description  # node prefix
+        assert "SEC_1_1" in description  # CS name
+        assert "v_x" in description or "v_y" in description  # max_for_column
+        assert "ULS:BG_ULS" in description  # ULS belasting
+        assert "SLS:BG_SLS" in description  # SLS belasting
 
     def test_apply_loads_with_empty_dataframe(self) -> None:
         """Test _apply_cs_loads_to_slabs with empty SCIA dataframe."""

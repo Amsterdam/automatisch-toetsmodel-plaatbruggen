@@ -525,6 +525,10 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
     :param builder: IDEA model builder instance
     :type builder: Any
     """
+    # Early return if dataframe is empty
+    if df_all.empty:
+        return
+
     # For langs cs: link IDEA vz to SCIA vy and IDEA My to SCIA My
     # For dwars cs: link IDEA vz to SCIA vx and IDEA My to SCIA Mx
     orient = {
