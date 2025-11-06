@@ -1743,8 +1743,8 @@ class TestLoadBoundaryCompliance:
                 zone1_width=8.0,
                 zone2_width=4.0,
                 zone3_width=8.0,
-            first_segment_thickness=1.0,
-            first_segment_thickness_2=1.0,  # Must equal first_segment_thickness
+                first_segment_thickness=1.0,
+                first_segment_thickness_2=1.0,  # Must equal first_segment_thickness
             )
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [

@@ -51,8 +51,6 @@ from viktor.parametrization import (
     TextField,
 )
 
-from .utils import validate_reinforcement_zone_selections
-
 # --- Helper function for rebar diameter options ---
 
 
@@ -410,7 +408,7 @@ def _get_model_zmax(params: Mapping, **kwargs) -> float:  # noqa: ARG001
     else:
         dz = 0.7
         dz_2 = 0.8
-    
+
     dz_max = dz_2 - dz
     max_value = dz_max
     return max_value - 0.01
@@ -802,10 +800,10 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
     input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
     input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
-    
+
     # Thickness fields - editable only on first segment, read-only on others
     # Using callbacks to get first segment's values for output fields
-    def _get_first_segment_dz(params, **kwargs):  # noqa: ANN001, ARG001
+    def _get_first_segment_dz(params, **kwargs):
         """Get dz value from first segment for display in other segments."""
         try:
             if params.bridge_segments_array and len(params.bridge_segments_array) > 0:
@@ -813,8 +811,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         except (AttributeError, IndexError):
             pass
         return 0.7  # Default fallback
-    
-    def _get_first_segment_dz_2(params, **kwargs):  # noqa: ANN001, ARG001
+
+    def _get_first_segment_dz_2(params, **kwargs):
         """Get dz_2 value from first segment for display in other segments."""
         try:
             if params.bridge_segments_array and len(params.bridge_segments_array) > 0:
@@ -822,7 +820,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         except (AttributeError, IndexError):
             pass
         return 0.8  # Default fallback
-    
+
     _dz_input_visibility = DynamicArrayConstraint(
         dynamic_array_name="bridge_segments_array",
         operand=Lookup("$row.is_first_segment"),
@@ -831,7 +829,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         dynamic_array_name="bridge_segments_array",
         operand=IsFalse(Lookup("$row.is_first_segment")),
     )
-    
+
     input.dimensions.array.dz = NumberField(
         "Dikte zone 1 en 3",
         default=0.7,
@@ -846,7 +844,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         suffix="m",
         visible=_dz_output_visibility,
     )
-    
+
     input.dimensions.array.dz_2 = NumberField(
         "Dikte zone 2",
         default=0.8,
@@ -861,7 +859,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         suffix="m",
         visible=_dz_output_visibility,
     )
-    
+
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
 
     _l_field_visibility_constraint = DynamicArrayConstraint(

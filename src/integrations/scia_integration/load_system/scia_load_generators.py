@@ -54,7 +54,7 @@ def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensionsData:
     Extract and validate key bridge dimensions from parametrization.
 
     Uses Pydantic validation to ensure dimensions are realistic and consistent.
-    
+
     Note: Thickness values (dz, dz_2) are read from first segment only,
     as they are editable only there and displayed as read-only on other segments.
 

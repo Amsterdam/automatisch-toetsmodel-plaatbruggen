@@ -1,7 +1,6 @@
 """Utility functions specific to the Bridge entity's UI or Plotly views."""
 
-from typing import TYPE_CHECKING
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
 
 # Import for validate_load_zone_widths - ensure this path is correct
