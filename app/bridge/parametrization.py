@@ -803,7 +803,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Thickness fields - editable only on first segment, read-only on others
     # Using callbacks to get first segment's values for output fields
-    def _get_first_segment_dz(params, **kwargs):
+    def _get_first_segment_dz(params, **kwargs) -> float:  # noqa: N805, ARG002
         """Get dz value from first segment for display in other segments."""
         try:
             if params.bridge_segments_array and len(params.bridge_segments_array) > 0:
@@ -812,7 +812,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             pass
         return 0.7  # Default fallback
 
-    def _get_first_segment_dz_2(params, **kwargs):
+    def _get_first_segment_dz_2(params, **kwargs) -> float:  # noqa: N805, ARG002
         """Get dz_2 value from first segment for display in other segments."""
         try:
             if params.bridge_segments_array and len(params.bridge_segments_array) > 0:
