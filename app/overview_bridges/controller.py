@@ -19,7 +19,6 @@ from viktor.core import (  # Import Color, ViktorController
     UserMessage,
     ViktorController,  # Import Color, ViktorController
 )
-from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
 from viktor.errors import UserError  # Import UserError
 from viktor.parametrization import Parametrization  # Import for type hint
 from viktor.result import DownloadResult  # Import DownloadResult
@@ -38,11 +37,6 @@ from app.constants import (  # Replace relative imports with absolute imports
     CSS_PATH,
     README_PATH,
 )
-from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.result import DownloadResult  # Import DownloadResult
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
 from .parametrization import OverviewBridgesParametrization

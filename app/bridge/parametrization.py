@@ -6,7 +6,6 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from viktor.errors import UserError
-
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -52,8 +51,6 @@ from app.constants import (
 )
 from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
 from src.common.materials import get_reinforcement_qualities
-
-from .utils import validate_reinforcement_zone_selections
 
 # --- Helper function for rebar diameter options ---
 
@@ -349,24 +346,6 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
 
 
-def _validate_reinforcement_zones_callback(params, **kwargs) -> None:  # noqa: ANN001, ARG001
-    """
-    Validation callback for reinforcement zone selections.
-
-    Validates that each zone is selected in only one configuration.
-    Raises UserError if duplicates are found.
-
-    Args:
-        params: Parameters containing reinforcement_zones_array
-        **kwargs: Additional keyword arguments (unused)
-
-    Raises:
-        UserError: If duplicate zone selections are found
-
-    """
-    validate_reinforcement_zone_selections(params)
-
-
 # --- Functions for dynamic reinforcement zones ---
 
 
@@ -494,51 +473,6 @@ def _check_first_and_last_supports(params: Mapping, **kwargs) -> str:  # noqa: A
 
     except (AttributeError, IndexError):
         return "🔴 Fout bij ophalen opleggingsgegevens"
-
-
-def _validate_first_and_last_supports(params: Mapping, **kwargs) -> None:  # noqa: ARG001
-    """
-    Validate that the first and last sections in the bridge dimensions array are supports.
-
-    Raises UserError if either the first or last section is not a support.
-
-    :param params: Parameters containing bridge_segments_array
-    :type params: Mapping
-    :param **kwargs: Additional keyword arguments (unused).
-
-    :raises UserError: If first or last section is not a support
-    :rtype: None
-    """
-    try:
-        segments = params.bridge_segments_array
-        if not segments or len(segments) < 2:
-            raise UserError(  # noqa: TRY301
-                "Onvoldoende brugdimensies gedefinieerd. Er moeten minimaal 2 secties zijn.",
-            )
-
-        first_support = segments[0].is_support
-        last_support = segments[-1].is_support
-
-        first_is_support = first_support != "Nee"
-        last_is_support = last_support != "Nee"
-
-        if not first_is_support and not last_is_support:
-            raise UserError(  # noqa: TRY301
-                "De eerste en laatste sectie moeten beide een oplegging hebben. Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
-            )
-        if not first_is_support:
-            raise UserError(  # noqa: TRY301
-                "De eerste sectie (D-0) moet een oplegging hebben. Selecteer een opleggingstype bij de eerste sectie.",
-            )
-        if not last_is_support:
-            raise UserError(  # noqa: TRY301
-                f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. Selecteer een opleggingstype bij de laatste sectie.",
-            )
-
-    except UserError:
-        raise
-    except (AttributeError, IndexError) as e:
-        raise UserError(f"Fout bij valideren van opleggingen: {e!s}") from e
 
 
 # ----------------------------------

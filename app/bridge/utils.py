@@ -6,6 +6,8 @@ from typing import Protocol as TypingProtocol
 from viktor import InputViolation  # type: ignore[attr-defined]
 from viktor.errors import UserError
 
+from app.bridge.parametrization import BridgeParametrization
+
 # Import for validate_load_zone_widths - ensure this path is correct
 from src.geometry.model_creator import (
     LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
@@ -183,3 +185,48 @@ def validate_reinforcement_zone_selections(params: ParamsForReinforcementZones) 
         violations = _build_input_violations(duplicate_zones)
         error_message = "Er mag per zone maar één wapeningsconfiguratie worden toegepast. "
         raise UserError(error_message, input_violations=violations)
+
+
+def _validate_first_and_last_supports(params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG001
+    """
+    Validate that the first and last sections in the bridge dimensions array are supports.
+
+    Raises UserError if either the first or last section is not a support.
+
+    :param params: Parameters containing bridge_segments_array
+    :type params: Mapping
+    :param **kwargs: Additional keyword arguments (unused).
+
+    :raises UserError: If first or last section is not a support
+    :rtype: None
+    """
+    try:
+        segments = params.bridge_segments_array
+        if not segments or len(segments) < 2:
+            raise UserError(  # noqa: TRY301
+                "Onvoldoende brugdimensies gedefinieerd. Er moeten minimaal 2 secties zijn.",
+            )
+
+        first_support = segments[0].is_support
+        last_support = segments[-1].is_support
+
+        first_is_support = first_support != "Nee"
+        last_is_support = last_support != "Nee"
+
+        if not first_is_support and not last_is_support:
+            raise UserError(  # noqa: TRY301
+                "De eerste en laatste sectie moeten beide een oplegging hebben. Selecteer een opleggingstype bij de eerste (D-0) en laatste sectie.",
+            )
+        if not first_is_support:
+            raise UserError(  # noqa: TRY301
+                "De eerste sectie (D-0) moet een oplegging hebben. Selecteer een opleggingstype bij de eerste sectie.",
+            )
+        if not last_is_support:
+            raise UserError(  # noqa: TRY301
+                f"De laatste sectie (D-{len(segments) - 1}) moet een oplegging hebben. Selecteer een opleggingstype bij de laatste sectie.",
+            )
+
+    except UserError:
+        raise
+    except (AttributeError, IndexError) as e:
+        raise UserError(f"Fout bij valideren van opleggingen: {e!s}") from e
