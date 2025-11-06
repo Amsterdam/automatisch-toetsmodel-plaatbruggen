@@ -8,64 +8,19 @@ For detailed documentation on how section plane creation works, see:
 docs/scia_section_on_plane_logic.md
 """
 
-from dataclasses import dataclass
 from typing import Any
 
-from src.data_models.scia_models import SectionOnPlaneDefinition
+from src.data_models.scia_models import Boundary, Section, SectionOnPlaneDefinition, Span
 from src.integrations.scia_integration.constants.geometry import (
     SECTION_ON_PLANE_INTERMEDIATE_OFFSET,
     SECTION_ON_PLANE_LENGTH,
+    SECTION_ON_PLANE_NARROW_BZ2_THRESHOLD,
     SECTION_ON_PLANE_OFFSET_FACTOR,
     SECTION_ON_PLANE_SPACING,
     SECTION_ON_PLANE_TOLERANCE,
 )
 from src.integrations.scia_integration.model.scia_model_interface import SciaModelBuilder, SciaSectionOnPlane
 from src.integrations.scia_integration.types import BridgeParametrization
-
-
-@dataclass
-class Span:
-    """
-    Represents a span in the bridge structure.
-
-    A span is defined by segments between two supports. It starts with a support
-    and ends with a support, potentially containing intermediate segments without supports.
-
-    :param start_x: X-coordinate where the span starts in [m]
-    :type start_x: float
-    :param end_x: X-coordinate where the span ends in [m]
-    :type end_x: float
-    :param length: Total length of the span in [m]
-    :type length: float
-    :param width: Total width of the span (bz1 + bz2 + bz3) in [m]
-    :type width: float
-    :param bz1: Width of zone 1 in [m]
-    :type bz1: float
-    :param bz2: Width of zone 2 in [m]
-    :type bz2: float
-    :param bz3: Width of zone 3 in [m]
-    :type bz3: float
-    :param min_thickness: Minimum thickness (min of dz and dz_2) in [m]
-    :type min_thickness: float
-    :param span_index: Index of the span (1-based)
-    :type span_index: int
-    :param num_segment_definitions: Number of segment definition points within the span (including start and end supports)
-    :type num_segment_definitions: int
-    :param intermediate_segment_x_positions: X-coordinates of intermediate segment boundaries in [m]
-    :type intermediate_segment_x_positions: list[float]
-    """
-
-    start_x: float
-    end_x: float
-    length: float
-    width: float
-    bz1: float
-    bz2: float
-    bz3: float
-    min_thickness: float
-    span_index: int
-    num_segment_definitions: int
-    intermediate_segment_x_positions: list[float]
 
 
 def _create_span_from_segments(
@@ -102,26 +57,22 @@ def _create_span_from_segments(
     # Verify all segments in the span have the same zone widths and thicknesses
     for seg in current_span_segments:
         if seg.bz1 != bz1 or seg.bz2 != bz2 or seg.bz3 != bz3:
-            raise ValueError(f"Inconsistent zone widths in span {span_index}. All segments in a span must have the same bz1, bz2, and bz3 values.")
+            msg = f"Inconsistent zone widths in span {span_index}. All segments in a span must have the same bz1, bz2, and bz3 values."
+            raise ValueError(msg)
         if seg.dz != dz or seg.dz_2 != dz_2:
-            raise ValueError(f"Inconsistent thicknesses in span {span_index}. All segments in a span must have the same dz and dz_2 values.")
+            msg = f"Inconsistent thicknesses in span {span_index}. All segments in a span must have the same dz and dz_2 values."
+            raise ValueError(msg)
 
     span_width = bz1 + bz2 + bz3
     min_thickness = min(dz, dz_2)
 
     # Calculate intermediate segment boundaries (x-coordinates where segments meet)
-    # Skip the first segment (l=0) and calculate cumulative x positions
     intermediate_segment_x_positions = []
     current_x = span_start_x
-
     for seg in current_span_segments[1:-1]:  # Skip first and last segment
         current_x += seg.l
         intermediate_segment_x_positions.append(current_x)
 
-    # Count the number of segment definition points
-    # This includes: start point + intermediate points + end point
-    # Each segment in current_span_segments represents a definition point
-    # So the total number of segment definitions = len(current_span_segments)
     num_segment_definitions = len(current_span_segments)
 
     return Span(
@@ -150,7 +101,7 @@ def _identify_spans(segments: list[Any]) -> list[Span]:
     :type segments: list[Any]
     :returns: List of identified spans
     :rtype: list[Span]
-    :raises ValueError: If span has inconsistent zone widths or thicknesses across segments, or if segments list is empty
+    :raises ValueError: If span has inconsistent zone widths or thicknesses across segments
     """
     if not segments:
         return []
@@ -182,7 +133,6 @@ def _identify_spans(segments: list[Any]) -> list[Span]:
             current_span_segments = [segment]
 
     # Handle incomplete span at the end (if segments don't end with a support)
-    # Only create a span if there are segments beyond the first one
     if current_span_segments and len(current_span_segments) > 1:
         span_index += 1
         span = _create_span_from_segments(current_span_segments, x_position, span_index)
@@ -191,596 +141,503 @@ def _identify_spans(segments: list[Any]) -> list[Span]:
     return spans
 
 
-def _filter_and_adjust_x_direction_sections(
-    section_positions: list[float],
+def _generate_positions_with_spacing(  # noqa: PLR0913
+    start: float,
+    end: float,
+    spacing: float,
     section_length: float,
-    intermediate_x_positions: list[float],
+    tolerance: float,
+    *,
+    section_extends_forward: bool = True,
 ) -> list[float]:
     """
-    Filter and adjust x-direction section positions to avoid crossing intermediate segment boundaries.
+    Generate positions with regular spacing from start to end.
 
-    For sections that would cross a boundary:
-    - Adds a shortened section that ends just before the boundary (at boundary - INTERMEDIATE_OFFSET)
-    - Adds a section that starts just after the boundary (at boundary + INTERMEDIATE_OFFSET)
-
-    Also ensures that for each intermediate boundary, there's always a section ending at boundary - INTERMEDIATE_OFFSET,
-    even if no regular section would cross that boundary.
-
-    :param section_positions: List of section start positions
-    :type section_positions: list[float]
+    :param start: Start position in [m]
+    :type start: float
+    :param end: End limit position in [m]
+    :type end: float
+    :param spacing: Spacing between positions in [m]
+    :type spacing: float
     :param section_length: Length of each section in [m]
     :type section_length: float
-    :param intermediate_x_positions: X-coordinates of intermediate segment boundaries in [m]
-    :type intermediate_x_positions: list[float]
-    :returns: Adjusted list of section positions
+    :param tolerance: Tolerance for endpoint inclusion in [m]
+    :type tolerance: float
+    :param section_extends_forward: If True, section extends forward from position (x-dir or y-down).
+                                     If False, position is the section itself (y-dir x-positions)
+    :type section_extends_forward: bool
+    :returns: List of positions
     :rtype: list[float]
     """
-    if not intermediate_x_positions:
-        return section_positions
+    positions = []
+    current = start
 
-    adjusted_positions = []
-    added_shortened_count = 0
-    boundaries_with_sections_before = set()
-    boundaries_with_sections_after = set()  # Track sections added after boundaries
+    if section_extends_forward:
+        # For x-direction or y-direction sections extending from the position
+        while current + section_length <= end + tolerance:
+            positions.append(current)
+            current += spacing
 
-    for pos in section_positions:
-        section_start = pos
-        section_end = pos + section_length
-        # Find all boundaries crossed by this section
-        boundaries_crossed = [bx for bx in intermediate_x_positions if section_start < bx < section_end]
+        # Add final position if needed
+        if positions:
+            if section_length > 0:  # X-direction or y-direction extending
+                last_section_end = positions[-1] + section_length
+                if last_section_end < end - tolerance:
+                    positions.append(end - section_length)
+            # Point positions (for y-direction x-positions)
+            elif abs(positions[-1] - end) > tolerance:
+                positions.append(end)
+    else:
+        # For point positions (y-direction x-coordinates)
+        while current <= end + tolerance:
+            positions.append(current)
+            current += spacing
 
-        if not boundaries_crossed:
-            # Section doesn't cross any boundary, keep it
-            adjusted_positions.append(pos)
-        else:
-            for boundary_x in boundaries_crossed:
-                # Add a section that ends just before the boundary
-                end_before = boundary_x - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-                start_before = end_before - section_length
-                if start_before >= section_start - SECTION_ON_PLANE_TOLERANCE:
-                    adjusted_positions.append(start_before)
-                    boundaries_with_sections_before.add(boundary_x)
-                    added_shortened_count += 1
+        # Add endpoint if needed
+        if positions and abs(positions[-1] - end) > tolerance:
+            positions.append(end)
 
-                # Add a section that starts just after the boundary (only if not already added)
-                if boundary_x not in boundaries_with_sections_after:
-                    start_after = boundary_x + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-                    adjusted_positions.append(start_after)
-                    boundaries_with_sections_after.add(boundary_x)
-                    added_shortened_count += 1
-
-    # Ensure all boundaries have sections ending before them
-    for boundary_x in intermediate_x_positions:
-        if boundary_x not in boundaries_with_sections_before:
-            # No section was added that ends at this boundary, add one
-            end_before = boundary_x - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-            start_before = end_before - section_length
-            adjusted_positions.append(start_before)
-            added_shortened_count += 1
-
-        if boundary_x not in boundaries_with_sections_after:
-            # Also add section after this boundary if not already added
-            start_after = boundary_x + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-            adjusted_positions.append(start_after)
-            boundaries_with_sections_after.add(boundary_x)
-            added_shortened_count += 1
-
-    return sorted(adjusted_positions)
+    return positions
 
 
-def _filter_section_positions_for_intermediate_segments(
-    section_positions: list[float],
+def _add_boundary_positions(boundaries: list[Boundary]) -> list[float]:
+    """
+    Generate positions at boundary ± offset for all boundaries.
+
+    :param boundaries: List of Boundary objects
+    :type boundaries: list[Boundary]
+    :returns: List of positions at boundaries with offsets
+    :rtype: list[float]
+    """
+    positions = []
+    for boundary in boundaries:
+        pos_before, pos_after = boundary.get_positions_at_boundary()
+        positions.extend([pos_before, pos_after])
+    return positions
+
+
+def _filter_positions_for_boundaries(  # noqa: PLR0913, C901, PLR0912
+    positions: list[float],
     section_length: float,
-    intermediate_x_positions: list[float],
-    is_x_direction: bool,
+    boundaries: list[Boundary],
+    tolerance: float,
+    strict_tolerance: float,
+    *,
+    is_extending_section: bool = True,
+    extends_forward: bool = True,
 ) -> list[float]:
     """
-    Filter section positions to avoid crossing intermediate segment boundaries.
+    Filter positions to avoid boundaries and add boundary positions.
 
-    For x-direction sections: Handled by _filter_and_adjust_x_direction_sections.
+    Unified filtering for all boundary types and section directions.
 
-    For y-direction sections: Removes x-positions where the section (at that x)
-    would violate the intermediate boundary rules.
+    :param positions: List of positions to filter
+    :type positions: list[float]
+    :param section_length: Length of each section in [m] (0 for point sections)
+    :type section_length: float
+    :param boundaries: List of Boundary objects to avoid
+    :type boundaries: list[Boundary]
+    :param tolerance: Regular tolerance for boundary detection in [m]
+    :type tolerance: float
+    :param strict_tolerance: Strict tolerance for final filtering in [m]
+    :type strict_tolerance: float
+    :param is_extending_section: True for sections with length, False for point sections
+    :type is_extending_section: bool
+    :param extends_forward: True if section extends forward (x-dir), False if backward (y-dir down)
+    :type extends_forward: bool
+    :returns: Filtered and adjusted list of positions
+    :rtype: list[float]
+    """
+    if not boundaries:
+        return positions
 
-    :param section_positions: List of section positions to filter
-    :type section_positions: list[float]
+    boundary_positions = [b.position for b in boundaries]
+    filtered = []
+
+    # Filter out positions that conflict with boundaries
+    for pos in positions:
+        if is_extending_section and section_length > 0:
+            # Create section to check for conflicts
+            if extends_forward:
+                section = Section(start=pos, end=pos + section_length, direction="x")
+            else:
+                section = Section(start=pos, end=pos - section_length, direction="y")
+
+            # Check if section crosses or touches any boundary
+            has_conflict = any(section.crosses_or_touches_boundary(bp, tolerance) for bp in boundary_positions)
+            if not has_conflict:
+                filtered.append(pos)
+        else:
+            # Point section (y-direction x-coordinate)
+            has_conflict = any(abs(pos - bp) < boundaries[0].offset for bp in boundary_positions)
+            if not has_conflict:
+                filtered.append(pos)
+
+    # Add positions at boundaries with offset
+    boundary_offset_positions = _add_boundary_positions(boundaries)
+
+    # For y-direction sections extending downward, add edge sections
+    if not extends_forward and section_length > 0:
+        sorted_boundaries = sorted(boundary_positions, reverse=True)
+        if sorted_boundaries:
+            top_boundary = sorted_boundaries[0]
+            bottom_boundary = sorted_boundaries[-1]
+
+            # Edge section ending at top boundary - offset
+            section_bottom_edge_top = top_boundary - boundaries[0].offset
+            section_top_edge_top = section_bottom_edge_top + section_length
+            boundary_offset_positions.append(section_top_edge_top)
+
+            # Edge section starting at bottom boundary + offset
+            section_top_edge_bottom = bottom_boundary + boundaries[0].offset
+            boundary_offset_positions.append(section_top_edge_bottom)
+
+    # Combine filtered and boundary positions
+    all_positions = filtered + boundary_offset_positions
+
+    # Final strict filtering for y-direction extending sections
+    if not extends_forward and section_length > 0:
+        final_positions = []
+        for pos in all_positions:
+            section = Section(start=pos, end=pos - section_length, direction="y")
+            has_conflict = any(section.crosses_or_touches_boundary(bp, strict_tolerance) for bp in boundary_positions)
+            if not has_conflict:
+                final_positions.append(pos)
+        return sorted(set(final_positions), reverse=True)
+
+    return sorted(set(all_positions), reverse=(not extends_forward))
+
+
+class SectionGridGenerator:
+    """
+    Generates section grid for a single span with boundary awareness.
+
+    :param span: The span to generate sections for
+    :type span: Span
     :param section_length: Length of each section in [m]
     :type section_length: float
-    :param intermediate_x_positions: X-coordinates of intermediate segment boundaries in [m]
-    :type intermediate_x_positions: list[float]
-    :param is_x_direction: True if filtering x-direction sections, False for y-direction
-    :type is_x_direction: bool
-    :returns: Filtered list of section positions
-    :rtype: list[float]
+    :param spacing: Spacing between sections in [m]
+    :type spacing: float
+    :param offset_factor: Factor for edge offsets (multiplied by min_thickness)
+    :type offset_factor: float
+    :param intermediate_offset: Offset from boundaries in [m]
+    :type intermediate_offset: float
+    :param tolerance: Tolerance for position calculations in [m]
+    :type tolerance: float
     """
-    if not intermediate_x_positions:
-        return section_positions
 
-    if is_x_direction:
-        return _filter_and_adjust_x_direction_sections(section_positions, section_length, intermediate_x_positions)
+    def __init__(  # noqa: PLR0913
+        self,
+        span: Span,
+        section_length: float,
+        spacing: float,
+        offset_factor: float,
+        intermediate_offset: float,
+        tolerance: float,
+    ) -> None:
+        """Initialize the section grid generator."""
+        self.span = span
+        self.section_length = section_length
+        self.spacing = spacing
+        self.offset_factor = offset_factor
+        self.intermediate_offset = intermediate_offset
+        self.tolerance = tolerance
+        self.strict_tolerance = intermediate_offset / 2
 
-    filtered_positions = []
-    removed_count = 0
+        # Calculate boundaries
+        self.segment_boundaries = [
+            Boundary(pos, intermediate_offset, "segment") for pos in span.intermediate_segment_x_positions
+        ]
+        self.zone_boundaries = self._calculate_zone_boundaries()
 
-    for pos in section_positions:
-        # For y-direction sections, pos is an x-coordinate where we place a vertical section
-        # The section doesn't extend in x, so we just need to check if it's too close to a boundary
-        # Add offset constraint: must be at least INTERMEDIATE_OFFSET away from boundaries
-        is_valid = True
-        for boundary_x in intermediate_x_positions:
-            if abs(pos - boundary_x) < SECTION_ON_PLANE_INTERMEDIATE_OFFSET:
-                is_valid = False
-                break
-        if is_valid:
-            filtered_positions.append(pos)
-        else:
-            removed_count += 1
+        # Calculate span limits
+        self.x_start = span.start_x + offset_factor * span.min_thickness
+        self.x_end = span.end_x - offset_factor * span.min_thickness
+        self.y_top = span.bz1 + span.bz2 / 2
+        self.y_bottom = -(span.bz3 + span.bz2 / 2)
 
-    return filtered_positions
+    def _calculate_zone_boundaries(self) -> list[Boundary]:
+        """
+        Calculate zone boundary positions.
+
+        :returns: List of zone boundaries
+        :rtype: list[Boundary]
+        """
+        return [
+            Boundary(self.span.bz2 / 2, self.intermediate_offset, "zone"),
+            Boundary(-self.span.bz2 / 2, self.intermediate_offset, "zone"),
+        ]
+
+    def _generate_x_positions_for_x_sections(self) -> list[float]:
+        """
+        Generate x-positions for x-direction sections.
+
+        :returns: List of x-positions
+        :rtype: list[float]
+        """
+        positions = _generate_positions_with_spacing(
+            self.x_start,
+            self.x_end,
+            self.spacing,
+            self.section_length,
+            self.tolerance,
+            section_extends_forward=True,
+        )
+
+        # Filter for intermediate segment boundaries if present
+        if self.span.num_segment_definitions > 2:
+            positions = _filter_positions_for_boundaries(
+                positions,
+                self.section_length,
+                self.segment_boundaries,
+                self.tolerance,
+                self.strict_tolerance,
+                is_extending_section=True,
+                extends_forward=True,
+            )
+
+        return positions
+
+    def _generate_y_positions_for_x_sections(self) -> list[float]:
+        """
+        Generate y-positions for x-direction sections (where horizontal lines are placed).
+
+        :returns: List of y-positions
+        :rtype: list[float]
+        """
+        # Generate positions from top to bottom
+        positions = []
+        y_current = self.y_top
+        while y_current >= self.y_bottom:
+            positions.append(y_current)
+            y_current -= self.spacing
+
+        # Add final position if needed
+        if positions and positions[-1] > self.y_bottom + self.tolerance:
+            positions.append(self.y_bottom)
+
+        # Filter for zone boundaries
+        positions = _filter_positions_for_boundaries(
+            positions,
+            0,  # Point sections (lines at y-coordinate)
+            self.zone_boundaries,
+            self.tolerance,
+            self.strict_tolerance,
+            is_extending_section=False,
+            extends_forward=True,
+        )
+
+        return sorted(positions, reverse=True)
+
+    def _generate_x_positions_for_y_sections(self) -> list[float]:
+        """
+        Generate x-positions for y-direction sections (where vertical sections are placed).
+
+        :returns: List of x-positions
+        :rtype: list[float]
+        """
+        positions = _generate_positions_with_spacing(
+            self.x_start,
+            self.x_end,
+            self.spacing,
+            0,  # Point positions
+            self.tolerance,
+            section_extends_forward=False,
+        )
+
+        # Filter for intermediate segment boundaries if present
+        if self.span.num_segment_definitions > 2:
+            # Remove positions too close to boundaries
+            filtered = []
+            for pos in positions:
+                is_valid = all(
+                    abs(pos - boundary.position) >= self.intermediate_offset for boundary in self.segment_boundaries
+                )
+                if is_valid:
+                    filtered.append(pos)
+
+            # Add positions at boundaries
+            boundary_positions = _add_boundary_positions(self.segment_boundaries)
+            return sorted(set(filtered + boundary_positions))
+
+        return positions
+
+    def _generate_y_positions_for_y_sections(self) -> list[float]:
+        """
+        Generate y-positions for y-direction sections (top of downward-extending sections).
+
+        :returns: List of y-positions
+        :rtype: list[float]
+        """
+        # Generate positions from top downward
+        positions = []
+        y_current = self.y_top
+        while y_current - self.section_length >= self.y_bottom - self.tolerance:
+            positions.append(y_current)
+            y_current -= self.spacing
+
+        # Add final position if needed
+        if positions:
+            last_bottom = positions[-1] - self.section_length
+            if last_bottom > self.y_bottom + self.tolerance:
+                positions.append(self.y_bottom + self.section_length)
+
+        # Filter for zone boundaries
+        positions = _filter_positions_for_boundaries(
+            positions,
+            self.section_length,
+            self.zone_boundaries,
+            self.tolerance,
+            self.strict_tolerance,
+            is_extending_section=True,
+            extends_forward=False,
+        )
+
+        return positions
+
+    def generate_x_direction_sections(self) -> list[SectionOnPlaneDefinition]:
+        """
+        Generate all x-direction sections for the span.
+
+        :returns: List of x-direction section definitions
+        :rtype: list[SectionOnPlaneDefinition]
+        """
+        x_positions = self._generate_x_positions_for_x_sections()
+        y_positions = self._generate_y_positions_for_x_sections()
+
+        sections = []
+        for i, x_pos in enumerate(x_positions):
+            for j, y_pos in enumerate(y_positions):
+                sections.append(
+                    SectionOnPlaneDefinition(
+                        name=f"span_{self.span.span_index}_x_sec_{i}_{j}",
+                        point_1=(x_pos, y_pos, 0.0),
+                        point_2=(x_pos + self.section_length, y_pos, 0.0),
+                        draw=None,
+                        direction_of_cut=None,
+                    )
+                )
+
+        return sections
+
+    def generate_y_direction_sections(self) -> list[SectionOnPlaneDefinition]:
+        """
+        Generate all y-direction sections for the span.
+
+        :returns: List of y-direction section definitions
+        :rtype: list[SectionOnPlaneDefinition]
+        """
+        x_positions = self._generate_x_positions_for_y_sections()
+        y_positions = self._generate_y_positions_for_y_sections()
+
+        sections = []
+        for i, x_pos in enumerate(x_positions):
+            for j, y_pos in enumerate(y_positions):
+                sections.append(
+                    SectionOnPlaneDefinition(
+                        name=f"span_{self.span.span_index}_y_sec_{i}_{j}",
+                        point_1=(x_pos, y_pos, 0.0),
+                        point_2=(x_pos, y_pos - self.section_length, 0.0),
+                        draw=None,
+                        direction_of_cut=None,
+                    )
+                )
+
+        return sections
+
+    def generate_special_sections_for_narrow_bz2(self) -> list[SectionOnPlaneDefinition]:
+        """
+        Generate special sections when bz2 <= SECTION_ON_PLANE_NARROW_BZ2_THRESHOLD.
+
+        Creates:
+        - X-direction sections at y=0 (centerline)
+        - Y-direction sections spanning the bz2 zone interior
+
+        :returns: List of special section definitions
+        :rtype: list[SectionOnPlaneDefinition]
+        """
+        sections = []
+
+        if self.span.bz2 > SECTION_ON_PLANE_NARROW_BZ2_THRESHOLD:
+            return sections
+
+        x_positions_x = self._generate_x_positions_for_x_sections()
+        x_positions_y = self._generate_x_positions_for_y_sections()
+
+        # Special x-direction sections at y=0
+        for i, x_pos in enumerate(x_positions_x):
+            sections.append(
+                SectionOnPlaneDefinition(
+                    name=f"span_{self.span.span_index}_x_sec_y0_{i}",
+                    point_1=(x_pos, 0.0, 0.0),
+                    point_2=(x_pos + self.section_length, 0.0, 0.0),
+                    draw=None,
+                    direction_of_cut=None,
+                )
+            )
+
+        # Special y-direction sections spanning bz2 interior
+        top_zone_boundary = self.span.bz2 / 2
+        bottom_zone_boundary = -self.span.bz2 / 2
+        special_section_top = top_zone_boundary - self.intermediate_offset
+        special_section_bottom = bottom_zone_boundary + self.intermediate_offset
+
+        for i, x_pos in enumerate(x_positions_y):
+            sections.append(
+                SectionOnPlaneDefinition(
+                    name=f"span_{self.span.span_index}_y_sec_special_{i}",
+                    point_1=(x_pos, special_section_top, 0.0),
+                    point_2=(x_pos, special_section_bottom, 0.0),
+                    draw=None,
+                    direction_of_cut=None,
+                )
+            )
+
+        return sections
+
+    def generate_all_sections(self) -> list[SectionOnPlaneDefinition]:
+        """
+        Generate complete section grid for the span.
+
+        :returns: List of all section definitions for the span
+        :rtype: list[SectionOnPlaneDefinition]
+        """
+        sections = []
+        sections.extend(self.generate_x_direction_sections())
+        sections.extend(self.generate_y_direction_sections())
+        sections.extend(self.generate_special_sections_for_narrow_bz2())
+        return sections
 
 
-def _add_intermediate_boundary_positions(
-    x_positions: list[float],
-    intermediate_x_positions: list[float],
-) -> list[float]:
-    """
-    Add section positions at intermediate segment boundaries with proper offset.
-
-    For each intermediate boundary, adds two positions:
-    - One at boundary_x - INTERMEDIATE_OFFSET (before the boundary)
-    - One at boundary_x + INTERMEDIATE_OFFSET (after the boundary)
-
-    :param x_positions: Existing list of x-positions
-    :type x_positions: list[float]
-    :param intermediate_x_positions: X-coordinates of intermediate segment boundaries in [m]
-    :type intermediate_x_positions: list[float]
-    :returns: Extended list of x-positions including boundary positions
-    :rtype: list[float]
-    """
-    if not intermediate_x_positions:
-        return x_positions
-
-    all_positions = list(x_positions)
-    added_count = 0
-
-    for boundary_x in intermediate_x_positions:
-        # Add position before the boundary
-        pos_before = boundary_x - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        all_positions.append(pos_before)
-        added_count += 1
-
-        # Add position after the boundary
-        pos_after = boundary_x + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        all_positions.append(pos_after)
-        added_count += 1
-
-    # Sort and return
-    return sorted(all_positions)
-
-
-def _filter_y_positions_for_zone_boundaries_x_sections(
-    y_positions: list[float],
-    zone_boundary_y_positions: list[float],
-) -> list[float]:
-    """
-    Filter y-positions for x-direction sections to avoid placing sections on zone boundaries.
-
-    X-direction sections are horizontal lines at a specific y-coordinate. This function:
-    1. Removes y-positions that are exactly on zone boundaries
-    2. Adds new y-positions at zone_boundary ± INTERMEDIATE_OFFSET
-
-    :param y_positions: List of y-coordinates for horizontal x-direction sections
-    :type y_positions: list[float]
-    :param zone_boundary_y_positions: Y-coordinates of zone boundaries in [m]
-    :type zone_boundary_y_positions: list[float]
-    :returns: Filtered and adjusted list of y-positions
-    :rtype: list[float]
-    """
-    if not zone_boundary_y_positions:
-        return y_positions
-
-    # Step 1: Filter out positions that are on or very close to zone boundaries
-    filtered_positions = []
-    removed_count = 0
-
-    for pos in y_positions:
-        on_boundary = any(abs(pos - boundary_y) < SECTION_ON_PLANE_TOLERANCE for boundary_y in zone_boundary_y_positions)
-
-        if not on_boundary:
-            filtered_positions.append(pos)
-        else:
-            removed_count += 1
-
-    # Step 2: Add positions at zone boundaries with offset
-    for boundary_y in zone_boundary_y_positions:
-        # Add position above boundary
-        pos_above = boundary_y + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        filtered_positions.append(pos_above)
-
-        # Add position below boundary
-        pos_below = boundary_y - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        filtered_positions.append(pos_below)
-
-    return sorted(filtered_positions, reverse=True)  # Sort descending (top to bottom)
-
-
-def _filter_and_adjust_y_positions_for_zone_boundaries(  # noqa: C901, PLR0912
-    y_positions: list[float],
-    section_length: float,
-    zone_boundary_y_positions: list[float],
-) -> list[float]:
-    """
-    Filter y-positions to avoid crossing zone boundaries and add boundary sections.
-
-    This function:
-    1. Removes any y-positions where a y-direction section would cross a zone boundary
-    2. Adds new y-positions at zone_boundary ± INTERMEDIATE_OFFSET for sections parallel to boundaries
-    3. Re-checks all positions to ensure no section crosses/touches boundaries
-
-    Y-direction sections extend DOWNWARD from y_position (top) to y_position - section_length (bottom).
-
-    :param y_positions: List of y-positions (TOP of each y-direction section)
-    :type y_positions: list[float]
-    :param section_length: Length of each section in [m] (extends downward)
-    :type section_length: float
-    :param zone_boundary_y_positions: Y-coordinates of zone boundaries in [m]
-    :type zone_boundary_y_positions: list[float]
-    :returns: Filtered and adjusted list of y-positions
-    :rtype: list[float]
-    """
-    if not zone_boundary_y_positions:
-        return y_positions
-
-    # Step 1: Filter out positions where sections would cross, start at, or end at zone boundaries
-    filtered_positions = []
-    removed_count = 0
-
-    for pos in y_positions:
-        # Y-direction section extends from pos (top) downward to pos - section_length (bottom)
-        section_top = pos
-        section_bottom = pos - section_length
-
-        # Check each zone boundary against this section
-        should_remove = False
-        for boundary_y in zone_boundary_y_positions:
-            # Check if boundary is between top and bottom (crossing)
-            if section_bottom < boundary_y < section_top:
-                should_remove = True
-                break
-            # Check if section top is exactly at the boundary
-            if abs(section_top - boundary_y) < SECTION_ON_PLANE_TOLERANCE:
-                should_remove = True
-                break
-            # Check if section bottom is exactly at the boundary
-            if abs(section_bottom - boundary_y) < SECTION_ON_PLANE_TOLERANCE:
-                should_remove = True
-                break
-
-        if not should_remove:
-            filtered_positions.append(pos)
-        else:
-            removed_count += 1
-
-    # Step 2: Add positions at zone boundaries with offset
-    # Y-direction sections extend DOWNWARD from pos (top) to pos - section_length (bottom)
-
-    # Sort boundaries to identify top and bottom boundaries
-    sorted_boundaries = sorted(zone_boundary_y_positions, reverse=True)  # Descending order
-    top_boundary = sorted_boundaries[0] if sorted_boundaries else None
-    bottom_boundary = sorted_boundaries[-1] if sorted_boundaries else None
-
-    for boundary_y in zone_boundary_y_positions:
-        # Section ending just above the boundary
-        # Bottom should be at boundary_y + INTERMEDIATE_OFFSET
-        # Top should be at bottom + section_length
-        section_bottom_above = boundary_y + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        section_top_above = section_bottom_above + section_length
-        filtered_positions.append(section_top_above)
-
-        # Section starting just below the boundary
-        # Top should be at boundary_y - INTERMEDIATE_OFFSET
-        section_top_below = boundary_y - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        filtered_positions.append(section_top_below)
-
-    # Add edge sections:
-    # 1. Section ending at top boundary - offset (extending from top of span)
-    if top_boundary is not None:
-        section_bottom_edge_top = top_boundary - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        section_top_edge_top = section_bottom_edge_top + section_length
-        filtered_positions.append(section_top_edge_top)
-
-    # 2. Section starting at bottom boundary + offset (extending to bottom of span)
-    if bottom_boundary is not None:
-        section_top_edge_bottom = bottom_boundary + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-        filtered_positions.append(section_top_edge_bottom)
-
-    # Step 3: Final check - remove any positions that still cross boundaries or are exactly on boundaries
-    # Sections at boundary ± INTERMEDIATE_OFFSET are intentional and should be kept
-    # Use a stricter tolerance to distinguish between "exactly at boundary" vs "at boundary ± offset"
-    strict_tolerance = SECTION_ON_PLANE_INTERMEDIATE_OFFSET / 2  # Half of the offset (0.0005m)
-    final_positions = []
-    final_removed_count = 0
-
-    for pos in filtered_positions:
-        section_top = pos
-        section_bottom = pos - section_length
-
-        should_remove = False
-
-        for boundary_y in zone_boundary_y_positions:
-            # Check if section crosses the boundary (boundary is strictly between top and bottom)
-            if section_bottom < boundary_y < section_top:
-                should_remove = True
-                break
-
-            # Check if section top is exactly at boundary (use strict tolerance)
-            if abs(section_top - boundary_y) < strict_tolerance:
-                should_remove = True
-                break
-
-            # Check if section bottom is exactly at boundary (use strict tolerance)
-            if abs(section_bottom - boundary_y) < strict_tolerance:
-                should_remove = True
-                break
-
-        if not should_remove:
-            final_positions.append(pos)
-        else:
-            final_removed_count += 1
-
-    return sorted(final_positions, reverse=True)  # Sort descending (top to bottom)
-
-
-def create_section_definitions(params: BridgeParametrization) -> list[SectionOnPlaneDefinition]:  # noqa: C901, PLR0912
+def create_section_definitions(params: BridgeParametrization) -> list[SectionOnPlaneDefinition]:
     """
     Create section on plane definitions for the bridge model.
 
     Creates a grid of 1m sections with 0.5m overlaps for each span:
-    - X-direction sections: 1m long in x, repeated every 0.5m in x, and every 0.5m in y
-      with x-offset of +0.9 * min_thickness at span start and -0.9 * min_thickness at span end
-    - Y-direction sections: 1m long in y, repeated every 0.5m in y, and every 0.5m in x
-      with same x-offsets as x-direction sections
+    - X-direction sections: 1m long in x, repeated every 0.5m in x and y
+    - Y-direction sections: 1m long in y, repeated every 0.5m in y and x
+    - Special sections for narrow zones (bz2 <= SECTION_ON_PLANE_NARROW_BZ2_THRESHOLD)
 
     :param params: Bridge parameters containing geometry and settings data
     :type params: BridgeParametrization
-    :returns: List of SectionOnPlaneDefinition objects containing section definitions
+    :returns: List of SectionOnPlaneDefinition objects
     :rtype: list[SectionOnPlaneDefinition]
     """
-    section_definitions = []
-    section_length = SECTION_ON_PLANE_LENGTH
-    spacing = SECTION_ON_PLANE_SPACING
-
-    # Identify spans from segments
     spans = _identify_spans(params.bridge_segments_array)
 
-    # Create sections for each span
+    all_sections = []
     for span in spans:
-        # Calculate y-coordinates for the outer edges
-        # Top edge: bz1 + half of bz2
-        y_top_outer = span.bz1 + span.bz2 / 2
-        # Bottom edge: -(bz3 + half of bz2)
-        y_bottom_outer = -(span.bz3 + span.bz2 / 2)
-
-        # Calculate offsets
-        x_offset_start = SECTION_ON_PLANE_OFFSET_FACTOR * span.min_thickness
-        x_offset_end = -SECTION_ON_PLANE_OFFSET_FACTOR * span.min_thickness
-        y_offset_top = 0.0  # Offset from top edge in [m] (configurable for future use)
-        y_offset_bottom = 0.0  # Offset from bottom edge in [m] (configurable for future use)
-
-        # Apply y-offsets to get the actual y-limits for sections
-        y_top = y_top_outer - y_offset_top
-        y_bottom = y_bottom_outer + y_offset_bottom
-
-        # Calculate zone boundary y-coordinates
-        # Understanding the coordinate system:
-        # - bz1, bz2, bz3 are WIDTHS (not y-coordinates)
-        # - y_top_outer = bz1 + bz2/2 (top of the cross-section)
-        # - y_bottom_outer = -(bz3 + bz2/2) (bottom of the cross-section)
-        # - bz2 is centered at y=0, extending from y=-bz2/2 to y=+bz2/2
-        # - bz1 is above bz2, extending from y=bz2/2 to y=bz2/2+bz1
-        # - bz3 is below bz2, extending from y=-bz2/2-bz3 to y=-bz2/2
-
-        # Boundary between bz1 (top) and bz2 (middle) is at the bottom edge of bz1
-        # This is at y = bz2/2 (top of bz2)
-        y_boundary_bz1_bz2 = span.bz2 / 2
-
-        # Boundary between bz2 (middle) and bz3 (bottom) is at the top edge of bz3
-        # This is at y = -bz2/2 (bottom of bz2)
-        y_boundary_bz2_bz3 = -span.bz2 / 2
-
-        zone_boundary_y_positions = [y_boundary_bz1_bz2, y_boundary_bz2_bz3]
-
-        # Apply x-offsets to get the actual x-limits for sections
-        # Starting at span.start_x + offset_factor*min_thickness and with last section ending at or before span.end_x - offset_factor*min_thickness
-        x_start = span.start_x + x_offset_start
-        x_end_limit = span.end_x + x_offset_end
-
-        # X-DIRECTION SECTIONS
-        # These sections are 1m long in x-direction, repeated every 0.5m in x, and every 0.5m in y
-        # Calculate x-positions for x-direction sections
-        # x_positions_x_dir stores the START x-coordinate (left side) of each section
-        # Sections extend rightward from this position
-        x_positions_x_dir = []
-
-        x_current = x_start
-        # Continue while the END of the section (x_current + section_length) is <= x_end_limit
-        while x_current + section_length <= x_end_limit:
-            x_positions_x_dir.append(x_current)
-            x_current += spacing
-
-        # Add a final section if the last section doesn't reach the end
-        if x_positions_x_dir:
-            last_x_section_start = x_positions_x_dir[-1]
-            last_x_section_end = last_x_section_start + section_length
-            # Check if last section end is before x_end_limit (with tolerance)
-            if last_x_section_end < x_end_limit - SECTION_ON_PLANE_TOLERANCE:
-                # Add one more section with start at x_end_limit - section_length
-                # This section will extend from x_end_limit - section_length (start) to x_end_limit (end)
-                x_positions_x_dir.append(x_end_limit - section_length)
-
-        # For spans with more than 2 segment definitions, filter positions and add intermediate boundary positions
-        if span.num_segment_definitions > 2:
-            # Filter and adjust x-direction sections that would cross intermediate segment boundaries
-            # This also adds sections before and after boundaries automatically
-            x_positions_x_dir = _filter_section_positions_for_intermediate_segments(
-                x_positions_x_dir,
-                section_length,
-                span.intermediate_segment_x_positions,
-                is_x_direction=True,
-            )
-
-        # For each x-position, create sections at different y-coordinates
-        # Start from the top and work downward
-        # y_positions stores the y-coordinate of each horizontal section line
-        y_positions = []
-        y_current = y_top
-        while y_current >= y_bottom:
-            y_positions.append(y_current)
-            y_current -= spacing
-
-        # Add a final y position at y_bottom if the last position doesn't reach it
-        if y_positions:
-            last_y_position = y_positions[-1]
-            if last_y_position > y_bottom + SECTION_ON_PLANE_TOLERANCE:
-                y_positions.append(y_bottom)
-
-        # Filter y-positions to avoid zone boundaries and add sections at boundaries
-        y_positions = _filter_y_positions_for_zone_boundaries_x_sections(
-            y_positions,
-            zone_boundary_y_positions,
+        generator = SectionGridGenerator(
+            span=span,
+            section_length=SECTION_ON_PLANE_LENGTH,
+            spacing=SECTION_ON_PLANE_SPACING,
+            offset_factor=SECTION_ON_PLANE_OFFSET_FACTOR,
+            intermediate_offset=SECTION_ON_PLANE_INTERMEDIATE_OFFSET,
+            tolerance=SECTION_ON_PLANE_TOLERANCE,
         )
+        all_sections.extend(generator.generate_all_sections())
 
-        # Create x-direction sections at regular y positions
-        for i, x_pos in enumerate(x_positions_x_dir):
-            for j, y_pos in enumerate(y_positions):
-                section_definitions.append(
-                    SectionOnPlaneDefinition(
-                        name=f"span_{span.span_index}_x_sec_{i}_{j}",
-                        point_1=(x_pos, y_pos, 0.0),  # Left side of section
-                        point_2=(x_pos + section_length, y_pos, 0.0),  # Right side of section (extending rightward)
-                        draw=None,  # Will use default Z_DIRECTION
-                        direction_of_cut=None,  # Will use default (0, 0, 1)
-                    )
-                )
-
-        # SPECIAL FEATURE: If bz2 <= 1.002m, add special x-direction sections at y=0
-        if span.bz2 < 1.002:
-            # Add x-direction sections at y=0
-            for i, x_pos in enumerate(x_positions_x_dir):
-                section_definitions.append(
-                    SectionOnPlaneDefinition(
-                        name=f"span_{span.span_index}_x_sec_y0_{i}",
-                        point_1=(x_pos, 0.0, 0.0),  # Left side at y=0
-                        point_2=(x_pos + section_length, 0.0, 0.0),  # Right side at y=0
-                        draw=None,
-                        direction_of_cut=None,
-                    )
-                )
-
-        # Y-DIRECTION SECTIONS
-        # -------------------
-        # These sections are 1m long in y-direction, repeated every 0.5m in y, and every 0.5m in x
-
-        # Calculate x-positions for y-direction sections (separate from x-direction)
-        x_positions_y_dir = []
-        x_current = x_start
-        # Continue while we're within the span limits
-        while x_current <= x_end_limit:
-            x_positions_y_dir.append(x_current)
-            x_current += spacing
-
-        # Add an additional x position at x_end_limit if the last position doesn't reach it
-        if x_positions_y_dir:
-            last_x_position = x_positions_y_dir[-1]
-            if abs(last_x_position - x_end_limit) > SECTION_ON_PLANE_TOLERANCE:
-                # Add x position exactly at x_end_limit
-                x_positions_y_dir.append(x_end_limit)
-
-        # For spans with more than 2 segment definitions, filter positions and add intermediate boundary positions
-        if span.num_segment_definitions > 2:
-            # Filter out x-positions that are too close to intermediate boundaries
-            x_positions_y_dir = _filter_section_positions_for_intermediate_segments(
-                x_positions_y_dir,
-                section_length,
-                span.intermediate_segment_x_positions,
-                is_x_direction=False,
-            )
-            # Add y-direction sections at intermediate boundaries (with offset)
-            x_positions_y_dir = _add_intermediate_boundary_positions(
-                x_positions_y_dir,
-                span.intermediate_segment_x_positions,
-            )
-
-        # Calculate y-positions for sections (1m long in y direction)
-        # Start from the top and work downward
-        # y_section_positions stores the TOP y-coordinate of each section
-        # Sections extend downward from this position
-        y_section_positions = []
-        y_current = y_top
-        while y_current - section_length >= y_bottom:
-            y_section_positions.append(y_current)  # Store the TOP position
-            y_current -= spacing
-
-        # Add a final section if the last section doesn't reach the bottom
-        # The section is 1m long in y direction, extending downward from y_pos to y_pos - section_length
-        # We want a section starting at y_bottom + section_length (top) and ending at y_bottom (bottom)
-        if y_section_positions:
-            last_y_section_top = y_section_positions[-1]
-            last_y_section_bottom = last_y_section_top - section_length
-            # Check if last section bottom is above y_bottom (with tolerance)
-            if last_y_section_bottom > y_bottom + SECTION_ON_PLANE_TOLERANCE:
-                # Add one more section with top at y_bottom + section_length
-                # This section will extend from y_bottom + section_length (top) to y_bottom (bottom)
-                y_section_positions.append(y_bottom + section_length)
-
-        # Apply zone boundary filtering to y-section positions
-        # Y-direction sections extend downward, so they can cross zone boundaries
-        y_section_positions = _filter_and_adjust_y_positions_for_zone_boundaries(
-            y_section_positions,
-            section_length,
-            zone_boundary_y_positions,
-        )
-
-        # Create y-direction sections at regular x positions
-        for i, x_pos in enumerate(x_positions_y_dir):
-            for j, y_pos in enumerate(y_section_positions):
-                section_definitions.append(
-                    SectionOnPlaneDefinition(
-                        name=f"span_{span.span_index}_y_sec_{i}_{j}",
-                        point_1=(x_pos, y_pos, 0.0),  # Top of section
-                        point_2=(x_pos, y_pos - section_length, 0.0),  # Bottom of section (extending downward)
-                        draw=None,  # Will use default Z_DIRECTION
-                        direction_of_cut=None,  # Will use default (0, 0, 1)
-                    )
-                )
-
-        # SPECIAL FEATURE: If bz2 <= 1.002m, add special y-direction sections spanning from top to bottom zone boundary
-        if span.bz2 <= 1.002:
-            # These sections start at top zone boundary - offset and end at bottom zone boundary + offset
-            # They span the bz2 zone with offset from both boundaries
-            # Top boundary (bz1/bz2): y_boundary_bz1_bz2 = bz2/2 = 0.25m
-            # Bottom boundary (bz2/bz3): y_boundary_bz2_bz3 = -bz2/2 = -0.25m
-            top_zone_boundary = zone_boundary_y_positions[0]  # Upper boundary (bz1/bz2)
-            bottom_zone_boundary = zone_boundary_y_positions[1]  # Lower boundary (bz2/bz3)
-
-            # Section starts just below the top boundary (inside bz2)
-            special_section_top = top_zone_boundary - SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-            # Section ends just above the bottom boundary (inside bz2)
-            special_section_bottom = bottom_zone_boundary + SECTION_ON_PLANE_INTERMEDIATE_OFFSET
-
-            # Create these special sections at regular x positions (following the y-direction pattern)
-            for i, x_pos in enumerate(x_positions_y_dir):
-                section_definitions.append(
-                    SectionOnPlaneDefinition(
-                        name=f"span_{span.span_index}_y_sec_special_{i}",
-                        point_1=(x_pos, special_section_top, 0.0),  # Top
-                        point_2=(x_pos, special_section_bottom, 0.0),  # Bottom
-                        draw=None,
-                        direction_of_cut=None,
-                    )
-                )
-
-    return section_definitions
+    return all_sections
 
 
 def create_sections_on_plane(
@@ -790,11 +647,11 @@ def create_sections_on_plane(
     """
     Define and create section on plane objects in the SCIA model.
 
-    :param builder: The SCIA model builder instance.
+    :param builder: The SCIA model builder instance
     :type builder: SciaModelBuilder
-    :param section_definitions: A list of SectionOnPlaneDefinition objects defining each section
+    :param section_definitions: List of SectionOnPlaneDefinition objects
     :type section_definitions: list[SectionOnPlaneDefinition]
-    :returns: A list of the created SectionOnPlane objects.
+    :returns: List of created SectionOnPlane objects
     :rtype: list[SciaSectionOnPlane]
     """
     return [
@@ -817,15 +674,13 @@ def create_all_sections_on_plane(
     Define and create all section on plane objects for the bridge model.
 
     This function provides a consistent API pattern matching other "create_all_*" functions
-    in the SCIA model builder (e.g., create_all_integration_strips, create_all_supports).
-    Currently, it is a simple wrapper around create_sections_on_plane() but may be extended
-    in the future for additional processing or validation.
+    in the SCIA model builder.
 
-    :param builder: The SCIA model builder instance.
+    :param builder: The SCIA model builder instance
     :type builder: SciaModelBuilder
-    :param section_definitions: A list of SectionOnPlaneDefinition objects defining each section
+    :param section_definitions: List of SectionOnPlaneDefinition objects
     :type section_definitions: list[SectionOnPlaneDefinition]
-    :returns: A list of the created SectionOnPlane objects.
+    :returns: List of created SectionOnPlane objects
     :rtype: list[SciaSectionOnPlane]
     """
     return create_sections_on_plane(builder, section_definitions)
