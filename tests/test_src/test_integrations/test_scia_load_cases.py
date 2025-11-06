@@ -261,7 +261,7 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases")
-    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_tandem_rs_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases")
     def test_create_all_load_cases_calls_helpers(  # noqa: PLR0913
         self,
         mock_tandem: Mock,
@@ -279,9 +279,8 @@ class TestCreateAllLoadCases:
 
         mock_params = load_bridge_default_params()
         mock_params.belastinggevallen = {"load_case_selection_table": []}
-        # Add berekeningsniveau to avoid AttributeError
-        if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "theoretical"
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         create_all_load_cases(mock_builder, mock_params)
 
         # Check that each helper function was called
@@ -292,8 +291,7 @@ class TestCreateAllLoadCases:
         mock_pedestrian.assert_called_once()
         mock_service.assert_called_once()
         mock_unintended.assert_called_once()
-        # Tandem should be called 3 times (RS 1, 2, 3)
-        assert mock_tandem.call_count == 3
+        mock_tandem.assert_called_once()
 
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.generate_udl_loads")
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
@@ -333,17 +331,18 @@ class TestCreateAllLoadCases:
             first_segment_thickness_2=0.4,
         )
         # Return positions for all calls to tandem_system_sequencer
+        from src.integrations.scia_integration.types import LoadMode
+
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "Theoretische wegindeling"
+        mock_get_mode.return_value = LoadMode.THEORETICAL
         mock_generate_udl.return_value = []  # Empty list for UDL loads
 
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
         mock_params.belastinggevallen = {"load_case_selection_table": []}
-        # Add berekeningsniveau to avoid AttributeError
-        if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -413,6 +412,8 @@ class TestConditionalLoadCaseCreation:
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {
             "load_case_selection_table": [
                 {"load_type": "Temperature", "enabled": True},
@@ -425,9 +426,6 @@ class TestConditionalLoadCaseCreation:
                 {"load_type": "Tandem RS 3", "enabled": True},
             ]
         }
-        # Add berekeningsniveau to avoid AttributeError
-        if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "theoretical"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -485,6 +483,8 @@ class TestConditionalLoadCaseCreation:
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {
             "load_case_selection_table": [
                 {"load_type": "Temperature", "enabled": True},
@@ -497,9 +497,6 @@ class TestConditionalLoadCaseCreation:
                 {"load_type": "Tandem RS 3", "enabled": True},
             ]
         }
-        # Add berekeningsniveau to avoid AttributeError
-        if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "theoretical"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -548,18 +545,19 @@ class TestConditionalLoadCaseCreation:
             first_segment_thickness_2=0.4,
         )
         # Return positions for all calls to tandem_system_sequencer
+        from src.integrations.scia_integration.types import LoadMode
+
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "theoretical"
+        mock_get_mode.return_value = LoadMode.THEORETICAL
         mock_generate_udl.return_value = []  # Empty list for UDL loads
 
         # Create mock params without load case selection table
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {}  # No load_case_selection_table
-        # Add berekeningsniveau to avoid AttributeError
-        if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "theoretical"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
