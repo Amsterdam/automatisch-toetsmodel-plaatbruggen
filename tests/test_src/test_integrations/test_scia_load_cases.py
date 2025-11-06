@@ -281,7 +281,7 @@ class TestCreateAllLoadCases:
         mock_params.belastinggevallen = {"load_case_selection_table": []}
         # Add berekeningsniveau to avoid AttributeError
         if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "Theoretische wegindeling"
+            mock_params.berekeningsniveau = "theoretical"
         create_all_load_cases(mock_builder, mock_params)
 
         # Check that each helper function was called
@@ -300,7 +300,7 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_structure(
+    def test_create_all_load_cases_structure(  # noqa: PLR0913
         self,
         mock_sequencer: Mock,
         mock_extract: Mock,
@@ -372,7 +372,7 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_all_enabled(
+    def test_create_all_load_cases_with_all_enabled(  # noqa: PLR0913
         self,
         mock_sequencer: Mock,
         mock_extract: Mock,
@@ -406,7 +406,7 @@ class TestConditionalLoadCaseCreation:
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "Theoretische wegindeling"
+        mock_get_mode.return_value = "theoretical"
         mock_generate_udl.return_value = []  # Empty list for UDL loads
 
         # Create mock params with load case selection table where all are enabled
@@ -427,7 +427,7 @@ class TestConditionalLoadCaseCreation:
         }
         # Add berekeningsniveau to avoid AttributeError
         if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "Theoretische wegindeling"
+            mock_params.berekeningsniveau = "theoretical"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -444,7 +444,7 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_some_disabled(
+    def test_create_all_load_cases_with_some_disabled(  # noqa: PLR0913
         self,
         mock_sequencer: Mock,
         mock_extract: Mock,
@@ -478,7 +478,7 @@ class TestConditionalLoadCaseCreation:
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "Theoretische wegindeling"
+        mock_get_mode.return_value = "theoretical"
         mock_generate_udl.return_value = []  # Empty list for UDL loads
 
         # Create mock params with some load cases disabled
@@ -499,7 +499,7 @@ class TestConditionalLoadCaseCreation:
         }
         # Add berekeningsniveau to avoid AttributeError
         if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "Theoretische wegindeling"
+            mock_params.berekeningsniveau = "theoretical"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -515,7 +515,7 @@ class TestConditionalLoadCaseCreation:
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_missing_table(
+    def test_create_all_load_cases_with_missing_table(  # noqa: PLR0913
         self,
         mock_sequencer: Mock,
         mock_extract: Mock,
@@ -549,7 +549,7 @@ class TestConditionalLoadCaseCreation:
         )
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "Theoretische wegindeling"
+        mock_get_mode.return_value = "theoretical"
         mock_generate_udl.return_value = []  # Empty list for UDL loads
 
         # Create mock params without load case selection table
@@ -559,7 +559,7 @@ class TestConditionalLoadCaseCreation:
         mock_params.belastinggevallen = {}  # No load_case_selection_table
         # Add berekeningsniveau to avoid AttributeError
         if not hasattr(mock_params, "berekeningsniveau"):
-            mock_params.berekeningsniveau = "Theoretische wegindeling"
+            mock_params.berekeningsniveau = "theoretical"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
