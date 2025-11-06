@@ -423,7 +423,6 @@ def _map_cs_section_to_zone(
     return f"{zone_type}-{segment_number}"
 
 
-
 def _prepare_basis_dataframe(df_basis: pd.DataFrame) -> pd.DataFrame:
     """
     Prepare basis DataFrame with required columns.
@@ -510,9 +509,7 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
     """
     if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
         try:
-            df_result["zone"] = df_result.apply(
-                lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
-            )
+            df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
         except Exception:
             import traceback
 
@@ -629,7 +626,6 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
             _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
 
     return results_cs
-
 
 
 def _combine_uls_and_sls_dataframes(df_uls: pd.DataFrame, df_sls_freq: pd.DataFrame) -> pd.DataFrame:
