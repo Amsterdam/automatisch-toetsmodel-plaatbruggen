@@ -347,24 +347,6 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
 
 
-def _validate_reinforcement_zones_callback(params, **kwargs) -> None:  # noqa: ANN001, ARG001
-    """
-    Validation callback for reinforcement zone selections.
-
-    Validates that each zone is selected in only one configuration.
-    Raises UserError if duplicates are found.
-
-    Args:
-        params: Parameters containing reinforcement_zones_array
-        **kwargs: Additional keyword arguments (unused)
-
-    Raises:
-        UserError: If duplicate zone selections are found
-
-    """
-    validate_reinforcement_zone_selections(params)
-
-
 # --- Functions for dynamic reinforcement zones ---
 
 
