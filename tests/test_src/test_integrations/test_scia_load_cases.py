@@ -81,13 +81,60 @@ class TestStandardLoadCases:
             permanent_type=None,
         )
 
-    def test_create_udl_traffic_load_cases(self, mock_builder: Mock) -> None:
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
+    def test_create_udl_traffic_load_cases(
+        self,
+        mock_get_mode: Mock,
+        mock_extract: Mock,
+        mock_theoretical: Mock,
+        mock_builder: Mock,
+    ) -> None:
         """Test creation of UDL traffic load case definitions."""
-        create_udl_traffic_load_cases(mock_builder)
-        assert mock_builder.create_load_case.call_count == 3
+        from src.data_models.scia_models import BridgeDimensionsData
+        from src.integrations.scia_integration.types import LoadMode
+
+        # Setup mocks
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.4,
+        )
+        mock_get_mode.return_value = LoadMode.THEORETICAL
+
+        # Mock UDL generator to return sample data
+        mock_theoretical.return_value = {
+            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
+            "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
+            "BG4004": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. B"},
+            "BG4005": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. B"},
+            "BG4006": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. B"},
+            "BG4007": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. C"},
+            "BG4008": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. C"},
+            "BG4009": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. C"},
+        }
+
+        mock_params = Mock()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"  # Add attribute as fallback
+
+        cases = create_udl_traffic_load_cases(mock_builder, mock_params)
+
+        # Should create 9 load cases
+        assert mock_builder.create_load_case.call_count == 9
+        assert len(cases) >= 9  # May include rs_1, rs_2, rs_3 for backward compatibility
+
+        # Check first case (BG4001)
         mock_builder.create_load_case.assert_any_call(
             name="BG4001",
-            description="Verkeer, dek - LM1 UDL RS 1",
+            description="Verkeer, dek - LM1 UDL RS 1 - Conf. A",
             group_name="LG4000 - UDL",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
@@ -293,22 +340,17 @@ class TestCreateAllLoadCases:
         mock_unintended.assert_called_once()
         mock_tandem.assert_called_once()
 
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.generate_udl_loads")
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_structure(  # noqa: PLR0913
-        self,
-        mock_sequencer: Mock,
-        mock_extract: Mock,
-        mock_extract_generators: Mock,
-        mock_get_mode: Mock,
-        mock_generate_udl: Mock,
-        mock_builder: Mock,
+    def test_create_all_load_cases_structure(
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that create_all_load_cases returns the expected structure."""
         from src.data_models.scia_models import BridgeDimensionsData
+        from src.integrations.scia_integration.types import LoadMode
 
         mock_extract.return_value = BridgeDimensionsData(
             total_length=50.0,
@@ -320,30 +362,27 @@ class TestCreateAllLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.4,
         )
-        mock_extract_generators.return_value = BridgeDimensionsData(
-            total_length=50.0,
-            total_width=20.0,
-            thickness=0.5,
-            zone1_width=7.0,
-            zone2_width=6.0,
-            zone3_width=7.0,
-            first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
-        )
+        mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
         from src.integrations.scia_integration.types import LoadMode
 
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = LoadMode.THEORETICAL
-        mock_generate_udl.return_value = []  # Empty list for UDL loads
+
+        # Mock UDL generators to return sample data
+        mock_theoretical.return_value = {
+            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
+            "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
+        }
 
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
         mock_params.belastinggevallen = {"load_case_selection_table": []}
-        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        # Add berekeningsniveau as fallback
+        if not hasattr(mock_params, "berekeningsniveau"):
+            mock_params.berekeningsniveau = "Theoretische wegindeling"
         mock_params.design_code = "NEN 8700 gebruik"
-
         cases = create_all_load_cases(mock_builder, mock_params)
 
         # Check that the result is a dictionary
@@ -366,22 +405,17 @@ class TestCreateAllLoadCases:
 class TestConditionalLoadCaseCreation:
     """Tests for conditional load case creation based on load case selection table."""
 
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.generate_udl_loads")
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_all_enabled(  # noqa: PLR0913
-        self,
-        mock_sequencer: Mock,
-        mock_extract: Mock,
-        mock_extract_generators: Mock,
-        mock_get_mode: Mock,
-        mock_generate_udl: Mock,
-        mock_builder: Mock,
+    def test_create_all_load_cases_with_all_enabled(
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that all load cases are created when all are enabled in the params table."""
         from src.data_models.scia_models import BridgeDimensionsData
+        from src.integrations.scia_integration.types import LoadMode
 
         mock_extract.return_value = BridgeDimensionsData(
             total_length=50.0,
@@ -393,20 +427,16 @@ class TestConditionalLoadCaseCreation:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.4,
         )
-        mock_extract_generators.return_value = BridgeDimensionsData(
-            total_length=50.0,
-            total_width=20.0,
-            thickness=0.5,
-            zone1_width=7.0,
-            zone2_width=6.0,
-            zone3_width=7.0,
-            first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
-        )
+        mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "theoretical"
-        mock_generate_udl.return_value = []  # Empty list for UDL loads
+
+        # Mock UDL generators to return sample data
+        mock_theoretical.return_value = {
+            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
+            "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
+        }
 
         # Create mock params with load case selection table where all are enabled
         from tests.test_data.seed_loader import load_bridge_default_params
@@ -426,6 +456,9 @@ class TestConditionalLoadCaseCreation:
                 {"load_type": "Tandem RS 3", "enabled": True},
             ]
         }
+        # Add berekeningsniveau as fallback
+        if not hasattr(mock_params, "berekeningsniveau"):
+            mock_params.berekeningsniveau = "Theoretische wegindeling"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -437,22 +470,17 @@ class TestConditionalLoadCaseCreation:
         assert "unintended_vehicle_cases" in cases
         assert "tandem_cases" in cases
 
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.generate_udl_loads")
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_some_disabled(  # noqa: PLR0913
-        self,
-        mock_sequencer: Mock,
-        mock_extract: Mock,
-        mock_extract_generators: Mock,
-        mock_get_mode: Mock,
-        mock_generate_udl: Mock,
-        mock_builder: Mock,
+    def test_create_all_load_cases_with_some_disabled(
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that only enabled load cases are created when some are disabled."""
         from src.data_models.scia_models import BridgeDimensionsData
+        from src.integrations.scia_integration.types import LoadMode
 
         mock_extract.return_value = BridgeDimensionsData(
             total_length=50.0,
@@ -464,20 +492,16 @@ class TestConditionalLoadCaseCreation:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.4,
         )
-        mock_extract_generators.return_value = BridgeDimensionsData(
-            total_length=50.0,
-            total_width=20.0,
-            thickness=0.5,
-            zone1_width=7.0,
-            zone2_width=6.0,
-            zone3_width=7.0,
-            first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
-        )
+        mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = "theoretical"
-        mock_generate_udl.return_value = []  # Empty list for UDL loads
+
+        # Mock UDL generators to return sample data
+        mock_theoretical.return_value = {
+            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
+            "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
+        }
 
         # Create mock params with some load cases disabled
         from tests.test_data.seed_loader import load_bridge_default_params
@@ -497,6 +521,9 @@ class TestConditionalLoadCaseCreation:
                 {"load_type": "Tandem RS 3", "enabled": True},
             ]
         }
+        # Add berekeningsniveau as fallback
+        if not hasattr(mock_params, "berekeningsniveau"):
+            mock_params.berekeningsniveau = "Theoretische wegindeling"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 
@@ -507,22 +534,17 @@ class TestConditionalLoadCaseCreation:
         assert "self_weight" in cases
         assert "dead_load_cases" in cases
 
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.generate_udl_loads")
-    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
+    @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
     @patch("src.integrations.scia_integration.load_system.scia_load_generators.extract_bridge_dimensions")
-    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.get_load_mode_from_params")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_all_load_cases_with_missing_table(  # noqa: PLR0913
-        self,
-        mock_sequencer: Mock,
-        mock_extract: Mock,
-        mock_extract_generators: Mock,
-        mock_get_mode: Mock,
-        mock_generate_udl: Mock,
-        mock_builder: Mock,
+    def test_create_all_load_cases_with_missing_table(
+        self, mock_sequencer: Mock, mock_get_mode: Mock, mock_extract: Mock, mock_theoretical: Mock, mock_builder: Mock
     ) -> None:
         """Test that all load cases are created when the selection table is missing."""
         from src.data_models.scia_models import BridgeDimensionsData
+        from src.integrations.scia_integration.types import LoadMode
 
         mock_extract.return_value = BridgeDimensionsData(
             total_length=50.0,
@@ -534,22 +556,18 @@ class TestConditionalLoadCaseCreation:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.4,
         )
-        mock_extract_generators.return_value = BridgeDimensionsData(
-            total_length=50.0,
-            total_width=20.0,
-            thickness=0.5,
-            zone1_width=7.0,
-            zone2_width=6.0,
-            zone3_width=7.0,
-            first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
-        )
+        mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
         from src.integrations.scia_integration.types import LoadMode
 
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        mock_get_mode.return_value = LoadMode.THEORETICAL
-        mock_generate_udl.return_value = []  # Empty list for UDL loads
+
+        # Mock UDL generators to return sample data
+        mock_theoretical.return_value = {
+            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
+            "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
+        }
 
         # Create mock params without load case selection table
         from tests.test_data.seed_loader import load_bridge_default_params
@@ -558,6 +576,9 @@ class TestConditionalLoadCaseCreation:
         mock_params.berekeningsniveau = "Theoretische wegindeling"
         mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {}  # No load_case_selection_table
+        # Add berekeningsniveau as fallback
+        if not hasattr(mock_params, "berekeningsniveau"):
+            mock_params.berekeningsniveau = "Theoretische wegindeling"
 
         cases = create_all_load_cases(mock_builder, mock_params)
 

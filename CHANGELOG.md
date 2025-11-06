@@ -1,4 +1,12 @@
-## [`v0.0.16`] - 2025-XX-XX
+## [`v0.0.17`] - 2025-11-13
+### Added
+- **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
+Introduced a new naming system with span, lane and configuration identification.
+
+### Changed
+- Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
+
+## [`v0.0.16`] - 2025-10-30
 ### Added
 - Added dynamic load factor for tram load
 - Tram loads VIKTOR input and modelling of the loads in SCIA
