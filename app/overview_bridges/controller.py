@@ -13,13 +13,8 @@ from io import StringIO
 # Add GeoPandas import (ensure it's installed in your venv)
 import geopandas as gpd
 import markdown
-import viktor.api_v1 as api  # Import VIKTOR API
-from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.result import DownloadResult  # Import DownloadResult
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
+import viktor.api_v1 as api  # Import VIKTOR API
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
     get_filtered_bridges_json_path,

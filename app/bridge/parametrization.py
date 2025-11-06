@@ -5,31 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from viktor.errors import UserError
-
-from viktor.parametrization import (
-    BooleanField,
-    DownloadButton,
-    DynamicArray,
-    DynamicArrayConstraint,
-    IsFalse,
-    LineBreak,
-    Lookup,
-    MultiSelectField,
-    NumberField,
-    OptimizationButton,
-    OptionField,
-    OutputField,
-    Page,
-    Parametrization,
-    RowLookup,
-    Tab,
-    Table,
-    Text,
-    TextAreaField,
-    TextField,
-)
-
 from app.constants import (
     BRIDGE_DATA_PATH,
     CALCULATION_LEVEL_OPTIONS,
@@ -52,6 +27,29 @@ from app.constants import (
 )
 from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
 from src.common.materials import get_reinforcement_qualities
+from viktor.errors import UserError
+from viktor.parametrization import (
+    BooleanField,
+    DownloadButton,
+    DynamicArray,
+    DynamicArrayConstraint,
+    IsFalse,
+    LineBreak,
+    Lookup,
+    MultiSelectField,
+    NumberField,
+    OptimizationButton,
+    OptionField,
+    OutputField,
+    Page,
+    Parametrization,
+    RowLookup,
+    Tab,
+    Table,
+    Text,
+    TextAreaField,
+    TextField,
+)
 
 from .utils import validate_reinforcement_zone_selections
 

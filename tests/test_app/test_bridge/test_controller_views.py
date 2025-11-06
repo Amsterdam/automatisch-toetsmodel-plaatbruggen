@@ -7,11 +7,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
-from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 from app.bridge.controller import BridgeController
 from tests.test_data.seed_loader import load_bridge_complex_params, load_bridge_default_params
 from tests.test_utils import view_test_wrapper
+from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 
 class TestBridgeControllerViews(unittest.TestCase):

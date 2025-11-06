@@ -19,7 +19,7 @@ MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES = 9.0  # Minimum bridge width for certai
 
 # Load positioning offsets
 TANDEM_START_Y_OFFSET = 1.2  # Y-offset for tandem positioning calculations (meters)
-LANE_CENTER_OFFSET_FACTOR = 0.5  # Factor for lane center calculations (0.5 = half lane width)
+LANE_CENTER_OFFSET_FACTOR = 0.5  # Factor for lane center calculations (0.5 = half lane width, used for lane_width / 2)
 
 # Vehicle positioning
 VEHICLE_INSET_FROM_BRIDGE_EDGE = 0.5  # Standard inset distance from bridge edge (meters)
@@ -32,7 +32,7 @@ TANDEM_SPACING_LONGITUDINAL = 0.5  # Default spacing between tandem systems (met
 TANDEM_START_Y_OFFSET_FACTOR = 0.9  # Factor for tandem start Y calculation (0.9 * thickness)
 
 # Additional geometry constants
-LANE_CENTER_OFFSET_FACTOR = 0.5  # Factor for lane center calculations (0.5 = half lane width)
+LANE_CENTER_OFFSET_FACTOR = 0.5  # Factor for lane center calculations (0.5 = half lane width, used for lane_width / 2)
 TANDEM_WHEEL_SIZE = 0.4  # Standard tandem wheel size (meters)
 
 # Support stiffness values
