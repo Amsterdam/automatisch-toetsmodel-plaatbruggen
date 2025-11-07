@@ -230,21 +230,18 @@ class TestViktorIdeaModelBuilder:
     def test_create_extreme_on_slab(self, mock_idea_rcs: MagicMock, builder: ViktorIdeaModelBuilder) -> None:  # noqa: ARG002
         """Test creating extreme on slab."""
         mock_slab = MagicMock()
-        mock_char = MagicMock()
         mock_freq = MagicMock()
         mock_fund = MagicMock()
 
         builder.create_extreme_on_slab(
             mock_slab,
             description="Test load",
-            characteristic=mock_char,
             frequent=mock_freq,
             fundamental=mock_fund,
         )
 
         mock_slab.create_extreme.assert_called_once_with(
             description="Test load",
-            characteristic=mock_char,
             frequent=mock_freq,
             fundamental=mock_fund,
         )

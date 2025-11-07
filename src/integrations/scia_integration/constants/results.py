@@ -9,13 +9,11 @@ from typing import Literal
 
 # CS (Cross Section) table types
 CS_TABLE_TYPE_ULS: Literal["ULS"] = "ULS"
-CS_TABLE_TYPE_SLS_KAR: Literal["SLS kar"] = "SLS kar"
 CS_TABLE_TYPE_SLS_FREQ: Literal["SLS freq"] = "SLS freq"
 
 # All CS table types as a tuple (immutable list)
-CS_TABLE_TYPES: tuple[Literal["ULS"], Literal["SLS kar"], Literal["SLS freq"]] = (
+CS_TABLE_TYPES: tuple[Literal["ULS"], Literal["SLS freq"]] = (
     CS_TABLE_TYPE_ULS,
-    CS_TABLE_TYPE_SLS_KAR,
     CS_TABLE_TYPE_SLS_FREQ,
 )
 
@@ -31,6 +29,7 @@ CS_MOMENT_COLUMNS: tuple[Literal["m_xD+"], Literal["m_xD-"], Literal["m_yD+"], L
     "m_yD+",
     "m_yD-",
 )
+CS_NORMAL_FORCE_COLUMNS: tuple[Literal["n_xD"], Literal["n_yD"]] = ("n_xD", "n_yD")
 CS_FORCE_MOMENT_COLUMNS: tuple[
     Literal["v_x"],
     Literal["v_y"],
@@ -38,7 +37,9 @@ CS_FORCE_MOMENT_COLUMNS: tuple[
     Literal["m_xD-"],
     Literal["m_yD+"],
     Literal["m_yD-"],
-] = (*CS_SHEAR_FORCE_COLUMNS, *CS_MOMENT_COLUMNS)
+    Literal["n_xD"],
+    Literal["n_yD"],
+] = (*CS_SHEAR_FORCE_COLUMNS, *CS_MOMENT_COLUMNS, *CS_NORMAL_FORCE_COLUMNS)
 
 # Error message constants
 MAX_ERROR_MESSAGE_LENGTH = 100  # Maximum length for error message truncation

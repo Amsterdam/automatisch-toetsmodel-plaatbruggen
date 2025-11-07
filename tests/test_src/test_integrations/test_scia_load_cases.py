@@ -105,7 +105,7 @@ class TestStandardLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
 
@@ -163,7 +163,7 @@ class TestStandardLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
@@ -214,7 +214,7 @@ class TestStandardLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         # Mock returns positions for all vehicle types (sequencer is now universal)
         # The function calls tandem_system_sequencer 3 times with different length_vehicle values
@@ -272,7 +272,7 @@ class TestTandemLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
@@ -405,7 +405,7 @@ class TestCreateAllLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
@@ -470,7 +470,7 @@ class TestConditionalLoadCaseCreation:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
@@ -535,7 +535,7 @@ class TestConditionalLoadCaseCreation:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
@@ -599,7 +599,7 @@ class TestConditionalLoadCaseCreation:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
