@@ -570,7 +570,7 @@ def _process_single_cs_result_table(
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
     df_combined = (
         df_combined.groupby("name", as_index=False, group_keys=False)
-        .apply(lambda group: group[group["coords_xyz"] == group["coords_xyz"].iloc[0]])
+        .apply(lambda group: group[group["coords_xyz"] == group["coords_xyz"].iloc[0]], include_groups=False)
         .reset_index(drop=True)
     )
 
