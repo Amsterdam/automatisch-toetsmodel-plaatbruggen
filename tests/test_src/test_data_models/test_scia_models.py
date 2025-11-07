@@ -5,7 +5,8 @@ import unittest
 import pytest
 from pydantic import ValidationError
 
-from src.data_models.scia_models import AmsterdamWheelLoadConfig, BridgeDimensionsData, WheelLoadConfig
+from src.data_models.scia_models import AmsterdamWheelLoadConfig, BridgeDimensionsData, UdlLoadCaseData, WheelLoadConfig
+from src.integrations.scia_integration.model.scia_section_on_plane import Span
 
 
 class TestWheelLoadConfig(unittest.TestCase):
@@ -423,3 +424,219 @@ class TestBridgeDimensionsData(unittest.TestCase):
         assert dimensions.total_length == 1000.0
         assert dimensions.total_width == 100.0
         assert dimensions.thickness == 5.0
+
+
+class TestSpan(unittest.TestCase):
+    """Test cases for Span Pydantic model."""
+
+    def test_valid_span_creation(self) -> None:
+        """Test creating valid span."""
+        span = Span(
+            start_x=0.0,
+            end_x=20.0,
+            length=20.0,
+            width=10.0,
+            bz1=3.0,
+            bz2=4.0,
+            bz3=3.0,
+            min_thickness=0.5,
+            span_index=1,
+            num_segment_definitions=2,
+        )
+
+        assert span.start_x == 0.0
+        assert span.end_x == 20.0
+        assert span.length == 20.0
+        assert span.width == 10.0
+
+    def test_end_x_must_be_greater_than_start_x(self) -> None:
+        """Test that end_x must be greater than start_x."""
+        with pytest.raises(ValidationError) as exc_info:
+            Span(
+                start_x=20.0,
+                end_x=10.0,  # Less than start_x
+                length=10.0,
+                width=10.0,
+                bz1=3.0,
+                bz2=4.0,
+                bz3=3.0,
+                min_thickness=0.5,
+                span_index=1,
+                num_segment_definitions=2,
+            )
+
+        error = exc_info.value
+        assert "end_x" in str(error)
+        assert "must be greater than start_x" in str(error)
+
+    def test_length_must_match_end_minus_start(self) -> None:
+        """Test that length must match end_x - start_x."""
+        with pytest.raises(ValidationError) as exc_info:
+            Span(
+                start_x=0.0,
+                end_x=20.0,
+                length=15.0,  # Should be 20.0
+                width=10.0,
+                bz1=3.0,
+                bz2=4.0,
+                bz3=3.0,
+                min_thickness=0.5,
+                span_index=1,
+                num_segment_definitions=2,
+            )
+
+        error = exc_info.value
+        assert "length" in str(error).lower()
+        assert "does not match" in str(error)
+
+    def test_width_must_match_sum_of_zones(self) -> None:
+        """Test that width must match sum of zone widths."""
+        with pytest.raises(ValidationError) as exc_info:
+            Span(
+                start_x=0.0,
+                end_x=20.0,
+                length=20.0,
+                width=15.0,  # Should be 10.0 (3+4+3)
+                bz1=3.0,
+                bz2=4.0,
+                bz3=3.0,
+                min_thickness=0.5,
+                span_index=1,
+                num_segment_definitions=2,
+            )
+
+        error = exc_info.value
+        assert "width" in str(error).lower()
+        assert "does not match" in str(error)
+
+    def test_positive_dimensions_required(self) -> None:
+        """Test that positive dimensions are required."""
+        # Negative length
+        with pytest.raises(ValidationError):
+            Span(
+                start_x=0.0,
+                end_x=20.0,
+                length=-20.0,
+                width=10.0,
+                bz1=3.0,
+                bz2=4.0,
+                bz3=3.0,
+                min_thickness=0.5,
+                span_index=1,
+                num_segment_definitions=2,
+            )
+
+        # Negative thickness
+        with pytest.raises(ValidationError):
+            Span(
+                start_x=0.0,
+                end_x=20.0,
+                length=20.0,
+                width=10.0,
+                bz1=3.0,
+                bz2=4.0,
+                bz3=3.0,
+                min_thickness=-0.5,
+                span_index=1,
+                num_segment_definitions=2,
+            )
+
+    def test_span_index_must_be_at_least_one(self) -> None:
+        """Test that span index must be at least 1."""
+        with pytest.raises(ValidationError):
+            Span(
+                start_x=0.0,
+                end_x=20.0,
+                length=20.0,
+                width=10.0,
+                bz1=3.0,
+                bz2=4.0,
+                bz3=3.0,
+                min_thickness=0.5,
+                span_index=0,
+                num_segment_definitions=2,
+            )
+
+
+class TestUdlLoadCaseData(unittest.TestCase):
+    """Test cases for UdlLoadCaseData Pydantic model."""
+
+    def test_valid_udl_load_case_creation(self) -> None:
+        """Test creating valid UDL load case data."""
+        load_case = UdlLoadCaseData(
+            polygon=[(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 5.0, 0.0), (0.0, 5.0, 0.0)],
+            load=9000.0,
+            title="RS 1 - Conf. A - Span 1",
+        )
+
+        assert len(load_case.polygon) == 4
+        assert load_case.load == 9000.0
+        assert load_case.title == "RS 1 - Conf. A - Span 1"
+
+    def test_polygon_must_have_four_corners(self) -> None:
+        """Test that polygon must have exactly 4 corners."""
+        # Too few corners
+        with pytest.raises(ValidationError) as exc_info:
+            UdlLoadCaseData(
+                polygon=[(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 5.0, 0.0)],
+                load=9000.0,
+                title="Test",
+            )
+
+        error = exc_info.value
+        assert "4" in str(error)
+
+        # Too many corners
+        with pytest.raises(ValidationError) as exc_info:
+            UdlLoadCaseData(
+                polygon=[(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 5.0, 0.0), (0.0, 5.0, 0.0), (5.0, 2.5, 0.0)],
+                load=9000.0,
+                title="Test",
+            )
+
+        error = exc_info.value
+        assert "4" in str(error)
+
+    def test_load_must_be_positive(self) -> None:
+        """Test that load must be positive."""
+        with pytest.raises(ValidationError) as exc_info:
+            UdlLoadCaseData(
+                polygon=[(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 5.0, 0.0), (0.0, 5.0, 0.0)],
+                load=-1000.0,
+                title="Test",
+            )
+
+        error = exc_info.value
+        assert "load" in str(error).lower()
+        assert "greater than 0" in str(error).lower()
+
+    def test_zero_load_rejected(self) -> None:
+        """Test that zero load is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            UdlLoadCaseData(
+                polygon=[(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 5.0, 0.0), (0.0, 5.0, 0.0)],
+                load=0.0,
+                title="Test",
+            )
+
+        error = exc_info.value
+        assert "load" in str(error).lower()
+
+    def test_title_cannot_be_empty(self) -> None:
+        """Test that title cannot be empty."""
+        with pytest.raises(ValidationError):
+            UdlLoadCaseData(
+                polygon=[(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 5.0, 0.0), (0.0, 5.0, 0.0)],
+                load=9000.0,
+                title="",
+            )
+
+    def test_polygon_point_structure_validation(self) -> None:
+        """Test that polygon points must be 3-element tuples."""
+        # Invalid point structure (2 elements instead of 3)
+        with pytest.raises(ValidationError):
+            UdlLoadCaseData(
+                polygon=[(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (0.0, 5.0)],  # type: ignore[arg-type,list-item]
+                load=9000.0,
+                title="Test",
+            )

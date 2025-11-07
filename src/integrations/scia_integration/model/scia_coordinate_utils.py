@@ -70,9 +70,10 @@ def _convert_tandem_to_scia(load_data: list[dict[str, Any]]) -> list[dict[str, A
     for tandem in load_data:
         patch_loads = []
 
-        # Extract wheel loads and convert to 3D coordinates
-        for load in tandem.get("loads", []):
-            for wheel_2d in load.get("wheels", []):
+        # New structure: wheels and load are directly on the tandem dict
+        if "wheels" in tandem:
+            # New structure: each tandem dict has wheels directly
+            for wheel_2d in tandem.get("wheels", []):
                 # Convert 2D wheel coordinates to 3D (add z=0)
                 wheel_3d = convert_wheel_coordinates_to_3d(wheel_2d)
                 aligned_coords = align_bridge_coordinates_to_scia(wheel_3d)
@@ -80,9 +81,23 @@ def _convert_tandem_to_scia(load_data: list[dict[str, Any]]) -> list[dict[str, A
                 patch_loads.append(
                     {
                         "corners": aligned_coords,
-                        "load_value": load.get("load", 0.0),
+                        "load_value": tandem.get("load", 0.0),
                     }
                 )
+        else:
+            # Legacy structure: loads array with nested wheels (for backward compatibility)
+            for load in tandem.get("loads", []):
+                for wheel_2d in load.get("wheels", []):
+                    # Convert 2D wheel coordinates to 3D (add z=0)
+                    wheel_3d = convert_wheel_coordinates_to_3d(wheel_2d)
+                    aligned_coords = align_bridge_coordinates_to_scia(wheel_3d)
+
+                    patch_loads.append(
+                        {
+                            "corners": aligned_coords,
+                            "load_value": load.get("load", 0.0),
+                        }
+                    )
 
         scia_cases.append(
             {

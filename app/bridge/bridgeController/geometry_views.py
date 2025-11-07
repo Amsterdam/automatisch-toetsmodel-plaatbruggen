@@ -11,7 +11,7 @@ from viktor.core import File
 from viktor.views import GeometryResult, GeometryView, PlotlyResult, PlotlyView
 
 from app.bridge.parametrization import BridgeParametrization
-from app.bridge.utils import validate_load_zone_widths, validate_reinforcement_zone_selections
+from app.bridge.utils import _validate_first_and_last_supports, validate_load_zone_widths, validate_reinforcement_zone_selections
 from src.common.plot_utils import create_bridge_outline_traces
 from src.data_models.plotting_models import BridgeBaseGeometry, PlotPresentationDetails, ZoneStylingDefaults
 from src.geometry.cross_section import create_cross_section_view
@@ -52,6 +52,7 @@ class GeometryViews:
         :rtype: GeometryResult
         """
         validate_reinforcement_zone_selections(params)
+        _validate_first_and_last_supports(params)
 
         combined_scene = create_3d_model(params, section_planes=True)
         geometry = File()
@@ -73,6 +74,7 @@ class GeometryViews:
         :rtype: PlotlyResult
         """
         validate_reinforcement_zone_selections(params)
+        _validate_first_and_last_supports(params)
 
         # 1. Prepare bridge geometry data (needed for validation)
         bridge_segments_params = params.bridge_segments_array
@@ -125,6 +127,7 @@ class GeometryViews:
         :returns: A 2D representation of the horizontal section
         :rtype: PlotlyResult
         """
+        _validate_first_and_last_supports(params)
         fig = create_horizontal_section_view(params, params.input.dimensions.horizontal_section_loc)
         return PlotlyResult(fig.to_json())
 
@@ -144,6 +147,7 @@ class GeometryViews:
         :returns: A 2D representation of the longitudinal section
         :rtype: PlotlyResult
         """
+        _validate_first_and_last_supports(params)
         fig = create_longitudinal_section(params, params.input.dimensions.longitudinal_section_loc)
         return PlotlyResult(fig.to_json())
 
@@ -163,6 +167,7 @@ class GeometryViews:
         :returns: A 2D representation of the cross-section
         :rtype: PlotlyResult
         """
+        _validate_first_and_last_supports(params)
         fig = create_cross_section_view(params, params.input.dimensions.cross_section_loc)
         return PlotlyResult(fig.to_json())
 
@@ -179,6 +184,8 @@ class GeometryViews:
         :returns: PlotlyResult with load zones visualization
         :rtype: PlotlyResult
         """
+        _validate_first_and_last_supports(params)
+
         # 1. Prepare LoadZoneDataRow list from params
         load_zones_data_params = get_load_zones_data_from_params(params)
 

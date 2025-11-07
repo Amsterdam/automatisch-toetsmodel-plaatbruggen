@@ -14,7 +14,11 @@ from io import StringIO
 import geopandas as gpd
 import markdown
 import viktor.api_v1 as api  # Import VIKTOR API
-from viktor.core import File, UserMessage, ViktorController  # Import Color, ViktorController
+from viktor.core import (  # Import Color, ViktorController
+    File,
+    UserMessage,
+    ViktorController,  # Import Color, ViktorController
+)
 from viktor.errors import UserError  # Import UserError
 from viktor.parametrization import Parametrization  # Import for type hint
 from viktor.result import DownloadResult  # Import DownloadResult

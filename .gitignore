@@ -73,6 +73,7 @@ instance/
 
 # GitHub Copilot
 .github/copilot-instructions.md
+.github/Rules
 
 # Sphinx documentation
 docs/_build/

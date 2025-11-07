@@ -52,8 +52,6 @@ from app.constants import (
 from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
 from src.common.materials import get_reinforcement_qualities
 
-from .utils import validate_reinforcement_zone_selections
-
 # --- Helper function for rebar diameter options ---
 
 
@@ -346,24 +344,6 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
 
 # Generate the visibility callbacks using a dictionary comprehension
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
-
-
-def _validate_reinforcement_zones_callback(params, **kwargs) -> None:  # noqa: ANN001, ARG001
-    """
-    Validation callback for reinforcement zone selections.
-
-    Validates that each zone is selected in only one configuration.
-    Raises UserError if duplicates are found.
-
-    Args:
-        params: Parameters containing reinforcement_zones_array
-        **kwargs: Additional keyword arguments (unused)
-
-    Raises:
-        UserError: If duplicate zone selections are found
-
-    """
-    validate_reinforcement_zone_selections(params)
 
 
 # --- Functions for dynamic reinforcement zones ---
@@ -820,7 +800,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Afstand tot vorige snede",
         default=10,
         suffix="m",
-        min=0.1,
+        min=1.002,
         visible=_l_field_visibility_constraint,
     )
 

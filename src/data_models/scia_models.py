@@ -5,6 +5,8 @@ This module contains models for SCIA load configurations, bridge dimensions,
 and other SCIA-related data validation.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -223,5 +225,249 @@ class SectionOnPlaneDefinition(BaseModel):
         if self.point_1 == self.point_2:
             raise ValueError("point_1 and point_2 must be different coordinates")
         return self
+
+    model_config = ConfigDict(validate_assignment=True)
+
+
+class Boundary(BaseModel):
+    """
+    Represents a boundary (segment or zone) with position and offset.
+
+    Used in section plane generation to avoid placing sections on or crossing boundaries.
+
+    :param position: Position of the boundary in [m]
+    :param offset: Offset distance from boundary for sections in [m]
+    :param boundary_type: Type of boundary ("segment" or "zone")
+    """
+
+    position: float = Field(description="Position of the boundary in [m]")
+    offset: float = Field(gt=0, le=0.1, description="Offset distance from boundary in [m]")
+    boundary_type: str = Field(description="Type of boundary")
+
+    @field_validator("boundary_type")
+    @classmethod
+    def validate_boundary_type(cls, v: str) -> str:
+        """Validate boundary type is segment or zone."""
+        allowed_types = {"segment", "zone"}
+        if v not in allowed_types:
+            raise ValueError(f"boundary_type must be one of {allowed_types}, got '{v}'")
+        return v
+
+    def get_positions_at_boundary(self) -> tuple[float, float]:
+        """
+        Get section positions before and after boundary with offset.
+
+        :returns: Tuple of (position_before, position_after)
+        :rtype: tuple[float, float]
+        """
+        return (self.position - self.offset, self.position + self.offset)
+
+    model_config = ConfigDict(validate_assignment=True)
+
+
+class Section(BaseModel):
+    """
+    Represents a section plane with start and end coordinates.
+
+    Used to check if sections conflict with boundaries during section plane generation.
+
+    :param start: Start coordinate of section in [m]
+    :param end: End coordinate of section in [m]
+    :param direction: Direction of section ("x" or "y")
+    """
+
+    start: float = Field(description="Start coordinate of section in [m]")
+    end: float = Field(description="End coordinate of section in [m]")
+    direction: str = Field(description="Direction of section")
+
+    @field_validator("direction")
+    @classmethod
+    def validate_direction(cls, v: str) -> str:
+        """Validate direction is x or y."""
+        allowed_directions = {"x", "y"}
+        if v not in allowed_directions:
+            raise ValueError(f"direction must be one of {allowed_directions}, got '{v}'")
+        return v
+
+    def crosses_or_touches_boundary(self, boundary_pos: float, tolerance: float) -> bool:
+        """
+        Check if section crosses a boundary or has endpoints too close to it.
+
+        Handles both forward-extending (x-direction) and backward-extending (y-direction) sections.
+        Returns True if:
+        - The boundary is between start and end with sufficient margin (crossing), OR
+        - Either endpoint is within tolerance distance of the boundary (touching/too close)
+
+        :param boundary_pos: Position of the boundary in [m]
+        :type boundary_pos: float
+        :param tolerance: Tolerance for boundary detection in [m]
+        :type tolerance: float
+        :returns: True if section crosses or is too close to boundary
+        :rtype: bool
+        """
+        # Check if endpoints are within tolerance of boundary (touching/too close)
+        start_dist = abs(self.start - boundary_pos)
+        end_dist = abs(self.end - boundary_pos)
+
+        if start_dist < tolerance or end_dist < tolerance:
+            return True
+
+        # Get the min and max coordinates to handle both forward and backward sections
+        section_min = min(self.start, self.end)
+        section_max = max(self.start, self.end)
+
+        # Check if boundary is between start and end with sufficient margin
+        # Use tolerance as the margin to avoid flagging sections that just barely
+        # avoid the boundary (like our edge sections at offset 0.001m)
+        return section_min + tolerance < boundary_pos < section_max - tolerance
+
+    def is_near_boundary(self, boundary_pos: float, offset: float) -> bool:
+        """
+        Check if section is within offset distance of boundary.
+
+        Used for y-direction sections placed at x-positions (point sections).
+
+        :param boundary_pos: Position of the boundary in [m]
+        :type boundary_pos: float
+        :param offset: Required offset distance in [m]
+        :type offset: float
+        :returns: True if too close to boundary
+        :rtype: bool
+        """
+        return abs(self.start - boundary_pos) < offset
+
+    model_config = ConfigDict(validate_assignment=True)
+
+
+class Span(BaseModel):
+    """
+    Represents a span in the bridge structure.
+
+    A span is defined by segments between two supports. Contains geometric properties
+    and information about intermediate segment boundaries for section plane generation.
+
+    :param start_x: X-coordinate where the span starts in [m]
+    :param end_x: X-coordinate where the span ends in [m]
+    :param length: Total length of the span in [m]
+    :param width: Total width of the span (bz1 + bz2 + bz3) in [m]
+    :param bz1: Width of zone 1 in [m]
+    :param bz2: Width of zone 2 in [m]
+    :param bz3: Width of zone 3 in [m]
+    :param min_thickness: Minimum thickness (min of dz and dz_2) in [m]
+    :param span_index: Index of the span (1-based)
+    :param num_segment_definitions: Number of segment definition points within the span
+    :param intermediate_segment_x_positions: X-coordinates of intermediate segment boundaries in [m]
+    """
+
+    start_x: float = Field(ge=0, le=1000, description="X-coordinate where the span starts in [m]")
+    end_x: float = Field(ge=0, le=1000, description="X-coordinate where the span ends in [m]")
+    length: float = Field(gt=0, le=1000, description="Total length of the span in [m]")
+    width: float = Field(gt=0, le=100, description="Total width of the span in [m]")
+    bz1: float = Field(ge=0, le=50, description="Width of zone 1 in [m]")
+    bz2: float = Field(ge=0, le=50, description="Width of zone 2 in [m]")
+    bz3: float = Field(ge=0, le=50, description="Width of zone 3 in [m]")
+    min_thickness: float = Field(gt=0.05, le=5.0, description="Minimum thickness in [m]")
+    span_index: int = Field(gt=0, description="Index of the span (1-based)")
+    num_segment_definitions: int = Field(ge=2, description="Number of segment definition points")
+    intermediate_segment_x_positions: list[float] = Field(default_factory=list, description="X-coordinates of intermediate segment boundaries in [m]")
+
+    @field_validator("end_x")
+    @classmethod
+    def validate_end_after_start(cls, v: float, info: Any) -> float:  # noqa: ANN401
+        """Validate end_x is after start_x."""
+        if "start_x" in info.data and v <= info.data["start_x"]:
+            raise ValueError(f"end_x ({v}m) must be greater than start_x ({info.data['start_x']}m)")
+        return v
+
+    @model_validator(mode="after")
+    def validate_geometric_consistency(self) -> "Span":
+        """Validate geometric consistency of span dimensions."""
+        # Validate length matches end_x - start_x
+        expected_length = self.end_x - self.start_x
+        if abs(self.length - expected_length) > 0.001:  # 1mm tolerance
+            raise ValueError(f"Span length {self.length}m does not match end_x - start_x = {expected_length}m (tolerance 0.001m)")
+
+        # Validate width matches sum of zones
+        expected_width = self.bz1 + self.bz2 + self.bz3
+        if abs(self.width - expected_width) > 0.001:  # 1mm tolerance
+            raise ValueError(f"Span width {self.width}m does not match bz1 + bz2 + bz3 = {expected_width}m (tolerance 0.001m)")
+
+        # Validate intermediate positions are within span
+        for i, x_pos in enumerate(self.intermediate_segment_x_positions):
+            if not (self.start_x < x_pos < self.end_x):
+                raise ValueError(f"Intermediate position {i} at {x_pos}m is not within span range [{self.start_x}m, {self.end_x}m]")
+
+        # Validate intermediate positions are sorted
+        if self.intermediate_segment_x_positions != sorted(self.intermediate_segment_x_positions):
+            raise ValueError("Intermediate segment x-positions must be sorted in ascending order")
+
+        return self
+
+
+class LoadConfiguration(str):
+    """
+    Load configuration types for UDL generation.
+
+    Represents the three different UDL load configurations:
+    - Conf. A: Leftmost lanes configuration
+    - Conf. B: Rightmost lanes configuration
+    - Conf. C: Center lanes configuration
+    """
+
+    __slots__ = ()
+
+    CONF_A = "Conf. A"
+    CONF_B = "Conf. B"
+    CONF_C = "Conf. C"
+
+
+class UdlLoadCaseData(BaseModel):
+    """
+    Data for a single UDL load case.
+
+    Represents a uniformly distributed load case with its associated polygon,
+    load value, and descriptive title for SCIA analysis.
+    """
+
+    polygon: list[tuple[float, float, float]] = Field(min_length=4, max_length=4, description="4-point rectangular polygon (counter-clockwise)")
+    load: float = Field(gt=0, description="Load value in N/m² (must be positive)")
+    title: str = Field(min_length=1, description="Descriptive title for load case")
+
+    @field_validator("load")
+    @classmethod
+    def validate_positive_load(cls, v: float) -> float:
+        """
+        Validate that load value is positive.
+
+        :param v: Load value in N/m²
+        :type v: float
+        :returns: Validated load value
+        :rtype: float
+        :raises ValueError: If load is not positive
+        """
+        if v <= 0:
+            raise ValueError(f"Load must be positive, got {v}")
+        return v
+
+    @field_validator("polygon")
+    @classmethod
+    def validate_polygon_points(cls, v: list[tuple[float, float, float]]) -> list[tuple[float, float, float]]:
+        """
+        Validate polygon points structure.
+
+        :param v: List of polygon corner points
+        :type v: list[tuple[float, float, float]]
+        :returns: Validated polygon points
+        :rtype: list[tuple[float, float, float]]
+        :raises ValueError: If polygon doesn't have exactly 4 points or invalid coordinate structure
+        """
+        if len(v) != 4:
+            raise ValueError(f"Polygon must have exactly 4 corners, got {len(v)}")
+
+        for i, point in enumerate(v):
+            if not isinstance(point, tuple) or len(point) != 3:
+                raise ValueError(f"Point {i} must be a 3-element tuple (x, y, z), got {point}")
+
+        return v
 
     model_config = ConfigDict(validate_assignment=True)
