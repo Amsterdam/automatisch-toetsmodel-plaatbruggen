@@ -17,14 +17,16 @@ warnings.filterwarnings(
     module="docxcompose.properties",
 )
 
+
 # Also suppress via logging (for VIKTOR CLI)
 class PkgResourcesFilter(logging.Filter):
     """Filter to suppress pkg_resources deprecation warnings from docxcompose."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Return False to suppress the log record, True to keep it."""
-        message = record.getMessage() if hasattr(record, 'getMessage') else str(record.msg)
+        message = record.getMessage() if hasattr(record, "getMessage") else str(record.msg)
         return "pkg_resources is deprecated" not in message
+
 
 for logger_name in [None, "viktor", "root", ""]:
     logger = logging.getLogger(logger_name)

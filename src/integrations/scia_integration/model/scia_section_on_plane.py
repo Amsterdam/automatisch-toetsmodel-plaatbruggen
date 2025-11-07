@@ -115,8 +115,8 @@ def _identify_spans(segments: list[Any]) -> list[Span]:
 
     # Get thickness values from the first segment (they're uniform across the entire bridge)
     first_segment = segments[0]
-    bridge_dz = getattr(first_segment, 'dz', 0.7)  # Fallback to default if not present
-    bridge_dz_2 = getattr(first_segment, 'dz_2', 0.8)  # Fallback to default if not present
+    bridge_dz = getattr(first_segment, "dz", 0.7)  # Fallback to default if not present
+    bridge_dz_2 = getattr(first_segment, "dz_2", 0.8)  # Fallback to default if not present
 
     spans = []
     current_span_segments = []
