@@ -52,3 +52,5 @@ SECTION_ON_PLANE_LENGTH = 1.0  # Length of each section in meters
 SECTION_ON_PLANE_SPACING = 0.5  # Spacing between sections (creates 0.5m overlap) in meters
 SECTION_ON_PLANE_OFFSET_FACTOR = 0.9  # Factor for offset from span edges (0.9 * min_thickness)
 SECTION_ON_PLANE_TOLERANCE = 0.01  # Tolerance for position calculations (1cm) in meters
+SECTION_ON_PLANE_INTERMEDIATE_OFFSET = 0.001  # Offset from intermediate segment boundaries in meters
+SECTION_ON_PLANE_NARROW_BZ2_THRESHOLD = 1.002  # Threshold for narrow bz2 zones requiring special sections (meters)

@@ -454,6 +454,7 @@ class TestSpan(unittest.TestCase):
             bz3=3.0,
             min_thickness=0.5,
             span_index=1,
+            num_segment_definitions=2,
         )
 
         assert span.start_x == 0.0
@@ -474,6 +475,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         error = exc_info.value
@@ -493,11 +495,12 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         error = exc_info.value
         assert "length" in str(error).lower()
-        assert "doesn't match" in str(error)
+        assert "does not match" in str(error)
 
     def test_width_must_match_sum_of_zones(self) -> None:
         """Test that width must match sum of zone widths."""
@@ -512,11 +515,12 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         error = exc_info.value
         assert "width" in str(error).lower()
-        assert "doesn't match" in str(error)
+        assert "does not match" in str(error)
 
     def test_positive_dimensions_required(self) -> None:
         """Test that positive dimensions are required."""
@@ -532,6 +536,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         # Negative thickness
@@ -546,6 +551,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=-0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
     def test_span_index_must_be_at_least_one(self) -> None:
@@ -561,6 +567,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=0,
+                num_segment_definitions=2,
             )
 
 
