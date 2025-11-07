@@ -573,7 +573,7 @@ def _process_single_cs_result_table(
         """Keep only rows matching the first unique coordinate in the group."""
         first_coord = group["coords_xyz"].iloc[0]
         return group[group["coords_xyz"] == first_coord]
-    
+
     df_combined = (
         df_combined.groupby("name", as_index=False, group_keys=False)
         .apply(_filter_first_coord)  # type: ignore[arg-type]
