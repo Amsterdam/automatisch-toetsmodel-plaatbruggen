@@ -39,10 +39,11 @@ from viktor.result import DownloadResult  # Import DownloadResult
 from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
+from .batch_calculation import BatchCalculationComponent
 from .parametrization import OverviewBridgesParametrization
 
 
-class OverviewBridgesController(ViktorController):
+class OverviewBridgesController(BatchCalculationComponent, ViktorController):
     """Controller for the Overview Bridges entity."""
 
     label = "Overzicht Bruggen"  # Updated label
@@ -677,3 +678,14 @@ class OverviewBridgesController(ViktorController):
 
         # 4. Show success message
         UserMessage.success(f"Bruggen (her)gegenereerd: {created_count} nieuwe bruggen aangemaakt, {updated_count} bestaande bruggen bijgewerkt.")
+
+    # ============================================================================================================
+    # Explicit Method References for VIKTOR Introspection
+    # ============================================================================================================
+    # CRITICAL: VIKTOR's introspection doesn't follow MRO, so inherited methods from BatchCalculationComponent
+    # must be explicitly referenced here for VIKTOR to find them.
+
+    # From BatchCalculationComponent
+    view_batch_readiness = BatchCalculationComponent.view_batch_readiness
+    run_batch_calculation = BatchCalculationComponent.run_batch_calculation
+    view_batch_results = BatchCalculationComponent.view_batch_results

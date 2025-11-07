@@ -1,9 +1,7 @@
 """Utility functions specific to the Bridge entity's UI or Plotly views."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
-
-from app.bridge.parametrization import BridgeParametrization
 
 # Import for validate_load_zone_widths - ensure this path is correct
 from src.geometry.model_creator import (
@@ -11,6 +9,10 @@ from src.geometry.model_creator import (
 )
 from viktor import InputViolation  # type: ignore[attr-defined]
 from viktor.errors import UserError
+
+# Import for type hints only to avoid circular import
+if TYPE_CHECKING:
+    from app.bridge.parametrization import BridgeParametrization
 
 # All plotting helper functions below have been moved to src/geometry/load_zone_plot.py or src/common/plot_utils.py
 # get_zone_appearance_properties
@@ -186,7 +188,7 @@ def validate_reinforcement_zone_selections(params: ParamsForReinforcementZones) 
         raise UserError(error_message, input_violations=violations)
 
 
-def _validate_first_and_last_supports(params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG001
+def _validate_first_and_last_supports(params: "BridgeParametrization", **kwargs) -> None:  # noqa: ARG001
     """
     Validate that the first and last sections in the bridge dimensions array are supports.
 
