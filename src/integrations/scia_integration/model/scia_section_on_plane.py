@@ -268,7 +268,7 @@ def _filter_positions_for_boundaries(  # noqa: PLR0913, C901, PLR0912
             if not has_conflict:
                 filtered.append(pos)
         else:
-            # Point section (y-direction x-coordinate)
+            # Point section (y-direction x-coordinate) - check if position is too close to any boundary
             has_conflict = any(abs(pos - bp) < boundaries[0].offset for bp in boundary_positions)
             if not has_conflict:
                 filtered.append(pos)
@@ -276,24 +276,53 @@ def _filter_positions_for_boundaries(  # noqa: PLR0913, C901, PLR0912
     # Add positions at boundaries with offset
     boundary_offset_positions = _add_boundary_positions(boundaries)
 
-    # For y-direction sections extending downward, add edge sections
+    # For x-direction sections extending forward, add edge sections at each boundary
+    if extends_forward and section_length > 0:
+        edge_positions = []
+        for boundary in boundaries:
+            # Edge section ending before boundary: end at boundary - offset, start at end - section_length
+            section_end = boundary.position - boundary.offset
+            section_start = section_end - section_length
+            edge_positions.append(section_start)
+
+            # Edge section starting after boundary: start at boundary + offset
+            section_start = boundary.position + boundary.offset
+            edge_positions.append(section_start)
+
+        boundary_offset_positions.extend(edge_positions)
+
+    # For y-direction sections extending downward, add edge sections at each boundary
     if not extends_forward and section_length > 0:
-        sorted_boundaries = sorted(boundary_positions, reverse=True)
-        if sorted_boundaries:
-            top_boundary = sorted_boundaries[0]
-            bottom_boundary = sorted_boundaries[-1]
+        edge_positions = []
+        for boundary in boundaries:
+            # Edge section in zone above boundary (ending just above boundary)
+            # Section extends downward and ends at boundary + offset (above the boundary in y-coord)
+            # End (bottom) = boundary + offset
+            # Start (top) = end + section_length
+            section_end_above = boundary.position + boundary.offset
+            section_start_above = section_end_above + section_length
+            edge_positions.append(section_start_above)
 
-            # Edge section ending at top boundary - offset
-            section_bottom_edge_top = top_boundary - boundaries[0].offset
-            section_top_edge_top = section_bottom_edge_top + section_length
-            boundary_offset_positions.append(section_top_edge_top)
+            # Edge section in zone below boundary (starting just below boundary)
+            # Section starts at boundary - offset (below the boundary in y-coord)
+            # Start (top) = boundary - offset
+            section_start_below = boundary.position - boundary.offset
+            edge_positions.append(section_start_below)
 
-            # Edge section starting at bottom boundary + offset
-            section_top_edge_bottom = bottom_boundary + boundaries[0].offset
-            boundary_offset_positions.append(section_top_edge_bottom)
+        boundary_offset_positions.extend(edge_positions)
 
     # Combine filtered and boundary positions
     all_positions = filtered + boundary_offset_positions
+
+    # Final strict filtering for x-direction extending sections
+    if extends_forward and section_length > 0:
+        final_positions = []
+        for pos in all_positions:
+            section = Section(start=pos, end=pos + section_length, direction="x")
+            has_conflict = any(section.crosses_or_touches_boundary(bp, strict_tolerance) for bp in boundary_positions)
+            if not has_conflict:
+                final_positions.append(pos)
+        return sorted(set(final_positions))
 
     # Final strict filtering for y-direction extending sections
     if not extends_forward and section_length > 0:
@@ -346,7 +375,7 @@ class SectionGridGenerator:
 
         # Calculate boundaries
         self.segment_boundaries = [
-            Boundary(pos, intermediate_offset, "segment") for pos in span.intermediate_segment_x_positions
+            Boundary(position=pos, offset=intermediate_offset, boundary_type="segment") for pos in span.intermediate_segment_x_positions
         ]
         self.zone_boundaries = self._calculate_zone_boundaries()
 
@@ -364,8 +393,8 @@ class SectionGridGenerator:
         :rtype: list[Boundary]
         """
         return [
-            Boundary(self.span.bz2 / 2, self.intermediate_offset, "zone"),
-            Boundary(-self.span.bz2 / 2, self.intermediate_offset, "zone"),
+            Boundary(position=self.span.bz2 / 2, offset=self.intermediate_offset, boundary_type="zone"),
+            Boundary(position=-self.span.bz2 / 2, offset=self.intermediate_offset, boundary_type="zone"),
         ]
 
     def _generate_x_positions_for_x_sections(self) -> list[float]:
@@ -450,9 +479,7 @@ class SectionGridGenerator:
             # Remove positions too close to boundaries
             filtered = []
             for pos in positions:
-                is_valid = all(
-                    abs(pos - boundary.position) >= self.intermediate_offset for boundary in self.segment_boundaries
-                )
+                is_valid = all(abs(pos - boundary.position) >= self.intermediate_offset for boundary in self.segment_boundaries)
                 if is_valid:
                     filtered.append(pos)
 
@@ -483,7 +510,7 @@ class SectionGridGenerator:
                 positions.append(self.y_bottom + self.section_length)
 
         # Filter for zone boundaries
-        positions = _filter_positions_for_boundaries(
+        return _filter_positions_for_boundaries(
             positions,
             self.section_length,
             self.zone_boundaries,
@@ -492,8 +519,6 @@ class SectionGridGenerator:
             is_extending_section=True,
             extends_forward=False,
         )
-
-        return positions
 
     def generate_x_direction_sections(self) -> list[SectionOnPlaneDefinition]:
         """
@@ -556,7 +581,7 @@ class SectionGridGenerator:
         :returns: List of special section definitions
         :rtype: list[SectionOnPlaneDefinition]
         """
-        sections = []
+        sections: list[SectionOnPlaneDefinition] = []
 
         if self.span.bz2 > SECTION_ON_PLANE_NARROW_BZ2_THRESHOLD:
             return sections

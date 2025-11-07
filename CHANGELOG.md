@@ -55,6 +55,8 @@
 - IDEA crack width results: Fixed extraction and display of crack width results from IDEA StatiCa (handles both short- and long-term, no longer shows N/A when results exist).
 - Pydantic validation: Improved legacy material support and reinforcement validation (historical concrete/steel, 0mm/negative heights, etc.).
 
+- Refactored SCIA section-plane logic; fixed boundary/edge-section placement and Pydantic v2 compatibility issues. (QA checks passed)
+
 
 ## [`v0.0.15`] - 2025-10-02
 ### Added

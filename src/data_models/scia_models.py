@@ -5,6 +5,8 @@ This module contains models for SCIA load configurations, bridge dimensions,
 and other SCIA-related data validation.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -289,20 +291,35 @@ class Section(BaseModel):
 
     def crosses_or_touches_boundary(self, boundary_pos: float, tolerance: float) -> bool:
         """
-        Check if section crosses a boundary or has endpoints on it.
+        Check if section crosses a boundary or has endpoints too close to it.
+
+        Handles both forward-extending (x-direction) and backward-extending (y-direction) sections.
+        Returns True if:
+        - The boundary is between start and end with sufficient margin (crossing), OR
+        - Either endpoint is within tolerance distance of the boundary (touching/too close)
 
         :param boundary_pos: Position of the boundary in [m]
         :type boundary_pos: float
         :param tolerance: Tolerance for boundary detection in [m]
         :type tolerance: float
-        :returns: True if section crosses or touches boundary
+        :returns: True if section crosses or is too close to boundary
         :rtype: bool
         """
-        # Check if boundary is between start and end (crossing)
-        if self.start < boundary_pos < self.end or self.end < boundary_pos < self.start:
+        # Check if endpoints are within tolerance of boundary (touching/too close)
+        start_dist = abs(self.start - boundary_pos)
+        end_dist = abs(self.end - boundary_pos)
+
+        if start_dist < tolerance or end_dist < tolerance:
             return True
-        # Check if endpoints are on boundary
-        return abs(self.start - boundary_pos) < tolerance or abs(self.end - boundary_pos) < tolerance
+
+        # Get the min and max coordinates to handle both forward and backward sections
+        section_min = min(self.start, self.end)
+        section_max = max(self.start, self.end)
+
+        # Check if boundary is between start and end with sufficient margin
+        # Use tolerance as the margin to avoid flagging sections that just barely
+        # avoid the boundary (like our edge sections at offset 0.001m)
+        return section_min + tolerance < boundary_pos < section_max - tolerance
 
     def is_near_boundary(self, boundary_pos: float, offset: float) -> bool:
         """
@@ -352,13 +369,11 @@ class Span(BaseModel):
     min_thickness: float = Field(gt=0.05, le=5.0, description="Minimum thickness in [m]")
     span_index: int = Field(gt=0, description="Index of the span (1-based)")
     num_segment_definitions: int = Field(ge=2, description="Number of segment definition points")
-    intermediate_segment_x_positions: list[float] = Field(
-        default_factory=list, description="X-coordinates of intermediate segment boundaries in [m]"
-    )
+    intermediate_segment_x_positions: list[float] = Field(default_factory=list, description="X-coordinates of intermediate segment boundaries in [m]")
 
     @field_validator("end_x")
     @classmethod
-    def validate_end_after_start(cls, v: float, info) -> float:
+    def validate_end_after_start(cls, v: float, info: Any) -> float:  # noqa: ANN401
         """Validate end_x is after start_x."""
         if "start_x" in info.data and v <= info.data["start_x"]:
             raise ValueError(f"end_x ({v}m) must be greater than start_x ({info.data['start_x']}m)")
@@ -370,23 +385,17 @@ class Span(BaseModel):
         # Validate length matches end_x - start_x
         expected_length = self.end_x - self.start_x
         if abs(self.length - expected_length) > 0.001:  # 1mm tolerance
-            raise ValueError(
-                f"Span length {self.length}m does not match end_x - start_x = {expected_length}m (tolerance 0.001m)"
-            )
+            raise ValueError(f"Span length {self.length}m does not match end_x - start_x = {expected_length}m (tolerance 0.001m)")
 
         # Validate width matches sum of zones
         expected_width = self.bz1 + self.bz2 + self.bz3
         if abs(self.width - expected_width) > 0.001:  # 1mm tolerance
-            raise ValueError(
-                f"Span width {self.width}m does not match bz1 + bz2 + bz3 = {expected_width}m (tolerance 0.001m)"
-            )
+            raise ValueError(f"Span width {self.width}m does not match bz1 + bz2 + bz3 = {expected_width}m (tolerance 0.001m)")
 
         # Validate intermediate positions are within span
         for i, x_pos in enumerate(self.intermediate_segment_x_positions):
             if not (self.start_x < x_pos < self.end_x):
-                raise ValueError(
-                    f"Intermediate position {i} at {x_pos}m is not within span range [{self.start_x}m, {self.end_x}m]"
-                )
+                raise ValueError(f"Intermediate position {i} at {x_pos}m is not within span range [{self.start_x}m, {self.end_x}m]")
 
         # Validate intermediate positions are sorted
         if self.intermediate_segment_x_positions != sorted(self.intermediate_segment_x_positions):
