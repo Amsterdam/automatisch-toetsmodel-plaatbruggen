@@ -11,6 +11,14 @@ import warnings
 # This can be removed if a future geopandas version resolves the internal import.
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="geopandas._compat")
 
+# Suppress the pkg_resources deprecation warning from docxcompose.
+# The docxcompose library (a dependency of docxtpl) uses the deprecated pkg_resources API.
+# The pkg_resources package is slated for removal as early as 2025-11-30.
+# As a mitigation, we keep setuptools<81 pinned in requirements.txt to avoid issues.
+# This warning filter keeps logs clean while we wait for docxcompose to update their code.
+# This can be removed when docxcompose is updated to not use pkg_resources.
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated", category=UserWarning, module="docxcompose.properties")
+
 from viktor import InitialEntity  # type: ignore[attr-defined] # noqa: E402
 
 from .bridge.controller import BridgeController as Bridge  # Uncommented Bridge import # noqa: E402

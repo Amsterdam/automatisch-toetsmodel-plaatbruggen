@@ -324,6 +324,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
                 bz3=width_bridgedeck / 3,
                 min_thickness=0.5,  # Default fallback thickness in meters
                 span_index=1,
+                num_segment_definitions=2,
             )
         ]
 
@@ -500,6 +501,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
                 bz3=fallback_width / 3,
                 min_thickness=0.5,  # Default fallback thickness in meters
                 span_index=1,
+                num_segment_definitions=2,
             )
         ]
 
