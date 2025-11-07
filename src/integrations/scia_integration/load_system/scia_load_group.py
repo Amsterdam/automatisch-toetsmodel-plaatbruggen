@@ -58,15 +58,45 @@ def create_temperature_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     )
 
 
-def create_udl_group(builder: SciaModelBuilder) -> SciaLoadGroup:
+def create_udl_conf_a_group(builder: SciaModelBuilder) -> SciaLoadGroup:
     """
-    Create the UDL load group LG4000.
+    Create the UDL configuration A load group LG4000.
 
     :param builder: The SCIA model builder instance.
     :return: The created SCIA load group.
     """
     return builder.create_load_group(
-        name="LG4000 - UDL",
+        name="LG4000 - UDL - conf. A",
+        load_option=LoadGroupOption.VARIABLE,
+        relation=LoadGroupRelation.STANDARD,
+        load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
+    )
+
+
+def create_udl_conf_b_group(builder: SciaModelBuilder) -> SciaLoadGroup:
+    """
+    Create the UDL configuration B load group LG4001.
+
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
+    """
+    return builder.create_load_group(
+        name="LG4001 - UDL - conf. B",
+        load_option=LoadGroupOption.VARIABLE,
+        relation=LoadGroupRelation.STANDARD,
+        load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
+    )
+
+
+def create_udl_conf_c_group(builder: SciaModelBuilder) -> SciaLoadGroup:
+    """
+    Create the UDL configuration C load group LG4002.
+
+    :param builder: The SCIA model builder instance.
+    :return: The created SCIA load group.
+    """
+    return builder.create_load_group(
+        name="LG4002 - UDL - conf. C",
         load_option=LoadGroupOption.VARIABLE,
         relation=LoadGroupRelation.STANDARD,
         load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
@@ -205,7 +235,9 @@ def create_all_load_groups(builder: SciaModelBuilder) -> dict[str, SciaLoadGroup
         "permanent_self_weight": create_permanent_load_group(builder),
         "dead_load": create_dead_load_group(builder),
         "temperature": create_temperature_group(builder),
-        "udl": create_udl_group(builder),
+        "udl_conf_a": create_udl_conf_a_group(builder),
+        "udl_conf_b": create_udl_conf_b_group(builder),
+        "udl_conf_c": create_udl_conf_c_group(builder),
         "crowd": create_crowd_load_group(builder),
         "service_vehicle": create_service_vehicle_group(builder),
         "accidental_vehicle": create_accidental_vehicle_group(builder),
