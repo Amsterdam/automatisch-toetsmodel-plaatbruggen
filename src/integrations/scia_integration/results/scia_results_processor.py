@@ -25,9 +25,6 @@ import pandas as pd
 from src.integrations.scia_integration.constants.results import (
     CS_BASIS_TABLE_PATTERN,
     CS_ELEMENTAIRE_TABLE_PATTERN,
-    CS_FORCE_MOMENT_COLUMNS,
-    CS_MOMENT_COLUMNS,
-    CS_SHEAR_FORCE_COLUMNS,
     CS_TABLE_TYPES,
 )
 
@@ -256,9 +253,18 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
     basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
 
+    # If not found with p1, try p0 (nodes)
+    if basis_data is None:
+        basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
+
     # Read "elementaire ontwerpgrootheden" CS table
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
     elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
+
+    # If not found with p1, try p0 (nodes)
+    if elementaire_data is None:
+        elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
+
     return basis_data, elementaire_data
 
 
@@ -305,8 +311,12 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
     # Read the selected CS data from the "results" into a new dict
     for selected_table in selected_result_tables:
         basis_data, elementaire_data = find_2d_force_tables_cs(results, selected_table)
-        selected_data_scia_cs[CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)] = basis_data
-        selected_data_scia_cs[CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)] = elementaire_data
+
+        basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)
+        elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)
+
+        selected_data_scia_cs[basis_table_name] = basis_data
+        selected_data_scia_cs[elementaire_table_name] = elementaire_data
 
     # Merge x, y, z into coords_xyz for CS force tables
     for key, data in selected_data_scia_cs.items():
@@ -413,90 +423,163 @@ def _map_cs_section_to_zone(
     return f"{zone_type}-{segment_number}"
 
 
+def _prepare_basis_dataframe(df_basis: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare basis DataFrame with required columns.
+
+    :param df_basis: Raw basis DataFrame
+    :type df_basis: pd.DataFrame
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, and shear forces
+    :rtype: pd.DataFrame
+    """
+    if not df_basis.empty and "coords_xyz" in df_basis.columns:
+        return df_basis[["Naam", "coords_xyz", "Belasting", "v_x", "v_y"]].copy()
+    return pd.DataFrame()
+
+
+def _prepare_elementaire_dataframe(df_elementaire: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare elementaire DataFrame with required columns.
+
+    :param df_elementaire: Raw elementaire DataFrame
+    :type df_elementaire: pd.DataFrame
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, moments, and normal forces
+    :rtype: pd.DataFrame
+    """
+    if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
+        elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+        elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
+        return df_elementaire[elementaire_cols_present].copy()
+    return pd.DataFrame()
+
+
+def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_merge: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge basis and elementaire DataFrames on (Naam, coords_xyz, Belasting).
+
+    :param df_basis_merge: Prepared basis DataFrame
+    :type df_basis_merge: pd.DataFrame
+    :param df_elementaire_merge: Prepared elementaire DataFrame
+    :type df_elementaire_merge: pd.DataFrame
+    :returns: Merged DataFrame
+    :rtype: pd.DataFrame
+    """
+    if not df_basis_merge.empty and not df_elementaire_merge.empty:
+        return df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
+    if not df_basis_merge.empty:
+        return df_basis_merge.copy()
+    if not df_elementaire_merge.empty:
+        return df_elementaire_merge.copy()
+    return pd.DataFrame()
+
+
+def _extract_max_force_rows(df_combined: pd.DataFrame, force_columns: list[str]) -> list[pd.Series]:  # type: ignore[type-arg]
+    """
+    Extract rows with maximum absolute values for each force column.
+
+    :param df_combined: Combined DataFrame with all forces
+    :type df_combined: pd.DataFrame
+    :param force_columns: List of force column names
+    :type force_columns: list[str]
+    :returns: List of rows representing max values
+    :rtype: list[pd.Series]
+    """
+    result_rows: list[pd.Series] = []  # type: ignore[type-arg]
+    for (name, coords_xyz), group in df_combined.groupby(["name", "coords_xyz"]):
+        for force_col in force_columns:
+            if force_col in group.columns:
+                abs_max_idx = group[force_col].abs().idxmax()
+                if pd.notna(abs_max_idx):
+                    max_row = group.loc[abs_max_idx].copy()
+                    max_row["max_for_column"] = force_col
+                    result_rows.append(max_row)  # type: ignore[arg-type]
+    return result_rows
+
+
+def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None) -> pd.DataFrame:
+    """
+    Add zone mapping to the result DataFrame.
+
+    :param df_result: Result DataFrame
+    :type df_result: pd.DataFrame
+    :param bridge_segments: Optional list of bridge segment objects
+    :type bridge_segments: list[Any] | None
+    :returns: DataFrame with zone column added
+    :rtype: pd.DataFrame
+    """
+    if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
+        try:
+            df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
+            df_result["zone"] = "mapping-failed"
+    return df_result
+
+
 def _process_single_cs_result_table(
     selected_data_scia_cs: dict[str, Any], selected_table: str, bridge_segments: list[Any] | None = None
 ) -> pd.DataFrame:
     """
     Process a single CS result table and return the processed DataFrame.
 
-    For each unique (Name, Coordinates) combination, finds the absolute maximum values
-    of force/moment columns (v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-).
-
-    Optionally adds zone identification if bridge_segments are provided, and removes
-    duplicate rows where (name, zone) combinations have identical force/moment values.
-    This handles cases where SCIA reports the same force values at different Y-coordinates
-    within the same zone (e.g., different positions across the width).
+    New processing logic:
+    1. Merge x,y,z into coords_xyz (already done)
+    2. Combine basis and elementaire tables based on (name, coords_xyz, belasting)
+    3. For each unique (name, coords_xyz), find rows with max absolute values
+       for v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-, n_xD, n_yD (8 rows per unique combination)
 
     :param selected_data_scia_cs: Dictionary with CS table data
     :type selected_data_scia_cs: dict[str, Any]
-    :param selected_table: Table type (e.g., "ULS")
+    :param selected_table: Table type (e.g., "ULS", "SLS freq")
     :type selected_table: str
     :param bridge_segments: Optional list of bridge segment objects (VIKTOR Munch or Pydantic).
                            Each segment needs: l/segment_length (length), bz1, bz2, bz3 (widths)
     :type bridge_segments: list[Any] | None
-    :returns: Processed DataFrame with unique (name, coordinates) combinations and max absolute force values
+    :returns: Processed DataFrame with filtered rows (8 per unique name+coords combination)
     :rtype: pd.DataFrame
     """
     elementaire_ontwerpgrootheden = selected_data_scia_cs.get(CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table), None)
     basis_grootheden = selected_data_scia_cs.get(CS_BASIS_TABLE_PATTERN.format(table_type=selected_table), None)
 
-    # Convert elementaire_ontwerpgrootheden and basis_grootheden to DataFrames
+    # Convert to DataFrames
     df_elementaire = pd.DataFrame(elementaire_ontwerpgrootheden) if elementaire_ontwerpgrootheden is not None else pd.DataFrame()
     df_basis = pd.DataFrame(basis_grootheden) if basis_grootheden is not None else pd.DataFrame()
 
-    # Create a DataFrame containing all unique (name, coords_xyz) combinations from both DataFrames
-    unique_coords_df = get_unique_coords_xyz_dataframe(df_elementaire, df_basis)
+    if df_elementaire.empty and df_basis.empty:
+        return pd.DataFrame()
 
-    if unique_coords_df.empty:
-        return unique_coords_df
+    # Prepare and merge dataframes
+    df_basis_merge = _prepare_basis_dataframe(df_basis)
+    df_elementaire_merge = _prepare_elementaire_dataframe(df_elementaire)
+    df_combined = _merge_basis_and_elementaire(df_basis_merge, df_elementaire_merge)
 
-    # CS tables have different columns than regular 2D tables
-    # Basis columns: v_x, v_y (shear forces) - same as regular 2D
-    # Elementaire columns: m_xD+, m_xD-, m_yD+, m_yD- (moments) - same as regular 2D
-    elementaire_columns = list(CS_MOMENT_COLUMNS)
-    basis_columns = list(CS_SHEAR_FORCE_COLUMNS)
+    if df_combined.empty:
+        return pd.DataFrame()
 
-    # Create lookup dictionaries for faster (name, coordinate)-based access
-    _, elementaire_lookup = _create_lookup_dictionaries(df_elementaire, elementaire_columns)
-    _, basis_lookup = _create_lookup_dictionaries(df_basis, basis_columns)
+    # Rename columns for consistency
+    df_combined = df_combined.rename(columns={"Naam": "name", "Belasting": "belasting"})
 
-    # Populate force values from basis lookup (shear forces)
-    for orig_col in basis_columns:
-        if orig_col in basis_lookup:
-            _populate_force_values_from_lookup(unique_coords_df, basis_lookup[orig_col], orig_col)
+    # Convert force columns to numeric
+    force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+    for col in force_columns:
+        if col in df_combined.columns:
+            df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
 
-    # Populate moment values from elementaire lookup
-    for orig_col in elementaire_columns:
-        if orig_col in elementaire_lookup:
-            _populate_force_values_from_lookup(unique_coords_df, elementaire_lookup[orig_col], orig_col)
+    # DEDUPLICATION: For each CS name, keep only the first unique coordinate
+    df_combined = (
+        df_combined.groupby("name", as_index=False, group_keys=False)
+        .apply(lambda group: group[group["coords_xyz"] == group["coords_xyz"].iloc[0]])
+        .reset_index(drop=True)
+    )
 
-    # Add zone mapping if bridge_segments are provided
-    if bridge_segments and len(bridge_segments) > 0:
-        try:
-            unique_coords_df["zone"] = unique_coords_df.apply(
-                lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1
-            )
+    # Extract rows with max absolute values
+    result_rows = _extract_max_force_rows(df_combined, force_columns)
+    df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
 
-            # --- Deduplication: Remove duplicate (name, zone) combinations with identical force values ---
-            # Define force/moment columns to check for duplicates
-            force_columns = list(CS_FORCE_MOMENT_COLUMNS)
-            # Only use columns that actually exist in the DataFrame
-            force_columns_present = [col for col in force_columns if col in unique_coords_df.columns]
-
-            if force_columns_present:
-                # Group by name and zone, then check for duplicate force values
-                # Keep first occurrence of each unique (name, zone, force_values) combination
-                dedup_columns = ["name", "zone", *force_columns_present]
-                unique_coords_df = unique_coords_df.drop_duplicates(subset=dedup_columns, keep="first")
-
-        except Exception:
-            # If zone mapping fails, add a column with error message
-            import traceback
-
-            traceback.print_exc()
-            unique_coords_df["zone"] = "mapping-failed"
-
-    return unique_coords_df
+    # Add zone mapping if bridge_segments are provided and return
+    return _add_zone_mapping(df_result, bridge_segments)
 
 
 def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:
@@ -510,6 +593,8 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     CS tables contain:
     - v_x, v_y: Shear forces (from basis table)
     - m_xD+, m_xD-, m_yD+, m_yD-: Moments (from elementaire table)
+    - n_xD, n_yD: Normal forces (from elementaire table)
+    - belasting: Load case name
 
     Optionally adds zone identification if bridge_segments are provided.
 
@@ -521,8 +606,8 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     :returns: Dictionary containing DataFrames for each CS result table type
     :rtype: dict[str, pd.DataFrame]
     """
-    # Setting to read SCIA xml for CS forces
-    selected_result_tables = ["ULS", "SLS kar", "SLS freq"]
+    # Setting to read SCIA xml for CS forces - only ULS and SLS freq
+    selected_result_tables = ["ULS", "SLS freq"]
 
     # Process selected CS result tables
     selected_data_scia_cs = _process_cs_selected_result_tables(results, selected_result_tables)
@@ -541,6 +626,126 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
             _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
 
     return results_cs
+
+
+def _combine_uls_and_sls_dataframes(df_uls: pd.DataFrame, df_sls_freq: pd.DataFrame) -> pd.DataFrame:
+    """
+    Combine ULS and SLS freq DataFrames with result_type labels.
+
+    :param df_uls: ULS DataFrame
+    :type df_uls: pd.DataFrame
+    :param df_sls_freq: SLS freq DataFrame
+    :type df_sls_freq: pd.DataFrame
+    :returns: Combined DataFrame with result_type column
+    :rtype: pd.DataFrame
+    """
+    combined_dfs = []
+
+    if not df_uls.empty:
+        df_uls_copy = df_uls.copy()
+        df_uls_copy["result_type"] = "ULS"
+        combined_dfs.append(df_uls_copy)
+
+    if not df_sls_freq.empty:
+        df_sls_copy = df_sls_freq.copy()
+        df_sls_copy["result_type"] = "SLS freq"
+        combined_dfs.append(df_sls_copy)
+
+    if not combined_dfs:
+        return pd.DataFrame()
+
+    return pd.concat(combined_dfs, ignore_index=True)
+
+
+def _extract_envelope_for_zone_and_type(
+    df_combined: pd.DataFrame, zone: str, result_type: str, force_columns: list[str], seen_combinations: set
+) -> list[pd.Series]:  # type: ignore[type-arg]
+    """
+    Extract envelope rows for a specific zone and result type.
+
+    :param df_combined: Combined DataFrame with all data
+    :type df_combined: pd.DataFrame
+    :param zone: Zone identifier
+    :type zone: str
+    :param result_type: Result type (ULS or SLS freq)
+    :type result_type: str
+    :param force_columns: List of force column names
+    :type force_columns: list[str]
+    :param seen_combinations: Set of already seen combinations to avoid duplicates
+    :type seen_combinations: set
+    :returns: List of envelope rows
+    :rtype: list[pd.Series]
+    """
+    envelope_rows: list[pd.Series] = []  # type: ignore[type-arg]
+    zone_type_data = df_combined[(df_combined["zone"] == zone) & (df_combined["result_type"] == result_type)]
+
+    if zone_type_data.empty:
+        return envelope_rows
+
+    for force_col in force_columns:
+        if force_col in zone_type_data.columns:
+            abs_max_idx = zone_type_data[force_col].abs().idxmax()
+            if pd.notna(abs_max_idx):
+                combination_key = (zone, result_type, force_col, abs_max_idx)
+                if combination_key not in seen_combinations:
+                    seen_combinations.add(combination_key)
+                    row = zone_type_data.loc[abs_max_idx].copy()
+                    row["max_for_column"] = force_col
+                    envelope_rows.append(row)  # type: ignore[arg-type]
+
+    return envelope_rows
+
+
+def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> pd.DataFrame:
+    """
+    Extract force envelopes from CS (Cross Section) results for ULS and SLS freq combined.
+
+    For each unique zone and result type (ULS/SLS freq), finds rows with maximum absolute values
+    for each force component (v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-, n_xD, n_yD).
+
+    Returns a combined DataFrame sorted by zone and result type.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param bridge_segments: Optional list of bridge segment objects for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: Combined DataFrame with envelope results sorted by zone and result type
+    :rtype: pd.DataFrame
+    """
+    # Process CS results to get ULS and SLS freq DataFrames
+    cs_results = process_scia_cs_results(results, bridge_segments)
+
+    df_uls = cs_results.get("ULS", pd.DataFrame())
+    df_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
+
+    # Combine ULS and SLS freq tables
+    df_combined = _combine_uls_and_sls_dataframes(df_uls, df_sls_freq)
+
+    if df_combined.empty:
+        return pd.DataFrame()
+
+    # Check if zone column exists
+    if "zone" not in df_combined.columns:
+        return df_combined  # Return as-is if no zone mapping
+
+    # Force columns to find max absolute values for
+    force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+
+    # Extract envelope rows for all zones and result types
+    envelope_rows: list[pd.Series] = []  # type: ignore[type-arg]
+    seen_combinations: set = set()
+
+    for zone in sorted(df_combined["zone"].unique()):
+        for result_type in ["ULS", "SLS freq"]:
+            zone_envelope = _extract_envelope_for_zone_and_type(df_combined, zone, result_type, force_columns, seen_combinations)
+            envelope_rows.extend(zone_envelope)
+
+    # Create result DataFrame and sort
+    if envelope_rows:
+        df_envelope = pd.DataFrame(envelope_rows)
+        return df_envelope.sort_values(by=["zone", "result_type", "max_for_column"]).reset_index(drop=True)
+
+    return pd.DataFrame()
 
 
 def _extract_scia_1d_table_data(results: dict[str, Any], selected_table: str) -> dict[str, Any] | None:
@@ -1103,16 +1308,16 @@ _processed_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
 
 def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.DataFrame] | None:
     """
-    Get processed SCIA results with caching to avoid reprocessing.
+    Get processed SCIA 2D node results with caching to avoid reprocessing.
+
+    Note: This function now uses the direct 2D processing instead of the removed
+    process_scia_node_results_for_idea function.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
     :returns: Processed results or None if failed
     :rtype: dict[str, pd.DataFrame] | None
     """
-    # Import here to avoid circular imports
-    from src.integrations.idea_integration.scia_to_idea_functions import process_scia_node_results_for_idea
-
     # Use simple caching to avoid reprocessing the same results
     try:
         results_hash = _get_results_hash(results)
@@ -1123,7 +1328,8 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
         return _processed_results_cache[results_hash]
 
     try:
-        processed_results = process_scia_node_results_for_idea(results)
+        # Use the direct 2D processing function
+        processed_results = process_scia_2d_results(results)
 
         # Cache the results (limit cache size to prevent memory issues)
         if len(_processed_results_cache) > 10:
@@ -1143,16 +1349,16 @@ _integration_strip_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
 
 def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) -> dict[str, pd.DataFrame] | None:
     """
-    Get processed SCIA integration strip results with caching to avoid reprocessing.
+    Get processed SCIA integration strip (1D) results with caching to avoid reprocessing.
+
+    Note: This function now uses the direct 1D processing instead of the removed
+    process_scia_integration_strip_results_for_idea function.
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
     :returns: Processed integration strip results or None if failed
     :rtype: dict[str, pd.DataFrame] | None
     """
-    # Import here to avoid circular imports
-    from src.integrations.idea_integration.scia_to_idea_functions import process_scia_integration_strip_results_for_idea
-
     # Use simple caching to avoid reprocessing the same results
     try:
         results_hash = _get_results_hash(results)
@@ -1163,7 +1369,8 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
         return _integration_strip_results_cache[results_hash]
 
     try:
-        processed_results = process_scia_integration_strip_results_for_idea(results)
+        # Use the direct 1D processing function
+        processed_results = process_scia_1d_results(results)
 
         # Cache the results (limit cache size to prevent memory issues)
         if len(_integration_strip_results_cache) > 10:
@@ -1174,4 +1381,5 @@ def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) 
     except Exception:
         return None
     else:
+        return processed_results
         return processed_results

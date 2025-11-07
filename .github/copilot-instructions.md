@@ -17,6 +17,7 @@ When generating code, explanations, or suggestions, Copilot should always consul
 - SCIA integration
 - And other project-specific conventions
 
+
 In addition, Copilot should reference the following important project files and directories for context and definitions:
 
 - All files in `src/data_models/`:
@@ -37,6 +38,10 @@ In addition, Copilot should reference the following important project files and 
 	- `docs/development_workflow.md`
 	- `docs/pydantic_developer_guide.md`
 	- `docs/testing_uitleg.md`
+
+- All files in `.github/Rules/`:
+	- `.github/Rules/scia_cs_results_processing.md`
+	- `.github/Rules/scia_to_idea_data_flow.md`
 
 - Python coding standards
 - Project structure
