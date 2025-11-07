@@ -71,7 +71,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
-        self.integration_strips: dict[str, scia.IntegrationStrip] = {}
         self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
@@ -117,32 +116,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
         self.plates[name] = plate
         return plate
-
-    def create_integration_strip(
-        self,
-        plane: str,
-        point_1: tuple[float, float, float],
-        point_2: tuple[float, float, float],
-        width: float,
-    ) -> scia.IntegrationStrip:
-        """Creates an integration strip and stores it."""
-        # get the plate by name
-        plane_name = plane
-        if plane_name not in self.plates:
-            raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
-        plane = self.plates[plane_name]
-
-        # Create the SCIA integration strip
-        strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
-        # Create a name for internal tracking
-        strip_name = f"strip_{plane_name}_{point_1}_{point_2}"
-
-        # Try to set the name after creation if possible
-        if hasattr(strip, "_name"):
-            strip._name = strip_name  # noqa: SLF001  # Required for SCIA SDK integration
-
-        self.integration_strips[strip_name] = strip
-        return strip
 
     def create_section_on_plane(
         self,
