@@ -154,7 +154,8 @@ Het proces werkt als volgt:
 3. Per zone worden de maximale absolute waarden bepaald (envelope).
 4. De resultaten worden omgezet naar het IDEA-formaat.
 5. Momenten (Mx, My), normaalkrachten (Nx, Ny) én dwarskrachten (Qz) worden gecombineerd en uitgelezen.
-6. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie) worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
+6. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
+    worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
     Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen:
     - In de **langsdoorsnede** wordt de **dwarswapening** gecontroleerd (Qz = v_y, My = My, N = Ny)
     - In de **dwarsdoorsnede** wordt de **langswapening** gecontroleerd (Qz = v_x, My = Mx, N = Nx)
