@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
+from viktor.errors import UserError
 from viktor.views import GeometryResult, MapResult, PlotlyResult, TableResult
 
 from app.bridge.controller import BridgeController
@@ -527,15 +528,12 @@ class TestBridgeControllerViews(unittest.TestCase):
         # Access the original method directly
         original_method = self.controller.__class__.get_load_zones_view
 
-        # Act - call bypassing decorator
-        result = original_method(self.controller, params_invalid)
+        # Act & Assert - should raise UserError for insufficient segments
+        with pytest.raises(UserError) as exc_info:
+            original_method(self.controller, params_invalid)
 
-        # Assert
-        assert isinstance(result, PlotlyResult)
-
-        # Should return error figure
-        json_result = json.loads(result.figure)
-        assert "layout" in json_result
+        # Verify error message mentions insufficient segments
+        assert "minimaal 2 secties" in str(exc_info.value)
 
     # ============================================================================================================
     # Data Validation Tests

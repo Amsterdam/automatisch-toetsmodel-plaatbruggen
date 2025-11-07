@@ -73,14 +73,9 @@ class BridgeController(
     get_load_zones_view = GeometryViews.get_load_zones_view
 
     # From SciaIntegration
-    get_scia_results_view_sls_kar = SciaIntegration.get_scia_results_view_sls_kar
-    get_scia_results_view_sls_freq = SciaIntegration.get_scia_results_view_sls_freq
-    get_scia_results_view_uls = SciaIntegration.get_scia_results_view_uls
-    get_scia_1d_results_view_sls_kar = SciaIntegration.get_scia_1d_results_view_sls_kar
-    get_scia_1d_results_view_sls_freq = SciaIntegration.get_scia_1d_results_view_sls_freq
-    get_scia_1d_results_view_uls = SciaIntegration.get_scia_1d_results_view_uls
+    get_scia_cs_results_view_uls = SciaIntegration.get_scia_cs_results_view_uls
+    get_scia_cs_results_view_sls_freq = SciaIntegration.get_scia_cs_results_view_sls_freq
     get_scia_results_table = SciaIntegration.get_scia_results_table
-    get_force_envelopes = SciaIntegration.get_force_envelopes
     download_scia_esa_model = SciaIntegration.download_scia_esa_model
     download_scia_xml_files = SciaIntegration.download_scia_xml_files
     download_scia_output_xml = SciaIntegration.download_scia_output_xml

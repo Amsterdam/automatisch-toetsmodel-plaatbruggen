@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
     DownloadButton,
@@ -48,9 +49,21 @@ from app.constants import (
     SCIA_INFO_TEXT,
     SIGNAGE_OPTIONS,
 )
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
 from src.common.materials import get_reinforcement_qualities
 
-from .utils import validate_reinforcement_zone_selections
+# --- Helper function for rebar diameter options ---
+
+
+def _get_rebar_diameter_options(**kwargs) -> list[int]:  # noqa: ARG001
+    """
+    Get standard rebar diameter options as a sorted list.
+
+    :param kwargs: Additional keyword arguments (unused, required by VIKTOR SDK)
+    :returns: Sorted list of standard rebar diameters in millimeters
+    :rtype: list[int]
+    """
+    return sorted(STANDARD_REBAR_DIAMETERS)
 
 
 def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
@@ -214,6 +227,9 @@ def _create_default_dimension_segment_row(
     """
     Create a dictionary for a default bridge dimension segment row with customizable values.
 
+    Note: Thickness values (dz, dz_2) are only editable on the first segment in the UI.
+    All segments use the same thickness values longitudinally for structural consistency.
+
     :param l_value: Distance to previous section. Defaults to 0.
     :type l_value: float
     :param is_first: Whether this is the first segment. Defaults to False.
@@ -225,8 +241,8 @@ def _create_default_dimension_segment_row(
         - "bz1" (float): Width of zone 1 (default: 10.0 m)
         - "bz2" (float): Width of zone 2 (default: 3.0 m)
         - "bz3" (float): Width of zone 3 (default: 15.0 m)
-        - "dz" (float): Thickness of zones 1 and 3 (default: 0.7 m)
-        - "dz_2" (float): Thickness of zone 2 (default: 0.8 m)
+        - "dz" (float): Thickness of zones 1 and 3 (default: 0.7 m, uniform longitudinally)
+        - "dz_2" (float): Thickness of zone 2 (default: 0.8 m, uniform longitudinally)
         - "col_6" (float): Alpha angle (default: 0.0 degrees)
         - "l" (float): Distance to previous section (default: value of l_value)
         - "is_first_segment" (bool): Whether this is the first segment (default: value of is_first)
@@ -333,24 +349,6 @@ def _create_dx_width_visibility_callback(required_segment_count: int) -> Callabl
 DX_WIDTH_VISIBILITY_CALLBACKS = {i: _create_dx_width_visibility_callback(i) for i in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1)}
 
 
-def _validate_reinforcement_zones_callback(params, **kwargs) -> None:  # noqa: ANN001, ARG001
-    """
-    Validation callback for reinforcement zone selections.
-
-    Validates that each zone is selected in only one configuration.
-    Raises UserError if duplicates are found.
-
-    Args:
-        params: Parameters containing reinforcement_zones_array
-        **kwargs: Additional keyword arguments (unused)
-
-    Raises:
-        UserError: If duplicate zone selections are found
-
-    """
-    validate_reinforcement_zone_selections(params)
-
-
 # --- Functions for dynamic reinforcement zones ---
 
 
@@ -397,12 +395,22 @@ def _get_model_ymax(params: Mapping, **kwargs) -> float:  # noqa: ARG001
 
 
 def _get_model_zmin(params: Mapping, **kwargs) -> float:  # noqa: ARG001
-    dz = max(segment.dz for segment in params.bridge_segments_array)
+    # Read dz from first segment (editable only there, ensures longitudinal consistency)
+    dz = params.bridge_segments_array[0].dz if params.bridge_segments_array else 0.7
     return -dz
 
 
 def _get_model_zmax(params: Mapping, **kwargs) -> float:  # noqa: ARG001
-    dz_max = max(segment.dz_2 - segment.dz for segment in params.bridge_segments_array)
+    # Read dz values from first segment (editable only there, ensures longitudinal consistency)
+    if params.bridge_segments_array:
+        first_seg = params.bridge_segments_array[0]
+        dz = first_seg.dz
+        dz_2 = getattr(first_seg, "dz_2", dz)
+    else:
+        dz = 0.7
+        dz_2 = 0.8
+
+    dz_max = dz_2 - dz
     max_value = dz_max
     return max_value - 0.01
 
@@ -528,7 +536,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         except Exception:
             # Fallback to basic modern materials if CSV reading fails
             modern_materials = ["B400A", "B400B", "B400C", "B500A", "B500B", "B500C"]
-
         # Add historical materials from IDEA integration
         # Import here to avoid circular imports between app and src layers
         try:
@@ -536,31 +543,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
             all_supported = get_all_supported_reinforcement_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
-        except ImportError:
-            # Fallback to hardcoded list if import fails
-            historical_materials = [
-                # GBV 1940 materials
-                "HK",
-                "St. 37",
-                # GBV 1950 materials
-                "QR22",
-                "QR24",
-                "QR30",
-                "QR36",
-                "QR42",
-                # GBV 1962 materials
-                "QR32",
-                "QR40",
-                "QR48",
-                # NEN 6720 materials
-                "FeB500 HWL, HK",
-                "FeB400 HWL, HK",
-                "FeB220 HWL",
-                # VB 74+84 materials
-                "FeB500 HW",
-                "FeB400 HW",
-                "FeB220 HW",
-            ]
+        except ImportError as e:
+            msg = (
+                "Fout bij laden van historische staalsoorten. "
+                "De IDEA StatiCa materiaal integratie module kon niet worden geladen. "
+                f"Technische details: {e}"
+            )
+            raise UserError(msg) from e
 
         # Combine: modern materials first, then historical materials
         all_materials = modern_materials + historical_materials
@@ -643,33 +632,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
             all_supported = get_all_supported_materials()
             historical_materials = [material for material, material_type in all_supported.items() if material_type == "historical"]
-        except ImportError:
-            # Fallback to hardcoded list if import fails
-            historical_materials = [
-                # Historical materials from GBV 1940/1950/1962
-                "K150",
-                "K200",
-                "K250",
-                "K160",
-                "K225",
-                "K300",
-                "K400",
-                "K450",
-                # NEN 6720 materials (B-class)
-                "B25",
-                "B35",
-                "B45",
-                "B55",
-                "B65",
-                # VB 74+84 materials (B-class with decimals)
-                "B12,5",
-                "B17,5",
-                "B22,5",
-                "B30",
-                "B37,5",
-                "B52,5",
-                "B60",
-            ]
+        except ImportError as e:
+            msg = (
+                "Fout bij laden van historische betonkwaliteiten. "
+                "De IDEA StatiCa materiaal integratie module kon niet worden geladen. "
+                f"Technische details: {e}"
+            )
+            raise UserError(msg) from e
 
         # Combine: modern materials first, then historical materials
         all_materials = modern_materials + historical_materials
@@ -832,8 +801,66 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
     input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
     input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
-    input.dimensions.array.dz = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m", min=0.05)
-    input.dimensions.array.dz_2 = NumberField("Dikte zone 2", default=0.8, suffix="m", min=0.05)
+
+    # Thickness fields - editable only on first segment, read-only on others
+    # Using callbacks to get first segment's values for output fields
+    def _get_first_segment_dz(params, **kwargs) -> float:  # noqa: N805, ARG002
+        """Get dz value from first segment for display in other segments."""
+        try:
+            if params.bridge_segments_array and len(params.bridge_segments_array) > 0:
+                return params.bridge_segments_array[0].dz
+        except (AttributeError, IndexError):
+            pass
+        return 0.7  # Default fallback
+
+    def _get_first_segment_dz_2(params, **kwargs) -> float:  # noqa: N805, ARG002
+        """Get dz_2 value from first segment for display in other segments."""
+        try:
+            if params.bridge_segments_array and len(params.bridge_segments_array) > 0:
+                return params.bridge_segments_array[0].dz_2
+        except (AttributeError, IndexError):
+            pass
+        return 0.8  # Default fallback
+
+    _dz_input_visibility = DynamicArrayConstraint(
+        dynamic_array_name="bridge_segments_array",
+        operand=Lookup("$row.is_first_segment"),
+    )
+    _dz_output_visibility = DynamicArrayConstraint(
+        dynamic_array_name="bridge_segments_array",
+        operand=IsFalse(Lookup("$row.is_first_segment")),
+    )
+
+    input.dimensions.array.dz = NumberField(
+        "Dikte zone 1 en 3",
+        default=0.7,
+        suffix="m",
+        min=0.05,
+        visible=_dz_input_visibility,
+        description="Dikte van zones 1 en 3 (geldt voor gehele brug)",
+    )
+    input.dimensions.array.dz_output = OutputField(
+        "Dikte zone 1 en 3",
+        value=_get_first_segment_dz,
+        suffix="m",
+        visible=_dz_output_visibility,
+    )
+
+    input.dimensions.array.dz_2 = NumberField(
+        "Dikte zone 2",
+        default=0.8,
+        suffix="m",
+        min=0.05,
+        visible=_dz_input_visibility,
+        description="Dikte van zone 2 (geldt voor gehele brug)",
+    )
+    input.dimensions.array.dz_2_output = OutputField(
+        "Dikte zone 2",
+        value=_get_first_segment_dz_2,
+        suffix="m",
+        visible=_dz_output_visibility,
+    )
+
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
 
     _l_field_visibility_constraint = DynamicArrayConstraint(
@@ -844,7 +871,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Afstand tot vorige snede",
         default=10,
         suffix="m",
-        min=0.1,
+        min=1.002,
         visible=_l_field_visibility_constraint,
     )
 
@@ -946,19 +973,19 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=[
             {
                 "zone_number": ["1-1", "2-1", "3-1"],  # Default to all zones for the first configuration
-                "hoofdwapening_langs_boven_diameter": 12.0,
+                "hoofdwapening_langs_boven_diameter": 12,
                 "hoofdwapening_langs_boven_hart_op_hart": 150.0,
-                "hoofdwapening_dwars_boven_diameter": 12.0,
+                "hoofdwapening_dwars_boven_diameter": 12,
                 "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
-                "hoofdwapening_langs_onder_diameter": 12.0,
+                "hoofdwapening_langs_onder_diameter": 12,
                 "hoofdwapening_langs_onder_hart_op_hart": 150.0,
-                "hoofdwapening_dwars_onder_diameter": 12.0,
+                "hoofdwapening_dwars_onder_diameter": 12,
                 "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
                 "heeft_bijlegwapening": False,
-                "bijlegwapening_langs_boven_diameter": 12.0,
-                "bijlegwapening_dwars_boven_diameter": 12.0,
-                "bijlegwapening_langs_onder_diameter": 12.0,
-                "bijlegwapening_dwars_onder_diameter": 12.0,
+                "bijlegwapening_langs_boven_diameter": 12,
+                "bijlegwapening_dwars_boven_diameter": 12,
+                "bijlegwapening_langs_onder_diameter": 12,
+                "bijlegwapening_dwars_onder_diameter": 12,
             },
         ],
     )
@@ -973,8 +1000,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb2 = LineBreak()
 
     # Main reinforcement - Longitudinal top
-    input.geometrie_wapening.zones.hoofdwapening_langs_boven_diameter = NumberField(
-        "Ø hoofdwapening langsrichting boven", default=12.0, min=6.0, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_langs_boven_diameter = OptionField(
+        "Ø hoofdwapening langsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_boven_hart_op_hart = NumberField(
         "H.o.h. afstand hoofdwapening langsrichting boven", default=150.0, min=50, suffix="mm", flex=53
@@ -983,8 +1010,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb3 = LineBreak()
 
     # Main reinforcement - Transverse Top
-    input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = NumberField(
-        "Ø hoofdwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = OptionField(
+        "Ø hoofdwapening dwarsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_hart_op_hart = NumberField(
@@ -994,8 +1021,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb4 = LineBreak()
 
     # Main reinforcement - Longitudinal bottom
-    input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = NumberField(
-        "Ø hoofdwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = OptionField(
+        "Ø hoofdwapening langsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_onder_hart_op_hart = NumberField(
         "H.o.h. afstand hoofdwapening langsrichting onder", default=150.0, min=50, suffix="mm", flex=53
@@ -1004,8 +1031,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb5 = LineBreak()
 
     # Main reinforcement - Transverse Bottom
-    input.geometrie_wapening.zones.hoofdwapening_dwars_onder_diameter = NumberField(
-        "Ø hoofdwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47
+    input.geometrie_wapening.zones.hoofdwapening_dwars_onder_diameter = OptionField(
+        "Ø hoofdwapening dwarsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_onder_hart_op_hart = NumberField(
@@ -1022,8 +1049,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb7 = LineBreak()
 
     # Additional reinforcement - Longitudinal top
-    input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = NumberField(
-        "Ø bijlegwapening langsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = OptionField(
+        "Ø bijlegwapening langsrichting boven",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting boven",
@@ -1036,8 +1068,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb8 = LineBreak()
 
     # Additional reinforcement - Transverse top
-    input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = NumberField(
-        "Ø bijlegwapening dwarsrichting boven", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = OptionField(
+        "Ø bijlegwapening dwarsrichting boven",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting boven",
@@ -1050,8 +1087,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb9 = LineBreak()
 
     # Additional reinforcement - Longitudinal bottom
-    input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = NumberField(
-        "Ø bijlegwapening langsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = OptionField(
+        "Ø bijlegwapening langsrichting onder",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_langs_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening langsrichting onder",
@@ -1064,8 +1106,13 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.lb10 = LineBreak()
 
     # Additional reinforcement - Transverse bottom
-    input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = NumberField(
-        "Ø bijlegwapening dwarsrichting onder", default=12.0, min=6, suffix="mm", flex=47, visible=RowLookup("heeft_bijlegwapening")
+    input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = OptionField(
+        "Ø bijlegwapening dwarsrichting onder",
+        options=_get_rebar_diameter_options,
+        default=12,
+        suffix="mm",
+        flex=47,
+        visible=RowLookup("heeft_bijlegwapening"),
     )
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_hart_op_hart = OutputField(
         "H.o.h. afstand bijlegwapening dwarsrichting onder",
@@ -1250,12 +1297,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "SCIA",
         views=[
             "get_3d_view",
-            "get_scia_results_view_sls_kar",
-            "get_scia_results_view_sls_freq",
-            "get_scia_results_view_uls",
-            "get_scia_1d_results_view_sls_kar",
-            "get_scia_1d_results_view_sls_freq",
-            "get_scia_1d_results_view_uls",
+            "get_scia_cs_results_view_uls",
+            "get_scia_cs_results_view_sls_freq",
             "get_scia_results_table",
         ],
     )

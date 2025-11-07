@@ -22,8 +22,7 @@ from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
 from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
 from src.integrations.idea_integration.scia_to_idea_functions import (
-    process_scia_integration_strip_results_for_idea,
-    process_scia_node_results_for_idea,
+    process_scia_cs_results_for_idea,
 )
 
 
@@ -41,7 +40,7 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
     """Run IDEA analysis and extract results."""
     # First get SCIA results needed for IDEA
     progress_message("Ophalen SCIA resultaten voor IDEA analyse...")
@@ -71,13 +70,52 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
         parser = idea_rcs.RcsOutputFileParser(BytesIO(output_content))
         section_results = []
         for section in parser.section_results():
+            # Extract crack_width data - it has nested 'short' and 'long' keys
+            crack_width_data = section.crack_width()[0] if section.crack_width() else None
+            # Extract the overall Result and CheckValue from the crack_width data
+            # IDEA returns crack_width with nested structure: {'short': {...}, 'long': {...}}
+            # We need to check both short and long term and use the worst case (highest CheckValue)
+            crack_width_result = {"Result": "N/A", "CheckValue": "N/A"}
+            if crack_width_data:
+                short_term = crack_width_data.get("short")
+                long_term = crack_width_data.get("long")
+
+                # Collect valid check values
+                check_values = []
+                crack_width_results_list = []
+
+                if short_term and isinstance(short_term, dict):
+                    if "CheckValue" in short_term and short_term["CheckValue"] is not None:
+                        check_values.append(short_term["CheckValue"])
+                    if "Result" in short_term:
+                        crack_width_results_list.append(short_term["Result"])
+
+                if long_term and isinstance(long_term, dict):
+                    if "CheckValue" in long_term and long_term["CheckValue"] is not None:
+                        check_values.append(long_term["CheckValue"])
+                    if "Result" in long_term:
+                        crack_width_results_list.append(long_term["Result"])
+
+                # Use the maximum CheckValue (worst case)
+                if check_values:
+                    crack_width_result["CheckValue"] = max(check_values)
+
+                # Use the worst result (prioritize "FAILED" over "PASSED")
+                if crack_width_results_list:
+                    if any(r == "FAILED" for r in crack_width_results_list if r):
+                        crack_width_result["Result"] = "FAILED"
+                    elif any(r == "PASSED" for r in crack_width_results_list if r):
+                        crack_width_result["Result"] = "PASSED"
+                    else:
+                        crack_width_result["Result"] = crack_width_results_list[0] if crack_width_results_list[0] else "N/A"
+
             section_data = {
                 "id": section.id_,
                 "capacity": section.capacity()[0] if section.capacity() else {"Result": "N/A"},
                 "shear": section.shear()[0] if section.shear() else {"Result": "N/A"},
                 "torsion": section.torsion()[0] if section.torsion() else {"Result": "N/A"},
                 "interaction": section.interaction()[0] if section.interaction() else {"Result": "N/A"},
-                "crack_width": section.crack_width()[0] if section.crack_width() else {"Result": "N/A"},
+                "crack_width": crack_width_result,
                 "detailing": section.detailing()[0] if section.detailing() else {"Result": "N/A"},
                 "stress_limitation": section.stress_limitation()[0] if section.stress_limitation() else {"Result": "N/A"},
             }
@@ -113,14 +151,15 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     """
     Get SCIA results that are needed for IDEA analysis.
 
-    This function processes SCIA analysis results and returns both node results (2D forces)
-    and integration strip results (1D forces) in a single merged dictionary.
+    This function processes SCIA analysis results and returns node results (2D forces),
+    CS results (cross section forces), and integration strip results (1D forces)
+    in a single merged dictionary.
 
     :param params: Bridge parametrization
     :type params: Any
     :param entity_id: Entity ID for caching
     :type entity_id: int
-    :returns: Dictionary containing processed SCIA node and integration strip results for IDEA
+    :returns: Dictionary containing processed SCIA node, CS, and integration strip results for IDEA
     :rtype: dict[str, Any]
     :raises UserError: If bridge segments are missing or analysis fails
     """
@@ -139,21 +178,28 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
 
-    # Process SCIA results using the dedicated functions for both node and integration strip results
+    # Process SCIA results using the dedicated functions
     if results is None:
         raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
 
-    # Get both node results (2D forces) and integration strip results (1D forces)
-    progress_message("Verwerken SCIA resultaten voor IDEA...")
-    node_results = process_scia_node_results_for_idea(results)
-    integration_strip_results = process_scia_integration_strip_results_for_idea(results)
+    # Get bridge segments for CS results zone mapping
+    bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
 
-    # Merge both result dictionaries
-    merged_results = {}
-    merged_results.update(node_results)
-    merged_results.update(integration_strip_results)
+    # Ensure bridge_segments is a list for type checking
+    if bridge_segments is None:
+        bridge_segments = []
 
-    return merged_results
+    # Process SCIA CS (Cross Section) envelope results for IDEA
+    # This returns a single DataFrame with filtered ULS and SLS freq envelope data
+    progress_message("Verwerken SCIA CS resultaten voor IDEA...")
+    cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
+
+    # Return results dictionary with the envelope DataFrame
+    # The results are wrapped to maintain compatibility with existing code
+    return {
+        "results": results,
+        "cs_envelope": cs_envelope_df,
+    }
 
 
 def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401

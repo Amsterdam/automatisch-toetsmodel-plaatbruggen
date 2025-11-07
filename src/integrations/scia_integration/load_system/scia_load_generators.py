@@ -55,6 +55,9 @@ def extract_bridge_dimensions(params: BridgeParams) -> BridgeDimensionsData:
 
     Uses Pydantic validation to ensure dimensions are realistic and consistent.
 
+    Note: Thickness values (dz, dz_2) are read from first segment only,
+    as they are editable only there and displayed as read-only on other segments.
+
     :param params: Bridge parameters with bridge_segments_array
     :returns: Bridge dimensions as a validated Pydantic model
     :raises IndexError: When no bridge segments are provided
@@ -202,20 +205,18 @@ def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None,
             _raise_unsupported_udl_mode_error(mode)
 
         # Convert to our standard format
+        # New structure: each key (BG4001, BG4002, etc.) contains a single polygon with load and title
         all_loads = []
-        for group_name, group_data in udl_results.items():
-            for load_type, polygons in group_data.items():
-                all_loads.extend(
-                    [
-                        {
-                            "load_case": f"{group_name}_{load_type}",
-                            "load_type": "udl",
-                            "polygon": polygon_data["polygon"],
-                            "load_value": polygon_data["load"],
-                        }
-                        for polygon_data in polygons
-                    ]
-                )
+        for load_case_name, load_data in udl_results.items():
+            all_loads.append(
+                {
+                    "load_case": load_case_name,
+                    "load_type": "udl",
+                    "polygon": load_data["polygon"],
+                    "load_value": load_data["load"],
+                    "title": load_data.get("title", ""),
+                }
+            )
 
     except Exception as e:
         raise ValueError(f"Failed to generate UDL loads: {e}") from e

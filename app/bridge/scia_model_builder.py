@@ -72,6 +72,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
         self.integration_strips: dict[str, scia.IntegrationStrip] = {}
+        self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
@@ -142,6 +143,44 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         self.integration_strips[strip_name] = strip
         return strip
+
+    def create_section_on_plane(
+        self,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        *,
+        name: str,
+        draw: Any | None = None,  # noqa: ANN401
+        direction_of_cut: tuple[float, float, float] | None = None,
+    ) -> scia.SectionOnPlane:
+        """
+        Creates a section on a plane and stores it.
+
+        :param point_1: Start coordinates (x, y, z) in [m]
+        :param point_2: End coordinates (x, y, z) in [m]
+        :param name: Name which will be shown in SCIA
+        :param draw: Defines the plane in which the section is drawn (default: Z_DIRECTION)
+        :param direction_of_cut: In-plane vector (x, y, z) defining the direction of cut in [m]
+        :return: Created SectionOnPlane object
+        """
+        # Build kwargs for optional parameters
+        kwargs = {}
+        if draw is not None:
+            kwargs["draw"] = draw
+        if direction_of_cut is not None:
+            kwargs["direction_of_cut"] = direction_of_cut
+
+        # Create the SCIA section on plane
+        section = self.model.create_section_on_plane(
+            point_1=point_1,
+            point_2=point_2,
+            name=name,
+            **kwargs,
+        )
+
+        # Store the section for later reference
+        self.sections_on_plane[name] = section
+        return section
 
     def create_load_group(
         self,

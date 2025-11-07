@@ -24,8 +24,11 @@ def add_udl_loads(
     load_cases: dict[str, Any],
 ) -> None:
     """
-    Create UDL traffic loads with separate polygons for main lane (9 kN/m²), other notional lanes (2.5 kN/m²),
-    and remaining areas (2.5 kN/m²). Applied to load cases BG4001, BG4002, BG4003.
+    Create UDL traffic loads with one polygon per load case.
+
+    Each polygon is applied to its specific load case (BG4001, BG4002, etc.)
+    as determined by the UDL generators. Each load case contains a single
+    polygon with its associated load value and title.
 
     :param builder: The SCIA model builder instance
     :type builder: SciaModelBuilder
@@ -39,51 +42,23 @@ def add_udl_loads(
         # Generate UDL loads - this will auto-detect mode from berekeningsniveau
         udl_load_list = generate_udl_loads(params)
 
-        # Convert from our standard format back to the expected format
-        udl_results: dict[str, dict[str, Any]] = {}
-        for load_data in udl_load_list:
-            load_case = load_data["load_case"]
-            # Extract the BG group from load_case (e.g., "BG4001_main" -> "BG4001")
-            bg_group = load_case.split("_")[0]
-            load_type = load_case.split("_")[1] if "_" in load_case else "main"
+        # Map each polygon to its specific load case
+        for load_item in udl_load_list:
+            load_case_name = load_item.get("load_case")
+            if not load_case_name:
+                continue
 
-            if bg_group not in udl_results:
-                udl_results[bg_group] = {"main": [], "other": [], "rest": []}
+            # Find the corresponding SCIA load case
+            if load_case_name in load_cases["udl_traffic_cases"]:
+                scia_case = load_cases["udl_traffic_cases"][load_case_name]
 
-            udl_results[bg_group][load_type].append({"polygon": load_data["polygon"], "load": load_data["load_value"]})
-
-        bg_to_rs = {"BG4001": "rs_1", "BG4002": "rs_2", "BG4003": "rs_3"}
-        for key, udl in udl_results.items():
-            rs_key = bg_to_rs.get(key)
-            if rs_key and rs_key in load_cases["udl_traffic_cases"]:
-                scia_case = load_cases["udl_traffic_cases"][rs_key]
-
-                # Create surface loads for main notional lane(s)
-                for i, main_load in enumerate(udl["main"]):
-                    builder.create_surface_load(
-                        name=f"udl_{key}_main_{i + 1}",
-                        load_case_name=scia_case.name,
-                        corner_points=main_load["polygon"],
-                        load_value=-main_load["load"],
-                    )
-
-                # Create surface loads for other notional lanes
-                for i, other_load in enumerate(udl["other"]):
-                    builder.create_surface_load(
-                        name=f"udl_{key}_other_{i + 1}",
-                        load_case_name=scia_case.name,
-                        corner_points=other_load["polygon"],
-                        load_value=-other_load["load"],
-                    )
-
-                # Create surface loads for remaining areas
-                for i, rest_load in enumerate(udl["rest"]):
-                    builder.create_surface_load(
-                        name=f"udl_{key}_rest_{i + 1}",
-                        load_case_name=scia_case.name,
-                        corner_points=rest_load["polygon"],
-                        load_value=-rest_load["load"],
-                    )
+                # Create surface load for this polygon on its specific load case
+                builder.create_surface_load(
+                    name=f"udl_{load_case_name}",
+                    load_case_name=scia_case.name,
+                    corner_points=load_item["polygon"],
+                    load_value=-load_item["load_value"],
+                )
     except Exception as e:
         raise ValueError(f"Failed to add UDL loads: {e}") from e
 

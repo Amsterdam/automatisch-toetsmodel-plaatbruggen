@@ -12,3 +12,4 @@ types-Markdown
 types-psutil
 types-openpyxl
 pandas-stubs
+openpyxl-stubs

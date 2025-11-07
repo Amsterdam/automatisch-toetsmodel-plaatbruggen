@@ -109,49 +109,43 @@ def is_historical_material(concrete_quality: str) -> bool:
     """
     Check if a concrete quality is a historical material that requires CSV data.
 
+    Dynamically checks against materials loaded from CSV files.
+    Accepts both old naming (without suffix) and new naming (with suffix).
+
     :param concrete_quality: Concrete quality string
     :type concrete_quality: str
     :returns: True if historical material, False otherwise
     :rtype: bool
     """
-    historical_materials = {
-        # Historical materials from GBV 1940/1950/1962
-        "K150",
-        "K200",
-        "K250",
-        "K160",
-        "K225",
-        "K300",
-        "K400",
-        "K450",
-        # NEN 6720 materials (B-class)
-        "B25",
-        "B35",
-        "B45",
-        "B55",
-        "B65",
-        # VB 74+84 materials (B-class with decimals)
-        "B12,5",
-        "B17,5",
-        "B22,5",
-        "B30",
-        "B37,5",
-        "B52,5",
-        "B60",
-    }
-    return concrete_quality in historical_materials
+    # Get all supported materials
+    all_materials = get_all_supported_materials()
+
+    # Check if it's directly in the list (suffixed name)
+    if all_materials.get(concrete_quality) == "historical":
+        return True
+
+    # Check if it's a base name by looking for any material that starts with this base name
+    # This provides backward compatibility for old code using base names like "B45", "K150"
+    for material_name, material_type in all_materials.items():
+        if material_type == "historical" and material_name.startswith(concrete_quality + "_"):
+            return True
+
+    return False
 
 
-def get_all_supported_materials() -> dict[str, str]:
+def get_all_supported_materials() -> dict[str, str]:  # noqa: C901
     """
     Get all supported concrete materials with their types.
+
+    Dynamically reads historical materials from CSV files, ensuring the list is always up-to-date.
+    Modern materials are hardcoded as they are standard Eurocode materials.
 
     :returns: Dictionary mapping material names to types ('modern' or 'historical')
     :rtype: dict[str, str]
     """
     materials = {}
 
-    # Modern materials
+    # Modern materials (hardcoded - these are standard Eurocode materials)
     modern_materials = [
         "C12/15",
         "C16/20",
@@ -171,31 +165,48 @@ def get_all_supported_materials() -> dict[str, str]:
     for material in modern_materials:
         materials[material] = "modern"
 
-    # Historical materials
-    historical_materials = [
-        "K150",
-        "K200",
-        "K250",
-        "K160",
-        "K225",
-        "K300",
-        "K400",
-        "K450",
-        "B25",
-        "B35",
-        "B45",
-        "B55",
-        "B65",
-        "B12,5",
-        "B17,5",
-        "B22,5",
-        "B30",
-        "B37,5",
-        "B52,5",
-        "B60",
-    ]
-    for material in historical_materials:
-        materials[material] = "historical"
+    # Historical materials - read dynamically from CSV files
+    try:
+        from .constants.paths import IDEA_MATERIALS_PATH
+        from .idea_material_generator import _get_csv_files_for_concrete
+
+        csv_files = _get_csv_files_for_concrete("")  # Pass empty string (arg is ignored)
+        for csv_file in csv_files:
+            csv_path = IDEA_MATERIALS_PATH / csv_file
+            if not csv_path.exists():
+                continue
+
+            # Read all material names from CSV
+            with csv_path.open(encoding="utf-8") as f:
+                lines = f.readlines()
+
+                # Find the "Data" line
+                data_start_idx = None
+                for i, line in enumerate(lines):
+                    if line.strip().startswith('"Data"'):
+                        data_start_idx = i + 1
+                        break
+
+                if data_start_idx is None:
+                    continue
+
+                # Extract material names from data rows
+                for raw_line in lines[data_start_idx:]:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+
+                    # Material name is the first field
+                    parts = line.split(";")
+                    if parts:
+                        material_name = parts[0].strip('"')
+                        if material_name:
+                            # Only add the suffixed name from CSV
+                            # Base names are NOT added to avoid showing duplicates in dropdowns
+                            materials[material_name] = "historical"
+    except Exception:
+        # If CSV reading fails, return at least the modern materials
+        pass
 
     return materials
 
@@ -307,71 +318,94 @@ def is_historical_reinforcement_material(reinforcement_type: str) -> bool:
     """
     Check if a reinforcement type is a historical material that requires CSV data.
 
+    Dynamically checks against materials loaded from CSV files.
+    Accepts both old naming (without suffix) and new naming (with suffix).
+
     :param reinforcement_type: Reinforcement type string
     :type reinforcement_type: str
     :returns: True if historical material, False otherwise
     :rtype: bool
     """
-    historical_materials = {
-        # GBV 1940 materials
-        "HK",
-        "St. 37",
-        # GBV 1950 materials
-        "QR22",
-        "QR24",
-        "QR30",
-        "QR36",
-        "QR42",
-        # GBV 1962 materials
-        "QR32",
-        "QR40",
-        "QR48",
-        # NEN 6720 materials
-        "FeB500 HWL, HK",
-        "FeB400 HWL, HK",
-        "FeB220 HWL",
-        # VB 74+84 materials
-        "FeB500 HW",
-        "FeB400 HW",
-        "FeB220 HW",
-    }
-    return reinforcement_type in historical_materials
+    # Get all supported materials
+    all_materials = get_all_supported_reinforcement_materials()
+
+    # Check if it's directly in the list (suffixed name)
+    if all_materials.get(reinforcement_type) == "historical":
+        return True
+
+    # Check if it's a base name by looking for any material that starts with this base name + "_"
+    # This provides backward compatibility for old code using base names like "QR22", "HK"
+    # Use rsplit to handle names with spaces like "St. 37"
+    for material_name, material_type in all_materials.items():
+        if material_type == "historical" and "_" in material_name:
+            # Extract base name from suffixed material
+            base_name = material_name.rsplit("_", 1)[0]
+            if base_name == reinforcement_type:
+                return True
+
+    return False
 
 
-def get_all_supported_reinforcement_materials() -> dict[str, str]:
+def get_all_supported_reinforcement_materials() -> dict[str, str]:  # noqa: C901
     """
     Get all supported reinforcement materials with their types.
+
+    Dynamically reads historical materials from CSV files, ensuring the list is always up-to-date.
+    Modern materials are hardcoded as they are standard Eurocode materials.
 
     :returns: Dictionary mapping material names to types ('modern' or 'historical')
     :rtype: dict[str, str]
     """
     materials = {}
 
-    # Modern materials
+    # Modern materials (hardcoded - these are standard Eurocode materials)
     modern_materials = ["B400A", "B400B", "B400C", "B500A", "B500B", "B500C", "B550A", "B550B", "B600A", "B600B", "B600C"]
     for material in modern_materials:
         materials[material] = "modern"
 
-    # Historical materials
-    historical_materials = [
-        "HK",
-        "St. 37",
-        "QR22",
-        "QR24",
-        "QR30",
-        "QR36",
-        "QR42",
-        "QR32",
-        "QR40",
-        "QR48",
-        "FeB500 HWL, HK",
-        "FeB400 HWL, HK",
-        "FeB220 HWL",
-        "FeB500 HW",
-        "FeB400 HW",
-        "FeB220 HW",
-    ]
-    for material in historical_materials:
-        materials[material] = "historical"
+    # Historical materials - read dynamically from CSV files
+    try:
+        from .constants.paths import IDEA_MATERIALS_PATH
+        from .idea_material_generator import _get_csv_files_for_reinforcement
+
+        csv_files = _get_csv_files_for_reinforcement()
+        for csv_file in csv_files:
+            csv_path = IDEA_MATERIALS_PATH / csv_file
+            if not csv_path.exists():
+                continue
+
+            # Read all material names from CSV
+            with csv_path.open(encoding="utf-8") as f:
+                lines = f.readlines()
+
+                # Find the "Data" line
+                data_start_idx = None
+                for i, line in enumerate(lines):
+                    if line.strip().startswith('"Data"'):
+                        data_start_idx = i + 1
+                        break
+
+                if data_start_idx is None:
+                    continue
+
+                # Extract material names from data rows
+                for raw_line in lines[data_start_idx:]:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+
+                    # Material name is the first field
+                    parts = line.split(";")
+                    if parts:
+                        material_name = parts[0].strip('"')
+                        if material_name:
+                            # Only add the suffixed name from CSV
+                            # Base names are NOT added to avoid showing duplicates in dropdowns
+                            materials[material_name] = "historical"
+    except Exception:
+        # If CSV reading fails, return at least the modern materials
+        pass
+
+    return materials
 
     return materials

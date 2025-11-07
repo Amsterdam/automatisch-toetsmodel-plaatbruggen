@@ -1,12 +1,17 @@
 """Utility functions specific to the Bridge entity's UI or Plotly views."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
 
+# Import for validate_load_zone_widths - ensure this path is correct
 from viktor import InputViolation  # type: ignore[attr-defined]
 from viktor.errors import UserError
 
-# Import for validate_load_zone_widths - ensure this path is correct
+if TYPE_CHECKING:
+    from app.bridge.parametrization import BridgeParametrization
+
 from src.geometry.model_creator import (
     LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
 )
@@ -183,3 +188,64 @@ def validate_reinforcement_zone_selections(params: ParamsForReinforcementZones) 
         violations = _build_input_violations(duplicate_zones)
         error_message = "Er mag per zone maar één wapeningsconfiguratie worden toegepast. "
         raise UserError(error_message, input_violations=violations)
+
+
+def _validate_first_and_last_supports(params: BridgeParametrization, **kwargs) -> None:  # noqa: ARG001
+    """
+    Validate that the first and last sections in the bridge dimensions array are supports.
+
+    Raises UserError with InputViolations marking the specific is_support fields if validation fails.
+
+    :param params: Parameters containing bridge_segments_array
+    :type params: BridgeParametrization
+    :param **kwargs: Additional keyword arguments (unused).
+
+    :raises UserError: If first or last section is not a support, with InputViolations marking the invalid fields
+    :rtype: None
+    """
+    try:
+        segments = params.bridge_segments_array
+        if not segments or len(segments) < 2:
+            raise UserError(  # noqa: TRY301
+                "Onvoldoende brugdimensies gedefinieerd. Er moeten minimaal 2 secties zijn.",
+            )
+
+        first_support = segments[0].is_support
+        last_support = segments[-1].is_support
+
+        first_is_support = first_support != "Nee"
+        last_is_support = last_support != "Nee"
+
+        violations = []
+        error_parts = []
+
+        if not first_is_support:
+            violations.append(
+                InputViolation(
+                    "De eerste sectie (D-0) moet een oplegging hebben.",
+                    fields=["input.dimensions.array[0].is_support"],
+                )
+            )
+            error_parts.append("eerste sectie (D-0)")
+
+        if not last_is_support:
+            last_idx = len(segments) - 1
+            violations.append(
+                InputViolation(
+                    f"De laatste sectie (D-{last_idx}) moet een oplegging hebben.",
+                    fields=[f"input.dimensions.array[{last_idx}].is_support"],
+                )
+            )
+            error_parts.append(f"laatste sectie (D-{last_idx})")
+
+        if violations:
+            if len(error_parts) == 2:
+                error_message = f"De {error_parts[0]} en {error_parts[1]} moeten beide een oplegging hebben."
+            else:
+                error_message = f"De {error_parts[0]} moet een oplegging hebben."
+            raise UserError(error_message, input_violations=violations)  # noqa: TRY301
+
+    except UserError:
+        raise
+    except (AttributeError, IndexError) as e:
+        raise UserError(f"Fout bij valideren van opleggingen: {e!s}") from e

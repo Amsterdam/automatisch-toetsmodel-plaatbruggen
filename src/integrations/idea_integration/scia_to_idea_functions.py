@@ -1,106 +1,128 @@
-"""Functions for processing SCIA results data for IDEA StatiCa integration."""
+"""
+Functions for processing SCIA results data for IDEA StatiCa integration.
 
+This module processes SCIA CS (Cross Section) results for use in IDEA RCS:
+
+**CS Section Results** (process_scia_cs_results_for_idea):
+   - Results from cross-sections defined on plane objects
+   - Zone identification: Coordinate-based mapping (done in scia_results_processor)
+   - Returns: DataFrame with filtered envelope data (ULS and SLS freq only)
+   - Note: Requires bridge_segments to be passed for zone identification
+   - Normal forces (n_xD, n_yD) are included in the results
+"""
+
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from src.integrations.scia_integration.results.scia_results_processor import (
-    process_scia_1d_results,
-    process_scia_2d_results,
-)
 
-
-def process_scia_node_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
+def _export_cs_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
     """
-    Process SCIA analysis results to create a DataFrame suitable for IDEA StatiCa integration.
+    Export CS DataFrame to Excel file for debugging (SCIA to IDEA conversion).
 
-    This function uses the general SCIA 2D processing and then applies IDEA-specific
-    column naming and data formatting.
+    Creates files in C:/temp/ directory for easy manual inspection.
+
+    :param df: DataFrame to export
+    :type df: pd.DataFrame
+    :param filename: Name of the Excel file (without extension)
+    :type filename: str
+    :param sheet_name: Name of the Excel sheet
+    :type sheet_name: str
+    """
+    try:
+        # Create temp directory if it doesn't exist
+        temp_dir = Path("C:/temp")
+        temp_dir.mkdir(exist_ok=True)
+
+        # Export to Excel
+        filepath = temp_dir / f"{filename}.xlsx"
+        df.to_excel(filepath, sheet_name=sheet_name, index=False)
+    except Exception:
+        pass
+
+
+def map_cs_section_to_zone(cs_name: str, coords_xyz: tuple[float, float, float], bridge_segments: list[Any]) -> str:
+    """
+    Map CS section to zone - delegates to scia_results_processor.
+
+    This is a compatibility wrapper. The actual zone mapping is now done in
+    scia_results_processor._map_cs_section_to_zone() and applied during
+    process_scia_cs_results() if bridge_segments are provided.
+
+    :param cs_name: Name of the CS section
+    :type cs_name: str
+    :param coords_xyz: Coordinates as (x, y, z) tuple
+    :type coords_xyz: tuple[float, float, float]
+    :param bridge_segments: List of bridge segment dimension objects
+    :type bridge_segments: list[Any]
+    :returns: Zone identifier (e.g., "1-1", "2-1")
+    :rtype: str
+    """
+    from src.integrations.scia_integration.results.scia_results_processor import _map_cs_section_to_zone
+
+    return _map_cs_section_to_zone(cs_name, coords_xyz, bridge_segments)
+
+
+def process_scia_cs_results_for_idea(
+    results: dict[str, Any],
+    bridge_segments: list[Any],
+) -> pd.DataFrame:
+    """
+    Process SCIA CS (Cross Section) force envelope results for IDEA StatiCa integration.
+
+    This function uses the filtered envelope data from extract_cs_force_envelopes which
+    contains only the maximum absolute force/moment values per zone for ULS and SLS freq.
+    SLS kar results are no longer used.
+
+    The returned DataFrame includes:
+    - Force/moment columns: v_x, v_y, m_xD+, m_xD-, m_yD+, m_yD-, n_xD, n_yD (with _max suffix)
+    - Metadata: name, zone, coords_xyz, belasting, max_for_column, result_type
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
-    :returns: Dictionary containing DataFrames for each result table with IDEA-specific formatting
-    :rtype: dict[str, pd.DataFrame]
+    :param bridge_segments: List of bridge segment dimension objects (BridgeSegmentDimensions)
+                           Required for coordinate-based zone matching
+    :type bridge_segments: list[Any]
+    :returns: DataFrame with filtered CS envelope results in IDEA-specific format
+    :rtype: pd.DataFrame
+    :raises ValueError: If bridge_segments is empty or None
     """
-    # Use the general 2D processing function
-    raw_results_2d = process_scia_2d_results(results)
+    if not bridge_segments:
+        raise ValueError("Bridge segments data is required for CS results processing")
 
-    # Convert to IDEA-specific format
-    idea_results_2d = {}
+    # Get the filtered envelope data (already contains ULS and SLS freq only)
+    from src.integrations.scia_integration.results.scia_results_processor import extract_cs_force_envelopes
 
-    for selected_table, df_2d in raw_results_2d.items():
-        if df_2d.empty:
-            idea_results_2d[selected_table] = df_2d
-            continue
+    df_envelope = extract_cs_force_envelopes(results, bridge_segments)
 
-        # Create copy to avoid modifying original
-        idea_df = df_2d.copy()
+    if df_envelope.empty:
+        return pd.DataFrame()
 
-        # Rename columns to IDEA-specific names (with _max suffix)
-        column_mapping = {"v_x": "v_x_max", "v_y": "v_y_max", "m_xD+": "m_xD+_max", "m_xD-": "m_xD-_max", "m_yD+": "m_yD+_max", "m_yD-": "m_yD-_max"}
+    # Create copy to avoid modifying original
+    idea_df = df_envelope.copy()
 
-        for old_col, new_col in column_mapping.items():
-            if old_col in idea_df.columns:
-                idea_df[new_col] = idea_df[old_col]
-                idea_df = idea_df.drop(columns=[old_col])
+    # Rename force/moment columns to IDEA-specific names (add _max suffix if not present)
+    column_mapping = {
+        "v_x": "v_x_max",
+        "v_y": "v_y_max",
+        "m_xD+": "m_xD+_max",
+        "m_xD-": "m_xD-_max",
+        "m_yD+": "m_yD+_max",
+        "m_yD-": "m_yD-_max",
+        "n_xD": "n_xD_max",
+        "n_yD": "n_yD_max",
+    }
 
-        idea_results_2d[selected_table] = idea_df
+    for old_col, new_col in column_mapping.items():
+        if old_col in idea_df.columns and new_col not in idea_df.columns:
+            idea_df[new_col] = idea_df[old_col]
+            idea_df = idea_df.drop(columns=[old_col])
 
-    # Add node_ prefix to all keys to distinguish from integration strip results
-    return {f"node_{key}": value for key, value in idea_results_2d.items()}
+    # Zone column should already be present from extract_cs_force_envelopes
+    # Verify it exists
+    if "zone" not in idea_df.columns:
+        error_msg = "Zone column missing from CS envelope data. Ensure bridge_segments are provided."
+        raise ValueError(error_msg)
 
-
-def process_scia_integration_strip_results_for_idea(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
-    """
-    Process SCIA 1D force analysis results to create DataFrames suitable for IDEA StatiCa integration.
-
-    This function uses the general SCIA 1D processing and then applies IDEA-specific
-    column naming and data formatting.
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :returns: Dictionary containing DataFrames for each 1D result table with IDEA-specific formatting
-    :rtype: dict[str, pd.DataFrame]
-    """
-    # Use the general 1D processing function
-    raw_results_1d = process_scia_1d_results(results)
-
-    # Convert to IDEA-specific format
-    idea_results_1d = {}
-
-    for selected_table, df_1d in raw_results_1d.items():
-        if df_1d.empty:
-            idea_results_1d[selected_table] = df_1d
-            continue
-
-        # Create copy to avoid modifying original
-        idea_df = df_1d.copy()
-
-        # Drop the E/W/N column if it exists it's not needed for IDEA
-        if "E/W/N" in idea_df.columns:
-            idea_df = idea_df.drop(columns=["E/W/N"])
-
-        # Drop the N column if it exists it's not needed for IDEA
-        if "N" in idea_df.columns:
-            idea_df = idea_df.drop(columns=["N"])
-
-        # Rename columns to IDEA-specific names (with _max suffix)
-        column_mapping = {
-            "N": "n_max",
-            "V_y": "v_y_max",
-            "V_z": "v_z_max",
-            "M_x": "m_x_max",
-            "M_y": "m_y_max",
-            "M_z": "m_z_max",
-            "Naam": "name",  # Rename Dutch "Naam" to English "name" for consistency
-        }
-
-        for old_col, new_col in column_mapping.items():
-            if old_col in idea_df.columns:
-                idea_df[new_col] = idea_df[old_col]
-                idea_df = idea_df.drop(columns=[old_col])
-
-        idea_results_1d[selected_table] = idea_df
-
-    # Add strip_ prefix to all keys to distinguish from node results
-    return {f"strip_{key}": value for key, value in idea_results_1d.items()}
+    return idea_df
