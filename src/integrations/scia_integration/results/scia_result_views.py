@@ -6,7 +6,7 @@ import pandas as pd
 from viktor.views import TableResult
 
 if TYPE_CHECKING:
-    from .scia_unit_conversion import SciaUnitConverter
+    pass
 
 from src.integrations.scia_integration.constants.results import (
     CS_TABLE_TYPES,
