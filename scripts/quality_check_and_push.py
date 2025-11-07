@@ -20,12 +20,23 @@ import re
 import subprocess
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import NamedTuple
 
 # Set UTF-8 encoding for Windows compatibility
 if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
+
+# Suppress the pkg_resources deprecation warning from docxcompose
+# We've pinned setuptools<81 in requirements.txt to prevent pkg_resources removal
+# This warning is unavoidable until docxcompose updates their code
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+    module="docxcompose.properties",
+)
 
 
 class CheckResult(NamedTuple):
