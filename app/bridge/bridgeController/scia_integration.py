@@ -13,7 +13,7 @@ import zipfile
 from io import BytesIO
 from typing import Any, NoReturn
 
-from viktor.core import File
+from viktor.core import File, progress_message
 from viktor.errors import UserError
 from viktor.result import DownloadResult
 from viktor.views import TableResult, TableView
