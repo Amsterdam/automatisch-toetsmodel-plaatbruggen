@@ -476,6 +476,8 @@ def create_dynamic_tandem_load_cases(
 
     This function generates tandem loads first to determine what load cases are needed,
     then creates the corresponding tandem system (TS) load cases dynamically.
+    Load cases are assigned to load groups based on the notional lane (RS) mentioned
+    in their title: "rs 1" → LG8000, "rs 2" → LG9000, "rs 3" → LG10000.
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
@@ -497,23 +499,25 @@ def create_dynamic_tandem_load_cases(
         if load_case_name in load_cases:
             continue
 
-        # Determine group name and description from load_case name
-        if load_case_name.startswith("BG8"):
+        # Get title from tandem_load
+        title = tandem_load.get("title", "")
+
+        # Determine group name based on which notional lane (RS) is in the title
+        # This allows all tandem loads for a specific lane to be grouped together
+        # regardless of their load case series number
+        title_lower = title.lower()
+        if "rs 1" in title_lower:
             group_name = "LG8000 - TS rijstrook 1"
-            rs_num = 1
-        elif load_case_name.startswith("BG9"):
+        elif "rs 2" in title_lower:
             group_name = "LG9000 - TS rijstrook 2"
-            rs_num = 2
-        elif load_case_name.startswith("BG10"):
+        elif "rs 3" in title_lower:
             group_name = "LG10000 - TS rijstrook 3"
-            rs_num = 3
         else:
-            # Skip unknown load case types
+            # Skip load cases without recognizable lane designation
             continue
 
-        # Get title from tandem_load if available, otherwise generate description
-        title = tandem_load.get("title", f"rs {rs_num} - x = unknown")
-        description = f"Verkeer, dek - LM1 TS - {title}"
+        # Create description with title
+        description = f"Verkeer, dek - LM1 TS - {title}" if title else f"Verkeer, dek - LM1 TS - {load_case_name}"
 
         load_cases[load_case_name] = create_load_case(
             builder,
