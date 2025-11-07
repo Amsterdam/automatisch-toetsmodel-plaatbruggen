@@ -5,7 +5,7 @@ import unittest
 import pytest
 from pydantic import ValidationError
 
-from src.data_models.geometry_models import TheoreticalLaneResult
+from src.data_models.geometry_models import Point3D, RectangularPolygon, TheoreticalLaneResult
 
 
 class TestTheoreticalLaneResult(unittest.TestCase):
@@ -222,3 +222,115 @@ class TestTheoreticalLaneResult(unittest.TestCase):
         error_msg = str(exc_info.value)
         assert "Total lanes width 8.0m doesn't match" in error_msg
         assert "num_lanes x lane_width = 2 x 3.5 = 7.0m" in error_msg
+
+
+class TestPoint3D(unittest.TestCase):
+    """Test cases for Point3D Pydantic model."""
+
+    def test_valid_point_creation(self) -> None:
+        """Test creating valid 3D point."""
+        point = Point3D(x=1.0, y=2.0, z=3.0)
+
+        assert point.x == 1.0
+        assert point.y == 2.0
+        assert point.z == 3.0
+
+    def test_default_z_coordinate(self) -> None:
+        """Test that z coordinate defaults to 0.0."""
+        point = Point3D(x=1.0, y=2.0)
+
+        assert point.x == 1.0
+        assert point.y == 2.0
+        assert point.z == 0.0
+
+    def test_to_tuple_conversion(self) -> None:
+        """Test converting point to tuple."""
+        point = Point3D(x=1.5, y=2.5, z=3.5)
+        tuple_result = point.to_tuple()
+
+        assert tuple_result == (1.5, 2.5, 3.5)
+        assert isinstance(tuple_result, tuple)
+
+    def test_negative_coordinates_valid(self) -> None:
+        """Test that negative coordinates are valid."""
+        point = Point3D(x=-1.0, y=-2.0, z=-3.0)
+
+        assert point.x == -1.0
+        assert point.y == -2.0
+        assert point.z == -3.0
+
+    def test_zero_coordinates_valid(self) -> None:
+        """Test that zero coordinates are valid."""
+        point = Point3D(x=0.0, y=0.0, z=0.0)
+
+        assert point.x == 0.0
+        assert point.y == 0.0
+        assert point.z == 0.0
+
+
+class TestRectangularPolygon(unittest.TestCase):
+    """Test cases for RectangularPolygon Pydantic model."""
+
+    def test_valid_polygon_creation(self) -> None:
+        """Test creating valid rectangular polygon."""
+        corners = [
+            Point3D(x=0.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=5.0, z=0.0),
+            Point3D(x=0.0, y=5.0, z=0.0),
+        ]
+        polygon = RectangularPolygon(corners=corners)
+
+        assert len(polygon.corners) == 4
+        assert polygon.corners[0].x == 0.0
+        assert polygon.corners[1].x == 10.0
+
+    def test_to_tuple_list_conversion(self) -> None:
+        """Test converting polygon corners to tuple list."""
+        corners = [
+            Point3D(x=0.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=5.0, z=0.0),
+            Point3D(x=0.0, y=5.0, z=0.0),
+        ]
+        polygon = RectangularPolygon(corners=corners)
+        tuple_list = polygon.to_tuple_list()
+
+        assert tuple_list == [
+            (0.0, 0.0, 0.0),
+            (10.0, 0.0, 0.0),
+            (10.0, 5.0, 0.0),
+            (0.0, 5.0, 0.0),
+        ]
+
+    def test_three_corners_rejected(self) -> None:
+        """Test that polygon with 3 corners is rejected."""
+        corners = [
+            Point3D(x=0.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=5.0, z=0.0),
+        ]
+
+        with pytest.raises(ValidationError) as exc_info:
+            RectangularPolygon(corners=corners)
+
+        error = exc_info.value
+        assert "corners" in str(error)
+        assert "4" in str(error)
+
+    def test_five_corners_rejected(self) -> None:
+        """Test that polygon with 5 corners is rejected."""
+        corners = [
+            Point3D(x=0.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=0.0, z=0.0),
+            Point3D(x=10.0, y=5.0, z=0.0),
+            Point3D(x=0.0, y=5.0, z=0.0),
+            Point3D(x=5.0, y=2.5, z=0.0),
+        ]
+
+        with pytest.raises(ValidationError) as exc_info:
+            RectangularPolygon(corners=corners)
+
+        error = exc_info.value
+        assert "corners" in str(error)
+        assert "4" in str(error)

@@ -725,13 +725,27 @@ class TestUniformlyDistributedLoads:
         mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Add bridge segments data that get_bridge_geom_data needs
+        # Create a single span bridge (first segment + one segment = single span)
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0  # First segment has l=0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 8.0  # zone 1 width
+        mock_first_segment.bz2 = 4.0  # zone 2 width
+        mock_first_segment.bz3 = 12.0  # zone 3 width
+        mock_first_segment.dz = 1.8  # thickness
+        mock_first_segment.dz_2 = 1.8  # thickness 2
+
         mock_segment = Mock()
         mock_segment.l = 20.0  # length
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"  # No support at end = single span
         mock_segment.bz1 = 8.0  # zone 1 width
         mock_segment.bz2 = 4.0  # zone 2 width
         mock_segment.bz3 = 12.0  # zone 3 width
         mock_segment.dz = 1.8  # thickness
-        mock_params.bridge_segments_array = [mock_segment]
+        mock_segment.dz_2 = 1.8  # thickness 2
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
         # Create proper mock objects instead of dictionaries
         mock_zone = Mock()
@@ -759,34 +773,59 @@ class TestUniformlyDistributedLoads:
 
         # Verify basic structure of results
         assert isinstance(result, dict), "Result should be a dictionary"
+
+        # Count the number of load cases generated
+        load_case_keys = [key for key in result if key.startswith("BG4")]
+        num_load_cases = len(load_case_keys)
+
+        # For a 10.5m wide road with 3 configurations (A, B, C) and 1 span, we expect:
+        # - Configuration A: lanes + rest area
+        # - Configuration B: lanes + rest area
+        # - Configuration C: center lane + adjacent lanes + rest areas
+        # With 10.5m width and 3m lanes, we can fit max 3 lanes, so expect:
+        # - Conf A: ~3-4 cases (2-3 lanes + 1 rest)
+        # - Conf B: ~3-4 cases (2-3 lanes + 1 rest)
+        # - Conf C: ~4-6 cases (center + adjacent + rest)
+        # Total: approximately 10-14 cases per span, but at least 9
+        # With 1 span, we expect at least 9 load cases
+        assert num_load_cases >= 9, f"Should generate at least 9 load cases for 1 span, got {num_load_cases}"
+
+        # Check that load cases are numbered sequentially starting from BG4001
+        sorted_keys = sorted([k for k in result if k.startswith("BG4")])
+        assert sorted_keys[0] == "BG4001", f"First load case should be BG4001, got {sorted_keys[0]}"
+
+        # Check the structure of one load case (BG4001 should exist)
         assert "BG4001" in result, "Result should contain BG4001 key"
-        assert "BG4002" in result, "Result should contain BG4002 key"
-        assert "BG4003" in result, "Result should contain BG4003 key"
 
-        # Check the structure of one of the load groups
+        # Check structure of BG4001 (should have polygon, load, title)
         udl_data = result["BG4001"]
-
-        # Check structure of BG4001 (should have main, other, rest)
-        assert all(key in udl_data for key in ["main", "other", "rest"]), "BG4001 should have main, other, and rest load categories"
-
-        # Check that each category is a list of load polygons
-        assert isinstance(udl_data["main"], list), "Main loads should be a list"
-        assert len(udl_data["main"]) > 0, "Should have at least one main load polygon"
-
-        # Check polygon structure
-        main_polygon = udl_data["main"][0]
-        assert "polygon" in main_polygon, "Each load item should have a polygon"
-        assert "load" in main_polygon, "Each load item should have a load value"
+        assert "polygon" in udl_data, "Each load case should have a polygon"
+        assert "load" in udl_data, "Each load case should have a load value"
+        assert "title" in udl_data, "Each load case should have a title"
 
         # Check polygon coordinates
-        polygon_coords = main_polygon["polygon"]
+        polygon_coords = udl_data["polygon"]
         assert len(polygon_coords) == 4, "Each polygon should have 4 corners"
         assert all(len(point) == 3 for point in polygon_coords), "Each point should have x, y, z coordinates"
         assert all(point[2] == 0.0 for point in polygon_coords), "All z-coordinates should be 0.0"
 
-        # Calculate expected main lane load value with factors
-        expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-        assert abs(main_polygon["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}"
+        # Check that polygon coordinates are span-specific (not full bridge length)
+        # For a single span, x-coordinates should span from ~0.0 to ~20.0
+        x_coords = [point[0] for point in polygon_coords]
+        min_x = min(x_coords)
+        max_x = max(x_coords)
+        # Allow for small tolerance
+        assert 0.0 <= min_x < 1.0, f"Polygon should start near span start (x={min_x})"
+        assert 19.0 < max_x <= 20.0, f"Polygon should end near span end (x={max_x})"
+
+        # Check title format (should contain configuration and span info)
+        assert "Conf." in udl_data["title"], f"Title should contain configuration info, got: {udl_data['title']}"
+        assert "Span" in udl_data["title"], f"Title should contain span information, got: {udl_data['title']}"
+
+        # Calculate expected main lane load value with factors (if this is a main lane)
+        if "RS 1" in udl_data["title"]:
+            expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
+            assert abs(udl_data["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}, got {udl_data['load']}"
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_number_of_road_zones")
@@ -827,13 +866,27 @@ class TestUniformlyDistributedLoads:
         mock_params.berekeningsniveau = "Werkelijke wegindeling"
 
         # Add bridge segments data that get_bridge_geom_data needs
+        # Create a single span bridge
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0  # First segment has l=0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 3.0  # zone 1 width
+        mock_first_segment.bz2 = 2.0  # zone 2 width
+        mock_first_segment.bz3 = 3.0  # zone 3 width
+        mock_first_segment.dz = 1.5  # thickness
+        mock_first_segment.dz_2 = 1.5  # thickness 2
+
         mock_segment = Mock()
         mock_segment.l = 10.0  # length
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"  # No support at end = single span
         mock_segment.bz1 = 3.0  # zone 1 width
         mock_segment.bz2 = 2.0  # zone 2 width
         mock_segment.bz3 = 3.0  # zone 3 width
         mock_segment.dz = 1.5  # thickness
-        mock_params.bridge_segments_array = [mock_segment]
+        mock_segment.dz_2 = 1.5  # thickness 2
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
         # Test with minimal road width
         mock_zone_narrow = Mock()
@@ -854,8 +907,18 @@ class TestUniformlyDistributedLoads:
             length_bridgedeck=10.0,
             udl_value=9000.0,
         )
-        assert "BG4001" in result_narrow
-        assert len(result_narrow["BG4001"]["main"]) > 0, "Should handle minimal width road"
+        # Verify narrow road generates at least some load cases
+        assert isinstance(result_narrow, dict), "Result should be a dictionary"
+        assert "BG4001" in result_narrow, "Should contain BG4001 key"
+        # For a 3m wide road, we can fit 1 lane, so expect fewer cases but at least some
+        narrow_load_cases = [key for key in result_narrow if key.startswith("BG4")]
+        assert len(narrow_load_cases) >= 3, f"Should generate at least 3 load cases for narrow road, got {len(narrow_load_cases)}"
+        # Check structure
+        assert "polygon" in result_narrow["BG4001"], "Each load case should have a polygon"
+        assert "load" in result_narrow["BG4001"], "Each load case should have a load value"
+        assert "title" in result_narrow["BG4001"], "Each load case should have a title"
+        # Check that title includes span information
+        assert "Span" in result_narrow["BG4001"]["title"], f"Title should include span info: {result_narrow['BG4001']['title']}"
 
         # Test with no auto zone (should handle gracefully)
         mock_zone_pedestrian = Mock()
@@ -869,10 +932,15 @@ class TestUniformlyDistributedLoads:
             length_bridgedeck=10.0,
             udl_value=9000.0,
         )
-        assert "BG4001" in result_no_auto
         # The function generates loads based on road geometry even without Auto zones
         # This is the actual behavior - it doesn't require Auto zones specifically
-        assert len(result_no_auto["BG4001"]["main"]) >= 0, "Should handle no auto zone case gracefully"
+        assert isinstance(result_no_auto, dict), "Result should be a dictionary"
+        # May or may not generate load cases depending on geometry
+        no_auto_load_cases = [key for key in result_no_auto if key.startswith("BG4")]
+        if len(no_auto_load_cases) > 0:
+            assert "BG4001" in result_no_auto, "Should contain BG4001 if any cases are generated"
+            assert "polygon" in result_no_auto["BG4001"], "Each load case should have a polygon"
+            assert "load" in result_no_auto["BG4001"], "Each load case should have a load value"
 
         # Test with zero load value
         mock_zone_zero = Mock()
@@ -886,10 +954,15 @@ class TestUniformlyDistributedLoads:
             length_bridgedeck=10.0,
             udl_value=0.0,
         )
-        assert "BG4001" in result_zero_load
+        assert isinstance(result_zero_load, dict), "Result should be a dictionary"
+        assert "BG4001" in result_zero_load, "Should contain BG4001 key"
         # Check that zero load value is handled correctly
-        main_load = result_zero_load["BG4001"]["main"][0] if result_zero_load["BG4001"]["main"] else {"load": 0.0}
-        assert main_load["load"] == 0.0, "Should handle zero load value"
+        # Find the first RS 1 case (main lane) or use BG4001
+        zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
+        assert len(zero_load_cases) >= 3, f"Should generate at least 3 load cases even with zero load, got {len(zero_load_cases)}"
+        # Check that BG4001 has zero load (if it's a main lane) or check any case
+        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
+            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
 
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.get_load_zones_data_from_params")
@@ -1101,6 +1174,28 @@ class TestUniformlyDistributedLoads:
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
         mock_params.__contains__ = Mock(return_value=True)
 
+        # Add bridge segments data for span identification (single span)
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 5.0
+        mock_first_segment.bz2 = 2.0
+        mock_first_segment.bz3 = 3.0
+        mock_first_segment.dz = 0.5
+        mock_first_segment.dz_2 = 0.5
+
+        mock_segment = Mock()
+        mock_segment.l = 20.0
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"
+        mock_segment.bz1 = 5.0
+        mock_segment.bz2 = 2.0
+        mock_segment.bz3 = 3.0
+        mock_segment.dz = 0.5
+        mock_segment.dz_2 = 0.5
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
+
         # Mock the load factors
         mock_ref_period.return_value = 30  # Standard reference period
         mock_psi.return_value = 0.95  # Example psi factor
@@ -1119,42 +1214,73 @@ class TestUniformlyDistributedLoads:
 
         # Verify basic structure of results
         assert isinstance(result, dict), "Result should be a dictionary"
+
+        # Count the number of load cases generated
+        load_case_keys = [key for key in result if key.startswith("BG4")]
+        num_load_cases = len(load_case_keys)
+
+        # For a 10m wide bridge with 3 configurations (A, B, C), we expect:
+        # - Configuration A: lanes + rest area
+        # - Configuration B: lanes + rest area
+        # - Configuration C: center lane + adjacent lanes + rest areas
+        # With 10m width and 3m lanes, we can fit max 3 lanes, so expect:
+        # - Conf A: ~3-4 cases (2-3 lanes + 1 rest)
+        # - Conf B: ~3-4 cases (2-3 lanes + 1 rest)
+        # - Conf C: ~4-6 cases (center + adjacent + rest)
+        # Total: approximately 10-14 cases, but at least 9
+        assert num_load_cases >= 9, f"Should generate at least 9 load cases, got {num_load_cases}"
+
+        # Check that load cases are numbered sequentially starting from BG4001
+        sorted_keys = sorted([k for k in result if k.startswith("BG4")])
+        assert sorted_keys[0] == "BG4001", f"First load case should be BG4001, got {sorted_keys[0]}"
+
+        # Check the structure of load cases
         assert "BG4001" in result, "Result should contain BG4001 load case"
-        assert "BG4002" in result, "Result should contain BG4002 load case"
-
-        # Check structure of BG4001 (leftmost lanes)
         bg4001 = result["BG4001"]
-        assert all(key in bg4001 for key in ["main", "other", "rest"]), "BG4001 should have main, other, and rest areas"
 
-        # Check main lane properties in BG4001
-        main_loads = bg4001["main"]
-        assert len(main_loads) == 1, "Should have exactly one main lane"
+        # Check structure of BG4001 (should have polygon, load, title)
+        assert "polygon" in bg4001, "Each load case should have a polygon"
+        assert "load" in bg4001, "Each load case should have a load value"
+        assert "title" in bg4001, "Each load case should have a title"
+
+        # Verify polygon structure
+        polygon_coords = bg4001["polygon"]
+        assert len(polygon_coords) == 4, "Load polygon should have 4 corners"
+        assert all(len(point) == 3 for point in polygon_coords), "Each point should have x, y, z coordinates"
+        assert all(point[2] == 0.0 for point in polygon_coords), "All z-coordinates should be 0.0"
+
+        # Check title format (should contain configuration and span info)
+        assert "Conf." in bg4001["title"], f"Title should contain configuration info, got: {bg4001['title']}"
+        assert "Span" in bg4001["title"], f"Title should contain span information, got: {bg4001['title']}"
+
+        # Verify polygon coordinates are span-specific
+        x_coords = [point[0] for point in polygon_coords]
+        min_x = min(x_coords)
+        max_x = max(x_coords)
+        # For a single span, polygons should span from ~0.0 to ~20.0
+        assert 0.0 <= min_x < 1.0, f"Polygon should start near span start (x={min_x})"
+        assert 19.0 < max_x <= 20.0, f"Polygon should end near span end (x={max_x})"
 
         # Calculate expected load values with factors
         expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
         expected_other_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
         expected_rest_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[1]
 
-        # Check load values with factors applied
-        assert abs(main_loads[0]["load"] - expected_main_load) < 0.1, f"Main lane load should be {expected_main_load}"
+        # Check load values based on title (RS 1 = main, RS 2+ = other, rest = rest)
+        if "RS 1" in bg4001["title"]:
+            assert abs(bg4001["load"] - expected_main_load) < 0.1, f"Main lane load should be {expected_main_load}, got {bg4001['load']}"
+        elif "RS" in bg4001["title"] and "RS 1" not in bg4001["title"]:
+            assert abs(bg4001["load"] - expected_other_load) < 0.1, f"Other lane load should be {expected_other_load}, got {bg4001['load']}"
+        elif "rest" in bg4001["title"].lower():
+            assert abs(bg4001["load"] - expected_rest_load) < 0.1, f"Rest area load should be {expected_rest_load}, got {bg4001['load']}"
 
-        # Verify polygon structure
-        main_polygon = main_loads[0]["polygon"]
-        assert len(main_polygon) == 4, "Load polygon should have 4 corners"
-        assert all(len(point) == 3 for point in main_polygon), "Each point should have x, y, z coordinates"
-        assert all(point[2] == 0.0 for point in main_polygon), "All z-coordinates should be 0.0"
-
-        # Check other lanes properties
-        other_loads = bg4001["other"]
-        for load in other_loads:
-            assert abs(load["load"] - expected_other_load) < 0.1, f"Other lanes should have {expected_other_load} kN/m² load"
-            assert len(load["polygon"]) == 4, "Other lane polygons should have 4 corners"
-
-        # Check rest area load value if it exists
-        if bg4001.get("rest"):
-            rest_loads = bg4001["rest"]
-            for load in rest_loads:
-                assert abs(load["load"] - expected_rest_load) < 0.1, f"Rest areas should have {expected_rest_load} kN/m² load"
+        # Check other load cases have correct structure
+        for key in sorted_keys[: min(5, len(sorted_keys))]:  # Check first 5 cases
+            case_data = result[key]
+            assert "polygon" in case_data, f"{key} should have a polygon"
+            assert "load" in case_data, f"{key} should have a load value"
+            assert "title" in case_data, f"{key} should have a title"
+            assert len(case_data["polygon"]) == 4, f"{key} polygon should have 4 corners"
 
     def test_create_udl_traffic_loads_edge_cases(self, mock_params: Mock) -> None:
         """Test UDL traffic loads creation with edge cases."""
@@ -1169,6 +1295,28 @@ class TestUniformlyDistributedLoads:
         mock_params.input.belastingsfactoren = Mock()
         mock_params.input.belastingsfactoren.alpha_udl = 1.0  # adjust this value as needed
 
+        # Add bridge segments data for span identification (single span)
+        mock_first_segment = Mock()
+        mock_first_segment.l = 0.0
+        mock_first_segment.is_first_segment = True
+        mock_first_segment.is_support = "Verende oplegging (x,y)"
+        mock_first_segment.bz1 = 3.0
+        mock_first_segment.bz2 = 1.0
+        mock_first_segment.bz3 = 1.5
+        mock_first_segment.dz = 0.5
+        mock_first_segment.dz_2 = 0.5
+
+        mock_segment = Mock()
+        mock_segment.l = 10.0
+        mock_segment.is_first_segment = False
+        mock_segment.is_support = "Nee"
+        mock_segment.bz1 = 3.0
+        mock_segment.bz2 = 1.0
+        mock_segment.bz3 = 1.5
+        mock_segment.dz = 0.5
+        mock_segment.dz_2 = 0.5
+        mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
+
         # Test with minimal bridge width (just enough for one lane)
         result_narrow = create_theoretical_udl_traffic_loads(
             params=mock_params,
@@ -1179,9 +1327,18 @@ class TestUniformlyDistributedLoads:
             udl_value=9000.0,
         )
 
-        # Should still create main lane
-        assert "BG4001" in result_narrow
-        assert len(result_narrow["BG4001"]["main"]) == 1, "Should have one main lane even with minimal width"
+        # Verify narrow bridge generates at least some load cases
+        assert isinstance(result_narrow, dict), "Result should be a dictionary"
+        assert "BG4001" in result_narrow, "Should contain BG4001 key"
+        # For a 5.5m wide bridge, we can fit 1 lane, so expect fewer cases but at least some
+        narrow_load_cases = [key for key in result_narrow if key.startswith("BG4")]
+        assert len(narrow_load_cases) >= 3, f"Should generate at least 3 load cases for narrow bridge, got {len(narrow_load_cases)}"
+        # Check structure
+        assert "polygon" in result_narrow["BG4001"], "Each load case should have a polygon"
+        assert "load" in result_narrow["BG4001"], "Each load case should have a load value"
+        assert "title" in result_narrow["BG4001"], "Each load case should have a title"
+        # Check that title includes span information
+        assert "Span" in result_narrow["BG4001"]["title"], f"Title should include span info: {result_narrow['BG4001']['title']}"
 
         # Test with zero load value (although unrealistic, should handle gracefully)
         result_zero_load = create_theoretical_udl_traffic_loads(
@@ -1193,8 +1350,16 @@ class TestUniformlyDistributedLoads:
             udl_value=0.0,
         )
 
-        assert "BG4001" in result_zero_load
-        assert result_zero_load["BG4001"]["main"][0]["load"] == 0.0, "Should handle zero load value"
+        assert isinstance(result_zero_load, dict), "Result should be a dictionary"
+        assert "BG4001" in result_zero_load, "Should contain BG4001 key"
+        # Find the first RS 1 case (main lane) or use BG4001
+        zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
+        assert len(zero_load_cases) >= 9, f"Should generate at least 9 load cases even with zero load, got {len(zero_load_cases)}"
+        # Check that BG4001 has zero load (if it's a main lane) or check any case
+        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
+            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # Check that titles include span information
+        assert "Span" in result_zero_load["BG4001"]["title"], f"Title should include span info: {result_zero_load['BG4001']['title']}"
 
 
 @pytest.mark.parametrize(

@@ -7,6 +7,7 @@ SciaModelBuilder interface. It is independent of the VIKTOR SDK.
 
 from typing import Any
 
+from app.bridge.utils import _validate_first_and_last_supports
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_integration.constants.materials import DEFAULT_CONCRETE_STRENGTH_CLASS
 from src.integrations.scia_integration.load_system.scia_load_cases import (
@@ -124,6 +125,9 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
     """
+    # 0. Validate support configuration before defining the model
+    _validate_first_and_last_supports(params)
+
     # 1. Build Geometry and get back the ordered list of plate names
     plate_names = create_bridge_geometry(builder, params)
     strip_definitions = create_strip_definitions(params)

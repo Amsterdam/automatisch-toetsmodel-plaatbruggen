@@ -403,4 +403,70 @@ class Span(BaseModel):
 
         return self
 
+class LoadConfiguration(str):
+    """
+    Load configuration types for UDL generation.
+
+    Represents the three different UDL load configurations:
+    - Conf. A: Leftmost lanes configuration
+    - Conf. B: Rightmost lanes configuration
+    - Conf. C: Center lanes configuration
+    """
+
+    __slots__ = ()
+
+    CONF_A = "Conf. A"
+    CONF_B = "Conf. B"
+    CONF_C = "Conf. C"
+
+
+class UdlLoadCaseData(BaseModel):
+    """
+    Data for a single UDL load case.
+
+    Represents a uniformly distributed load case with its associated polygon,
+    load value, and descriptive title for SCIA analysis.
+    """
+
+    polygon: list[tuple[float, float, float]] = Field(min_length=4, max_length=4, description="4-point rectangular polygon (counter-clockwise)")
+    load: float = Field(gt=0, description="Load value in N/m² (must be positive)")
+    title: str = Field(min_length=1, description="Descriptive title for load case")
+
+    @field_validator("load")
+    @classmethod
+    def validate_positive_load(cls, v: float) -> float:
+        """
+        Validate that load value is positive.
+
+        :param v: Load value in N/m²
+        :type v: float
+        :returns: Validated load value
+        :rtype: float
+        :raises ValueError: If load is not positive
+        """
+        if v <= 0:
+            raise ValueError(f"Load must be positive, got {v}")
+        return v
+
+    @field_validator("polygon")
+    @classmethod
+    def validate_polygon_points(cls, v: list[tuple[float, float, float]]) -> list[tuple[float, float, float]]:
+        """
+        Validate polygon points structure.
+
+        :param v: List of polygon corner points
+        :type v: list[tuple[float, float, float]]
+        :returns: Validated polygon points
+        :rtype: list[tuple[float, float, float]]
+        :raises ValueError: If polygon doesn't have exactly 4 points or invalid coordinate structure
+        """
+        if len(v) != 4:
+            raise ValueError(f"Polygon must have exactly 4 corners, got {len(v)}")
+
+        for i, point in enumerate(v):
+            if not isinstance(point, tuple) or len(point) != 3:
+                raise ValueError(f"Point {i} must be a 3-element tuple (x, y, z), got {point}")
+
+        return v
+
     model_config = ConfigDict(validate_assignment=True)

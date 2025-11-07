@@ -33,3 +33,65 @@ class TheoreticalLaneResult(BaseModel):
         return v
 
     model_config = ConfigDict(validate_assignment=True)
+
+
+class Point3D(BaseModel):
+    """
+    3D point with validation.
+
+    Represents a point in 3D space, typically used for load positioning
+    and geometric calculations in SCIA models.
+    """
+
+    x: float = Field(description="X-coordinate in meters")
+    y: float = Field(description="Y-coordinate in meters")
+    z: float = Field(default=0.0, description="Z-coordinate in meters (typically 0.0 for 2D sections)")
+
+    def to_tuple(self) -> tuple[float, float, float]:
+        """
+        Convert point to tuple format.
+
+        :returns: (x, y, z) tuple
+        :rtype: tuple[float, float, float]
+        """
+        return (self.x, self.y, self.z)
+
+    model_config = ConfigDict(validate_assignment=True)
+
+
+class RectangularPolygon(BaseModel):
+    """
+    Rectangular polygon defined by 4 corner points.
+
+    Used for defining load areas in SCIA models. Points should be ordered
+    counter-clockwise starting from bottom-left.
+    """
+
+    corners: list[Point3D] = Field(min_length=4, max_length=4, description="4 corner points (counter-clockwise)")
+
+    @field_validator("corners")
+    @classmethod
+    def validate_rectangle(cls, v: list[Point3D]) -> list[Point3D]:
+        """
+        Validate that polygon has exactly 4 corners.
+
+        :param v: List of corner points
+        :type v: list[Point3D]
+        :returns: Validated list of corners
+        :rtype: list[Point3D]
+        :raises ValueError: If polygon doesn't have exactly 4 corners
+        """
+        if len(v) != 4:
+            raise ValueError("Polygon must have exactly 4 corners")
+        return v
+
+    def to_tuple_list(self) -> list[tuple[float, float, float]]:
+        """
+        Convert all corner points to tuple format.
+
+        :returns: List of (x, y, z) tuples for each corner
+        :rtype: list[tuple[float, float, float]]
+        """
+        return [p.to_tuple() for p in self.corners]
+
+    model_config = ConfigDict(validate_assignment=True)
