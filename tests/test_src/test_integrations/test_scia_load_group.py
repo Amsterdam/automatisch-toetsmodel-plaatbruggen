@@ -17,7 +17,9 @@ from src.integrations.scia_integration.load_system.scia_load_group import (
     create_ts_lane_1_group,
     create_ts_lane_2_group,
     create_ts_lane_3_group,
-    create_udl_group,
+    create_udl_conf_a_group,
+    create_udl_conf_b_group,
+    create_udl_conf_c_group,
 )
 from src.integrations.scia_integration.scia_enums import (
     LoadGroupLoadType,
@@ -62,12 +64,34 @@ class TestLoadGroupCreation:
             load_type=LoadGroupLoadType.TEMPERATURE,
         )
 
-    def test_create_udl_group(self) -> None:
-        """Test the UDL load group definition."""
+    def test_create_udl_conf_a_group(self) -> None:
+        """Test the UDL configuration A load group definition."""
         builder = Mock()
-        create_udl_group(builder)
+        create_udl_conf_a_group(builder)
         builder.create_load_group.assert_called_once_with(
-            name="LG4000 - UDL",
+            name="LG4000 - UDL - conf. A",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.STANDARD,
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
+        )
+
+    def test_create_udl_conf_b_group(self) -> None:
+        """Test the UDL configuration B load group definition."""
+        builder = Mock()
+        create_udl_conf_b_group(builder)
+        builder.create_load_group.assert_called_once_with(
+            name="LG4001 - UDL - conf. B",
+            load_option=LoadGroupOption.VARIABLE,
+            relation=LoadGroupRelation.STANDARD,
+            load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
+        )
+
+    def test_create_udl_conf_c_group(self) -> None:
+        """Test the UDL configuration C load group definition."""
+        builder = Mock()
+        create_udl_conf_c_group(builder)
+        builder.create_load_group.assert_called_once_with(
+            name="LG4002 - UDL - conf. C",
             load_option=LoadGroupOption.VARIABLE,
             relation=LoadGroupRelation.STANDARD,
             load_type=LoadGroupLoadType.CONSTRUCTION_LOADS,
@@ -148,10 +172,10 @@ class TestAllLoadGroups:
         builder = Mock()
         result = create_all_load_groups(builder)
 
-        # Check that the builder was called 12 times (added tram track groups)
-        assert builder.create_load_group.call_count == 12
-        # Check that the result dictionary has 12 entries
-        assert len(result) == 12
+        # Check that the builder was called 14 times (split UDL into 3 configurations)
+        assert builder.create_load_group.call_count == 14
+        # Check that the result dictionary has 14 entries
+        assert len(result) == 14
         assert "permanent_self_weight" in result
         assert "ts_lane_3" in result
 
@@ -163,7 +187,9 @@ class TestAllLoadGroups:
             "permanent_self_weight",
             "dead_load",
             "temperature",
-            "udl",
+            "udl_conf_a",
+            "udl_conf_b",
+            "udl_conf_c",
             "crowd",
             "service_vehicle",
             "accidental_vehicle",
