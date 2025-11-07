@@ -5,14 +5,19 @@ from typing import Protocol as TypingProtocol
 
 from viktor import InputViolation  # type: ignore[attr-defined]
 from viktor.errors import UserError
-
-# Import for validate_load_zone_widths - ensure this path is correct
-from src.geometry.model_creator import (
-    LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
-)
+from __future__ import annotations
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
+
+
+# Import for validate_load_zone_widths - ensure this path is correct
+from viktor import InputViolation  # type: ignore[attr-defined]
+from viktor.errors import UserError
+
+from src.geometry.model_creator import (
+    LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
+)
 
 # All plotting helper functions below have been moved to src/geometry/load_zone_plot.py or src/common/plot_utils.py
 # get_zone_appearance_properties

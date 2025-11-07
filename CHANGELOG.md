@@ -39,6 +39,11 @@ Introduced a new naming system with span, lane and configuration identification.
 - **Management summary**: Added basic param values and unity check values to the management summary.
 - **2D sections on 2d members**: Added 2D sections in SCIA and the link with with IDEA 
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
+- **SCIA section plane handling**: Enhanced section plane creation for multi-segment spans and zone boundaries
+  - Sections respect intermediate segment boundaries with 1mm offset
+  - Sections avoid crossing zone boundaries (bz1/bz2/bz3)
+  - Special section coverage for narrow middle zones (bz2 ≤ 1.002m)
+  - Comprehensive documentation in `docs/scia_section_on_plane_logic.md`
 
 ### Changed
 - **SCIA material selection**: SCIA model now uses `params.concrete_strength_class` with fallback to `DEFAULT_CONCRETE_STRENGTH_CLASS` (C30/37).
@@ -62,6 +67,8 @@ Introduced a new naming system with span, lane and configuration identification.
 - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
 - IDEA crack width results: Fixed extraction and display of crack width results from IDEA StatiCa (handles both short- and long-term, no longer shows N/A when results exist).
 - Pydantic validation: Improved legacy material support and reinforcement validation (historical concrete/steel, 0mm/negative heights, etc.).
+
+- Refactored SCIA section-plane logic; fixed boundary/edge-section placement and Pydantic v2 compatibility issues. (QA checks passed)
 
 
 ## [`v0.0.15`] - 2025-10-02

@@ -800,7 +800,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Afstand tot vorige snede",
         default=10,
         suffix="m",
-        min=0.1,
+        min=1.002,
         visible=_l_field_visibility_constraint,
     )
 
