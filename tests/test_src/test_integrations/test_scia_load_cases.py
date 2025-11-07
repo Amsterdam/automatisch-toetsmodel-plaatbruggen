@@ -131,11 +131,11 @@ class TestStandardLoadCases:
         assert mock_builder.create_load_case.call_count == 9
         assert len(cases) >= 9  # May include rs_1, rs_2, rs_3 for backward compatibility
 
-        # Check first case (BG4001)
+        # Check first case (BG4001) - should be in conf. A group
         mock_builder.create_load_case.assert_any_call(
             name="BG4001",
             description="Verkeer, dek - LM1 UDL RS 1 - Conf. A",
-            group_name="LG4000 - UDL",
+            group_name="LG4000 - UDL - conf. A",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
             specification=LoadCaseSpecification.STANDARD,

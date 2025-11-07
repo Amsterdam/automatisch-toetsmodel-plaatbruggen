@@ -184,21 +184,25 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
     for load_case_name, load_data in sorted(udl_results.items()):  # Sort to ensure consistent ordering
         title = load_data.get("title", "")
 
-        # Extract configuration from title to maintain backward compatibility
+        # Extract configuration from title to determine group name
         config = None
+        group_name = "LG4000 - UDL - conf. A"  # Default to conf. A
         if "Conf. A" in title:
             config = "Conf. A"
+            group_name = "LG4000 - UDL - conf. A"
         elif "Conf. B" in title:
             config = "Conf. B"
+            group_name = "LG4001 - UDL - conf. B"
         elif "Conf. C" in title:
             config = "Conf. C"
+            group_name = "LG4002 - UDL - conf. C"
 
         # Create the load case with the title as description
         description = f"Verkeer, dek - LM1 UDL {title}" if title else f"Verkeer, dek - LM1 UDL {load_case_name}"
 
         cases[load_case_name] = create_load_case(
             builder,
-            group_name="LG4000 - UDL",
+            group_name=group_name,
             case_name=load_case_name,
             description=description,
             case_type=LoadCaseActionType.VARIABLE,
