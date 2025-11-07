@@ -11,9 +11,6 @@ docs/scia_section_on_plane_logic.md
 from typing import Any
 
 from src.data_models.scia_models import Boundary, Section, SectionOnPlaneDefinition, Span
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
-
-from src.data_models.scia_models import SectionOnPlaneDefinition
 from src.integrations.scia_integration.constants.geometry import (
     SECTION_ON_PLANE_INTERMEDIATE_OFFSET,
     SECTION_ON_PLANE_LENGTH,

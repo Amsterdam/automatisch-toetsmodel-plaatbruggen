@@ -403,6 +403,7 @@ class Span(BaseModel):
 
         return self
 
+
 class LoadConfiguration(str):
     """
     Load configuration types for UDL generation.

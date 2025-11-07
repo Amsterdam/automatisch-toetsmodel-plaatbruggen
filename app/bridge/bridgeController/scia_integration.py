@@ -29,6 +29,7 @@ from src.integrations.scia_integration.results.scia_result_views import (
     create_scia_node_results_table,
 )
 
+
 class SciaIntegration:
     """
     Component providing SCIA Engineer integration.
