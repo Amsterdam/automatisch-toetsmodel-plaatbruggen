@@ -576,7 +576,7 @@ def _process_single_cs_result_table(
 
     df_combined = (
         df_combined.groupby("name", as_index=False, group_keys=False)
-        .apply(_filter_first_coord)  # type: ignore[arg-type]
+        .apply(_filter_first_coord, include_groups=False)  # type: ignore[call-overload]
         .reset_index(drop=True)
     )
 
