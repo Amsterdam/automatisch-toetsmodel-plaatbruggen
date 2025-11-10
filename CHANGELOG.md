@@ -2,6 +2,7 @@
 ### Added
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
 Introduced a new naming system with span, lane and configuration identification.
+- Load combinations with group 5 that include the tram loading.
 
 ### Changed
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
@@ -9,6 +10,7 @@ Introduced a new naming system with span, lane and configuration identification.
 - Re-assigned the UDL and tandem loads to load groups.
 - Fixed and improved the load combination system, with a better naming system around configuration names.
 New folder in the directory for the load combination generator.
+- Extended the load combination table with a column for the tram loading under "Bijzondere voertuigen".
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added
