@@ -568,17 +568,10 @@ def _process_single_cs_result_table(
             df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
 
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
-    # Group by name and filter to keep only rows with the first unique coordinate per group
-    def _filter_first_coord(group: pd.DataFrame) -> pd.DataFrame:
-        """Keep only rows matching the first unique coordinate in the group."""
-        first_coord = group["coords_xyz"].iloc[0]
-        return group[group["coords_xyz"] == first_coord]
-
-    df_combined = (
-        df_combined.groupby("name", as_index=False, group_keys=False)
-        .apply(_filter_first_coord)  # type: ignore[arg-type]
-        .reset_index(drop=True)
-    )
+    # Use transform to get first coordinate per group, then filter
+    # This avoids the FutureWarning about groupby.apply operating on grouping columns
+    first_coords = df_combined.groupby("name")["coords_xyz"].transform("first")
+    df_combined = df_combined[df_combined["coords_xyz"] == first_coords].reset_index(drop=True)
 
     # Extract rows with max absolute values
     result_rows = _extract_max_force_rows(df_combined, force_columns)
