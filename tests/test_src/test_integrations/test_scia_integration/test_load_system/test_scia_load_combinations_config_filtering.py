@@ -457,7 +457,7 @@ class TestConfigDSpecialHandling(unittest.TestCase):
         mock_builder = MagicMock()
         created_combinations = []
 
-        def track_combination(**kwargs):
+        def track_combination(**kwargs) -> MagicMock:
             created_combinations.append(kwargs)
             return MagicMock(**kwargs)
 
@@ -507,7 +507,7 @@ class TestConfigDSpecialHandling(unittest.TestCase):
         )
 
         # Find the Config D combination
-        config_d_combo = [c for c in created_combinations if "Config D" in c["name"]][0]
+        config_d_combo = next(c for c in created_combinations if "Config D" in c["name"])
 
         # Check that Config D combination has:
         # - Config D tandems

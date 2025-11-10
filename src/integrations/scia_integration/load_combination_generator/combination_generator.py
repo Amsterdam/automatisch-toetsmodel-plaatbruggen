@@ -248,7 +248,7 @@ class TrafficLoadCombinationGenerator:
     # ===== Helper methods for metadata extraction =====
 
     @staticmethod
-    def _get_load_case_name(load_case: Any, fallback_key: str) -> str:
+    def _get_load_case_name(load_case: Any, fallback_key: str) -> str:  # noqa: ANN401
         """Get the load case name from a load case object."""
         if hasattr(load_case, "name"):
             return str(load_case.name)
@@ -257,7 +257,7 @@ class TrafficLoadCombinationGenerator:
         return fallback_key
 
     @staticmethod
-    def _get_load_case_description(load_case: Any) -> str:
+    def _get_load_case_description(load_case: Any) -> str:  # noqa: ANN401
         """Get the description/title from a load case object."""
         if hasattr(load_case, "description"):
             return str(load_case.description)

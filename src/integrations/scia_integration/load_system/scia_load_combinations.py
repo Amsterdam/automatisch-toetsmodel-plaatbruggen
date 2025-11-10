@@ -145,7 +145,7 @@ def _extract_configuration_from_description(description: str) -> LoadConfigurati
     return LoadConfiguration.NONE
 
 
-def _create_combinations_from_df(
+def _create_combinations_from_df( #noqa: C901, PLR0912
     *,
     builder: SciaModelBuilder,
     df: DataFrame,

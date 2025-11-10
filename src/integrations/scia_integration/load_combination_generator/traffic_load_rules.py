@@ -33,7 +33,7 @@ class TrafficLoadRules:
         :rtype: bool
         """
         # NONE configuration can combine with anything (non-traffic loads)
-        if config_a == LoadConfiguration.NONE or config_b == LoadConfiguration.NONE:
+        if LoadConfiguration.NONE in (config_a, config_b):
             return True
         # Otherwise, must be the same configuration
         return config_a == config_b
@@ -60,13 +60,13 @@ class TrafficLoadRules:
             return False
 
         # Must be on different lanes
-        if load_a.notional_lane is not None and load_b.notional_lane is not None:
-            if load_a.notional_lane == load_b.notional_lane:
-                return False
-
         # Same position on different lanes is OK per Eurocode
         # (traffic loads can occur simultaneously on different lanes)
-        return True
+        return not (
+            load_a.notional_lane is not None
+            and load_b.notional_lane is not None
+            and load_a.notional_lane == load_b.notional_lane
+        )
 
     @staticmethod
     def can_combine_udl_with_tandem(udl: LoadMetadata, tandem: LoadMetadata) -> bool:
@@ -186,7 +186,7 @@ class TrafficLoadRules:
 
         # Verify configuration matches combination's declared configuration
         actual_config = TrafficLoadRules.get_configuration_from_loads(loads)
-        if actual_config != LoadConfiguration.NONE and actual_config != combination.configuration:
+        if actual_config not in (LoadConfiguration.NONE, combination.configuration):
             errors.append(f"Combination config mismatch: declared {combination.configuration}, actual {actual_config}")
 
         return len(errors) == 0, errors

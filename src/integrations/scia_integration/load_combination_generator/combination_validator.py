@@ -72,15 +72,14 @@ def get_combination_summary(result: CombinationGenerationResult) -> str:
                 "Warnings:",
             ]
         )
-        for warning in result.warnings:
-            lines.append(f"  - {warning}")
+        lines.extend(f"  - {warning}" for warning in result.warnings)
 
     lines.append("=" * 60)
 
     return "\n".join(lines)
 
 
-def export_combinations_for_scia(combinations: list[TrafficLoadCombination], load_metadata: dict[str, LoadMetadata]) -> dict[str, list[str]]:
+def export_combinations_for_scia(combinations: list[TrafficLoadCombination], _load_metadata: dict[str, LoadMetadata]) -> dict[str, list[str]]:
     """
     Export combinations in a format suitable for SCIA integration.
 
