@@ -15,17 +15,50 @@ Usage:
 
 import argparse
 import hashlib
+import logging
 import os
 import re
 import subprocess
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import NamedTuple
 
 # Set UTF-8 encoding for Windows compatibility
 if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
+
+# Suppress the pkg_resources deprecation warning from docxcompose
+# We've pinned setuptools<81 in requirements.txt to prevent pkg_resources removal
+# This warning is unavoidable until docxcompose updates their code
+
+# Suppress via warnings module (for Python warnings)
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+    module="docxcompose.properties",
+)
+
+
+# Suppress via logging module (for VIKTOR CLI and other logging-based warnings)
+class PkgResourcesFilter(logging.Filter):
+    """Filter to suppress pkg_resources deprecation warnings from docxcompose."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False to suppress the log record, True to keep it."""
+        message = record.getMessage() if hasattr(record, "getMessage") else str(record.msg)
+        return "pkg_resources is deprecated" not in message
+
+
+# Apply the filter to the root logger and common loggers
+for logger_name in [None, "viktor", "root", ""]:
+    logger = logging.getLogger(logger_name)
+    logger.addFilter(PkgResourcesFilter())
+
+# Also set environment variable to suppress warnings at the source
+os.environ["PYTHONWARNINGS"] = "ignore::UserWarning:docxcompose.properties"
 
 
 class CheckResult(NamedTuple):

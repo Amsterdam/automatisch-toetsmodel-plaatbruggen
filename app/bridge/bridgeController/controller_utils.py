@@ -11,10 +11,11 @@ from typing import Any
 
 import viktor.api_v1 as api_sdk
 import viktor.errors
-from app.constants import SCIA_TEMPLATE_PATH
-from src.integrations.scia_integration.results.scia_force_envelopes import get_force_envelope_summary
 from viktor.errors import UserError
 from viktor.views import MapPoint, MapResult
+
+from app.constants import SCIA_TEMPLATE_PATH
+from src.integrations.scia_integration.results.scia_force_envelopes import get_force_envelope_summary
 
 
 class ControllerUtils:
@@ -182,18 +183,6 @@ class ControllerUtils:
             "Als het probleem aanhoudt, neem contact op met support."
         )
 
-    def _get_scia_1d_timeout_message(self) -> str:
-        """Get standardized SCIA 1D timeout error message."""
-        return (
-            "⏱️ SCIA 1D analyse time-out na 10 minuten.\n\n"
-            "Mogelijke oplossingen:\n"
-            "• Verminder het aantal brugsegmenten\n"
-            "• Vereenvoudig de belastingzones\n"
-            "• Download de XML bestanden en analyseer handmatig in SCIA\n"
-            "• Probeer het later opnieuw als de server minder belast is\n\n"
-            "Als het probleem aanhoudt, neem contact op met support."
-        )
-
     def _get_scia_exception_message(self, e: Exception) -> str:
         """Get appropriate error message based on exception type."""
         if "timeout" in str(e).lower():
@@ -203,16 +192,6 @@ class ControllerUtils:
         if "worker" in str(e).lower():
             return "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
         return f"SCIA analyse fout: {str(e)[:200]}..."
-
-    def _get_scia_1d_exception_message(self, e: Exception) -> str:
-        """Get appropriate error message for 1D analysis based on exception type."""
-        if "timeout" in str(e).lower():
-            return "SCIA 1D analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
-        if "license" in str(e).lower():
-            return "SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft."
-        if "worker" in str(e).lower():
-            return "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
-        return f"SCIA 1D analyse fout: {str(e)[:200]}..."
 
     # ============================================================================================================
     # Data Processing Helpers

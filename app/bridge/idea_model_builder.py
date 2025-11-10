@@ -13,6 +13,8 @@ This implementation:
 
 from typing import Any
 
+from viktor.external import idea_rcs
+
 from src.integrations.idea_integration.idea_enums import (
     BarSurface,
     ConcAggregateType,
@@ -25,7 +27,6 @@ from src.integrations.idea_integration.idea_enums import (
     ReinforcementMaterial,
     ReinfType,
 )
-from viktor.external import idea_rcs
 
 
 class ViktorIdeaModelBuilder:
@@ -133,7 +134,6 @@ class ViktorIdeaModelBuilder:
         self,
         slab: idea_rcs.OneWaySlab,
         description: str,
-        characteristic: idea_rcs.LoadingSLS,
         frequent: idea_rcs.LoadingSLS,
         fundamental: idea_rcs.LoadingULS,
     ) -> None:
@@ -144,14 +144,12 @@ class ViktorIdeaModelBuilder:
         :type slab: idea_rcs.OneWaySlab
         :param description: Load case description
         :type description: str
-        :param characteristic: Characteristic SLS loading
-        :type characteristic: idea_rcs.LoadingSLS
         :param frequent: Frequent SLS loading
         :type frequent: idea_rcs.LoadingSLS
         :param fundamental: Fundamental ULS loading
         :type fundamental: idea_rcs.LoadingULS
         """
-        slab.create_extreme(description=description, characteristic=characteristic, frequent=frequent, fundamental=fundamental)
+        slab.create_extreme(description=description, frequent=frequent, fundamental=fundamental)
 
     def create_loading_sls(self, internal_forces: idea_rcs.ResultOfInternalForces) -> idea_rcs.LoadingSLS:
         """

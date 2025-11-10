@@ -105,7 +105,7 @@ class TestStandardLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
 
@@ -131,11 +131,11 @@ class TestStandardLoadCases:
         assert mock_builder.create_load_case.call_count == 9
         assert len(cases) >= 9  # May include rs_1, rs_2, rs_3 for backward compatibility
 
-        # Check first case (BG4001)
+        # Check first case (BG4001) - should be in conf. A group
         mock_builder.create_load_case.assert_any_call(
             name="BG4001",
             description="Verkeer, dek - LM1 UDL RS 1 - Conf. A",
-            group_name="LG4000 - UDL",
+            group_name="LG4000 - UDL - conf. A",
             case_type=LoadCaseActionType.VARIABLE,
             variable_type=VariableLoadType.STATIC,
             specification=LoadCaseSpecification.STANDARD,
@@ -163,7 +163,7 @@ class TestStandardLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
@@ -214,7 +214,7 @@ class TestStandardLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         # Mock returns positions for all vehicle types (sequencer is now universal)
         # The function calls tandem_system_sequencer 3 times with different length_vehicle values
@@ -272,7 +272,7 @@ class TestTandemLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
@@ -297,6 +297,51 @@ class TestTandemLoadCases:
         with pytest.raises(ValueError, match="RS must be 1, 2, or 3"):
             create_tandem_rs_load_cases(mock_builder, 99, 50.0, 0.5)
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_generators.generate_tandem_loads")
+    def test_dynamic_tandem_load_cases_title_based_grouping(self, mock_generate: Mock, mock_builder: Mock) -> None:
+        """Test that dynamic tandem load cases are assigned to groups based on title content."""
+        from src.integrations.scia_integration.load_system.scia_load_cases import create_dynamic_tandem_load_cases
+
+        # Mock tandem loads with different titles and load case names
+        # Key point: BG8xxx load with "rs 2" in title should go to LG9000
+        # and BG9xxx load with "rs 1" in title should go to LG8000
+        mock_generate.return_value = [
+            {"load_case": "BG8001", "title": "rs 1 - Conf. A - x = 2.5 m", "wheels": [], "load": 300},
+            {"load_case": "BG8002", "title": "rs 2 - Conf. A - x = 2.5 m", "wheels": [], "load": 200},
+            {"load_case": "BG9001", "title": "rs 1 - Conf. B - x = 5.0 m", "wheels": [], "load": 300},
+            {"load_case": "BG9002", "title": "rs 3 - Conf. A - x = 5.0 m", "wheels": [], "load": 100},
+            {"load_case": "BG10001", "title": "rs 1 - Conf. C - x = 7.5 m", "wheels": [], "load": 300},
+            {"load_case": "BG10002", "title": "rs 2 - Conf. C - x = 7.5 m", "wheels": [], "load": 200},
+            {"load_case": "BG10003", "title": "rs 3 - Conf. C - x = 7.5 m", "wheels": [], "load": 100},
+        ]
+
+        mock_params = Mock()
+        cases = create_dynamic_tandem_load_cases(mock_builder, mock_params)
+
+        # Verify all cases were created
+        assert mock_builder.create_load_case.call_count == 7
+        assert len(cases) == 7
+
+        # Verify title-based grouping (not based on load case name prefix)
+        calls = {call[1]["name"]: call[1] for call in mock_builder.create_load_case.call_args_list}
+
+        # BG8001 with "rs 1" should go to LG8000
+        assert calls["BG8001"]["group_name"] == "LG8000 - TS rijstrook 1"
+
+        # BG8002 with "rs 2" should go to LG9000 (not LG8000 based on case name)
+        assert calls["BG8002"]["group_name"] == "LG9000 - TS rijstrook 2"
+
+        # BG9001 with "rs 1" should go to LG8000 (not LG9000 based on case name)
+        assert calls["BG9001"]["group_name"] == "LG8000 - TS rijstrook 1"
+
+        # BG9002 with "rs 3" should go to LG10000
+        assert calls["BG9002"]["group_name"] == "LG10000 - TS rijstrook 3"
+
+        # BG10xxx cases should be grouped by their title, not their case name
+        assert calls["BG10001"]["group_name"] == "LG8000 - TS rijstrook 1"  # rs 1 in title
+        assert calls["BG10002"]["group_name"] == "LG9000 - TS rijstrook 2"  # rs 2 in title
+        assert calls["BG10003"]["group_name"] == "LG10000 - TS rijstrook 3"  # rs 3 in title
+
 
 class TestCreateAllLoadCases:
     """Tests for the orchestration function that creates all load cases."""
@@ -308,7 +353,7 @@ class TestCreateAllLoadCases:
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases")
-    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_tandem_rs_load_cases")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases")
     def test_create_all_load_cases_calls_helpers(  # noqa: PLR0913
         self,
         mock_tandem: Mock,
@@ -326,6 +371,8 @@ class TestCreateAllLoadCases:
 
         mock_params = load_bridge_default_params()
         mock_params.belastinggevallen = {"load_case_selection_table": []}
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         create_all_load_cases(mock_builder, mock_params)
 
         # Check that each helper function was called
@@ -336,8 +383,7 @@ class TestCreateAllLoadCases:
         mock_pedestrian.assert_called_once()
         mock_service.assert_called_once()
         mock_unintended.assert_called_once()
-        # Tandem should be called 3 times (RS 1, 2, 3)
-        assert mock_tandem.call_count == 3
+        mock_tandem.assert_called_once()
 
     @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
     @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
@@ -359,10 +405,12 @@ class TestCreateAllLoadCases:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
+        from src.integrations.scia_integration.types import LoadMode
+
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
         # Mock UDL generators to return sample data
@@ -379,7 +427,7 @@ class TestCreateAllLoadCases:
         # Add berekeningsniveau as fallback
         if not hasattr(mock_params, "berekeningsniveau"):
             mock_params.berekeningsniveau = "Theoretische wegindeling"
-
+        mock_params.design_code = "NEN 8700 gebruik"
         cases = create_all_load_cases(mock_builder, mock_params)
 
         # Check that the result is a dictionary
@@ -422,7 +470,7 @@ class TestConditionalLoadCaseCreation:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
@@ -439,6 +487,8 @@ class TestConditionalLoadCaseCreation:
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {
             "load_case_selection_table": [
                 {"load_type": "Temperature", "enabled": True},
@@ -485,7 +535,7 @@ class TestConditionalLoadCaseCreation:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
@@ -502,6 +552,8 @@ class TestConditionalLoadCaseCreation:
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {
             "load_case_selection_table": [
                 {"load_type": "Temperature", "enabled": True},
@@ -547,10 +599,12 @@ class TestConditionalLoadCaseCreation:
             zone2_width=6.0,
             zone3_width=7.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.4,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         mock_get_mode.return_value = LoadMode.THEORETICAL
         # Return positions for all calls to tandem_system_sequencer
+        from src.integrations.scia_integration.types import LoadMode
+
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
         # Mock UDL generators to return sample data
@@ -564,6 +618,8 @@ class TestConditionalLoadCaseCreation:
         from tests.test_data.seed_loader import load_bridge_default_params
 
         mock_params = load_bridge_default_params()
+        mock_params.berekeningsniveau = "Theoretische wegindeling"
+        mock_params.design_code = "NEN 8700 gebruik"
         mock_params.belastinggevallen = {}  # No load_case_selection_table
         # Add berekeningsniveau as fallback
         if not hasattr(mock_params, "berekeningsniveau"):

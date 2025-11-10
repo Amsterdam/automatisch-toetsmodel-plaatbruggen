@@ -222,7 +222,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
             zone2_width=2.0,
             zone3_width=1.5,
             first_segment_thickness=0.3,
-            first_segment_thickness_2=0.2,
+            first_segment_thickness_2=0.3,  # Must equal first_segment_thickness
         )
 
         assert dimensions.total_length == 50.0
@@ -232,7 +232,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
         assert dimensions.zone2_width == 2.0
         assert dimensions.zone3_width == 1.5
         assert dimensions.first_segment_thickness == 0.3
-        assert dimensions.first_segment_thickness_2 == 0.2
+        assert dimensions.first_segment_thickness_2 == 0.3
 
     def test_zone_widths_property(self) -> None:
         """Test zone_widths property for backward compatibility."""
@@ -244,7 +244,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
             zone2_width=2.0,
             zone3_width=1.5,
             first_segment_thickness=0.3,
-            first_segment_thickness_2=0.2,
+            first_segment_thickness_2=0.3,  # Must equal first_segment_thickness
         )
 
         zone_widths = dimensions.zone_widths
@@ -261,7 +261,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
             zone2_width=3.0,
             zone3_width=2.0,
             first_segment_thickness=0.5,
-            first_segment_thickness_2=0.3,
+            first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
         assert dimensions.total_length == 100.0
 
@@ -275,7 +275,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
                 zone2_width=3.0,
                 zone3_width=2.0,
                 first_segment_thickness=0.5,
-                first_segment_thickness_2=0.3,
+                first_segment_thickness_2=0.5,
             )
 
         error = exc_info.value
@@ -293,7 +293,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
             zone2_width=2.0,
             zone3_width=1.5,
             first_segment_thickness=0.2,
-            first_segment_thickness_2=0.1,
+            first_segment_thickness_2=0.2,  # Must equal first_segment_thickness
         )
         assert dimensions.thickness == 0.2
 
@@ -307,7 +307,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
                 zone2_width=2.0,
                 zone3_width=1.5,
                 first_segment_thickness=0.05,
-                first_segment_thickness_2=0.0,
+                first_segment_thickness_2=0.05,
             )
 
         error = exc_info.value
@@ -325,7 +325,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
             zone2_width=1.0,
             zone3_width=0.5,
             first_segment_thickness=0.3,
-            first_segment_thickness_2=0.2,
+            first_segment_thickness_2=0.3,  # Must equal first_segment_thickness
         )
         assert dimensions.zone1_width == 0.5
 
@@ -339,7 +339,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
                 zone2_width=1.0,
                 zone3_width=0.5,
                 first_segment_thickness=0.3,
-                first_segment_thickness_2=0.2,
+                first_segment_thickness_2=0.3,
             )
 
         error = exc_info.value
@@ -347,35 +347,48 @@ class TestBridgeDimensionsData(unittest.TestCase):
         assert "too narrow (minimum 0.1m)" in str(error)
 
     def test_thickness_consistency_validation(self) -> None:
-        """Test thickness consistency validation."""
-        # Valid thickness relationship
+        """Test thickness validation - zones can have different thicknesses in cross-section."""
+        # Valid: zones have the same thickness
         dimensions = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=12.0,
+            thickness=0.7,
+            zone1_width=3.5,
+            zone2_width=2.0,
+            zone3_width=1.5,
+            first_segment_thickness=0.7,  # Zones 1 and 3
+            first_segment_thickness_2=0.7,  # Zone 2
+        )
+        assert dimensions.first_segment_thickness == 0.7
+        assert dimensions.first_segment_thickness_2 == 0.7
+
+        # Valid: zone 2 thicker than zones 1 and 3 (allowed in cross-section)
+        dimensions_thick_zone2 = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=12.0,
+            thickness=0.7,
+            zone1_width=3.5,
+            zone2_width=2.0,
+            zone3_width=1.5,
+            first_segment_thickness=0.7,  # Zones 1 and 3
+            first_segment_thickness_2=0.8,  # Zone 2 (thicker) - VALID
+        )
+        assert dimensions_thick_zone2.first_segment_thickness == 0.7
+        assert dimensions_thick_zone2.first_segment_thickness_2 == 0.8
+
+        # Valid: zone 2 thinner than zones 1 and 3 (allowed in cross-section)
+        dimensions_thin_zone2 = BridgeDimensionsData(
             total_length=50.0,
             total_width=12.0,
             thickness=0.3,
             zone1_width=3.5,
             zone2_width=2.0,
             zone3_width=1.5,
-            first_segment_thickness=0.3,
-            first_segment_thickness_2=0.2,  # Less than first thickness
+            first_segment_thickness=0.3,  # Zones 1 and 3
+            first_segment_thickness_2=0.2,  # Zone 2 (thinner) - VALID
         )
-        assert dimensions.first_segment_thickness_2 == 0.2
-
-        # Invalid thickness relationship
-        with pytest.raises(ValidationError) as exc_info:
-            BridgeDimensionsData(
-                total_length=50.0,
-                total_width=12.0,
-                thickness=0.3,
-                zone1_width=3.5,
-                zone2_width=2.0,
-                zone3_width=1.5,
-                first_segment_thickness=0.2,
-                first_segment_thickness_2=0.3,  # Greater than first thickness
-            )
-
-        error = exc_info.value
-        assert "Second segment thickness 0.3m cannot be greater than first segment thickness 0.2m" in str(error)
+        assert dimensions_thin_zone2.first_segment_thickness == 0.3
+        assert dimensions_thin_zone2.first_segment_thickness_2 == 0.2
 
     def test_total_width_consistency_validation(self) -> None:
         """Test total width consistency validation."""
@@ -388,7 +401,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
             zone2_width=2.0,
             zone3_width=1.0,
             first_segment_thickness=0.3,
-            first_segment_thickness_2=0.2,
+            first_segment_thickness_2=0.3,  # Must equal first_segment_thickness
         )
         assert dimensions.total_width == 10.0
 
@@ -402,7 +415,7 @@ class TestBridgeDimensionsData(unittest.TestCase):
                 zone2_width=2.0,
                 zone3_width=1.0,
                 first_segment_thickness=0.3,
-                first_segment_thickness_2=0.2,
+                first_segment_thickness_2=0.3,
             )
 
         error = exc_info.value
@@ -441,6 +454,7 @@ class TestSpan(unittest.TestCase):
             bz3=3.0,
             min_thickness=0.5,
             span_index=1,
+            num_segment_definitions=2,
         )
 
         assert span.start_x == 0.0
@@ -461,6 +475,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         error = exc_info.value
@@ -480,11 +495,12 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         error = exc_info.value
         assert "length" in str(error).lower()
-        assert "doesn't match" in str(error)
+        assert "does not match" in str(error)
 
     def test_width_must_match_sum_of_zones(self) -> None:
         """Test that width must match sum of zone widths."""
@@ -499,11 +515,12 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         error = exc_info.value
         assert "width" in str(error).lower()
-        assert "doesn't match" in str(error)
+        assert "does not match" in str(error)
 
     def test_positive_dimensions_required(self) -> None:
         """Test that positive dimensions are required."""
@@ -519,6 +536,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
         # Negative thickness
@@ -533,6 +551,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=-0.5,
                 span_index=1,
+                num_segment_definitions=2,
             )
 
     def test_span_index_must_be_at_least_one(self) -> None:
@@ -548,6 +567,7 @@ class TestSpan(unittest.TestCase):
                 bz3=3.0,
                 min_thickness=0.5,
                 span_index=0,
+                num_segment_definitions=2,
             )
 
 

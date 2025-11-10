@@ -184,21 +184,25 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
     for load_case_name, load_data in sorted(udl_results.items()):  # Sort to ensure consistent ordering
         title = load_data.get("title", "")
 
-        # Extract configuration from title to maintain backward compatibility
+        # Extract configuration from title to determine group name
         config = None
+        group_name = "LG4000 - UDL - conf. A"  # Default to conf. A
         if "Conf. A" in title:
             config = "Conf. A"
+            group_name = "LG4000 - UDL - conf. A"
         elif "Conf. B" in title:
             config = "Conf. B"
+            group_name = "LG4001 - UDL - conf. B"
         elif "Conf. C" in title:
             config = "Conf. C"
+            group_name = "LG4002 - UDL - conf. C"
 
         # Create the load case with the title as description
         description = f"Verkeer, dek - LM1 UDL {title}" if title else f"Verkeer, dek - LM1 UDL {load_case_name}"
 
         cases[load_case_name] = create_load_case(
             builder,
-            group_name="LG4000 - UDL",
+            group_name=group_name,
             case_name=load_case_name,
             description=description,
             case_type=LoadCaseActionType.VARIABLE,
@@ -470,28 +474,61 @@ def create_dynamic_tandem_load_cases(
     """
     Create dynamic tandem load cases based on bridge geometry.
 
-    This function determines the number of theoretical lanes and creates
-    the corresponding tandem system (TS) load cases for each lane (RS).
+    This function generates tandem loads first to determine what load cases are needed,
+    then creates the corresponding tandem system (TS) load cases dynamically.
+    Load cases are assigned to load groups based on the notional lane (RS) mentioned
+    in their title: "rs 1" → LG8000, "rs 2" → LG9000, "rs 3" → LG10000.
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
     :return: A dictionary of all created tandem system load cases.
     :rtype: dict[str, SciaLoadCase]
     """
+    from src.integrations.scia_integration.load_system.scia_load_generators import generate_tandem_loads
+
     load_cases = {}
 
-    # Extract bridge dimensions needed for tandem load case generation
-    dims = extract_bridge_dimensions(params)
-    length = dims.total_length
-    thickness = dims.thickness
+    # Generate tandem loads to determine what load cases we need
+    tandem_loads = generate_tandem_loads(params)
 
-    # Use alias to allow tests to patch 'generate_theoretical_lane_positions'
-    num_lanes = 3
+    # Create load cases based on the generated loads
+    for tandem_load in tandem_loads:
+        load_case_name = tandem_load["load_case"]
 
-    # Create tandem load cases for each road system (RS)
-    for rs in range(1, num_lanes + 1):
-        tandem_cases_dict = create_tandem_rs_load_cases(builder, rs, length, thickness)
-        load_cases.update(tandem_cases_dict)
+        # Skip if already created
+        if load_case_name in load_cases:
+            continue
+
+        # Get title from tandem_load
+        title = tandem_load.get("title", "")
+
+        # Determine group name based on which notional lane (RS) is in the title
+        # This allows all tandem loads for a specific lane to be grouped together
+        # regardless of their load case series number
+        title_lower = title.lower()
+        if "rs 1" in title_lower:
+            group_name = "LG8000 - TS rijstrook 1"
+        elif "rs 2" in title_lower:
+            group_name = "LG9000 - TS rijstrook 2"
+        elif "rs 3" in title_lower:
+            group_name = "LG10000 - TS rijstrook 3"
+        else:
+            # Skip load cases without recognizable lane designation
+            continue
+
+        # Create description with title
+        description = f"Verkeer, dek - LM1 TS - {title}" if title else f"Verkeer, dek - LM1 TS - {load_case_name}"
+
+        load_cases[load_case_name] = create_load_case(
+            builder,
+            group_name=group_name,
+            case_name=load_case_name,
+            description=description,
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
+        )
 
     return load_cases
 

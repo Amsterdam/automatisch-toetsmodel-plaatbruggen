@@ -12,19 +12,16 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
-import contextlib
 from collections import defaultdict
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from viktor.external import idea_rcs
 
 from src.common.constants.technical import MM_TO_M
 from src.data_models.idea_models import ReinforcementConfigData
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
 from src.integrations.idea_integration.constants.geometry import (
-    DEFAULT_DIRECTION_VECTOR_X,
-    DIRECTION_VECTOR_THRESHOLD,
     MIDPOINT_DIVISOR,
     REBAR_POSITION_HALF_OFFSET,
     SLAB_EDGE_SPACE_BOUNDARY,
@@ -41,33 +38,7 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
-from viktor.external import idea_rcs
-
-
-def _export_dataframe_to_excel(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
-    """
-    Export DataFrame to Excel file for debugging.
-
-    Creates files in C:/temp/ directory for easy manual inspection.
-
-    :param df: DataFrame to export
-    :type df: pd.DataFrame
-    :param filename: Name of the Excel file (without extension)
-    :type filename: str
-    :param sheet_name: Name of the Excel sheet
-    :type sheet_name: str
-    """
-    try:
-        # Create temp directory if it doesn't exist
-        temp_dir = Path("C:/temp")
-        temp_dir.mkdir(exist_ok=True)
-
-        # Export to Excel
-        filepath = temp_dir / f"{filename}.xlsx"
-        df.to_excel(filepath, sheet_name=sheet_name, index=False)
-    except Exception:
-        pass
-
+from src.integrations.idea_integration.scia_to_idea_functions import process_scia_cs_results_for_idea
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
@@ -488,478 +459,46 @@ def _create_slabs_with_reinforcement(
     return created_slabs
 
 
-def _get_load_case_dataframe(scia_results_dict: dict[str, pd.DataFrame], key: str) -> pd.DataFrame:
-    """Get a load case dataframe from SCIA results, returning empty DataFrame if None."""
-    load_case_df = scia_results_dict.get(key)
-    return load_case_df if load_case_df is not None else pd.DataFrame()
-
-
-def _process_node_dataframes(dataframes: list[pd.DataFrame]) -> None:
-    """Process node dataframes: filter names and add moment columns."""
-    for df in dataframes:
-        if df is not None and not df.empty and "name" in df.columns:
-            df["name"] = df["name"].str[1:].str.replace("_", "-")
-
-        # Add moment columns - select value with maximum absolute magnitude while preserving sign
-        if df is not None and not df.empty:
-            if all(col in df.columns for col in ["m_xD+_max", "m_xD-_max"]):
-                df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-            if all(col in df.columns for col in ["m_yD+_max", "m_yD-_max"]):
-                df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-
-
-def _rename_dataframe_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
-    """Rename columns in dataframe with prefix, excluding specific columns."""
-    if df is not None and not df.empty:
-        return df.rename(columns=lambda x: f"{prefix}_{x}" if x not in ["name", "zone", "coords_xyz"] else x)
-    return df
-
-
-def _process_scia_node_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """
-    Process SCIA node results into a single merged dataframe.
-
-    :param scia_results_dict: Dictionary containing SCIA node results for different load cases
-    :returns: Merged dataframe with all load cases
-    :rtype: pd.DataFrame
-    """
-    # Get load cases from SCIA results with node prefixes
-    df_uls = _get_load_case_dataframe(scia_results_dict, "node_ULS")
-    df_sls_kar = _get_load_case_dataframe(scia_results_dict, "node_SLS kar")
-    df_sls_freq = _get_load_case_dataframe(scia_results_dict, "node_SLS freq")
-
-    # Process all dataframes
-    _process_node_dataframes([df_uls, df_sls_kar, df_sls_freq])
-
-    # Rename columns to prevent clashes
-    df_uls = _rename_dataframe_columns(df_uls, "ULS")
-    df_sls_kar = _rename_dataframe_columns(df_sls_kar, "SLS_kar")
-    df_sls_freq = _rename_dataframe_columns(df_sls_freq, "SLS_freq")
-
-    # Merge dataframes - handle empty cases
-    if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
-        return pd.DataFrame()  # Return empty DataFrame if any component is empty
-
-    df_all = df_uls.merge(df_sls_kar, on=["name", "coords_xyz"], how="inner")
-    return df_all.merge(df_sls_freq, on=["name", "coords_xyz"], how="inner")
-
-
-def _process_scia_cs_results_for_idea_input(  # noqa: C901, PLR0912
-    scia_results_dict: dict[str, pd.DataFrame],
+def _process_scia_cs_results_for_idea_input(
+    scia_envelope_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Process SCIA CS (Cross Section) results into a single merged dataframe.
+    Process SCIA CS (Cross Section) envelope DataFrame for IDEA input.
 
-    CS results come from SCIA section on plane objects (cross sections) and contain
-    force/moment values per meter. The 'name' column contains CS identifiers like
-    'cs_dwars' or 'cs_langs' which indicate the cross-section orientation.
+    The input DataFrame comes from process_scia_cs_results_for_idea and contains
+    filtered envelope data with ULS and SLS freq results combined. Each row represents
+    a maximum absolute force/moment value for a specific zone and result type.
 
-    Zone mapping and deduplication are handled by process_scia_cs_results which:
-    - Merges coordinates from both basis and elementaire tables
-    - Maps coordinates to zones based on bridge segments
-    - Removes duplicates where (name, zone, force/moment values) are identical
+    Each row will be translated into load cases for both directions (langs/dwars) in IDEA.
 
-    This ensures only unique (name, zone) combinations with different forces are kept,
-    matching the scia_results_view filtering logic.
+    Columns in input:
+    - v_x_max, v_y_max, m_xD+_max, m_xD-_max, m_yD+_max, m_yD-_max, n_xD_max, n_yD_max
+    - name, zone, coords_xyz, belasting, max_for_column, result_type (ULS or SLS freq)
 
-    :param scia_results_dict: Dictionary containing SCIA CS results for different load cases
-    :returns: Merged dataframe with all load cases
+    :param scia_envelope_df: DataFrame with CS envelope results from process_scia_cs_results_for_idea
+    :type scia_envelope_df: pd.DataFrame
+    :returns: Processed dataframe ready for IDEA load application (same as input, just validated)
     :rtype: pd.DataFrame
     """
-    # Get load cases from SCIA results with cs prefixes
-    df_uls = _get_load_case_dataframe(scia_results_dict, "cs_ULS")
-    df_sls_kar = _get_load_case_dataframe(scia_results_dict, "cs_SLS kar")
-    df_sls_freq = _get_load_case_dataframe(scia_results_dict, "cs_SLS freq")
-
-    # DEBUG EXPORT: Export raw CS data before any processing
-    if not df_uls.empty:
-        _export_dataframe_to_excel(df_uls, "cs_01_raw_uls", "CS_ULS_Raw")
-    if not df_sls_kar.empty:
-        _export_dataframe_to_excel(df_sls_kar, "cs_02_raw_sls_kar", "CS_SLS_kar_Raw")
-    if not df_sls_freq.empty:
-        _export_dataframe_to_excel(df_sls_freq, "cs_03_raw_sls_freq", "CS_SLS_freq_Raw")
-
-    # Add moment columns - select value with maximum absolute magnitude while preserving sign
-    # CS results have _max suffix from process_scia_cs_results_for_idea
-    for df in [df_uls, df_sls_kar, df_sls_freq]:
-        if df is not None and not df.empty:
-            if all(col in df.columns for col in ["m_xD+_max", "m_xD-_max"]):
-                df["Mx"] = df[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-            if all(col in df.columns for col in ["m_yD+_max", "m_yD-_max"]):
-                df["My"] = df[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-
-    # DEBUG EXPORT: Export after adding Mx/My columns
-    if not df_uls.empty:
-        _export_dataframe_to_excel(df_uls, "cs_04_with_mx_my_uls", "CS_ULS_MxMy")
-
-    # Rename columns to prevent clashes (but preserve 'name' and 'zone')
-    df_uls = _rename_dataframe_columns(df_uls, "ULS")
-    df_sls_kar = _rename_dataframe_columns(df_sls_kar, "SLS_kar")
-    df_sls_freq = _rename_dataframe_columns(df_sls_freq, "SLS_freq")
-
-    # DEBUG EXPORT: Export after renaming
-    if not df_uls.empty:
-        _export_dataframe_to_excel(df_uls, "cs_05_renamed_uls", "CS_ULS_Renamed")
-
-    # Remove duplicate (name, zone, force_values) combinations
-    # This matches the filtering logic in scia_results_processor._process_single_cs_result_table()
-    # which keeps only one row per unique (name, zone, force_values) combination.
-    # Multiple rows with same (name, zone) but different coords_xyz that have identical force values
-    # are deduplicated here to prevent cartesian product during merge.
-
-    # For each load case, remove rows where (name, zone, coords_xyz) are identical
-    # This prevents Cartesian products during merge while preserving multiple physical locations
-    # within the same zone that have different coordinates and force values.
-
-    # Drop duplicates based on (name, zone, coords_xyz) - keep first occurrence
-    # This ensures we don't get Cartesian products during merge while preserving
-    # multiple distinct physical locations (different coords) within the same zone
-    if "coords_xyz" in df_uls.columns:
-        dedup_columns = ["name", "zone", "coords_xyz"]
-        df_uls = df_uls.drop_duplicates(subset=dedup_columns, keep="first")
-    else:
-        # Fallback: if coords_xyz not found, drop based on (name, zone) only
-        df_uls = df_uls.drop_duplicates(subset=["name", "zone"], keep="first")
-
-    if "coords_xyz" in df_sls_kar.columns:
-        dedup_columns = ["name", "zone", "coords_xyz"]
-        df_sls_kar = df_sls_kar.drop_duplicates(subset=dedup_columns, keep="first")
-    else:
-        df_sls_kar = df_sls_kar.drop_duplicates(subset=["name", "zone"], keep="first")
-
-    if "coords_xyz" in df_sls_freq.columns:
-        dedup_columns = ["name", "zone", "coords_xyz"]
-        df_sls_freq = df_sls_freq.drop_duplicates(subset=dedup_columns, keep="first")
-    else:
-        df_sls_freq = df_sls_freq.drop_duplicates(subset=["name", "zone"], keep="first")
-
-    # Merge dataframes - handle empty cases
-    if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
-        return pd.DataFrame()  # Return empty DataFrame if any component is empty
-
-    # Merge on 'name', 'zone', AND 'coords_xyz' to prevent Cartesian products
-    # Multiple coordinates can exist in the same zone (different physical locations)
-    # so we must match on coords to get a 1:1:1 merge
-    merge_keys = ["name", "zone", "coords_xyz"]
-
-    df_all = df_uls.merge(df_sls_kar, on=merge_keys, how="inner", suffixes=("", "_kar"))
-
-    df_all = df_all.merge(df_sls_freq, on=merge_keys, how="inner", suffixes=("", "_freq"))
-
-    # Clean up duplicate coords_xyz columns if they exist
-    if "coords_xyz_kar" in df_all.columns:
-        df_all = df_all.drop(columns=["coords_xyz_kar"])
-    if "coords_xyz_freq" in df_all.columns:
-        df_all = df_all.drop(columns=["coords_xyz_freq"])
-
-    # DEBUG EXPORT: Export final merged result
-    if not df_all.empty:
-        _export_dataframe_to_excel(df_all, "cs_06_final_merged_for_idea", "CS_Final_Merged")
-
-    return df_all
-
-
-def _process_scia_integration_strip_results_for_idea_input(scia_results_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """
-    Process SCIA integration strip results into a single merged dataframe.
-
-    The individual DataFrames should already be processed (grouped by 'name' and 'dx',
-    with 'Belasting' values merged and absolute maximum values for force/moment columns).
-    This function just merges the load cases.
-
-    :param scia_results_dict: Dictionary containing SCIA integration strip results for different load cases
-    :returns: Merged dataframe with all load cases
-    :rtype: pd.DataFrame
-    """
-    # Get load cases from SCIA results with strip prefixes and add fallback for None values
-    df_uls = scia_results_dict.get("strip_ULS")
-    if df_uls is None:
-        df_uls = pd.DataFrame()
-
-    df_sls_kar = scia_results_dict.get("strip_SLS kar")
-    if df_sls_kar is None:
-        df_sls_kar = pd.DataFrame()
-
-    df_sls_freq = scia_results_dict.get("strip_SLS freq")
-    if df_sls_freq is None:
-        df_sls_freq = pd.DataFrame()
-
-    # Check if any dataframes are empty
-    if df_uls.empty or df_sls_kar.empty or df_sls_freq.empty:
+    if scia_envelope_df.empty:
         return pd.DataFrame()
 
-    # The DataFrames come from SCIA processor with Dutch column names, need to rename them
-    # First rename the common columns (Naam -> name) and add load case prefixes
+    # Add Mx and My columns - select value with maximum absolute magnitude while preserving sign
+    df_processed = scia_envelope_df.copy()
 
-    # Rename common columns and Belasting to avoid conflicts
-    df_uls_renamed = df_uls.rename(columns={"Naam": "name", "Belasting": "ULS_Belasting"})
-    df_sls_kar_renamed = df_sls_kar.rename(columns={"Naam": "name", "Belasting": "SLS_kar_Belasting"})
-    df_sls_freq_renamed = df_sls_freq.rename(columns={"Naam": "name", "Belasting": "SLS_freq_Belasting"})
+    if all(col in df_processed.columns for col in ["m_xD+_max", "m_xD-_max"]):
+        df_processed["Mx"] = df_processed[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
-    # Add load case prefixes to ALL force/moment columns to avoid conflicts during merge
-    # The columns are already named like v_y_max, v_z_max, m_x_max, m_y_max, m_z_max
-    force_moment_columns = ["v_y_max", "v_z_max", "m_x_max", "m_y_max", "m_z_max"]
+    if all(col in df_processed.columns for col in ["m_yD+_max", "m_yD-_max"]):
+        df_processed["My"] = df_processed[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
 
-    # Also rename coordinate and direction columns to avoid conflicts
-    other_columns_to_rename = ["coords_start", "coords_end", "direction_vector"]
-    all_columns_to_rename = force_moment_columns + other_columns_to_rename
+    # Add normal force columns (Nx, Ny) if present
+    if "n_xD_max" in df_processed.columns:
+        df_processed["Nx"] = df_processed["n_xD_max"]
+    if "n_yD_max" in df_processed.columns:
+        df_processed["Ny"] = df_processed["n_yD_max"]
 
-    for col in all_columns_to_rename:
-        if col in df_uls_renamed.columns:
-            df_uls_renamed = df_uls_renamed.rename(columns={col: f"ULS_{col}"})
-        if col in df_sls_kar_renamed.columns:
-            df_sls_kar_renamed = df_sls_kar_renamed.rename(columns={col: f"SLS_kar_{col}"})
-        if col in df_sls_freq_renamed.columns:
-            df_sls_freq_renamed = df_sls_freq_renamed.rename(columns={col: f"SLS_freq_{col}"})
-
-    # Use 'name' and 'dx' columns for merging (renamed from 'Naam')
-    merge_columns = ["name", "dx"]
-
-    df_temp = df_uls_renamed.merge(df_sls_kar_renamed, on=merge_columns, how="inner")
-    return df_temp.merge(df_sls_freq_renamed, on=merge_columns, how="inner")
-
-
-def _apply_integration_strip_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401
-    """
-    Apply load cases from SCIA integration strip results to each slab.
-
-    :param created_slabs: Dictionary of created slabs with zones and slab objects
-    :type created_slabs: dict[str, dict]
-    :param df_all: Merged dataframe with all load cases and strip data
-    :type df_all: pd.DataFrame
-    :param builder: IDEA model builder instance
-    :type builder: Any
-    """
-    if df_all.empty:
-        return
-
-    for slab_key, slab_data in created_slabs.items():
-        zones = slab_data.get("zones") or []
-
-        if not zones:
-            continue
-
-        # Filter df_all to only include strips that belong to this slab's zones
-        matching_strips = _find_matching_strips(df_all, zones)
-
-        if not matching_strips:
-            continue
-
-        desc_prefix = slab_key.replace(".", "_")
-
-        for direction in ["langs", "dwars"]:
-            slab = slab_data.get(f"slab_{direction}")
-
-            if slab is not None:
-                _apply_strip_loads_to_slab_direction(slab, matching_strips, desc_prefix, direction, builder)
-
-
-def _extract_zone_name_from_strip(strip_name: str) -> str:
-    """
-    Extract zone name from strip name and convert format.
-
-    Example: "strip_Z3_1_(5.0, -1.5, 0)_(5.0, -10.5, 0)" -> "3-1"
-    """
-    try:
-        # Remove "strip_" prefix and extract zone part
-        if strip_name.startswith("strip_Z"):
-            zone_part = strip_name[7:]  # Remove "strip_Z"
-            # Find the first underscore followed by coordinates
-            coord_start = zone_part.find("_(")
-            if coord_start > 0:
-                zone_id = zone_part[:coord_start]  # e.g., "3_1"
-                return zone_id.replace("_", "-")  # Convert "3_1" to "3-1"
-    except Exception:
-        pass
-    return ""
-
-
-def _find_matching_strips(df_all: pd.DataFrame, zones: list[str]) -> list:
-    """Find strips that belong to the specified zones."""
-    matching_strips = []
-
-    for _, row in df_all.iterrows():
-        strip_name = row.get("name", "")
-        zone_name = _extract_zone_name_from_strip(strip_name)
-
-        if zone_name in zones:
-            matching_strips.append(row)
-
-    return matching_strips
-
-
-def _create_idea_loading_objects(row: pd.Series, moment_component: str, builder: Any) -> tuple:  # noqa: ANN401
-    """
-    Create IDEA RCS loading objects from strip result row using builder pattern.
-
-    :param row: DataFrame row with load results
-    :type row: pd.Series
-    :param moment_component: Moment component name (e.g., "m_y")
-    :type moment_component: str
-    :param builder: IDEA model builder instance
-    :type builder: Any
-    :returns: Tuple of (characteristic, frequent, fundamental) loadings
-    :rtype: tuple
-    """
-    # Create characteristic SLS loading
-    internal_forces_char = builder.create_result_of_internal_forces(
-        Qz=row.get("SLS_kar_v_z_max", 0),
-        My=row.get(f"SLS_kar_{moment_component}", 0),
-    )
-    char = builder.create_loading_sls(internal_forces_char)
-
-    # Create frequent SLS loading
-    internal_forces_freq = builder.create_result_of_internal_forces(
-        Qz=row.get("SLS_freq_v_z_max", 0),
-        My=row.get(f"SLS_freq_{moment_component}", 0),
-    )
-    freq = builder.create_loading_sls(internal_forces_freq)
-
-    # Create fundamental ULS loading
-    internal_forces_fund = builder.create_result_of_internal_forces(
-        Qz=row.get("ULS_v_z_max", 0),
-        My=row.get(f"ULS_{moment_component}", 0),
-    )
-    fund = builder.create_loading_uls(internal_forces_fund)
-
-    return char, freq, fund
-
-
-def _apply_strip_loads_to_slab_direction(slab: Any, matching_strips: list, desc_prefix: str, direction: str, builder: Any) -> None:  # noqa: ANN401
-    """
-    Apply strip loads to a slab in a specific direction.
-
-    :param slab: Slab object to apply loads to
-    :type slab: Any
-    :param matching_strips: List of strip results
-    :type matching_strips: list
-    :param desc_prefix: Description prefix for load cases
-    :type desc_prefix: str
-    :param direction: Direction ("langs" or "dwars")
-    :type direction: str
-    :param builder: IDEA model builder instance
-    :type builder: Any
-    """
-    # For integration strips: always use v_z_max as shear (Qz)
-    # For moments, determine component based on the strip's direction vector:
-    # - if direction vector is (1, 0, 0) or (-1, 0, 0) use m_y_max for langs, m_x_max for dwars
-    # - if direction vector is (0, 1, 0) or (0, -1, 0) use m_x_max for langs, m_y_max for dwars
-    # This is based on the orientation of the strip and how IDEA RCS expects the moments
-
-    if not matching_strips:
-        return
-
-    for row in matching_strips:
-        # Debug row data
-        strip_name = row.get("name", "Unknown")
-
-        # Get the normalized direction vector from the strip data
-        # Try the different possible column names based on load case
-        direction_vector = (
-            row.get("ULS_direction_vector")
-            or row.get("SLS_kar_direction_vector")
-            or row.get("SLS_freq_direction_vector")
-            or DEFAULT_DIRECTION_VECTOR_X  # Default to x-direction if not found
-        )
-
-        # Determine moment component based on strip orientation and slab direction
-        if abs(direction_vector[0]) > DIRECTION_VECTOR_THRESHOLD:  # Strip is primarily in X-direction (longitudinal)
-            moment_component = "m_y_max" if direction == "langs" else "m_x_max"
-        elif abs(direction_vector[1]) > DIRECTION_VECTOR_THRESHOLD:  # Strip is primarily in Y-direction (transverse)
-            moment_component = "m_x_max" if direction == "langs" else "m_y_max"
-        else:
-            # Error for diagonal or unclear orientations - this indicates a problem with strip geometry
-            msg = (
-                f"Invalid strip orientation detected for strip '{strip_name}'. "
-                f"Direction vector {direction_vector} is not aligned with X or Y axis. "
-                f"Integration strips should be aligned with bridge coordinate axes."
-            )
-            raise ValueError(msg)
-
-        # Create loading objects using builder
-        char, freq, fund = _create_idea_loading_objects(row, moment_component, builder)
-
-        zone_name = _extract_zone_name_from_strip(strip_name)
-        dx_value = row.get("dx", 0)
-        description = f"{desc_prefix} - {zone_name} - {strip_name} - dx={dx_value:.3f}"
-
-        with contextlib.suppress(Exception):
-            builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
-
-
-def _apply_node_loads_to_slabs(created_slabs: dict[str, dict], df_all: pd.DataFrame, builder: Any) -> None:  # noqa: ANN401, C901
-    """
-    Apply load cases from SCIA node results to each slab using builder pattern.
-
-    :param created_slabs: Dictionary of created slabs with zones and slab objects
-    :type created_slabs: dict[str, dict]
-    :param df_all: Merged dataframe with all load cases
-    :type df_all: pd.DataFrame
-    :param builder: IDEA model builder instance
-    :type builder: Any
-    """
-    # Handle empty DataFrame case
-    if df_all.empty:
-        return
-
-    # For langs cs link IDEA vz to scia vy and IDEA My to scia My
-    # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
-    # Direction → axis + corresponding moment component
-    orient = {
-        "langs": {"axis": "y", "moment": "My"},
-        "dwars": {"axis": "x", "moment": "Mx"},
-    }
-
-    def _format_coords(coords: list | tuple | str | float | None) -> str:
-        if coords is None:
-            return "No coords"
-        if isinstance(coords, (list, tuple)):
-            return f"({', '.join(map(str, coords))})"
-        return str(coords)
-
-    for slab_key, slab_data in created_slabs.items():
-        zones = slab_data.get("zones") or []
-        if not zones:
-            continue
-
-        df_slab = df_all[df_all["name"].isin(zones)]
-        if df_slab.empty:
-            continue
-
-        desc_prefix = slab_key.replace(".", "_")
-
-        for direction, cfg in orient.items():
-            slab = slab_data.get(f"slab_{direction}")
-            if slab is None:
-                continue
-
-            axis = cfg["axis"]  # "x" or "y"
-
-            for _, row in df_slab.iterrows():
-                # Build internal forces with dynamic moment component (vx/y and Mx/My) using builder
-                internal_forces_char = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                    My=row.get(f"SLS_kar_M{axis}", 0),
-                )
-                char = builder.create_loading_sls(internal_forces_char)
-
-                internal_forces_freq = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                    My=row.get(f"SLS_freq_M{axis}", 0),
-                )
-                freq = builder.create_loading_sls(internal_forces_freq)
-
-                internal_forces_fund = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"ULS_v_{axis}_max", 0),
-                    My=row.get(f"ULS_M{axis}", 0),
-                )
-                fund = builder.create_loading_uls(internal_forces_fund)
-
-                name = row.get("name", "Unknown")
-                coords_str = _format_coords(row.get("coords_xyz"))
-                description = f"{desc_prefix} - {name} - node_{coords_str}"
-
-                builder.create_extreme_on_slab(slab, description=description, characteristic=char, frequent=freq, fundamental=fund)
+    return df_processed
 
 
 def _apply_cs_loads_to_slabs(  # noqa: C901
@@ -968,38 +507,40 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
     builder: Any,  # noqa: ANN401
 ) -> None:
     """
-    Apply load cases from SCIA CS (Cross Section) results to each slab using builder pattern.
+    Apply load cases from SCIA CS (Cross Section) envelope results to each slab using builder pattern.
 
-    CS results contain a 'name' column with section names and a 'zone' column.
-    Each row is applied to both slab_langs and slab_dwars with different force components.
+    For each unique zone and direction (langs/dwars), creates ONE extreme combining:
+    - ULS row for that zone
+    - SLS freq row for that zone
 
-    Deduplication is handled by process_scia_cs_results which:
-    - Merges coordinates from both basis and elementaire tables
-    - Removes duplicates where (name, zone, force/moment values) are identical
+    Each extreme has:
+    - Shear forces (v_x or v_y depending on direction) → Qz in IDEA
+    - Bending moments (Mx or My depending on direction) → My in IDEA
+    - Normal forces (Nx or Ny depending on direction) → N in IDEA (if supported)
 
     :param created_slabs: Dictionary of created slabs with zones and slab objects
     :type created_slabs: dict[str, dict]
-    :param df_all: Merged dataframe with all load cases
+    :param df_all: Envelope dataframe with ULS and SLS freq results (individual rows per result_type)
     :type df_all: pd.DataFrame
     :param builder: IDEA model builder instance
     :type builder: Any
     """
+    # Early return if dataframe is empty
     if df_all.empty:
         return
 
-    # For langs cs link IDEA vz to scia vy and IDEA My to scia My
-    # For dwars cs link IDEA vz to scia vx and IDEA My to scia Mx
-    # Direction → axis + corresponding moment component
+    # For langs cs: link IDEA vz to SCIA vy and IDEA My to SCIA My
+    # For dwars cs: link IDEA vz to SCIA vx and IDEA My to SCIA Mx
     orient = {
-        "langs": {"axis": "y", "moment": "My"},
-        "dwars": {"axis": "x", "moment": "Mx"},
+        "langs": {"shear": "v_y_max", "moment": "My", "normal": "Ny"},
+        "dwars": {"shear": "v_x_max", "moment": "Mx", "normal": "Nx"},
     }
 
     def _format_coords(coords: list | tuple | str | float | None) -> str:
         if coords is None:
-            return "No coords"
+            return "No_coords"
         if isinstance(coords, (list, tuple)):
-            return f"({', '.join(map(str, coords))})"
+            return f"({','.join(str(c) for c in coords)})"
         return str(coords)
 
     for slab_key, slab_data in created_slabs.items():
@@ -1013,43 +554,86 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
 
         desc_prefix = slab_key.replace(".", "_")
 
-        for direction, cfg in orient.items():
-            slab = slab_data.get(f"slab_{direction}")
-            if slab is None:
-                continue
+        # Get unique combinations of (zone, max_for_column)
+        unique_combinations = df_slab[["zone", "max_for_column"]].drop_duplicates()
 
-            axis = cfg["axis"]  # "x" or "y"
+        for _, combo_row in unique_combinations.iterrows():
+            zone = combo_row["zone"]
+            max_for = combo_row["max_for_column"]
 
-            for _, row in df_slab.iterrows():
-                # Build internal forces with dynamic moment component (vx/y and Mx/My) using builder
-                # CS results have _max suffix on force columns
-                internal_forces_char = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"SLS_kar_v_{axis}_max", 0),
-                    My=row.get(f"SLS_kar_M{axis}", 0),
-                )
-                char = builder.create_loading_sls(internal_forces_char)
+            # Filter data for this specific (zone, max_for_column) combination
+            df_combo = df_slab[(df_slab["zone"] == zone) & (df_slab["max_for_column"] == max_for)]
 
-                internal_forces_freq = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"SLS_freq_v_{axis}_max", 0),
-                    My=row.get(f"SLS_freq_M{axis}", 0),
-                )
-                freq = builder.create_loading_sls(internal_forces_freq)
+            # Split by result_type
+            df_uls = df_combo[df_combo["result_type"] == "ULS"]
+            df_sls = df_combo[df_combo["result_type"] == "SLS freq"]
 
-                internal_forces_fund = builder.create_result_of_internal_forces(
-                    Qz=row.get(f"ULS_v_{axis}_max", 0),
-                    My=row.get(f"ULS_M{axis}", 0),
-                )
+            # Get the rows (should be one ULS and one SLS freq for this combination)
+            uls_row = df_uls.iloc[0]
+            sls_row = df_sls.iloc[0]
+
+            # Create extremes for both directions
+            for direction, cfg in orient.items():
+                slab = slab_data.get(f"slab_{direction}")
+                if slab is None:
+                    continue
+
+                shear_col = cfg["shear"]
+                moment_col = cfg["moment"]
+                normal_col = cfg["normal"]
+
+                # Get ULS values
+                qz_uls = uls_row.get(shear_col, 0)
+                my_uls = uls_row.get(moment_col, 0)
+                n_uls = uls_row.get(normal_col, 0)
+
+                # Get SLS freq values
+                qz_freq = sls_row.get(shear_col, 0)
+                my_freq = sls_row.get(moment_col, 0)
+                n_freq = sls_row.get(normal_col, 0)
+
+                # Build description
+                cs_name = uls_row.get("name", "Unknown")
+                coords = _format_coords(uls_row.get("coords_xyz"))
+                belasting_uls = uls_row.get("belasting", "Unknown")
+                belasting_sls = sls_row.get("belasting", "Unknown")
+
+                description = f"{desc_prefix}_{direction}-{zone}-{cs_name}-{coords}-{max_for}-ULS:{belasting_uls}/SLS:{belasting_sls}"
+
+                # Create internal forces for ULS (fundamental)
+                try:
+                    internal_forces_fund = builder.create_result_of_internal_forces(
+                        Qz=qz_uls,
+                        My=my_uls,
+                        N=n_uls,
+                    )
+                except TypeError:
+                    # Builder doesn't support N parameter
+                    internal_forces_fund = builder.create_result_of_internal_forces(
+                        Qz=qz_uls,
+                        My=my_uls,
+                    )
                 fund = builder.create_loading_uls(internal_forces_fund)
 
-                cs_name = row.get("name", "Unknown")
-                zone_name = row.get("zone", "Unknown")
-                coords_str = _format_coords(row.get("coords_xyz"))
-                description = f"{desc_prefix} - {zone_name} - {cs_name}_{coords_str}"
+                # Create internal forces for SLS freq (frequent)
+                try:
+                    internal_forces_freq = builder.create_result_of_internal_forces(
+                        Qz=qz_freq,
+                        My=my_freq,
+                        N=n_freq,
+                    )
+                except TypeError:
+                    # Builder doesn't support N parameter
+                    internal_forces_freq = builder.create_result_of_internal_forces(
+                        Qz=qz_freq,
+                        My=my_freq,
+                    )
+                freq = builder.create_loading_sls(internal_forces_freq)
 
+                # Create the extreme combining ULS and SLS freq
                 builder.create_extreme_on_slab(
                     slab,
                     description=description,
-                    characteristic=char,
                     frequent=freq,
                     fundamental=fund,
                 )
@@ -1107,20 +691,22 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
     # Create slabs with reinforcement using builder
     created_slabs = _create_slabs_with_reinforcement(input_data, model, cs_mat, mat_reinf, builder)
 
-    # Process SCIA node results for idea input
-    df_node_all = _process_scia_node_results_for_idea_input(scia_results_dict)
-    # Apply node loads to slabs using builder
-    _apply_node_loads_to_slabs(created_slabs, df_node_all, builder)
+    # Process SCIA CS (Cross Section) envelope results for IDEA input
+    # Check if envelope DataFrame is already provided (from cache)
+    if "cs_envelope" in scia_results_dict and scia_results_dict["cs_envelope"] is not None:
+        df_cs_envelope = scia_results_dict["cs_envelope"]
+    else:
+        # Process SCIA results to get envelope DataFrame
+        # Get the results dict, ensuring it's a dict type
+        results_data_raw: pd.DataFrame | dict[str, Any] = scia_results_dict.get("results", {})
+        results_data: dict[str, Any] = results_data_raw if isinstance(results_data_raw, dict) else {}
+        df_cs_envelope = process_scia_cs_results_for_idea(results_data, input_data.bridge_segments)
 
-    # Process SCIA CS (Cross Section) results for idea input
-    df_cs_all = _process_scia_cs_results_for_idea_input(scia_results_dict)
+    # Process the envelope DataFrame for IDEA input (merges ULS and SLS freq)
+    df_cs_all = _process_scia_cs_results_for_idea_input(df_cs_envelope)
+
     # Apply CS loads to slabs using builder
     _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
-
-    # Process SCIA integration strip results for idea input
-    df_strip_all = _process_scia_integration_strip_results_for_idea_input(scia_results_dict)
-    # Apply integration strip loads to slabs using builder
-    _apply_integration_strip_loads_to_slabs(created_slabs, df_strip_all, builder)
 
     return model
 

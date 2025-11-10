@@ -1,16 +1,18 @@
 """Utility functions specific to the Bridge entity's UI or Plotly views."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
 
 # Import for validate_load_zone_widths - ensure this path is correct
-from src.geometry.model_creator import (
-    LoadZoneGeometryData,  # BridgeSegmentDimensions is not directly used here anymore
-)
 from viktor import InputViolation  # type: ignore[attr-defined]
 from viktor.errors import UserError
 
-# Import for type hints only to avoid circular import
+from src.geometry.model_creator import (
+    LoadZoneGeometryData,
+)
+
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 

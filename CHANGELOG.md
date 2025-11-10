@@ -5,12 +5,21 @@ Introduced a new naming system with span, lane and configuration identification.
 
 ### Changed
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
+- Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
+- Re-assigned the UDL and tandem loads to load groups.
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added
 - Added dynamic load factor for tram load
 - Tram loads VIKTOR input and modelling of the loads in SCIA
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+- **SCIA to IDEA Cross-Section Load Integration**: Refactored cross-section load transfer from SCIA to IDEA StatiCa
+  - Uses filtered CS envelope data combining ULS and SLS freq results (SLS kar removed)
+  - Supports normal forces (n_xD, n_yD) in addition to shear and moment forces
+  - Creates two IDEA extremes per (zone, max_for_column) combination - one for each direction (langs/dwars)
+  - Each extreme combines fundamental (ULS) and frequent (SLS freq) load values
+  - Removed deprecated node and integration strip processing functions
+  - Streamlined data flow: SCIA envelope → processed DataFrame → IDEA extremes
 - **Bridge Database Management System**: Complete workflow for managing bridge inventory data
   - New "Brug Database Management" page in OverviewBridges entity for centralized data management
   - CSV and Excel file upload functionality to update bridge database (`filtered_bridges.json`)
@@ -38,6 +47,11 @@ Introduced a new naming system with span, lane and configuration identification.
 - **Management summary**: Added basic param values and unity check values to the management summary.
 - **2D sections on 2d members**: Added 2D sections in SCIA and the link with with IDEA 
 - **Dual road zone support**: Added functionality to add two seperate road zones on the bridge instead of one single zone in the middle, for the real road layout. Adapted the lane generation and load generation functions for the UDL and Tandem system loads.
+- **SCIA section plane handling**: Enhanced section plane creation for multi-segment spans and zone boundaries
+  - Sections respect intermediate segment boundaries with 1mm offset
+  - Sections avoid crossing zone boundaries (bz1/bz2/bz3)
+  - Special section coverage for narrow middle zones (bz2 ≤ 1.002m)
+  - Comprehensive documentation in `docs/scia_section_on_plane_logic.md`
 
 ### Changed
 - **SCIA material selection**: SCIA model now uses `params.concrete_strength_class` with fallback to `DEFAULT_CONCRETE_STRENGTH_CLASS` (C30/37).
@@ -61,6 +75,8 @@ Introduced a new naming system with span, lane and configuration identification.
 - Fixed parameter access patterns for DynamicArray fields in VIKTOR parametrization
 - IDEA crack width results: Fixed extraction and display of crack width results from IDEA StatiCa (handles both short- and long-term, no longer shows N/A when results exist).
 - Pydantic validation: Improved legacy material support and reinforcement validation (historical concrete/steel, 0mm/negative heights, etc.).
+
+- Refactored SCIA section-plane logic; fixed boundary/edge-section placement and Pydantic v2 compatibility issues. (QA checks passed)
 
 
 ## [`v0.0.15`] - 2025-10-02

@@ -13,18 +13,17 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
+from viktor.core import File, Storage, progress_message
+from viktor.errors import UserError
+from viktor.external import idea_rcs
+
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
 from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
 from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_cs_results_for_idea,
-    process_scia_integration_strip_results_for_idea,
-    process_scia_node_results_for_idea,
 )
-from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
-from viktor.external import idea_rcs
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -190,19 +189,17 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     if bridge_segments is None:
         bridge_segments = []
 
-    # Get node results (2D forces), CS results (cross sections), and integration strip results (1D forces)
-    progress_message("Verwerken SCIA resultaten voor IDEA...")
-    node_results = process_scia_node_results_for_idea(results)
-    cs_results = process_scia_cs_results_for_idea(results, bridge_segments)
-    integration_strip_results = process_scia_integration_strip_results_for_idea(results)
+    # Process SCIA CS (Cross Section) envelope results for IDEA
+    # This returns a single DataFrame with filtered ULS and SLS freq envelope data
+    progress_message("Verwerken SCIA CS resultaten voor IDEA...")
+    cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
 
-    # Merge all result dictionaries
-    merged_results = {}
-    merged_results.update(node_results)
-    merged_results.update(cs_results)
-    merged_results.update(integration_strip_results)
-
-    return merged_results
+    # Return results dictionary with the envelope DataFrame
+    # The results are wrapped to maintain compatibility with existing code
+    return {
+        "results": results,
+        "cs_envelope": cs_envelope_df,
+    }
 
 
 def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
