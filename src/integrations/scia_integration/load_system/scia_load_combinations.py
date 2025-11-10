@@ -40,6 +40,7 @@ SUBJECT_TO_SERIES: dict[str, list[str]] = {
     "Dienstvoertuig Qserv": ["service_vehicle_cases"],
     "Fiets- en voetpaden": ["pedestrian"],
     "Mensenmenigte": ["pedestrian"],
+    "Bijzondere voertuigen": ["tram_track_tandem_cases"],
     "Onbedoeld voertuig": ["unintended_vehicle_cases"],
     "Temperatuur": ["temperature_cases"],
 }
