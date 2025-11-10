@@ -721,39 +721,41 @@ def tandem_systems_real_lanes_bg10000(
         results.append(load_case_right_a)
         idx += 1
 
-    # Then, generate ALL Configuration B load cases (300 kN center, 100 kN left, 200 kN right)
+    # Then, generate ALL Configuration D load cases (300 kN center, 100 kN left, 200 kN right)
+    # Configuration D is the second half of BG10000 where physical positions are switched
+    # But lane labels match load magnitudes: rs 2 = 200 kN (middle), rs 3 = 100 kN (lowest)
     for x in tandem_x_positions:
         # Center vehicle (rs 1)
         wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
         load_case_center = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": f"rs 1 - Conf. C - x = {x:g} m",
+            "title": f"rs 1 - Conf. D - x = {x:g} m",
             "wheels": wheels_300,
             "load": load_main,
         }
         results.append(load_case_center)
         idx += 1
 
-        # Left vehicle (rs 2) - Configuration B: 100 kN
+        # Left vehicle - Configuration D: 100 kN load at left position, labeled as rs 3
         wheels_100_left = _create_tandem_wheels(x, y_left, wheel_size)
-        load_case_left_b = {
+        load_case_left_d = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": f"rs 2 - Conf. C - x = {x:g} m",
+            "title": f"rs 3 - Conf. D - x = {x:g} m",  # rs 3 = 100 kN (consistency)
             "wheels": wheels_100_left,
             "load": load_third,
         }
-        results.append(load_case_left_b)
+        results.append(load_case_left_d)
         idx += 1
 
-        # Right vehicle (rs 3) - Configuration B: 200 kN
+        # Right vehicle - Configuration D: 200 kN load at right position, labeled as rs 2
         wheels_200_right = _create_tandem_wheels(x, y_right, wheel_size)
-        load_case_right_b = {
+        load_case_right_d = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": f"rs 3 - Conf. C - x = {x:g} m",
+            "title": f"rs 2 - Conf. D - x = {x:g} m",  # rs 2 = 200 kN (consistency)
             "wheels": wheels_200_right,
             "load": load_second,
         }
-        results.append(load_case_right_b)
+        results.append(load_case_right_d)
         idx += 1
 
     return results

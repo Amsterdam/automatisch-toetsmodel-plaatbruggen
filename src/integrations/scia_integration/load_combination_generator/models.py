@@ -17,11 +17,16 @@ class LoadConfiguration(str, Enum):
 
     Traffic loads are generated in different configurations to represent
     different positioning scenarios on the bridge.
+
+    Note: Configuration D is used for the second half of the BG10000 series
+    where notional lanes 2 and 3 are switched compared to Configuration C.
+    Config D tandems combine with Config C UDLs.
     """
 
     CONF_A = "A"
     CONF_B = "B"
     CONF_C = "C"
+    CONF_D = "D"  # Second half of BG10000 series (lanes 2/3 switched)
     NONE = "None"  # For non-traffic loads
 
 
