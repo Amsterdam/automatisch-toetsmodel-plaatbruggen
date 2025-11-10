@@ -16,10 +16,8 @@ from .models import LoadMetadata, TrafficLoadCombination
 from .traffic_load_rules import TrafficLoadRules
 
 __all__ = [
-    "TrafficLoadCombinationGenerator",
     "LoadMetadata",
     "TrafficLoadCombination",
+    "TrafficLoadCombinationGenerator",
     "TrafficLoadRules",
 ]
-
-

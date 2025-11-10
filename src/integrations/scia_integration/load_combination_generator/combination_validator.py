@@ -55,19 +55,23 @@ def get_combination_summary(result: CombinationGenerationResult) -> str:
         lines.append(f"  Configuration {config}: {count} combinations")
 
     if result.statistics:
-        lines.extend([
-            "",
-            "Statistics:",
-            f"  Average loads per combination: {result.statistics.get('avg_loads_per_combination', 0):.1f}",
-            f"  Combinations with tandem: {result.statistics.get('combinations_with_tandem', 0)}",
-            f"  UDL-only combinations: {result.statistics.get('combinations_udl_only', 0)}",
-        ])
+        lines.extend(
+            [
+                "",
+                "Statistics:",
+                f"  Average loads per combination: {result.statistics.get('avg_loads_per_combination', 0):.1f}",
+                f"  Combinations with tandem: {result.statistics.get('combinations_with_tandem', 0)}",
+                f"  UDL-only combinations: {result.statistics.get('combinations_udl_only', 0)}",
+            ]
+        )
 
     if result.warnings:
-        lines.extend([
-            "",
-            "Warnings:",
-        ])
+        lines.extend(
+            [
+                "",
+                "Warnings:",
+            ]
+        )
         for warning in result.warnings:
             lines.append(f"  - {warning}")
 
@@ -76,9 +80,7 @@ def get_combination_summary(result: CombinationGenerationResult) -> str:
     return "\n".join(lines)
 
 
-def export_combinations_for_scia(
-    combinations: list[TrafficLoadCombination], load_metadata: dict[str, LoadMetadata]
-) -> dict[str, list[str]]:
+def export_combinations_for_scia(combinations: list[TrafficLoadCombination], load_metadata: dict[str, LoadMetadata]) -> dict[str, list[str]]:
     """
     Export combinations in a format suitable for SCIA integration.
 
@@ -165,5 +167,3 @@ def filter_combinations_by_criteria(
         filtered.append(combo)
 
     return filtered
-
-

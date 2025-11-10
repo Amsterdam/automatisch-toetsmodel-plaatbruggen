@@ -186,9 +186,7 @@ class TestConfigurationFiltering(unittest.TestCase):
     def test_no_filter_when_config_none(self) -> None:
         """Test that no filtering occurs when configuration is None."""
         result: dict = {}
-        _add_series_to_factors_generic(
-            self.all_load_cases, series_key="tandem_cases", factor=1.5, out=result, configuration=None
-        )
+        _add_series_to_factors_generic(self.all_load_cases, series_key="tandem_cases", factor=1.5, out=result, configuration=None)
 
         # Should include all cases
         self.assertIn(self.case_a1, result)
@@ -257,9 +255,7 @@ class TestIntegrationWithNonTrafficLoads(unittest.TestCase):
         for config in [LoadConfiguration.CONF_A, LoadConfiguration.CONF_B, LoadConfiguration.CONF_C, None]:
             with self.subTest(config=config):
                 result: dict = {}
-                _add_series_to_factors_generic(
-                    self.all_load_cases, series_key="standard_cases", factor=1.2, out=result, configuration=config
-                )
+                _add_series_to_factors_generic(self.all_load_cases, series_key="standard_cases", factor=1.2, out=result, configuration=config)
 
                 # Permanent loads should always be included (when config=None)
                 if config is None:
@@ -527,4 +523,3 @@ class TestConfigDSpecialHandling(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

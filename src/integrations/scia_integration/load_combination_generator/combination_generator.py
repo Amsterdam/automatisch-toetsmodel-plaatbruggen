@@ -11,8 +11,8 @@ from itertools import combinations, product
 from typing import Any
 
 from .models import (
-    CombinationGenerationResult,
     CombinationConstraints,
+    CombinationGenerationResult,
     LoadCategory,
     LoadConfiguration,
     LoadMetadata,
@@ -39,9 +39,7 @@ class TrafficLoadCombinationGenerator:
         self.constraints = constraints or CombinationConstraints()
         self.rules = TrafficLoadRules()
 
-    def extract_metadata_from_load_cases(
-        self, all_load_cases: dict[str, Any]
-    ) -> dict[str, LoadMetadata]:
+    def extract_metadata_from_load_cases(self, all_load_cases: dict[str, Any]) -> dict[str, LoadMetadata]:
         """
         Extract metadata from SCIA load case structure.
 
@@ -101,9 +99,7 @@ class TrafficLoadCombinationGenerator:
 
         return metadata
 
-    def generate_traffic_combinations(
-        self, load_metadata: dict[str, LoadMetadata]
-    ) -> CombinationGenerationResult:
+    def generate_traffic_combinations(self, load_metadata: dict[str, LoadMetadata]) -> CombinationGenerationResult:
         """
         Generate all valid traffic load combinations.
 
@@ -133,9 +129,7 @@ class TrafficLoadCombinationGenerator:
 
         return result
 
-    def _generate_combinations_for_config(
-        self, config: LoadConfiguration, loads: list[LoadMetadata]
-    ) -> list[TrafficLoadCombination]:
+    def _generate_combinations_for_config(self, config: LoadConfiguration, loads: list[LoadMetadata]) -> list[TrafficLoadCombination]:
         """
         Generate all valid combinations for a single configuration.
 
@@ -190,9 +184,7 @@ class TrafficLoadCombinationGenerator:
 
         return combinations_list
 
-    def _generate_tandem_combinations(
-        self, tandems_by_lane: dict[int, list[LoadMetadata]]
-    ) -> list[dict[str, str]]:
+    def _generate_tandem_combinations(self, tandems_by_lane: dict[int, list[LoadMetadata]]) -> list[dict[str, str]]:
         """
         Generate all valid tandem load combinations.
 
@@ -223,9 +215,7 @@ class TrafficLoadCombinationGenerator:
 
         return combinations_list
 
-    def _group_by_configuration(
-        self, load_metadata: dict[str, LoadMetadata]
-    ) -> dict[LoadConfiguration, list[LoadMetadata]]:
+    def _group_by_configuration(self, load_metadata: dict[str, LoadMetadata]) -> dict[LoadConfiguration, list[LoadMetadata]]:
         """
         Group loads by configuration.
 
@@ -240,9 +230,7 @@ class TrafficLoadCombinationGenerator:
                 groups[load.configuration].append(load)
         return dict(groups)
 
-    def _group_tandem_by_lane(
-        self, tandem_loads: list[LoadMetadata]
-    ) -> dict[int, list[LoadMetadata]]:
+    def _group_tandem_by_lane(self, tandem_loads: list[LoadMetadata]) -> dict[int, list[LoadMetadata]]:
         """
         Group tandem loads by notional lane.
 
@@ -361,9 +349,7 @@ class TrafficLoadCombinationGenerator:
         return "LG8000 - TS rijstrook 1"  # Default
 
     @staticmethod
-    def _create_combination_description(
-        config: LoadConfiguration, udl_loads: list[LoadMetadata], tandem_combo: dict[str, str]
-    ) -> str:
+    def _create_combination_description(config: LoadConfiguration, udl_loads: list[LoadMetadata], tandem_combo: dict[str, str]) -> str:
         """Create a human-readable description for a combination."""
         parts = [f"Config {config.value}:"]
 
@@ -371,7 +357,7 @@ class TrafficLoadCombinationGenerator:
             parts.append(f"{len(udl_loads)} UDL")
 
         if tandem_combo:
-            lanes = sorted([int(key[2:]) for key in tandem_combo.keys()])
+            lanes = sorted([int(key[2:]) for key in tandem_combo])
             parts.append(f"TS lanes {','.join(map(str, lanes))}")
 
         return " ".join(parts)
@@ -399,5 +385,3 @@ class TrafficLoadCombinationGenerator:
             stats["combinations_udl_only"] = sum(1 for combo in result.combinations if not combo.tandem_loads)
 
         return stats
-
-

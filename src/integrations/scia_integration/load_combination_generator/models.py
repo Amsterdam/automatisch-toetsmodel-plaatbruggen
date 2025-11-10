@@ -57,9 +57,7 @@ class LoadMetadata(BaseModel):
 
     load_case_name: str = Field(description="SCIA load case name (e.g., BG4001, BG8001)")
     category: LoadCategory = Field(description="High-level load category")
-    configuration: LoadConfiguration = Field(
-        default=LoadConfiguration.NONE, description="Configuration (A, B, C) for traffic loads"
-    )
+    configuration: LoadConfiguration = Field(default=LoadConfiguration.NONE, description="Configuration (A, B, C) for traffic loads")
     notional_lane: int | None = Field(default=None, description="Notional lane number (1, 2, 3) for tandem loads")
     position_x: float | None = Field(default=None, description="X-position on bridge for tandem loads (meters)")
     span_index: int | None = Field(default=None, description="Span index for UDL loads")
@@ -128,9 +126,7 @@ class TrafficLoadCombination(BaseModel):
     configuration: LoadConfiguration = Field(description="Configuration this combination belongs to")
     load_case_names: list[str] = Field(default_factory=list, description="List of load case names in this combination")
     udl_loads: list[str] = Field(default_factory=list, description="UDL load case names")
-    tandem_loads: dict[str, str] = Field(
-        default_factory=dict, description="Tandem loads by lane (e.g., {'RS1': 'BG8001', 'RS2': 'BG9001'})"
-    )
+    tandem_loads: dict[str, str] = Field(default_factory=dict, description="Tandem loads by lane (e.g., {'RS1': 'BG8001', 'RS2': 'BG9001'})")
     description: str = Field(default="", description="Human-readable description")
 
     model_config = {"validate_assignment": True}
@@ -162,15 +158,9 @@ class CombinationConstraints(BaseModel):
     """
 
     max_lanes: int = Field(default=3, description="Maximum number of notional lanes on bridge")
-    allow_mixed_configurations: bool = Field(
-        default=False, description="Whether to allow mixing configurations (should be False for traffic loads)"
-    )
-    require_udl_with_tandem: bool = Field(
-        default=False, description="Whether UDL must always accompany tandem loads"
-    )
-    min_tandem_spacing: float | None = Field(
-        default=None, description="Minimum spacing between tandem loads in meters (if applicable)"
-    )
+    allow_mixed_configurations: bool = Field(default=False, description="Whether to allow mixing configurations (should be False for traffic loads)")
+    require_udl_with_tandem: bool = Field(default=False, description="Whether UDL must always accompany tandem loads")
+    min_tandem_spacing: float | None = Field(default=None, description="Minimum spacing between tandem loads in meters (if applicable)")
 
     model_config = {"validate_assignment": True}
 
@@ -182,16 +172,10 @@ class CombinationGenerationResult(BaseModel):
     Contains the generated combinations and metadata about the generation process.
     """
 
-    combinations: list[TrafficLoadCombination] = Field(
-        default_factory=list, description="List of valid traffic load combinations"
-    )
+    combinations: list[TrafficLoadCombination] = Field(default_factory=list, description="List of valid traffic load combinations")
     total_count: int = Field(default=0, description="Total number of combinations generated")
-    by_configuration: dict[str, int] = Field(
-        default_factory=dict, description="Count of combinations per configuration"
-    )
-    load_metadata: dict[str, LoadMetadata] = Field(
-        default_factory=dict, description="Metadata for all processed loads"
-    )
+    by_configuration: dict[str, int] = Field(default_factory=dict, description="Count of combinations per configuration")
+    load_metadata: dict[str, LoadMetadata] = Field(default_factory=dict, description="Metadata for all processed loads")
     warnings: list[str] = Field(default_factory=list, description="Warnings generated during processing")
     statistics: dict[str, Any] = Field(default_factory=dict, description="Additional statistics")
 
@@ -207,5 +191,3 @@ class CombinationGenerationResult(BaseModel):
         :rtype: list[TrafficLoadCombination]
         """
         return [comb for comb in self.combinations if comb.configuration == config]
-
-

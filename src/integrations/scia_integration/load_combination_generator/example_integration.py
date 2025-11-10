@@ -147,13 +147,9 @@ def example_usage_in_scia_model() -> None:
     #         description=f"ULS with {combo_id}",
     #     )
 
-    pass
-
 
 if __name__ == "__main__":
     # This is an example/documentation file
     # In real usage, this would be called from the SCIA model creation workflow
     print("This is an example integration file.")
     print("See the function docstrings for usage instructions.")
-
-

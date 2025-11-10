@@ -119,9 +119,7 @@ class TrafficLoadRules:
         :returns: True if configurations are consistent, False otherwise
         :rtype: bool
         """
-        traffic_configs = [
-            load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE
-        ]
+        traffic_configs = [load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE]
 
         if not traffic_configs:
             return True  # No traffic loads with configuration
@@ -142,9 +140,7 @@ class TrafficLoadRules:
         :returns: Common configuration or NONE
         :rtype: LoadConfiguration
         """
-        traffic_configs = [
-            load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE
-        ]
+        traffic_configs = [load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE]
 
         if not traffic_configs:
             return LoadConfiguration.NONE
@@ -206,5 +202,3 @@ class TrafficLoadRules:
         :rtype: bool
         """
         return TrafficLoadRules.validate_configuration_consistency(loads) and TrafficLoadRules.validate_lane_uniqueness(loads)
-
-
