@@ -132,17 +132,24 @@ def extract_uc_summary_from_idea_results(idea_results: dict[str, Any]) -> dict[s
     return {"max_uc": max_uc, "status": "PASSED" if max_uc < 1.0 else "FAILED", "failed_checks": failed_checks}
 
 
-def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int) -> bool:  # noqa: ANN401
+def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_results_cache_hash: str | None = None) -> bool:  # noqa: ANN401
     """
     Check if valid IDEA analysis results are cached for a bridge.
 
     This checks if cached results exist for the CURRENT parameter state.
     If parameters changed, hash mismatch will return False (cache invalid).
 
+    Strategy:
+    1. First try to find cache with current params hash
+    2. If batch_results_cache_hash is provided, compare with current hash to determine cache validity
+    3. Fall back to checking if ANY cache keys exist for this bridge
+
     :param bridge_params: Bridge parametrization object
     :type bridge_params: Any
     :param bridge_entity_id: Bridge entity ID
     :type bridge_entity_id: int
+    :param batch_results_cache_hash: Optional cache hash from batch results (if available)
+    :type batch_results_cache_hash: str | None
     :returns: True if valid cached IDEA results exist, False otherwise
     :rtype: bool
     """
@@ -151,8 +158,52 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int) -> bool: 
 
     try:
         cache = AnalysisCache()
+        
+        # Generate hash for current parameters
+        current_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
+        
+        # If we have a batch results cache hash, compare it
+        if batch_results_cache_hash is not None:
+            # If hashes match, cache should be valid (assuming it was stored during batch calc)
+            if current_hash == batch_results_cache_hash:
+                # Try to retrieve the cache to confirm it exists
+                cached_results = cache.get_cached_analysis(bridge_params, AnalysisType.IDEA, bridge_entity_id)
+                if cached_results is not None:
+                    return True
+                # Hash matches but cache not found - might be in different storage scope
+                # Fall through to check storage keys
+        
+        # Step 1: Try to get cached results with current params
         cached_results = cache.get_cached_analysis(bridge_params, AnalysisType.IDEA, bridge_entity_id)
-        return cached_results is not None
+        if cached_results is not None:
+            return True
+        
+        # Step 2: Check if ANY cache exists for this bridge entity in current storage
+        try:
+            all_keys = cache.storage.list(scope="entity")
+            # Look for any cache keys for this bridge entity (any hash)
+            bridge_cache_keys = [key for key in all_keys if key.startswith(f"analysis_cache_{bridge_entity_id}_{AnalysisType.IDEA.value}_")]
+            
+            if bridge_cache_keys:
+                # Cache exists but current hash doesn't match - check if it matches batch hash
+                if batch_results_cache_hash:
+                    # Check if any of the cache keys match the batch hash
+                    expected_key_prefix = f"analysis_cache_{bridge_entity_id}_{AnalysisType.IDEA.value}_{batch_results_cache_hash}"
+                    if any(key == expected_key_prefix for key in bridge_cache_keys):
+                        # Batch hash matches an existing cache key - cache is valid
+                        return True
+                # Cache exists but hash doesn't match current params - parameters changed
+                return False
+            
+            # No cache keys found in current storage
+            # If we have a batch hash but no cache keys, cache might be in bridge entity storage
+            # or was cleared. For now, return False (no valid cache found).
+            return False
+            
+        except Exception:
+            # If we can't list keys, assume no cache
+            return False
+            
     except Exception:
         # If cache check fails (e.g., storage issues), assume no cache
         return False
@@ -172,29 +223,33 @@ def generate_bridge_report_url(entity_id: int) -> str:
 
 def serialize_batch_results(batch_results: dict[int, dict[str, Any]]) -> File:
     """
-    Serialize batch calculation results dict to a File object for Storage.
+    Serialize batch results dictionary to a VIKTOR File object.
 
-    :param batch_results: Dictionary of batch calculation results
+    Uses pickle and base64 encoding to store the results in VIKTOR Storage.
+
+    :param batch_results: Dictionary mapping bridge IDs to their calculation results
     :type batch_results: dict[int, dict[str, Any]]
-    :returns: File object containing serialized results
+    :returns: File object containing serialized batch results
     :rtype: File
     """
     # Pickle the results and encode as base64 to avoid binary data issues
-    cached_data = pickle.dumps(batch_results)
-    encoded_data = base64.b64encode(cached_data).decode("utf-8")
+    pickled_data = pickle.dumps(batch_results)
+    encoded_data = base64.b64encode(pickled_data).decode("utf-8")
     return File.from_data(encoded_data)
 
 
 def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     """
-    Deserialize batch calculation results from a File object from Storage.
+    Deserialize batch results from a VIKTOR File object.
 
-    :param stored_file: File object from Storage containing serialized results
+    Reads base64-encoded pickled data and returns the batch results dictionary.
+
+    :param stored_file: File object from VIKTOR Storage containing serialized batch results
     :type stored_file: File
-    :returns: Dictionary of batch calculation results
+    :returns: Dictionary mapping bridge IDs to their calculation results
     :rtype: dict[int, dict[str, Any]]
     """
-    # Read the base64-encoded data
+    # Extract content from file object
     if hasattr(stored_file, "getvalue"):
         encoded_data = stored_file.getvalue()
     elif hasattr(stored_file, "read"):
@@ -208,6 +263,6 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
         encoded_data = encoded_data.decode("utf-8")
 
     # Decode from base64 and unpickle
-    cached_data = base64.b64decode(encoded_data)
-    return pickle.loads(cached_data)
+    pickled_data = base64.b64decode(encoded_data)
+    return pickle.loads(pickled_data)
 

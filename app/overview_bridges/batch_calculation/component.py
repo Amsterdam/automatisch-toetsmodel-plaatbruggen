@@ -58,6 +58,20 @@ class BatchCalculationComponent:
         cached_bridges = 0
         bridge_data_list = []
 
+        # Load batch results to get cache hashes if available
+        storage = Storage()
+        batch_results_cache_hashes: dict[int, str] = {}
+        try:
+            batch_results_file = storage.get("batch_calculation_results", scope="entity")
+            batch_results = deserialize_batch_results(batch_results_file)
+            # Extract cache hashes from batch results
+            for bid, result in batch_results.items():
+                if "cache_hash" in result:
+                    batch_results_cache_hashes[bid] = result["cache_hash"]
+        except Exception:
+            # No batch results or error loading - continue without cache hashes
+            pass
+
         # Validate each bridge and collect data
         for bridge_entity in bridge_entities:
             bridge_params = bridge_entity.last_saved_params
@@ -67,8 +81,9 @@ class BatchCalculationComponent:
             # Validate bridge readiness
             is_ready, missing_fields, _ = validate_bridge_for_calculation(bridge_params, bridge_entity)
 
-            # Check cache status for this bridge
-            is_cached = check_idea_cache_status(bridge_params, bridge_id)
+            # Check cache status for this bridge (with batch cache hash if available)
+            batch_hash = batch_results_cache_hashes.get(bridge_id)
+            is_cached = check_idea_cache_status(bridge_params, bridge_id, batch_hash)
             if is_cached:
                 cached_bridges += 1
 
@@ -195,7 +210,12 @@ class BatchCalculationComponent:
                 # Extract UC summary
                 uc_summary = extract_uc_summary_from_idea_results(idea_results)
 
-                # Store success result
+                # Generate cache hash for this calculation to track cache status
+                from app.bridge.analysis_cache import AnalysisCache
+                cache = AnalysisCache()
+                cache_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
+
+                # Store success result with cache hash
                 batch_results[bridge_id] = {
                     "bridge_name": bridge_name,
                     "status": "Voltooid",
@@ -203,6 +223,7 @@ class BatchCalculationComponent:
                     "uc_status": uc_summary.get("status"),
                     "failed_checks": uc_summary.get("failed_checks", []),
                     "error": None,
+                    "cache_hash": cache_hash,  # Store hash for cache status checking
                 }
                 completed_count += 1
                 logger.info(f"Bridge {bridge_name} (ID: {bridge_id}): Successfully calculated. Max UC: {uc_summary.get('max_uc')}")
@@ -258,7 +279,7 @@ class BatchCalculationComponent:
                 f"✅ Batchberekening voltooid: Alle {completed_count} bruggen succesvol berekend. "
                 f"Bekijk de resultaten in de 'Batch Berekening Resultaten' tabel."
             )
-        
+        # Show completion message to user
         UserMessage.success(completion_msg)
         logger.info(f"Batch calculation completed: {completed_count} succeeded, {failed_count} failed out of {total_bridges} bridges")
 
