@@ -10,6 +10,7 @@
   - `get_max_abs_for_column()` - Legacy max absolute value finder (no usages)
   - `find_all_2d_cs_force_tables()` - Replaced by `_process_cs_selected_result_tables()` (no usages)
   - See `.github/Rules/scia_results_cleanup_analysis.md` for detailed analysis
+  
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
