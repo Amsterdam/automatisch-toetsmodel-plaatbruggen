@@ -109,3 +109,5 @@ max-statements = 75
 "scripts/run_enhanced_tests.py" = ["T201", "C901", "PLR0912"]
 "ruft.py" = ["T201"]
 "setup_dev.py" = ["T201", "TRY300"]
+# Temperature load calculations use uppercase variables (T_0, T_min, etc.) for readability and alignment with engineering notation
+"src/temperature/temperature_load.py" = ["N803", "N806", "PLR0913"]

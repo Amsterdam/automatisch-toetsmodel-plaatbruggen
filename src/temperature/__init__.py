@@ -1,0 +1,1 @@
+"""Temperature load calculations module."""
