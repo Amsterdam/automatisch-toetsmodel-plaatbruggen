@@ -568,10 +568,17 @@ def _process_single_cs_result_table(
             df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
 
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
-    # Use transform to get first coordinate per group, then filter
-    # This avoids the FutureWarning about groupby.apply operating on grouping columns
-    first_coords = df_combined.groupby("name")["coords_xyz"].transform("first")
-    df_combined = df_combined[df_combined["coords_xyz"] == first_coords].reset_index(drop=True)
+    # Group by name and filter to keep only rows with the first unique coordinate per group
+    def _filter_first_coord(group: pd.DataFrame) -> pd.DataFrame:
+        """Keep only rows matching the first unique coordinate in the group."""
+        first_coord = group["coords_xyz"].iloc[0]
+        return group[group["coords_xyz"] == first_coord]
+
+    df_combined = (
+        df_combined.groupby("name", as_index=False, group_keys=False)
+        .apply(_filter_first_coord, include_groups=False)  # type: ignore[call-overload]
+        .reset_index(drop=True)
+    )
 
     # Extract rows with max absolute values
     result_rows = _extract_max_force_rows(df_combined, force_columns)
@@ -1339,46 +1346,4 @@ def get_processed_results_with_cache(results: dict[str, Any]) -> dict[str, pd.Da
     except Exception:
         return None
     else:
-        return processed_results
-
-
-# Module-level cache for integration strip results
-_integration_strip_results_cache: dict[int, dict[str, pd.DataFrame]] = {}
-
-
-def get_processed_integration_strip_results_with_cache(results: dict[str, Any]) -> dict[str, pd.DataFrame] | None:
-    """
-    Get processed SCIA integration strip (1D) results with caching to avoid reprocessing.
-
-    Note: This function now uses the direct 1D processing instead of the removed
-    process_scia_integration_strip_results_for_idea function.
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :returns: Processed integration strip results or None if failed
-    :rtype: dict[str, pd.DataFrame] | None
-    """
-    # Use simple caching to avoid reprocessing the same results
-    try:
-        results_hash = _get_results_hash(results)
-    except Exception:
-        return None
-
-    if results_hash in _integration_strip_results_cache:
-        return _integration_strip_results_cache[results_hash]
-
-    try:
-        # Use the direct 1D processing function
-        processed_results = process_scia_1d_results(results)
-
-        # Cache the results (limit cache size to prevent memory issues)
-        if len(_integration_strip_results_cache) > 10:
-            # Remove oldest entry
-            oldest_key = next(iter(_integration_strip_results_cache))
-            del _integration_strip_results_cache[oldest_key]
-        _integration_strip_results_cache[results_hash] = processed_results
-    except Exception:
-        return None
-    else:
-        return processed_results
         return processed_results
