@@ -55,8 +55,9 @@ class IdeaIntegration:
         input_data = extract_bridge_idea_input_data(params)
         unique_matching_zone_keys, grouped_thickness, grouped_rebar_configs = _get_unique_matching_zone_keys(input_data)
 
-        data = [[value[0], value[1], str(value[2])] for value in unique_matching_zone_keys]
-        columns = ["Zone_dikte", "Wapeningsconfiguratie", "Zones"]
+        # Add sequential ID as first column
+        data = [[idx, value[0], value[1], str(value[2])] for idx, value in enumerate(unique_matching_zone_keys, start=1)]
+        columns = ["Unieke sectie", "Zone_dikte", "Wapeningsconfiguratie", "Zones"]
 
         return TableResult(data, column_headers=columns)
 

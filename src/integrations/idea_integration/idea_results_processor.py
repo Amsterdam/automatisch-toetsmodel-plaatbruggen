@@ -11,6 +11,42 @@ class IdeaResultsProcessor:
     """Class for processing IDEA RCS analysis results."""
 
     @staticmethod
+    def extract_unique_section_info(section_id: str | int) -> str:
+        """
+        Extract unique section information from IDEA section ID.
+
+        IDEA assigns sequential numeric IDs to sections (1, 2, 3, ...).
+        For each unique configuration, 2 sections are created: dwars then langs.
+        - Odd IDs (1, 3, 5, ...) are "dwars" direction (Dwarsdoorsnede)
+        - Even IDs (2, 4, 6, ...) are "langs" direction (Langsdoorsnede)
+
+        The unique section number is: (ID + 1) // 2
+        Examples:
+        - ID 1 → Unique section 1 - Dwarsdoorsnede
+        - ID 2 → Unique section 1 - Langsdoorsnede
+        - ID 3 → Unique section 2 - Dwarsdoorsnede
+        - ID 4 → Unique section 2 - Langsdoorsnede
+
+        :param section_id: IDEA section identifier (numeric ID as int or str)
+        :type section_id: str | int
+        :returns: Formatted unique section string (e.g., '1 - Dwarsdoorsnede', '1 - Langsdoorsnede')
+        :rtype: str
+        """
+        try:
+            # Convert to integer if string
+            id_num = int(section_id) if isinstance(section_id, str) else section_id
+
+            # Calculate unique section number: (ID + 1) // 2
+            unique_section_num = (id_num + 1) // 2
+
+            # Determine direction: odd = dwars, even = langs
+            direction = "Dwarsdoorsnede" if id_num % 2 == 1 else "Langsdoorsnede"
+
+            return f"{unique_section_num} - {direction}"
+        except (ValueError, TypeError):
+            return "Onbekend"
+
+    @staticmethod
     def get_table_headers() -> list[str]:
         """
         Get standard IDEA table column headers.
@@ -19,6 +55,7 @@ class IdeaResultsProcessor:
         :rtype: list[str]
         """
         return [
+            "Unieke sectie",
             "Sectie",
             "Capaciteit",
             "UC Capaciteit",
@@ -46,7 +83,7 @@ class IdeaResultsProcessor:
         :returns: Table row with error message and empty cells
         :rtype: list[str]
         """
-        return ["Analyse gefaald", error_msg, "", "", "", "", "", "", "", "", "", "", "", "", ""]
+        return ["", "Analyse gefaald", error_msg, "", "", "", "", "", "", "", "", "", "", "", "", ""]
 
     @staticmethod
     def create_processing_error_row(error_msg: str) -> list[str]:
@@ -58,7 +95,7 @@ class IdeaResultsProcessor:
         :returns: Table row with processing error message and empty cells
         :rtype: list[str]
         """
-        return ["Fout bij verwerking", f"Kon IDEA resultaten niet verwerken: {error_msg}", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+        return ["", "Fout bij verwerking", f"Kon IDEA resultaten niet verwerken: {error_msg}", "", "", "", "", "", "", "", "", "", "", "", "", ""]
 
     @staticmethod
     def safe_get_result(section_data: dict[str, Any], key: str) -> tuple[str, str]:
@@ -176,6 +213,9 @@ class IdeaResultsProcessor:
         """
         table_data = []
         for section_data in section_results:
+            section_id = section_data.get("id", "Onbekend")
+            unique_section_info = IdeaResultsProcessor.extract_unique_section_info(section_id)
+
             capacity_result, capacity_check = IdeaResultsProcessor.safe_get_result(section_data, "capacity")
             shear_result, shear_check = IdeaResultsProcessor.safe_get_result(section_data, "shear")
             torsion_result, torsion_check = IdeaResultsProcessor.safe_get_result(section_data, "torsion")
@@ -186,7 +226,8 @@ class IdeaResultsProcessor:
 
             table_data.append(
                 [
-                    section_data.get("id", "Onbekend"),
+                    unique_section_info,
+                    section_id,
                     capacity_result,
                     capacity_check,
                     shear_result,
@@ -237,6 +278,9 @@ class IdeaResultsProcessor:
 
         table_data = []
         for section in parser.section_results():
+            section_id = section.id_ if hasattr(section, "id_") else "Onbekend"
+            unique_section_info = IdeaResultsProcessor.extract_unique_section_info(section_id)
+
             capacity_result, capacity_check = IdeaResultsProcessor.safe_extract_result(section.capacity())
             shear_result, shear_check = IdeaResultsProcessor.safe_extract_result(section.shear())
             torsion_result, torsion_check = IdeaResultsProcessor.safe_extract_result(section.torsion())
@@ -247,7 +291,8 @@ class IdeaResultsProcessor:
 
             table_data.append(
                 [
-                    section.id_ if hasattr(section, "id_") else "Onbekend",
+                    unique_section_info,
+                    section_id,
                     capacity_result,
                     capacity_check,
                     shear_result,
