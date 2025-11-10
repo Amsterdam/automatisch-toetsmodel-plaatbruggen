@@ -3,6 +3,7 @@
 - **IDEA RCS uitleg en tabbladen**: Verbeterde en verduidelijkte uitleg van het SCIA → IDEA proces, met nadruk op:
   - Heldere beschrijving van de 6 processtappen, inclusief uitlezen van dwarskrachten en het belang van 2 extremen per unieke zone
   - Toelichting dat tabblad 1 de unieke plaatelementen toont per combinatie van plaatdikte en wapeningsconfiguratie
+  - Nieuwe kolommen met verduidelijking toegevoegd aan IDEA resultaat tabellen. 
 ### Added
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
 Introduced a new naming system with span, lane and configuration identification.

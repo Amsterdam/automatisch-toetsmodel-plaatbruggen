@@ -44,8 +44,9 @@ class IdeaResultsProcessor:
         except (ValueError, TypeError):
             return "Onbekend"
         else:
-            return f"{unique_section_num} - {direction}" @ staticmethod
+            return f"{unique_section_num} - {direction}"
 
+    @staticmethod
     def get_table_headers() -> list[str]:
         """
         Get standard IDEA table column headers.
