@@ -62,11 +62,7 @@ class TrafficLoadRules:
         # Must be on different lanes
         # Same position on different lanes is OK per Eurocode
         # (traffic loads can occur simultaneously on different lanes)
-        return not (
-            load_a.notional_lane is not None
-            and load_b.notional_lane is not None
-            and load_a.notional_lane == load_b.notional_lane
-        )
+        return not (load_a.notional_lane is not None and load_b.notional_lane is not None and load_a.notional_lane == load_b.notional_lane)
 
     @staticmethod
     def can_combine_udl_with_tandem(udl: LoadMetadata, tandem: LoadMetadata) -> bool:
