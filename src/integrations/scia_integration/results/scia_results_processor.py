@@ -574,9 +574,10 @@ def _process_single_cs_result_table(
         first_coord = group["coords_xyz"].iloc[0]
         return group[group["coords_xyz"] == first_coord]
 
+    # Use groupby with apply, explicitly handling the grouping column to avoid FutureWarning
     df_combined = (
         df_combined.groupby("name", as_index=False, group_keys=False)
-        .apply(_filter_first_coord)  # type: ignore[arg-type]
+        .apply(_filter_first_coord)  # type: ignore[call-overload]
         .reset_index(drop=True)
     )
 
