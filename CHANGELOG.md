@@ -6,12 +6,20 @@ Introduced a new naming system with span, lane and configuration identification.
 ### Changed
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
 - Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
+- Re-assigned the UDL and tandem loads to load groups.
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added
 - Added dynamic load factor for tram load
 - Tram loads VIKTOR input and modelling of the loads in SCIA
 - **Optimisation button**: Optimisation option to automatically calculate different calculation levels till passing UC checks are found.
+- **SCIA to IDEA Cross-Section Load Integration**: Refactored cross-section load transfer from SCIA to IDEA StatiCa
+  - Uses filtered CS envelope data combining ULS and SLS freq results (SLS kar removed)
+  - Supports normal forces (n_xD, n_yD) in addition to shear and moment forces
+  - Creates two IDEA extremes per (zone, max_for_column) combination - one for each direction (langs/dwars)
+  - Each extreme combines fundamental (ULS) and frequent (SLS freq) load values
+  - Removed deprecated node and integration strip processing functions
+  - Streamlined data flow: SCIA envelope → processed DataFrame → IDEA extremes
 - **Bridge Database Management System**: Complete workflow for managing bridge inventory data
   - New "Brug Database Management" page in OverviewBridges entity for centralized data management
   - CSV and Excel file upload functionality to update bridge database (`filtered_bridges.json`)

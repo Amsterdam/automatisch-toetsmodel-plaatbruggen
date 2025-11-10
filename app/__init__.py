@@ -1,5 +1,6 @@
 """viktor."""
 
+import logging
 import warnings
 
 # Suppress a specific DeprecationWarning from geopandas._compat.
@@ -11,13 +12,31 @@ import warnings
 # This can be removed if a future geopandas version resolves the internal import.
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="geopandas._compat")
 
-# Suppress the pkg_resources deprecation warning from docxcompose.
-# The docxcompose library (a dependency of docxtpl) uses the deprecated pkg_resources API.
-# The pkg_resources package is slated for removal as early as 2025-11-30.
-# As a mitigation, we keep setuptools<81 pinned in requirements.txt to avoid issues.
-# This warning filter keeps logs clean while we wait for docxcompose to update their code.
-# This can be removed when docxcompose is updated to not use pkg_resources.
-warnings.filterwarnings("ignore", message="pkg_resources is deprecated", category=UserWarning, module="docxcompose.properties")
+# Suppress the pkg_resources deprecation warning from docxcompose
+# We've pinned setuptools<81 in requirements.txt to prevent pkg_resources removal
+# This warning is unavoidable until docxcompose updates their code
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+    module="docxcompose.properties",
+)
+
+
+# Also suppress via logging module (for VIKTOR CLI startup logs)
+class _PkgResourcesFilter(logging.Filter):
+    """Filter to suppress pkg_resources deprecation warnings from docxcompose."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False to suppress the log record, True to keep it."""
+        message = record.getMessage() if hasattr(record, "getMessage") else str(record.msg)
+        return "pkg_resources is deprecated" not in message
+
+
+# Apply the filter to root logger and common loggers
+for logger_name in [None, "viktor", "root", ""]:
+    logger = logging.getLogger(logger_name)
+    logger.addFilter(_PkgResourcesFilter())
 
 from viktor import InitialEntity  # type: ignore[attr-defined] # noqa: E402
 

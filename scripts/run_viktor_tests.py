@@ -1,10 +1,38 @@
 #!/usr/bin/env python3
 """VIKTOR test runner with enhanced output and error reporting."""
 
+import logging
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
+
+# Suppress the pkg_resources deprecation warning from docxcompose early
+# We've pinned setuptools<81 in requirements.txt to prevent pkg_resources removal
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+    module="docxcompose.properties",
+)
+
+
+# Also suppress via logging (for VIKTOR CLI)
+class PkgResourcesFilter(logging.Filter):
+    """Filter to suppress pkg_resources deprecation warnings from docxcompose."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False to suppress the log record, True to keep it."""
+        message = record.getMessage() if hasattr(record, "getMessage") else str(record.msg)
+        return "pkg_resources is deprecated" not in message
+
+
+for logger_name in [None, "viktor", "root", ""]:
+    logger = logging.getLogger(logger_name)
+    logger.addFilter(PkgResourcesFilter())
+
+os.environ["PYTHONWARNINGS"] = "ignore::UserWarning:docxcompose.properties"
 
 # Add the project root to Python path to access test utils
 project_root = Path(__file__).parent.parent

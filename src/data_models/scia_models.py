@@ -114,8 +114,8 @@ class BridgeDimensionsData(BaseModel):
     zone1_width: float = Field(gt=0, le=50, description="Zone 1 width in meters")
     zone2_width: float = Field(gt=0, le=50, description="Zone 2 width in meters")
     zone3_width: float = Field(gt=0, le=50, description="Zone 3 width in meters")
-    first_segment_thickness: float = Field(gt=0.1, le=5.0, description="First segment thickness in meters")
-    first_segment_thickness_2: float = Field(ge=0, le=5.0, description="Second segment thickness in meters")
+    first_segment_thickness: float = Field(gt=0.1, le=5.0, description="Thickness of zones 1 and 3 (dz) in meters")
+    first_segment_thickness_2: float = Field(ge=0, le=5.0, description="Thickness of zone 2 (dz_2) in meters")
 
     @field_validator("zone1_width", "zone2_width", "zone3_width")
     @classmethod
@@ -128,12 +128,9 @@ class BridgeDimensionsData(BaseModel):
     @model_validator(mode="after")
     def validate_thickness_and_width_consistency(self) -> "BridgeDimensionsData":
         """Validate thickness and width consistency."""
-        # Validate second thickness is not greater than first thickness
-        if self.first_segment_thickness_2 > self.first_segment_thickness:
-            raise ValueError(
-                f"Second segment thickness {self.first_segment_thickness_2}m cannot be greater than "
-                f"first segment thickness {self.first_segment_thickness}m"
-            )
+        # Note: Zone thicknesses (dz and dz_2) can differ in the cross-section (transverse direction).
+        # Zones 1 and 3 can have different thickness than zone 2.
+        # Longitudinal consistency (same thickness along bridge length) is validated elsewhere.
 
         # Validate that zone widths don't exceed total width
         total_zone_width = self.zone1_width + self.zone2_width + self.zone3_width
