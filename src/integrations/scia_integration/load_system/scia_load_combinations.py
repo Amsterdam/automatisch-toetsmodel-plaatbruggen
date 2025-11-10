@@ -236,7 +236,7 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
 
         # Has traffic loads - create 4 versions (one per configuration A, B, C, D)
         for config in [LoadConfiguration.CONF_A, LoadConfiguration.CONF_B, LoadConfiguration.CONF_C, LoadConfiguration.CONF_D]:
-            load_case_factors: dict[SciaLoadCase, float] = {}
+            load_case_factors = {}
 
             for subject, factor in row.items():
                 # Skip non-numeric, NaN, or zero factors

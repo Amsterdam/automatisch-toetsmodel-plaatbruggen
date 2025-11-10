@@ -7,6 +7,8 @@ Introduced a new naming system with span, lane and configuration identification.
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
 - Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
 - Re-assigned the UDL and tandem loads to load groups.
+- Fixed and improved the load combination system, with a better naming system around configuration names.
+New folder in the directory for the load combination generator.
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added
