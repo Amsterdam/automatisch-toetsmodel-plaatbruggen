@@ -41,12 +41,11 @@ class IdeaResultsProcessor:
 
             # Determine direction: odd = dwars, even = langs
             direction = "Dwarsdoorsnede" if id_num % 2 == 1 else "Langsdoorsnede"
-
-            return f"{unique_section_num} - {direction}"
         except (ValueError, TypeError):
             return "Onbekend"
+        else:
+            return f"{unique_section_num} - {direction}" @ staticmethod
 
-    @staticmethod
     def get_table_headers() -> list[str]:
         """
         Get standard IDEA table column headers.
