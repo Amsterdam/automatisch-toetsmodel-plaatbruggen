@@ -350,9 +350,7 @@ class TestBridgeControllerViews(unittest.TestCase):
                 # This is a direct value - check it's not empty and not a problematic object
                 cell_str = str(cell_value)
                 assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
-                assert not cell_str.startswith("pandas.io.formats.style.Styler"), (
-                    f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
-                )
+                assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
 
         # Test 2: Verify TableResult is not empty (should have load combinations)
         # If this fails, it means the load combination generation is broken
@@ -446,9 +444,7 @@ class TestBridgeControllerViews(unittest.TestCase):
                 # This is a direct value - check it's not empty and not a problematic object
                 cell_str = str(cell_value)
                 assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
-                assert not cell_str.startswith("pandas.io.formats.style.Styler"), (
-                    f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
-                )
+                assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
 
         # The TableResult should be properly constructed
         # Note: When TableResult receives a Styler object, VIKTOR handles the conversion internally
@@ -503,9 +499,7 @@ class TestBridgeControllerViews(unittest.TestCase):
                 # This is a direct value - check it's not empty and not a problematic object
                 cell_str = str(cell_value)
                 assert len(cell_str) > 0, f"Cell at [{row}][{col}] should not be empty"
-                assert not cell_str.startswith("pandas.io.formats.style.Styler"), (
-                    f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
-                )
+                assert not cell_str.startswith("pandas.io.formats.style.Styler"), f"Cell at [{row}][{col}] should not be Styler object: {cell_str}"
 
     @patch("app.bridge.bridgeController.controller_utils.api_sdk.API")
     @view_test_wrapper("get_bridge_map_view")
