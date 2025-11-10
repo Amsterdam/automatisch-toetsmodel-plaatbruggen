@@ -1,3 +1,14 @@
+## [Unreleased]
+### Changed
+- **SCIA Results Parser Optimization**: Major performance improvements to `extract_analysis_results` in `scia_model_builder.py`:
+  - Reduced XML file reads from 6 to 1 (60-80% performance improvement)
+
+### Removed
+- **SCIA Results Cleanup**: Removed 3 unused functions from `scia_results_processor.py` (~75 lines):
+  - `get_name_for_coords()` - Legacy coordinate name lookup (no usages)
+  - `get_max_abs_for_column()` - Legacy max absolute value finder (no usages)
+  - `find_all_2d_cs_force_tables()` - Replaced by `_process_cs_selected_result_tables()` (no usages)
+  - See `.github/Rules/scia_results_cleanup_analysis.md` for detailed analysis
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.

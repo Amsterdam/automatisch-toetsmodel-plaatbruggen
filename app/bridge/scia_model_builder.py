@@ -71,7 +71,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
-        self.integration_strips: dict[str, scia.IntegrationStrip] = {}
         self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
@@ -117,32 +116,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
         self.plates[name] = plate
         return plate
-
-    def create_integration_strip(
-        self,
-        plane: str,
-        point_1: tuple[float, float, float],
-        point_2: tuple[float, float, float],
-        width: float,
-    ) -> scia.IntegrationStrip:
-        """Creates an integration strip and stores it."""
-        # get the plate by name
-        plane_name = plane
-        if plane_name not in self.plates:
-            raise ValueError(f"Plate '{plane_name}' not found for integration strip '{plane_name}'.")
-        plane = self.plates[plane_name]
-
-        # Create the SCIA integration strip
-        strip = self.model.create_integration_strip(plane=plane, point_1=point_1, point_2=point_2, width=width)
-        # Create a name for internal tracking
-        strip_name = f"strip_{plane_name}_{point_1}_{point_2}"
-
-        # Try to set the name after creation if possible
-        if hasattr(strip, "_name"):
-            strip._name = strip_name  # noqa: SLF001  # Required for SCIA SDK integration
-
-        self.integration_strips[strip_name] = strip
-        return strip
 
     def create_section_on_plane(
         self,
@@ -468,21 +441,26 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         return scia_analysis
 
     def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
-        """Extracts results from a completed SCIA analysis."""
+        """
+        Extracts results from a completed SCIA analysis.
+
+        Optimized to:
+        - Read XML output file only once
+        - Parse XML only once
+        - Extract only actively used result types (internal_forces, xml_parsing)
+        - Skip unused result types (displacements, reactions, stresses)
+        """
         if not hasattr(analysis, "get_xml_output_file"):
             raise ValueError("Invalid SCIA analysis object - missing get_xml_output_file method")
 
         try:
-            # Get the XML output file containing results
+            # Get the XML output file ONCE (previously called 6 times)
             xml_output_file = analysis.get_xml_output_file()
 
-            # Extract various result types
+            # Extract only actively used result types
             results = {
                 "xml_output_file": xml_output_file,
-                "displacements": self.get_displacement_results(analysis),
-                "internal_forces": self.get_internal_force_results(analysis),
-                "reactions": self.get_reaction_results(analysis),
-                "stresses": self.get_stress_results(analysis),
+                "internal_forces": self.get_internal_force_results(xml_output_file),
                 "analysis_status": self.get_analysis_status(analysis),
                 "xml_parsing": self.parse_xml_results(xml_output_file),
             }
@@ -557,11 +535,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "error": str(e),
             }
 
-    def get_internal_force_results(self, _analysis: SciaAnalysis) -> dict[str, object]:
+    def get_internal_force_results(self, xml_output_file: SciaFile) -> dict[str, object]:
         """Extracts internal force results from SCIA analysis."""
         try:
-            xml_output_file = _analysis.get_xml_output_file()
-
             # Actual table names from SCIA output
             internal_force_table_names = [
                 "Interne 2D-krachten basis",
@@ -681,6 +657,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         except Exception:
             return None
 
+    def _extract_namespace(self, root: ET.Element | None) -> str:
+        """Extract XML namespace from root element."""
+        if root is None or not root.tag.startswith("{"):
+            return ""
+        return root.tag.split("}")[0] + "}"
+
     def _parse_table_details(self, table: ET.Element) -> dict[str, Any] | None:
         """Parse details for a single table."""
         table_name = table.get("name")
@@ -703,24 +685,50 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "objects": len(objects),
         }
 
-    def _discover_available_tables(self, xml_output_file: SciaFile) -> tuple[list[str], list[dict[str, Any]]]:  # noqa: C901
-        """Discover available tables in the XML output file."""
+    def _discover_available_tables(  # noqa: C901, PLR0912
+        self,
+        xml_output_file: SciaFile,
+        root: ET.Element | None = None,
+        namespace: str | None = None,
+    ) -> tuple[list[str], list[dict[str, Any]]]:
+        """
+        Discover available tables in the XML output file.
+
+        :param xml_output_file: The XML output file to parse
+        :param root: Optional pre-parsed XML root element (optimization)
+        :param namespace: Optional pre-extracted namespace (optimization)
+        :return: Tuple of (available_tables, table_details)
+        """
         available_tables: list[str] = []
         table_details: list[dict[str, Any]] = []
 
-        xml_content = self._read_xml_content(xml_output_file)
-        if not xml_content:
-            return available_tables, table_details
+        # Use pre-parsed root if provided, otherwise parse now
+        if root is None:
+            xml_content = self._read_xml_content(xml_output_file)
+            if not xml_content:
+                return available_tables, table_details
+
+            try:
+                root = ET.fromstring(xml_content)
+            except Exception as e:
+                # If XML parsing fails, add error info but continue with default tables
+                table_details.append(
+                    {
+                        "name": "XML_PARSING_ERROR",
+                        "error": str(e),
+                        "has_data": False,
+                        "has_objects": False,
+                        "data_rows": 0,
+                        "objects": 0,
+                    }
+                )
+                return available_tables, table_details
+
+        # Use pre-extracted namespace if provided, otherwise extract now
+        if namespace is None:
+            namespace = self._extract_namespace(root)
 
         try:
-            # Parse XML to find table names and check if they have data.
-            root = ET.fromstring(xml_content)
-
-            # Handle XML namespace if present
-            namespace = ""
-            if root.tag.startswith("{"):
-                namespace = root.tag.split("}")[0] + "}"
-
             # Parse XML tables (SCIA might or might not use namespaces)
             # Try multiple search strategies to find all tables
             all_tables = []
@@ -821,9 +829,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
     def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:  # noqa: C901, PLR0912
         """Custom parser for result class tables with obj/p2 structure."""
         try:
-            # Debug: Log that we're entering the custom parser
-            # Entering custom parser for result class table
-
             # Read XML content
             xml_bytes = self._read_xml_content(xml_content)
             if not xml_bytes:
@@ -836,10 +841,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Parse XML
             root = ET.fromstring(xml_bytes)
 
-            # Handle XML namespace if present
-            namespace = ""
-            if root.tag.startswith("{"):
-                namespace = root.tag.split("}")[0] + "}"
+            # Use centralized namespace extraction
+            namespace = self._extract_namespace(root)
 
             # Find the specific table - try multiple search strategies
             table_element = None
@@ -927,10 +930,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "metadata": {},
         }
 
-        # Detect namespace from the table element
-        namespace = ""
-        if table_element.tag.startswith("{"):
-            namespace = table_element.tag.split("}")[0] + "}"
+        # Use centralized namespace extraction
+        namespace = self._extract_namespace(table_element)
 
         # Find the main obj element (should be the result class definition)
         main_obj = table_element.find(".//obj")
@@ -1005,12 +1006,26 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         return result_data
 
     def parse_xml_results(self, xml_output_file: SciaFile) -> dict[str, Any]:
-        """Parses the XML output file to extract structured results."""
-        # parse_xml_results method called
+        """
+        Parses the XML output file to extract structured results.
+
+        Optimized to parse XML once and reuse the parsed root for table discovery.
+        """
         try:
-            # Discover available tables
-            available_tables, table_details = self._discover_available_tables(xml_output_file)
-            # Discovered available tables
+            # Parse XML once
+            xml_content = self._read_xml_content(xml_output_file)
+            if not xml_content:
+                return {
+                    "status": "error",
+                    "message": "Could not read XML content",
+                    "error": "Empty XML content",
+                }
+
+            root = ET.fromstring(xml_content)
+            namespace = self._extract_namespace(root)
+
+            # Discover available tables with pre-parsed root (optimization)
+            available_tables, table_details = self._discover_available_tables(xml_output_file, root, namespace)
 
             # Get result table names
             result_tables = self._get_result_table_names(available_tables)
@@ -1020,9 +1035,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
             # Parse all tables
             parsed_results = {}
-            # Processing result tables
             for table_name in result_tables:
-                # About to parse table
                 parsed_results[table_name] = self._try_parse_table(fresh_xml_content, table_name)
 
             return {
