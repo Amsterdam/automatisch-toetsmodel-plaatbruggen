@@ -113,14 +113,13 @@ DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) 
 Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 - Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
 - Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
-- Het veld '**Afstand tot vorige snede**' (`l`) geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
+- Het veld '**Afstand tot vorige snede**' geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
   Dit veld is niet zichtbaar voor de eerste snede.
-- De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
-  beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
+- De overige dimensievelden beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
 Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
 Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
 
-De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor `dz` en `dz_2`.
+De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor 'Dikte zone 1 en 3' en 'Dikte zone 2'.
 
 """
 
