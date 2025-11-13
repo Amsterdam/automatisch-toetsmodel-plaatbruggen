@@ -327,6 +327,47 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             direction=sdk_direction,
         )
 
+    def create_thermal_surface_load(
+        self,
+        name: str,
+        load_case_name: str,
+        plane_name: str,
+        top_delta: float,
+        bottom_delta: float,
+    ) -> scia.ThermalSurfaceLoad:
+        """
+        Creates a thermal (temperature) surface load on a plane.
+
+        This method applies a temperature gradient through the thickness of a plane element.
+        The temperature distribution varies linearly from top_delta at the +Z surface to
+        bottom_delta at the -Z surface, creating thermal stresses and deformations.
+
+        :param name: Name of the thermal load
+        :param load_case_name: Name of the load case
+        :param plane_name: Name of the plane/plate to apply the load to
+        :param top_delta: Temperature difference at +Z surface (°C)
+        :param bottom_delta: Temperature difference at -Z surface (°C)
+        :return: The created thermal surface load object
+        :raises ValueError: If load case or plane not found
+        """
+        if load_case_name not in self.load_cases:
+            raise ValueError(f"Load case '{load_case_name}' not found for thermal load '{name}'.")
+        if plane_name not in self.plates:
+            raise ValueError(f"Plate '{plane_name}' not found for thermal load '{name}'.")
+
+        load_case = self.load_cases[load_case_name]
+        plane = self.plates[plane_name]
+
+        # Create the thermal surface load using VIKTOR SDK
+        return self.model.create_thermal_surface_load(
+            name=name,
+            load_case=load_case,
+            plane=plane,
+            delta=None,
+            top_delta=top_delta,
+            bottom_delta=bottom_delta,
+        )
+
     def create_load_combination(
         self,
         name: str,
