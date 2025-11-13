@@ -1,6 +1,10 @@
 ## [Unreleased]
 ### Added
 - **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
+- **Separated VIKTOR and GitHub Documentation**: Created `VIKTOR_README.md` with simplified user-facing content for VIKTOR platform
+  - VIKTOR shows only essential information: description, usage, and contact
+  - README.md retains full documentation including developer setup for GitHub
+  - Both files maintained separately for clarity
 
 ### Changed
 - **IDEA RCS uitleg en tabbladen**: Verbeterde en verduidelijkte uitleg van het SCIA → IDEA proces, met nadruk op:
