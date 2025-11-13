@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-from viktor.views import TableResult
+from viktor.views import PlotlyResult, TableResult
 
 if TYPE_CHECKING:
     pass
@@ -16,6 +16,498 @@ from src.integrations.scia_integration.constants.results import (
 from .scia_results_processor import (
     get_processed_results_with_cache,
 )
+
+
+def get_available_cs_coordinates(
+    results: dict[str, Any],
+    result_type: str,
+    direction: str,
+    bridge_segments: list[Any] | None = None,
+) -> list[float]:
+    """
+    Get available coordinates for cross sections from SCIA CS results.
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param result_type: Type of results ("ULS" or "SLS freq")
+    :type result_type: str
+    :param direction: Direction for cross sections ("X-richting" or "Y-richting")
+    :type direction: str
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: Sorted list of unique coordinates
+    :rtype: list[float]
+    """
+    from .scia_results_processor import process_scia_cs_results
+
+    try:
+        # Process CS results to get the DataFrame
+        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+        df_cs_results = cs_results.get(result_type, pd.DataFrame())
+
+        if df_cs_results.empty:
+            return []
+
+        # Determine coordinate axis: X-richting filters on Y coordinate, Y-richting filters on X coordinate
+        coord_index = 0 if direction == "Y-richting" else 1  # 0=X, 1=Y, 2=Z
+
+        # Extract unique coordinates
+        coordinates = set()
+        for _, row in df_cs_results.iterrows():
+            coords = row.get("coords_xyz", (0, 0, 0))
+            try:
+                coord_value = float(coords[coord_index])
+                coordinates.add(coord_value)
+            except (ValueError, TypeError, IndexError):
+                continue
+
+        # Return sorted list
+        return sorted(coordinates)
+
+    except Exception:
+        return []
+
+
+def create_scia_cs_plotly_visualization(
+    results: dict[str, Any],
+    *,
+    result_type: str,
+    direction: str,
+    max_type: str,
+    position_index: int,
+    bridge_segments: list[Any] | None = None,
+) -> PlotlyResult:
+    """
+    Create a Plotly visualization with 4 subplots for SCIA CS results.
+
+    The visualization shows 4 subplots stacked vertically:
+    1. Vx and Vy (shear forces)
+    2. MxD+ and MxD- (moments in x-direction)
+    3. MyD+ and MyD- (moments in y-direction)
+    4. NxD and NyD (normal forces)
+
+    :param results: SCIA analysis results dictionary
+    :type results: dict[str, Any]
+    :param result_type: Type of results ("ULS" or "SLS freq")
+    :type result_type: str
+    :param direction: Direction for cross sections ("X-richting" or "Y-richting")
+    :type direction: str
+    :param max_type: Component to maximize for ("v_x", "v_y", "m_xD+", etc.)
+    :type max_type: str
+    :param position_index: Index of the cross section to display (0-based)
+    :type position_index: int
+    :param bridge_segments: Optional list of bridge segments for zone mapping
+    :type bridge_segments: list[Any] | None
+    :returns: PlotlyResult with 4 subplots
+    :rtype: PlotlyResult
+    """
+    from plotly import graph_objects as go
+    from plotly.subplots import make_subplots
+    from viktor.views import PlotlyResult
+
+    from .scia_results_processor import process_scia_cs_results
+
+    try:
+        # Process CS results to get the DataFrame
+        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+        df_cs_results = cs_results.get(result_type, pd.DataFrame())
+
+        if df_cs_results.empty:
+            # Return empty plot with message
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Geen {result_type} data beschikbaar",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font={"size": 16},
+            )
+            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
+            return PlotlyResult(fig.to_json())
+
+        # Determine which coordinate to filter on (the FIXED coordinate)
+        # X-richting: cross-sections perpendicular to X, so Y is FIXED (filter on Y, coord_index=1)
+        # Y-richting: cross-sections perpendicular to Y, so X is FIXED (filter on X, coord_index=0)
+        coord_index = 1 if direction == "X-richting" else 0  # 0=X, 1=Y, 2=Z
+        
+        # Extract all unique positions for this direction
+        unique_positions = []
+        for _, row in df_cs_results.iterrows():
+            coords = row.get("coords_xyz", (0, 0, 0))
+            try:
+                coord_value = float(coords[coord_index])
+                if coord_value not in unique_positions:
+                    unique_positions.append(coord_value)
+            except (ValueError, TypeError, IndexError):
+                continue
+        
+        # Sort positions
+        unique_positions.sort()
+        
+        if not unique_positions:
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Geen coördinaten gevonden voor {direction}",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font={"size": 16},
+            )
+            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
+            return PlotlyResult(fig.to_json())
+        
+        # Check if position_index is valid
+        if position_index < 0 or position_index >= len(unique_positions):
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Doorsnede nummer {position_index} niet beschikbaar. Beschikbare doorsnedes: 0 tot {len(unique_positions) - 1}",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font={"size": 14},
+            )
+            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
+            return PlotlyResult(fig.to_json())
+        
+        # Get the actual position for this index
+        position = unique_positions[position_index]
+        tolerance = 0.01  # 1cm tolerance for coordinate matching
+        
+        # CRITICAL: For display in title, we need the FIXED coordinate, not the varying one
+        # X-richting: we vary along X (plot X-axis), so Y is fixed -> display Y coordinate
+        # Y-richting: we vary along Y (plot Y-axis), so X is fixed -> display X coordinate
+        if direction == "X-richting":
+            # X-richting: filter on Y coordinate (coord_index=1), display this Y value
+            display_coord_label = "Y"
+            display_coord_value = position
+        else:
+            # Y-richting: filter on X coordinate (coord_index=0), display this X value
+            display_coord_label = "X"
+            display_coord_value = position
+
+        # Filter data based on direction and position
+        filtered_rows = []
+        for idx, row in df_cs_results.iterrows():
+            coords = row.get("coords_xyz", (0, 0, 0))
+            # Safely convert coordinate to float
+            try:
+                coord_value = float(coords[coord_index])
+                if abs(coord_value - position) < tolerance:
+                    filtered_rows.append(row)
+            except (ValueError, TypeError, IndexError):
+                # Skip rows with invalid coordinates
+                continue
+
+        if not filtered_rows:
+            # Return empty plot with message
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Geen data gevonden bij {direction} positie {position:.2f}m",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font={"size": 16},
+            )
+            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
+            return PlotlyResult(fig.to_json())
+
+        # Convert filtered rows to DataFrame
+        df_filtered = pd.DataFrame(filtered_rows)
+
+        # Filter for max_type: get rows where max_for_column matches max_type
+        df_max = df_filtered[df_filtered["max_for_column"] == max_type].copy()
+
+        if df_max.empty:
+            # Return empty plot with message
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Geen data gevonden voor maximale waarde {max_type}",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font={"size": 16},
+            )
+            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
+            return PlotlyResult(fig.to_json())
+
+        # Sort by the other coordinate (for proper line plotting)
+        # CRITICAL: X-richting = plot along X (length), Y-richting = plot along Y (width)
+        # When X-richting is selected: we want cross-sections perpendicular to X, varying along X
+        # When Y-richting is selected: we want cross-sections perpendicular to Y, varying along Y
+        
+        if direction == "X-richting":
+            # X-richting: plot along X (length), so we vary X coordinate
+            other_coord_index = 0  # X-coordinate varies
+            plot_along_length = True
+        else:
+            # Y-richting: plot along Y (width), so we vary Y coordinate  
+            other_coord_index = 1  # Y-coordinate varies
+            plot_along_length = False
+        
+        # Helper function to safely convert single value to float - NO MODIFICATIONS
+        def safe_float_convert(val: Any) -> float:
+            """Convert value to float, handling various input types. Returns RAW value from table."""
+            try:
+                # If already numeric, return as-is
+                if isinstance(val, (int, float)):
+                    return float(val)
+                # If string, convert directly (values already have dot as decimal)
+                if isinstance(val, str):
+                    val_cleaned = val.strip()
+                    if val_cleaned:
+                        return float(val_cleaned)
+                    return 0.0
+                # Try direct conversion for other types
+                return float(val)
+            except (ValueError, TypeError, AttributeError):
+                return 0.0  # Default to 0 if conversion fails
+        
+        # Extract sort coordinate safely from coords_xyz tuple
+        df_max["sort_coord"] = df_max["coords_xyz"].apply(
+            lambda c: safe_float_convert(c[other_coord_index]) if isinstance(c, (list, tuple)) and len(c) > other_coord_index else 0.0
+        )
+        df_max = df_max.sort_values("sort_coord")
+
+        # Extract x-axis values (the varying coordinate) - this represents position along bridge
+        x_values = df_max["sort_coord"].tolist()
+        
+        # Set appropriate labels based on what we're plotting along
+        if plot_along_length:
+            # Plotting along X (length)
+            x_label = "Positie langs brug (X) [m]"
+            direction_text = "langsdoorsnede"
+            position_label = "X"
+        else:
+            # Plotting along Y (width)
+            x_label = "Positie over breedte (Y) [m]"
+            direction_text = "dwarsdoorsnede"
+            position_label = "Y"
+        
+        # Calculate total bridge length/width for x-axis range
+        if bridge_segments and len(bridge_segments) > 0:
+            if plot_along_length:
+                # Plotting along length: sum all segment lengths (skip first segment with l=0)
+                x_range_max = sum(safe_float_convert(getattr(seg, "l", 0)) for seg in bridge_segments[1:])
+                x_range_min = 0
+            else:
+                # Plotting along width: calculate Y-coordinate range from bz1, bz2, bz3
+                # Y=0 is at center of bz2, Y_min = -(bz3+bz2/2), Y_max = bz1+bz2/2
+                max_bz2 = max(safe_float_convert(getattr(seg, "bz2", 0)) for seg in bridge_segments)
+                max_bz1 = max(safe_float_convert(getattr(seg, "bz1", 0)) for seg in bridge_segments)
+                max_bz3 = max(safe_float_convert(getattr(seg, "bz3", 0)) for seg in bridge_segments)
+                x_range_min = -(max_bz3 + max_bz2 / 2)
+                x_range_max = max_bz1 + max_bz2 / 2
+        else:
+            # Fallback: use data min/max with small margin
+            if x_values:
+                data_min = min(x_values)
+                data_max = max(x_values)
+                margin = (data_max - data_min) * 0.05 if data_max > data_min else 1
+                x_range_min = data_min - margin
+                x_range_max = data_max + margin
+            else:
+                x_range_min = 0
+                x_range_max = 10
+
+        # Extract RAW force/moment values from DataFrame and convert from N to kN, Nm to kNm
+        # SCIA provides forces in Newton (N) and moments in Newton-meter (Nm)
+        # We convert to kilonewton (kN) and kilonewton-meter (kNm) for better readability
+        def extract_column_as_floats(df: pd.DataFrame, col_name: str, is_moment: bool = False) -> list[float]:
+            """
+            Extract column values, convert to floats, and apply unit conversion.
+            
+            Args:
+                df: DataFrame to extract from
+                col_name: Column name
+                is_moment: True for moments (Nm to kNm), False for forces (N to kN)
+            
+            Returns:
+                List of converted values in kN or kNm
+            """
+            if col_name not in df.columns:
+                return [0.0] * len(df)
+            # Convert from N to kN or Nm to kNm by dividing by 1000
+            return [safe_float_convert(val) / 1000.0 for val in df[col_name]]
+        
+        # Shear forces: N to kN
+        v_x_values = extract_column_as_floats(df_max, "v_x", is_moment=False)
+        v_y_values = extract_column_as_floats(df_max, "v_y", is_moment=False)
+        # Moments: Nm to kNm
+        m_xd_plus_values = extract_column_as_floats(df_max, "m_xD+", is_moment=True)
+        m_xd_minus_values = extract_column_as_floats(df_max, "m_xD-", is_moment=True)
+        m_yd_plus_values = extract_column_as_floats(df_max, "m_yD+", is_moment=True)
+        m_yd_minus_values = extract_column_as_floats(df_max, "m_yD-", is_moment=True)
+        # Normal forces: N to kN
+        n_xd_values = extract_column_as_floats(df_max, "n_xD", is_moment=False)
+        n_yd_values = extract_column_as_floats(df_max, "n_yD", is_moment=False)
+
+        # Create subplots: 4 rows, 1 column - ALWAYS create all 4 subplots
+        fig = make_subplots(
+            rows=4,
+            cols=1,
+            subplot_titles=(
+                "Dwarskrachten (Vx, Vy)",
+                "Momenten X-richting (MxD+, MxD-)",
+                "Momenten Y-richting (MyD+, MyD-)",
+                "Normaalkrachten (NxD, NyD)",
+            ),
+            vertical_spacing=0.08,
+            shared_xaxes=True,
+        )
+
+        # Subplot 1: Vx and Vy - ALWAYS show even if values are zero
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=v_x_values,
+                mode="lines+markers",
+                name="Vx",
+                line={"color": "blue", "width": 2},
+                marker={"size": 6},
+            ),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=v_y_values,
+                mode="lines+markers",
+                name="Vy",
+                line={"color": "lightblue", "width": 2},
+                marker={"size": 6},
+            ),
+            row=1,
+            col=1,
+        )
+        fig.update_yaxes(title_text="Dwarskracht [kN/m]", row=1, col=1)
+        fig.update_xaxes(range=[x_range_min, x_range_max], row=1, col=1)
+
+        # Subplot 2: MxD+ and MxD- - ALWAYS show even if values are zero
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=m_xd_plus_values,
+                mode="lines+markers",
+                name="MxD+",
+                line={"color": "red", "width": 2},
+                marker={"size": 6},
+            ),
+            row=2,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=m_xd_minus_values,
+                mode="lines+markers",
+                name="MxD-",
+                line={"color": "darkred", "width": 2},
+                marker={"size": 6},
+            ),
+            row=2,
+            col=1,
+        )
+        fig.update_yaxes(title_text="Moment [kNm/m]", row=2, col=1)
+        fig.update_xaxes(range=[x_range_min, x_range_max], row=2, col=1)
+
+        # Subplot 3: MyD+ and MyD- - ALWAYS show even if values are zero
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=m_yd_plus_values,
+                mode="lines+markers",
+                name="MyD+",
+                line={"color": "green", "width": 2},
+                marker={"size": 6},
+            ),
+            row=3,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=m_yd_minus_values,
+                mode="lines+markers",
+                name="MyD-",
+                line={"color": "darkgreen", "width": 2},
+                marker={"size": 6},
+            ),
+            row=3,
+            col=1,
+        )
+        fig.update_yaxes(title_text="Moment [kNm/m]", row=3, col=1)
+        fig.update_xaxes(range=[x_range_min, x_range_max], row=3, col=1)
+
+        # Subplot 4: NxD and NyD - ALWAYS show even if values are zero
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=n_xd_values,
+                mode="lines+markers",
+                name="NxD",
+                line={"color": "purple", "width": 2},
+                marker={"size": 6},
+            ),
+            row=4,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=n_yd_values,
+                mode="lines+markers",
+                name="NyD",
+                line={"color": "magenta", "width": 2},
+                marker={"size": 6},
+            ),
+            row=4,
+            col=1,
+        )
+        fig.update_yaxes(title_text="Normaalkracht [kN/m]", row=4, col=1)
+        fig.update_xaxes(range=[x_range_min, x_range_max], row=4, col=1)
+
+        # Update x-axis label (only on bottom subplot)
+        fig.update_xaxes(title_text=x_label, row=4, col=1)
+
+        # Update overall layout
+        fig.update_layout(
+            title_text=f"SCIA CS {result_type} - {direction_text}, doorsnede {position_index + 1}/{len(unique_positions)} ({display_coord_label}={display_coord_value:.2f}m), voor max {max_type}",
+            height=1200,  # Tall enough for 4 subplots
+            showlegend=True,
+            hovermode="x unified",
+        )
+
+        return PlotlyResult(fig.to_json())
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        # Return error plot
+        fig = go.Figure()
+        error_msg = str(e)[:200]  # Truncate to 200 chars
+        fig.add_annotation(
+            text=f"Fout bij maken visualisatie: {error_msg}",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font={"size": 14},
+        )
+        fig.update_layout(title="SCIA CS Visualisatie - Fout")
+        return PlotlyResult(fig.to_json())
 
 
 def safe_float_format(value: str | float, unit: str = "", default: str = "N/A") -> str:
@@ -56,7 +548,7 @@ def format_coordinates_safe(coords: tuple[float, ...] | list[float] | str | None
         return "N/A"
 
     try:
-        if isinstance(coords, (list, tuple)) and len(coords) >= 3:
+        if isinstance(coords, list | tuple) and len(coords) >= 3:
             # Convert to floats safely
             x = float(coords[0]) if coords[0] is not None else 0.0
             y = float(coords[1]) if coords[1] is not None else 0.0

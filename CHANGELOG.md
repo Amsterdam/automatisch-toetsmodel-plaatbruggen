@@ -1,4 +1,7 @@
 ## [Unreleased]
+### Added
+- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
+
 ### Changed
 - **IDEA RCS uitleg en tabbladen**: Verbeterde en verduidelijkte uitleg van het SCIA → IDEA proces, met nadruk op:
   - Heldere beschrijving van de 6 processtappen, inclusief uitlezen van dwarskrachten en het belang van 2 extremen per unieke zone
