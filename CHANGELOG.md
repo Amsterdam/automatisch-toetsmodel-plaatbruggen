@@ -1,5 +1,9 @@
 ## [Unreleased]
 ### Changed
+- **IDEA RCS uitleg en tabbladen**: Verbeterde en verduidelijkte uitleg van het SCIA → IDEA proces, met nadruk op:
+  - Heldere beschrijving van de 6 processtappen, inclusief uitlezen van dwarskrachten en het belang van 2 extremen per unieke zone
+  - Toelichting dat tabblad 1 de unieke plaatelementen toont per combinatie van plaatdikte en wapeningsconfiguratie
+  - Nieuwe kolommen met verduidelijking toegevoegd aan IDEA resultaat tabellen. 
 - **SCIA Results Parser Optimization**: Major performance improvements to `extract_analysis_results` in `scia_model_builder.py`:
   - Reduced XML file reads from 6 to 1 (60-80% performance improvement)
 - **UI text invoer dimensies**: changed UI tekst by renaming code variable names like bz, bz2 and dz etc.
@@ -10,7 +14,7 @@
   - `get_max_abs_for_column()` - Legacy max absolute value finder (no usages)
   - `find_all_2d_cs_force_tables()` - Replaced by `_process_cs_selected_result_tables()` (no usages)
   - See `.github/Rules/scia_results_cleanup_analysis.md` for detailed analysis
-  
+
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.

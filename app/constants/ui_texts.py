@@ -145,17 +145,27 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 # IDEA StatiCa integration info text
 IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
-Deze pagina toont een weergave van de IDEA RCS resultaten en biedt download opties voor de snedetoetsingen in IDEA.
+Deze pagina toont de IDEA RCS snedetoetsingen en IDEA download opties.
 
-### Model Informatie
-Het model is gebaseerd op de opgegeven bruggeometrie en wapening. Het model identificeert op basis van de wapeningsconfiguraties en plaatdiktes,
-hoeveel unieke combinaties van plaatdiktes en wapening er zijn, en maakt voor elke unieke combinatie een apart plaat element aan in IDEA.
-Vervolgens worden de snedekrachten uit SCIA, hieraan gekoppeld op basis van locatie op het brugdek, en worden de snedetoetsingen uitgevoerd.
-Per locatie langs de integratiestroken worden er een of meerdere krachtencombinaties getoetst die mogelijk maatgevend zijn. Deze worden als extremen
-toegevoegd aan de doorsnedes.
+### Modelopbouw in 6 stappen
+Het proces werkt als volgt:
+1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) per doorsnede bepaald.
+2. Deze krachten worden automatisch uit de SCIA-resultaten gehaald.
+3. Per zone worden de maximale absolute waarden bepaald (envelope).
+4. De resultaten worden omgezet naar het IDEA-formaat.
+5. Momenten (Mx, My), normaalkrachten (Nx, Ny) én dwarskrachten (Qz) worden gecombineerd en uitgelezen.
+6. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
+    worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
+    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen:
+    - In de **langsdoorsnede** wordt de **dwarswapening** gecontroleerd (Qz = v_y, My = My, N = Ny)
+    - In de **dwarsdoorsnede** wordt de **langswapening** gecontroleerd (Qz = v_x, My = Mx, N = Nx)
 
-In het eerste tabblad op de rechterkant van het scherm, is een overzicht te zien van de verschillende plaat elementen die zijn aangemaakt.
-In het tweede tabblad is een overzicht te zien van de resultaten van de snedetoetsingen.
+Voor elke unieke combinatie van plaatdikte en wapening worden alle relevante krachtencombinaties als extremen toegevoegd.
+
+
+### Tabbladen
+- **Tabblad 1**: Unieke plaatelementen (combinatie van plaatdikte en wapeningsconfiguratie)
+- **Tabblad 2**: Snedetoetsing resultaten
 
 ### Download Opties
 Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:"""
