@@ -5,14 +5,14 @@ This module provides utilities for generating valid load combinations that respe
 configuration constraints and prevent physically impossible load scenarios.
 
 Key features:
-- Configuration-based grouping (A, B, C)
+- Configuration-based grouping (A, B, C, D)
 - Prevention of overlapping tandem loads
 - Ensures only one tandem per notional lane per combination
 - Matches UDL and tandem loads by configuration
 """
 
 from .combination_generator import TrafficLoadCombinationGenerator
-from .models import LoadMetadata, TrafficLoadCombination
+from .models import LoadMetadata, TrafficLoadCombination, extract_configuration_from_string
 from .traffic_load_rules import TrafficLoadRules
 
 __all__ = [
@@ -20,4 +20,5 @@ __all__ = [
     "TrafficLoadCombination",
     "TrafficLoadCombinationGenerator",
     "TrafficLoadRules",
+    "extract_configuration_from_string",
 ]

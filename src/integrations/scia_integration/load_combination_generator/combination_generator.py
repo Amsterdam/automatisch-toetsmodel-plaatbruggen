@@ -10,15 +10,14 @@ from collections import defaultdict
 from itertools import combinations, product
 from typing import Any
 
+from src.integrations.scia_integration.types import LoadCategory, LoadConfiguration
+
 from .models import (
-    CombinationConstraints,
     CombinationGenerationResult,
-    LoadCategory,
-    LoadConfiguration,
     LoadMetadata,
     TrafficLoadCombination,
+    extract_configuration_from_string,
 )
-from .traffic_load_rules import TrafficLoadRules
 
 
 class TrafficLoadCombinationGenerator:
@@ -29,15 +28,13 @@ class TrafficLoadCombinationGenerator:
     combinations that respect configuration and positioning constraints.
     """
 
-    def __init__(self, constraints: CombinationConstraints | None = None) -> None:
+    def __init__(self) -> None:
         """
         Initialize the combination generator.
 
-        :param constraints: Optional constraints for combination generation
-        :type constraints: CombinationConstraints | None
+        The generator uses default combination rules and does not require
+        external configuration.
         """
-        self.constraints = constraints or CombinationConstraints()
-        self.rules = TrafficLoadRules()
 
     def extract_metadata_from_load_cases(self, all_load_cases: dict[str, Any]) -> dict[str, LoadMetadata]:
         """
@@ -64,7 +61,7 @@ class TrafficLoadCombinationGenerator:
 
                     load_name = self._get_load_case_name(load_case, key)
                     title = self._get_load_case_description(load_case)
-                    config = self._extract_configuration_from_title(title)
+                    config = extract_configuration_from_string(title)
                     span_idx = self._extract_span_index_from_title(title)
 
                     metadata[load_name] = LoadMetadata(
@@ -83,7 +80,7 @@ class TrafficLoadCombinationGenerator:
                 for key, load_case in tandem_cases.items():
                     load_name = self._get_load_case_name(load_case, key)
                     title = self._get_load_case_description(load_case)
-                    config = self._extract_configuration_from_title(title)
+                    config = extract_configuration_from_string(title)
                     lane = self._extract_lane_from_title(title)
                     position_x = self._extract_position_from_title(title)
 
@@ -129,9 +126,15 @@ class TrafficLoadCombinationGenerator:
 
         return result
 
-    def _generate_combinations_for_config(self, config: LoadConfiguration, loads: list[LoadMetadata]) -> list[TrafficLoadCombination]:
+    def _generate_combinations_for_config(self, config: LoadConfiguration, loads: list[LoadMetadata]) -> list[TrafficLoadCombination]:  # noqa: C901
         """
         Generate all valid combinations for a single configuration.
+
+        Handles edge cases:
+        - Only UDL loads selected (no tandems)
+        - Only tandem loads selected (no UDLs)
+        - Neither selected (returns empty list)
+        - Both selected (full combinations)
 
         :param config: Configuration to generate combinations for
         :type config: LoadConfiguration
@@ -146,41 +149,77 @@ class TrafficLoadCombinationGenerator:
         udl_loads = [load for load in loads if load.category == LoadCategory.TRAFFIC_UDL]
         tandem_loads = [load for load in loads if load.category == LoadCategory.TRAFFIC_TANDEM]
 
+        # Edge case: No loads selected at all
+        if not udl_loads and not tandem_loads:
+            return []
+
         # Group tandem loads by lane
         tandems_by_lane = self._group_tandem_by_lane(tandem_loads)
 
         # Generate tandem combinations (one per lane, all possible combinations)
         tandem_combinations = self._generate_tandem_combinations(tandems_by_lane)
 
-        # Combine with UDL loads
         combination_id = 1
-        for tandem_combo in tandem_combinations:
-            # UDL loads can be added individually or not at all
-            # Generate all subsets of UDL loads (including empty set)
-            for udl_count in range(len(udl_loads) + 1):
+
+        # Case 1: Only UDL loads (no tandems)
+        if udl_loads and not tandem_loads:
+            # Generate all non-empty UDL combinations
+            for udl_count in range(1, len(udl_loads) + 1):
                 for udl_subset in combinations(udl_loads, udl_count):
                     combo = TrafficLoadCombination(
-                        combination_id=f"TRAFFIC_{config.value}_{combination_id:04d}",
+                        combination_id=f"TRAFFIC_{config.value}_UDL_{combination_id:04d}",
                         configuration=config,
                         udl_loads=[load.load_case_name for load in udl_subset],
-                        tandem_loads=tandem_combo,
-                        description=self._create_combination_description(config, list(udl_subset), tandem_combo),
+                        tandem_loads={},
+                        description=self._create_udl_only_description(config, list(udl_subset)),
                     )
                     combinations_list.append(combo)
                     combination_id += 1
 
-        # Also generate UDL-only combinations
-        for udl_count in range(1, len(udl_loads) + 1):
-            for udl_subset in combinations(udl_loads, udl_count):
+        # Case 2: Only tandem loads (no UDLs)
+        elif tandem_loads and not udl_loads:
+            # Generate tandem-only combinations
+            for tandem_combo in tandem_combinations:
                 combo = TrafficLoadCombination(
-                    combination_id=f"TRAFFIC_{config.value}_UDL_{combination_id:04d}",
+                    combination_id=f"TRAFFIC_{config.value}_TANDEM_{combination_id:04d}",
                     configuration=config,
-                    udl_loads=[load.load_case_name for load in udl_subset],
-                    tandem_loads={},
-                    description=self._create_udl_only_description(config, list(udl_subset)),
+                    udl_loads=[],
+                    tandem_loads=tandem_combo,
+                    description=self._create_tandem_only_description(config, tandem_combo),
                 )
                 combinations_list.append(combo)
                 combination_id += 1
+
+        # Case 3: Both UDL and tandem loads present
+        else:
+            # Generate combinations with tandems + optional UDL
+            for tandem_combo in tandem_combinations:
+                # UDL loads can be added individually or not at all
+                # Generate all subsets of UDL loads (including empty set)
+                for udl_count in range(len(udl_loads) + 1):
+                    for udl_subset in combinations(udl_loads, udl_count):
+                        combo = TrafficLoadCombination(
+                            combination_id=f"TRAFFIC_{config.value}_{combination_id:04d}",
+                            configuration=config,
+                            udl_loads=[load.load_case_name for load in udl_subset],
+                            tandem_loads=tandem_combo,
+                            description=self._create_combination_description(config, list(udl_subset), tandem_combo),
+                        )
+                        combinations_list.append(combo)
+                        combination_id += 1
+
+            # Also generate UDL-only combinations (without any tandems)
+            for udl_count in range(1, len(udl_loads) + 1):
+                for udl_subset in combinations(udl_loads, udl_count):
+                    combo = TrafficLoadCombination(
+                        combination_id=f"TRAFFIC_{config.value}_UDL_{combination_id:04d}",
+                        configuration=config,
+                        udl_loads=[load.load_case_name for load in udl_subset],
+                        tandem_loads={},
+                        description=self._create_udl_only_description(config, list(udl_subset)),
+                    )
+                    combinations_list.append(combo)
+                    combination_id += 1
 
         return combinations_list
 
@@ -264,22 +303,6 @@ class TrafficLoadCombinationGenerator:
         if hasattr(load_case, "Description"):
             return str(load_case.Description)
         return ""
-
-    @staticmethod
-    def _extract_configuration_from_title(title: str) -> LoadConfiguration:
-        """
-        Extract configuration (A, B, C) from title.
-
-        Looks for patterns like "Conf. A", "Config. B", "Configuration C".
-        """
-        title_lower = title.lower()
-        if "conf. a" in title_lower or "config. a" in title_lower:
-            return LoadConfiguration.CONF_A
-        if "conf. b" in title_lower or "config. b" in title_lower:
-            return LoadConfiguration.CONF_B
-        if "conf. c" in title_lower or "config. c" in title_lower:
-            return LoadConfiguration.CONF_C
-        return LoadConfiguration.NONE
 
     @staticmethod
     def _extract_lane_from_title(title: str) -> int | None:
@@ -366,6 +389,24 @@ class TrafficLoadCombinationGenerator:
     def _create_udl_only_description(config: LoadConfiguration, udl_loads: list[LoadMetadata]) -> str:
         """Create a description for UDL-only combination."""
         return f"Config {config.value}: {len(udl_loads)} UDL only"
+
+    @staticmethod
+    def _create_tandem_only_description(config: LoadConfiguration, tandem_combo: dict[str, str]) -> str:
+        """
+        Create a description for tandem-only combination.
+
+        :param config: Configuration of the combination
+        :type config: LoadConfiguration
+        :param tandem_combo: Tandem loads by lane (e.g., {'RS1': 'BG8001', 'RS2': 'BG9001'})
+        :type tandem_combo: dict[str, str]
+        :returns: Human-readable description
+        :rtype: str
+        """
+        if not tandem_combo:
+            return f"Config {config.value}: No loads"
+
+        lanes = sorted([int(key[2:]) for key in tandem_combo])
+        return f"Config {config.value}: TS lanes {','.join(map(str, lanes))} only"
 
     @staticmethod
     def _calculate_statistics(result: CombinationGenerationResult) -> dict[str, Any]:

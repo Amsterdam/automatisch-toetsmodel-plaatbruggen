@@ -170,6 +170,30 @@ class SciaModelBuilder(Protocol):
         """
         ...
 
+    def create_thermal_surface_load(
+        self,
+        name: str,
+        load_case_name: str,
+        plane_name: str,
+        top_delta: float,
+        bottom_delta: float,
+    ) -> Any:  # noqa: ANN401
+        """
+        Creates a thermal (temperature) surface load on a plane.
+
+        This method applies a temperature gradient through the thickness of a plane element.
+        The temperature distribution varies linearly from top_delta at the +Z surface to
+        bottom_delta at the -Z surface, creating thermal stresses and deformations.
+
+        :param name: Name of the thermal load
+        :param load_case_name: Name of the load case
+        :param plane_name: Name of the plane/plate to apply the load to
+        :param top_delta: Temperature difference at +Z surface (°C)
+        :param bottom_delta: Temperature difference at -Z surface (°C)
+        :return: The created thermal surface load object
+        """
+        ...
+
     def create_load_combination(
         self,
         name: str,
