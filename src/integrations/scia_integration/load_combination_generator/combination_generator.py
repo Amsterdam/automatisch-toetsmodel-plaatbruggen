@@ -126,7 +126,7 @@ class TrafficLoadCombinationGenerator:
 
         return result
 
-    def _generate_combinations_for_config(self, config: LoadConfiguration, loads: list[LoadMetadata]) -> list[TrafficLoadCombination]:
+    def _generate_combinations_for_config(self, config: LoadConfiguration, loads: list[LoadMetadata]) -> list[TrafficLoadCombination]: #noqa: C901
         """
         Generate all valid combinations for a single configuration.
 
