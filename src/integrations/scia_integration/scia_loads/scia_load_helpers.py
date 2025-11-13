@@ -66,6 +66,7 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
             add_pavement_loads,
             add_udl_loads,
         )
+        from .scia_temperature_loads import add_temperature_loads
 
         # Apply material loads (these depend on dead_load_cases)
         if "dead_load_cases" in load_cases:
@@ -94,6 +95,10 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
         # Apply tram loads
         if "tram_track_tandem_cases" in load_cases:
             add_tram_loads(builder, params, load_cases)
+
+        # Apply temperature loads
+        if "temperature_cases" in load_cases:
+            add_temperature_loads(builder, params, load_cases)
 
         # TODO: Add calls to other load functions when they are implemented
         # add_actual_tandem_loads(builder, params, load_cases)  # noqa: ERA001
