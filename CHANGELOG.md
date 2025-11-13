@@ -8,6 +8,7 @@ Introduced a new naming system with span, lane and configuration identification.
   - VIKTOR shows only essential information: description, usage, and contact
   - README.md retains full documentation including developer setup for GitHub
   - Both files maintained separately for clarity
+- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
 
 ### Changed
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
