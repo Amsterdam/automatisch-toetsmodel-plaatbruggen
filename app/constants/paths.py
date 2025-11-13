@@ -12,6 +12,7 @@ PROJECT_PATH = Path(__file__).parent.parent.parent
 
 # Documentation paths
 README_PATH = PROJECT_PATH / "README.md"
+VIKTOR_README_PATH = PROJECT_PATH / "VIKTOR_README.md"
 CHANGELOG_PATH = PROJECT_PATH / "CHANGELOG.md"
 
 # Resource paths
