@@ -131,7 +131,7 @@ def create_scia_cs_plotly_visualization(
         # X-richting: cross-sections perpendicular to X, so Y is FIXED (filter on Y, coord_index=1)
         # Y-richting: cross-sections perpendicular to Y, so X is FIXED (filter on X, coord_index=0)
         coord_index = 1 if direction == "X-richting" else 0  # 0=X, 1=Y, 2=Z
-        
+
         # Extract all unique positions for this direction
         unique_positions = []
         for _, row in df_cs_results.iterrows():
@@ -142,10 +142,10 @@ def create_scia_cs_plotly_visualization(
                     unique_positions.append(coord_value)
             except (ValueError, TypeError, IndexError):
                 continue
-        
+
         # Sort positions
         unique_positions.sort()
-        
+
         if not unique_positions:
             fig = go.Figure()
             fig.add_annotation(
@@ -159,7 +159,7 @@ def create_scia_cs_plotly_visualization(
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
             return PlotlyResult(fig.to_json())
-        
+
         # Check if position_index is valid
         if position_index < 0 or position_index >= len(unique_positions):
             fig = go.Figure()
@@ -174,11 +174,11 @@ def create_scia_cs_plotly_visualization(
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
             return PlotlyResult(fig.to_json())
-        
+
         # Get the actual position for this index
         position = unique_positions[position_index]
         tolerance = 0.01  # 1cm tolerance for coordinate matching
-        
+
         # CRITICAL: For display in title, we need the FIXED coordinate, not the varying one
         # X-richting: we vary along X (plot X-axis), so Y is fixed -> display Y coordinate
         # Y-richting: we vary along Y (plot Y-axis), so X is fixed -> display X coordinate
@@ -244,16 +244,16 @@ def create_scia_cs_plotly_visualization(
         # CRITICAL: X-richting = plot along X (length), Y-richting = plot along Y (width)
         # When X-richting is selected: we want cross-sections perpendicular to X, varying along X
         # When Y-richting is selected: we want cross-sections perpendicular to Y, varying along Y
-        
+
         if direction == "X-richting":
             # X-richting: plot along X (length), so we vary X coordinate
             other_coord_index = 0  # X-coordinate varies
             plot_along_length = True
         else:
-            # Y-richting: plot along Y (width), so we vary Y coordinate  
+            # Y-richting: plot along Y (width), so we vary Y coordinate
             other_coord_index = 1  # Y-coordinate varies
             plot_along_length = False
-        
+
         # Helper function to safely convert single value to float - NO MODIFICATIONS
         def safe_float_convert(val: Any) -> float:
             """Convert value to float, handling various input types. Returns RAW value from table."""
@@ -271,7 +271,7 @@ def create_scia_cs_plotly_visualization(
                 return float(val)
             except (ValueError, TypeError, AttributeError):
                 return 0.0  # Default to 0 if conversion fails
-        
+
         # Extract sort coordinate safely from coords_xyz tuple
         df_max["sort_coord"] = df_max["coords_xyz"].apply(
             lambda c: safe_float_convert(c[other_coord_index]) if isinstance(c, (list, tuple)) and len(c) > other_coord_index else 0.0
@@ -280,7 +280,7 @@ def create_scia_cs_plotly_visualization(
 
         # Extract x-axis values (the varying coordinate) - this represents position along bridge
         x_values = df_max["sort_coord"].tolist()
-        
+
         # Set appropriate labels based on what we're plotting along
         if plot_along_length:
             # Plotting along X (length)
@@ -292,7 +292,7 @@ def create_scia_cs_plotly_visualization(
             x_label = "Positie over breedte (Y) [m]"
             direction_text = "dwarsdoorsnede"
             position_label = "Y"
-        
+
         # Calculate total bridge length/width for x-axis range
         if bridge_segments and len(bridge_segments) > 0:
             if plot_along_length:
@@ -307,17 +307,16 @@ def create_scia_cs_plotly_visualization(
                 max_bz3 = max(safe_float_convert(getattr(seg, "bz3", 0)) for seg in bridge_segments)
                 x_range_min = -(max_bz3 + max_bz2 / 2)
                 x_range_max = max_bz1 + max_bz2 / 2
+        # Fallback: use data min/max with small margin
+        elif x_values:
+            data_min = min(x_values)
+            data_max = max(x_values)
+            margin = (data_max - data_min) * 0.05 if data_max > data_min else 1
+            x_range_min = data_min - margin
+            x_range_max = data_max + margin
         else:
-            # Fallback: use data min/max with small margin
-            if x_values:
-                data_min = min(x_values)
-                data_max = max(x_values)
-                margin = (data_max - data_min) * 0.05 if data_max > data_min else 1
-                x_range_min = data_min - margin
-                x_range_max = data_max + margin
-            else:
-                x_range_min = 0
-                x_range_max = 10
+            x_range_min = 0
+            x_range_max = 10
 
         # Extract RAW force/moment values from DataFrame and convert from N to kN, Nm to kNm
         # SCIA provides forces in Newton (N) and moments in Newton-meter (Nm)
@@ -325,20 +324,21 @@ def create_scia_cs_plotly_visualization(
         def extract_column_as_floats(df: pd.DataFrame, col_name: str, is_moment: bool = False) -> list[float]:
             """
             Extract column values, convert to floats, and apply unit conversion.
-            
+
             Args:
                 df: DataFrame to extract from
                 col_name: Column name
                 is_moment: True for moments (Nm to kNm), False for forces (N to kN)
-            
+
             Returns:
                 List of converted values in kN or kNm
+
             """
             if col_name not in df.columns:
                 return [0.0] * len(df)
             # Convert from N to kN or Nm to kNm by dividing by 1000
             return [safe_float_convert(val) / 1000.0 for val in df[col_name]]
-        
+
         # Shear forces: N to kN
         v_x_values = extract_column_as_floats(df_max, "v_x", is_moment=False)
         v_y_values = extract_column_as_floats(df_max, "v_y", is_moment=False)
