@@ -20,9 +20,9 @@ from src.combinations.load_factors import (
     get_project_scope,
     prepare_combination_table,
 )
-from src.integrations.scia_integration.load_combination_generator.models import LoadConfiguration
 from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCombination, SciaModelBuilder
 from src.integrations.scia_integration.scia_enums import LoadCombinationType
+from src.integrations.scia_integration.types import LoadConfiguration
 
 # Type aliases for SCIA objects
 SciaModel = Any
@@ -47,6 +47,26 @@ SUBJECT_TO_SERIES: dict[str, list[str]] = {
 
 def _series_list(subject: str) -> list[str]:
     return SUBJECT_TO_SERIES.get(subject, [])
+
+
+def _get_numeric_factor(factor: Any) -> float | None:  # noqa: ANN401
+    """
+    Extract numeric factor from value, skipping None, NaN, or zero.
+
+    :param factor: Factor value to validate
+    :type factor: Any
+    :returns: Numeric factor or None if invalid
+    :rtype: float | None
+    """
+    if factor is None:
+        return None
+    try:
+        numeric_factor = float(factor)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(numeric_factor) or numeric_factor == 0.0:
+        return None
+    return numeric_factor
 
 
 def _add_series_to_factors_generic(
@@ -186,13 +206,8 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
         # Check if this combination has any traffic loads
         has_traffic_loads = False
         for subject, factor in row.items():
-            if factor is None:
-                continue
-            try:
-                numeric_factor = float(factor)
-            except (TypeError, ValueError):
-                continue
-            if pd.isna(numeric_factor) or numeric_factor == 0.0:
+            numeric_factor = _get_numeric_factor(factor)
+            if numeric_factor is None:
                 continue
 
             subject_str = str(subject)
@@ -205,14 +220,8 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
             load_case_factors: dict[SciaLoadCase, float] = {}
 
             for subject, factor in row.items():
-                # Skip non-numeric, NaN, or zero factors
-                if factor is None:
-                    continue
-                try:
-                    numeric_factor = float(factor)
-                except (TypeError, ValueError):
-                    continue
-                if pd.isna(numeric_factor) or numeric_factor == 0.0:
+                numeric_factor = _get_numeric_factor(factor)
+                if numeric_factor is None:
                     continue
 
                 # Add all load cases without configuration filter
@@ -239,14 +248,8 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
             load_case_factors = {}
 
             for subject, factor in row.items():
-                # Skip non-numeric, NaN, or zero factors
-                if factor is None:
-                    continue
-                try:
-                    numeric_factor = float(factor)
-                except (TypeError, ValueError):
-                    continue
-                if pd.isna(numeric_factor) or numeric_factor == 0.0:
+                numeric_factor = _get_numeric_factor(factor)
+                if numeric_factor is None:
                     continue
 
                 # Determine if this subject is traffic-related

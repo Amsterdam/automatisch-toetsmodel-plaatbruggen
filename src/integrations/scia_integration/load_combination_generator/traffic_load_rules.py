@@ -6,7 +6,9 @@ combined together and which combinations are physically impossible or
 not allowed by code.
 """
 
-from .models import LoadConfiguration, LoadMetadata, TrafficLoadCombination
+from src.integrations.scia_integration.types import LoadConfiguration
+
+from .models import LoadMetadata, TrafficLoadCombination
 
 
 class TrafficLoadRules:
@@ -18,11 +20,23 @@ class TrafficLoadRules:
     """
 
     @staticmethod
+    def _get_traffic_configurations(loads: list[LoadMetadata]) -> list[LoadConfiguration]:
+        """
+        Extract traffic configurations from loads, excluding NONE.
+
+        :param loads: List of load metadata
+        :type loads: list[LoadMetadata]
+        :returns: List of traffic configurations (excluding NONE)
+        :rtype: list[LoadConfiguration]
+        """
+        return [load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE]
+
+    @staticmethod
     def can_combine_configurations(config_a: LoadConfiguration, config_b: LoadConfiguration) -> bool:
         """
         Check if two configurations can be combined.
 
-        Traffic loads from different configurations (A, B, C) represent mutually
+        Traffic loads from different configurations (A, B, C, D) represent mutually
         exclusive positioning scenarios and cannot occur simultaneously.
 
         :param config_a: First configuration
@@ -115,7 +129,7 @@ class TrafficLoadRules:
         :returns: True if configurations are consistent, False otherwise
         :rtype: bool
         """
-        traffic_configs = [load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE]
+        traffic_configs = TrafficLoadRules._get_traffic_configurations(loads)
 
         if not traffic_configs:
             return True  # No traffic loads with configuration
@@ -131,12 +145,24 @@ class TrafficLoadRules:
         Returns the common configuration if all traffic loads share one,
         otherwise returns NONE.
 
+        Prerequisites:
+            - Should be called after validate_configuration_consistency() to ensure
+            all loads share the same configuration (A, B, C, D).
+            - Configuration D has specific rules and is handled separately in
+            certain scenarios
+
+        Behavior:
+            - If multiple different configurations exist, returns the first one.
+            This should not occur if validate_configuration_consistency() was
+            called first.
+            - Returns NONE if no traffic loads with configuration are found.
+
         :param loads: List of load metadata
         :type loads: list[LoadMetadata]
         :returns: Common configuration or NONE
         :rtype: LoadConfiguration
         """
-        traffic_configs = [load.configuration for load in loads if load.has_configuration() and load.configuration != LoadConfiguration.NONE]
+        traffic_configs = TrafficLoadRules._get_traffic_configurations(loads)
 
         if not traffic_configs:
             return LoadConfiguration.NONE
