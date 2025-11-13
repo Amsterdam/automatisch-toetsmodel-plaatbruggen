@@ -24,6 +24,10 @@ Introduced a new naming system with span, lane and configuration identification.
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
 - Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
 - Re-assigned the UDL and tandem loads to load groups.
+- **IDEA Rebar Spacing Calculation**: Modified rebar positioning algorithm to use exact requested heart-to-heart spacing instead of recalculating based on integer rebar count
+  - Changed from `n_rebars = int(width / hoh)` to `n_rebars = width / hoh` (no integer conversion)
+  - Uses exact requested spacing value (e.g., 150mm input → 150mm IDEA spacing)
+  - Rounds to nearest integer only for determining even/odd layout pattern
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added
