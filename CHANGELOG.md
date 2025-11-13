@@ -1,5 +1,6 @@
 ## [`v0.0.17`] - 2025-11-13
 ### Added
+- Temperature loads on 2D elements
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
 Introduced a new naming system with span, lane and configuration identification.
 

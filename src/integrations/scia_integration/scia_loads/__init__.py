@@ -37,6 +37,7 @@ from .scia_surface_loads import (
     add_pavement_loads,
     add_udl_loads,
 )
+from .scia_temperature_loads import add_temperature_loads
 
 __all__ = [
     "BridgeParametrization",
@@ -49,6 +50,7 @@ __all__ = [
     "add_pavement_loads",
     "add_pedestrian_loads",
     "add_service_vehicle_loads",
+    "add_temperature_loads",
     "add_theoretical_tandem_loads",
     "add_udl_loads",
     "convert_loads_to_scia_format",
