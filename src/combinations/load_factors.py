@@ -211,6 +211,7 @@ def get_project_scope() -> list[str]:
         "Dienstvoertuig Qserv",
         "Fiets- en voetpaden",
         "Mensenmenigte",
+        "Bijzondere voertuigen",
         "Onbedoeld voertuig",
         "Temperatuur",
     ]
