@@ -1332,7 +1332,7 @@ Selecteer de richting (X of Y), het type resultaat (ULS of SLS frequente), en de
 
 **Hoe te gebruiken:**
 1. **Resultaattype**: Kies tussen ULS (Ultimate Limit State) of SLS freq (Serviceability Limit State frequent) resultaten
-2. **Richting**: 
+2. **Richting**:
    - X-richting = langsdoorsneden (variërend van links naar rechts over de bruglengte)
    - Y-richting = dwarsdoorsneden (variërend van boven naar beneden over de brugbreedte)
 3. **Maximale waarde voor**: Selecteer voor welke kracht/moment component de maximale envelop waarden worden getoond

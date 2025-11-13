@@ -68,7 +68,7 @@ def get_available_cs_coordinates(
         return []
 
 
-def create_scia_cs_plotly_visualization(
+def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR0912, PLR0915
     results: dict[str, Any],
     *,
     result_type: str,
@@ -255,7 +255,7 @@ def create_scia_cs_plotly_visualization(
             plot_along_length = False
 
         # Helper function to safely convert single value to float - NO MODIFICATIONS
-        def safe_float_convert(val: Any) -> float:
+        def safe_float_convert(val: Any) -> float:  # noqa: ANN401
             """Convert value to float, handling various input types. Returns RAW value from table."""
             try:
                 # If already numeric, return as-is
@@ -286,19 +286,17 @@ def create_scia_cs_plotly_visualization(
             # Plotting along X (length)
             x_label = "Positie langs brug (X) [m]"
             direction_text = "langsdoorsnede"
-            position_label = "X"
         else:
             # Plotting along Y (width)
             x_label = "Positie over breedte (Y) [m]"
             direction_text = "dwarsdoorsnede"
-            position_label = "Y"
 
         # Calculate total bridge length/width for x-axis range
         if bridge_segments and len(bridge_segments) > 0:
             if plot_along_length:
                 # Plotting along length: sum all segment lengths (skip first segment with l=0)
                 x_range_max = sum(safe_float_convert(getattr(seg, "l", 0)) for seg in bridge_segments[1:])
-                x_range_min = 0
+                x_range_min = 0.0
             else:
                 # Plotting along width: calculate Y-coordinate range from bz1, bz2, bz3
                 # Y=0 is at center of bz2, Y_min = -(bz3+bz2/2), Y_max = bz1+bz2/2
@@ -321,7 +319,7 @@ def create_scia_cs_plotly_visualization(
         # Extract RAW force/moment values from DataFrame and convert from N to kN, Nm to kNm
         # SCIA provides forces in Newton (N) and moments in Newton-meter (Nm)
         # We convert to kilonewton (kN) and kilonewton-meter (kNm) for better readability
-        def extract_column_as_floats(df: pd.DataFrame, col_name: str, is_moment: bool = False) -> list[float]:
+        def extract_column_as_floats(df: pd.DataFrame, col_name: str, is_moment: bool = False) -> list[float]:  # noqa: ARG001
             """
             Extract column values, convert to floats, and apply unit conversion.
 
@@ -481,8 +479,12 @@ def create_scia_cs_plotly_visualization(
         fig.update_xaxes(title_text=x_label, row=4, col=1)
 
         # Update overall layout
+        max_info = f"{display_coord_label}={display_coord_value:.2f}m"
+        title_text = (
+            f"SCIA CS {result_type} - {direction_text}, doorsnede {position_index + 1}/{len(unique_positions)} ({max_info}), voor max {max_type}"
+        )
         fig.update_layout(
-            title_text=f"SCIA CS {result_type} - {direction_text}, doorsnede {position_index + 1}/{len(unique_positions)} ({display_coord_label}={display_coord_value:.2f}m), voor max {max_type}",
+            title_text=title_text,
             height=1200,  # Tall enough for 4 subplots
             showlegend=True,
             hovermode="x unified",
