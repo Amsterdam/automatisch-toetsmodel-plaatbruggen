@@ -132,21 +132,25 @@ def _get_unique_matching_zone_keys(  # noqa: C901
 
 
 def calculate_rebar_positions(width: float, hoh: float, y_offset: float = 0) -> list[float]:
-    """Calculate positions for longitudinal reinforcement."""
-    n_rebars = int(width / hoh)  # Round down to ensure minimum hoh is maintained
+    """Calculate positions for longitudinal reinforcement using exact spacing."""
+    n_rebars = width / hoh  # Use exact fractional value
     if n_rebars < 1:
         return []
 
-    actual_hoh = width / n_rebars
+    # Use exact requested hoh spacing
+    actual_hoh = hoh
     positions = []
 
-    if n_rebars % 2 == 0:  # Even number of rebars
-        for i in range(n_rebars // 2):
+    # Round to nearest integer for determining layout pattern
+    n_rebars_int = round(n_rebars)
+
+    if n_rebars_int % 2 == 0:  # Even number of rebars
+        for i in range(n_rebars_int // 2):
             offset = (i + REBAR_POSITION_HALF_OFFSET) * actual_hoh
             positions.extend([-offset, offset])
     else:  # Odd number of rebars
         positions = [0]  # Center rebar
-        for i in range(1, (n_rebars + 1) // 2):
+        for i in range(1, (n_rebars_int + 1) // 2):
             offset = i * actual_hoh
             positions.extend([-offset, offset])
 
