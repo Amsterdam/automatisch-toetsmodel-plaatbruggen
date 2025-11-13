@@ -27,6 +27,7 @@
 - Temperature loads on 2D elements
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
 Introduced a new naming system with span, lane and configuration identification.
+- Load combinations with group 5 that include the tram loading.
 
 ### Changed
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
@@ -38,6 +39,7 @@ New folder in the directory for the load combination generator.
   - Changed from `n_rebars = int(width / hoh)` to `n_rebars = width / hoh` (no integer conversion)
   - Uses exact requested spacing value (e.g., 150mm input → 150mm IDEA spacing)
   - Rounds to nearest integer only for determining even/odd layout pattern
+- Extended the load combination table with a column for the tram loading under "Bijzondere voertuigen".
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added
