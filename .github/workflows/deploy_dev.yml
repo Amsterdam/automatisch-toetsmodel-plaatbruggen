@@ -1,0 +1,41 @@
+name: Deploy - ATB [DEV]
+
+on:
+  push:
+    tags:
+      - "dev-v*.*.*"
+
+env:
+  VIKTOR_DEV: ${{ secrets.VIKTOR_DEV }}
+  VIKTOR_TOKEN: ${{ secrets.VIKTOR_TOKEN }}
+  VIKTOR_ENV: ${{ secrets.VIKTOR_ENV }}
+
+jobs:
+#  test:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#      - uses: actions/setup-python@v4
+#        with:
+#          python-version: 3.13
+#      - run: curl -Lo viktor-cli 'https://developers.viktor.ai/api/v1/get-cli/?platform=linux&format=binary' && chmod +x viktor-cli
+#      - run: ./viktor-cli ci-install
+#      - run: ./viktor-cli ci-test
+  publish:
+    runs-on: ubuntu-latest
+#    needs: test # start when job 'test' is finished
+#    if: ${{ success()  &&  startsWith(github.ref, 'refs/tags/') }} # only run for a tag and when previous job completed successfully
+    steps:
+      - name: "Checkout GitHub Action"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: "Setup viktor-cli"
+        run: curl -Lo viktor-cli 'https://developers.viktor.ai/api/v1/get-cli/?platform=linux&format=binary' && chmod +x viktor-cli
+
+      - name: "Publish app"
+        run: ./viktor-cli ci-publish automatisch-toetsmodel-plaatbruggen # replace NAME with the actual name of the app
