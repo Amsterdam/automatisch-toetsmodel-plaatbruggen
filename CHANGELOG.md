@@ -6,6 +6,7 @@
   - Nieuwe kolommen met verduidelijking toegevoegd aan IDEA resultaat tabellen. 
 - **SCIA Results Parser Optimization**: Major performance improvements to `extract_analysis_results` in `scia_model_builder.py`:
   - Reduced XML file reads from 6 to 1 (60-80% performance improvement)
+- **UI text invoer dimensies**: changed UI tekst by renaming code variable names like bz, bz2 and dz etc.
 
 ### Removed
 - **SCIA Results Cleanup**: Removed 3 unused functions from `scia_results_processor.py` (~75 lines):
