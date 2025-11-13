@@ -97,30 +97,47 @@ Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebr
 # SCIA integration info text
 SCIA_INFO_TEXT = """## SCIA Engineer Integratie
 
-Deze pagina toont een weergave van het aangemaakte SCIA model en biedt download opties voor SCIA Engineer bestanden.
-Op het tabblad "Berekening" kun je belastinggevallen toevoegen die mee genomen worden in de SCIA analyse.
-Vervolgens kun je de .xml bestanden downloaden om het model zelf te bekijken in SCIA,
-of de analyse direct in Viktor laten uitvoeren en de resultaten hier bekijken,
-door op de knop "Download ESA Model" of "Download SCIA Output XML" te klikken.
-In het eerste geval krijg je meteen het volledige .esa model om zelf te openen in SCIA Engineer,
-in het tweede geval krijg je enkel het output .xml bestand.
+Deze pagina geeft inzicht in het aangemaakte SCIA model en de bijbehorende resultaten. Je kunt hier de geometrie van het model bekijken
+en de resultaten van de SCIA-analyse inzien.
+De tabellen op deze pagina geven inzicht in de krachten die met SCIA zijn bepaald. Dit zijn géén toetsingen, maar de krachten die later
+in IDEA worden getoetst.
+De krachten uit het SCIA model worden uitgelezen op basis van "section on 2D members".
+
+### Uitleg tabbladen
+
+- **3D Model**: Geeft inzicht in de geometrie van het aangemaakte SCIA model. Hier kun je een interactieve 3D-weergave van het brugmodel
+    bekijken en controleren of de geometrie correct is.
+
+- **SCIA CS ULS**: Toont de maximale snedekrachten per cross-section (doorsnede) zoals berekend in SCIA voor de Ultimate Limit State (ULS).
+
+- **SCIA CS SLS Freq**: Toont de maximale snedekrachten per cross-section (doorsnede) voor de Serviceability Limit State (SLS frequent).
+
+- **SCIA Analyse Resultaten**: In deze tabel zijn de maximale snedekrachten per zone weergegeven die bepaald zijn door de resultaten van
+    de cross-sections te filteren. Op basis van deze tabel worden de uiteindelijke toetsingen in IDEA uitgevoerd.
+
+De SCIA CS ULS en SCIA CS SLS tabellen geven dus de maximale krachten per doorsnede, terwijl de SCIA Analyse Resultaten de maximale
+krachten per zone tonen. Deze resultaten vormen de basis voor de uiteindelijke snedetoetsingen in IDEA.
 
 ### Download Opties
-Gebruik de onderstaande knoppen om SCIA bestanden te downloaden:"""
+Gebruik de onderstaande knoppen om SCIA-bestanden te downloaden:
+- Download XML Files -> SCIA Engineer XML model (niet doorgerekend)
+- Download ESA Model -> SCIA model (doorgerekend)
+- Download SCIA Output XML -> SCIA output resultaten in XML format (doorgerekend)
+"""
 
 # Dimensions segments explanation
 DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) van de brug.
 Elk item in de lijst hieronder representeert een dwarsdoorsnede.
 - Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
 - Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
-- Het veld '**Afstand tot vorige snede**' (`l`) geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
+- Het veld '**Afstand tot vorige snede**' geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
   Dit veld is niet zichtbaar voor de eerste snede.
-- De overige dimensievelden (zoals `bz1`, `bz2`, `dz` voor de dikte van zone 1 en 3, en `dz_2` voor de dikte van zone 2)
-  beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
+- De overige dimensievelden beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
 Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
 Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
 
-De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in voor `dz` en `dz_2`.
+De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in
+voor 'Dikte zone 1 en 3' en 'Dikte zone 2'.
 
 """
 
@@ -145,17 +162,27 @@ Houdt rekening met laadtijd van het model, wanneer er veel zones en wapeningscon
 # IDEA StatiCa integration info text
 IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
-Deze pagina toont een weergave van de IDEA RCS resultaten en biedt download opties voor de snedetoetsingen in IDEA.
+Deze pagina toont de IDEA RCS snedetoetsingen en IDEA download opties.
 
-### Model Informatie
-Het model is gebaseerd op de opgegeven bruggeometrie en wapening. Het model identificeert op basis van de wapeningsconfiguraties en plaatdiktes,
-hoeveel unieke combinaties van plaatdiktes en wapening er zijn, en maakt voor elke unieke combinatie een apart plaat element aan in IDEA.
-Vervolgens worden de snedekrachten uit SCIA, hieraan gekoppeld op basis van locatie op het brugdek, en worden de snedetoetsingen uitgevoerd.
-Per locatie langs de integratiestroken worden er een of meerdere krachtencombinaties getoetst die mogelijk maatgevend zijn. Deze worden als extremen
-toegevoegd aan de doorsnedes.
+### Modelopbouw in 6 stappen
+Het proces werkt als volgt:
+1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) per doorsnede bepaald.
+2. Deze krachten worden automatisch uit de SCIA-resultaten gehaald.
+3. Per zone worden de maximale absolute waarden bepaald (envelope).
+4. De resultaten worden omgezet naar het IDEA-formaat.
+5. Momenten (Mx, My), normaalkrachten (Nx, Ny) én dwarskrachten (Qz) worden gecombineerd en uitgelezen.
+6. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
+    worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
+    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen:
+    - In de **langsdoorsnede** wordt de **dwarswapening** gecontroleerd (Qz = v_y, My = My, N = Ny)
+    - In de **dwarsdoorsnede** wordt de **langswapening** gecontroleerd (Qz = v_x, My = Mx, N = Nx)
 
-In het eerste tabblad op de rechterkant van het scherm, is een overzicht te zien van de verschillende plaat elementen die zijn aangemaakt.
-In het tweede tabblad is een overzicht te zien van de resultaten van de snedetoetsingen.
+Voor elke unieke combinatie van plaatdikte en wapening worden alle relevante krachtencombinaties als extremen toegevoegd.
+
+
+### Tabbladen
+- **Tabblad 1**: Unieke plaatelementen (combinatie van plaatdikte en wapeningsconfiguratie)
+- **Tabblad 2**: Snedetoetsing resultaten
 
 ### Download Opties
 Gebruik de onderstaande knoppen om IDEA RCS bestanden te downloaden:"""
