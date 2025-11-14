@@ -711,6 +711,7 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
         "Dienstvoertuig": True,
         "Onbedoeld voertuig": True,
         "TS": True,
+        "Tram": False,  # Default to False - requires specific conditions
     }
 
     try:
@@ -763,7 +764,7 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     if load_selection.get("Temperatuur", True):
         load_cases["temperature_cases"] = create_temperature_load_cases(builder)
 
-    # UDL traffic load cases (BG4001-BG4xxx)
+    # UDL traffic load cases (BG4000 series)
     if load_selection.get("UDL", True):
         load_cases["udl_traffic_cases"] = create_udl_traffic_load_cases(builder, params)
 
@@ -771,20 +772,20 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     if load_selection.get("Voetgangers", True):
         load_cases["pedestrian"] = create_pedestrian_load_case(builder)
 
-    # Service vehicle load cases (BG6001-BG6xxx)
+    # Service vehicle load cases (BG6000 series)
     if load_selection.get("Dienstvoertuig", True):
         load_cases["service_vehicle_cases"] = create_service_vehicle_load_cases(builder, params)
 
-    # Unintended vehicle load cases (BG7001-BG7xxx)
+    # Unintended vehicle load cases (BG7000 series)
     if load_selection.get("Onbedoeld voertuig", True):
         load_cases["unintended_vehicle_cases"] = create_unintended_vehicle_load_cases(builder, params)
 
-    # Tandem system load cases (BG8001-BG10xxx)
+    # Tandem system load cases (BG8000-BG10000 series)
     if load_selection.get("TS", True):
         load_cases["tandem_cases"] = create_dynamic_tandem_load_cases(builder, params)
 
-    # Tandem system load cases for tram tracks (BG11001-BG12xxx)
-    if load_selection.get("TS", True):
+    # Tram track tandem system load cases (BG11000-BG12000 series)
+    if load_selection.get("Tram", False):
         load_cases["tram_track_tandem_cases"] = create_dynamic_tram_track_tandem_load_cases(builder, params)
 
     return load_cases
