@@ -82,7 +82,7 @@ class TestAnalysisCache(unittest.TestCase):
     def test_extract_scia_parameters(self) -> None:
         """Test SCIA parameter extraction via AnalysisCache._extract_params()."""
         # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
+        with patch.object(AnalysisCache, "__init__", lambda self: (setattr(self, "storage", Mock()), setattr(self, "_hash_cache", {}))):
             cache = AnalysisCache()
             template_path = "/path/to/template"
             params = cache._extract_params(self.default_params, AnalysisType.SCIA, template_path)
@@ -102,7 +102,7 @@ class TestAnalysisCache(unittest.TestCase):
     def test_extract_idea_parameters(self) -> None:
         """Test IDEA parameter extraction via AnalysisCache._extract_params()."""
         # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
+        with patch.object(AnalysisCache, "__init__", lambda self: (setattr(self, "storage", Mock()), setattr(self, "_hash_cache", {}))):
             cache = AnalysisCache()
             params = cache._extract_params(self.default_params, AnalysisType.IDEA)
             assert isinstance(params, dict)
@@ -119,7 +119,7 @@ class TestAnalysisCache(unittest.TestCase):
     def test_generate_input_hash(self) -> None:
         """Test input hash generation."""
         # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
+        with patch.object(AnalysisCache, "__init__", lambda self: (setattr(self, "storage", Mock()), setattr(self, "_hash_cache", {}))):
             cache = AnalysisCache()
             # Test SCIA hash
             scia_hash = cache._generate_input_hash(self.default_params, AnalysisType.SCIA, "/template/path")
@@ -137,7 +137,7 @@ class TestAnalysisCache(unittest.TestCase):
     def test_hash_consistency(self) -> None:
         """Test that same parameters generate same hash."""
         # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
+        with patch.object(AnalysisCache, "__init__", lambda self: (setattr(self, "storage", Mock()), setattr(self, "_hash_cache", {}))):
             cache = AnalysisCache()
             hash1 = cache._generate_input_hash(self.default_params, AnalysisType.SCIA, "/template/path")
             hash2 = cache._generate_input_hash(self.default_params, AnalysisType.SCIA, "/template/path")
@@ -146,7 +146,7 @@ class TestAnalysisCache(unittest.TestCase):
     def test_cache_key_format(self) -> None:
         """Test cache key generation format."""
         # Mock Storage to avoid "Job token is not set" error
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", Mock())):
+        with patch.object(AnalysisCache, "__init__", lambda self: (setattr(self, "storage", Mock()), setattr(self, "_hash_cache", {}))):
             cache = AnalysisCache()
             # The actual implementation uses a different key format
             input_hash = cache._generate_input_hash(self.default_params, AnalysisType.SCIA, "/template/path")
@@ -168,7 +168,9 @@ class TestAnalysisCache(unittest.TestCase):
         encoded_data = base64.b64encode(pickled_data).decode("utf-8")
         mock_storage_instance.get.return_value = encoded_data
 
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", mock_storage_instance)):
+        with patch.object(
+            AnalysisCache, "__init__", lambda self: (setattr(self, "storage", mock_storage_instance), setattr(self, "_hash_cache", {}))
+        ):
             cache = AnalysisCache()
             # Test cache hit
             result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
@@ -182,7 +184,9 @@ class TestAnalysisCache(unittest.TestCase):
         mock_storage_instance = Mock()
         mock_storage_instance.get.return_value = None
 
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", mock_storage_instance)):
+        with patch.object(
+            AnalysisCache, "__init__", lambda self: (setattr(self, "storage", mock_storage_instance), setattr(self, "_hash_cache", {}))
+        ):
             cache = AnalysisCache()
             # Test cache miss
             result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
@@ -197,7 +201,9 @@ class TestAnalysisCache(unittest.TestCase):
         # Test results
         test_results = {"test": "data", "analysis_status": "completed"}
 
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", mock_storage_instance)):
+        with patch.object(
+            AnalysisCache, "__init__", lambda self: (setattr(self, "storage", mock_storage_instance), setattr(self, "_hash_cache", {}))
+        ):
             cache = AnalysisCache()
             # Cache results
             cache.cache_analysis_results(self.default_params, AnalysisType.SCIA, self.entity_id, test_results, "/template/path")
@@ -213,7 +219,9 @@ class TestAnalysisCache(unittest.TestCase):
         test_keys = ["analysis_cache_12345_scia_abc123", "analysis_cache_12345_idea_def456"]
         mock_storage_instance.list.return_value = test_keys
 
-        with patch.object(AnalysisCache, "__init__", lambda self: setattr(self, "storage", mock_storage_instance)):
+        with patch.object(
+            AnalysisCache, "__init__", lambda self: (setattr(self, "storage", mock_storage_instance), setattr(self, "_hash_cache", {}))
+        ):
             cache = AnalysisCache()
             # Test that the method can be called without errors
             # The actual implementation might have issues with pattern matching

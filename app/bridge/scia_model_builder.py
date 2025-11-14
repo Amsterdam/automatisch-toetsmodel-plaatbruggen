@@ -1330,12 +1330,6 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
 
         # Generate envelope dataframe (used by IDEA and analyse resultaten view)
         df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-
-        return {
-            "df_cs_uls": df_cs_uls,
-            "df_cs_sls_freq": df_cs_sls_freq,
-            "df_cs_envelope": df_cs_envelope,
-        }
     except Exception:
         # If dataframe generation fails, return empty dataframes
         # This prevents cache failures but allows the rest of the analysis to succeed
@@ -1343,6 +1337,12 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
             "df_cs_uls": pd.DataFrame(),
             "df_cs_sls_freq": pd.DataFrame(),
             "df_cs_envelope": pd.DataFrame(),
+        }
+    else:
+        return {
+            "df_cs_uls": df_cs_uls,
+            "df_cs_sls_freq": df_cs_sls_freq,
+            "df_cs_envelope": df_cs_envelope,
         }
 
 
