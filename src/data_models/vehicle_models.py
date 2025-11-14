@@ -302,7 +302,8 @@ class TramVehicle(BaseModel):
         expected_spacings = len(self.axle_forces_kn) - 1
         if len(self.wheel_spacing_longitudinal) != expected_spacings:
             raise ValueError(
-                f"Number of axle spacings ({len(self.wheel_spacing_longitudinal)}) doesn't match expected ({expected_spacings}) for {len(self.axle_forces_kn)} axles"
+                f"Number of axle spacings ({len(self.wheel_spacing_longitudinal)}) doesn't match expected "
+                f"({expected_spacings}) for {len(self.axle_forces_kn)} axles"
             )
         return self
 
