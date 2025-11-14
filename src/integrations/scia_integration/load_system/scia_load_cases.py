@@ -730,10 +730,11 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
             include = row.get("include", True)
             if load_type:  # Only add non-empty load types
                 selection[load_type] = include
-        return selection
     except (AttributeError, TypeError, KeyError):
         # Fallback to default if table is not available or malformed
         return default_selection
+    else:
+        return selection
 
 
 def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, Any]:  # noqa: ANN401
