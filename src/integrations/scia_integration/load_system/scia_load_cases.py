@@ -701,7 +701,9 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
     :return: Dictionary mapping load type names to boolean inclusion status.
     :rtype: dict[str, bool]
     """
-    # Default selection (all enabled) for backward compatibility
+    # Default selection (all enabled except Tram) for backward compatibility
+    # Note: Tram is disabled by default to match UI default (unchecked).
+    # User must explicitly enable tram loads via the checkbox.
     default_selection = {
         "Eigen gewicht": True,
         "Permanent": True,
@@ -711,7 +713,7 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
         "Dienstvoertuig": True,
         "Onbedoeld voertuig": True,
         "TS": True,
-        "Tram": False,  # Default to False - requires specific conditions
+        "Tram": False,  # Default False - requires explicit user enablement
     }
 
     try:
@@ -720,17 +722,18 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
         if table is None:
             return default_selection
 
-        # Extract selection from table rows
-        selection = {}
+        # Extract selection from table rows and merge with defaults
+        # Start with defaults, then override with table values
+        selection = default_selection.copy()
         for row in table:
             load_type = row.get("load_type", "")
             include = row.get("include", True)
-            selection[load_type] = include
+            if load_type:  # Only add non-empty load types
+                selection[load_type] = include
+        return selection
     except (AttributeError, TypeError, KeyError):
         # Fallback to default if table is not available or malformed
         return default_selection
-    else:
-        return selection
 
 
 def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, Any]:  # noqa: ANN401
