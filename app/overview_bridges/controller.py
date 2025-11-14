@@ -35,7 +35,7 @@ from app.common.map_utils import (  # Import shared utilities
 from app.constants import (  # Replace relative imports with absolute imports
     CHANGELOG_PATH,
     CSS_PATH,
-    README_PATH,
+    VIKTOR_README_PATH,
 )
 
 # Import the parametrization from the separate file
@@ -132,11 +132,11 @@ class OverviewBridgesController(BatchCalculationComponent, ViktorController):
     @WebView("Readme and Changelog", duration_guess=3)
     def view_readme_changelog(self, **kwargs) -> WebResult:  # noqa: ARG002
         """
-        Converts the docs files (README.md, CHANGELOG.md) to HTML and presents them in the viewer.
+        Converts the docs files (VIKTOR_README.md, CHANGELOG.md) to HTML and presents them in the viewer.
 
         :return: WebResult.
         """
-        with open(README_PATH, encoding="utf-8") as f:
+        with open(VIKTOR_README_PATH, encoding="utf-8") as f:
             html_text_readme = markdown.markdown(f.read())
         with open(CHANGELOG_PATH, encoding="utf-8") as f:
             html_text_changelog = markdown.markdown(f.read())

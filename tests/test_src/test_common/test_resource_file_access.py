@@ -18,6 +18,7 @@ from app.constants import (
     README_PATH,
     REINFORCEMENT_PATH,
     SCIA_TEMPLATE_PATH,
+    VIKTOR_README_PATH,
 )
 from src.common.materials import (
     BENDING_RADIUS_PATH,
@@ -39,6 +40,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
         # Test app.constants paths
         constants_paths = [
             ("README_PATH", README_PATH),
+            ("VIKTOR_README_PATH", VIKTOR_README_PATH),
             ("CHANGELOG_PATH", CHANGELOG_PATH),
             ("CSS_PATH", CSS_PATH),
             ("OUTPUT_REPORT_PATH", OUTPUT_REPORT_PATH),
@@ -102,6 +104,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
         # All app.constants paths should start with PROJECT_PATH
         app_paths = [
             README_PATH,
+            VIKTOR_README_PATH,
             CHANGELOG_PATH,
             CSS_PATH,
             OUTPUT_REPORT_PATH,
@@ -161,6 +164,7 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
         # All our constants should be Path objects, not strings with hardcoded separators
         all_paths = [
             README_PATH,
+            VIKTOR_README_PATH,
             CHANGELOG_PATH,
             CSS_PATH,
             OUTPUT_REPORT_PATH,

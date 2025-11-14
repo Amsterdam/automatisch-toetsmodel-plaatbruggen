@@ -22,6 +22,7 @@ from src.combinations.load_factors import (
 )
 from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCombination, SciaModelBuilder
 from src.integrations.scia_integration.scia_enums import LoadCombinationType
+from src.integrations.scia_integration.types import LoadConfiguration
 
 # Type aliases for SCIA objects
 SciaModel = Any
@@ -39,6 +40,7 @@ SUBJECT_TO_SERIES: dict[str, list[str]] = {
     "Dienstvoertuig Qserv": ["service_vehicle_cases"],
     "Fiets- en voetpaden": ["pedestrian"],
     "Mensenmenigte": ["pedestrian"],
+    "Bijzondere voertuigen": ["tram_track_tandem_cases"],
     "Onbedoeld voertuig": ["unintended_vehicle_cases"],
     "Temperatuur": ["temperature_cases"],
 }
@@ -48,23 +50,123 @@ def _series_list(subject: str) -> list[str]:
     return SUBJECT_TO_SERIES.get(subject, [])
 
 
+def _get_numeric_factor(factor: Any) -> float | None:  # noqa: ANN401
+    """
+    Extract numeric factor from value, skipping None, NaN, or zero.
+
+    :param factor: Factor value to validate
+    :type factor: Any
+    :returns: Numeric factor or None if invalid
+    :rtype: float | None
+    """
+    if factor is None:
+        return None
+    try:
+        numeric_factor = float(factor)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(numeric_factor) or numeric_factor == 0.0:
+        return None
+    return numeric_factor
+
+
 def _add_series_to_factors_generic(
     all_load_cases: dict[str, Any],
     series_key: str,
     factor: float,
     out: dict[SciaLoadCase, float],
+    configuration: LoadConfiguration | None = None,
 ) -> None:
+    """
+    Add load cases from a series to the factors dictionary.
+
+    :param all_load_cases: Dictionary of all load cases
+    :type all_load_cases: dict[str, Any]
+    :param series_key: Key for the load case series (e.g., "tandem_cases")
+    :type series_key: str
+    :param factor: Load factor to apply
+    :type factor: float
+    :param out: Output dictionary to add cases to
+    :type out: dict[SciaLoadCase, float]
+    :param configuration: Optional configuration filter (A, B, or C) for traffic loads
+    :type configuration: LoadConfiguration | None
+    """
     series_obj = all_load_cases.get(series_key)
     if series_obj is None:
         return
+
+    # If no configuration filter, add all cases (for non-traffic loads)
+    if configuration is None:
+        if isinstance(series_obj, dict):
+            for case in series_obj.values():
+                out[case] = factor
+        else:
+            out[series_obj] = factor
+        return
+
+    # For traffic loads, filter by configuration
     if isinstance(series_obj, dict):
-        for case in series_obj.values():
-            out[case] = factor
+        for key, case in series_obj.items():
+            # Skip backward compatibility aliases
+            if key in ["rs_1", "rs_2", "rs_3"]:
+                continue
+
+            # Get case description to extract configuration
+            case_desc = _get_case_description(case)
+            case_config = _extract_configuration_from_description(case_desc)
+
+            # Only add if configuration matches
+            if case_config == configuration:
+                out[case] = factor
     else:
-        out[series_obj] = factor
+        # Single load case - check its configuration
+        case_desc = _get_case_description(series_obj)
+        case_config = _extract_configuration_from_description(case_desc)
+        if case_config == configuration:
+            out[series_obj] = factor
 
 
-def _create_combinations_from_df(
+def _get_case_description(load_case: Any) -> str:  # noqa: ANN401
+    """
+    Get the description from a load case object.
+
+    :param load_case: SCIA load case object
+    :type load_case: Any
+    :returns: Description string
+    :rtype: str
+    """
+    if hasattr(load_case, "description"):
+        return str(load_case.description)
+    if hasattr(load_case, "Description"):
+        return str(load_case.Description)
+    return ""
+
+
+def _extract_configuration_from_description(description: str) -> LoadConfiguration:
+    """
+    Extract configuration (A, B, C, D) from load case description.
+
+    Configuration D is used for the second half of BG10000 series tandem loads
+    where notional lanes 2 and 3 are switched compared to Configuration C.
+
+    :param description: Load case description/title
+    :type description: str
+    :returns: Configuration enum value
+    :rtype: LoadConfiguration
+    """
+    desc_lower = description.lower()
+    if "conf. a" in desc_lower or "config. a" in desc_lower:
+        return LoadConfiguration.CONF_A
+    if "conf. b" in desc_lower or "config. b" in desc_lower:
+        return LoadConfiguration.CONF_B
+    if "conf. d" in desc_lower or "config. d" in desc_lower:
+        return LoadConfiguration.CONF_D
+    if "conf. c" in desc_lower or "config. c" in desc_lower:
+        return LoadConfiguration.CONF_C
+    return LoadConfiguration.NONE
+
+
+def _create_combinations_from_df(  # noqa: C901, PLR0912
     *,
     builder: SciaModelBuilder,
     df: DataFrame,
@@ -72,32 +174,139 @@ def _create_combinations_from_df(
     desc_prefix: str,
     all_load_cases: dict[str, Any],
 ) -> list[SciaLoadCombination]:
+    """
+    Create SCIA load combinations from a DataFrame of combination factors.
+
+    Creates 4 versions of each combination (one per configuration A, B, C, D) ONLY when
+    traffic loads (TS or UDL) are present. For combinations without traffic loads,
+    creates a single combination without configuration suffix.
+
+    Special handling for Config D:
+    - Config D is used for the second half of BG10000 series (lanes 2/3 switched)
+    - Config D tandems combine with Config C UDLs (governing lane position matching)
+
+    :param builder: SCIA model builder
+    :type builder: SciaModelBuilder
+    :param df: DataFrame with combination factors
+    :type df: DataFrame
+    :param combination_type: Type of combination (ULS, SLS, etc.)
+    :type combination_type: LoadCombinationType
+    :param desc_prefix: Description prefix for combinations
+    :type desc_prefix: str
+    :param all_load_cases: Dictionary of all load cases
+    :type all_load_cases: dict[str, Any]
+    :returns: List of created combinations
+    :rtype: list[SciaLoadCombination]
+    """
     results: list[SciaLoadCombination] = []
+
+    # Define traffic load subjects that need configuration filtering
+    traffic_subjects = {"TS", "UDL"}
+
     for idx, row in df.iterrows():
-        load_case_factors: dict[SciaLoadCase, float] = {}
+        # Check if this combination has any traffic loads
+        has_traffic_loads = False
         for subject, factor in row.items():
-            # Skip non-numeric, NaN, or zero factors
-            if factor is None:
+            numeric_factor = _get_numeric_factor(factor)
+            if numeric_factor is None:
                 continue
-            try:
-                numeric_factor = float(factor)
-            except (TypeError, ValueError):
-                continue
-            if pd.isna(numeric_factor) or numeric_factor == 0.0:
-                continue
-            for series in _series_list(str(subject)):
-                _add_series_to_factors_generic(all_load_cases, series_key=series, factor=numeric_factor, out=load_case_factors)
-        if not load_case_factors:
+
+            subject_str = str(subject)
+            if subject_str in traffic_subjects:
+                has_traffic_loads = True
+                break
+
+        # If no traffic loads, create a single combination without configuration
+        if not has_traffic_loads:
+            load_case_factors: dict[SciaLoadCase, float] = {}
+
+            for subject, factor in row.items():
+                numeric_factor = _get_numeric_factor(factor)
+                if numeric_factor is None:
+                    continue
+
+                # Add all load cases without configuration filter
+                for series in _series_list(str(subject)):
+                    _add_series_to_factors_generic(
+                        all_load_cases, series_key=series, factor=numeric_factor, out=load_case_factors, configuration=None
+                    )
+
+            # Only create combination if it has load cases
+            if load_case_factors:
+                results.append(
+                    create_load_combination(
+                        builder=builder,
+                        combination_type=combination_type,
+                        combination_name=str(idx),
+                        load_case_factors=load_case_factors,
+                        description=f"{desc_prefix} {idx}",
+                    )
+                )
             continue
-        results.append(
-            create_load_combination(
-                builder=builder,
-                combination_type=combination_type,
-                combination_name=str(idx),
-                load_case_factors=load_case_factors,
-                description=f"{desc_prefix} {idx}",
+
+        # Has traffic loads - create 4 versions (one per configuration A, B, C, D)
+        for config in [LoadConfiguration.CONF_A, LoadConfiguration.CONF_B, LoadConfiguration.CONF_C, LoadConfiguration.CONF_D]:
+            load_case_factors = {}
+
+            for subject, factor in row.items():
+                numeric_factor = _get_numeric_factor(factor)
+                if numeric_factor is None:
+                    continue
+
+                # Determine if this subject is traffic-related
+                subject_str = str(subject)
+                is_traffic = subject_str in traffic_subjects
+
+                # Special handling for Config D: tandems are Config D, but UDLs are Config C
+                if config == LoadConfiguration.CONF_D and is_traffic:
+                    # For Config D, we need different configs for TS vs UDL
+                    if subject_str == "TS":
+                        # Tandem systems: use Config D
+                        for series in _series_list(subject_str):
+                            _add_series_to_factors_generic(
+                                all_load_cases,
+                                series_key=series,
+                                factor=numeric_factor,
+                                out=load_case_factors,
+                                configuration=LoadConfiguration.CONF_D,
+                            )
+                    elif subject_str == "UDL":
+                        # UDL loads: use Config C (governing lane position matching)
+                        for series in _series_list(subject_str):
+                            _add_series_to_factors_generic(
+                                all_load_cases,
+                                series_key=series,
+                                factor=numeric_factor,
+                                out=load_case_factors,
+                                configuration=LoadConfiguration.CONF_C,
+                            )
+                else:
+                    # Normal handling for configs A, B, C
+                    for series in _series_list(subject_str):
+                        _add_series_to_factors_generic(
+                            all_load_cases,
+                            series_key=series,
+                            factor=numeric_factor,
+                            out=load_case_factors,
+                            configuration=config if is_traffic else None,
+                        )
+
+            # Only create combination if it has load cases
+            if not load_case_factors:
+                continue
+
+            # Create combination with configuration suffix
+            config_suffix = f" - Config {config.value}"
+            results.append(
+                create_load_combination(
+                    builder=builder,
+                    combination_type=combination_type,
+                    combination_name=f"{idx}{config_suffix}",
+                    load_case_factors=load_case_factors,
+                    description=f"{desc_prefix} {idx}{config_suffix}",
+                )
             )
-        )
+
     return results
 
 
@@ -263,12 +472,37 @@ def create_all_load_combinations(
     """
     Create all load combinations for the bridge model (ULS, SLS, fatigue, ...).
 
-    This function aggregates outputs from dedicated helper creators, similar to
-    how `create_all_load_cases` composes all load cases. Extend this function
-    with extra families (temperature-only, accidental scenarios, etc.) when
-    implemented.
+    This function creates load combinations based on the NEN 8700 combination table.
+    To prevent incorrect mixing of traffic load configurations, each combination
+    WITH traffic loads (TS or UDL) is created in FOUR versions - one for each
+    configuration (A, B, C, D). Combinations WITHOUT traffic loads are created once.
 
-    :param builder: The SCIA model builder instance.
+    For example, "ULS 6.10a LC1" (with traffic) becomes:
+    - "ULS 6.10a LC1 - Config A" (with only Config A traffic loads)
+    - "ULS 6.10a LC1 - Config B" (with only Config B traffic loads)
+    - "ULS 6.10a LC1 - Config C" (with only Config C traffic loads)
+    - "ULS 6.10a LC1 - Config D" (with Config D tandems + Config C UDLs)
+
+    But "ULS 6.10a Perm" (no traffic) becomes:
+    - "ULS 6.10a Perm" (single combination, no configuration suffix)
+
+    Configuration D is special:
+    - Used for second half of BG10000 series (notional lanes 2/3 switched)
+    - Config D tandems combine with Config C UDLs (governing lane position matching)
+
+    This ensures that:
+    1. Traffic loads from different configurations are never mixed
+    2. Only tandem systems and UDLs from compatible configurations are combined
+    3. Matching governing lanes on the same position can be combined (per configuration)
+    4. Combinations without traffic loads are not unnecessarily duplicated
+    5. Config D prevents incorrect same-position loads on switched lanes
+
+    Non-traffic loads (permanent, temperature, etc.) are included in all combinations.
+
+    :param params: Bridge parameters object or dict containing user/project input
+    :type params: Any
+    :param builder: The SCIA model builder instance
+    :type builder: SciaModelBuilder
     :param all_load_cases: A nested dictionary of all available SciaLoadCase objects.
         Structure example:
         {
@@ -279,16 +513,17 @@ def create_all_load_combinations(
             "tandem_cases": {"tandem_rs1_x1.2": SciaLoadCase, ...},
             ...
         }
-    :return: A list of created SciaLoadCombination objects.
+    :return: A list of created SciaLoadCombination objects
     :rtype: list[SciaLoadCombination]
     """
     combinations: list[SciaLoadCombination] = []
 
-    # Standard combinations from the NEN 8700 table (one function per family)
+    # Standard combinations from the NEN 8700 table
+    # Creates 4 versions per combination ONLY when traffic loads are present (A, B, C, D)
+    # Single version for combinations without traffic loads
+    # Config D tandems combine with Config C UDLs
     combinations.extend(create_uls_combinations_from_table(params, builder, all_load_cases))
     combinations.extend(create_sls_combinations_from_table(params, builder, all_load_cases))
     combinations.extend(create_fatigue_combinations_from_table(params, builder, all_load_cases))
-
-    # TODO: Extend with dominant lane and other active lanes combinations
 
     return combinations

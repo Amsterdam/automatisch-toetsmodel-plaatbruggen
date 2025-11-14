@@ -23,6 +23,12 @@ EDGE_OFFSET = 0.5  # Offset from the edge of the road for strip placement in met
 # Standard reinforcement bar diameters in millimeters
 STANDARD_REBAR_DIAMETERS = {6, 8, 10, 12, 14, 16, 20, 25, 32, 40}
 
+# Temperature load calculation parameters (NEN-EN 1991-1-5)
+TEMP_UNIT_WIDTH = 1.0  # Unit width for analysis (1 m)
+TEMP_INITIAL_TEMPERATURE = 10.0  # Initial temperature at time of restraint (°C)
+TEMP_OMEGA_N = 0.35  # Combination factor for uniform temperature component
+TEMP_OMEGA_M = 0.75  # Combination factor for bending temperature component
+
 
 # Enumeration of supported analysis types
 class AnalysisType(Enum):
