@@ -40,24 +40,38 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
-    """Run IDEA analysis and extract results."""
+def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
+    """Run IDEA analysis and extract results.
+    
+    :param params: Bridge parameters
+    :param entity_id: Entity ID
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :returns: Dictionary with analysis results
+    """
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get('batch_percentage')
+    else:
+        prefix = ""
+        percentage = None
+    
     # First get SCIA results needed for IDEA
-    progress_message("Ophalen SCIA resultaten voor IDEA analyse...")
-    scia_results_dict = get_scia_results_for_idea(params, entity_id)
+    progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA analyse...", percentage=percentage)
+    scia_results_dict = get_scia_results_for_idea(params, entity_id, analysis_context)
 
     # Create IDEA model with the SCIA results
-    progress_message("Genereren IDEA model...")
+    progress_message(f"{prefix}Genereren IDEA model...", percentage=percentage)
     model = create_bridge_idea_model(params, entity_id, scia_results_dict)
     idea_xml_input_bytes = model.generate_xml_input()
 
     # Run IDEA analysis
-    progress_message("Uitvoeren IDEA RCS analyse...")
+    progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
     analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
     analysis.execute(600)
 
     # Get the IDEA RCS model and output XML
-    progress_message("Verwerken IDEA analyse resultaten...")
+    progress_message(f"{prefix}Verwerken IDEA analyse resultaten...", percentage=percentage)
     idea_rcs_model = analysis.get_idea_rcs_file(as_file=False)
     idea_output_xml_bytes = analysis.get_output_file(as_file=False)
 
@@ -66,7 +80,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
 
     results: dict[str, Any] = {}
     try:
-        progress_message("Parsen IDEA output...")
+        progress_message(f"{prefix}Parsen IDEA output...", percentage=percentage)
         parser = idea_rcs.RcsOutputFileParser(BytesIO(output_content))
         section_results = []
         for section in parser.section_results():
@@ -147,7 +161,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
     return results
 
 
-def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
     """
     Get SCIA results that are needed for IDEA analysis.
 
@@ -159,10 +173,20 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     :type params: Any
     :param entity_id: Entity ID for caching
     :type entity_id: int
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :type analysis_context: dict[str, Any] | None
     :returns: Dictionary containing processed SCIA node, CS, and integration strip results for IDEA
     :rtype: dict[str, Any]
     :raises UserError: If bridge segments are missing or analysis fails
     """
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get('batch_percentage')
+    else:
+        prefix = ""
+        percentage = None
+    
     # Get entity ID for caching
     if not isinstance(entity_id, int):
         raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
@@ -172,8 +196,8 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
         template_path = SCIA_TEMPLATE_PATH
 
         # Use cached SCIA analysis results instead of calling directly
-        progress_message("Ophalen SCIA resultaten voor IDEA verwerking...")
-        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+        progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA verwerking...", percentage=percentage)
+        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path), analysis_context)
 
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
@@ -191,7 +215,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
 
     # Process SCIA CS (Cross Section) envelope results for IDEA
     # This returns a single DataFrame with filtered ULS and SLS freq envelope data
-    progress_message("Verwerken SCIA CS resultaten voor IDEA...")
+    progress_message(f"{prefix}Verwerken SCIA CS resultaten voor IDEA...", percentage=percentage)
     cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
 
     # Return results dictionary with the envelope DataFrame
@@ -377,31 +401,49 @@ def get_cached_analysis_results(
     entity_id: int,
     analysis_function: Callable[..., dict[str, Any]],
     template_path: str | None = None,
+    analysis_context: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Get cached analysis results or run analysis if not cached."""
+    """Get cached analysis results or run analysis if not cached.
+    
+    :param params: Bridge parameters
+    :param analysis_type: Type of analysis (SCIA or IDEA)
+    :param entity_id: Entity ID
+    :param analysis_function: Function to run if cache miss
+    :param template_path: Optional template path for SCIA
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :returns: Analysis results dictionary or None
+    """
     cache = _get_analysis_cache()
 
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get('batch_percentage')
+    else:
+        prefix = ""
+        percentage = None
+
     # Try to get cached results
-    progress_message("Controleren op gecachte resultaten...")
+    progress_message(f"{prefix}Controleren op gecachte resultaten...", percentage=percentage)
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
-        progress_message("Gecachte resultaten gevonden - laden...")
+        progress_message(f"{prefix}Gecachte resultaten gevonden - laden...", percentage=percentage)
         return cached_results
 
     # Run analysis if not cached
-    progress_message("Geen gecachte resultaten gevonden - starten nieuwe analyse...")
+    progress_message(f"{prefix}Geen gecachte resultaten gevonden - starten nieuwe analyse...", percentage=percentage)
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
-        results = analysis_function(params, template_path)
+        results = analysis_function(params, template_path, analysis_context)
     elif analysis_type == AnalysisType.IDEA:
-        results = analysis_function(params, entity_id)
+        results = analysis_function(params, entity_id, analysis_context)
     else:
         # Fallback: try calling with just params
         raise UserError("Unsupported analysis type for caching.")
 
     # Cache the results
     if results is not None:
-        progress_message("Opslaan resultaten in cache...")
+        progress_message(f"{prefix}Opslaan resultaten in cache...", percentage=percentage)
         cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
 
     return results

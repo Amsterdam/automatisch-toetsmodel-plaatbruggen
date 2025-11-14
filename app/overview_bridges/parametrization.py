@@ -72,15 +72,15 @@ class OverviewBridgesParametrization(Parametrization):
 
     # Define the Batch Calculation page
     batch_calculation = Page("Batch Berekening", views=["view_batch_readiness", "view_batch_results"])
-    batch_calculation.intro = Text(
-        "## Batch Berekening\n\n"
-        "Op deze pagina kunt u alle bruggen in één keer doorrekenen. "
-        "De berekening voert voor elke geschikte brug een volledige SCIA + IDEA analyse uit.\n\n"
-        "**Let op**: Een batchberekening kan lang duren (15-30 minuten per brug). "
-        "U kunt de berekening op elk moment stoppen - de voortgang wordt automatisch opgeslagen."
-    )
-    batch_calculation.run_button = ActionButton(
-        "Start Batch Berekening",
-        method="run_batch_calculation",
-        description="Voer berekening uit voor alle geschikte bruggen"
-    )
+    # batch_calculation.intro = Text(
+    #     "## Batch Berekening\n\n"
+    #     "Op deze pagina kunt u alle bruggen in één keer doorrekenen. "
+    #     "De berekening voert voor elke geschikte brug een volledige SCIA + IDEA analyse uit.\n\n"
+    #     "**Let op**: Een batchberekening kan lang duren (15-30 minuten per brug). "
+    #     "U kunt de berekening op elk moment stoppen - de voortgang wordt automatisch opgeslagen."
+    # )
+    # batch_calculation.run_button = ActionButton(
+    #     "Start Batch Berekening",
+    #     method="run_batch_calculation",
+    #     description="Voer berekening uit voor alle geschikte bruggen"
+    # )

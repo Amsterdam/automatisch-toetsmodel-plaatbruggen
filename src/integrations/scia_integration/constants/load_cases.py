@@ -31,3 +31,4 @@ SPAN_LABEL = "Span"
 DEFAULT_Z_COORDINATE = 0.0  # Z-coordinate for 2D load positioning (typically 0.0)
 HALF_WIDTH_DIVISOR = 2.0  # Divisor for calculating half-width from full width
 
+
