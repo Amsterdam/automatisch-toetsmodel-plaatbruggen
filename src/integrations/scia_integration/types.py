@@ -93,6 +93,42 @@ class LoadMode(Enum):
     ACTUAL = "actual"
 
 
+class LoadConfiguration(str, Enum):
+    """
+    Load configuration types for traffic loads.
+
+    Traffic loads are generated in different configurations to represent
+    different positioning scenarios on the bridge.
+
+    Note: Configuration D is used for the second half of the BG10000 series
+    where notional lanes 2 and 3 are switched compared to Configuration C.
+    Config D tandems combine with Config C UDLs.
+    """
+
+    CONF_A = "A"
+    CONF_B = "B"
+    CONF_C = "C"
+    CONF_D = "D"  # Second half of BG10000 series (lanes 2/3 switched)
+    NONE = "None"  # For non-traffic loads
+
+
+class LoadCategory(str, Enum):
+    """
+    High-level load categories.
+
+    Used to determine which loads can be combined and which rules apply.
+    """
+
+    PERMANENT = "permanent"
+    TRAFFIC_UDL = "traffic_udl"
+    TRAFFIC_TANDEM = "traffic_tandem"
+    TEMPERATURE = "temperature"
+    PEDESTRIAN = "pedestrian"
+    SERVICE_VEHICLE = "service_vehicle"
+    UNINTENDED_VEHICLE = "unintended_vehicle"
+    TRAM = "tram"
+
+
 # ===================================================================================================================
 # Dataclasses
 # ===================================================================================================================
