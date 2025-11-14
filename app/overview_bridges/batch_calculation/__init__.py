@@ -3,4 +3,3 @@
 from .component import BatchCalculationComponent
 
 __all__ = ["BatchCalculationComponent"]
-

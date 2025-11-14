@@ -10,6 +10,17 @@ from viktor.parametrization import (
     Text,
 )
 
+try:  # pragma: no cover - fallback for environments without Chat field support
+    from viktor.parametrization import Chat
+except ImportError:  # pragma: no cover
+
+    class Chat:  # type: ignore[too-many-ancestors]
+        """Fallback Chat field placeholder for environments without SDK support."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
 
 class OverviewBridgesParametrization(Parametrization):
     """Parametrization for the Overview Bridges entity."""
@@ -72,6 +83,17 @@ class OverviewBridgesParametrization(Parametrization):
 
     # Define the Batch Calculation page
     batch_calculation = Page("Batch Berekening", views=["view_batch_readiness", "view_batch_results"])
+    batch_calculation.chat_guidance = Text(
+        "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
+        "en start nooit automatisch een nieuwe berekening."
+    )
+    batch_calculation.batch_results_chat = Chat(
+        "Resultaten chat",
+        method="chat_batch_results",
+        placeholder="Bijv. 'Welke bruggen uit 1950-1980 hebben UC > 1?'",
+        first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
+        flex=100,
+    )
     # batch_calculation.intro = Text(
     #     "## Batch Berekening\n\n"
     #     "Op deze pagina kunt u alle bruggen in één keer doorrekenen. "
