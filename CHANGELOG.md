@@ -1,10 +1,10 @@
 ## [Unreleased]
-### Added
-- **SCIA ESA Download zonder berekening**: Nieuwe downloadoptie voor SCIA ESA model zonder berekening uit te voeren
-  - Download ESA model met geometrie maar zonder resultaten
-  - Model kan handmatig in SCIA Engineer worden geopend en berekend
+### Changed
+- **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
+  - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP
+  - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
-  - Verbeterde labels voor bestaande download knoppen voor meer duidelijkheid
+  - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
 
 ## [`v0.0.17`] - 2025-11-13
 ### Added

@@ -97,7 +97,8 @@ Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebr
 # SCIA integration info text
 SCIA_INFO_TEXT = """## SCIA Engineer Integratie
 
-Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uitgelezen via "section on 2D members" en vormen de input voor IDEA toetsingen.
+Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uitgelezen via
+"section on 2D members" en vormen de input voor IDEA toetsingen.
 
 ### Tabbladen
 
@@ -107,10 +108,9 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 - **SCIA Analyse Resultaten**: Maximale snedekrachten per zone voor IDEA toetsingen.
 
 ### Download Opties
-- **Download XML Files** → XML model (niet doorgerekend)
-- **Download ESA Model (zonder berekening)** → ESA met geometrie (kan handmatig berekend worden in SCIA)
-- **Download ESA Model (met berekening)** → ESA inclusief berekeningsresultaten
-- **Download SCIA Output XML** → Output resultaten in XML format
+- **Download input files** → XML + DEF + ESA template in ZIP voor handmatige import in SCIA
+- **Download ESA Model** → ESA inclusief berekeningsresultaten (doorgerekend)
+- **Download SCIA Output XML** → Output resultaten in XML format (doorgerekend)
 """
 
 # Dimensions segments explanation

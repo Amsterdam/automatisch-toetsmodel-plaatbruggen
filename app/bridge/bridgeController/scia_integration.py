@@ -332,60 +332,6 @@ class SciaIntegration:
                 raise UserError(f"SCIA worker uitvoering gefaald: {e!s}\n\nSCIA worker niet beschikbaar\n\nXML bestanden te downloaden")
             raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nXML bestanden te downloaden")
 
-    def download_scia_esa_model_no_calculation(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
-        """
-        Download SCIA ESA model WITHOUT running calculation.
-
-        This method generates the XML/DEF files and merges them with the ESA template
-        to create a ready-to-open SCIA model file, but does NOT execute the SCIA analysis.
-        The resulting ESA file can be opened in SCIA Engineer for manual calculation.
-
-        :param params: Bridge parametrization object
-        :type params: BridgeParametrization
-        :param kwargs: Additional arguments
-        :returns: DownloadResult with ESA model file (not calculated)
-        :rtype: DownloadResult
-        :raises UserError: If file generation fails
-        """
-        if not params.bridge_segments_array:
-            self._raise_no_bridge_segments_error()  # type: ignore[attr-defined]
-
-        try:
-            from viktor.external import scia
-
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
-            xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
-
-            # Load ESA template
-            esa_template = File.from_path(template_path)
-
-            # Create SciaAnalysis object but DO NOT execute
-            # The SciaAnalysis constructor merges XML/DEF with ESA template
-            scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-
-            # Get the updated ESA model WITHOUT running execute()
-            # This gives us the model with geometry but without calculation results
-            esa_file = scia_analysis.get_updated_esa_model()
-
-            if not esa_file:
-                raise UserError(
-                    "Fout bij genereren ESA model zonder berekening.\n\n"
-                    "Het ESA model kon niet worden gegenereerd. "
-                    "Probeer in plaats daarvan de XML-bestanden te downloaden."
-                )
-
-            bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
-            filename = f"{bridge_id}_no_calc.esa" if not bridge_id.endswith("_model") else f"{bridge_id.replace('_model', '')}_no_calc.esa"
-
-            return DownloadResult(file_content=esa_file, file_name=filename)
-
-        except ImportError as e:
-            raise UserError(f"SCIA integratie niet beschikbaar.\n\nDe VIKTOR SCIA module kon niet worden geladen. Technische details: {e!s}")
-        except Exception as e:
-            if isinstance(e, UserError):
-                raise
-            raise UserError(f"Fout bij genereren ESA model zonder berekening: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
-
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
         Download SCIA XML and definition files as a ZIP archive.
@@ -416,10 +362,15 @@ class SciaIntegration:
 
             bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
+            # Load ESA template to include in ZIP (binary file)
+            esa_content = template_path.read_bytes()
+
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr(f"SCIA_model_{bridge_id}.xml", xml_content)
                 z.writestr("viktor.xml.def", def_content)
+                # Add ESA template for manual import
+                z.writestr("model.esa", esa_content)
 
             return DownloadResult(file_content=zip_file_obj, file_name=f"{bridge_id}_Input_Files.zip")
 
