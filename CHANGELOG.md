@@ -1,3 +1,11 @@
+## [Unreleased]
+### Added
+- **SCIA ESA Download zonder berekening**: Nieuwe downloadoptie voor SCIA ESA model zonder berekening uit te voeren
+  - Download ESA model met geometrie maar zonder resultaten
+  - Model kan handmatig in SCIA Engineer worden geopend en berekend
+  - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
+  - Verbeterde labels voor bestaande download knoppen voor meer duidelijkheid
+
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - Temperature loads on 2D elements

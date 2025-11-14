@@ -1312,7 +1312,11 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # Download buttons - use DownloadButton instead of ActionButton
     scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files", longpoll=True)
 
-    scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model", longpoll=True)
+    scia.downloads.download_esa_no_calc_button = DownloadButton(
+        "Download ESA Model (zonder berekening)", method="download_scia_esa_model_no_calculation", longpoll=True
+    )
+
+    scia.downloads.download_esa_button = DownloadButton("Download ESA Model (met berekening)", method="download_scia_esa_model", longpoll=True)
 
     # Analysis button
     scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml", longpoll=True)
