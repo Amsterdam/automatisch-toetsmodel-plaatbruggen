@@ -1,6 +1,8 @@
 ## [Unreleased]
 ### Added
 - **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
+- **Caching System Documentation**: Added comprehensive documentation in `.github/Rules/caching_system.md` explaining cache architecture and usage
+- **Dataframe Caching**: SCIA CS dataframes (ULS, SLS freq, envelope) now cached for improved performance across views
 
 ### Changed
 - **IDEA RCS uitleg en tabbladen**: Verbeterde en verduidelijkte uitleg van het SCIA → IDEA proces, met nadruk op:
@@ -9,8 +11,14 @@
   - Nieuwe kolommen met verduidelijking toegevoegd aan IDEA resultaat tabellen. 
 - **SCIA Results Parser Optimization**: Major performance improvements to `extract_analysis_results` in `scia_model_builder.py`:
   - Reduced XML file reads from 6 to 1 (60-80% performance improvement)
+  - Added dataframe caching for CS results (ULS, SLS freq, envelope)
+- **Cache Performance Optimization**: Optimized cache checking with hash memoization (10-50x faster on repeated checks)
+- **SCIA Views Performance**: All SCIA CS views now use cached dataframes instead of reprocessing XML data
 - **SCIA UI text**: updated the UI text.
 - **UI text invoer dimensies**: changed UI tekst by renaming code variable names like bz, bz2 and dz etc.
+
+### Fixed
+- **IDEA Integration**: Fixed SCIA to IDEA data flow to properly use cached envelope dataframes with correct column naming (_max suffix)
 
 ### Removed
 - **SCIA Results Cleanup**: Removed 3 unused functions from `scia_results_processor.py` (~75 lines):

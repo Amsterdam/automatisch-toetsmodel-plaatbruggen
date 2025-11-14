@@ -108,9 +108,14 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
     from .scia_results_processor import process_scia_cs_results
 
     try:
-        # Process CS results to get the DataFrame
-        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
-        df_cs_results = cs_results.get(result_type, pd.DataFrame())
+        # Try to use cached dataframe first
+        cache_key = "df_cs_uls" if result_type == "ULS" else "df_cs_sls_freq"
+        df_cs_results = results.get(cache_key)
+
+        # If not in cache, process on demand
+        if df_cs_results is None or df_cs_results.empty:
+            cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+            df_cs_results = cs_results.get(result_type, pd.DataFrame())
 
         if df_cs_results.empty:
             # Return empty plot with message
@@ -885,12 +890,14 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str, bridg
     from .scia_results_processor import process_scia_cs_results
 
     try:
-        # Process all CS results (gets DataFrames with unique coords and max absolute values)
-        # Pass bridge_segments to enable zone mapping
-        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+        # Try to use cached dataframe first
+        cache_key = "df_cs_uls" if table_type == "ULS" else "df_cs_sls_freq"
+        processed_cs_df = results.get(cache_key)
 
-        # Get the specific table type we want
-        processed_cs_df = cs_results.get(table_type, pd.DataFrame())
+        # If not in cache, process on demand
+        if processed_cs_df is None or processed_cs_df.empty:
+            cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+            processed_cs_df = cs_results.get(table_type, pd.DataFrame())
 
         # Create table data from the processed DataFrame
         table_data, headers = create_scia_cs_table_data(processed_cs_df, table_type)
@@ -950,8 +957,12 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
     from .scia_unit_conversion import SciaUnitConverter
 
     try:
-        # Extract force envelopes from CS results
-        df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
+        # Try to use cached dataframe first
+        df_envelope = results.get("df_cs_envelope")
+
+        # If not in cache, process on demand
+        if df_envelope is None or df_envelope.empty:
+            df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
 
         if df_envelope.empty:
             return TableResult(
