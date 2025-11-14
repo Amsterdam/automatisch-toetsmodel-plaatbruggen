@@ -364,7 +364,7 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     Generate BG10000 load cases: 300 kN tandem in center always, 200/100 kN adjacent only if width permits.
 
     This function creates separate load cases for each vehicle (tandem system). Each vehicle gets its own
-    load case with lane indicators (rs 1, rs 2, rs 3) and configuration designation (Conf. C).
+    load case with lane indicators (rs 1, rs 2, rs 3) and configuration designation (Conf. C and D).
 
     :param params: Bridge parametrization for load factors
     :param length_bridgedeck: Bridge length in meters
@@ -453,74 +453,76 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     y_left = lane_y_positions[1]
     y_right = lane_y_positions[2]
 
-    # First, generate ALL Configuration A load cases (300 kN center, 200 kN left, 100 kN right)
+    # First, generate ALL Configuration C load cases (300 kN center, 200 kN left, 100 kN right)
     for x in tandem_x_positions:
         # Center vehicle (rs 1)
         wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
         load_case_center = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": "rs 1 - Conf. C",
+            "title": f"rs 1 - Conf. C - x = {x:g} m",
             "wheels": wheels_300,
             "load": load_main,
         }
         results.append(load_case_center)
         idx += 1
 
-        # Left vehicle (rs 2) - Configuration A: 200 kN
+        # Left vehicle (rs 2) - Configuration C: 200 kN
         wheels_200_left = _create_tandem_wheels(x, y_left, wheel_size)
-        load_case_left_a = {
+        load_case_left_c = {
             "load_case": f"{prefix}{idx:03d}",
             "title": f"rs 2 - Conf. C - x = {x:g} m",
             "wheels": wheels_200_left,
             "load": load_second,
         }
-        results.append(load_case_left_a)
+        results.append(load_case_left_c)
         idx += 1
 
-        # Right vehicle (rs 3) - Configuration A: 100 kN
+        # Right vehicle (rs 3) - Configuration C: 100 kN
         wheels_100_right = _create_tandem_wheels(x, y_right, wheel_size)
-        load_case_right_a = {
+        load_case_right_c = {
             "load_case": f"{prefix}{idx:03d}",
             "title": f"rs 3 - Conf. C - x = {x:g} m",
             "wheels": wheels_100_right,
             "load": load_third,
         }
-        results.append(load_case_right_a)
+        results.append(load_case_right_c)
         idx += 1
 
-    # Then, generate ALL Configuration B load cases (300 kN center, 100 kN left, 200 kN right)
+    # Then, generate ALL Configuration D load cases (300 kN center, 100 kN left, 200 kN right)
+    # Configuration D is the second half of BG10000 where physical positions are switched
+    # But lane labels match load magnitudes: rs 2 = 200 kN (middle), rs 3 = 100 kN (lowest)
     for x in tandem_x_positions:
         # Center vehicle (rs 1)
         wheels_300 = _create_tandem_wheels(x, y_center, wheel_size)
         load_case_center = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": "rs 1 - Conf. C",
+            "title": f"rs 1 - Conf. D - x = {x:g} m",
             "wheels": wheels_300,
             "load": load_main,
         }
         results.append(load_case_center)
         idx += 1
 
-        # Left vehicle (rs 2) - Configuration B: 100 kN
+        # Left vehicle - Configuration D: 100 kN load at left position, labeled as rs 3
         wheels_100_left = _create_tandem_wheels(x, y_left, wheel_size)
-        load_case_left_b = {
+        load_case_left_d = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": f"rs 2 - Conf. C - x = {x:g} m",
+            "title": f"rs 3 - Conf. D - x = {x:g} m",  # rs 3 = 100 kN (consistency)
             "wheels": wheels_100_left,
             "load": load_third,
         }
-        results.append(load_case_left_b)
+        results.append(load_case_left_d)
         idx += 1
 
-        # Right vehicle (rs 3) - Configuration B: 200 kN
+        # Right vehicle - Configuration D: 200 kN load at right position, labeled as rs 2
         wheels_200_right = _create_tandem_wheels(x, y_right, wheel_size)
-        load_case_right_b = {
+        load_case_right_d = {
             "load_case": f"{prefix}{idx:03d}",
-            "title": f"rs 3 - Conf. C - x = {x:g} m",
+            "title": f"rs 2 - Conf. D - x = {x:g} m",  # rs 2 = 200 kN (consistency)
             "wheels": wheels_200_right,
             "load": load_second,
         }
-        results.append(load_case_right_b)
+        results.append(load_case_right_d)
         idx += 1
 
     return results

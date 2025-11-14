@@ -138,7 +138,7 @@ class TestOverviewBridgesControllerViews(unittest.TestCase):
         assert "Filter bestand niet gevonden" in str(context.value)
 
     @patch("app.overview_bridges.controller.CHANGELOG_PATH", "/fake/changelog.md")
-    @patch("app.overview_bridges.controller.README_PATH", "/fake/readme.md")
+    @patch("app.overview_bridges.controller.VIKTOR_README_PATH", "/fake/viktor_readme.md")
     @patch("app.overview_bridges.controller.CSS_PATH", "/fake/style.css")
     @patch("builtins.open")
     @patch("markdown.markdown")
@@ -191,7 +191,7 @@ class TestOverviewBridgesControllerViews(unittest.TestCase):
 
         assert "Fout bij het bepalen van bestandspaden" in str(context.value)
 
-    @patch("app.overview_bridges.controller.README_PATH", "/nonexistent/readme.md")
+    @patch("app.overview_bridges.controller.VIKTOR_README_PATH", "/nonexistent/viktor_readme.md")
     @patch("builtins.open")
     @view_test_wrapper("view_readme_changelog")
     def test_view_readme_changelog_file_error(self, mock_open: MagicMock) -> None:
