@@ -1,5 +1,26 @@
-## [Unreleased]
+## [`v0.0.17`] - 2025-11-13
+### Added
+- Temperature loads on 2D elements
+- **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
+Introduced a new naming system with span, lane and configuration identification.
+- Load combinations with group 5 that include the tram loading.
+- **Separated VIKTOR and GitHub Documentation**: Created `VIKTOR_README.md` with simplified user-facing content for VIKTOR platform
+  - VIKTOR shows only essential information: description, usage, and contact
+  - README.md retains full documentation including developer setup for GitHub
+  - Both files maintained separately for clarity
+- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
+
 ### Changed
+- Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
+- Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
+- Re-assigned the UDL and tandem loads to load groups.
+- Fixed and improved the load combination system, with a better naming system around configuration names.
+New folder in the directory for the load combination generator.
+- **IDEA Rebar Spacing Calculation**: Modified rebar positioning algorithm to use exact requested heart-to-heart spacing instead of recalculating based on integer rebar count
+  - Changed from `n_rebars = int(width / hoh)` to `n_rebars = width / hoh` (no integer conversion)
+  - Uses exact requested spacing value (e.g., 150mm input → 150mm IDEA spacing)
+  - Rounds to nearest integer only for determining even/odd layout pattern
+- Extended the load combination table with a column for the tram loading under "Bijzondere voertuigen".
 - **IDEA RCS uitleg en tabbladen**: Verbeterde en verduidelijkte uitleg van het SCIA → IDEA proces, met nadruk op:
   - Heldere beschrijving van de 6 processtappen, inclusief uitlezen van dwarskrachten en het belang van 2 extremen per unieke zone
   - Toelichting dat tabblad 1 de unieke plaatelementen toont per combinatie van plaatdikte en wapeningsconfiguratie
@@ -15,20 +36,6 @@
   - `get_max_abs_for_column()` - Legacy max absolute value finder (no usages)
   - `find_all_2d_cs_force_tables()` - Replaced by `_process_cs_selected_result_tables()` (no usages)
   - See `.github/Rules/scia_results_cleanup_analysis.md` for detailed analysis
-
-## [`v0.0.17`] - 2025-11-13
-### Added
-- **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
-Introduced a new naming system with span, lane and configuration identification.
-
-### Changed
-- Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
-- Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
-- Re-assigned the UDL and tandem loads to load groups.
-- **IDEA Rebar Spacing Calculation**: Modified rebar positioning algorithm to use exact requested heart-to-heart spacing instead of recalculating based on integer rebar count
-  - Changed from `n_rebars = int(width / hoh)` to `n_rebars = width / hoh` (no integer conversion)
-  - Uses exact requested spacing value (e.g., 150mm input → 150mm IDEA spacing)
-  - Rounds to nearest integer only for determining even/odd layout pattern
 
 ## [`v0.0.16`] - 2025-10-30
 ### Added

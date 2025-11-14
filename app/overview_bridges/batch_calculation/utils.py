@@ -406,9 +406,10 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     If parameters changed, hash mismatch will return False (cache invalid).
 
     Strategy:
-    1. First try to find cache with current params hash
-    2. If batch_results_cache_hash is provided, compare with current hash to determine cache validity
-    3. Fall back to checking if ANY cache keys exist for this bridge
+    1. Generate hash for current parameters
+    2. Try to retrieve cache with current hash
+    3. If batch_results_cache_hash is provided, only use it if it matches current hash exactly
+    4. Only return True if cache exists with exact current hash match
 
     :param bridge_params: Bridge parametrization object
     :type bridge_params: Any
@@ -427,6 +428,7 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
 
         # Generate hash for current parameters
         current_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
+<<<<<<< HEAD
 
         # If we have a batch results cache hash, compare it
         if batch_results_cache_hash is not None:
@@ -470,6 +472,25 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
             # If we can't list keys, assume no cache
             return False
 
+=======
+        
+        # If batch_results_cache_hash is provided, it must match current hash exactly
+        # If it doesn't match, parameters have changed and cache is invalid
+        if batch_results_cache_hash is not None:
+            if current_hash != batch_results_cache_hash:
+                # Hash mismatch - parameters changed, cache is invalid
+                return False
+        
+        # Try to get cached results with current params hash
+        # This will only return results if cache exists with exact hash match
+        cached_results = cache.get_cached_analysis(bridge_params, AnalysisType.IDEA, bridge_entity_id)
+        if cached_results is not None:
+            return True
+        
+        # No cache found with current hash - cache is invalid or doesn't exist
+        return False
+            
+>>>>>>> ATP-302-Batch-Berekening-Pagina-wordt-benoemd-maar-kan-ik-niet-vinden
     except Exception:
         # If cache check fails (e.g., storage issues), assume no cache
         return False
