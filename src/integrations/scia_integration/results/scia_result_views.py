@@ -3,12 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-<<<<<<< HEAD
-
-from viktor.views import TableResult
-=======
 from viktor.views import PlotlyResult, TableResult
->>>>>>> ATP-302-Batch-Berekening-Pagina-wordt-benoemd-maar-kan-ik-niet-vinden
 
 if TYPE_CHECKING:
     pass
