@@ -6,7 +6,7 @@ import pandas as pd
 from viktor.views import PlotlyResult, TableResult
 
 if TYPE_CHECKING:
-    pass
+    from src.integrations.scia_integration.results.scia_unit_conversion import SciaUnitConverter
 
 from src.integrations.scia_integration.constants.results import (
     CS_TABLE_TYPES,
@@ -754,7 +754,15 @@ def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
     return headers
 
 
-def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -> tuple[list[list[str]], list[str]]:
+def _convert_force_value_safe(converter: "SciaUnitConverter", value: float, component: str) -> str | float:
+    """Safely convert a force/moment value to display units, returning numeric value or 'N/A'."""
+    try:
+        return round(converter.convert_value(value, component), 2)
+    except (ValueError, TypeError):
+        return "N/A"
+
+
+def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -> tuple[list[list[str | float]], list[str]]:
     """
     Create table data and headers from processed CS (Cross Section) SCIA results.
 
@@ -784,7 +792,7 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     if processed_cs_df.empty:
         # Create a row with "No data" message plus N/A for all other columns
         # Number of N/A values = len(headers) - 1 (for the message)
-        no_data_row = [f"Geen {result_type} data"] + ["N/A"] * (len(headers) - 1)
+        no_data_row: list[str | float] = [f"Geen {result_type} data", *(["N/A"] * (len(headers) - 1))]
         return [no_data_row], headers
 
     table_data = []
@@ -818,15 +826,15 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         n_xd = row.get("n_xD", 0.0)
         n_yd = row.get("n_yD", 0.0)
 
-        # Format values with units (using appropriate component names for converter)
-        v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
-        v_y_str = converter.format_value_with_unit(v_y, "v_y", decimals=2, default="N/A")
-        m_xd_plus_str = converter.format_value_with_unit(m_xd_plus, "m_xD+", decimals=2, default="N/A")
-        m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
-        m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
-        m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
-        n_xd_str = converter.format_value_with_unit(n_xd, "n_xD", decimals=2, default="N/A")
-        n_yd_str = converter.format_value_with_unit(n_yd, "n_yD", decimals=2, default="N/A")
+        # Convert values to display units (without unit strings for sortability)
+        v_x_val = _convert_force_value_safe(converter, v_x, "v_x")
+        v_y_val = _convert_force_value_safe(converter, v_y, "v_y")
+        m_xd_plus_val = _convert_force_value_safe(converter, m_xd_plus, "m_xD+")
+        m_xd_minus_val = _convert_force_value_safe(converter, m_xd_minus, "m_xD-")
+        m_yd_plus_val = _convert_force_value_safe(converter, m_yd_plus, "m_yD+")
+        m_yd_minus_val = _convert_force_value_safe(converter, m_yd_minus, "m_yD-")
+        n_xd_val = _convert_force_value_safe(converter, n_xd, "n_xD")
+        n_yd_val = _convert_force_value_safe(converter, n_yd, "n_yD")
 
         # Build row data - order must match headers exactly
         if has_zone_column:
@@ -838,14 +846,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 coords,
                 str(belasting),
                 str(max_for_column),
-                v_x_str,
-                v_y_str,
-                m_xd_plus_str,
-                m_xd_minus_str,
-                m_yd_plus_str,
-                m_yd_minus_str,
-                n_xd_str,
-                n_yd_str,
+                v_x_val,
+                v_y_val,
+                m_xd_plus_val,
+                m_xd_minus_val,
+                m_yd_plus_val,
+                m_yd_minus_val,
+                n_xd_val,
+                n_yd_val,
             ]
         else:
             # Without zone: Name, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (12 columns)
@@ -854,14 +862,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 coords,
                 str(belasting),
                 str(max_for_column),
-                v_x_str,
-                v_y_str,
-                m_xd_plus_str,
-                m_xd_minus_str,
-                m_yd_plus_str,
-                m_yd_minus_str,
-                n_xd_str,
-                n_yd_str,
+                v_x_val,
+                v_y_val,
+                m_xd_plus_val,
+                m_xd_minus_val,
+                m_yd_plus_val,
+                m_yd_minus_val,
+                n_xd_val,
+                n_yd_val,
             ]
 
         table_data.append(row_data)
@@ -1028,15 +1036,15 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
             n_xd = row.get("n_xD", 0.0)
             n_yd = row.get("n_yD", 0.0)
 
-            # Format values with units
-            v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
-            v_y_str = converter.format_value_with_unit(v_y, "v_y", decimals=2, default="N/A")
-            m_xd_plus_str = converter.format_value_with_unit(m_xd_plus, "m_xD+", decimals=2, default="N/A")
-            m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
-            m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
-            m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
-            n_xd_str = converter.format_value_with_unit(n_xd, "n_xD", decimals=2, default="N/A")
-            n_yd_str = converter.format_value_with_unit(n_yd, "n_yD", decimals=2, default="N/A")
+            # Convert values to display units (without unit strings for sortability)
+            v_x_val = _convert_force_value_safe(converter, v_x, "v_x")
+            v_y_val = _convert_force_value_safe(converter, v_y, "v_y")
+            m_xd_plus_val = _convert_force_value_safe(converter, m_xd_plus, "m_xD+")
+            m_xd_minus_val = _convert_force_value_safe(converter, m_xd_minus, "m_xD-")
+            m_yd_plus_val = _convert_force_value_safe(converter, m_yd_plus, "m_yD+")
+            m_yd_minus_val = _convert_force_value_safe(converter, m_yd_minus, "m_yD-")
+            n_xd_val = _convert_force_value_safe(converter, n_xd, "n_xD")
+            n_yd_val = _convert_force_value_safe(converter, n_yd, "n_yD")
 
             row_data = [
                 str(zone),
@@ -1045,14 +1053,14 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
                 coords,
                 str(belasting),
                 str(max_for_column),
-                v_x_str,
-                v_y_str,
-                m_xd_plus_str,
-                m_xd_minus_str,
-                m_yd_plus_str,
-                m_yd_minus_str,
-                n_xd_str,
-                n_yd_str,
+                v_x_val,
+                v_y_val,
+                m_xd_plus_val,
+                m_xd_minus_val,
+                m_yd_plus_val,
+                m_yd_minus_val,
+                n_xd_val,
+                n_yd_val,
             ]
 
             table_data.append(row_data)

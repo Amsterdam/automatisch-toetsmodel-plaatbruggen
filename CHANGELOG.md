@@ -37,6 +37,7 @@ New folder in the directory for the load combination generator.
 
 ### Fixed
 - **IDEA Integration**: Fixed SCIA to IDEA data flow to properly use cached envelope dataframes with correct column naming (_max suffix)
+- **SCIA Table Sorting**: Fixed force/moment columns (Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD) to use numeric values instead of strings with units, enabling proper sorting in SCIA CS ULS, SCIA CS SLS freq, and SCIA Analyse Resultaten tables
 
 ### Removed
 - **SCIA Results Cleanup**: Removed 3 unused functions from `scia_results_processor.py` (~75 lines):
