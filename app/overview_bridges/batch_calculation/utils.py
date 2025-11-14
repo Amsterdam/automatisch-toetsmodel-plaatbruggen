@@ -319,9 +319,10 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     If parameters changed, hash mismatch will return False (cache invalid).
 
     Strategy:
-    1. First try to find cache with current params hash
-    2. If batch_results_cache_hash is provided, compare with current hash to determine cache validity
-    3. Fall back to checking if ANY cache keys exist for this bridge
+    1. Generate hash for current parameters
+    2. Try to retrieve cache with current hash
+    3. If batch_results_cache_hash is provided, only use it if it matches current hash exactly
+    4. Only return True if cache exists with exact current hash match
 
     :param bridge_params: Bridge parametrization object
     :type bridge_params: Any
@@ -341,47 +342,21 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
         # Generate hash for current parameters
         current_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
         
-        # If we have a batch results cache hash, compare it
+        # If batch_results_cache_hash is provided, it must match current hash exactly
+        # If it doesn't match, parameters have changed and cache is invalid
         if batch_results_cache_hash is not None:
-            # If hashes match, cache should be valid (assuming it was stored during batch calc)
-            if current_hash == batch_results_cache_hash:
-                # Try to retrieve the cache to confirm it exists
-                cached_results = cache.get_cached_analysis(bridge_params, AnalysisType.IDEA, bridge_entity_id)
-                if cached_results is not None:
-                    return True
-                # Hash matches but cache not found - might be in different storage scope
-                # Fall through to check storage keys
+            if current_hash != batch_results_cache_hash:
+                # Hash mismatch - parameters changed, cache is invalid
+                return False
         
-        # Step 1: Try to get cached results with current params
+        # Try to get cached results with current params hash
+        # This will only return results if cache exists with exact hash match
         cached_results = cache.get_cached_analysis(bridge_params, AnalysisType.IDEA, bridge_entity_id)
         if cached_results is not None:
             return True
         
-        # Step 2: Check if ANY cache exists for this bridge entity in current storage
-        try:
-            all_keys = cache.storage.list(scope="entity")
-            # Look for any cache keys for this bridge entity (any hash)
-            bridge_cache_keys = [key for key in all_keys if key.startswith(f"analysis_cache_{bridge_entity_id}_{AnalysisType.IDEA.value}_")]
-            
-            if bridge_cache_keys:
-                # Cache exists but current hash doesn't match - check if it matches batch hash
-                if batch_results_cache_hash:
-                    # Check if any of the cache keys match the batch hash
-                    expected_key_prefix = f"analysis_cache_{bridge_entity_id}_{AnalysisType.IDEA.value}_{batch_results_cache_hash}"
-                    if any(key == expected_key_prefix for key in bridge_cache_keys):
-                        # Batch hash matches an existing cache key - cache is valid
-                        return True
-                # Cache exists but hash doesn't match current params - parameters changed
-                return False
-            
-            # No cache keys found in current storage
-            # If we have a batch hash but no cache keys, cache might be in bridge entity storage
-            # or was cleared. For now, return False (no valid cache found).
-            return False
-            
-        except Exception:
-            # If we can't list keys, assume no cache
-            return False
+        # No cache found with current hash - cache is invalid or doesn't exist
+        return False
             
     except Exception:
         # If cache check fails (e.g., storage issues), assume no cache
