@@ -14,7 +14,7 @@ from src.common.constants.technical import AnalysisType
 from tests.test_data.seed_loader import load_bridge_default_params
 
 
-def _mock_init(self, storage=None):  # noqa: ANN001
+def _mock_init(self, storage=None) -> None:  # noqa: ANN001
     """Mock __init__ that properly initializes cache object."""
     self.storage = storage or Mock()
     self._hash_cache = {}
