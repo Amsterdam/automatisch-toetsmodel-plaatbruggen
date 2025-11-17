@@ -260,7 +260,7 @@ def validate_combination_params(params: dict) -> tuple[str, str, str]:
     return config.to_tuple()
 
 
-def calculate_dynamic_udl_factor( # noqa: PLR0912
+def calculate_dynamic_udl_factor(  # noqa: PLR0912
     params: Any,  # noqa: ANN401
     length_bridgedeck: float,
     lane_type: str,
