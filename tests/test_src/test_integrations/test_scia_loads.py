@@ -55,7 +55,7 @@ class TestRealTandemLoads:
         """Test that calculate_real_tandem_values returns correct number of values for all berekeningsniveau options."""
         # Arrange
         mock_ref_period.return_value = 50  # Mock the reference period calculation
-        
+
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
         if signage:
@@ -602,7 +602,7 @@ class TestUniformlyDistributedLoads:
         """Test that calculate_real_udl_values returns correct number of values for all berekeningsniveau options."""
         # Arrange
         mock_ref_period.return_value = 50  # Mock the reference period calculation
-        
+
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
         if signage:
@@ -704,7 +704,7 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
-    def test_create_real_udl_traffic_loads_basic_case(  # noqa: PLR0913
+    def test_create_real_udl_traffic_loads_basic_case(
         self, mock_ref_period: Mock, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
     ) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""
@@ -824,7 +824,7 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_number_of_road_zones")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
-    def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
+    def test_create_real_udl_traffic_loads_edge_cases(
         self,
         mock_ref_period: Mock,
         mock_obtain_y_udl: Mock,
@@ -1135,9 +1135,7 @@ class TestUniformlyDistributedLoads:
                 generate_real_lane_positions_bg9000(mock_params, lane_width=0)
 
     @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
-    def test_create_udl_traffic_loads_basic_case(
-        self, mock_ref_period: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_udl_traffic_loads_basic_case(self, mock_ref_period: Mock, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_theoretical_udl_traffic_loads
 
