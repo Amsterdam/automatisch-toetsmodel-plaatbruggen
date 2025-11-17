@@ -15,6 +15,7 @@ When generating code, explanations, or suggestions, Copilot should always consul
 - DynamicArray field visibility
 - Testing and quality checks
 - SCIA integration
+- Caching system architecture and usage
 - And other project-specific conventions
 
 In addition, Copilot should reference the following important project files and directories for context and definitions:
