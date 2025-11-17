@@ -6,6 +6,10 @@
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
 
+## [`v0.0.18`] - 2025-12-04
+### Added
+- Added tram loading to the load selection table.
+
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - Temperature loads on 2D elements

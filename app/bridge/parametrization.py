@@ -1258,17 +1258,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     # Define table columns (order determines display order)
-    calc_page.calc_selection.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
+    calc_page.calc_selection.load_case_selection_table.include = BooleanField(
+        " ",
+        description="Schakel deze belastingen in/uit voor het SCIA model",
+    )
     calc_page.calc_selection.load_case_selection_table.load_type = TextField(
-        "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
+        "Belastingtype",
+        description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)",
     )
     calc_page.calc_selection.load_case_selection_table.load_case_range = TextField(
-        "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
+        "Belastinggevallen",
+        description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)",
     )
-    calc_page.calc_selection.load_case_selection_table.load_case_count = NumberField(
+    calc_page.calc_selection.load_case_selection_table.load_case_count = TextField(
         "Aantal belastinggevallen",
-        suffix="",
-        visible=True,
         description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
     )
 

@@ -191,7 +191,10 @@ Vergeet de pagina niet op te slaan na het maken van wijzigingen, voordat je het 
 # Load case selection header text
 LOAD_CASE_SELECTION_HEADER_TEXT = """## Belastingselectie
 Selecteer welke belastingen worden gegenereerd in het SCIA model.
-Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen."""
+Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen.
+**Let op:** Trambelastingen kunnen alleen worden ingeschakeld wanneer:
+1. De verkeersbelasting is ingesteld op 'Werkelijke wegindeling' (een van de drie opties).
+2. Er minimaal één tram belastingzone is gedefinieerd op het tabblad 'Belastingzones'."""
 
 # Load case selection note text
 LOAD_CASE_SELECTION_NOTE_TEXT = """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,
