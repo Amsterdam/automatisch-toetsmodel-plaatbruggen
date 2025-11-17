@@ -723,7 +723,6 @@ class TestUniformlyDistributedLoads:
         result = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=length_bridgedeck,
-            udl_value=udl_value,
         )
 
         # Verify basic structure of results
@@ -848,7 +847,6 @@ class TestUniformlyDistributedLoads:
         result_narrow = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=9000.0,
         )
         # Verify narrow road generates at least some load cases
         assert isinstance(result_narrow, dict), "Result should be a dictionary"
@@ -873,7 +871,6 @@ class TestUniformlyDistributedLoads:
         result_no_auto = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=9000.0,
         )
         # The function generates loads based on road geometry even without Auto zones
         # This is the actual behavior - it doesn't require Auto zones specifically
@@ -895,7 +892,6 @@ class TestUniformlyDistributedLoads:
         result_zero_load = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=0.0,
         )
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"
         assert "BG4001" in result_zero_load, "Should contain BG4001 key"
@@ -1144,7 +1140,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=width_bridgedeck,
             width_firstsegment_zone3=width_firstsegment_zone3,
             width_firstsegment_zone2=width_firstsegment_zone2,
-            udl_value=udl_value,
         )
 
         # Verify basic structure of results
@@ -1251,7 +1246,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=5.5,  # Just enough for one lane + zones
             width_firstsegment_zone3=1.0,
             width_firstsegment_zone2=1.0,
-            udl_value=9000.0,
         )
 
         # Verify narrow bridge generates at least some load cases
@@ -1274,7 +1268,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=10.0,
             width_firstsegment_zone3=1.0,
             width_firstsegment_zone2=1.0,
-            udl_value=0.0,
         )
 
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"

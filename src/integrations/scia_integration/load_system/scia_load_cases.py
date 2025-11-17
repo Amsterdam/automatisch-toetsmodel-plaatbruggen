@@ -173,10 +173,10 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
     # Generate UDL loads to determine which load cases we need
     if mode == LoadMode.THEORETICAL:
         udl_results = create_theoretical_udl_traffic_loads(
-            params, dims.total_length, dims.total_width, dims.zone3_width, dims.zone2_width, UDL_BASE_VALUE
+            params, dims.total_length, dims.total_width, dims.zone3_width, dims.zone2_width
         )
     else:
-        udl_results = create_real_udl_traffic_loads(params, dims.total_length, UDL_BASE_VALUE)
+        udl_results = create_real_udl_traffic_loads(params, dims.total_length)
 
     # Create three separate dictionaries for different lane types
     main_cases = {}

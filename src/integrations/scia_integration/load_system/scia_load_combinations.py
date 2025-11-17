@@ -448,7 +448,6 @@ def create_uls_combinations_from_table(
         combination_type=LoadCombinationType.ENVELOPE_ULTIMATE,
         desc_prefix="ULS Combination",
         all_load_cases=all_load_cases,
-        params=params,
     )
 
 
@@ -471,7 +470,6 @@ def create_sls_combinations_from_table(
         combination_type=LoadCombinationType.ENVELOPE_SERVICEABILITY,
         desc_prefix="SLS Combination",
         all_load_cases=all_load_cases,
-        params=params,
     )
 
 
@@ -494,7 +492,6 @@ def create_fatigue_combinations_from_table(
         combination_type=LoadCombinationType.ENVELOPE_SERVICEABILITY,
         desc_prefix="Fatigue Combination",
         all_load_cases=all_load_cases,
-        params=params,
     )
 
 
