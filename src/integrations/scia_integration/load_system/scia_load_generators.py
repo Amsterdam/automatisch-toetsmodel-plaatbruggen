@@ -196,9 +196,7 @@ def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None,
     # Generate UDL loads using the appropriate function based on mode
     try:
         if mode == LoadMode.THEORETICAL:
-            udl_results = create_theoretical_udl_traffic_loads(
-                params, dims.total_length, dims.total_width, dims.zone3_width, dims.zone2_width
-            )
+            udl_results = create_theoretical_udl_traffic_loads(params, dims.total_length, dims.total_width, dims.zone3_width, dims.zone2_width)
         elif mode == LoadMode.ACTUAL:
             udl_results = create_real_udl_traffic_loads(params, dims.total_length)
         else:
