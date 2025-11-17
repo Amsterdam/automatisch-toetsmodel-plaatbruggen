@@ -1238,7 +1238,7 @@ def _extract_content_from_file(file_obj: Any) -> bytes | None:  # noqa: ANN401
 
 
 def _run_scia_analysis_with_builder(
-    params: Any,
+    params: Any,  # noqa: ANN401
     template_path: Path,
     analysis_context: dict[str, Any] | None = None,
 ) -> tuple[SciaAnalysis, dict[str, object]]:

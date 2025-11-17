@@ -11,8 +11,6 @@ from viktor.errors import UserError
 from viktor.parametrization import Parametrization
 from viktor.views import TableCell, TableResult, TableView
 
-logger = logging.getLogger(__name__)
-
 from app.bridge.analysis_cache import get_cached_analysis_results, get_idea_analysis_results
 from src.common.constants.technical import AnalysisType
 
@@ -26,12 +24,14 @@ from .utils import (
     validate_bridge_for_calculation,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class BatchCalculationComponent:
     """Component providing batch calculation functionality for multiple bridges."""
 
     @TableView("Statusoverzicht", duration_guess=1)
-    def view_batch_readiness(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: ARG002
+    def view_batch_readiness(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: ARG002, C901, PLR0912
         """
         Display table showing which bridges are ready for batch calculation.
 
@@ -175,7 +175,7 @@ class BatchCalculationComponent:
 
         return TableResult(final_table_data, column_headers=headers, row_headers=final_row_headers)
 
-    def run_batch_calculation(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002
+    def run_batch_calculation(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002, C901, PLR0912, PLR0915
         """
         Execute batch calculation for all ready bridges.
 
@@ -397,7 +397,7 @@ class BatchCalculationComponent:
                     if idea_results is None:
                         error_msg = "IDEA analyse gefaald of geen gecachte resultaten beschikbaar."
                         logger.error("Bridge %s (ID: %s): %s", bridge_name, bridge_id, error_msg)
-                        raise UserError(error_msg)
+                        raise UserError(error_msg)  # noqa: TRY301
 
                     # Extract UC summary
                     uc_summary = extract_uc_summary_from_idea_results(idea_results)
@@ -434,8 +434,7 @@ class BatchCalculationComponent:
                     error_message = str(e)
                     error_traceback = traceback.format_exc()
 
-                    logger.error("Bridge %s (ID: %s): Calculation failed with %s: %s", bridge_name, bridge_id, error_type, error_message)
-                    logger.debug("Full traceback for %s:\n%s", bridge_name, error_traceback)
+                    logger.exception("Bridge %s (ID: %s): Calculation failed", bridge_name, bridge_id)
 
                     # Store error result with detailed error message
                     # Truncate traceback if too long, but keep first line (most important)
@@ -513,7 +512,7 @@ class BatchCalculationComponent:
                 storage.delete("batch_calculation_running", scope="entity")
 
     @TableView("Start berekening / Weergeven resultaten", duration_guess=6)
-    def view_batch_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:
+    def view_batch_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: C901, PLR0912, PLR0915
         """
         Display batch calculation results with UC values and report links.
 
@@ -653,10 +652,7 @@ class BatchCalculationComponent:
 
                 # Trigger batch calculation automatically
                 logger.info("Triggering batch calculation...")
-                try:
-                    self.run_batch_calculation(params, entity_id, **kwargs)
-                except Exception:
-                    raise
+                self.run_batch_calculation(params, entity_id, **kwargs)
 
                 # Clear running flag
                 with contextlib.suppress(Exception):
@@ -694,7 +690,7 @@ class BatchCalculationComponent:
                 # Clear running flag on error
                 with contextlib.suppress(Exception):
                     storage.delete("batch_calculation_running", scope="entity")
-                logger.error("Error triggering batch calculation: %s", e)
+                logger.exception("Error triggering batch calculation")
                 return TableResult(
                     [["Fout bij starten batchberekening", f"{type(e).__name__}: {str(e)[:100]}", "", "", ""]],
                     column_headers=["Berekening Status", "Max UC", "UC Status", "Gefaalde controles", "Rapport"],

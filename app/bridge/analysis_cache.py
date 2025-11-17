@@ -497,7 +497,7 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
     return idea_results is not None
 
 
-def get_cached_analysis_results(
+def get_cached_analysis_results(  # noqa: PLR0913
     params: Any,  # noqa: ANN401
     analysis_type: AnalysisType,
     entity_id: int,

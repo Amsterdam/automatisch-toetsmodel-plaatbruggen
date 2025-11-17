@@ -11,7 +11,7 @@ from viktor.errors import UserError
 logger = logging.getLogger(__name__)
 
 
-def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001
+def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001, C901, PLR0912, PLR0915
     """
     Check if bridge is ready for calculation and calculate completion percentage.
 
@@ -404,11 +404,10 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     try:
         with stored_file.open_binary() as f:
             encoded_data = f.read()
-    except AttributeError as e:
+    except AttributeError:
         # This should not happen if hasattr check passed, but catch it anyway
         file_type = type(stored_file)
-        error_msg = f"open_binary() failed on {file_type.__name__}: {e}"
-        logger.error(error_msg)
+        logger.exception("open_binary() failed on %s", file_type.__name__)
         # Try fallback methods as last resort
         logger.warning("Attempting fallback methods for file extraction")
         if hasattr(stored_file, "getvalue"):
