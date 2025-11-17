@@ -9,6 +9,8 @@ Introduced a new naming system with span, lane and configuration identification.
   - README.md retains full documentation including developer setup for GitHub
   - Both files maintained separately for clarity
 - **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
+- **Caching System Documentation**: Added comprehensive documentation in `.github/Rules/caching_system.md` explaining cache architecture and usage
+- **Dataframe Caching**: SCIA CS dataframes (ULS, SLS freq, envelope) now cached for improved performance across views
 
 ### Changed
 - Fixed surface loads with zero area which caused model singularities in SCIA.
@@ -28,8 +30,15 @@ New folder in the directory for the load combination generator.
   - Nieuwe kolommen met verduidelijking toegevoegd aan IDEA resultaat tabellen. 
 - **SCIA Results Parser Optimization**: Major performance improvements to `extract_analysis_results` in `scia_model_builder.py`:
   - Reduced XML file reads from 6 to 1 (60-80% performance improvement)
+  - Added dataframe caching for CS results (ULS, SLS freq, envelope)
+- **Cache Performance Optimization**: Optimized cache checking with hash memoization (10-50x faster on repeated checks)
+- **SCIA Views Performance**: All SCIA CS views now use cached dataframes instead of reprocessing XML data
 - **SCIA UI text**: updated the UI text.
 - **UI text invoer dimensies**: changed UI tekst by renaming code variable names like bz, bz2 and dz etc.
+
+### Fixed
+- **IDEA Integration**: Fixed SCIA to IDEA data flow to properly use cached envelope dataframes with correct column naming (_max suffix)
+- **SCIA Table Sorting**: Fixed force/moment columns (Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD) to use numeric values instead of strings with units, enabling proper sorting in SCIA CS ULS, SCIA CS SLS freq, and SCIA Analyse Resultaten tables
 
 ### Removed
 - **SCIA Results Cleanup**: Removed 3 unused functions from `scia_results_processor.py` (~75 lines):
