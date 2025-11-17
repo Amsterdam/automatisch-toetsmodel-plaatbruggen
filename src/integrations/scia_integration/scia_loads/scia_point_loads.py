@@ -414,6 +414,43 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         raise ValueError(f"Failed to add tram loads: {e}") from e
 
 
+def _create_service_wheel_load(  # noqa: PLR0913
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+    wheel_corners: list[tuple[float, float, float]],
+    load_per_area: float,
+    load_name: str,
+    load_case_name: str,
+) -> None:
+    """Create a single wheel load with optional dispersion."""
+    corner_points_dispersed, load_value_dispersed = dispersal_function(
+        params=params,
+        corner_points=wheel_corners,
+        load_value=load_per_area,
+        load_case_type="axle_load",
+        _load_case_name=load_case_name,
+    )
+
+    if params.spreiding:
+        area = calculate_polygon_area(corner_points_dispersed)
+        if area > 0:
+            builder.create_surface_load(
+                name=load_name,
+                load_case_name=load_case_name,
+                corner_points=corner_points_dispersed,
+                load_value=-load_value_dispersed,
+            )
+    else:
+        area = calculate_polygon_area(wheel_corners)
+        if area > 0:
+            builder.create_surface_load(
+                name=load_name,
+                load_case_name=load_case_name,
+                corner_points=wheel_corners,
+                load_value=-load_per_area,
+            )
+
+
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """
     Add service vehicle loads to the SCIA model using sequenced X positions.
@@ -458,7 +495,6 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
         def create_service_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
             """Create service vehicle loads at a specific X position."""
-            # Get the appropriate load case for this position and edge
             load_case_key = f"{edge_type}_x{x_pos}"
             if load_case_key not in service_vehicle_cases:
                 return
@@ -490,37 +526,8 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
 
             # Create surface loads for each wheel
             for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                # Apply load dispersion if enabled
-                corner_points_dispersed, load_value_dispersed = dispersal_function(
-                    params=params,
-                    corner_points=wheel_corners,
-                    load_value=load_per_area,
-                    load_case_type="axle_load",
-                    _load_case_name=load_case_name,
-                )
-
                 load_name = f"service_vehicle_{edge_type}_x{x_pos}_wheel{wheel_idx + 1}"
-
-                if params.spreiding:
-                    # Check if polygon has non-zero area
-                    area = calculate_polygon_area(corner_points_dispersed)
-                    if area > 0:
-                        builder.create_surface_load(
-                            name=load_name,
-                            load_case_name=load_case_name,
-                            corner_points=corner_points_dispersed,
-                            load_value=-load_value_dispersed,
-                        )
-                else:
-                    # Check if polygon has non-zero area
-                    area = calculate_polygon_area(wheel_corners)
-                    if area > 0:
-                        builder.create_surface_load(
-                            name=load_name,
-                            load_case_name=load_case_name,
-                            corner_points=wheel_corners,
-                            load_value=-load_per_area,
-                        )
+                _create_service_wheel_load(builder, params, wheel_corners, load_per_area, load_name, load_case_name)
 
         # Create loads for each X position on both edges
         for x_pos in positions:
