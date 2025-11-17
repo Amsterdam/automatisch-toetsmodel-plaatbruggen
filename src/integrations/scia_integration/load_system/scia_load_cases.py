@@ -701,7 +701,9 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
     :return: Dictionary mapping load type names to boolean inclusion status.
     :rtype: dict[str, bool]
     """
-    # Default selection (all enabled) for backward compatibility
+    # Default selection (all enabled except Tram) for backward compatibility
+    # Note: Tram is disabled by default to match UI default (unchecked).
+    # User must explicitly enable tram loads via the checkbox.
     default_selection = {
         "Eigen gewicht": True,
         "Permanent": True,
@@ -711,6 +713,7 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
         "Dienstvoertuig": True,
         "Onbedoeld voertuig": True,
         "TS": True,
+        "Tram": False,  # Default False - requires explicit user enablement
     }
 
     try:
@@ -719,12 +722,14 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
         if table is None:
             return default_selection
 
-        # Extract selection from table rows
-        selection = {}
+        # Extract selection from table rows and merge with defaults
+        # Start with defaults, then override with table values
+        selection = default_selection.copy()
         for row in table:
             load_type = row.get("load_type", "")
             include = row.get("include", True)
-            selection[load_type] = include
+            if load_type:  # Only add non-empty load types
+                selection[load_type] = include
     except (AttributeError, TypeError, KeyError):
         # Fallback to default if table is not available or malformed
         return default_selection
@@ -763,7 +768,7 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     if load_selection.get("Temperatuur", True):
         load_cases["temperature_cases"] = create_temperature_load_cases(builder)
 
-    # UDL traffic load cases (BG4001-BG4xxx)
+    # UDL traffic load cases (BG4000 series)
     if load_selection.get("UDL", True):
         load_cases["udl_traffic_cases"] = create_udl_traffic_load_cases(builder, params)
 
@@ -771,20 +776,20 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     if load_selection.get("Voetgangers", True):
         load_cases["pedestrian"] = create_pedestrian_load_case(builder)
 
-    # Service vehicle load cases (BG6001-BG6xxx)
+    # Service vehicle load cases (BG6000 series)
     if load_selection.get("Dienstvoertuig", True):
         load_cases["service_vehicle_cases"] = create_service_vehicle_load_cases(builder, params)
 
-    # Unintended vehicle load cases (BG7001-BG7xxx)
+    # Unintended vehicle load cases (BG7000 series)
     if load_selection.get("Onbedoeld voertuig", True):
         load_cases["unintended_vehicle_cases"] = create_unintended_vehicle_load_cases(builder, params)
 
-    # Tandem system load cases (BG8001-BG10xxx)
+    # Tandem system load cases (BG8000-BG10000 series)
     if load_selection.get("TS", True):
         load_cases["tandem_cases"] = create_dynamic_tandem_load_cases(builder, params)
 
-    # Tandem system load cases for tram tracks (BG11001-BG12xxx)
-    if load_selection.get("TS", True):
+    # Tram track tandem system load cases (BG11000-BG12000 series)
+    if load_selection.get("Tram", False):
         load_cases["tram_track_tandem_cases"] = create_dynamic_tram_track_tandem_load_cases(builder, params)
 
     return load_cases

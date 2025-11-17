@@ -17,49 +17,55 @@ LOAD_CASE_SELECTION_DEFAULT: list[dict[str, Any]] = [
         "include": True,
         "load_type": "Eigen gewicht",
         "load_case_range": "BG1001",
-        "load_case_count": 1,
+        "load_case_count": "1",
     },
     {
         "include": True,
         "load_type": "Permanent",
         "load_case_range": "BG2001-BG2005",
-        "load_case_count": 5,
+        "load_case_count": "5",
     },
     {
         "include": True,
         "load_type": "Temperatuur",
         "load_case_range": "BG3001-BG3004",
-        "load_case_count": 4,
+        "load_case_count": "4",
     },
     {
         "include": True,
         "load_type": "UDL",
-        "load_case_range": "BG4001-BG4003",
-        "load_case_count": 3,
+        "load_case_range": "BG4000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
     {
         "include": True,
         "load_type": "Voetgangers",
         "load_case_range": "BG5001",
-        "load_case_count": 1,
+        "load_case_count": "1",
     },
     {
         "include": True,
         "load_type": "Dienstvoertuig",
-        "load_case_range": "BG6001-BG6xxx",
-        "load_case_count": 20,  # Estimated default
+        "load_case_range": "BG6000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
     {
         "include": True,
         "load_type": "Onbedoeld voertuig",
-        "load_case_range": "BG7001-BG7xxx",
-        "load_case_count": 50,  # Estimated default
+        "load_case_range": "BG7000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
     {
         "include": True,
         "load_type": "TS",
-        "load_case_range": "BG8001-BG10xxx",
-        "load_case_count": 30,  # Estimated default
+        "load_case_range": "BG8000-BG10000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
+    },
+    {
+        "include": False,  # Default to False - only enable when conditions are met
+        "load_type": "Tram",
+        "load_case_range": "BG11000-BG12000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
 ]
 
