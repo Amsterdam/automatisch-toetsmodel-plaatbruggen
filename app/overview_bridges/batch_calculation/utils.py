@@ -11,7 +11,7 @@ from viktor.errors import UserError
 logger = logging.getLogger(__name__)
 
 
-def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, C901, PLR0912
+def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001
     """
     Check if bridge is ready for calculation and calculate completion percentage.
 
@@ -24,7 +24,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
 
     :param bridge_params: Bridge parametrization object
     :type bridge_params: Any
-    :param bridge_entity: Bridge entity object
+    :param bridge_entity: Bridge entity object (unused, kept for API compatibility)
     :type bridge_entity: Any
     :returns: Tuple of (is_ready, missing_fields, completion_percentage)
     :rtype: tuple[bool, list[str], float]
@@ -239,10 +239,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
         passed_checks += 1
 
     # Calculate completion percentage
-    if total_checks > 0:
-        completion_percentage = (passed_checks / total_checks) * 100.0
-    else:
-        completion_percentage = 0.0
+    completion_percentage = (passed_checks / total_checks) * 100.0 if total_checks > 0 else 0.0
 
     is_ready = len(missing_fields) == 0
 
@@ -385,21 +382,21 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     # Check for boolean first (most common invalid type)
     if isinstance(stored_file, bool):
         error_msg = f"Received boolean instead of File: {stored_file}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         raise TypeError(error_msg)
 
     # Then check for File type
     if not isinstance(stored_file, File):
         file_type = type(stored_file)
         error_msg = f"Expected File object, got {file_type.__name__}: {stored_file}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         raise TypeError(error_msg)
 
     # Verify method exists before calling it
     if not hasattr(stored_file, "open_binary"):
         file_type = type(stored_file)
         error_msg = f"File object missing 'open_binary' method. Got type: {file_type.__name__}, value: {stored_file}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         raise TypeError(error_msg)
 
     # Extract content from file object
@@ -411,9 +408,9 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
         # This should not happen if hasattr check passed, but catch it anyway
         file_type = type(stored_file)
         error_msg = f"open_binary() failed on {file_type.__name__}: {e}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         # Try fallback methods as last resort
-        print("WARNING: Attempting fallback methods for file extraction")
+        logger.warning("Attempting fallback methods for file extraction")
         if hasattr(stored_file, "getvalue"):
             encoded_data = stored_file.getvalue()
         elif hasattr(stored_file, "read"):

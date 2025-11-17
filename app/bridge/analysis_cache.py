@@ -448,10 +448,7 @@ def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa:
         cs_envelope_df = process_scia_cs_results_for_idea(scia_results, bridge_segments)
 
         # If processing succeeds and returns non-empty DataFrame, cache is valid
-        if cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty:
-            return True
-
-        return False
+        return cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty
     except Exception:
         # Processing failed - cache is invalid or incomplete
         return False
@@ -477,7 +474,8 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
     cache = _get_analysis_cache()
 
     # Generate hash for current parameters
-    current_hash = cache._generate_input_hash(params, AnalysisType.IDEA, None)
+    # Note: Using private method _generate_input_hash for cache consistency
+    current_hash = cache._generate_input_hash(params, AnalysisType.IDEA, None)  # noqa: SLF001
 
     # If expected_hash is provided, it must match current hash exactly
     # This ensures that if parameters changed, cache is considered invalid
@@ -489,9 +487,10 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
         cache_key = f"analysis_cache_{entity_id}_{AnalysisType.IDEA.value}_{expected_hash}"
         try:
             cached_file = cache.storage.get(cache_key, scope="entity")
-            return cached_file is not None
         except Exception:
             return False
+        else:
+            return cached_file is not None
 
     # Otherwise, check cache for current parameters
     idea_results = cache.get_cached_analysis(params, AnalysisType.IDEA, entity_id)
