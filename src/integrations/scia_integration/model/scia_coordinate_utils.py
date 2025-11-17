@@ -587,18 +587,16 @@ def clip_polygon_to_bridge_boundaries(
     # Extract bridge boundaries
     if not hasattr(bridge_geom_data, "x_coords_d_points"):
         return corner_points  # Return original if no geometry data
-    x_min = bridge_geom_data.x_coords_d_points[0]
-    x_max = bridge_geom_data.x_coords_d_points[-1]
+
+    # Get Y boundaries from bridge geometry
     y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]
     y_max = bridge_geom_data.y_top_structural_edge_at_d_points[0]
 
     clipped_points = []
     for x, y, z in corner_points:
-        # Clip X coordinates
-        clipped_x = max(x_min, min(x_max, x))
-        # Clip Y coordinates
+        # Clip Y coordinates only (X coordinates pass through unchanged)
         clipped_y = max(y_min, min(y_max, y))
-        clipped_points.append((clipped_x, clipped_y, z))
+        clipped_points.append((x, clipped_y, z))
 
     return clipped_points
 

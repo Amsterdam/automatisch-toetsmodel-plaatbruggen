@@ -36,6 +36,27 @@ from src.integrations.scia_integration.model.scia_model_interface import SciaMod
 from src.integrations.scia_integration.types import BridgeParametrization
 
 
+def calculate_polygon_area(corner_points: list[tuple[float, float, float]]) -> float:
+    """
+    Calculate the area of a polygon defined by corner points using the Shoelace formula.
+
+    :param corner_points: List of 3D corner points [(x, y, z), ...]
+    :returns: Area of the polygon in the XY plane
+    """
+    if len(corner_points) < 3:
+        return 0.0
+
+    # Project to XY plane and apply Shoelace formula
+    area = 0.0
+    n = len(corner_points)
+    for i in range(n):
+        x1, y1, _ = corner_points[i]
+        x2, y2, _ = corner_points[(i + 1) % n]
+        area += x1 * y2 - x2 * y1
+
+    return abs(area) * 0.5
+
+
 def dispersal_function(  # noqa: C901
     params: object,
     corner_points: list[tuple[float, float, float]],
@@ -224,12 +245,15 @@ def add_theoretical_tandem_loads(
                     patch_load["load_value"] = dispersed_load_value
 
             for i, patch_load in enumerate(tandem["patch_loads"]):
-                builder.create_surface_load(
-                    name=f"{load_case_name}_Wheel_{i + 1}",
-                    load_case_name=load_case_name,
-                    corner_points=patch_load["corners"],
-                    load_value=-patch_load["load_value"],  # Negative for downward load
-                )
+                # Check if polygon has non-zero area
+                area = calculate_polygon_area(patch_load["corners"])
+                if area > 0:
+                    builder.create_surface_load(
+                        name=f"{load_case_name}_Wheel_{i + 1}",
+                        load_case_name=load_case_name,
+                        corner_points=patch_load["corners"],
+                        load_value=-patch_load["load_value"],  # Negative for downward load
+                    )
     except Exception as e:
         raise ValueError(f"Failed to add theoretical tandem loads: {e}") from e
 
@@ -358,19 +382,25 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
                             _load_case_name=load_case_name,
                         )
 
-                        builder.create_surface_load(
-                            name=f"tram_track{track_idx}_x{x_pos}_axle{axle_idx}_{wheel_side}",
-                            load_case_name=load_case_name,
-                            corner_points=corner_points_dispersed,
-                            load_value=-load_value_dispersed,  # Negative for downward load (N/m²)
-                        )
+                        # Check if polygon has non-zero area
+                        area = calculate_polygon_area(corner_points_dispersed)
+                        if area > 0:
+                            builder.create_surface_load(
+                                name=f"tram_track{track_idx}_x{x_pos}_axle{axle_idx}_{wheel_side}",
+                                load_case_name=load_case_name,
+                                corner_points=corner_points_dispersed,
+                                load_value=-load_value_dispersed,  # Negative for downward load (N/m²)
+                            )
                     else:
-                        builder.create_surface_load(
-                            name=f"tram_track{track_idx}_x{x_pos}_axle{axle_idx}_{wheel_side}",
-                            load_case_name=load_case_name,
-                            corner_points=wheel_corners,
-                            load_value=-force_per_wheel,  # Negative for downward load (N/m²)
-                        )
+                        # Check if polygon has non-zero area
+                        area = calculate_polygon_area(wheel_corners)
+                        if area > 0:
+                            builder.create_surface_load(
+                                name=f"tram_track{track_idx}_x{x_pos}_axle{axle_idx}_{wheel_side}",
+                                load_case_name=load_case_name,
+                                corner_points=wheel_corners,
+                                load_value=-force_per_wheel,  # Negative for downward load (N/m²)
+                            )
 
         # Create loads for each tram position on each track
         for track_name, track_y_coords in tram_tracks.items():
@@ -436,34 +466,31 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
             load_case_name = service_vehicle_cases[load_case_key].name
 
             # Calculate vehicle top edge position with 0.5m inset from bridge edge
-            # Helper function expects y_coord to be the vehicle's top edge (front-left corner)
             if edge_type == "y_plus":
-                # For y_plus: top edge should be inward from bridge edge
                 vehicle_top_edge = y_coords[0] - inset_distance
             else:  # y_minus
-                # For y_minus: bottom edge should be inward, so top edge = bottom edge + vehicle_width
                 vehicle_bottom_edge = y_coords[0] + inset_distance
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # Calculate wheel contact area and load per unit area
-            wheel_area = wheel_contact_area * wheel_contact_area  # Square contact area
-            force_per_wheel = force_per_axle / 2  # Divide axle load by 2 wheels
-            load_per_area = force_per_wheel / wheel_area  # N/m²
+            # Calculate wheel load properties
+            wheel_area = wheel_contact_area * wheel_contact_area
+            force_per_wheel = force_per_axle / 2
+            load_per_area = force_per_wheel / wheel_area
 
             # Use the helper function to calculate wheel positions
             from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
 
             wheel_locations = calc_vehicle_load_locations(
                 x_coord=x_pos,
-                y_coord=vehicle_top_edge,  # Pass vehicle top edge directly
+                y_coord=vehicle_top_edge,
                 vehicle_length=vehicle_length,
                 vehicle_width=vehicle_width,
                 wheel_contact_area=wheel_contact_area,
             )
 
             # Create surface loads for each wheel
-            for j, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                # Take into account load dispersion
+            for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
+                # Apply load dispersion if enabled
                 corner_points_dispersed, load_value_dispersed = dispersal_function(
                     params=params,
                     corner_points=wheel_corners,
@@ -471,20 +498,29 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
                     load_case_type="axle_load",
                     _load_case_name=load_case_name,
                 )
+
+                load_name = f"service_vehicle_{edge_type}_x{x_pos}_wheel{wheel_idx + 1}"
+
                 if params.spreiding:
-                    builder.create_surface_load(
-                        name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
-                        load_case_name=load_case_name,
-                        corner_points=corner_points_dispersed,
-                        load_value=-load_value_dispersed,  # N/m²
-                    )
+                    # Check if polygon has non-zero area
+                    area = calculate_polygon_area(corner_points_dispersed)
+                    if area > 0:
+                        builder.create_surface_load(
+                            name=load_name,
+                            load_case_name=load_case_name,
+                            corner_points=corner_points_dispersed,
+                            load_value=-load_value_dispersed,
+                        )
                 else:
-                    builder.create_surface_load(
-                        name=f"service_vehicle_{edge_type}_x{x_pos}_wheel_{j}",
-                        load_case_name=load_case_name,
-                        corner_points=wheel_corners,
-                        load_value=-load_per_area,  # N/m²
-                    )
+                    # Check if polygon has non-zero area
+                    area = calculate_polygon_area(wheel_corners)
+                    if area > 0:
+                        builder.create_surface_load(
+                            name=load_name,
+                            load_case_name=load_case_name,
+                            corner_points=wheel_corners,
+                            load_value=-load_per_area,
+                        )
 
         # Create loads for each X position on both edges
         for x_pos in positions:
@@ -611,19 +647,25 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 load_name = f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_wheel{wheel_idx + 1}"
 
                 if params.spreiding:
-                    builder.create_surface_load(
-                        name=load_name,
-                        load_case_name=load_case_name,
-                        corner_points=corner_points_dispersed,
-                        load_value=-load_value_dispersed,
-                    )
+                    # Check if polygon has non-zero area
+                    area = calculate_polygon_area(corner_points_dispersed)
+                    if area > 0:
+                        builder.create_surface_load(
+                            name=load_name,
+                            load_case_name=load_case_name,
+                            corner_points=corner_points_dispersed,
+                            load_value=-load_value_dispersed,
+                        )
                 else:
-                    builder.create_surface_load(
-                        name=load_name,
-                        load_case_name=load_case_name,
-                        corner_points=wheel_corners,
-                        load_value=-load_per_area,
-                    )
+                    # Check if polygon has non-zero area
+                    area = calculate_polygon_area(wheel_corners)
+                    if area > 0:
+                        builder.create_surface_load(
+                            name=load_name,
+                            load_case_name=load_case_name,
+                            corner_points=wheel_corners,
+                            load_value=-load_per_area,
+                        )
 
         # Amsterdam vehicle (single axle)
         def create_amsterdam_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], vehicle_type: str = "amsterdam") -> None:
@@ -681,19 +723,25 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 )
 
                 if params.spreiding:
-                    builder.create_surface_load(
-                        name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
-                        load_case_name=load_case_name,
-                        corner_points=corner_points_dispersed,
-                        load_value=-load_value_dispersed,
-                    )
+                    # Check if polygon has non-zero area
+                    area = calculate_polygon_area(corner_points_dispersed)
+                    if area > 0:
+                        builder.create_surface_load(
+                            name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
+                            load_case_name=load_case_name,
+                            corner_points=corner_points_dispersed,
+                            load_value=-load_value_dispersed,
+                        )
                 else:
-                    builder.create_surface_load(
-                        name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
-                        load_case_name=load_case_name,
-                        corner_points=wheel_corners,
-                        load_value=-load_per_area,
-                    )
+                    # Check if polygon has non-zero area
+                    area = calculate_polygon_area(wheel_corners)
+                    if area > 0:
+                        builder.create_surface_load(
+                            name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
+                            load_case_name=load_case_name,
+                            corner_points=wheel_corners,
+                            load_value=-load_per_area,
+                        )
 
         # Create loads for all positions and vehicle types
         # Standard vehicle: forward and reverse directions for each position

@@ -11,6 +11,7 @@ Introduced a new naming system with span, lane and configuration identification.
 - **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
 
 ### Changed
+- Fixed surface loads with zero area which caused model singularities in SCIA.
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
 - Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
 - Re-assigned the UDL and tandem loads to load groups.
