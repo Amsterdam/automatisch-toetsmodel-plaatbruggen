@@ -1,4 +1,7 @@
 ## [Unreleased]
+### Added
+  **Shared Cache parameters**: added spreiding to the shared cache parameters
+
 ### Changed
 - **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
   - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP
