@@ -154,7 +154,7 @@ def create_udl_traffic_load_cases(builder: SciaModelBuilder, params: Any) -> dic
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters for generating UDL loads.
-    :returns: Dictionary with three keys: "udl_main_cases", "udl_other_cases", "udl_rest_cases", 
+    :returns: Dictionary with three keys: "udl_main_cases", "udl_other_cases", "udl_rest_cases",
               each containing a dict of load cases keyed by BG4xxx names.
     :rtype: dict[str, dict[str, SciaLoadCase]]
     """

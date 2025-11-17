@@ -25,7 +25,7 @@ from src.integrations.scia_integration.scia_enums import LoadCombinationType
 from src.integrations.scia_integration.types import LoadConfiguration
 
 if TYPE_CHECKING:
-    from app.bridge.parametrization import BridgeParametrization
+    pass
 
 # Type aliases for SCIA objects
 SciaModel = Any
@@ -362,13 +362,9 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
         bridge_segments_array = None
         if hasattr(params_obj, "bridge_segments_array"):
             # Convert to list of dicts for compatibility
-            bridge_segments_array = [
-                {"l": getattr(segment, "l", 0)} for segment in params_obj.bridge_segments_array
-            ]
+            bridge_segments_array = [{"l": getattr(segment, "l", 0)} for segment in params_obj.bridge_segments_array]
         elif hasattr(params_obj, "geometry") and hasattr(params_obj.geometry, "bridge_segments_array"):
-            bridge_segments_array = [
-                {"l": getattr(segment, "l", 0)} for segment in params_obj.geometry.bridge_segments_array
-            ]
+            bridge_segments_array = [{"l": getattr(segment, "l", 0)} for segment in params_obj.geometry.bridge_segments_array]
 
         # Extract berekeningsniveau and signage for UDL factor calculation
         berekeningsniveau = getattr(params_obj, "berekeningsniveau", None)

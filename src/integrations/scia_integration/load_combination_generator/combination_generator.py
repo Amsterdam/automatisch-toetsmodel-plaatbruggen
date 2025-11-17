@@ -56,7 +56,7 @@ class TrafficLoadCombinationGenerator:
         for udl_key in ["udl_main_cases", "udl_other_cases", "udl_rest_cases"]:
             if udl_key in all_load_cases and isinstance(all_load_cases[udl_key], dict):
                 all_udl_cases.update(all_load_cases[udl_key])
-        
+
         # Also check for old structure for backward compatibility
         if "udl_traffic_cases" in all_load_cases:
             if isinstance(all_load_cases["udl_traffic_cases"], dict):
@@ -76,11 +76,11 @@ class TrafficLoadCombinationGenerator:
                 metadata[load_name] = LoadMetadata(
                     load_case_name=load_name,
                     category=LoadCategory.TRAFFIC_UDL,
-                        configuration=config,
-                        span_index=span_idx,
-                        title=title,
-                        load_group_name=self._get_udl_group_name(config),
-                    )
+                    configuration=config,
+                    span_index=span_idx,
+                    title=title,
+                    load_group_name=self._get_udl_group_name(config),
+                )
 
         # Process tandem system loads
         if "tandem_cases" in all_load_cases:

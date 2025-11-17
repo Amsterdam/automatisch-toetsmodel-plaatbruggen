@@ -35,7 +35,7 @@ from src.integrations.scia_integration.constants.loads import (
 from src.integrations.scia_integration.load_system.lane_calculations import get_reference_period
 
 if TYPE_CHECKING:
-    from app.bridge.parametrization import BridgeParametrization
+    pass
 
 # ===================================================================================================================
 # Paths
@@ -344,7 +344,7 @@ def calculate_dynamic_udl_factor(
         # - alpha_Q_q (index 0): for main lanes and other lanes
         # - alpha_qr (index 1): for rest areas only
         alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-        
+
         if lane_type == "rest":
             alpha_q = alpha_q_factors[1]  # Rest areas use alpha_qr (second value)
         else:  # main or other
@@ -413,7 +413,7 @@ def prepare_combination_table(params: dict) -> pd.DataFrame:
 
     # Apply dynamic UDL factors to the three UDL columns
     # Extract bridge length from params
-    if "bridge_segments_array" in params and params["bridge_segments_array"]:
+    if params.get("bridge_segments_array"):
         total_length = sum(segment["l"] for segment in params["bridge_segments_array"])
 
         # Calculate dynamic factors for each lane type

@@ -27,6 +27,7 @@ from src.integrations.scia_integration.load_system.lane_calculations import (
     amount_of_notional_lanes,
     amount_of_notional_lanes_from_center,
 )
+
 # UDL values are now handled directly with UDL_BASE_VALUE constant
 from src.integrations.scia_integration.load_system.road_zone_utils import (
     get_number_of_road_zones,

@@ -11,16 +11,13 @@ from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_t
 from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.integrations.scia_integration.constants.loads import (
-    ALPHA_Q_MAIN_LANE_ONDERLIGGEND,
     ALPHA_Q_ONDERLIGGEND,
-    ALPHA_Q_OTHER_LANE_ONDERLIGGEND,
     NOBS_DEFAULT,
     SIGNAGE_WEIGHT_OPTIONS,
     TANDEM_CONTACT_AREA_SIDE,
     TANDEM_LOAD_BASE_MAIN,
     TANDEM_LOAD_BASE_SECOND,
     TANDEM_LOAD_BASE_THIRD,
-    UDL_BASE_VALUE,
 )
 from src.integrations.scia_integration.load_system.lane_calculations import get_reference_period
 
