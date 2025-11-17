@@ -41,8 +41,9 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
 
 
 def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
-    """Run IDEA analysis and extract results.
-    
+    """
+    Run IDEA analysis and extract results.
+
     :param params: Bridge parameters
     :param entity_id: Entity ID
     :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
@@ -51,11 +52,11 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     # Build progress message prefix from context
     if analysis_context:
         prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
-        percentage = analysis_context.get('batch_percentage')
+        percentage = analysis_context.get("batch_percentage")
     else:
         prefix = ""
         percentage = None
-    
+
     # First get SCIA results needed for IDEA
     progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA analyse...", percentage=percentage)
     scia_results_dict = get_scia_results_for_idea(params, entity_id, analysis_context)
@@ -182,11 +183,11 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     # Build progress message prefix from context
     if analysis_context:
         prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
-        percentage = analysis_context.get('batch_percentage')
+        percentage = analysis_context.get("batch_percentage")
     else:
         prefix = ""
         percentage = None
-    
+
     # Get entity ID for caching
     if not isinstance(entity_id, int):
         raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
@@ -505,8 +506,9 @@ def get_cached_analysis_results(
     template_path: str | None = None,
     analysis_context: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Get cached analysis results or run analysis if not cached.
-    
+    """
+    Get cached analysis results or run analysis if not cached.
+
     :param params: Bridge parameters
     :param analysis_type: Type of analysis (SCIA or IDEA)
     :param entity_id: Entity ID
@@ -520,7 +522,7 @@ def get_cached_analysis_results(
     # Build progress message prefix from context
     if analysis_context:
         prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
-        percentage = analysis_context.get('batch_percentage')
+        percentage = analysis_context.get("batch_percentage")
     else:
         prefix = ""
         percentage = None

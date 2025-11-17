@@ -48,17 +48,17 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
             segments_valid = True
             for idx, segment in enumerate(segments):
                 segment_issues = []
-                
+
                 # Check dz (thickness) - required
                 dz = getattr(segment, "dz", None)
                 if dz is None or (isinstance(dz, (int, float)) and dz <= 0):
                     segment_issues.append("dikte (dz)")
-                
+
                 # Check dz_2 (secondary thickness) - required
                 dz_2 = getattr(segment, "dz_2", None)
                 if dz_2 is None or (isinstance(dz_2, (int, float)) and dz_2 <= 0):
                     segment_issues.append("dikte 2 (dz_2)")
-                
+
                 # Check bz1, bz2, bz3 (bridge zone widths)
                 bz1 = getattr(segment, "bz1", None)
                 bz2 = getattr(segment, "bz2", None)
@@ -69,7 +69,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
                     segment_issues.append("breedte zone 2 (bz2)")
                 if bz3 is None or (isinstance(bz3, (int, float)) and bz3 <= 0):
                     segment_issues.append("breedte zone 3 (bz3)")
-                
+
                 # Check is_support (support) - required
                 is_support = getattr(segment, "is_support", None)
                 if is_support is None or (isinstance(is_support, str) and is_support.strip() == ""):
@@ -77,17 +77,16 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
                 elif isinstance(is_support, str) and is_support.strip().lower() == "nee" and (idx == 0 or idx == len(segments) - 1):
                     # First and last segments must be supports
                     segment_issues.append("oplegging (eerste/laatste segment moet oplegging hebben)")
-                
+
                 if segment_issues:
                     missing_fields.append(f"Segment D{idx}: {', '.join(segment_issues)}")
                     segments_valid = False
-            
+
             if segments_valid:
                 passed_checks += 1
-            else:
-                # Don't add generic message if we already added specific segment issues
-                if not any("Segment D" in field for field in missing_fields):
-                    missing_fields.append("Brugsegmenten: vereiste velden ontbreken")
+            # Don't add generic message if we already added specific segment issues
+            elif not any("Segment D" in field for field in missing_fields):
+                missing_fields.append("Brugsegmenten: vereiste velden ontbreken")
         else:
             missing_fields.append("Minimaal 2 brugsegmenten vereist")
     else:
@@ -107,7 +106,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
                 if not zone_type or (isinstance(zone_type, str) and not zone_type.strip()):
                     missing_fields.append(f"Belastingzone {idx + 1}: zone type ontbreekt")
                     load_zones_valid = False
-                
+
                 # Check if zone has at least one dX_width value
                 has_width = False
                 for d_idx in range(1, 16):
@@ -115,11 +114,11 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
                     if d_width is not None and isinstance(d_width, (int, float)) and d_width > 0:
                         has_width = True
                         break
-                
+
                 if not has_width:
                     missing_fields.append(f"Belastingzone {idx + 1}: geen breedtewaarden (dX_width) gedefinieerd")
                     load_zones_valid = False
-            
+
             if load_zones_valid:
                 passed_checks += 1
             # Missing fields already added above
@@ -133,7 +132,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
     # ========================================================================
     total_checks += 1
     load_combinations_valid = True
-    
+
     # Check cc_class (can be at top level or in input.berekeningsinstellingen)
     cc_class = getattr(bridge_params, "cc_class", None)
     if not cc_class:
@@ -142,7 +141,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
     if not cc_class or (isinstance(cc_class, str) and not cc_class.strip()):
         missing_fields.append("Combinatieklasse (cc_class)")
         load_combinations_valid = False
-    
+
     # Check design_code (can be at top level or in input.berekeningsinstellingen)
     design_code = getattr(bridge_params, "design_code", None)
     if not design_code:
@@ -151,7 +150,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
     if not design_code or (isinstance(design_code, str) and not design_code.strip()):
         missing_fields.append("Ontwerpcode (design_code)")
         load_combinations_valid = False
-    
+
     # Check berekeningsniveau
     berekeningsniveau = getattr(bridge_params, "berekeningsniveau", None)
     if not berekeningsniveau:
@@ -160,13 +159,13 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
     if not berekeningsniveau or (isinstance(berekeningsniveau, str) and not berekeningsniveau.strip()):
         missing_fields.append("Berekeningsniveau")
         load_combinations_valid = False
-    
+
     # Check signage
     signage = getattr(bridge_params, "signage", None)
     if not signage or (isinstance(signage, str) and not signage.strip()):
         missing_fields.append("Bebording (signage)")
         load_combinations_valid = False
-    
+
     if load_combinations_valid:
         passed_checks += 1
 
@@ -202,7 +201,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
     # ========================================================================
     total_checks += 1
     reinforcement_geometry_valid = True
-    
+
     try:
         geometrie_wapening = getattr(getattr(bridge_params, "input", None), "geometrie_wapening", None)
         if not geometrie_wapening:
@@ -214,19 +213,19 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
             if not steel_quality or (isinstance(steel_quality, str) and not steel_quality.strip()):
                 missing_fields.append("Staalkwaliteit wapening (staalsoort)")
                 reinforcement_geometry_valid = False
-            
+
             # Check dekking_boven (top cover)
             dekking_boven = getattr(geometrie_wapening, "dekking_boven", None)
             if dekking_boven is None or (isinstance(dekking_boven, (int, float)) and dekking_boven <= 0):
                 missing_fields.append("Dekking boven (dekking_boven)")
                 reinforcement_geometry_valid = False
-            
+
             # Check dekking_onder (bottom cover)
             dekking_onder = getattr(geometrie_wapening, "dekking_onder", None)
             if dekking_onder is None or (isinstance(dekking_onder, (int, float)) and dekking_onder <= 0):
                 missing_fields.append("Dekking onder (dekking_onder)")
                 reinforcement_geometry_valid = False
-            
+
             # Check langswapening_buiten (longitudinal reinforcement placement)
             langswapening_buiten = getattr(geometrie_wapening, "langswapening_buiten", None)
             if langswapening_buiten is None:
@@ -235,7 +234,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
     except (AttributeError, Exception):
         missing_fields.append("Wapeningsgeometrie configuratie (sectie ontbreekt)")
         reinforcement_geometry_valid = False
-    
+
     if reinforcement_geometry_valid:
         passed_checks += 1
 
@@ -244,7 +243,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
         completion_percentage = (passed_checks / total_checks) * 100.0
     else:
         completion_percentage = 0.0
-    
+
     is_ready = len(missing_fields) == 0
 
     return (is_ready, missing_fields, completion_percentage)
@@ -303,8 +302,7 @@ def extract_uc_summary_from_idea_results(idea_results: dict[str, Any]) -> dict[s
         # Row format varies, extract UC values where available
         if len(row) > 1 and isinstance(row[1], (int, float)):
             uc_value = float(row[1])
-            if uc_value > max_uc:
-                max_uc = uc_value
+            max_uc = max(max_uc, uc_value)
             if uc_value >= 1.0:
                 failed_checks.append(row[0] if row else "Unknown")
 
@@ -389,21 +387,21 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
         error_msg = f"Received boolean instead of File: {stored_file}"
         print(f"ERROR: {error_msg}")
         raise TypeError(error_msg)
-    
+
     # Then check for File type
     if not isinstance(stored_file, File):
         file_type = type(stored_file)
         error_msg = f"Expected File object, got {file_type.__name__}: {stored_file}"
         print(f"ERROR: {error_msg}")
         raise TypeError(error_msg)
-    
+
     # Verify method exists before calling it
     if not hasattr(stored_file, "open_binary"):
         file_type = type(stored_file)
         error_msg = f"File object missing 'open_binary' method. Got type: {file_type.__name__}, value: {stored_file}"
         print(f"ERROR: {error_msg}")
         raise TypeError(error_msg)
-    
+
     # Extract content from file object
     # VIKTOR File objects should be opened with open_binary() for binary data
     try:
@@ -431,4 +429,3 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     # Decode from base64 and unpickle
     pickled_data = base64.b64decode(encoded_data)
     return pickle.loads(pickled_data)
-
