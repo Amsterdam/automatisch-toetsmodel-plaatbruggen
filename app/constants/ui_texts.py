@@ -97,32 +97,20 @@ Dit zorgt ervoor dat de juiste instellingen en template configuratie worden gebr
 # SCIA integration info text
 SCIA_INFO_TEXT = """## SCIA Engineer Integratie
 
-Deze pagina geeft inzicht in het aangemaakte SCIA model en de bijbehorende resultaten. Je kunt hier de geometrie van het model bekijken
-en de resultaten van de SCIA-analyse inzien.
-De tabellen op deze pagina geven inzicht in de krachten die met SCIA zijn bepaald. Dit zijn géén toetsingen, maar de krachten die later
-in IDEA worden getoetst.
-De krachten uit het SCIA model worden uitgelezen op basis van "section on 2D members".
+Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uitgelezen via
+"section on 2D members" en vormen de input voor IDEA toetsingen.
 
-### Uitleg tabbladen
+### Tabbladen
 
-- **3D Model**: Geeft inzicht in de geometrie van het aangemaakte SCIA model. Hier kun je een interactieve 3D-weergave van het brugmodel
-    bekijken en controleren of de geometrie correct is.
-
-- **SCIA CS ULS**: Toont de maximale snedekrachten per cross-section (doorsnede) zoals berekend in SCIA voor de Ultimate Limit State (ULS).
-
-- **SCIA CS SLS Freq**: Toont de maximale snedekrachten per cross-section (doorsnede) voor de Serviceability Limit State (SLS frequent).
-
-- **SCIA Analyse Resultaten**: In deze tabel zijn de maximale snedekrachten per zone weergegeven die bepaald zijn door de resultaten van
-    de cross-sections te filteren. Op basis van deze tabel worden de uiteindelijke toetsingen in IDEA uitgevoerd.
-
-De SCIA CS ULS en SCIA CS SLS tabellen geven dus de maximale krachten per doorsnede, terwijl de SCIA Analyse Resultaten de maximale
-krachten per zone tonen. Deze resultaten vormen de basis voor de uiteindelijke snedetoetsingen in IDEA.
+- **3D Model**: Interactieve 3D-weergave van het brugmodel.
+- **SCIA CS ULS**: Maximale snedekrachten per doorsnede (Ultimate Limit State).
+- **SCIA CS SLS Freq**: Maximale snedekrachten per doorsnede (Serviceability Limit State frequent).
+- **SCIA Analyse Resultaten**: Maximale snedekrachten per zone voor IDEA toetsingen.
 
 ### Download Opties
-Gebruik de onderstaande knoppen om SCIA-bestanden te downloaden:
-- Download XML Files -> SCIA Engineer XML model (niet doorgerekend)
-- Download ESA Model -> SCIA model (doorgerekend)
-- Download SCIA Output XML -> SCIA output resultaten in XML format (doorgerekend)
+- **Download input files** → XML + DEF + ESA template in ZIP voor handmatige import in SCIA.
+- **Download ESA Model** → ESA inclusief berekeningsresultaten (doorgerekend).
+- **Download SCIA Output XML** → Output resultaten in XML format (doorgerekend).
 """
 
 # Dimensions segments explanation
@@ -203,7 +191,10 @@ Vergeet de pagina niet op te slaan na het maken van wijzigingen, voordat je het 
 # Load case selection header text
 LOAD_CASE_SELECTION_HEADER_TEXT = """## Belastingselectie
 Selecteer welke belastingen worden gegenereerd in het SCIA model.
-Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen."""
+Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen.
+**Let op:** Trambelastingen kunnen alleen worden ingeschakeld wanneer:
+1. De verkeersbelasting is ingesteld op 'Werkelijke wegindeling' (een van de drie opties).
+2. Er minimaal één tram belastingzone is gedefinieerd op het tabblad 'Belastingzones'."""
 
 # Load case selection note text
 LOAD_CASE_SELECTION_NOTE_TEXT = """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,

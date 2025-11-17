@@ -186,14 +186,28 @@ class TestTramVehicle:
         """Test creation of valid tram vehicle."""
         tram = TramVehicle()
         assert tram.vehicle_type == "tram"
-        assert tram.length == 20.0
+        assert tram.length == sum([1.8, 8.187, 1.85, 8.187, 1.8])  # Calculated from axle spacing
         assert tram.width == 2.4
-        assert tram.track_gauge_m is None
-
-    def test_tram_with_track_gauge(self) -> None:
-        """Test tram vehicle with specified track gauge."""
-        tram = TramVehicle(track_gauge_m=1.435)
         assert tram.track_gauge_m == 1.435
+        assert tram.num_axles == 6
+        assert len(tram.axle_forces_kn) == 6
+        assert all(force == 97.0 for force in tram.axle_forces_kn)
+
+    def test_tram_length_calculation(self) -> None:
+        """Test that vehicle length is calculated from axle spacing."""
+        tram = TramVehicle(
+            wheel_spacing_longitudinal=[2.0, 3.0, 2.5],
+            axle_forces_kn=[80.0, 90.0, 100.0, 90.0],  # 4 axles for 3 spacings (in kN, not N)
+        )
+        assert tram.length == 7.5  # Sum of spacing
+        assert tram.num_axles == 4  # 3 spacings = 4 axles
+
+    def test_tram_with_custom_axle_forces(self) -> None:
+        """Test tram vehicle with custom axle forces."""
+        custom_forces = [80.0, 90.0, 100.0, 90.0]
+        tram = TramVehicle(axle_forces_kn=custom_forces, wheel_spacing_longitudinal=[2.0, 3.0, 2.5])
+        assert tram.axle_forces_kn == custom_forces
+        assert tram.num_axles == 4
 
     def test_invalid_track_gauge_rejected(self) -> None:
         """Test that unrealistic track gauge is rejected."""
@@ -201,6 +215,23 @@ class TestTramVehicle:
             TramVehicle(track_gauge_m=3.0)
         # Check for validation error message
         assert "less than or equal" in str(exc_info.value).lower() or "too wide" in str(exc_info.value).lower()
+
+    def test_axle_forces_consistency_validation(self) -> None:
+        """Test that axle forces must match axle spacing configuration."""
+        # 4 axles require 3 spacing values
+        with pytest.raises(ValidationError) as exc_info:
+            TramVehicle(axle_forces_kn=[97.0, 97.0, 97.0, 97.0], wheel_spacing_longitudinal=[2.0, 3.0])  # Only 2 spacings
+        assert "doesn't match expected" in str(exc_info.value).lower()
+
+    def test_invalid_axle_force_rejected(self) -> None:
+        """Test that negative or unrealistic axle forces are rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            TramVehicle(axle_forces_kn=[-50.0, 97.0, 97.0], wheel_spacing_longitudinal=[2.0, 3.0])
+        assert "must be positive" in str(exc_info.value).lower()
+
+        with pytest.raises(ValidationError) as exc_info:
+            TramVehicle(axle_forces_kn=[1500.0, 97.0, 97.0], wheel_spacing_longitudinal=[2.0, 3.0])
+        assert "unrealistic" in str(exc_info.value).lower() or "maximum" in str(exc_info.value).lower()
 
 
 class TestVehiclePosition:
@@ -345,9 +376,10 @@ class TestEdgeCases:
         assert "too small" in str(exc_info.value).lower()
 
     def test_tram_optional_fields(self) -> None:
-        """Test that tram optional fields work correctly."""
-        tram_with_load = TramVehicle(load_per_wheel_kn=50.0)
-        assert tram_with_load.load_per_wheel_kn == 50.0
+        """Test that tram fields work correctly."""
+        tram_with_custom_forces = TramVehicle(axle_forces_kn=[80.0, 90.0, 100.0, 90.0, 85.0, 95.0])
+        assert tram_with_custom_forces.axle_forces_kn == [80.0, 90.0, 100.0, 90.0, 85.0, 95.0]
+        assert tram_with_custom_forces.num_axles == 6
 
-        tram_without_load = TramVehicle()
-        assert tram_without_load.load_per_wheel_kn is None
+        tram_default = TramVehicle()
+        assert tram_default.axle_forces_kn == [97.0, 97.0, 97.0, 97.0, 97.0, 97.0]

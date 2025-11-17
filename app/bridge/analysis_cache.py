@@ -243,6 +243,7 @@ class AnalysisCache:
     def __init__(self) -> None:
         """Initialize the analysis cache with VIKTOR Storage."""
         self.storage = Storage()
+        self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
 
     def _extract_params(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> dict[str, Any]:  # noqa: ANN401
         """
@@ -272,10 +273,22 @@ class AnalysisCache:
         return extracted_params
 
     def _generate_input_hash(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> str:  # noqa: ANN401
-        """Generate a hash of the input parameters for caching."""
+        """Generate a hash of the input parameters for caching (with memoization)."""
+        # Create cache key based on object id and analysis type
+        cache_key = (id(params), analysis_type.value, template_path)
+
+        # Return cached hash if available
+        if cache_key in self._hash_cache:
+            return self._hash_cache[cache_key]
+
+        # Compute hash
         extracted_params = self._extract_params(params, analysis_type, template_path)
         params_json = json.dumps(extracted_params, sort_keys=True, default=str)
-        return hashlib.md5(params_json.encode()).hexdigest()
+        computed_hash = hashlib.md5(params_json.encode()).hexdigest()
+
+        # Cache the result
+        self._hash_cache[cache_key] = computed_hash
+        return computed_hash
 
     def get_cached_analysis(
         self,
@@ -285,10 +298,12 @@ class AnalysisCache:
         template_path: str | None = None,
     ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
-        input_hash = self._generate_input_hash(params, analysis_type, template_path)
-        cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
-
         try:
+            # Generate hash (with memoization - this should be fast on subsequent calls)
+            input_hash = self._generate_input_hash(params, analysis_type, template_path)
+            cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
+
+            # Storage retrieval is the potentially slow operation
             cached_file = self.storage.get(cache_key, scope="entity")
             if cached_file:
                 # Read the base64-encoded data
@@ -335,6 +350,9 @@ class AnalysisCache:
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
         """Clear cache for a specific entity and analysis type."""
+        # Clear hash cache
+        self._hash_cache.clear()
+
         pattern = f"analysis_cache_{entity_id}_{analysis_type.value if analysis_type else ''}_*"
 
         try:
