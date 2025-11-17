@@ -33,6 +33,7 @@ class TestLoadCaseSelectionIntegration:
             {"include": False, "load_type": "Dienstvoertuig", "load_case_count": 20},  # Disabled
             {"include": False, "load_type": "Onbedoeld voertuig", "load_case_count": 50},  # Disabled
             {"include": False, "load_type": "TS", "load_case_count": 30},  # Disabled
+            {"include": False, "load_type": "Tram", "load_case_count": 10},  # Disabled
         ]
 
         # Mock all the individual load case creation functions
@@ -87,6 +88,7 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "Dienstvoertuig", "load_case_count": 20},
             {"include": True, "load_type": "Onbedoeld voertuig", "load_case_count": 50},
             {"include": True, "load_type": "TS", "load_case_count": 30},
+            {"include": True, "load_type": "Tram", "load_case_count": 10},
         ]
 
         # Mock all the individual load case creation functions
@@ -147,6 +149,7 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "Dienstvoertuig", "load_case_count": 20},
             {"include": False, "load_type": "Onbedoeld voertuig", "load_case_count": 50},  # Disabled
             {"include": True, "load_type": "TS", "load_case_count": 30},
+            {"include": True, "load_type": "Tram", "load_case_count": 10},
         ]
 
         # Mock all the individual load case creation functions
@@ -173,7 +176,7 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)  # Enabled
             mock_unintended.assert_not_called()  # Disabled
             mock_tandem.assert_called_once_with(mock_builder, params)  # Enabled
-            mock_tram_track.assert_called_once_with(mock_builder, params)  # Enabled (part of TS)
+            mock_tram_track.assert_called_once_with(mock_builder, params)  # Enabled
 
             # Verify result only contains enabled load types
             expected_keys = [
@@ -187,7 +190,7 @@ class TestLoadCaseSelectionIntegration:
             assert list(result.keys()) == expected_keys
 
     def test_load_case_selection_missing_table_defaults_to_all_enabled(self) -> None:
-        """Test that missing selection table defaults to all enabled."""
+        """Test that missing selection table defaults to all enabled (except Tram)."""
         # Create a mock builder
         mock_builder = Mock()
 
@@ -213,6 +216,7 @@ class TestLoadCaseSelectionIntegration:
             result = create_all_load_cases(mock_builder, params)
 
             # Verify all load types were called (default behavior)
+            # Note: Tram is NOT called by default (defaults to False)
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
@@ -221,9 +225,9 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_called_once_with(mock_builder, params)
+            mock_tram_track.assert_not_called()  # Tram defaults to False
 
-            # Verify result contains all load types
+            # Verify result contains all load types except tram
             expected_keys = [
                 "self_weight",
                 "dead_load_cases",
@@ -233,12 +237,11 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
     def test_load_case_selection_empty_table_defaults_to_all_enabled(self) -> None:
-        """Test that empty selection table defaults to all enabled."""
+        """Test that empty selection table defaults to all enabled (except Tram)."""
         # Create a mock builder
         mock_builder = Mock()
 
@@ -264,6 +267,7 @@ class TestLoadCaseSelectionIntegration:
             result = create_all_load_cases(mock_builder, params)
 
             # Verify all load types were called (default behavior)
+            # Note: Tram is NOT called by default (defaults to False)
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
@@ -272,9 +276,9 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_called_once_with(mock_builder, params)
+            mock_tram_track.assert_not_called()  # Tram defaults to False
 
-            # Verify result contains all load types
+            # Verify result contains all load types except tram
             expected_keys = [
                 "self_weight",
                 "dead_load_cases",
@@ -284,7 +288,6 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -328,9 +331,9 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_unintended.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_tandem.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
-            mock_tram_track.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
+            mock_tram_track.assert_not_called()  # Valid but not in table (defaults to DISABLED for Tram)
 
-            # Verify result contains all load types (invalid ones are ignored, valid ones default to enabled)
+            # Verify result contains all load types except tram (invalid ones are ignored, valid ones default to enabled except Tram)
             expected_keys = [
                 "self_weight",
                 "dead_load_cases",
@@ -340,7 +343,6 @@ class TestLoadCaseSelectionIntegration:
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
                 "tandem_cases",
-                "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
 
