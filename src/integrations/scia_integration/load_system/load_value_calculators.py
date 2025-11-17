@@ -20,8 +20,7 @@ from src.integrations.scia_integration.constants.loads import (
     TANDEM_LOAD_BASE_MAIN,
     TANDEM_LOAD_BASE_SECOND,
     TANDEM_LOAD_BASE_THIRD,
-    UDL_OTHER_LANE_VALUE,
-    UDL_REST_AREA_VALUE,
+    UDL_BASE_VALUE,
 )
 from src.integrations.scia_integration.load_system.lane_calculations import get_reference_period
 
@@ -111,91 +110,6 @@ def calculate_real_tandem_values(
         load_third = base_third
 
     return load_main, load_second, load_third
-
-
-def calculate_theoretical_udl_values(
-    params: "BridgeParametrization",
-    length_bridgedeck: float,
-    udl_value: float,
-) -> tuple[float, float, float]:
-    """
-    Calculate theoretical UDL values using standard alpha_q factors.
-
-    This function calculates UDL values for theoretical lane positions
-    using the standard NEN-EN 1991-2 alpha_q adjustment factors. All required
-    load factors (psi, alpha_trend, alpha_q) are calculated internally.
-
-    :param params: Bridge parameters containing reference period information
-    :type params: BridgeParametrization
-    :param length_bridgedeck: Length of the bridge deck in meters
-    :type length_bridgedeck: float
-    :param udl_value: Base UDL value for main lane in N/m²
-    :type udl_value: float
-    :returns: Tuple of (main_value, other_value, rest_value) in N/m²
-    :rtype: tuple[float, float, float]
-    """
-    # Calculate required factors
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-
-    # Calculate load values
-    main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-
-    return main_value, other_value, rest_value
-
-
-def calculate_real_udl_values(
-    params: "BridgeParametrization",
-    length_bridgedeck: float,
-    udl_value: float,
-) -> tuple[float, float, float]:
-    """
-    Calculate UDL values based on berekeningsniveau and other factors.
-
-    This function calculates UDL values for real lane positions based on
-    the calculation level (berekeningsniveau). All required load factors
-    (psi, alpha_trend, alpha_q) are calculated internally.
-
-    :param params: Bridge parameters containing berekeningsniveau and signage settings
-    :type params: BridgeParametrization
-    :param length_bridgedeck: Length of the bridge deck in meters
-    :type length_bridgedeck: float
-    :param udl_value: Base UDL value for main lane in N/m²
-    :type udl_value: float
-    :returns: Tuple of (main_value, other_value, rest_value) in N/m²
-    :rtype: tuple[float, float, float]
-    """
-    # Calculate required factors
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [ALPHA_Q_MAIN_LANE_ONDERLIGGEND, ALPHA_Q_OTHER_LANE_ONDERLIGGEND]
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        # Get the selected signage option and map to load factor
-        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
-        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
-        # Apply the load factor to all values
-        main_value = udl_value * load_factor
-        other_value = UDL_OTHER_LANE_VALUE
-        rest_value = UDL_REST_AREA_VALUE
-    else:  # Fallback for safety
-        main_value = udl_value
-        other_value = UDL_OTHER_LANE_VALUE
-        rest_value = UDL_REST_AREA_VALUE
-
-    return main_value, other_value, rest_value
 
 
 def calculate_pavement_load_from_dynamic_array(

@@ -50,23 +50,32 @@ class TrafficLoadCombinationGenerator:
         """
         metadata: dict[str, LoadMetadata] = {}
 
-        # Process UDL traffic loads
+        # Process UDL traffic loads - now split into three categories
+        # Combine all UDL cases from the three dictionaries
+        all_udl_cases = {}
+        for udl_key in ["udl_main_cases", "udl_other_cases", "udl_rest_cases"]:
+            if udl_key in all_load_cases and isinstance(all_load_cases[udl_key], dict):
+                all_udl_cases.update(all_load_cases[udl_key])
+        
+        # Also check for old structure for backward compatibility
         if "udl_traffic_cases" in all_load_cases:
-            udl_cases = all_load_cases["udl_traffic_cases"]
-            if isinstance(udl_cases, dict):
-                for key, load_case in udl_cases.items():
-                    # Skip backward compatibility aliases (rs_1, rs_2, rs_3)
-                    if key in ["rs_1", "rs_2", "rs_3"]:
-                        continue
+            if isinstance(all_load_cases["udl_traffic_cases"], dict):
+                all_udl_cases.update(all_load_cases["udl_traffic_cases"])
 
-                    load_name = self._get_load_case_name(load_case, key)
-                    title = self._get_load_case_description(load_case)
-                    config = extract_configuration_from_string(title)
-                    span_idx = self._extract_span_index_from_title(title)
+        if all_udl_cases:
+            for key, load_case in all_udl_cases.items():
+                # Skip backward compatibility aliases (rs_1, rs_2, rs_3)
+                if key in ["rs_1", "rs_2", "rs_3"]:
+                    continue
 
-                    metadata[load_name] = LoadMetadata(
-                        load_case_name=load_name,
-                        category=LoadCategory.TRAFFIC_UDL,
+                load_name = self._get_load_case_name(load_case, key)
+                title = self._get_load_case_description(load_case)
+                config = extract_configuration_from_string(title)
+                span_idx = self._extract_span_index_from_title(title)
+
+                metadata[load_name] = LoadMetadata(
+                    load_case_name=load_name,
+                    category=LoadCategory.TRAFFIC_UDL,
                         configuration=config,
                         span_index=span_idx,
                         title=title,

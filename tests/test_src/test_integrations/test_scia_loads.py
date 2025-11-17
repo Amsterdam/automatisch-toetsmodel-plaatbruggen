@@ -12,7 +12,6 @@ import pytest
 
 from src.integrations.scia_integration.load_system.load_value_calculators import (
     calculate_real_tandem_values,
-    calculate_real_udl_values,
 )
 from src.integrations.scia_integration.scia_loads.material_load_helpers import (
     create_material_surface_load,
@@ -587,43 +586,6 @@ class TestLoadErrorHandling:
 class TestUniformlyDistributedLoads:
     """Test generation and application of uniformly distributed loads (UDL)."""
 
-    @pytest.mark.parametrize(
-        ("berekeningsniveau", "signage", "udl_value"),
-        [
-            ("Werkelijke wegindeling", None, 9000.0),
-            ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
-            ("Werkelijke wegindeling met bebording", "50 ton", 9000.0),
-            ("Werkelijke wegindeling met bebording", "30 ton", 9000.0),
-            ("Werkelijke wegindeling met bebording", "20 ton", 9000.0),
-        ],
-    )
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
-    def test_calculate_real_udl_values(self, mock_ref_period: Mock, berekeningsniveau: str, signage: str | None, udl_value: float) -> None:
-        """Test that calculate_real_udl_values returns correct number of values for all berekeningsniveau options."""
-        # Arrange
-        mock_ref_period.return_value = 50  # Mock the reference period calculation
-
-        params = Mock()
-        params.berekeningsniveau = berekeningsniveau
-        if signage:
-            params.signage = signage
-
-        length_bridgedeck = 25.0
-
-        # Act
-        main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value)
-
-        # Assert
-        assert isinstance(main_value, (int, float))
-        assert isinstance(other_value, (int, float))
-        assert isinstance(rest_value, (int, float))
-        # The values should be positive
-        assert main_value > 0
-        assert other_value > 0
-        assert rest_value > 0
-        # Main value should use the udl_value as base
-        assert main_value != 0  # Main value should be modified by factors but not zero
-
     def test_amount_of_notional_lanes(self) -> None:
         """
         Test calculation of number of notional lanes and lane width for different bridge widths.
@@ -941,9 +903,9 @@ class TestUniformlyDistributedLoads:
         # Find the first RS 1 case (main lane) or use BG4001
         zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 3, f"Should generate at least 3 load cases even with zero load, got {len(zero_load_cases)}"
-        # Check that BG4001 has zero load (if it's a main lane) or check any case
-        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
-            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # NEW SYSTEM: All UDL loads have base value (2500) regardless of input udl_value
+        # Lane differences are now handled in load combination factors
+        assert result_zero_load["BG4001"]["load"] == 2500.0, f"All UDL loads should have base value 2500, got {result_zero_load['BG4001']['load']}"
 
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.get_load_zones_data_from_params")
@@ -1320,9 +1282,9 @@ class TestUniformlyDistributedLoads:
         # Find the first RS 1 case (main lane) or use BG4001
         zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 9, f"Should generate at least 9 load cases even with zero load, got {len(zero_load_cases)}"
-        # Check that BG4001 has zero load (if it's a main lane) or check any case
-        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
-            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # NEW SYSTEM: All UDL loads have base value (2500) regardless of input udl_value
+        # Lane differences are now handled in load combination factors
+        assert result_zero_load["BG4001"]["load"] == 2500.0, f"All UDL loads should have base value 2500, got {result_zero_load['BG4001']['load']}"
         # Check that titles include span information
         assert "Span" in result_zero_load["BG4001"]["title"], f"Title should include span info: {result_zero_load['BG4001']['title']}"
 

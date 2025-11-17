@@ -76,8 +76,8 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
             add_parapet_loads(builder, params, load_cases)
             add_crowd_loads(builder, params, load_cases)
 
-        # Apply UDL traffic loads
-        if "udl_traffic_cases" in load_cases:
+        # Apply UDL traffic loads (check for new structure or old structure for backward compatibility)
+        if "udl_main_cases" in load_cases or "udl_other_cases" in load_cases or "udl_rest_cases" in load_cases or "udl_traffic_cases" in load_cases:
             add_udl_loads(builder, params, load_cases)
 
         # Apply tandem system loads
