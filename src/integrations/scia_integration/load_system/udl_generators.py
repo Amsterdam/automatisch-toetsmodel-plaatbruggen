@@ -275,13 +275,12 @@ def _generate_lane_load_cases(  # noqa: PLR0913
 # ========================================================================
 
 
-def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
+def create_theoretical_udl_traffic_loads(  # noqa: C901
     params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    udl_value: float = UDL_BASE_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create UDLs for all notional lanes and remaining areas.
@@ -451,7 +450,6 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
 def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
-    udl_value: float = UDL_BASE_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create real uniform distributed load (UDL) traffic loads for the bridge.

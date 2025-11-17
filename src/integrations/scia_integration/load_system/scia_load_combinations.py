@@ -178,7 +178,6 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
     combination_type: LoadCombinationType,
     desc_prefix: str,
     all_load_cases: dict[str, Any],
-    params: Any,  # noqa: ANN401
 ) -> list[SciaLoadCombination]:
     """
     Create SCIA load combinations from a DataFrame of combination factors.

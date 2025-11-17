@@ -58,9 +58,8 @@ class TrafficLoadCombinationGenerator:
                 all_udl_cases.update(all_load_cases[udl_key])
 
         # Also check for old structure for backward compatibility
-        if "udl_traffic_cases" in all_load_cases:
-            if isinstance(all_load_cases["udl_traffic_cases"], dict):
-                all_udl_cases.update(all_load_cases["udl_traffic_cases"])
+        if "udl_traffic_cases" in all_load_cases and isinstance(all_load_cases["udl_traffic_cases"], dict):
+            all_udl_cases.update(all_load_cases["udl_traffic_cases"])
 
         if all_udl_cases:
             for key, load_case in all_udl_cases.items():

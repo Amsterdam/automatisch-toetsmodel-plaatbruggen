@@ -63,7 +63,7 @@ class InfoViews:
         return MapResult(features)
 
     @TableView("Belastingscombinaties", duration_guess=1)
-    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002, C901
         """
         Display the table of load combinations for the bridge.
 

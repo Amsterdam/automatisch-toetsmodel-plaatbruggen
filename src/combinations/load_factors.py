@@ -260,7 +260,7 @@ def validate_combination_params(params: dict) -> tuple[str, str, str]:
     return config.to_tuple()
 
 
-def calculate_dynamic_udl_factor(
+def calculate_dynamic_udl_factor( # noqa: PLR0912
     params: Any,  # noqa: ANN401
     length_bridgedeck: float,
     lane_type: str,
@@ -344,11 +344,8 @@ def calculate_dynamic_udl_factor(
         # - alpha_Q_q (index 0): for main lanes and other lanes
         # - alpha_qr (index 1): for rest areas only
         alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-
-        if lane_type == "rest":
-            alpha_q = alpha_q_factors[1]  # Rest areas use alpha_qr (second value)
-        else:  # main or other
-            alpha_q = alpha_q_factors[0]  # Main/other lanes use alpha_Q_q (first value, same for both)
+        # Rest areas use alpha_qr (index 1), main/other lanes use alpha_Q_q (index 0)
+        alpha_q = alpha_q_factors[1] if lane_type == "rest" else alpha_q_factors[0]
 
     # Calculate and return dynamic factor
     dynamic_factor = alpha_trend * alpha_q * lane_factor
