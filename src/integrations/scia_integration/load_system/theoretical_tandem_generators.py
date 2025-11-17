@@ -129,7 +129,7 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
 
     # Calculate load values using helper function
     load_main, load_second, load_third = calculate_theoretical_tandem_values(params, length_bridgedeck)
-    
+
     # Generate separate load cases for each vehicle
     results = []
     if lane_y_positions:
@@ -250,7 +250,7 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
 
     # Calculate load values using helper function
     load_main, load_second, load_third = calculate_theoretical_tandem_values(params, length_bridgedeck)
-    
+
     # Generate separate load cases for each vehicle
     results = []
     if lane_y_positions:

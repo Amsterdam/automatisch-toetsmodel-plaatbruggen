@@ -326,7 +326,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
 
     # Calculate UDL values using helper function
     main_value, other_value, rest_value = calculate_theoretical_udl_values(params, length_bridgedeck, udl_value)
-    
+
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
     max_lanes, lane_width = amount_of_notional_lanes(width_bridgedeck)  # Maximum number of lanes to consider and lane width
 
