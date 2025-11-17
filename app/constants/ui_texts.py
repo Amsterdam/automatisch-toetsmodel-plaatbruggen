@@ -108,9 +108,9 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 - **SCIA Analyse Resultaten**: Maximale snedekrachten per zone voor IDEA toetsingen.
 
 ### Download Opties
-- **Download input files** → XML + DEF + ESA template in ZIP voor handmatige import in SCIA
-- **Download ESA Model** → ESA inclusief berekeningsresultaten (doorgerekend)
-- **Download SCIA Output XML** → Output resultaten in XML format (doorgerekend)
+- **Download input files** → XML + DEF + ESA template in ZIP voor handmatige import in SCIA.
+- **Download ESA Model** → ESA inclusief berekeningsresultaten (doorgerekend).
+- **Download SCIA Output XML** → Output resultaten in XML format (doorgerekend).
 """
 
 # Dimensions segments explanation
