@@ -55,15 +55,14 @@ class TestRealTandemLoads:
         # Arrange
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
+        params.reference_period = 50  # Add reference period for internal calculations
         if signage:
             params.signage = signage
 
         length_bridgedeck = 25.0
-        psi_factor = 1.0
-        alpha_factor = 1.0
 
         # Act
-        load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_factor, alpha_factor)
+        load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck)
 
         # Assert
         assert isinstance(load_main, (int, float))
@@ -601,15 +600,14 @@ class TestUniformlyDistributedLoads:
         # Arrange
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
+        params.reference_period = 50  # Add reference period for internal calculations
         if signage:
             params.signage = signage
 
         length_bridgedeck = 25.0
-        psi_factor = 1.0
-        alpha_factor = 1.0
 
         # Act
-        main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_factor, alpha_factor)
+        main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value)
 
         # Assert
         assert isinstance(main_value, (int, float))
