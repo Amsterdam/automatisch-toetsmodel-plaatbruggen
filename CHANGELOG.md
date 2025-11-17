@@ -1,6 +1,15 @@
+## [Unreleased]
+### Changed
+- **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
+  - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP
+  - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
+  - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
+  - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
+
 ## [`v0.0.18`] - 2025-12-04
 ### Added
 - Added tram loading to the load selection table.
+
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - Temperature loads on 2D elements
