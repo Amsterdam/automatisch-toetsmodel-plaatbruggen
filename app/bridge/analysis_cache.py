@@ -395,6 +395,90 @@ def _get_analysis_cache() -> AnalysisCache:
     return _analysis_cache
 
 
+def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa: ANN401
+    """
+    Check if valid SCIA cache exists that can be used for IDEA analysis.
+
+    This validates the cache by attempting to process it the same way IDEA does,
+    ensuring the cache contains the required CS table data.
+
+    :param params: Bridge parametrization
+    :type params: Any
+    :param entity_id: Bridge entity ID
+    :type entity_id: int
+    :returns: True if SCIA cache exists and can be processed for IDEA, False otherwise
+    :rtype: bool
+    """
+    cache = _get_analysis_cache()
+    template_path = str(SCIA_TEMPLATE_PATH)
+
+    # Check if SCIA cache exists using the same method as get_cached_analysis_results
+    scia_results = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, template_path)
+    if scia_results is None:
+        return False
+
+    # Validate cache by trying to process it the same way IDEA does
+    # This ensures the cache contains the required CS table data
+    try:
+        # Get bridge segments from params
+        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+        if bridge_segments is None or not isinstance(bridge_segments, list) or len(bridge_segments) == 0:
+            return False
+
+        # Try to process the results the same way IDEA does
+        cs_envelope_df = process_scia_cs_results_for_idea(scia_results, bridge_segments)
+
+        # If processing succeeds and returns non-empty DataFrame, cache is valid
+        if cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty:
+            return True
+
+        return False
+    except Exception:
+        # Processing failed - cache is invalid or incomplete
+        return False
+
+
+def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None = None) -> bool:  # noqa: ANN401
+    """
+    Check if valid IDEA cache exists for the given parameters.
+
+    If expected_hash is provided, compares it with current parameters hash.
+    Only returns True if hashes match AND cache exists (ensures parameters haven't changed).
+    Otherwise, checks if cache exists for current parameters.
+
+    :param params: Bridge parametrization (used to generate hash for comparison)
+    :type params: Any
+    :param entity_id: Bridge entity ID
+    :type entity_id: int
+    :param expected_hash: Optional cache hash from batch results to validate against current params
+    :type expected_hash: str | None
+    :returns: True if IDEA cache exists and parameters match, False otherwise
+    :rtype: bool
+    """
+    cache = _get_analysis_cache()
+
+    # Generate hash for current parameters
+    current_hash = cache._generate_input_hash(params, AnalysisType.IDEA, None)
+
+    # If expected_hash is provided, it must match current hash exactly
+    # This ensures that if parameters changed, cache is considered invalid
+    if expected_hash is not None:
+        if current_hash != expected_hash:
+            # Hash mismatch - parameters changed, cache is invalid
+            return False
+        # Hashes match - check if cache exists for this hash
+        cache_key = f"analysis_cache_{entity_id}_{AnalysisType.IDEA.value}_{expected_hash}"
+        try:
+            cached_file = cache.storage.get(cache_key, scope="entity")
+            return cached_file is not None
+        except Exception:
+            return False
+
+    # Otherwise, check cache for current parameters
+    idea_results = cache.get_cached_analysis(params, AnalysisType.IDEA, entity_id)
+    return idea_results is not None
+
+
 def get_cached_analysis_results(
     params: Any,  # noqa: ANN401
     analysis_type: AnalysisType,

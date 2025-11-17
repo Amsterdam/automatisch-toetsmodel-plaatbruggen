@@ -402,16 +402,10 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     """
     Check if valid IDEA analysis results are cached for a bridge.
 
-    This checks if cached results exist for the CURRENT parameter state.
-    If parameters changed, hash mismatch will return False (cache invalid).
+    IDEA cache existence implies SCIA cache is valid, since IDEA cannot run without SCIA.
+    Therefore, we only need to check IDEA cache.
 
-    Strategy:
-    1. Generate hash for current parameters
-    2. Try to retrieve cache with current hash
-    3. If batch_results_cache_hash is provided, only use it if it matches current hash exactly
-    4. Only return True if cache exists with exact current hash match
-
-    :param bridge_params: Bridge parametrization object
+    :param bridge_params: Bridge parametrization object (used if batch_results_cache_hash not provided)
     :type bridge_params: Any
     :param bridge_entity_id: Bridge entity ID
     :type bridge_entity_id: int
@@ -420,30 +414,13 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     :returns: True if valid cached IDEA results exist, False otherwise
     :rtype: bool
     """
-    from app.bridge.analysis_cache import AnalysisCache
-    from src.common.constants.technical import AnalysisType
+    from app.bridge.analysis_cache import has_valid_idea_cache
 
     try:
-        cache = AnalysisCache()
+        # IDEA cache existence is proof that SCIA cache is valid
+        # (IDEA cannot be calculated without SCIA)
+        return has_valid_idea_cache(bridge_params, bridge_entity_id, batch_results_cache_hash)
 
-        # Generate hash for current parameters
-        current_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
-
-        # If batch_results_cache_hash is provided, it must match current hash exactly
-        # If it doesn't match, parameters have changed and cache is invalid
-        if batch_results_cache_hash is not None:
-            if current_hash != batch_results_cache_hash:
-                # Hash mismatch - parameters changed, cache is invalid
-                return False
-
-        # Try to get cached results with current params hash
-        # This will only return results if cache exists with exact hash match
-        cached_results = cache.get_cached_analysis(bridge_params, AnalysisType.IDEA, bridge_entity_id)
-        if cached_results is not None:
-            return True
-
-        # No cache found with current hash - cache is invalid or doesn't exist
-        return False
     except Exception:
         # If cache check fails (e.g., storage issues), assume no cache
         return False
@@ -1109,14 +1086,6 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     :rtype: dict[int, dict[str, Any]]
     :raises TypeError: If stored_file is not a File object
     """
-    # DEBUG: Detailed type information at function entry
-    from viktor.core import File
-
-    print(
-        f"DEBUG [deserialize_batch_results:ENTRY]: Received type={type(stored_file)}, isinstance(bool)={isinstance(stored_file, bool)}, isinstance(File)={isinstance(stored_file, File)}, value={stored_file}",
-        flush=True,
-    )
-
     # Validate input type - be very explicit about what we expect
     # Check for boolean first (most common invalid type)
     if isinstance(stored_file, bool):

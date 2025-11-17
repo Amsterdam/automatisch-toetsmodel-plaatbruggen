@@ -86,11 +86,6 @@ class BatchCalculationComponent:
             # Validate storage contents before deserializing
             from viktor.core import File
 
-            # DEBUG: Detailed type information
-            print(
-                f"DEBUG [view_batch_readiness:63]: Retrieved type={type(batch_results_file)}, isinstance(bool)={isinstance(batch_results_file, bool)}, isinstance(File)={isinstance(batch_results_file, File)}, value={batch_results_file}"
-            )
-
             # Check for boolean first (most common invalid type)
             if isinstance(batch_results_file, bool):
                 print("WARNING: Found boolean value in storage for 'batch_calculation_results' in view_batch_readiness. Deleting invalid entry.")
@@ -214,9 +209,7 @@ class BatchCalculationComponent:
         :param kwargs: Additional arguments
         :raises UserError: If batch calculation fails
         """
-        print("DEBUG [run_batch_calculation:START]: Function called", flush=True)
         storage = Storage()
-        print("DEBUG [run_batch_calculation:195]: Storage created", flush=True)
         try:
             # Get all Bridge child entities
             viktor_api = api.API()
@@ -244,11 +237,6 @@ class BatchCalculationComponent:
 
                 # Validate storage contents before deserializing
                 from viktor.core import File
-
-                # DEBUG: Detailed type information
-                print(
-                    f"DEBUG [run_batch_calculation:214]: Retrieved type={type(batch_results_file)}, isinstance(bool)={isinstance(batch_results_file, bool)}, isinstance(File)={isinstance(batch_results_file, File)}, value={batch_results_file}"
-                )
 
                 # Check for boolean first (most common invalid type)
                 if isinstance(batch_results_file, bool):
@@ -577,11 +565,6 @@ class BatchCalculationComponent:
             # Validate storage contents before deserializing
             from viktor.core import File
 
-            # DEBUG: Detailed type information
-            print(
-                f"DEBUG [view_batch_results:450]: Retrieved type={type(batch_results_file)}, isinstance(bool)={isinstance(batch_results_file, bool)}, isinstance(File)={isinstance(batch_results_file, File)}, value={batch_results_file}"
-            )
-
             # Check for boolean first (most common invalid type)
             if isinstance(batch_results_file, bool):
                 print("WARNING: Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
@@ -620,11 +603,6 @@ class BatchCalculationComponent:
                 # Get cache hashes from existing batch results
                 # Ensure batch_results is a dict (not a File object)
                 from viktor.core import File
-
-                # DEBUG: Detailed type information for batch_results
-                print(
-                    f"DEBUG [view_batch_results:494]: batch_results type={type(batch_results)}, isinstance(bool)={isinstance(batch_results, bool) if batch_results is not None else 'N/A'}, isinstance(File)={isinstance(batch_results, File) if batch_results is not None else 'N/A'}, isinstance(dict)={isinstance(batch_results, dict) if batch_results is not None else 'N/A'}, value={batch_results}"
-                )
 
                 if isinstance(batch_results, File):
                     # If it's still a File, deserialize it
@@ -698,20 +676,12 @@ class BatchCalculationComponent:
 
                 # Trigger batch calculation automatically
                 print("INFO: Triggering batch calculation...", flush=True)
-                print(f"DEBUG [view_batch_results:567]: About to call run_batch_calculation with entity_id={entity_id}", flush=True)
                 try:
-                    print("DEBUG [view_batch_results:569]: Calling run_batch_calculation NOW", flush=True)
                     self.run_batch_calculation(params, entity_id, **kwargs)
-                    print("DEBUG [view_batch_results:571]: run_batch_calculation completed successfully", flush=True)
                 except Exception as calc_error:
-                    print(
-                        f"DEBUG [view_batch_results:573]: Exception caught from run_batch_calculation: {type(calc_error).__name__}: {calc_error}",
-                        flush=True,
-                    )
                     import traceback
 
                     traceback_str = traceback.format_exc()
-                    print(f"DEBUG [view_batch_results:576]: Full traceback:\n{traceback_str}", flush=True)
                     raise
 
                 # Clear running flag
@@ -726,11 +696,6 @@ class BatchCalculationComponent:
 
                     # Validate storage contents before deserializing
                     from viktor.core import File
-
-                    # DEBUG: Detailed type information
-                    print(
-                        f"DEBUG [view_batch_results:565]: Retrieved type={type(batch_results_file)}, isinstance(bool)={isinstance(batch_results_file, bool)}, isinstance(File)={isinstance(batch_results_file, File)}, value={batch_results_file}"
-                    )
 
                     # Check for boolean first (most common invalid type)
                     if isinstance(batch_results_file, bool):
@@ -765,7 +730,6 @@ class BatchCalculationComponent:
 
                 full_traceback = traceback.format_exc()
                 print(f"ERROR: Error triggering batch calculation: {e}", flush=True)
-                print(f"DEBUG [view_batch_results:617]: Full traceback:\n{full_traceback}", flush=True)
                 return TableResult(
                     [["Fout bij starten batchberekening", f"{type(e).__name__}: {str(e)[:100]}", "", "", ""]],
                     column_headers=["Berekening Status", "Max UC", "UC Status", "Gefaalde controles", "Rapport"],
