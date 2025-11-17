@@ -7,7 +7,7 @@ UDL values, and pavement loads based on design codes and material properties.
 
 from typing import TYPE_CHECKING, Any
 
-from src.combinations.load_factors import get_alpha_q_nen_en_1991_2
+from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.integrations.scia_integration.constants.loads import (
@@ -23,26 +23,67 @@ from src.integrations.scia_integration.constants.loads import (
     UDL_OTHER_LANE_VALUE,
     UDL_REST_AREA_VALUE,
 )
+from src.integrations.scia_integration.load_system.lane_calculations import get_reference_period
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 
 
+def calculate_theoretical_tandem_values(
+    params: "BridgeParametrization",
+    length_bridgedeck: float,
+) -> tuple[float, float, float]:
+    """
+    Calculate theoretical tandem values using standard alpha_q factors.
+
+    This function calculates tandem loads for theoretical lane positions
+    using the standard NEN-EN 1991-2 alpha_q adjustment factors. All required
+    load factors (psi, alpha_trend, alpha_q) are calculated internally.
+
+    :param params: Bridge parameters containing reference period information
+    :type params: BridgeParametrization
+    :param length_bridgedeck: Length of the bridge deck in meters
+    :type length_bridgedeck: float
+    :returns: Tuple of (load_main, load_second, load_third) in N/m²
+    :rtype: tuple[float, float, float]
+    """
+    # Calculate required factors
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
+    
+    # Calculate load values
+    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
+    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    
+    return load_main, load_second, load_third
+
+
 def calculate_real_tandem_values(
     params: "BridgeParametrization",
     length_bridgedeck: float,
-    psi_nen_8701_factor: float,
-    alpha_trend_factor: float,
 ) -> tuple[float, float, float]:
     """
     Calculate tandem values based on berekeningsniveau and other factors.
 
+    This function calculates tandem loads for real lane positions based on
+    the calculation level (berekeningsniveau). All required load factors
+    (psi, alpha_trend, alpha_q) are calculated internally.
+
     :param params: Bridge parameters containing berekeningsniveau and signage settings
-    :param length_bridgedeck: Length of the bridge deck
-    :param psi_nen_8701_factor: NEN 8701 factor
-    :param alpha_trend_factor: Alpha trend factor from NEN 8701
-    :returns: Tuple of (load_main, load_second, load_third)
+    :type params: BridgeParametrization
+    :param length_bridgedeck: Length of the bridge deck in meters
+    :type length_bridgedeck: float
+    :returns: Tuple of (load_main, load_second, load_third) in N/m²
+    :rtype: tuple[float, float, float]
     """
+    # Calculate required factors
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    
+    # Calculate base load values
     contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
     base_main = TANDEM_LOAD_BASE_MAIN / contact_area
     base_second = TANDEM_LOAD_BASE_SECOND / contact_area
@@ -72,23 +113,65 @@ def calculate_real_tandem_values(
     return load_main, load_second, load_third
 
 
+def calculate_theoretical_udl_values(
+    params: "BridgeParametrization",
+    length_bridgedeck: float,
+    udl_value: float,
+) -> tuple[float, float, float]:
+    """
+    Calculate theoretical UDL values using standard alpha_q factors.
+
+    This function calculates UDL values for theoretical lane positions
+    using the standard NEN-EN 1991-2 alpha_q adjustment factors. All required
+    load factors (psi, alpha_trend, alpha_q) are calculated internally.
+
+    :param params: Bridge parameters containing reference period information
+    :type params: BridgeParametrization
+    :param length_bridgedeck: Length of the bridge deck in meters
+    :type length_bridgedeck: float
+    :param udl_value: Base UDL value for main lane in N/m²
+    :type udl_value: float
+    :returns: Tuple of (main_value, other_value, rest_value) in N/m²
+    :rtype: tuple[float, float, float]
+    """
+    # Calculate required factors
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
+    
+    # Calculate load values
+    main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+    other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
+    rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    
+    return main_value, other_value, rest_value
+
+
 def calculate_real_udl_values(
     params: "BridgeParametrization",
     length_bridgedeck: float,
     udl_value: float,
-    psi_nen_8701_factor: float,
-    alpha_trend_factor: float,
 ) -> tuple[float, float, float]:
     """
     Calculate UDL values based on berekeningsniveau and other factors.
 
+    This function calculates UDL values for real lane positions based on
+    the calculation level (berekeningsniveau). All required load factors
+    (psi, alpha_trend, alpha_q) are calculated internally.
+
     :param params: Bridge parameters containing berekeningsniveau and signage settings
-    :param length_bridgedeck: Length of the bridge deck
-    :param udl_value: Base UDL value
-    :param psi_nen_8701_factor: NEN 8701 factor
-    :param alpha_trend_factor: Alpha trend factor from NEN 8701
-    :returns: Tuple of (main_value, other_value, rest_value)
+    :type params: BridgeParametrization
+    :param length_bridgedeck: Length of the bridge deck in meters
+    :type length_bridgedeck: float
+    :param udl_value: Base UDL value for main lane in N/m²
+    :type udl_value: float
+    :returns: Tuple of (main_value, other_value, rest_value) in N/m²
+    :rtype: tuple[float, float, float]
     """
+    # Calculate required factors
+    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
+    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
+    
     if params.berekeningsniveau == "Werkelijke wegindeling":
         alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
         main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
