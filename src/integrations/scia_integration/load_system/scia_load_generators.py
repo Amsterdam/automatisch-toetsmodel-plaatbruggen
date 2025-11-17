@@ -168,13 +168,12 @@ def generate_tandem_loads(params: BridgeParams, mode: LoadMode | str | None = No
     return all_loads
 
 
-def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None, udl_value: float = UDL_BASE_VALUE) -> list[dict[str, Any]]:
+def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None) -> list[dict[str, Any]]:
     """
     Generate all UDL loads for a bridge.
 
     :param params: Bridge parameters
     :param mode: Load generation mode (ignored - always uses berekeningsniveau parameter)
-    :param udl_value: UDL value in N/m² (default: UDL_BASE_VALUE)
     :returns: List of all UDL load cases (BG4001, BG4002, BG4003)
     :raises ValueError: When mode is invalid or generation fails
     """
