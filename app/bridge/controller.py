@@ -64,6 +64,9 @@ class BridgeController(
     get_bridge_map_view = InfoViews.get_bridge_map_view
     get_load_combinations_view = InfoViews.get_load_combinations_view
 
+    # From ControllerUtils
+    apply_dimensions_to_all_segments = ControllerUtils.apply_dimensions_to_all_segments
+
     # From GeometryViews
     get_3d_view = GeometryViews.get_3d_view
     get_top_view = GeometryViews.get_top_view
