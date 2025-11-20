@@ -10,6 +10,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.integrations.scia_integration.constants.loads import (
+    TANDEM_CONTACT_AREA_SIDE,
+    TANDEM_LOAD_BASE_VALUE,
+)
 from src.integrations.scia_integration.load_system.load_value_calculators import (
     calculate_real_tandem_values,
 )
@@ -49,12 +53,8 @@ class TestRealTandemLoads:
             ("Werkelijke wegindeling met bebording", "20 ton"),
         ],
     )
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
-    def test_calculate_real_tandem_values(self, mock_ref_period: Mock, berekeningsniveau: str, signage: str | None) -> None:
+    def test_calculate_real_tandem_values(self, berekeningsniveau: str, signage: str | None) -> None:
         """Test that calculate_real_tandem_values returns a positive base load for all berekeningsniveau options."""
-        # Arrange
-        mock_ref_period.return_value = 50  # Mock the reference period calculation
-
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
         if signage:
@@ -66,8 +66,8 @@ class TestRealTandemLoads:
         base_load = calculate_real_tandem_values(params, length_bridgedeck)
 
         # Assert
-        assert isinstance(base_load, (int, float))
-        assert base_load > 0
+        expected_base = TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
+        assert base_load == expected_base
 
 
 class TestTheoreticalTandemLoads:
@@ -658,9 +658,8 @@ class TestUniformlyDistributedLoads:
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
     def test_create_real_udl_traffic_loads_basic_case(
-        self, mock_ref_period: Mock, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
+        self, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
     ) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
@@ -668,9 +667,6 @@ class TestUniformlyDistributedLoads:
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
         udl_value = 9000.0  # 9 kN/m²
-
-        # Configure mock params and reference period
-        mock_ref_period.return_value = 50  # Mock the reference period calculation
 
         # Add bridge segments data that get_bridge_geom_data needs
         # Create a single span bridge (first segment + one segment = single span)
@@ -777,10 +773,8 @@ class TestUniformlyDistributedLoads:
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_number_of_road_zones")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
     def test_create_real_udl_traffic_loads_edge_cases(
         self,
-        mock_ref_period: Mock,
         mock_obtain_y_udl: Mock,
         mock_num_zones: Mock,
         mock_obtain_y_real: Mock,
@@ -788,9 +782,6 @@ class TestUniformlyDistributedLoads:
     ) -> None:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
-
-        # Configure mock params and reference period
-        mock_ref_period.return_value = 50  # Mock the reference period calculation
 
         # Configure single road zone (not dual carriageway)
         mock_num_zones.return_value = 1
@@ -1085,8 +1076,7 @@ class TestUniformlyDistributedLoads:
             with pytest.raises(ValueError, match="Lane width must be positive"):
                 generate_real_lane_positions_bg9000(mock_params, lane_width=0)
 
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
-    def test_create_udl_traffic_loads_basic_case(self, mock_ref_period: Mock, mock_params: Mock) -> None:
+    def test_create_udl_traffic_loads_basic_case(self, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_theoretical_udl_traffic_loads
 
@@ -1122,9 +1112,6 @@ class TestUniformlyDistributedLoads:
         mock_segment.dz = 0.5
         mock_segment.dz_2 = 0.5
         mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
-
-        # Mock the reference period (load factors are calculated internally)
-        mock_ref_period.return_value = 30  # Standard reference period
 
         # Execute the function
         result = create_theoretical_udl_traffic_loads(

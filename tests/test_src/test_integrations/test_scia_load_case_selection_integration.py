@@ -28,12 +28,12 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": False, "load_type": "Permanent", "load_case_count": 5},  # Disabled
             {"include": True, "load_type": "Temperatuur", "load_case_count": 4},
-            {"include": False, "load_type": "UDL", "load_case_count": 3},  # Disabled
+            {"include": False, "load_type": "UDL", "load_case_count": "dynamisch"},  # Disabled
             {"include": True, "load_type": "Voetgangers", "load_case_count": 1},
-            {"include": False, "load_type": "Dienstvoertuig", "load_case_count": 20},  # Disabled
-            {"include": False, "load_type": "Onbedoeld voertuig", "load_case_count": 50},  # Disabled
-            {"include": False, "load_type": "TS", "load_case_count": 30},  # Disabled
-            {"include": False, "load_type": "Tram", "load_case_count": 10},  # Disabled
+            {"include": False, "load_type": "Dienstvoertuig", "load_case_count": "dynamisch"},  # Disabled
+            {"include": False, "load_type": "Onbedoeld voertuig", "load_case_count": "dynamisch"},  # Disabled
+            {"include": False, "load_type": "TS", "load_case_count": "dynamisch"},  # Disabled
+            {"include": False, "load_type": "Tram", "load_case_count": "dynamisch"},  # Disabled
         ]
 
         # Mock all the individual load case creation functions
@@ -83,12 +83,12 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": True, "load_type": "Permanent", "load_case_count": 5},
             {"include": True, "load_type": "Temperatuur", "load_case_count": 4},
-            {"include": True, "load_type": "UDL", "load_case_count": 3},
+            {"include": True, "load_type": "UDL", "load_case_count": "dynamisch"},
             {"include": True, "load_type": "Voetgangers", "load_case_count": 1},
-            {"include": True, "load_type": "Dienstvoertuig", "load_case_count": 20},
-            {"include": True, "load_type": "Onbedoeld voertuig", "load_case_count": 50},
-            {"include": True, "load_type": "TS", "load_case_count": 30},
-            {"include": True, "load_type": "Tram", "load_case_count": 10},
+            {"include": True, "load_type": "Dienstvoertuig", "load_case_count": "dynamisch"},
+            {"include": True, "load_type": "Onbedoeld voertuig", "load_case_count": "dynamisch"},
+            {"include": True, "load_type": "TS", "load_case_count": "dynamisch"},
+            {"include": True, "load_type": "Tram", "load_case_count": "dynamisch"},
         ]
 
         # Mock all the individual load case creation functions
@@ -122,11 +122,15 @@ class TestLoadCaseSelectionIntegration:
                 "self_weight",
                 "dead_load_cases",
                 "temperature_cases",
-                "udl_traffic_cases",
+                "udl_main_cases",
+                "udl_other_cases",
+                "udl_rest_cases",
                 "pedestrian",
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
-                "tandem_cases",
+                "tandem_rs1_cases",
+                "tandem_rs2_cases",
+                "tandem_rs3_cases",
                 "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
@@ -144,12 +148,12 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": True, "load_type": "Permanent", "load_case_count": 5},
             {"include": False, "load_type": "Temperatuur", "load_case_count": 4},  # Disabled
-            {"include": True, "load_type": "UDL", "load_case_count": 3},
+            {"include": True, "load_type": "UDL", "load_case_count": "dynamisch"},
             {"include": False, "load_type": "Voetgangers", "load_case_count": 1},  # Disabled
-            {"include": True, "load_type": "Dienstvoertuig", "load_case_count": 20},
-            {"include": False, "load_type": "Onbedoeld voertuig", "load_case_count": 50},  # Disabled
-            {"include": True, "load_type": "TS", "load_case_count": 30},
-            {"include": True, "load_type": "Tram", "load_case_count": 10},
+            {"include": True, "load_type": "Dienstvoertuig", "load_case_count": "dynamisch"},
+            {"include": False, "load_type": "Onbedoeld voertuig", "load_case_count": "dynamisch"},  # Disabled
+            {"include": True, "load_type": "TS", "load_case_count": "dynamisch"},
+            {"include": True, "load_type": "Tram", "load_case_count": "dynamisch"},
         ]
 
         # Mock all the individual load case creation functions
@@ -182,9 +186,13 @@ class TestLoadCaseSelectionIntegration:
             expected_keys = [
                 "self_weight",
                 "dead_load_cases",
-                "udl_traffic_cases",
+                "udl_main_cases",
+                "udl_other_cases",
+                "udl_rest_cases",
                 "service_vehicle_cases",
-                "tandem_cases",
+                "tandem_rs1_cases",
+                "tandem_rs2_cases",
+                "tandem_rs3_cases",
                 "tram_track_tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
@@ -232,11 +240,15 @@ class TestLoadCaseSelectionIntegration:
                 "self_weight",
                 "dead_load_cases",
                 "temperature_cases",
-                "udl_traffic_cases",
+                "udl_main_cases",
+                "udl_other_cases",
+                "udl_rest_cases",
                 "pedestrian",
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
-                "tandem_cases",
+                "tandem_rs1_cases",
+                "tandem_rs2_cases",
+                "tandem_rs3_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -283,11 +295,15 @@ class TestLoadCaseSelectionIntegration:
                 "self_weight",
                 "dead_load_cases",
                 "temperature_cases",
-                "udl_traffic_cases",
+                "udl_main_cases",
+                "udl_other_cases",
+                "udl_rest_cases",
                 "pedestrian",
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
-                "tandem_cases",
+                "tandem_rs1_cases",
+                "tandem_rs2_cases",
+                "tandem_rs3_cases",
             ]
             assert list(result.keys()) == expected_keys
 
@@ -304,7 +320,7 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "Eigen gewicht", "load_case_count": 1},
             {"include": True, "load_type": "Invalid Load Type", "load_case_count": 5},  # Invalid
             {"include": True, "load_type": "Temperatuur", "load_case_count": 4},
-            {"include": False, "load_type": "Another Invalid Type", "load_case_count": 3},  # Invalid
+            {"include": False, "load_type": "Another Invalid Type", "load_case_count": "dynamisch"},  # Invalid
         ]
 
         # Mock all the individual load case creation functions
@@ -338,11 +354,29 @@ class TestLoadCaseSelectionIntegration:
                 "self_weight",
                 "dead_load_cases",
                 "temperature_cases",
-                "udl_traffic_cases",
+                "udl_main_cases",
+                "udl_other_cases",
+                "udl_rest_cases",
                 "pedestrian",
                 "service_vehicle_cases",
                 "unintended_vehicle_cases",
-                "tandem_cases",
+                "tandem_rs1_cases",
+                "tandem_rs2_cases",
+                "tandem_rs3_cases",
+            ]
+            expected_keys = [
+                "self_weight",
+                "dead_load_cases",
+                "temperature_cases",
+                "udl_main_cases",
+                "udl_other_cases",
+                "udl_rest_cases",
+                "pedestrian",
+                "service_vehicle_cases",
+                "unintended_vehicle_cases",
+                "tandem_rs1_cases",
+                "tandem_rs2_cases",
+                "tandem_rs3_cases",
             ]
             assert list(result.keys()) == expected_keys
 

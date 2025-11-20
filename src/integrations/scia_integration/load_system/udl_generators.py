@@ -275,7 +275,7 @@ def _generate_lane_load_cases(  # noqa: PLR0913
 # ========================================================================
 
 
-def create_theoretical_udl_traffic_loads(  # noqa: C901
+def create_theoretical_udl_traffic_loads(  # noqa: C901, PLR0913
     params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
