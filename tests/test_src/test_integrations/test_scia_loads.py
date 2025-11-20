@@ -658,9 +658,7 @@ class TestUniformlyDistributedLoads:
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    def test_create_real_udl_traffic_loads_basic_case(
-        self, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_real_udl_traffic_loads_basic_case(self, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
