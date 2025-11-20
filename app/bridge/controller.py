@@ -92,3 +92,6 @@ class BridgeController(
 
     # From ReportViews
     get_output_report = ReportViews.get_output_report
+
+    # From ControllerUtils
+    apply_dimensions_to_all_segments = ControllerUtils.apply_dimensions_to_all_segments

@@ -8,6 +8,10 @@
   - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
+  - Changed how the dimensions are inputed
+
+### Fixed
+- **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
 
 ## [`v0.0.18`] - 2025-12-04
 ### Added

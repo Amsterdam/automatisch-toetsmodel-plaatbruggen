@@ -12,6 +12,7 @@ from typing import Any
 import viktor.api_v1 as api_sdk
 import viktor.errors
 from viktor.errors import UserError
+from viktor.result import SetParamsResult
 from viktor.views import MapPoint, MapResult
 
 from app.constants import SCIA_TEMPLATE_PATH
@@ -479,3 +480,49 @@ class ControllerUtils:
 
         except Exception:
             pass
+
+    # ============================================================================================================
+    # Parameter Update Methods
+    # ============================================================================================================
+
+    def apply_dimensions_to_all_segments(self, params, **kwargs):  # noqa: ANN001, ARG002
+        """
+        Apply dimension values from global input fields to all segments in the bridge_segments_array.
+
+        This method reads the values from the 5 global input fields (bz1_input, bz2_input, bz3_input,
+        dz_input, dz_2_input) and updates all segments in the bridge_segments_array with these values,
+        while preserving other segment-specific data (l, is_first_segment, is_support).
+
+        :param params: Current parameters containing input values and bridge_segments_array
+        :param kwargs: Additional keyword arguments (unused)
+        :returns: SetParamsResult with updated bridge_segments_array
+        :rtype: SetParamsResult
+        """
+        # Read dimension values from global input fields
+        bz1 = params.input.dimensions.bz1_input
+        bz2 = params.input.dimensions.bz2_input
+        bz3 = params.input.dimensions.bz3_input
+        dz = params.input.dimensions.dz_input
+        dz_2 = params.input.dimensions.dz_2_input
+
+        # Get existing segments from params
+        existing_segments = params.bridge_segments_array
+
+        # Create updated segments with new dimension values
+        updated_segments = []
+        for segment in existing_segments:
+            updated_segment = {
+                "bz1": bz1,
+                "bz2": bz2,
+                "bz3": bz3,
+                "dz": dz,
+                "dz_2": dz_2,
+                "col_6": segment.col_6,
+                "l": segment.l,
+                "is_first_segment": segment.is_first_segment,
+                "is_support": segment.is_support,
+            }
+            updated_segments.append(updated_segment)
+
+        # Return updated parameters
+        return SetParamsResult({"bridge_segments_array": updated_segments})
