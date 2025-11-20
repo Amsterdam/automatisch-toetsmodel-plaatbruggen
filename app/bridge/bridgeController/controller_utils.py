@@ -485,7 +485,7 @@ class ControllerUtils:
     # Parameter Update Methods
     # ============================================================================================================
 
-    def apply_dimensions_to_all_segments(self, params, **kwargs):  # noqa: ANN001, ARG002
+    def apply_dimensions_to_all_segments(self, params, **kwargs) -> SetParamsResult:  # noqa: ANN001, ARG002
         """
         Apply dimension values from global input fields to all segments in the bridge_segments_array.
 

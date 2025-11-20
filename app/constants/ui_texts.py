@@ -127,12 +127,12 @@ Elk item in de tabel hieronder representeert een dwarsdoorsnede:
 - Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
 - Het veld '**Afstand tot vorige snede**' geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
   Dit veld is niet zichtbaar voor de eerste snede.
-- Het veld '**Oplegging**' geeft aan of de snede een oplegging bevat. 
+- Het veld '**Oplegging**' geeft aan of de snede een oplegging bevat.
 
 Standaard zijn vier dwarsdoorsneden (D1 t/m D4) voorgedefinieerd, wat resulteert in drie brugsegmenten.
 Voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
 
-**Let op:** De brug bestaat altijd uit drie zones (1, 2 en 3). Voor een brug met slechts één dikte, 
+**Let op:** De brug bestaat altijd uit drie zones (1, 2 en 3). Voor een brug met slechts één dikte,
 vul je dezelfde waarde in voor 'Dikte zone 1 en 3' en 'Dikte zone 2'.
 
 """
