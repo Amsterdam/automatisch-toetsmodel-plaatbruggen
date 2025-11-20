@@ -25,6 +25,7 @@ from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.data_models.combination_models import LoadCombinationConfig
 from src.integrations.scia_integration.constants.loads import (
     ALPHA_Q_MAIN_LANE_ONDERLIGGEND,
+    ALPHA_Q_ONDERLIGGEND,
     ALPHA_Q_OTHER_LANE_ONDERLIGGEND,
     NOBS_DEFAULT,
     SIGNAGE_WEIGHT_OPTIONS,
@@ -164,7 +165,9 @@ def get_load_categories() -> dict[str, list[str]]:
     return {
         "permanent": ["Permanent", "Voorspanning", "Zetting"],
         "traffic": [
-            "TS",
+            "TS - rs 1",
+            "TS - rs 2",
+            "TS - rs 3",
             "UDL - Main",
             "UDL - Other",
             "UDL - Rest",
@@ -194,7 +197,9 @@ def get_leading_action_positions() -> set[tuple[str, str]]:
         ("Perm", "Permanent"),
         ("Perm", "Voorspanning"),
         ("Perm zet", "Zetting"),
-        ("gr1a", "TS"),
+        ("gr1a", "TS - rs 1"),
+        ("gr1a", "TS - rs 2"),
+        ("gr1a", "TS - rs 3"),
         ("gr1a", "UDL - Main"),
         ("gr1a", "UDL - Other"),
         ("gr1a", "UDL - Rest"),
@@ -225,7 +230,9 @@ def get_project_scope() -> list[str]:
     """
     return [
         "Permanent",
-        "TS",
+        "TS - rs 1",
+        "TS - rs 2",
+        "TS - rs 3",
         "UDL - Main",
         "UDL - Other",
         "UDL - Rest",
@@ -352,6 +359,96 @@ def calculate_dynamic_udl_factor(  # noqa: PLR0912
     return float(dynamic_factor)
 
 
+def calculate_dynamic_tandem_factor(  # noqa: PLR0912
+    params: Any,  # noqa: ANN401
+    length_bridgedeck: float,
+    lane_type: str,
+) -> float:
+    """
+    Calculate the dynamic tandem factor for load combinations.
+
+    NEW SYSTEM: All tandem loads in SCIA have base value 100 kN (625000 N/m²).
+    This function calculates the dynamic factor that should be multiplied with
+    the base psi/gamma factor from the combination table.
+
+    The calculation method depends on berekeningsniveau:
+    - "Theoretische wegindeling": psi × alpha_trend × alpha_q (from NEN-EN 1991-2) × lane_factor
+    - "Werkelijke wegindeling": psi × alpha_trend × alpha_q (from NEN-EN 1991-2) × lane_factor
+    - "Werkelijke wegindeling onderliggend wegennet": psi × alpha_trend × 0.8 × lane_factor
+    - "Werkelijke wegindeling met bebording": signage_factor (replaces all other factors)
+
+    Where lane_factor: 3 for rs 1, 2 for rs 2, 1 for rs 3
+
+    :param params: Bridge parameters (dict or BridgeParametrization) containing reference period,
+                   berekeningsniveau, and signage settings
+    :type params: Any
+    :param length_bridgedeck: Length of the bridge deck in meters
+    :type length_bridgedeck: float
+    :param lane_type: Type of lane ("rs 1", "rs 2", or "rs 3")
+    :type lane_type: str
+    :returns: Dynamic factor to multiply with base psi/gamma factor
+    :rtype: float
+    """
+    from src.integrations.scia_integration.constants.loads import (
+        TANDEM_MAIN_LANE_FACTOR,
+        TANDEM_SECOND_LANE_FACTOR,
+        TANDEM_THIRD_LANE_FACTOR,
+    )
+
+    # Extract berekeningsniveau and signage from params
+    berekeningsniveau = None
+    signage = None
+    try:
+        if isinstance(params, dict):
+            berekeningsniveau = params.get("berekeningsniveau")
+            signage = params.get("signage")
+        else:
+            berekeningsniveau = getattr(params, "berekeningsniveau", None)
+            signage = getattr(params, "signage", None)
+    except (AttributeError, TypeError):
+        pass
+
+    # Get lane factor
+    if lane_type == "rs 1":
+        lane_factor = TANDEM_MAIN_LANE_FACTOR  # 3
+    elif lane_type == "rs 2":
+        lane_factor = TANDEM_SECOND_LANE_FACTOR  # 2
+    else:  # "rs 3"
+        lane_factor = TANDEM_THIRD_LANE_FACTOR  # 1
+
+    # Special case: signage-based calculation (replaces all other factors)
+    if berekeningsniveau == "Werkelijke wegindeling met bebording" and signage:
+        try:
+            signage_index = SIGNAGE_WEIGHT_OPTIONS.index(signage)
+            signage_factor = SIGNAGE_LOAD_FACTORS[signage_index]
+            # For signage mode, the factor replaces psi × alpha_trend × alpha_q
+            # We still apply the lane factor to account for lane importance
+            return float(signage_factor * lane_factor)
+        except (ValueError, IndexError):
+            # Fallback if signage value is invalid
+            pass
+
+    # Calculate psi factor
+    reference_period = get_reference_period(params)
+    psi_factor = get_psi_nen_8701(length_bridgedeck, reference_period)
+
+    # Calculate alpha_trend factor
+    alpha_trend = get_alpha_trend_nen_8701(length_bridgedeck, reference_period + 2010)
+
+    # Calculate alpha_q factor based on berekeningsniveau
+    if berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
+        # Use fixed alpha_q value for underlying road network
+        alpha_q = ALPHA_Q_ONDERLIGGEND  # 0.8
+    else:
+        # Default: use standard alpha_q from NEN-EN 1991-2 (first value for tandem)
+        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
+        alpha_q = alpha_q_factors[0]  # Tandem systems use alpha_Q_q (first value)
+
+    # Calculate and return dynamic factor
+    dynamic_factor = psi_factor * alpha_trend * alpha_q * lane_factor
+    return float(dynamic_factor)
+
+
 def get_initial_combination_table() -> pd.DataFrame:
     """
     Read and prepare the initial combination table from the NEN 8700 CSV file.
@@ -413,7 +510,7 @@ def prepare_combination_table(params: dict) -> pd.DataFrame:
     if params.get("bridge_segments_array"):
         total_length = sum(segment["l"] for segment in params["bridge_segments_array"])
 
-        # Calculate dynamic factors for each lane type
+        # Calculate dynamic factors for each UDL lane type
         udl_main_factor = calculate_dynamic_udl_factor(params, total_length, "main")
         udl_other_factor = calculate_dynamic_udl_factor(params, total_length, "other")
         udl_rest_factor = calculate_dynamic_udl_factor(params, total_length, "rest")
@@ -425,6 +522,26 @@ def prepare_combination_table(params: dict) -> pd.DataFrame:
             df_combination_table_gamma_psi["UDL - Other"] *= udl_other_factor
         if "UDL - Rest" in df_combination_table_gamma_psi.columns:
             df_combination_table_gamma_psi["UDL - Rest"] *= udl_rest_factor
+
+        # Calculate dynamic factors for each tandem lane type
+        tandem_rs1_factor = calculate_dynamic_tandem_factor(params, total_length, "rs 1")
+        tandem_rs2_factor = calculate_dynamic_tandem_factor(params, total_length, "rs 2")
+        tandem_rs3_factor = calculate_dynamic_tandem_factor(params, total_length, "rs 3")
+
+        # Apply dynamic factors to tandem columns if they exist
+        if "TS - rs 1" in df_combination_table_gamma_psi.columns:
+            df_combination_table_gamma_psi["TS - rs 1"] *= tandem_rs1_factor
+        if "TS - rs 2" in df_combination_table_gamma_psi.columns:
+            df_combination_table_gamma_psi["TS - rs 2"] *= tandem_rs2_factor
+        if "TS - rs 3" in df_combination_table_gamma_psi.columns:
+            df_combination_table_gamma_psi["TS - rs 3"] *= tandem_rs3_factor
+
+    # Round UDL and tandem columns to 3 decimal places for better readability
+    udl_columns = ["UDL - Main", "UDL - Other", "UDL - Rest"]
+    tandem_columns = ["TS - rs 1", "TS - rs 2", "TS - rs 3"]
+    for col in udl_columns + tandem_columns:
+        if col in df_combination_table_gamma_psi.columns:
+            df_combination_table_gamma_psi[col] = df_combination_table_gamma_psi[col].round(3)
 
     # Filter out zero rows and return
     return df_combination_table_gamma_psi[df_combination_table_gamma_psi.sum(axis=1) != 0]

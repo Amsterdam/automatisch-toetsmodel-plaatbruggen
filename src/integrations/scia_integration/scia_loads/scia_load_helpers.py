@@ -80,8 +80,9 @@ def create_all_loads(builder: SciaModelBuilder, params: BridgeParametrization, l
         if "udl_main_cases" in load_cases or "udl_other_cases" in load_cases or "udl_rest_cases" in load_cases or "udl_traffic_cases" in load_cases:
             add_udl_loads(builder, params, load_cases)
 
-        # Apply tandem system loads
-        if "tandem_cases" in load_cases:
+        # Apply tandem system loads (support new per-lane structure + legacy key)
+        tandem_keys = ["tandem_cases", "tandem_rs1_cases", "tandem_rs2_cases", "tandem_rs3_cases"]
+        if any(key in load_cases for key in tandem_keys):
             add_theoretical_tandem_loads(builder, params, load_cases)
 
         # Apply service vehicle loads

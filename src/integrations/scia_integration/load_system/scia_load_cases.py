@@ -472,9 +472,9 @@ def count_tram_tracks_from_params(params: Any) -> int:  # noqa: ANN401
 def create_dynamic_tandem_load_cases(
     builder: SciaModelBuilder,
     params: Any,  # noqa: ANN401
-) -> dict[str, SciaLoadCase]:
+) -> dict[str, dict[str, SciaLoadCase]]:
     """
-    Create dynamic tandem load cases based on bridge geometry.
+    Create dynamic tandem load cases separated by lane (rs 1, rs 2, rs 3).
 
     This function generates tandem loads first to determine what load cases are needed,
     then creates the corresponding tandem system (TS) load cases dynamically.
@@ -483,12 +483,18 @@ def create_dynamic_tandem_load_cases(
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters.
-    :return: A dictionary of all created tandem system load cases.
-    :rtype: dict[str, SciaLoadCase]
+    :return: A dictionary containing three sub-dictionaries:
+             - "tandem_rs1_cases": Load cases for rs 1 (main lane)
+             - "tandem_rs2_cases": Load cases for rs 2 (second lane)
+             - "tandem_rs3_cases": Load cases for rs 3 (third lane)
+    :rtype: dict[str, dict[str, SciaLoadCase]]
     """
     from src.integrations.scia_integration.load_system.scia_load_generators import generate_tandem_loads
 
-    load_cases = {}
+    # Create three separate dictionaries for different lane types
+    rs1_cases = {}
+    rs2_cases = {}
+    rs3_cases = {}
 
     # Generate tandem loads to determine what load cases we need
     tandem_loads = generate_tandem_loads(params)
@@ -497,31 +503,32 @@ def create_dynamic_tandem_load_cases(
     for tandem_load in tandem_loads:
         load_case_name = tandem_load["load_case"]
 
-        # Skip if already created
-        if load_case_name in load_cases:
-            continue
-
         # Get title from tandem_load
         title = tandem_load.get("title", "")
 
-        # Determine group name based on which notional lane (RS) is in the title
-        # This allows all tandem loads for a specific lane to be grouped together
-        # regardless of their load case series number
+        # Determine group name and target dictionary based on which notional lane (RS) is in the title
         title_lower = title.lower()
         if "rs 1" in title_lower:
             group_name = "LG8000 - TS rijstrook 1"
+            target_dict = rs1_cases
         elif "rs 2" in title_lower:
             group_name = "LG9000 - TS rijstrook 2"
+            target_dict = rs2_cases
         elif "rs 3" in title_lower:
             group_name = "LG10000 - TS rijstrook 3"
+            target_dict = rs3_cases
         else:
             # Skip load cases without recognizable lane designation
+            continue
+
+        # Skip if already created in the target dictionary
+        if load_case_name in target_dict:
             continue
 
         # Create description with title
         description = f"Verkeer, dek - LM1 TS - {title}" if title else f"Verkeer, dek - LM1 TS - {load_case_name}"
 
-        load_cases[load_case_name] = create_load_case(
+        target_dict[load_case_name] = create_load_case(
             builder,
             group_name=group_name,
             case_name=load_case_name,
@@ -532,7 +539,11 @@ def create_dynamic_tandem_load_cases(
             duration=LoadCaseDuration.SHORT,
         )
 
-    return load_cases
+    return {
+        "tandem_rs1_cases": rs1_cases,
+        "tandem_rs2_cases": rs2_cases,
+        "tandem_rs3_cases": rs3_cases,
+    }
 
 
 def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, SciaLoadCase]:
@@ -789,9 +800,12 @@ def create_all_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, A
     if load_selection.get("Onbedoeld voertuig", True):
         load_cases["unintended_vehicle_cases"] = create_unintended_vehicle_load_cases(builder, params)
 
-    # Tandem system load cases (BG8000-BG10000 series)
+    # Tandem system load cases (BG8000-BG10000 series), separated by lane
     if load_selection.get("TS", True):
-        load_cases["tandem_cases"] = create_dynamic_tandem_load_cases(builder, params)
+        tandem_cases_dict = create_dynamic_tandem_load_cases(builder, params)
+        load_cases["tandem_rs1_cases"] = tandem_cases_dict["tandem_rs1_cases"]
+        load_cases["tandem_rs2_cases"] = tandem_cases_dict["tandem_rs2_cases"]
+        load_cases["tandem_rs3_cases"] = tandem_cases_dict["tandem_rs3_cases"]
 
     # Tram track tandem system load cases (BG11000-BG12000 series)
     if load_selection.get("Tram", False):

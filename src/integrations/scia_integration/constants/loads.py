@@ -6,11 +6,12 @@ in SCIA Engineer integration, including tandem systems, UDL values,
 and alpha factors according to Dutch standards.
 """
 
-# Tandem System (TS) Load Base Values
-TANDEM_LOAD_BASE_MAIN = 300000  # N (300 kN)
-TANDEM_LOAD_BASE_SECOND = 200000  # N (200 kN)
-TANDEM_LOAD_BASE_THIRD = 100000  # N (100 kN)
+# Tandem System (TS) Load Base Value (all lanes start from this base)
+TANDEM_LOAD_BASE_VALUE = 100000  # N (100 kN) applied uniformly to all tandem polygons
 
+TANDEM_MAIN_LANE_FACTOR = 3
+TANDEM_SECOND_LANE_FACTOR = 2
+TANDEM_THIRD_LANE_FACTOR = 1
 # Tandem System Contact Dimensions
 TANDEM_CONTACT_AREA_SIDE = 0.4  # m (0.4m x 0.4m contact patch)
 

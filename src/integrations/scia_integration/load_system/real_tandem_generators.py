@@ -268,8 +268,9 @@ def tandem_systems_real_lanes_bg8000(
     else:
         lane_y_positions = generate_real_lane_positions_bg8000(params, lane_width)
 
-    # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck)
+    # Calculate loads based on berekeningsniveau (same base value, lane factors applied later)
+    base_load = calculate_real_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Generate separate load cases for each vehicle
     results = []
@@ -445,8 +446,9 @@ def tandem_systems_real_lanes_bg9000(
     else:
         lane_y_positions = generate_real_lane_positions_bg9000(params, lane_width)
 
-    # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck)
+    # Calculate loads based on berekeningsniveau (same base value, lane factors applied later)
+    base_load = calculate_real_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Generate separate load cases for each vehicle
     results = []
@@ -612,8 +614,9 @@ def tandem_systems_real_lanes_bg10000(
     if not lane_y_positions:
         return []
 
-    # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck)
+    # Calculate loads based on berekeningsniveau (same base value, lane factors applied later)
+    base_load = calculate_real_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Determine how many lanes we have
     num_lanes = len(lane_y_positions)

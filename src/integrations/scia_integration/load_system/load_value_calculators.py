@@ -15,9 +15,7 @@ from src.integrations.scia_integration.constants.loads import (
     NOBS_DEFAULT,
     SIGNAGE_WEIGHT_OPTIONS,
     TANDEM_CONTACT_AREA_SIDE,
-    TANDEM_LOAD_BASE_MAIN,
-    TANDEM_LOAD_BASE_SECOND,
-    TANDEM_LOAD_BASE_THIRD,
+    TANDEM_LOAD_BASE_VALUE,
 )
 from src.integrations.scia_integration.load_system.lane_calculations import get_reference_period
 
@@ -26,87 +24,53 @@ if TYPE_CHECKING:
 
 
 def calculate_theoretical_tandem_values(
-    params: "BridgeParametrization",
-    length_bridgedeck: float,
-) -> tuple[float, float, float]:
+    params: "BridgeParametrization",  # noqa: ARG001
+    length_bridgedeck: float,  # noqa: ARG001
+) -> float:
     """
-    Calculate theoretical tandem values using standard alpha_q factors.
+    Calculate theoretical tandem base load (per unit area).
 
-    This function calculates tandem loads for theoretical lane positions
-    using the standard NEN-EN 1991-2 alpha_q adjustment factors. All required
-    load factors (psi, alpha_trend, alpha_q) are calculated internally.
+    In the new system, all tandem loads use the same base value (100 kN = 625000 N/m²).
+    Lane-specific factors and dynamic factors (psi, alpha_trend, alpha_q) are applied
+    at the load combination stage, not here.
 
-    :param params: Bridge parameters containing reference period information
+    :param params: Bridge parameters (unused, kept for API compatibility)
     :type params: BridgeParametrization
-    :param length_bridgedeck: Length of the bridge deck in meters
+    :param length_bridgedeck: Length of the bridge deck (unused, kept for API compatibility)
     :type length_bridgedeck: float
-    :returns: Tuple of (load_main, load_second, load_third) in N/m²
-    :rtype: tuple[float, float, float]
+    :returns: Base load value in N/m² (same for all tandem lanes)
+    :rtype: float
     """
-    # Calculate required factors
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-
-    # Calculate load values
+    # Convert base load (N) to load per unit area (N/m²)
     contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    base_load_per_area = TANDEM_LOAD_BASE_VALUE / contact_area
 
-    return load_main, load_second, load_third
+    return base_load_per_area
 
 
 def calculate_real_tandem_values(
-    params: "BridgeParametrization",
-    length_bridgedeck: float,
-) -> tuple[float, float, float]:
+    params: "BridgeParametrization",  # noqa: ARG001
+    length_bridgedeck: float,  # noqa: ARG001
+) -> float:
     """
-    Calculate tandem values based on berekeningsniveau and other factors.
+    Calculate real tandem base load (per unit area).
 
-    This function calculates tandem loads for real lane positions based on
-    the calculation level (berekeningsniveau). All required load factors
-    (psi, alpha_trend, alpha_q) are calculated internally.
+    In the new system, all tandem loads use the same base value (100 kN = 625000 N/m²).
+    Lane-specific factors and dynamic factors (psi, alpha_trend, alpha_q) are applied
+    at the load combination stage, not here.
 
-    :param params: Bridge parameters containing berekeningsniveau and signage settings
+    :param params: Bridge parameters (unused, kept for API compatibility)
     :type params: BridgeParametrization
-    :param length_bridgedeck: Length of the bridge deck in meters
+    :param length_bridgedeck: Length of the bridge deck (unused, kept for API compatibility)
     :type length_bridgedeck: float
-    :returns: Tuple of (load_main, load_second, load_third) in N/m²
-    :rtype: tuple[float, float, float]
+    :returns: Base load value in N/m² (same for all tandem lanes)
+    :rtype: float
     """
-    # Calculate required factors
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-
-    # Calculate base load values
+    # Convert base load (N) to load per unit area (N/m²)
     contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    base_main = TANDEM_LOAD_BASE_MAIN / contact_area
-    base_second = TANDEM_LOAD_BASE_SECOND / contact_area
-    base_third = TANDEM_LOAD_BASE_THIRD / contact_area
+    base_load_per_area = TANDEM_LOAD_BASE_VALUE / contact_area
 
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = ALPHA_Q_ONDERLIGGEND
-        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
-        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
-        load_main = base_main * load_factor
-        load_second = base_second * load_factor
-        load_third = base_third * load_factor
-    else:  # Fallback for safety
-        load_main = base_main
-        load_second = base_second
-        load_third = base_third
-
-    return load_main, load_second, load_third
+    return base_load_per_area
 
 
 def calculate_pavement_load_from_dynamic_array(

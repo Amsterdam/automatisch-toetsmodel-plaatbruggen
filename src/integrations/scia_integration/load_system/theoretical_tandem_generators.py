@@ -127,8 +127,9 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
-    # Calculate load values using helper function
-    load_main, load_second, load_third = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    # Calculate load values using helper function (same base value for all lanes)
+    base_load = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Generate separate load cases for each vehicle
     results = []
@@ -248,8 +249,9 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
     lane_y_positions = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
-    # Calculate load values using helper function
-    load_main, load_second, load_third = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    # Calculate load values using helper function (same base value for all lanes)
+    base_load = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Generate separate load cases for each vehicle
     results = []
@@ -373,8 +375,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     if not lane_y_positions:
         return []
 
-    # Calculate load values using helper function
-    load_main, load_second, load_third = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    # Calculate load values using helper function (same base value for all lanes)
+    base_load = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Determine how many lanes we have
     num_lanes = len(lane_y_positions)

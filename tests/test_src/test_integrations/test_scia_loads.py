@@ -51,7 +51,7 @@ class TestRealTandemLoads:
     )
     @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_reference_period")
     def test_calculate_real_tandem_values(self, mock_ref_period: Mock, berekeningsniveau: str, signage: str | None) -> None:
-        """Test that calculate_real_tandem_values returns correct number of values for all berekeningsniveau options."""
+        """Test that calculate_real_tandem_values returns a positive base load for all berekeningsniveau options."""
         # Arrange
         mock_ref_period.return_value = 50  # Mock the reference period calculation
 
@@ -63,18 +63,11 @@ class TestRealTandemLoads:
         length_bridgedeck = 25.0
 
         # Act
-        load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck)
+        base_load = calculate_real_tandem_values(params, length_bridgedeck)
 
         # Assert
-        assert isinstance(load_main, (int, float))
-        assert isinstance(load_second, (int, float))
-        assert isinstance(load_third, (int, float))
-        # The values should be positive
-        assert load_main > 0
-        assert load_second > 0
-        assert load_third > 0
-        # Main load should be larger than second, which should be larger than third
-        assert load_main > load_second > load_third
+        assert isinstance(base_load, (int, float))
+        assert base_load > 0
 
 
 class TestTheoreticalTandemLoads:

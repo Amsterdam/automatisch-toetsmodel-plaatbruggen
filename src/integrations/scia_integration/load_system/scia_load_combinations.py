@@ -38,7 +38,9 @@ SciaLoadCase = Any
 # Mapping from table subject columns to load case series keys
 SUBJECT_TO_SERIES: dict[str, list[str]] = {
     "Permanent": ["self_weight", "dead_load_cases"],
-    "TS": ["tandem_cases"],
+    "TS - rs 1": ["tandem_rs1_cases"],  # Main lane tandem loads
+    "TS - rs 2": ["tandem_rs2_cases"],  # Second lane tandem loads
+    "TS - rs 3": ["tandem_rs3_cases"],  # Third lane tandem loads
     "UDL - Main": ["udl_main_cases"],  # Main notional lane (RS 1)
     "UDL - Other": ["udl_other_cases"],  # Adjacent notional lanes (RS 2, RS 3, etc.)
     "UDL - Rest": ["udl_rest_cases"],  # Rest areas
@@ -87,7 +89,7 @@ def _add_series_to_factors_generic(
 
     :param all_load_cases: Dictionary of all load cases
     :type all_load_cases: dict[str, Any]
-    :param series_key: Key for the load case series (e.g., "tandem_cases")
+    :param series_key: Key for the load case series (e.g., "tandem_rs1_cases")
     :type series_key: str
     :param factor: Load factor to apply
     :type factor: float
@@ -183,7 +185,7 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
     Create SCIA load combinations from a DataFrame of combination factors.
 
     Creates 4 versions of each combination (one per configuration A, B, C, D) ONLY when
-    traffic loads (TS or UDL) are present. For combinations without traffic loads,
+    traffic loads (Tandem or UDL) are present. For combinations without traffic loads,
     creates a single combination without configuration suffix.
 
     Special handling for Config D:
@@ -208,7 +210,7 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
     results: list[SciaLoadCombination] = []
 
     # Define traffic load subjects that need configuration filtering
-    traffic_subjects = {"TS", "UDL - Main", "UDL - Other", "UDL - Rest"}
+    traffic_subjects = {"TS - rs 1", "TS - rs 2", "TS - rs 3", "UDL - Main", "UDL - Other", "UDL - Rest"}
 
     for idx, row in df.iterrows():
         # Check if this combination has any traffic loads
@@ -269,7 +271,7 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
                 # Special handling for Config D: tandems are Config D, but UDLs are Config C
                 if config == LoadConfiguration.CONF_D and is_traffic:
                     # For Config D, we need different configs for TS vs UDL
-                    if subject_str == "TS":
+                    if subject_str in ["TS - rs 1", "TS - rs 2", "TS - rs 3"]:
                         # Tandem systems: use Config D
                         for series in _series_list(subject_str):
                             _add_series_to_factors_generic(
@@ -543,7 +545,9 @@ def create_all_load_combinations(
             "udl_main_cases": {"BG4001": SciaLoadCase, ...},
             "udl_other_cases": {"BG4002": SciaLoadCase, ...},
             "udl_rest_cases": {"BG4003": SciaLoadCase, ...},
-            "tandem_cases": {"tandem_rs1_x1.2": SciaLoadCase, ...},
+            "tandem_rs1_cases": {"tandem_rs1_x1.2": SciaLoadCase, ...},
+            "tandem_rs2_cases": {"tandem_rs2_x1.2": SciaLoadCase, ...},
+            "tandem_rs3_cases": {"tandem_rs3_x1.2": SciaLoadCase, ...},
             ...
         }
     :return: A list of created SciaLoadCombination objects

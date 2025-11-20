@@ -81,26 +81,33 @@ class TrafficLoadCombinationGenerator:
                     load_group_name=self._get_udl_group_name(config),
                 )
 
-        # Process tandem system loads
-        if "tandem_cases" in all_load_cases:
-            tandem_cases = all_load_cases["tandem_cases"]
-            if isinstance(tandem_cases, dict):
-                for key, load_case in tandem_cases.items():
-                    load_name = self._get_load_case_name(load_case, key)
-                    title = self._get_load_case_description(load_case)
-                    config = extract_configuration_from_string(title)
-                    lane = self._extract_lane_from_title(title)
-                    position_x = self._extract_position_from_title(title)
+        # Process tandem system loads from three separate dictionaries
+        all_tandem_cases = {}
+        for tandem_key in ["tandem_rs1_cases", "tandem_rs2_cases", "tandem_rs3_cases"]:
+            if tandem_key in all_load_cases and isinstance(all_load_cases[tandem_key], dict):
+                all_tandem_cases.update(all_load_cases[tandem_key])
 
-                    metadata[load_name] = LoadMetadata(
-                        load_case_name=load_name,
-                        category=LoadCategory.TRAFFIC_TANDEM,
-                        configuration=config,
-                        notional_lane=lane,
-                        position_x=position_x,
-                        title=title,
-                        load_group_name=self._get_tandem_group_name(lane),
-                    )
+        # Also check for old structure for backward compatibility
+        if "tandem_cases" in all_load_cases and isinstance(all_load_cases["tandem_cases"], dict):
+            all_tandem_cases.update(all_load_cases["tandem_cases"])
+
+        if all_tandem_cases:
+            for key, load_case in all_tandem_cases.items():
+                load_name = self._get_load_case_name(load_case, key)
+                title = self._get_load_case_description(load_case)
+                config = extract_configuration_from_string(title)
+                lane = self._extract_lane_from_title(title)
+                position_x = self._extract_position_from_title(title)
+
+                metadata[load_name] = LoadMetadata(
+                    load_case_name=load_name,
+                    category=LoadCategory.TRAFFIC_TANDEM,
+                    configuration=config,
+                    notional_lane=lane,
+                    position_x=position_x,
+                    title=title,
+                    load_group_name=self._get_tandem_group_name(lane),
+                )
 
         return metadata
 
