@@ -7,7 +7,7 @@ import pandas as pd
 from viktor.views import PlotlyResult, TableResult
 
 if TYPE_CHECKING:
-    pass
+    from src.integrations.scia_integration.results.scia_unit_conversion import SciaUnitConverter
 
 from src.integrations.scia_integration.constants.results import (
     CS_TABLE_TYPES,
@@ -110,9 +110,14 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
     from .scia_results_processor import process_scia_cs_results
 
     try:
-        # Process CS results to get the DataFrame
-        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
-        df_cs_results = cs_results.get(result_type, pd.DataFrame())
+        # Try to use cached dataframe first
+        cache_key = "df_cs_uls" if result_type == "ULS" else "df_cs_sls_freq"
+        df_cs_results = results.get(cache_key)
+
+        # If not in cache, process on demand
+        if df_cs_results is None or df_cs_results.empty:
+            cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+            df_cs_results = cs_results.get(result_type, pd.DataFrame())
 
         if df_cs_results.empty:
             # Return empty plot with message
@@ -751,7 +756,15 @@ def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
     return headers
 
 
-def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -> tuple[list[list[str]], list[str]]:
+def _convert_force_value_safe(converter: "SciaUnitConverter", value: float, component: str) -> str | float:
+    """Safely convert a force/moment value to display units, returning numeric value or 'N/A'."""
+    try:
+        return round(converter.convert_value(value, component), 2)
+    except (ValueError, TypeError):
+        return "N/A"
+
+
+def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -> tuple[list[list[str | float]], list[str]]:
     """
     Create table data and headers from processed CS (Cross Section) SCIA results.
 
@@ -781,7 +794,7 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
     if processed_cs_df.empty:
         # Create a row with "No data" message plus N/A for all other columns
         # Number of N/A values = len(headers) - 1 (for the message)
-        no_data_row = [f"Geen {result_type} data"] + ["N/A"] * (len(headers) - 1)
+        no_data_row: list[str | float] = [f"Geen {result_type} data", *(["N/A"] * (len(headers) - 1))]
         return [no_data_row], headers
 
     table_data = []
@@ -815,15 +828,15 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         n_xd = row.get("n_xD", 0.0)
         n_yd = row.get("n_yD", 0.0)
 
-        # Format values with units (using appropriate component names for converter)
-        v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
-        v_y_str = converter.format_value_with_unit(v_y, "v_y", decimals=2, default="N/A")
-        m_xd_plus_str = converter.format_value_with_unit(m_xd_plus, "m_xD+", decimals=2, default="N/A")
-        m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
-        m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
-        m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
-        n_xd_str = converter.format_value_with_unit(n_xd, "n_xD", decimals=2, default="N/A")
-        n_yd_str = converter.format_value_with_unit(n_yd, "n_yD", decimals=2, default="N/A")
+        # Convert values to display units (without unit strings for sortability)
+        v_x_val = _convert_force_value_safe(converter, v_x, "v_x")
+        v_y_val = _convert_force_value_safe(converter, v_y, "v_y")
+        m_xd_plus_val = _convert_force_value_safe(converter, m_xd_plus, "m_xD+")
+        m_xd_minus_val = _convert_force_value_safe(converter, m_xd_minus, "m_xD-")
+        m_yd_plus_val = _convert_force_value_safe(converter, m_yd_plus, "m_yD+")
+        m_yd_minus_val = _convert_force_value_safe(converter, m_yd_minus, "m_yD-")
+        n_xd_val = _convert_force_value_safe(converter, n_xd, "n_xD")
+        n_yd_val = _convert_force_value_safe(converter, n_yd, "n_yD")
 
         # Build row data - order must match headers exactly
         if has_zone_column:
@@ -835,14 +848,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 coords,
                 str(belasting),
                 str(max_for_column),
-                v_x_str,
-                v_y_str,
-                m_xd_plus_str,
-                m_xd_minus_str,
-                m_yd_plus_str,
-                m_yd_minus_str,
-                n_xd_str,
-                n_yd_str,
+                v_x_val,
+                v_y_val,
+                m_xd_plus_val,
+                m_xd_minus_val,
+                m_yd_plus_val,
+                m_yd_minus_val,
+                n_xd_val,
+                n_yd_val,
             ]
         else:
             # Without zone: Name, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (12 columns)
@@ -851,14 +864,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 coords,
                 str(belasting),
                 str(max_for_column),
-                v_x_str,
-                v_y_str,
-                m_xd_plus_str,
-                m_xd_minus_str,
-                m_yd_plus_str,
-                m_yd_minus_str,
-                n_xd_str,
-                n_yd_str,
+                v_x_val,
+                v_y_val,
+                m_xd_plus_val,
+                m_xd_minus_val,
+                m_yd_plus_val,
+                m_yd_minus_val,
+                n_xd_val,
+                n_yd_val,
             ]
 
         table_data.append(row_data)
@@ -887,12 +900,14 @@ def create_scia_cs_results_table(results: dict[str, Any], table_type: str, bridg
     from .scia_results_processor import process_scia_cs_results
 
     try:
-        # Process all CS results (gets DataFrames with unique coords and max absolute values)
-        # Pass bridge_segments to enable zone mapping
-        cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+        # Try to use cached dataframe first
+        cache_key = "df_cs_uls" if table_type == "ULS" else "df_cs_sls_freq"
+        processed_cs_df = results.get(cache_key)
 
-        # Get the specific table type we want
-        processed_cs_df = cs_results.get(table_type, pd.DataFrame())
+        # If not in cache, process on demand
+        if processed_cs_df is None or processed_cs_df.empty:
+            cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
+            processed_cs_df = cs_results.get(table_type, pd.DataFrame())
 
         # Create table data from the processed DataFrame
         table_data, headers = create_scia_cs_table_data(processed_cs_df, table_type)
@@ -952,8 +967,12 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
     from .scia_unit_conversion import SciaUnitConverter
 
     try:
-        # Extract force envelopes from CS results
-        df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
+        # Try to use cached dataframe first
+        df_envelope = results.get("df_cs_envelope")
+
+        # If not in cache, process on demand
+        if df_envelope is None or df_envelope.empty:
+            df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
 
         if df_envelope.empty:
             return TableResult(
@@ -1019,15 +1038,15 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
             n_xd = row.get("n_xD", 0.0)
             n_yd = row.get("n_yD", 0.0)
 
-            # Format values with units
-            v_x_str = converter.format_value_with_unit(v_x, "v_x", decimals=2, default="N/A")
-            v_y_str = converter.format_value_with_unit(v_y, "v_y", decimals=2, default="N/A")
-            m_xd_plus_str = converter.format_value_with_unit(m_xd_plus, "m_xD+", decimals=2, default="N/A")
-            m_xd_minus_str = converter.format_value_with_unit(m_xd_minus, "m_xD-", decimals=2, default="N/A")
-            m_yd_plus_str = converter.format_value_with_unit(m_yd_plus, "m_yD+", decimals=2, default="N/A")
-            m_yd_minus_str = converter.format_value_with_unit(m_yd_minus, "m_yD-", decimals=2, default="N/A")
-            n_xd_str = converter.format_value_with_unit(n_xd, "n_xD", decimals=2, default="N/A")
-            n_yd_str = converter.format_value_with_unit(n_yd, "n_yD", decimals=2, default="N/A")
+            # Convert values to display units (without unit strings for sortability)
+            v_x_val = _convert_force_value_safe(converter, v_x, "v_x")
+            v_y_val = _convert_force_value_safe(converter, v_y, "v_y")
+            m_xd_plus_val = _convert_force_value_safe(converter, m_xd_plus, "m_xD+")
+            m_xd_minus_val = _convert_force_value_safe(converter, m_xd_minus, "m_xD-")
+            m_yd_plus_val = _convert_force_value_safe(converter, m_yd_plus, "m_yD+")
+            m_yd_minus_val = _convert_force_value_safe(converter, m_yd_minus, "m_yD-")
+            n_xd_val = _convert_force_value_safe(converter, n_xd, "n_xD")
+            n_yd_val = _convert_force_value_safe(converter, n_yd, "n_yD")
 
             row_data = [
                 str(zone),
@@ -1036,14 +1055,14 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
                 coords,
                 str(belasting),
                 str(max_for_column),
-                v_x_str,
-                v_y_str,
-                m_xd_plus_str,
-                m_xd_minus_str,
-                m_yd_plus_str,
-                m_yd_minus_str,
-                n_xd_str,
-                n_yd_str,
+                v_x_val,
+                v_y_val,
+                m_xd_plus_val,
+                m_xd_minus_val,
+                m_yd_plus_val,
+                m_yd_minus_val,
+                n_xd_val,
+                n_yd_val,
             ]
 
             table_data.append(row_data)

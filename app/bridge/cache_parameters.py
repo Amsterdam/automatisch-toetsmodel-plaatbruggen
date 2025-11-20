@@ -58,6 +58,7 @@ SHARED_PARAMETERS: list[ParameterGroup] = [
             "design_code",
             "berekeningsniveau",
             "signage",
+            "spreiding",
             "info.construction_year",
         ],
     },

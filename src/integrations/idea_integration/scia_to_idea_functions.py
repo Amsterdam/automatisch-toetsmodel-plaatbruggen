@@ -91,15 +91,19 @@ def process_scia_cs_results_for_idea(
     if not bridge_segments:
         raise ValueError("Bridge segments data is required for CS results processing")
 
-    # Get the filtered envelope data (already contains ULS and SLS freq only)
-    from src.integrations.scia_integration.results.scia_results_processor import extract_cs_force_envelopes
+    # Try to use cached envelope dataframe first (performance optimization)
+    df_envelope = results.get("df_cs_envelope")
 
-    df_envelope = extract_cs_force_envelopes(results, bridge_segments)
+    # If not cached or empty, extract from raw results
+    if df_envelope is None or (isinstance(df_envelope, pd.DataFrame) and df_envelope.empty):
+        from src.integrations.scia_integration.results.scia_results_processor import extract_cs_force_envelopes
+
+        df_envelope = extract_cs_force_envelopes(results, bridge_segments)
 
     if df_envelope.empty:
         return pd.DataFrame()
 
-    # Create copy to avoid modifying original
+    # Create copy to avoid modifying original cached data
     idea_df = df_envelope.copy()
 
     # Rename force/moment columns to IDEA-specific names (add _max suffix if not present)

@@ -9,6 +9,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
+
 from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.model.scia_model_interface import (
     SciaAnalysis,
@@ -1305,14 +1307,63 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
     esa_model = _extract_esa_model_for_caching(analysis)
     results["esa_model"] = esa_model
 
+    # Process and cache dataframes for CS results
+    progress_message("Verwerken en cachen CS dataframes...")
+    bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+    cached_dataframes = _generate_and_cache_cs_dataframes(results, bridge_segments)
+    results.update(cached_dataframes)
+
     # Add summary information
     results["summary"] = {
         "analysis_status": results.get("analysis_status", "unknown"),
         "xml_parsing": results.get("xml_parsing", {}),
         "has_esa_model": esa_model is not None,
+        "has_cached_dataframes": bool(cached_dataframes),
     }
 
     return results
+
+
+def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: list[Any] | None) -> dict[str, Any]:
+    """
+    Generate and return CS dataframes for caching.
+
+    Creates three dataframes:
+    - df_cs_uls: CS ULS results
+    - df_cs_sls_freq: CS SLS freq results
+    - df_cs_envelope: Combined envelope for IDEA
+
+    :param results: Raw SCIA analysis results
+    :param bridge_segments: Bridge segments for zone mapping
+    :return: Dictionary with cached dataframes
+    """
+    try:
+        from src.integrations.scia_integration.results.scia_results_processor import (
+            extract_cs_force_envelopes,
+            process_scia_cs_results,
+        )
+
+        # Process CS results to get individual dataframes
+        cs_results = process_scia_cs_results(results, bridge_segments)
+        df_cs_uls = cs_results.get("ULS", pd.DataFrame())
+        df_cs_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
+
+        # Generate envelope dataframe (used by IDEA and analyse resultaten view)
+        df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
+    except Exception:
+        # If dataframe generation fails, return empty dataframes
+        # This prevents cache failures but allows the rest of the analysis to succeed
+        return {
+            "df_cs_uls": pd.DataFrame(),
+            "df_cs_sls_freq": pd.DataFrame(),
+            "df_cs_envelope": pd.DataFrame(),
+        }
+    else:
+        return {
+            "df_cs_uls": df_cs_uls,
+            "df_cs_sls_freq": df_cs_sls_freq,
+            "df_cs_envelope": df_cs_envelope,
+        }
 
 
 def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001

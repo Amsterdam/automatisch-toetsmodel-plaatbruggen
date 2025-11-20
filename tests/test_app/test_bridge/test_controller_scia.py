@@ -89,7 +89,8 @@ class TestDownloadSciaXmlFiles:
     ) -> None:
         """Test successful XML files download."""
         # Arrange
-        mock_template_path = Path("resources/templates/model.esa")
+        mock_template_path = MagicMock(spec=Path)
+        mock_template_path.read_bytes.return_value = b"Mock ESA template content"
         mock_get_template.return_value = mock_template_path
 
         # Mock XML and DEF file content
@@ -108,18 +109,17 @@ class TestDownloadSciaXmlFiles:
         mock_result.file = MagicMock()
         mock_download_result.return_value = mock_result
 
-        # Mock template file reading
-        with patch("builtins.open", mock_open(read_data=b"Mock template content")), patch("pathlib.Path.open"):
-            # Act
-            result = self.controller.download_scia_xml_files(self.mock_params)
+        # Act
+        result = self.controller.download_scia_xml_files(self.mock_params)
 
-            # Assert
-            assert result == mock_result
-            assert result.file_name == "BR-2024-001_Input_Files.zip"
+        # Assert
+        assert result == mock_result
+        assert result.file_name == "BR-2024-001_Input_Files.zip"
 
-            # Verify the calls
-            mock_get_template.assert_called_once()
-            mock_create_model.assert_called_once_with(self.mock_params, mock_template_path)
+        # Verify the calls
+        mock_get_template.assert_called_once()
+        mock_create_model.assert_called_once_with(self.mock_params, mock_template_path)
+        mock_template_path.read_bytes.assert_called_once()
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
@@ -170,7 +170,8 @@ class TestDownloadSciaXmlFiles:
     ) -> None:
         """Test download with missing bridge ID - should use default filename."""
         # Arrange
-        mock_template_path = Path("resources/templates/model.esa")
+        mock_template_path = MagicMock(spec=Path)
+        mock_template_path.read_bytes.return_value = b"Mock ESA template content"
         mock_get_template.return_value = mock_template_path
 
         params_no_id = Munch(
@@ -193,14 +194,12 @@ class TestDownloadSciaXmlFiles:
         mock_result.file = MagicMock()
         mock_download_result.return_value = mock_result
 
-        # Mock template file reading
-        with patch("builtins.open", mock_open(read_data=b"Mock template content")), patch("pathlib.Path.open"):
-            # Act
-            result = self.controller.download_scia_xml_files(params_no_id)
+        # Act
+        result = self.controller.download_scia_xml_files(params_no_id)
 
-            # Assert
-            assert result == mock_result
-            assert result.file_name == "bridge_model_Input_Files.zip"
+        # Assert
+        assert result == mock_result
+        assert result.file_name == "bridge_model_Input_Files.zip"
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")

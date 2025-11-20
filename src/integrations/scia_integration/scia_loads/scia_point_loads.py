@@ -10,7 +10,7 @@ from typing import Any
 
 from src.combinations.load_factors import get_dynamic_load_factor
 from src.geometry.load_zone_geometry import get_bridge_geom_data, get_tram_track_y_coordinates
-from src.integrations.scia_integration.constants import (
+from src.integrations.scia_integration.constants.vehicles import (
     ACCIDENTAL_VEHICLE_AXLE_SPACING,
     ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM,
     ACCIDENTAL_VEHICLE_FORCE_AXLE_1,
@@ -26,6 +26,9 @@ from src.integrations.scia_integration.constants import (
     SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING,
     SERVICE_VEHICLE_WHEEL_CONTACT_AREA,
     SERVICE_VEHICLE_WIDTH,
+    TRAM_VEHICLE_AXLE_FORCES_N,
+    TRAM_VEHICLE_AXLE_SPACING,
+    TRAM_VEHICLE_TRACK_GAUGE,
 )
 from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions, generate_tandem_loads
 from src.integrations.scia_integration.model.scia_coordinate_utils import convert_loads_to_scia_format
@@ -278,10 +281,13 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
     :raises ValueError: When tram load creation fails
     """
     try:
-        # Tram specifications volgens tekening EE-780 (CAF Urbos 100)
-        vehicle_length = 21.824  # Total tram length (m)
-        track_gauge = 1.435  # Distance between rail centerlines (m)
-        static_force_per_axle = 97 * 1000  # 97 kN per axle converted to N (static load)
+        # Tram specifications from constants (CAF Urbos 100, drawing EE-780)
+        track_gauge = TRAM_VEHICLE_TRACK_GAUGE  # Distance between rail centerlines (m)
+        axle_forces_static_n = TRAM_VEHICLE_AXLE_FORCES_N  # Static forces per axle in N
+        axle_distances = TRAM_VEHICLE_AXLE_SPACING  # Distances between consecutive axles (m)
+
+        # Calculate vehicle length from sum of axle spacing
+        vehicle_length = sum(axle_distances)
 
         # Extract bridge dimensions
         dims = extract_bridge_dimensions(params)
@@ -291,13 +297,6 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         # Calculate dynamic load factor according to NEN-EN 1991-2 art. 4.3.4.2 (d)
         # Φ = 1.40 - L / 500 (with Φ >= 1.0)
         dynamic_factor = get_dynamic_load_factor(span=length)
-
-        # Apply dynamic factor to static load
-        force_per_axle = static_force_per_axle * dynamic_factor  # Dynamic load (N)
-
-        # Axle distances from previous axle (m)
-        # Distances between consecutive axles: 1.8, 10.012, 1.85, 10.012, 1.8
-        axle_distances = [1.8, 10.012, 1.85, 10.012, 1.8]
 
         # Calculate cumulative axle positions from front of tram
         axle_positions = [0.0]  # First axle at front
@@ -330,17 +329,17 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
 
             load_case_name = tram_load_cases[load_case_key].name
 
-            # Calculate wheel parameters
-            force_per_wheel = force_per_axle / 2  # Each axle has 2 wheels (N)
-
             # Half gauge for wheel positioning (distance from centerline to each wheel)
             half_gauge = track_gauge / 2.0
 
             # Get track centerline y-coordinate at first D-point (assumed constant along length)
             track_centerline_y = track_y_coords[0]
 
-            # Create loads for each of the 6 axles
-            for axle_idx, axle_offset in enumerate(axle_positions, start=1):
+            # Create loads for each axle
+            for axle_idx, (axle_offset, static_force_n) in enumerate(zip(axle_positions, axle_forces_static_n), start=1):
+                # Apply dynamic factor to this axle's static load
+                force_per_axle = static_force_n * dynamic_factor  # Apply dynamic factor to static load in N
+                force_per_wheel = force_per_axle / 2  # Each axle has 2 wheels (N)
                 # Calculate X position of this axle
                 x_axle = x_pos + axle_offset
 
