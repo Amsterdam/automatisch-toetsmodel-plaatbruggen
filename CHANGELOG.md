@@ -8,6 +8,14 @@
   - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
+- **Load combinations**: Changed the system with which load combinations are generated.
+  - Updated the load combination table with new columns to differentiate between the tandem system and udl notional lanes and rest parts.
+  - Changed the implementation of load value calculation factors alpha trend, psi_NEN, alpha_Q and
+  implented a lane factors to differentiate between governing notional lanes.
+  - Moved calculation of these factors to seperate helper functions.
+  - Implemented these helper functions into the load combination table, which now represent combined load factors.
+  - Changed the load value of the tandem systems in the SCIA model to a default of 100 kN.
+  - Changed the load value of the UDL loads in the SCIA model to a default value of 2.5 kN per square meter.
 
 ## [`v0.0.18`] - 2025-12-04
 ### Added
