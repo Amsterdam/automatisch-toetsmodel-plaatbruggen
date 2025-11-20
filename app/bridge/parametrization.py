@@ -22,6 +22,7 @@ from viktor.parametrization import (
     Page,
     Parametrization,
     RowLookup,
+    SetParamsButton,
     Tab,
     Table,
     Text,
@@ -783,6 +784,31 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------------
 
     input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
+
+    # Global dimension input fields
+    input.dimensions.bz1_input = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
+    input.dimensions.bz2_input = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
+    input.dimensions.bz3_input = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
+    input.dimensions.dz_input = NumberField(
+        "Dikte zone 1 en 3",
+        default=0.7,
+        suffix="m",
+        min=0.05,
+        description="Dikte van zones 1 en 3 (geldt voor gehele brug)",
+    )
+    input.dimensions.dz_2_input = NumberField(
+        "Dikte zone 2",
+        default=0.8,
+        suffix="m",
+        min=0.05,
+        description="Dikte van zone 2 (geldt voor gehele brug)",
+    )
+
+    input.dimensions.apply_to_all_button = SetParamsButton(
+        "Pas toe op alle segmenten",
+        method="apply_dimensions_to_all_segments",
+        description="Pas de bovenstaande waarden toe op alle segmenten in de tabel",
+    )
 
     input.dimensions.array = DynamicArray(
         "Brug dimensies",
