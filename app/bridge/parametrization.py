@@ -796,7 +796,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions.apply_dimensions_button = SetParamsButton(
         "Pas dimensies toe op alle segmenten",
         method="apply_dimensions_to_all_segments",
-        description="Klik om de bovenstaande waarden toe te passen op alle segmenten in de tabel hieronder")
+        description="Klik om de bovenstaande waarden toe te passen op alle segmenten in de tabel hieronder",
+    )
 
     input.dimensions.array = DynamicArray(
         "Brug dimensies",
