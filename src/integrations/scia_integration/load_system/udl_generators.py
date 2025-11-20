@@ -281,6 +281,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: C901
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
+    udl_value: float = UDL_BASE_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create UDLs for all notional lanes and remaining areas.
@@ -295,7 +296,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: C901
     :param width_bridgedeck: Bridge width in meters
     :param width_firstsegment_zone3: Zone 3 width (for lane offset)
     :param width_firstsegment_zone2: Zone 2 width (for lane offset)
-    :param udl_value: UDL value for main lane in N/m² (default UDL_BASE_VALUE)
+    :param udl_value: UDL value for main lane in N/m² (default :data:`UDL_BASE_VALUE`)
     :returns: Dict with keys BG4001, BG4002, etc., each containing a single polygon with load and title
     """
     # Create an empty results dictionary
@@ -321,10 +322,10 @@ def create_theoretical_udl_traffic_loads(  # noqa: C901
             )
         ]
 
-    # Use base UDL value for all lane types - dynamic factors are applied in load combinations
-    main_value = UDL_BASE_VALUE
-    other_value = UDL_BASE_VALUE
-    rest_value = UDL_BASE_VALUE
+    # Use the provided UDL value for all lane types - dynamic factors are applied in load combinations
+    main_value = udl_value
+    other_value = udl_value
+    rest_value = udl_value
 
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
     max_lanes, lane_width = amount_of_notional_lanes(width_bridgedeck)  # Maximum number of lanes to consider and lane width
@@ -450,6 +451,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: C901
 def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
+    udl_value: float = UDL_BASE_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create real uniform distributed load (UDL) traffic loads for the bridge.
@@ -464,7 +466,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     :type params: BridgeParametrization
     :param length_bridgedeck: Length of the bridge deck
     :type length_bridgedeck: float
-    :param udl_value: Uniform distributed load value (default: UDL_BASE_VALUE)
+    :param udl_value: Uniform distributed load value (default: :data:`UDL_BASE_VALUE`)
     :type udl_value: float
     :returns: Dict with keys BG4001, BG4002, etc., each containing a single polygon with load and title
     :rtype: dict[str, dict[str, Any]]
@@ -494,10 +496,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             )
         ]
 
-    # Use base UDL value for all lane types - dynamic factors are applied in load combinations
-    main_value = UDL_BASE_VALUE
-    other_value = UDL_BASE_VALUE
-    rest_value = UDL_BASE_VALUE
+    # Use the provided UDL value for all lane types - dynamic factors are applied in load combinations
+    main_value = udl_value
+    other_value = udl_value
+    rest_value = udl_value
 
     # Check if we have two road zones
     num_road_zones = get_number_of_road_zones(params)

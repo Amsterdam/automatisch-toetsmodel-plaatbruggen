@@ -100,7 +100,7 @@ from .vehicles import (
     SERVICE_VEHICLE_WIDTH,
 )
 
-__all__ = [
+__all__ = [ # noqa: RUF022
     "ACCIDENTAL_VEHICLE_AXLE_SPACING",
     "ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM",
     "ACCIDENTAL_VEHICLE_FORCE_AXLE_1",

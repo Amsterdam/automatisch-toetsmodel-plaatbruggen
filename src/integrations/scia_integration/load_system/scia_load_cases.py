@@ -492,9 +492,9 @@ def create_dynamic_tandem_load_cases(
     from src.integrations.scia_integration.load_system.scia_load_generators import generate_tandem_loads
 
     # Create three separate dictionaries for different lane types
-    rs1_cases = {}
-    rs2_cases = {}
-    rs3_cases = {}
+    rs1_cases: dict[str, SciaLoadCase] = {}
+    rs2_cases: dict[str, SciaLoadCase] = {}
+    rs3_cases: dict[str, SciaLoadCase] = {}
 
     # Generate tandem loads to determine what load cases we need
     tandem_loads = generate_tandem_loads(params)
