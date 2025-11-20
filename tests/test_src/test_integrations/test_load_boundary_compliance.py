@@ -66,17 +66,17 @@ class TestLoadBoundaryCompliance:
 
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
 
-        # Verify all coordinates are clipped to boundaries
+        # Verify Y coordinates are clipped to boundaries (X coordinates pass through)
         expected_clipped = [
-            (0.0, 5.0, 0.0),  # Clipped to x_min, y_max
-            (20.0, 5.0, 0.0),  # Clipped to x_max, y_max
-            (20.0, -5.0, 0.0),  # Clipped to x_max, y_min
-            (0.0, -5.0, 0.0),  # Clipped to x_min, y_min
+            (-1.0, 5.0, 0.0),  # X unchanged, Y clipped to y_max
+            (21.0, 5.0, 0.0),  # X unchanged, Y clipped to y_max
+            (21.0, -5.0, 0.0),  # X unchanged, Y clipped to y_min
+            (-1.0, -5.0, 0.0),  # X unchanged, Y clipped to y_min
         ]
 
         for i, (x, y, z) in enumerate(clipped_points):
             expected_x, expected_y, expected_z = expected_clipped[i]
-            assert x == expected_x, f"X coordinate {x} should be clipped to {expected_x}"
+            assert x == expected_x, f"X coordinate {x} should remain unchanged at {expected_x}"
             assert y == expected_y, f"Y coordinate {y} should be clipped to {expected_y}"
             assert z == expected_z, f"Z coordinate {z} should remain {expected_z}"
 
@@ -110,8 +110,8 @@ class TestLoadBoundaryCompliance:
         # Test with point outside boundaries
         outside_point = [(25.0, 8.0, 0.0)]
         clipped = clip_polygon_to_bridge_boundaries(outside_point, mock_bridge_geometry)
-        expected = [(20.0, 5.0, 0.0)]  # Clipped to boundaries
-        assert clipped == expected, "Point outside boundaries should be clipped"
+        expected = [(25.0, 5.0, 0.0)]  # Only Y clipped, X unchanged
+        assert clipped == expected, "Point outside boundaries should have Y clipped"
 
         # Test with mixed coordinates (some inside, some outside)
         mixed_points = [
@@ -123,11 +123,11 @@ class TestLoadBoundaryCompliance:
         clipped = clip_polygon_to_bridge_boundaries(mixed_points, mock_bridge_geometry)
         expected = [
             (5.0, 2.0, 0.0),  # Inside - unchanged
-            (20.0, 2.0, 0.0),  # X clipped
+            (25.0, 2.0, 0.0),  # X unchanged (no X clipping)
             (5.0, 5.0, 0.0),  # Y clipped
-            (20.0, 5.0, 0.0),  # Both clipped
+            (25.0, 5.0, 0.0),  # Y clipped, X unchanged
         ]
-        assert clipped == expected, "Mixed coordinates should be clipped appropriately"
+        assert clipped == expected, "Only Y coordinates should be clipped"
 
     def test_clip_polygon_preserves_z_coordinates(self, mock_bridge_geometry: Mock) -> None:
         """Test that Z coordinates are preserved during clipping."""
@@ -163,15 +163,15 @@ class TestLoadBoundaryCompliance:
 
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_geom)
 
-        # Verify all coordinates are clipped to the new boundaries
+        # Verify only Y coordinates are clipped (X pass through unchanged)
         expected_clipped = [
-            (5.0, 8.0, 0.0),  # Clipped to x_min, y_max
-            (35.0, 8.0, 0.0),  # Clipped to x_max, y_max
-            (35.0, -3.0, 0.0),  # Clipped to x_max, y_min
-            (5.0, -3.0, 0.0),  # Clipped to x_min, y_min
+            (0.0, 8.0, 0.0),  # X unchanged, Y clipped to y_max
+            (40.0, 8.0, 0.0),  # X unchanged, Y clipped to y_max
+            (40.0, -3.0, 0.0),  # X unchanged, Y clipped to y_min
+            (0.0, -3.0, 0.0),  # X unchanged, Y clipped to y_min
         ]
 
-        assert clipped_points == expected_clipped, "Coordinates should be clipped to the correct bridge boundaries"
+        assert clipped_points == expected_clipped, "Only Y coordinates should be clipped to bridge boundaries"
 
     @pytest.fixture
     def bridge_default_params(self) -> Munch:
@@ -210,9 +210,9 @@ class TestLoadBoundaryCompliance:
 
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_geom)
 
-        # Verify all coordinates are clipped to the bridge boundaries
+        # Verify only Y coordinates are clipped (X coordinates pass through unchanged)
         for x, y, z in clipped_points:
-            assert 0.0 <= x <= 10.0, f"X coordinate {x} should be within bridge length [0.0, 10.0]"
+            # X coordinates are NOT clipped, so they can be outside [0.0, 10.0]
             assert -15.0 <= y <= 15.0, f"Y coordinate {y} should be within bridge width [-15.0, 15.0]"
             assert z == 0.0, f"Z coordinate {z} should remain unchanged"
 
@@ -237,9 +237,9 @@ class TestLoadBoundaryCompliance:
 
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_geom)
 
-        # Verify all coordinates are clipped to the bridge boundaries
+        # Verify only Y coordinates are clipped (X coordinates pass through unchanged)
         for x, y, z in clipped_points:
-            assert 0.0 <= x <= 25.0, f"X coordinate {x} should be within bridge length [0.0, 25.0]"
+            # X coordinates are NOT clipped, so they can be outside [0.0, 25.0]
             assert -20.0 <= y <= 20.0, f"Y coordinate {y} should be within bridge width [-20.0, 20.0]"
             assert z == 0.0, f"Z coordinate {z} should remain unchanged"
 
@@ -315,9 +315,9 @@ class TestLoadBoundaryCompliance:
             # Test clipping with coordinates outside boundaries
             clipped_points = clip_polygon_to_bridge_boundaries(test_case["test_coords"], mock_geom)
 
-            # Verify all coordinates are within boundaries
+            # Verify only Y coordinates are clipped (X coordinates pass through)
             for x, y, z in clipped_points:
-                assert 0.0 <= x <= test_case["length"], f"{test_case['name']}: X coordinate {x} exceeds bridge length"
+                # X coordinates are NOT clipped
                 assert -test_case["width"] / 2 <= y <= test_case["width"] / 2, f"{test_case['name']}: Y coordinate {y} exceeds bridge width"
 
     def test_edge_case_coordinates_at_bridge_boundaries(self, bridge_default_params: Munch) -> None:

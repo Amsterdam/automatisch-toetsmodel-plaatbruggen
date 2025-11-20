@@ -1,4 +1,7 @@
 ## [Unreleased]
+### Added
+  **Shared Cache parameters**: added spreiding to the shared cache parameters
+
 ### Changed
 - **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
   - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP
@@ -25,6 +28,7 @@ Introduced a new naming system with span, lane and configuration identification.
 - **Dataframe Caching**: SCIA CS dataframes (ULS, SLS freq, envelope) now cached for improved performance across views
 
 ### Changed
+- Fixed surface loads with zero area which caused model singularities in SCIA.
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
 - Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
 - Re-assigned the UDL and tandem loads to load groups.
