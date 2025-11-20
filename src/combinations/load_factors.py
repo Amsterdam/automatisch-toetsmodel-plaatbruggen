@@ -359,7 +359,7 @@ def calculate_dynamic_udl_factor(  # noqa: PLR0912
     return float(dynamic_factor)
 
 
-def calculate_dynamic_tandem_factor(  # noqa: PLR0912
+def calculate_dynamic_tandem_factor(
     params: Any,  # noqa: ANN401
     length_bridgedeck: float,
     lane_type: str,
