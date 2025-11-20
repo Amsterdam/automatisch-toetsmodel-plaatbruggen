@@ -36,10 +36,7 @@ def calculate_theoretical_tandem_values(
     :rtype: float
     """
     # Convert base load (N) to load per unit area (N/m²)
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    base_load_per_area = TANDEM_LOAD_BASE_VALUE / contact_area
-
-    return base_load_per_area
+    return TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
 
 
 def calculate_real_tandem_values(
@@ -61,10 +58,7 @@ def calculate_real_tandem_values(
     :rtype: float
     """
     # Convert base load (N) to load per unit area (N/m²)
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    base_load_per_area = TANDEM_LOAD_BASE_VALUE / contact_area
-
-    return base_load_per_area
+    return TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
 
 
 def calculate_pavement_load_from_dynamic_array(

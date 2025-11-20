@@ -460,7 +460,7 @@ def get_initial_combination_table() -> pd.DataFrame:
     return pd.read_csv(PSI_NEN_8700_PATH, sep=";", decimal=",", index_col="Combinatie")
 
 
-def prepare_combination_table(params: dict) -> pd.DataFrame:
+def prepare_combination_table(params: dict) -> pd.DataFrame:  # noqa: C901
     """
     Prepare the combination table with gamma factors applied.
 

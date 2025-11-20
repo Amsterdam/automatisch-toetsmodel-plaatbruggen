@@ -36,7 +36,7 @@ class TrafficLoadCombinationGenerator:
         external configuration.
         """
 
-    def extract_metadata_from_load_cases(self, all_load_cases: dict[str, Any]) -> dict[str, LoadMetadata]:
+    def extract_metadata_from_load_cases(self, all_load_cases: dict[str, Any]) -> dict[str, LoadMetadata]:  # noqa: C901
         """
         Extract metadata from SCIA load case structure.
 
