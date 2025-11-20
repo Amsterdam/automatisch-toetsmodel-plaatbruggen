@@ -35,63 +35,6 @@ class ControllerUtils:
     # Entity and Template Management
     # ============================================================================================================
 
-    def apply_dimensions_to_all_segments(self, params, **kwargs) -> SetParamsResult:  # noqa: ANN001, ARG002
-        """
-        Apply global dimension values to all bridge segments.
-
-        This method takes the values from the global input fields (bz1_input, bz2_input, bz3_input,
-        dz_input, dz_2_input) and applies them to all segments in the bridge_segments_array.
-
-        :param params: Current parameters containing dimension input values
-        :param kwargs: Additional keyword arguments (unused)
-        :returns: SetParamsResult with complete updated parameters including the bridge_segments_array
-        :rtype: SetParamsResult
-        """
-        print("=== DEBUG: apply_dimensions_to_all_segments called ===")
-
-        # Get the global input values
-        bz1_value = params.input.dimensions.bz1_input
-        bz2_value = params.input.dimensions.bz2_input
-        bz3_value = params.input.dimensions.bz3_input
-        dz_value = params.input.dimensions.dz_input
-        dz_2_value = params.input.dimensions.dz_2_input
-
-        print(f"Input values: bz1={bz1_value}, bz2={bz2_value}, bz3={bz3_value}, dz={dz_value}, dz_2={dz_2_value}")
-
-        # Get existing bridge segments array
-        # The DynamicArray with name="bridge_segments_array" is at the top level (Page level)
-        existing_segments = params.bridge_segments_array
-
-        print(f"Number of existing segments: {len(existing_segments)}")
-
-        # Update all segments with the new values while preserving other properties
-        updated_segments = []
-        for i, segment in enumerate(existing_segments):
-            print(f"Segment {i}: bz1={segment.bz1}, bz2={segment.bz2}, bz3={segment.bz3}, dz={segment.dz}, dz_2={segment.dz_2}")
-            updated_segment = {
-                "bz1": bz1_value,
-                "bz2": bz2_value,
-                "bz3": bz3_value,
-                "dz": dz_value,
-                "dz_2": dz_2_value,
-                "col_6": segment.col_6,
-                "l": segment.l,
-                "is_first_segment": segment.is_first_segment,
-                "is_support": segment.is_support,
-            }
-            updated_segments.append(updated_segment)
-            print(f"Updated segment {i}: bz1={updated_segment['bz1']}, bz2={updated_segment['bz2']}, bz3={updated_segment['bz3']}")
-
-        print(f"Total updated segments: {len(updated_segments)}")
-
-        # Return the complete updated parameters including the array
-        # DynamicArray with name="bridge_segments_array" is at top/page level
-        result_dict = {"bridge_segments_array": updated_segments}
-        print(f"Returning SetParamsResult with {len(updated_segments)} segments")
-        print("=== DEBUG: End of apply_dimensions_to_all_segments ===")
-
-        return SetParamsResult(result_dict)
-
     def _get_bridge_entity_data(self, entity_id: int) -> tuple[str | None, str | None, MapResult | None]:
         """
         Fetch bridge entity data (OBJECTNUMM and name) using the VIKTOR API.
