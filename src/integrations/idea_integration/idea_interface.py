@@ -509,7 +509,7 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
     created_slabs: dict[str, dict],
     df_all: pd.DataFrame,
     builder: Any,  # noqa: ANN401
-) -> None:
+) -> int:
     """
     Apply load cases from SCIA CS (Cross Section) envelope results to each slab using builder pattern.
 
@@ -528,10 +528,14 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
     :type df_all: pd.DataFrame
     :param builder: IDEA model builder instance
     :type builder: Any
+    :returns: Number of load cases applied
+    :rtype: int
     """
     # Early return if dataframe is empty
     if df_all.empty:
-        return
+        return 0
+
+    loads_applied = 0
 
     # For langs cs: link IDEA vz to SCIA vy and IDEA My to SCIA My
     # For dwars cs: link IDEA vz to SCIA vx and IDEA My to SCIA Mx
@@ -641,6 +645,9 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
                     frequent=freq,
                     fundamental=fund,
                 )
+                loads_applied += 1
+
+    return loads_applied
 
 
 def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":  # noqa: ANN401
@@ -706,11 +713,60 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
         results_data: dict[str, Any] = results_data_raw if isinstance(results_data_raw, dict) else {}
         df_cs_envelope = process_scia_cs_results_for_idea(results_data, input_data.bridge_segments)
 
+    # Validate that slabs were created
+    if not created_slabs:
+        from viktor.errors import UserError
+
+        raise UserError(
+            "Geen dwarsdoorsneden kunnen worden gemaakt voor IDEA model. "
+            "Controleer of de wapeningszones overeenkomen met de brugsegmenten. "
+            "Mogelijk zijn de parameters gewijzigd na een eerdere berekening - probeer de cache te wissen en opnieuw te berekenen."
+        )
+
     # Process the envelope DataFrame for IDEA input (merges ULS and SLS freq)
     df_cs_all = _process_scia_cs_results_for_idea_input(df_cs_envelope)
 
+    # Validate that CS envelope data exists
+    if df_cs_all.empty:
+        from viktor.errors import UserError
+
+        # Get zones from created slabs for error message
+        all_zones = []
+        for slab_data in created_slabs.values():
+            zones = slab_data.get("zones", [])
+            all_zones.extend(zones)
+        unique_zones = sorted(set(all_zones))
+
+        raise UserError(
+            f"Geen dwarsdoorsnede krachten gevonden in SCIA resultaten voor zones: {', '.join(unique_zones)}. "
+            "IDEA model kan niet worden gegenereerd. "
+            "Mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening - wis de cache en voer een nieuwe SCIA berekening uit."
+        )
+
     # Apply CS loads to slabs using builder
-    _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
+    loads_applied = _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
+
+    # Validate that loads were applied
+    if loads_applied == 0:
+        from viktor.errors import UserError
+
+        # Get zones from created slabs and SCIA data for error message
+        slab_zones = set()
+        for slab_data in created_slabs.values():
+            zones = slab_data.get("zones", [])
+            slab_zones.update(zones)
+
+        scia_zones = set()
+        if "zone" in df_cs_all.columns:
+            scia_zones = set(df_cs_all["zone"].unique())
+
+        raise UserError(
+            f"Geen belastingen kunnen worden toegepast op de dwarsdoorsneden. "
+            f"Zones in brugsegmenten: {sorted(slab_zones)}, "
+            f"Zones in SCIA resultaten: {sorted(scia_zones)}. "
+            "De zones komen niet overeen - mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening. "
+            "Wis de cache en voer een nieuwe SCIA berekening uit."
+        )
 
     return model
 

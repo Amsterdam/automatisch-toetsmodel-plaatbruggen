@@ -62,8 +62,33 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
 
     # Create IDEA model with the SCIA results
     progress_message(f"{prefix}Genereren IDEA model...", percentage=percentage)
-    model = create_bridge_idea_model(params, entity_id, scia_results_dict)
-    idea_xml_input_bytes = model.generate_xml_input()
+    try:
+        model = create_bridge_idea_model(params, entity_id, scia_results_dict)
+    except UserError:
+        # Re-raise UserError as-is (already has helpful message)
+        raise
+    except Exception as e:
+        # Wrap other exceptions with helpful context
+        raise UserError(
+            f"IDEA model generatie gefaald: {e!s}. "
+            "Mogelijk zijn de brugparameters gewijzigd na een eerdere berekening. "
+            "Probeer de cache te wissen en opnieuw te berekenen."
+        ) from e
+
+    # Generate XML input - this may raise ExecutionError from IDEA SDK
+    try:
+        idea_xml_input_bytes = model.generate_xml_input()
+    except Exception as e:
+        # IDEA SDK may raise ExecutionError with "Idea model cannot be generated"
+        error_msg = str(e)
+        if "cannot be generated" in error_msg.lower() or "cannot be generated" in error_msg:
+            raise UserError(
+                "IDEA model kan niet worden gegenereerd. "
+                "Mogelijke oorzaken: geen dwarsdoorsneden gemaakt, geen belastingen toegepast, of ongeldige geometrie. "
+                "Controleer of de wapeningszones overeenkomen met de brugsegmenten en of SCIA resultaten beschikbaar zijn. "
+                "Als de brugparameters zijn gewijzigd, wis de cache en voer een nieuwe berekening uit."
+            ) from e
+        raise UserError(f"IDEA model XML generatie gefaald: {e!s}") from e
 
     # Run IDEA analysis
     progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
