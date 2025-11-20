@@ -13,6 +13,7 @@ from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
+import viktor.api_v1 as api
 from viktor.core import File, Storage, progress_message
 from viktor.errors import UserError
 from viktor.external import idea_rcs
@@ -245,6 +246,7 @@ class AnalysisCache:
         """Initialize the analysis cache with VIKTOR Storage."""
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
+        self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
 
     def _extract_params(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> dict[str, Any]:  # noqa: ANN401
         """
@@ -291,6 +293,27 @@ class AnalysisCache:
         self._hash_cache[cache_key] = computed_hash
         return computed_hash
 
+    def _get_entity(self, entity_id: int) -> Any:  # noqa: ANN401
+        """
+        Get entity object for the given entity ID with memoization.
+
+        This ensures Storage operations use the correct entity scope,
+        allowing cache access from parent entities (e.g., overview bridges).
+
+        :param entity_id: Entity ID
+        :type entity_id: int
+        :returns: Entity object
+        :rtype: Any
+        """
+        if entity_id not in self._entity_cache:
+            try:
+                self._entity_cache[entity_id] = api.API().get_entity(entity_id)
+            except Exception:
+                # If API is unavailable (e.g., in tests), return None
+                # Storage operations will fall back to current entity context
+                return None
+        return self._entity_cache[entity_id]
+
     def get_cached_analysis(
         self,
         params: Any,  # noqa: ANN401
@@ -304,8 +327,11 @@ class AnalysisCache:
             input_hash = self._generate_input_hash(params, analysis_type, template_path)
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
+            # Get entity object to ensure correct storage scope
+            entity = self._get_entity(entity_id)
+
             # Storage retrieval is the potentially slow operation
-            cached_file = self.storage.get(cache_key, scope="entity")
+            cached_file = self.storage.get(cache_key, scope="entity", entity=entity)
             if cached_file:
                 # Read the base64-encoded data
                 if hasattr(cached_file, "getvalue"):
@@ -341,11 +367,14 @@ class AnalysisCache:
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
         try:
+            # Get entity object to ensure correct storage scope
+            entity = self._get_entity(entity_id)
+
             # Pickle the results and encode as base64 to avoid binary data issues
             cached_data = pickle.dumps(results)
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             cached_file = File.from_data(encoded_data)
-            self.storage.set(cache_key, data=cached_file, scope="entity")
+            self.storage.set(cache_key, data=cached_file, scope="entity", entity=entity)
         except Exception:
             pass
 
@@ -354,12 +383,15 @@ class AnalysisCache:
         # Clear hash cache
         self._hash_cache.clear()
 
+        # Get entity object to ensure correct storage scope
+        entity = self._get_entity(entity_id)
+
         pattern = f"analysis_cache_{entity_id}_{analysis_type.value if analysis_type else ''}_*"
 
         try:
-            keys_to_delete = [key for key in self.storage.list(scope="entity") if key.startswith(pattern)]
+            keys_to_delete = [key for key in self.storage.list(scope="entity", entity=entity) if key.startswith(pattern)]
             for key in keys_to_delete:
-                self.storage.delete(key, scope="entity")
+                self.storage.delete(key, scope="entity", entity=entity)
         except Exception:
             pass
 
@@ -371,8 +403,11 @@ class AnalysisCache:
             "total_cache_entries": 0,
         }
 
+        # Get entity object to ensure correct storage scope
+        entity = self._get_entity(entity_id)
+
         try:
-            all_keys = self.storage.list(scope="entity")
+            all_keys = self.storage.list(scope="entity", entity=entity)
             entity_keys = [key for key in all_keys if key.startswith(f"analysis_cache_{entity_id}_")]
             cache_info["total_cache_entries"] = len(entity_keys)
 
@@ -388,9 +423,12 @@ class AnalysisCache:
 
     def _get_specific_cache_info(self, entity_id: int, analysis_type: AnalysisType) -> dict[str, Any]:
         """Get cache information for a specific analysis type."""
+        # Get entity object to ensure correct storage scope
+        entity = self._get_entity(entity_id)
+
         pattern = f"analysis_cache_{entity_id}_{analysis_type.value}_*"
         try:
-            keys = [key for key in self.storage.list(scope="entity") if key.startswith(pattern)]
+            keys = [key for key in self.storage.list(scope="entity", entity=entity) if key.startswith(pattern)]
             return {
                 "cache_entries": len(keys),
                 "cache_keys": keys,
@@ -486,7 +524,9 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
         # Hashes match - check if cache exists for this hash
         cache_key = f"analysis_cache_{entity_id}_{AnalysisType.IDEA.value}_{expected_hash}"
         try:
-            cached_file = cache.storage.get(cache_key, scope="entity")
+            # Get entity object to ensure correct storage scope
+            entity = cache._get_entity(entity_id)
+            cached_file = cache.storage.get(cache_key, scope="entity", entity=entity)
         except Exception:
             return False
         else:
