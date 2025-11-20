@@ -25,7 +25,9 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
             raise FileNotFoundError
 
     monkeypatch.setattr(batch_utils, "Storage", DummyStorage)
-    monkeypatch.setattr(batch_utils, "deserialize_batch_results", lambda stored: {1: {"status": "Voltooid", "uc_status": "PASSED", "uc_breakdown": None}})
+    monkeypatch.setattr(
+        batch_utils, "deserialize_batch_results", lambda stored: {1: {"status": "Voltooid", "uc_status": "PASSED", "uc_breakdown": None}}
+    )
     monkeypatch.setattr(batch_utils, "load_batch_last_run_timestamp", lambda storage: "2024-01-01T00:00:00Z")
     monkeypatch.setattr(
         batch_utils,
@@ -437,7 +439,7 @@ def test_chat_handles_incomplete_response(monkeypatch):
         output = []
         status = "incomplete"
         incomplete_details = DummyIncompleteDetails()
-        
+
         def model_dump(self):
             return {"output": []}
 

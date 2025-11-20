@@ -5,13 +5,8 @@ This script retrieves and analyzes cached results for a specific entity to diagn
 issues with SCIA timeout and IDEA generation failures.
 """
 
-import base64
 import json
-import pickle
 from pathlib import Path
-from typing import Any
-
-import pandas as pd
 
 # VIKTOR imports
 import viktor.api_v1 as api
@@ -66,7 +61,7 @@ def inspect_cache_for_entity(entity_id: int, output_dir: Path = Path("C:/temp"))
     print("INSPECTING SCIA CACHE")
     print("=" * 80)
 
-    scia_results = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, str("template_path"))
+    scia_results = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, "template_path")
     if scia_results:
         print("SCIA cache found!")
         print(f"SCIA results type: {type(scia_results)}")
@@ -238,4 +233,3 @@ if __name__ == "__main__":
     # Entity ID from user's report
     entity_id = 13545
     inspect_cache_for_entity(entity_id)
-

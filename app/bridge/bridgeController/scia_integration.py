@@ -13,11 +13,6 @@ import zipfile
 from io import BytesIO
 from typing import NoReturn
 
-from viktor.core import File, progress_message
-from viktor.errors import UserError
-from viktor.result import DownloadResult
-from viktor.views import PlotlyResult, PlotlyView, TableResult, TableView
-
 from app.bridge.analysis_cache import get_cached_analysis_results
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_analysis_results
@@ -30,7 +25,7 @@ from src.integrations.scia_integration.results.scia_result_views import (
 from viktor.core import File, progress_message
 from viktor.errors import UserError
 from viktor.result import DownloadResult
-from viktor.views import TableResult, TableView
+from viktor.views import PlotlyResult, PlotlyView, TableResult, TableView
 
 
 class SciaIntegration:

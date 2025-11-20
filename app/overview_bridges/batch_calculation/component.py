@@ -35,8 +35,8 @@ from .utils import (
     check_idea_cache_status,
     deserialize_batch_results,
     extract_uc_summary_from_idea_results,
-    generate_bridge_report_url,
     format_chat_dataset_for_prompt,
+    generate_bridge_report_url,
     record_batch_last_run_timestamp,
     serialize_batch_results,
     validate_bridge_for_calculation,
@@ -678,7 +678,7 @@ class BatchCalculationComponent:
                 print("INFO: Triggering batch calculation...", flush=True)
                 try:
                     self.run_batch_calculation(params, entity_id, **kwargs)
-                except Exception as calc_error:
+                except Exception:
                     import traceback
 
                     traceback_str = traceback.format_exc()
@@ -938,7 +938,7 @@ class BatchCalculationComponent:
                                         fragments.append(str(value))
                                 elif isinstance(text_obj, str):
                                     fragments.append(text_obj)
-                    except Exception as dump_error:  # noqa: BLE001
+                    except Exception as dump_error:
                         print(f"DEBUG: Failed to parse OpenAI response via model_dump: {dump_error}")
                         print(f"DEBUG: Raw response dump: {response}")
                 if fragments:
@@ -948,7 +948,7 @@ class BatchCalculationComponent:
                         print(f"DEBUG: OpenAI response without text: {response}")
                     except Exception:
                         pass
-            
+
             # Check if response was incomplete
             if not answer:
                 status = getattr(response, "status", None)

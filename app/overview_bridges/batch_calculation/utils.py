@@ -662,7 +662,7 @@ def _extract_segment_geometry(params: Any) -> dict[str, Any]:  # noqa: ANN401
 
     for segment in segments_array:
         seg_data = {}
-        
+
         # Zone widths
         bz1 = _safe_float(getattr(segment, "bz1", None))
         bz2 = _safe_float(getattr(segment, "bz2", None))
@@ -670,25 +670,25 @@ def _extract_segment_geometry(params: Any) -> dict[str, Any]:  # noqa: ANN401
         seg_data["bz1"] = bz1
         seg_data["bz2"] = bz2
         seg_data["bz3"] = bz3
-        
+
         # Total width for this segment
         if bz1 is not None and bz2 is not None and bz3 is not None:
             seg_data["total_width"] = bz1 + bz2 + bz3
         else:
             seg_data["total_width"] = None
-        
+
         # Segment length
         l_value = _safe_float(getattr(segment, "l", None))
         seg_data["length"] = l_value
         if l_value is not None:
             total_length += l_value
-        
+
         # Support type
         is_support = getattr(segment, "is_support", None)
         seg_data["support_type"] = str(is_support) if is_support else None
         if is_support and is_support != "Nee":
             support_count += 1
-        
+
         segments_data.append(seg_data)
 
     geometry["segments"] = segments_data
@@ -895,8 +895,8 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
         f"ontbrekende gegevens {summary.get('not_ready', 0)})",
         f"- Laatste batch uitgevoerd: {summary.get('last_batch_run') or 'onbekend'}",
     ]
-    
-    if summary.get('dataset_truncated'):
+
+    if summary.get("dataset_truncated"):
         lines.append(f"- NOTITIE: Dataset bevat meer bruggen, alleen eerste {MAX_BRIDGES_IN_CHAT_CONTEXT} getoond")
 
     lines.append("\nBruggen:")
@@ -916,10 +916,10 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
         missing_fields = bridge.get("missing_fields") or []
         filtered = bridge.get("filtered_metadata", {})
         design_params = bridge.get("design_parameters")
-        
+
         # Build user-friendly bridge line
         parts = [f"• {name} ({objectnumm})"]
-        
+
         # Add basic metadata
         metadata_parts = []
         if build_year:
@@ -928,7 +928,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
             metadata_parts.append(f"{length:.1f}m lang")
         if width:
             metadata_parts.append(f"{width:.1f}m breed")
-        
+
         # Add filtered metadata
         if filtered.get("straat"):
             metadata_parts.append(f"straat: {filtered['straat']}")
@@ -948,7 +948,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
             metadata_parts.append("niet voorgespannen")
         if filtered.get("vlag_arb"):
             metadata_parts.append(f"ARB: {filtered['vlag_arb']}")
-        
+
         # Add design parameters for calculated/pending bridges
         if design_params:
             if design_params.get("cc_class"):
@@ -961,7 +961,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                 metadata_parts.append(f"niveau: {design_params['berekeningsniveau']}")
             if design_params.get("load_zones_summary"):
                 metadata_parts.append(design_params["load_zones_summary"])
-            
+
             # Add segment geometry if available
             segment_geom = design_params.get("segment_geometry")
             if segment_geom:
@@ -972,7 +972,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                     metadata_parts.append(f"dikte: z1/z3={dz:.2f}m, z2={dz2:.2f}m")
                 elif dz is not None:
                     metadata_parts.append(f"dikte z1/z3: {dz:.2f}m")
-                
+
                 # Segment count and support count
                 num_segs = segment_geom.get("num_segments", 0)
                 support_cnt = segment_geom.get("support_count", 0)
@@ -981,7 +981,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                     seg_parts.append(f"{num_segs} segmenten")
                     if support_cnt > 0:
                         seg_parts.append(f"{support_cnt} opleggingen")
-                    
+
                     # Show segment lengths if available
                     segments = segment_geom.get("segments", [])
                     if segments:
@@ -989,22 +989,22 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                         if lengths and len(lengths) > 0:
                             lengths_str = "-".join([f"{l:.1f}" for l in lengths])
                             seg_parts.append(f"lengtes: {lengths_str}m")
-                        
+
                         # Check if widths vary across segments
                         widths = [s.get("total_width") for s in segments if s.get("total_width") is not None]
                         if widths and len(set(widths)) > 1:
                             seg_parts.append("variabele breedte")
-                    
+
                     metadata_parts.append(", ".join(seg_parts))
-        
+
         if metadata_parts:
             parts.append(f" [{', '.join(metadata_parts)}]")
-        
+
         # Add calculation status and results
         if classification == "calculated":
             uc_str = f"UC {max_uc:.2f}" if isinstance(max_uc, (int, float)) else "UC onbekend"
             results_available = "berekeningsresultaten beschikbaar" if cached else "berekend"
-            
+
             # Add UC breakdown showing top 3 highest values prominently
             uc_breakdown = bridge.get("uc_breakdown")
             if uc_breakdown:
@@ -1023,11 +1023,11 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                     value = uc_breakdown.get(key)
                     if value is not None and value > 0:
                         uc_values.append((name, value))
-                
+
                 # Sort by value descending and take top 3
                 uc_values.sort(key=lambda x: x[1], reverse=True)
                 top_uc = uc_values[:3]
-                
+
                 if top_uc:
                     top_str = ", ".join([f"{name} {val:.2f}" for name, val in top_uc])
                     parts.append(f" → {uc_str} (hoogste: {top_str}) ({results_available})")
@@ -1035,7 +1035,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                     parts.append(f" → {uc_str} ({results_available})")
             else:
                 parts.append(f" → {uc_str} ({results_available})")
-            
+
             if failed_checks_count > 0:
                 parts.append(f", {failed_checks_count} checks gefaald")
         elif classification == "pending":
@@ -1048,7 +1048,7 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
                 parts.append(f" → ontbrekende gegevens: {missing_preview}")
             else:
                 parts.append(" → ontbrekende gegevens")
-        
+
         lines.append("".join(parts))
 
     if not bridges:
