@@ -433,7 +433,7 @@ class TestCreateAllLoadCases:
         # Check that the result is a dictionary
         assert isinstance(cases, dict)
         # Check that all expected top-level keys are present
-        # Note: Tram is not included by default (defaults to False)
+        # Note: Tram is not included because gating criteria are not met (no berekeningsniveau or tram zones set)
         expected_keys = [
             "self_weight",
             "dead_load_cases",
