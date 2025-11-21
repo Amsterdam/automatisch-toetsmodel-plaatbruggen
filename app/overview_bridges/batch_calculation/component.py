@@ -6,13 +6,12 @@ import traceback
 from typing import Any
 
 import viktor.api_v1 as api
+from app.bridge.analysis_cache import get_cached_analysis_results, get_idea_analysis_results
+from src.common.constants.technical import AnalysisType
 from viktor.core import Color, Storage, UserMessage, progress_message
 from viktor.errors import UserError
 from viktor.parametrization import Parametrization
 from viktor.views import TableCell, TableResult, TableView
-
-from app.bridge.analysis_cache import get_cached_analysis_results, get_idea_analysis_results
-from src.common.constants.technical import AnalysisType
 
 from .utils import (
     calculate_estimated_batch_time,

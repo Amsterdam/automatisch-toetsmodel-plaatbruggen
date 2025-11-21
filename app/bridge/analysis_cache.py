@@ -14,10 +14,6 @@ from io import BytesIO
 from typing import Any
 
 import viktor.api_v1 as api
-from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
-from viktor.external import idea_rcs
-
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
@@ -25,6 +21,9 @@ from src.integrations.idea_integration.idea_interface import create_bridge_idea_
 from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_cs_results_for_idea,
 )
+from viktor.core import File, Storage, progress_message
+from viktor.errors import UserError
+from viktor.external import idea_rcs
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401

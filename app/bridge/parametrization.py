@@ -5,6 +5,28 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
+from src.common.materials import get_reinforcement_qualities
 from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
@@ -28,29 +50,6 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
-
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
-from src.common.materials import get_reinforcement_qualities
 
 # --- Helper function for rebar diameter options ---
 
