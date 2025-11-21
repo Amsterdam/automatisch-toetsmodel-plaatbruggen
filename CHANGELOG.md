@@ -9,6 +9,9 @@
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
 
+### Fixed
+- **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones
+
 ## [`v0.0.18`] - 2025-12-04
 ### Added
 - Added tram loading to the load selection table.

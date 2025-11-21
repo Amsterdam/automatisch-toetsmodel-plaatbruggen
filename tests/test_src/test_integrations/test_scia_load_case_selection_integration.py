@@ -372,14 +372,14 @@ class TestLoadCaseSelectionIntegration:
 
         # Mock all the individual load case creation functions
         with (
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as mock_self_weight,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as mock_dead_loads,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as mock_temperature,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as mock_udl,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as mock_pedestrian,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as _mock_self_weight,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as _mock_dead_loads,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as _mock_temperature,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as _mock_udl,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as _mock_pedestrian,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as _mock_service,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as _mock_unintended,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as _mock_tandem,
             patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
@@ -409,14 +409,14 @@ class TestLoadCaseSelectionIntegration:
 
         # Mock all the individual load case creation functions
         with (
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as mock_self_weight,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as mock_dead_loads,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as mock_temperature,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as mock_udl,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as mock_pedestrian,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as _mock_self_weight,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as _mock_dead_loads,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as _mock_temperature,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as _mock_udl,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as _mock_pedestrian,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as _mock_service,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as _mock_unintended,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as _mock_tandem,
             patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
@@ -446,14 +446,14 @@ class TestLoadCaseSelectionIntegration:
 
         # Mock all the individual load case creation functions
         with (
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as mock_self_weight,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as mock_dead_loads,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as mock_temperature,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as mock_udl,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as mock_pedestrian,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as mock_service,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as mock_unintended,
-            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as mock_tandem,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as _mock_self_weight,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as _mock_dead_loads,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as _mock_temperature,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as _mock_udl,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as _mock_pedestrian,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as _mock_service,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as _mock_unintended,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as _mock_tandem,
             patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
         ):
             # Execute the function
