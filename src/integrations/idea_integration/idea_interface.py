@@ -605,33 +605,19 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
                 description = f"{desc_prefix}_{direction}-{zone}-{cs_name}-{coords}-{max_for}-ULS:{belasting_uls}/SLS:{belasting_sls}"
 
                 # Create internal forces for ULS (fundamental)
-                try:
-                    internal_forces_fund = builder.create_result_of_internal_forces(
-                        Qz=qz_uls,
-                        My=my_uls,
-                        N=n_uls,
-                    )
-                except TypeError:
-                    # Builder doesn't support N parameter
-                    internal_forces_fund = builder.create_result_of_internal_forces(
-                        Qz=qz_uls,
-                        My=my_uls,
-                    )
+                internal_forces_fund = builder.create_result_of_internal_forces(
+                    Qz=qz_uls,
+                    My=my_uls,
+                    N=n_uls,
+                )
                 fund = builder.create_loading_uls(internal_forces_fund)
 
                 # Create internal forces for SLS freq (frequent)
-                try:
-                    internal_forces_freq = builder.create_result_of_internal_forces(
-                        Qz=qz_freq,
-                        My=my_freq,
-                        N=n_freq,
-                    )
-                except TypeError:
-                    # Builder doesn't support N parameter
-                    internal_forces_freq = builder.create_result_of_internal_forces(
-                        Qz=qz_freq,
-                        My=my_freq,
-                    )
+                internal_forces_freq = builder.create_result_of_internal_forces(
+                    Qz=qz_freq,
+                    My=my_freq,
+                    N=n_freq,
+                )
                 freq = builder.create_loading_sls(internal_forces_freq)
 
                 # Create the extreme combining ULS and SLS freq
