@@ -518,7 +518,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     info.usage = OptionField(
         "Gebruik",
-        default="Wegverkeer",
+        default="",
         options=["Wegverkeer", "Wegverkeer en tram", "Voetpad", "Trambaan", "Fietspad/voetpad"],
         description="Primaire functie van de brug (bijv. wegverkeer, voetgangers)",
     )
@@ -689,7 +689,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     info.concrete_strength_class_source = OptionField(
         "Bron Betonsterkteklasse",
         options=["Onbekend", "Aanname", "Tekening"],
-        default="Onbekend",
+        default="",
     )
     info.concrete_strength_class_source_text = TextAreaField(
         "Toelichting Bron Betonsterkteklasse", default="", description="Toelichting op de bron van de betonsterkteklasse"
@@ -698,12 +698,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     info.lb2a = LineBreak()
 
     info.geometric_properties_header = Text("### Geometrische eigenschappen")
-    info.number_of_spans = NumberField("Aantal Velden", default=1, min=1, description="Aantal structurele overspanningen in de brug", visible=False)
+    info.number_of_spans = NumberField("Aantal Velden", default=None, min=1, description="Aantal structurele overspanningen in de brug", visible=False)
     info.static_system = TextField(
         "Statisch Systeem", default="", description="Statisch systeemtype (bijv. statisch bepaald/onbepaald)", visible=False
     )
     info.crossing_angle = NumberField(
-        "Kruisingshoek", default=90.0, suffix="°", description="Hoek waaronder de brug het obstakel kruist", visible=False
+        "Kruisingshoek", default=None, suffix="°", description="Hoek waaronder de brug het obstakel kruist", visible=False
     )
     info.theoretical_length = TextField(
         "Theoretische lengte",
@@ -712,8 +712,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         description="Theoretische overspanningslengte, dit is de afstand tussen de assen van de opleggingen",
     )
     info.deck_width = TextField("Brugdekbreedte", default="", suffix="m", description="Totale breedte van het brugdek")
-    info.construction_height = NumberField("Constructiehoogte", default=0.0, suffix="mm", description="Hoogte van de dekconstructie", visible=False)
-    info.slenderness = NumberField("Slankheidsverhouding", default=0.0, description="Slankheidsverhouding van de dekoverspanningen", visible=False)
+    info.construction_height = NumberField("Constructiehoogte", default=None, suffix="mm", description="Hoogte van de dekconstructie", visible=False)
+    info.slenderness = NumberField("Slankheidsverhouding", default=None, description="Slankheidsverhouding van de dekoverspanningen", visible=False)
     info.daily_length = TextField(
         "Ldag", default="", suffix="m", description="Lengte van de brug tussen de steunpunten, waar krachten worden afgelezen", visible=False
     )
@@ -732,7 +732,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
     info.edge_beam_thickness = TextField("Dikte schampkant", default="", suffix="mm", description="Dikte van de schampkant/randdrager", visible=False)
     info.edge_loading = OptionField(
-        "Randbelasting", default="Onbekend", options=["Onbekend", "Ja", "Nee"], description="Aanwezigheid van randbelasting op de brug", visible=False
+        "Randbelasting", default="", options=["Onbekend", "Ja", "Nee"], description="Aanwezigheid van randbelasting op de brug", visible=False
     )
 
     info.lb3 = LineBreak()
@@ -741,14 +741,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     info.arb_flag = OptionField(
         "ARB Beoordelingsvlag",
-        default="Niet ingesteld",
+        default="",
         options=["Niet ingesteld", "puur groen", "groen/oranje", "oranje/groen", "puur oranje", "oranje/rood", "puur rood"],
         description="Huidige ARB (Assessment of Reliability of Bridges) statusvlag",
     )
 
     info.basic_test_ghpo = OptionField(
         "Basale Toets GHPO",
-        default="Niet ingesteld",
+        default="",
         options=["Niet ingesteld", "groen", "oranje", "rood", "nvt", "Wel"],
         description="Basale toetsresultaat voor GHPO (Richtlijn voor Beoordeling van Bestaande Constructies)",
     )
@@ -786,12 +786,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
 
     # Global input fields for applying dimensions to all segments
-    input.dimensions.bz1_input = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1, flex=33)
-    input.dimensions.bz2_input = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1, flex=33)
-    input.dimensions.bz3_input = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz1_input = NumberField("Breedte zone 1", default=None, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz2_input = NumberField("Breedte zone 2", default=None, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz3_input = NumberField("Breedte zone 3", default=None, suffix="m", min=0.1, flex=33)
     input.dimensions.lb_separator = LineBreak()
-    input.dimensions.dz_input = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m", min=0.05, flex=50)
-    input.dimensions.dz_2_input = NumberField("Dikte zone 2", default=0.8, suffix="m", min=0.05, flex=50)
+    input.dimensions.dz_input = NumberField("Dikte zone 1 en 3", default=None, suffix="m", min=0.05, flex=50)
+    input.dimensions.dz_2_input = NumberField("Dikte zone 2", default=None, suffix="m", min=0.05, flex=50)
     input.dimensions.lb_0 = LineBreak()
     input.dimensions.apply_dimensions_button = SetParamsButton(
         "Pas dimensies toe op alle segmenten",
@@ -805,19 +805,16 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         min=2,
         name="bridge_segments_array",
         default=[
-            _create_default_dimension_segment_row(l_value=0, is_first=True, support_type="Verende oplegging (x,y)"),
-            _create_default_dimension_segment_row(l_value=25, is_first=False, support_type="Nee"),
-            _create_default_dimension_segment_row(l_value=15, is_first=False, support_type="Nee"),
-            _create_default_dimension_segment_row(l_value=10, is_first=False, support_type="Verende oplegging (x,y)"),
+            _create_default_dimension_segment_row(l_value=0, is_first=True, support_type="")
         ],
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
 
-    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1, visible=False)
+    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=None, suffix="m", min=0.1, visible=False)
 
-    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1, visible=False)
+    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=None, suffix="m", min=0.1, visible=False)
 
-    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1, visible=False)
+    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=None, suffix="m", min=0.1, visible=False)
 
     # Thickness fields - editable only on first segment, read-only on others
     # Using callbacks to get first segment's values for output fields
@@ -850,7 +847,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     input.dimensions.array.dz = NumberField(
         "Dikte zone 1 en 3",
-        default=0.7,
+        default=None,
         suffix="m",
         min=0.05,
         visible=False,
@@ -859,14 +856,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     input.dimensions.array.dz_2 = NumberField(
         "Dikte zone 2",
-        default=0.8,
+        default=None,
         suffix="m",
         min=0.05,
         visible=False,
         description="Dikte van zone 2 (geldt voor gehele brug)",
     )
 
-    input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
+    input.dimensions.array.col_6 = NumberField("alpha", default=None, suffix="Graden", visible=False)
 
     _l_field_visibility_constraint = DynamicArrayConstraint(
         dynamic_array_name="bridge_segments_array",
@@ -874,14 +871,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
     input.dimensions.array.l = NumberField(
         "Afstand tot vorige snede",
-        default=10,
+        default=None,
         suffix="m",
         min=1.002,
         visible=_l_field_visibility_constraint,
     )
 
     input.dimensions.array.is_support = OptionField(
-        "Oplegging", options=["Nee", "Verende oplegging (x,y)", "Inklemming"], default="Nee", description="Type oplegging op deze locatie"
+        "Oplegging", options=["Nee", "Verende oplegging (x,y)", "Inklemming"], default="", description="Type oplegging op deze locatie"
     )
 
     input.dimensions.bridge_type_output = OutputField(
@@ -924,7 +921,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.staalsoort = OptionField(
         "Staalsoort",
         options=_get_steel_quality_options_dynamic,
-        default="B500B",
+        default="",
         description=(
             "Kwaliteit van het betonstaal. SCIA: alle materialen. IDEA: moderne en historische materialen. "
             "Oude staalsoorten worden automatisch ondersteund."
@@ -934,7 +931,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.steel_quality_source = OptionField(
         "Staalsoort bron",
         options=["Onbekend", "Aanname", "Tekening"],
-        default="Onbekend",
+        default="",
         description=("Bron van de staalsoort, bijvoorbeeld een aanname of afgeleid uit tekeningen."),
     )
 
@@ -957,14 +954,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     input.geometrie_wapening.dekking_boven = NumberField(
         "Betondekking boven",
-        default=55.0,
+        default=None,
         suffix="mm",
         flex=30,
         description="De betondekking aan de bovenzijde van de plaat.",
     )
     input.geometrie_wapening.dekking_onder = NumberField(
         "Betondekking onder",
-        default=55.0,
+        default=None,
         suffix="mm",
         flex=30,
         description="De betondekking aan de onderzijde van de plaat.",
@@ -977,20 +974,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         row_label="Wapeningsconfiguratie",
         default=[
             {
-                "zone_number": ["1-1", "2-1", "3-1"],  # Default to all zones for the first configuration
-                "hoofdwapening_langs_boven_diameter": 12,
-                "hoofdwapening_langs_boven_hart_op_hart": 150.0,
-                "hoofdwapening_dwars_boven_diameter": 12,
-                "hoofdwapening_dwars_boven_hart_op_hart": 150.0,
-                "hoofdwapening_langs_onder_diameter": 12,
-                "hoofdwapening_langs_onder_hart_op_hart": 150.0,
-                "hoofdwapening_dwars_onder_diameter": 12,
-                "hoofdwapening_dwars_onder_hart_op_hart": 150.0,
+                "zone_number": None,  # Default to all zones for the first configuration
+                "hoofdwapening_langs_boven_diameter": None,
+                "hoofdwapening_langs_boven_hart_op_hart": None,
+                "hoofdwapening_dwars_boven_diameter": None,
+                "hoofdwapening_dwars_boven_hart_op_hart": None,
+                "hoofdwapening_langs_onder_diameter": None,
+                "hoofdwapening_langs_onder_hart_op_hart": None,
+                "hoofdwapening_dwars_onder_diameter": None,
+                "hoofdwapening_dwars_onder_hart_op_hart": None,
                 "heeft_bijlegwapening": False,
-                "bijlegwapening_langs_boven_diameter": 12,
-                "bijlegwapening_dwars_boven_diameter": 12,
-                "bijlegwapening_langs_onder_diameter": 12,
-                "bijlegwapening_dwars_onder_diameter": 12,
+                "bijlegwapening_langs_boven_diameter": None,
+                "bijlegwapening_dwars_boven_diameter": None,
+                "bijlegwapening_langs_onder_diameter": None,
+                "bijlegwapening_dwars_onder_diameter": None,
             },
         ],
     )
@@ -998,7 +995,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.zone_number = MultiSelectField(
         "Zones",
         options=define_options_numbering,  # Use dynamic options based on number of segments
-        default=["1-1", "2-1", "3-1"],  # Default to all zones for the first configuration
+        default=None,  # Default to all zones for the first configuration
         description="Selecteer de zones waar deze wapeningsconfiguratie moet worden toegepast.",
     )
 
@@ -1006,42 +1003,42 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     # Main reinforcement - Longitudinal top
     input.geometrie_wapening.zones.hoofdwapening_langs_boven_diameter = OptionField(
-        "Ø hoofdwapening langsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
+        "Ø hoofdwapening langsrichting boven", options=_get_rebar_diameter_options, default=None, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_boven_hart_op_hart = NumberField(
-        "H.o.h. afstand hoofdwapening langsrichting boven", default=150.0, min=50, suffix="mm", flex=53
+        "H.o.h. afstand hoofdwapening langsrichting boven", default=None, min=50, suffix="mm", flex=53
     )
 
     input.geometrie_wapening.zones.lb3 = LineBreak()
 
     # Main reinforcement - Transverse Top
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_diameter = OptionField(
-        "Ø hoofdwapening dwarsrichting boven", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
+        "Ø hoofdwapening dwarsrichting boven", options=_get_rebar_diameter_options, default=None, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_boven_hart_op_hart = NumberField(
-        "H.o.h. afstand hoofdwapening dwarsrichting boven", default=150.0, min=50, suffix="mm", flex=53
+        "H.o.h. afstand hoofdwapening dwarsrichting boven", default=None, min=50, suffix="mm", flex=53
     )
 
     input.geometrie_wapening.zones.lb4 = LineBreak()
 
     # Main reinforcement - Longitudinal bottom
     input.geometrie_wapening.zones.hoofdwapening_langs_onder_diameter = OptionField(
-        "Ø hoofdwapening langsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
+        "Ø hoofdwapening langsrichting onder", options=_get_rebar_diameter_options, default=None, suffix="mm", flex=47
     )
     input.geometrie_wapening.zones.hoofdwapening_langs_onder_hart_op_hart = NumberField(
-        "H.o.h. afstand hoofdwapening langsrichting onder", default=150.0, min=50, suffix="mm", flex=53
+        "H.o.h. afstand hoofdwapening langsrichting onder", default=None, min=50, suffix="mm", flex=53
     )
 
     input.geometrie_wapening.zones.lb5 = LineBreak()
 
     # Main reinforcement - Transverse Bottom
     input.geometrie_wapening.zones.hoofdwapening_dwars_onder_diameter = OptionField(
-        "Ø hoofdwapening dwarsrichting onder", options=_get_rebar_diameter_options, default=12, suffix="mm", flex=47
+        "Ø hoofdwapening dwarsrichting onder", options=_get_rebar_diameter_options, default=None, suffix="mm", flex=47
     )
 
     input.geometrie_wapening.zones.hoofdwapening_dwars_onder_hart_op_hart = NumberField(
-        "H.o.h. afstand hoofdwapening dwarsrichting onder", default=150.0, min=50, suffix="mm", flex=53
+        "H.o.h. afstand hoofdwapening dwarsrichting onder", default=None, min=50, suffix="mm", flex=53
     )
 
     # Visual separator for bijlegwapening
@@ -1057,7 +1054,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.bijlegwapening_langs_boven_diameter = OptionField(
         "Ø bijlegwapening langsrichting boven",
         options=_get_rebar_diameter_options,
-        default=12,
+        default=None,
         suffix="mm",
         flex=47,
         visible=RowLookup("heeft_bijlegwapening"),
@@ -1076,7 +1073,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.bijlegwapening_dwars_boven_diameter = OptionField(
         "Ø bijlegwapening dwarsrichting boven",
         options=_get_rebar_diameter_options,
-        default=12,
+        default=None,
         suffix="mm",
         flex=47,
         visible=RowLookup("heeft_bijlegwapening"),
@@ -1095,7 +1092,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.bijlegwapening_langs_onder_diameter = OptionField(
         "Ø bijlegwapening langsrichting onder",
         options=_get_rebar_diameter_options,
-        default=12,
+        default=None,
         suffix="mm",
         flex=47,
         visible=RowLookup("heeft_bijlegwapening"),
@@ -1114,7 +1111,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.geometrie_wapening.zones.bijlegwapening_dwars_onder_diameter = OptionField(
         "Ø bijlegwapening dwarsrichting onder",
         options=_get_rebar_diameter_options,
-        default=12,
+        default=None,
         suffix="mm",
         flex=47,
         visible=RowLookup("heeft_bijlegwapening"),
@@ -1146,20 +1143,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Belastingzones",
         row_label="Belasting Zone",
         name="load_zones_data_array",
-        default=[
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[0], 1.5),  # Voetgangers
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[1], 3.0),  # Fietsers
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[2], 10.5),  # Auto (Rijbaan)
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[3], 1.435),  # Tram (standaardbreedte spoorwijdte)
-            _create_default_load_zone_row(LOAD_ZONE_TYPES[4], 0.5),  # Berm
-        ],
+        default=None,
     )
-    input.belastingzones.load_zones_array.zone_type = OptionField("Type belastingzone", options=LOAD_ZONE_TYPES, default=LOAD_ZONE_TYPES[0])
+    input.belastingzones.load_zones_array.zone_type = OptionField("Type belastingzone", options=LOAD_ZONE_TYPES, default="")
 
     # Pavement properties for load calculation
     input.belastingzones.load_zones_array.pavement_thickness = NumberField(
         "Dikte verharding",
-        default=0.05,  # 5cm default
+        default=None,  # 5cm default
         min=0.001,  # Minimum 1mm
         max=1.0,  # Maximum 1m
         suffix="m",
@@ -1170,7 +1161,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     input.belastingzones.load_zones_array.pavement_material = OptionField(
         "Materiaal verharding",
         options=PAVEMENT_MATERIAL_OPTIONS,
-        default="Asfalt",
+        default=None,
         description="Type materiaal van de verharding. Bepaalt de soortelijke massa voor eigengewichtberekening.",
     )
 
@@ -1183,7 +1174,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     for _idx_field in range(1, MAX_LOAD_ZONE_SEGMENT_FIELDS + 1):
         _field = NumberField(
             f"Breedte zone bij D{_idx_field}",
-            default=2.0,  # Default set to 2.0m for all fields
+            default=None,  # Default set to 2.0m for all fields
             min=0.01,  # Minimum value set to 0.01m (1cm)
             suffix="m",
             description=f"Breedte van deze belastingzone ter hoogte van dwarsdoorsnede D{_idx_field}.",
