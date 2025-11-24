@@ -20,6 +20,40 @@ from src.integrations.scia_integration.model.scia_model_interface import SciaMod
 # ===================================================================================================================
 
 
+def _get_combination_name(combination: Any) -> str:  # noqa: ANN401
+    """
+    Extract the name/identifier from a SCIA combination object.
+
+    :param combination: SCIA combination like object created by the builder.
+    :type combination: Any
+    :returns: Combination name if present, otherwise an empty string.
+    :rtype: str
+    """
+    for attr in ("name", "Name", "description", "Description"):
+        if hasattr(combination, attr):
+            return str(getattr(combination, attr))
+    return ""
+
+
+def _normalize_combination_name(name: str) -> str:
+    """
+    Normalize SCIA combination names so they can be compared to DataFrame indices.
+
+    Removes configuration suffixes like ``" - Config A"`` which are injected when
+    combinations contain traffic loads. This matches the raw combination name used
+    as DataFrame index entries (e.g., ``"6.10a LC1"``).
+
+    :param name: Raw combination name provided by SCIA.
+    :type name: str
+    :returns: Normalized combination name without configuration suffix.
+    :rtype: str
+    """
+    config_separator = " - Config "
+    if config_separator in name:
+        return name.split(config_separator, 1)[0].strip()
+    return name.strip()
+
+
 def filter_list_by_df_index(index_df: DataFrame, filter_list: list, prefixes: list[str]) -> list[Any]:
     """
     Filter items in ``filter_list`` whose index in ``index_df`` starts with any of the given prefixes.
@@ -33,11 +67,17 @@ def filter_list_by_df_index(index_df: DataFrame, filter_list: list, prefixes: li
     :returns: List of items from ``filter_list`` whose index in ``index_df`` matches any prefix.
     :rtype: list[Any]
     """
+    normalized_indices = {
+        str(df_index).strip()
+        for df_index in index_df.index
+        if any(str(df_index).startswith(prefix) for prefix in prefixes)
+    }
+
     filtered_items = []
-    for idx, df_index in enumerate(index_df.index):
-        df_index_str = str(df_index)
-        if any(df_index_str.startswith(prefix) for prefix in prefixes) and idx < len(filter_list):
-            filtered_items.append(filter_list[idx])
+    for combination in filter_list:
+        combination_name = _normalize_combination_name(_get_combination_name(combination))
+        if combination_name in normalized_indices:
+            filtered_items.append(combination)
     return filtered_items
 
 
