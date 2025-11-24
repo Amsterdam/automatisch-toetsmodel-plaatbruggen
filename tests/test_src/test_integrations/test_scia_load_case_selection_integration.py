@@ -90,6 +90,9 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "TS", "load_case_count": 30},
             {"include": True, "load_type": "Tram", "load_case_count": 10},
         ]
+        # Set criteria for tram loads to be enabled
+        params.berekeningsniveau = "Werkelijke wegindeling"
+        params.load_zones_data_array = [{"zone_type": "Tram", "d1_width": 1.435}]
 
         # Mock all the individual load case creation functions
         with (
@@ -151,6 +154,9 @@ class TestLoadCaseSelectionIntegration:
             {"include": True, "load_type": "TS", "load_case_count": 30},
             {"include": True, "load_type": "Tram", "load_case_count": 10},
         ]
+        # Set criteria for tram loads to be enabled
+        params.berekeningsniveau = "Werkelijke wegindeling onderliggend wegennet"
+        params.load_zones_data_array = [{"zone_type": "Tram", "d1_width": 1.435}]
 
         # Mock all the individual load case creation functions
         with (
@@ -190,7 +196,7 @@ class TestLoadCaseSelectionIntegration:
             assert list(result.keys()) == expected_keys
 
     def test_load_case_selection_missing_table_defaults_to_all_enabled(self) -> None:
-        """Test that missing selection table defaults to all enabled (except Tram)."""
+        """Test that missing selection table defaults to all enabled, but Tram is gated."""
         # Create a mock builder
         mock_builder = Mock()
 
@@ -199,6 +205,7 @@ class TestLoadCaseSelectionIntegration:
         # Mock bridge_segments_array to be a list
         params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         # Don't set load_case_selection_table attribute
+        # Don't set berekeningsniveau or load_zones_data_array (Tram should be blocked)
 
         # Mock all the individual load case creation functions
         with (
@@ -216,7 +223,7 @@ class TestLoadCaseSelectionIntegration:
             result = create_all_load_cases(mock_builder, params)
 
             # Verify all load types were called (default behavior)
-            # Note: Tram is NOT called by default (defaults to False)
+            # Note: Tram is NOT called because gating criteria are not met
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
@@ -225,7 +232,7 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_not_called()  # Tram defaults to False
+            mock_tram_track.assert_not_called()  # Tram blocked by gating logic
 
             # Verify result contains all load types except tram
             expected_keys = [
@@ -241,7 +248,7 @@ class TestLoadCaseSelectionIntegration:
             assert list(result.keys()) == expected_keys
 
     def test_load_case_selection_empty_table_defaults_to_all_enabled(self) -> None:
-        """Test that empty selection table defaults to all enabled (except Tram)."""
+        """Test that empty selection table defaults to all enabled, but Tram is gated."""
         # Create a mock builder
         mock_builder = Mock()
 
@@ -250,6 +257,7 @@ class TestLoadCaseSelectionIntegration:
         # Mock bridge_segments_array to be a list
         params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
         params.load_case_selection_table = []
+        # Don't set berekeningsniveau or load_zones_data_array (Tram should be blocked)
 
         # Mock all the individual load case creation functions
         with (
@@ -267,7 +275,7 @@ class TestLoadCaseSelectionIntegration:
             result = create_all_load_cases(mock_builder, params)
 
             # Verify all load types were called (default behavior)
-            # Note: Tram is NOT called by default (defaults to False)
+            # Note: Tram is NOT called because gating criteria are not met
             mock_self_weight.assert_called_once_with(mock_builder)
             mock_dead_loads.assert_called_once_with(mock_builder)
             mock_temperature.assert_called_once_with(mock_builder)
@@ -276,7 +284,7 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)
             mock_unintended.assert_called_once_with(mock_builder, params)
             mock_tandem.assert_called_once_with(mock_builder, params)
-            mock_tram_track.assert_not_called()  # Tram defaults to False
+            mock_tram_track.assert_not_called()  # Tram blocked by gating logic
 
             # Verify result contains all load types except tram
             expected_keys = [
@@ -331,7 +339,7 @@ class TestLoadCaseSelectionIntegration:
             mock_service.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_unintended.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
             mock_tandem.assert_called_once_with(mock_builder, params)  # Valid but not in table (defaults to enabled)
-            mock_tram_track.assert_not_called()  # Valid but not in table (defaults to DISABLED for Tram)
+            mock_tram_track.assert_not_called()  # Valid but not in table (blocked by gating logic)
 
             # Verify result contains all load types except tram (invalid ones are ignored, valid ones default to enabled except Tram)
             expected_keys = [
@@ -345,6 +353,117 @@ class TestLoadCaseSelectionIntegration:
                 "tandem_cases",
             ]
             assert list(result.keys()) == expected_keys
+
+    def test_tram_load_case_blocked_when_criteria_not_met(self) -> None:
+        """Test that tram loads are blocked when criteria are not met, even if checked."""
+        # Create a mock builder
+        mock_builder = Mock()
+
+        # Create mock params with tram checked but criteria not met
+        params = Mock()
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
+        params.load_case_selection_table = [
+            {"include": True, "load_type": "Tram", "load_case_count": 10},  # Checked but should be blocked
+        ]
+        # Set calculation level to "Theoretische wegindeling" (not one of the three required)
+        params.berekeningsniveau = "Theoretische wegindeling"
+        # No tram zones defined
+        params.load_zones_data_array = []
+
+        # Mock all the individual load case creation functions
+        with (
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as _mock_self_weight,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as _mock_dead_loads,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as _mock_temperature,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as _mock_udl,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as _mock_pedestrian,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as _mock_service,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as _mock_unintended,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as _mock_tandem,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
+        ):
+            # Execute the function
+            result = create_all_load_cases(mock_builder, params)
+
+            # Verify tram loads were NOT called even though checked
+            mock_tram_track.assert_not_called()
+
+            # Verify result does not contain tram loads
+            assert "tram_track_tandem_cases" not in result
+
+    def test_tram_load_case_allowed_when_criteria_met(self) -> None:
+        """Test that tram loads are allowed when all criteria are met."""
+        # Create a mock builder
+        mock_builder = Mock()
+
+        # Create mock params with tram checked and criteria met
+        params = Mock()
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
+        params.load_case_selection_table = [
+            {"include": True, "load_type": "Tram", "load_case_count": 10},
+        ]
+        # Set calculation level to one of the three "Werkelijke wegindeling" options
+        params.berekeningsniveau = "Werkelijke wegindeling"
+        # Define at least one tram zone
+        params.load_zones_data_array = [{"zone_type": "Tram", "d1_width": 1.435}]
+
+        # Mock all the individual load case creation functions
+        with (
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as _mock_self_weight,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as _mock_dead_loads,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as _mock_temperature,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as _mock_udl,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as _mock_pedestrian,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as _mock_service,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as _mock_unintended,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as _mock_tandem,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
+        ):
+            # Execute the function
+            result = create_all_load_cases(mock_builder, params)
+
+            # Verify tram loads were called
+            mock_tram_track.assert_called_once_with(mock_builder, params)
+
+            # Verify result contains tram loads
+            assert "tram_track_tandem_cases" in result
+
+    def test_tram_load_case_blocked_when_no_tram_zones(self) -> None:
+        """Test that tram loads are blocked when no tram zones are defined."""
+        # Create a mock builder
+        mock_builder = Mock()
+
+        # Create mock params with correct calculation level but no tram zones
+        params = Mock()
+        params.bridge_segments_array = [{"width": 10.0, "thickness": 0.5}]
+        params.load_case_selection_table = [
+            {"include": True, "load_type": "Tram", "load_case_count": 10},
+        ]
+        # Set calculation level to one of the three "Werkelijke wegindeling" options
+        params.berekeningsniveau = "Werkelijke wegindeling met bebording"
+        # No tram zones defined
+        params.load_zones_data_array = [{"zone_type": "Auto", "d1_width": 3.0}]
+
+        # Mock all the individual load case creation functions
+        with (
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_self_weight_load_case") as _mock_self_weight,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dead_load_cases") as _mock_dead_loads,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_temperature_load_cases") as _mock_temperature,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_udl_traffic_load_cases") as _mock_udl,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_pedestrian_load_case") as _mock_pedestrian,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_service_vehicle_load_cases") as _mock_service,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_unintended_vehicle_load_cases") as _mock_unintended,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tandem_load_cases") as _mock_tandem,
+            patch("src.integrations.scia_integration.load_system.scia_load_cases.create_dynamic_tram_track_tandem_load_cases") as mock_tram_track,
+        ):
+            # Execute the function
+            result = create_all_load_cases(mock_builder, params)
+
+            # Verify tram loads were NOT called
+            mock_tram_track.assert_not_called()
+
+            # Verify result does not contain tram loads
+            assert "tram_track_tandem_cases" not in result
 
 
 if __name__ == "__main__":
