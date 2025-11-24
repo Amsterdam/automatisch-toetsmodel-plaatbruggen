@@ -19,11 +19,11 @@ def _mock_init(self, storage=None) -> None:  # noqa: ANN001
     self.storage = storage or Mock()
     self._hash_cache = {}
     self._entity_cache = {}
-    
+
     # Mock entity object
     mock_entity = Mock()
     mock_entity.id = 12345
-    
+
     # Override _get_entity to return mock entity without API call
     self._get_entity = lambda entity_id: mock_entity
 

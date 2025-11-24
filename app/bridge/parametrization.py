@@ -5,29 +5,6 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
-from src.common.materials import get_reinforcement_qualities
 from viktor.core import Storage
 from viktor.errors import UserError
 from viktor.parametrization import (
@@ -52,6 +29,30 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
+
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
+from src.common.materials import get_reinforcement_qualities
 
 # --- Helper function for rebar diameter options ---
 
@@ -149,7 +150,7 @@ def _read_storage_warning_marker() -> dict[str, str] | None:
         warning_file = storage.get(STORAGE_WARNING_MARKER_KEY, scope="workspace")
     except FileNotFoundError:
         return None
-    except Exception as exc:  # noqa: BLE001 - show generic warning when storage fails
+    except Exception as exc:
         return {"message": f"Opslagstatus onbekend (lezen mislukt: {exc})", "timestamp": ""}
 
     raw_value = warning_file.getvalue()

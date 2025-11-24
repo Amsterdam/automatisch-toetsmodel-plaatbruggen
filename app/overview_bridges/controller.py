@@ -13,8 +13,17 @@ from io import StringIO
 # Add GeoPandas import (ensure it's installed in your venv)
 import geopandas as gpd
 import markdown
-
 import viktor.api_v1 as api  # Import VIKTOR API
+from viktor.core import (  # Import Color, ViktorController
+    File,
+    UserMessage,
+    ViktorController,  # Import Color, ViktorController
+)
+from viktor.errors import UserError  # Import UserError
+from viktor.parametrization import Parametrization  # Import for type hint
+from viktor.result import DownloadResult  # Import DownloadResult
+from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
+
 from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
@@ -29,15 +38,6 @@ from app.constants import (  # Replace relative imports with absolute imports
     CSS_PATH,
     VIKTOR_README_PATH,
 )
-from viktor.core import (  # Import Color, ViktorController
-    File,
-    UserMessage,
-    ViktorController,  # Import Color, ViktorController
-)
-from viktor.errors import UserError  # Import UserError
-from viktor.parametrization import Parametrization  # Import for type hint
-from viktor.result import DownloadResult  # Import DownloadResult
-from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
 # Import the parametrization from the separate file
 from .batch_calculation import BatchCalculationComponent

@@ -325,33 +325,35 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     :rtype: bool
     """
     import json
+
     from viktor.core import Storage
+
     from app.bridge.analysis_cache import _get_analysis_cache
     from src.common.constants.technical import AnalysisType
 
     print(f"DEBUG: check_idea_cache_status(bridge_entity_id={bridge_entity_id}, batch_results_cache_hash={batch_results_cache_hash})")
-    
+
     try:
         # Read marker from parent (overview) storage
         marker_key = f"bridge_{bridge_entity_id}_idea_cache_status"
         storage = Storage()
-        
+
         try:
             marker_file = storage.get(marker_key, scope="workspace")
             print(f"DEBUG: check_idea_cache_status - Found marker file: {marker_key}")
         except Exception:
             print(f"DEBUG: check_idea_cache_status - No marker file found: {marker_key}")
             return False
-        
+
         # Parse marker data
         marker_json = marker_file.getvalue() if hasattr(marker_file, "getvalue") else marker_file
         if isinstance(marker_json, bytes):
             marker_json = marker_json.decode("utf-8")
         marker_data = json.loads(marker_json)
-        
+
         cached_hash = marker_data.get("cache_hash")
         print(f"DEBUG: check_idea_cache_status - Marker cached_hash: {cached_hash}")
-        
+
         # If batch_results_cache_hash provided, use it for comparison
         if batch_results_cache_hash is not None:
             result = cached_hash == batch_results_cache_hash
@@ -359,27 +361,24 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
             # Verify actual cache file exists (not just marker)
             if result:  # Only verify if hash matches
                 try:
-                    print(f"DEBUG: check_idea_cache_status - Hash matches, verifying cache file exists...")
+                    print("DEBUG: check_idea_cache_status - Hash matches, verifying cache file exists...")
                     cache = _get_analysis_cache()
                     # Try to read actual cache file from entity storage
                     cache_file = cache.get_cached_analysis(
-                        params=bridge_params,
-                        analysis_type=AnalysisType.IDEA,
-                        entity_id=bridge_entity_id,
-                        template_path=None
+                        params=bridge_params, analysis_type=AnalysisType.IDEA, entity_id=bridge_entity_id, template_path=None
                     )
                     if cache_file is None:
-                        print(f"DEBUG: check_idea_cache_status - Cache file does NOT exist, returning False")
+                        print("DEBUG: check_idea_cache_status - Cache file does NOT exist, returning False")
                         result = False
                     else:
-                        print(f"DEBUG: check_idea_cache_status - Cache file verified, returning True")
+                        print("DEBUG: check_idea_cache_status - Cache file verified, returning True")
                 except FileNotFoundError:
-                    print(f"DEBUG: check_idea_cache_status - Cache file not found (FileNotFoundError), returning False")
+                    print("DEBUG: check_idea_cache_status - Cache file not found (FileNotFoundError), returning False")
                     result = False
                 except Exception as cache_verify_error:
                     # Log InternalError separately to identify storage quota issues
                     if type(cache_verify_error).__name__ == "InternalError":
-                        print(f"DEBUG: check_idea_cache_status - Storage error (InternalError), returning False")
+                        print("DEBUG: check_idea_cache_status - Storage error (InternalError), returning False")
                     else:
                         print(f"DEBUG: check_idea_cache_status - Cache verification failed: {type(cache_verify_error).__name__}, returning False")
                     result = False
@@ -393,26 +392,23 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
         # Verify actual cache file exists (not just marker)
         if result:  # Only verify if hash matches
             try:
-                print(f"DEBUG: check_idea_cache_status - Hash matches, verifying cache file exists...")
+                print("DEBUG: check_idea_cache_status - Hash matches, verifying cache file exists...")
                 # Try to read actual cache file from entity storage
                 cache_file = cache.get_cached_analysis(
-                    params=bridge_params,
-                    analysis_type=AnalysisType.IDEA,
-                    entity_id=bridge_entity_id,
-                    template_path=None
+                    params=bridge_params, analysis_type=AnalysisType.IDEA, entity_id=bridge_entity_id, template_path=None
                 )
                 if cache_file is None:
-                    print(f"DEBUG: check_idea_cache_status - Cache file does NOT exist, returning False")
+                    print("DEBUG: check_idea_cache_status - Cache file does NOT exist, returning False")
                     result = False
                 else:
-                    print(f"DEBUG: check_idea_cache_status - Cache file verified, returning True")
+                    print("DEBUG: check_idea_cache_status - Cache file verified, returning True")
             except FileNotFoundError:
-                print(f"DEBUG: check_idea_cache_status - Cache file not found (FileNotFoundError), returning False")
+                print("DEBUG: check_idea_cache_status - Cache file not found (FileNotFoundError), returning False")
                 result = False
             except Exception as cache_verify_error:
                 # Log InternalError separately to identify storage quota issues
                 if type(cache_verify_error).__name__ == "InternalError":
-                    print(f"DEBUG: check_idea_cache_status - Storage error (InternalError), returning False")
+                    print("DEBUG: check_idea_cache_status - Storage error (InternalError), returning False")
                 else:
                     print(f"DEBUG: check_idea_cache_status - Cache verification failed: {type(cache_verify_error).__name__}, returning False")
                 result = False
@@ -421,6 +417,7 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     except Exception as e:
         # If cache check fails (e.g., storage issues), assume no cache
         import traceback
+
         print(f"DEBUG: check_idea_cache_status(bridge_entity_id={bridge_entity_id}) - Exception: {type(e).__name__}: {e}")
         print(f"DEBUG: check_idea_cache_status - Traceback:\n{traceback.format_exc()}")
         return False

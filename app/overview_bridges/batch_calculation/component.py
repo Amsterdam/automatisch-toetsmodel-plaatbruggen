@@ -6,12 +6,13 @@ import traceback
 from typing import Any
 
 import viktor.api_v1 as api
-from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY, _get_analysis_cache, get_cached_analysis_results, get_idea_analysis_results
-from src.common.constants.technical import AnalysisType
 from viktor.core import Color, Storage, UserMessage, progress_message
 from viktor.errors import UserError
 from viktor.parametrization import Parametrization
 from viktor.views import TableCell, TableResult, TableView
+
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY, _get_analysis_cache, get_cached_analysis_results, get_idea_analysis_results
+from src.common.constants.technical import AnalysisType
 
 from .utils import (
     calculate_estimated_batch_time,
@@ -46,13 +47,14 @@ class BatchCalculationComponent:
         :rtype: TableResult
         """
         storage = Storage()
-        
+
         # Check for storage warning marker
         storage_warning_message = None
         try:
             warning_file = storage.get(STORAGE_WARNING_MARKER_KEY, scope="workspace")
             if warning_file:
                 import json
+
                 warning_data = json.loads(warning_file.getvalue())
                 storage_warning_message = warning_data.get("message", "Opslaglimiet bereikt")
         except (FileNotFoundError, Exception):
@@ -96,6 +98,7 @@ class BatchCalculationComponent:
             # Fetch fresh entity to get most current saved params
             try:
                 from viktor.api_v1 import API
+
                 fresh_entity = API().get_entity(bridge_id)
                 bridge_params = fresh_entity.last_saved_params
             except Exception:
@@ -155,10 +158,7 @@ class BatchCalculationComponent:
                     logger.info(f"Bridge {bridge_id}: Cache marked as valid but no batch_results entry - reading from entity cache")
                     cache = _get_analysis_cache()
                     idea_results = cache.get_cached_analysis(
-                        params=bridge_params,
-                        analysis_type=AnalysisType.IDEA,
-                        entity_id=bridge_id,
-                        template_path=None
+                        params=bridge_params, analysis_type=AnalysisType.IDEA, entity_id=bridge_id, template_path=None
                     )
 
                     if idea_results is not None:
@@ -183,13 +183,15 @@ class BatchCalculationComponent:
                     logger.warning(f"Bridge {bridge_id}: Failed to read entity cache: {type(e).__name__} - showing '-'")
 
             # Store data with sort priority
-            bridge_data_list.append((
-                sort_priority,
-                bridge_name,
-                [status_display, missing_fields_str, max_uc_str, uc_status_str, failed_checks_str, report_url],
-                uc_status_str,
-                max_uc_str if max_uc_str != "-" else "0.0"
-            ))
+            bridge_data_list.append(
+                (
+                    sort_priority,
+                    bridge_name,
+                    [status_display, missing_fields_str, max_uc_str, uc_status_str, failed_checks_str, report_url],
+                    uc_status_str,
+                    max_uc_str if max_uc_str != "-" else "0.0",
+                )
+            )
 
         # Sort: ready but not cached first, then cached, then not ready
         # Within each group, sort by max UC descending, then by bridge name
@@ -228,18 +230,20 @@ class BatchCalculationComponent:
 
         # Add storage warning row if marker exists
         if storage_warning_message:
-            summary_data.append([
-                TableCell(
-                    f"⚠️ OPSLAGMODUS: Berekeningen lopen zonder cache (langzamer). Fout: {storage_warning_message}",
-                    text_style="bold",
-                    background_color=Color(255, 200, 100)  # Orange warning
-                ),
-                "",
-                "",
-                "",
-                "",
-                "",
-            ])
+            summary_data.append(
+                [
+                    TableCell(
+                        f"⚠️ OPSLAGMODUS: Berekeningen lopen zonder cache (langzamer). Fout: {storage_warning_message}",
+                        text_style="bold",
+                        background_color=Color(255, 200, 100),  # Orange warning
+                    ),
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
 
         summary_row_headers = ["Status", "Geschatte tijd"]
         if storage_warning_message:
@@ -261,7 +265,7 @@ class BatchCalculationComponent:
 
         return TableResult(final_table_data, column_headers=headers, row_headers=final_row_headers)
 
-    def refresh_batch_status(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002, ARG004
+    def refresh_batch_status(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002
         """
         Refresh the batch status view without recalculation.
 
@@ -306,12 +310,13 @@ class BatchCalculationComponent:
                 # Fetch fresh entity to get most current saved params
                 try:
                     from viktor.api_v1 import API
+
                     fresh_entity = API().get_entity(bridge_entity.id)
                     bridge_params = fresh_entity.last_saved_params
                 except Exception:
                     # Fallback to cached entity if API call fails
                     bridge_params = bridge_entity.last_saved_params
-                    
+
                 is_ready, _, _ = validate_bridge_for_calculation(bridge_params, bridge_entity)
                 if is_ready:
                     ready_bridges.append((bridge_entity, bridge_params))
@@ -469,9 +474,8 @@ class BatchCalculationComponent:
                         # Exit loop cleanly - return early with partial results
                         logger.info("Exiting batch calculation due to cancellation")
                         return
-                    else:
-                        # First iteration and flag doesn't exist - this is normal, continue
-                        logger.info("batch_calculation_running flag not found on first check - continuing (storage may be full or flag not set)")
+                    # First iteration and flag doesn't exist - this is normal, continue
+                    logger.info("batch_calculation_running flag not found on first check - continuing (storage may be full or flag not set)")
                 except Exception as storage_error:
                     # Storage error (likely full) - log but CONTINUE
                     logger.warning("Storage check failed (%s), continuing calculation in storage-free mode...", type(storage_error).__name__)
@@ -580,10 +584,7 @@ class BatchCalculationComponent:
                 storage.set("batch_calculation_results", batch_results_file, scope="entity")
                 logger.info("Batch results saved to storage successfully")
             except Exception as storage_error:
-                logger.warning(
-                    "Failed to save batch results to storage (%s) - results available in this session only",
-                    type(storage_error).__name__
-                )
+                logger.warning("Failed to save batch results to storage (%s) - results available in this session only", type(storage_error).__name__)
                 # Continue - results are still in memory for this job
                 # User can see them in current view, just won't persist
 
@@ -640,4 +641,3 @@ class BatchCalculationComponent:
             except Exception as cleanup_error:
                 logger.warning("Failed to clear running flag (%s) - not critical", type(cleanup_error).__name__)
                 # Don't fail - this is cleanup, storage might be full
-

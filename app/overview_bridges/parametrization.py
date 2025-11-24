@@ -75,19 +75,13 @@ class OverviewBridgesParametrization(Parametrization):
 
     batch_calculation.action_buttons = Text("### Acties")
     batch_calculation.refresh_button = ActionButton(
-        "Ververs Statusoverzicht",
-        method="refresh_batch_status",
-        description="Herlaad de status en resultaten zonder opnieuw te berekenen"
+        "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
     )
     batch_calculation.calculate_button = ActionButton(
-        "Start Berekening",
-        method="run_batch_calculation",
-        description="Start batch berekening voor alle bruggen die klaar zijn"
+        "Start Berekening", method="run_batch_calculation", description="Start batch berekening voor alle bruggen die klaar zijn"
     )
 
     batch_calculation.cache_section = Text("### Cache Beheer")
     batch_calculation.clear_cache_button = ActionButton(
-        "Wis Workspace Cache",
-        method="clear_workspace_storage",
-        description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
+        "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
     )

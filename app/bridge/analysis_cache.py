@@ -15,6 +15,10 @@ from io import BytesIO
 from typing import Any
 
 import viktor.api_v1 as api
+from viktor.core import File, Storage, progress_message
+from viktor.errors import InternalError, UserError
+from viktor.external import idea_rcs
+
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
@@ -22,10 +26,6 @@ from src.integrations.idea_integration.idea_interface import create_bridge_idea_
 from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_cs_results_for_idea,
 )
-from viktor.core import File, Storage, progress_message
-from viktor.errors import InternalError, UserError
-from viktor.external import idea_rcs
-
 
 STORAGE_WARNING_MARKER_KEY = "storage_warning_state"
 
@@ -339,7 +339,9 @@ class AnalysisCache:
             try:
                 print(f"DEBUG: _get_entity({entity_id}) - Calling API().get_entity()...")
                 entity_obj = api.API().get_entity(entity_id)
-                print(f"DEBUG: _get_entity({entity_id}) - Successfully retrieved entity: {type(entity_obj).__name__}, id={getattr(entity_obj, 'id', 'N/A')}")
+                print(
+                    f"DEBUG: _get_entity({entity_id}) - Successfully retrieved entity: {type(entity_obj).__name__}, id={getattr(entity_obj, 'id', 'N/A')}"
+                )
                 self._entity_cache[entity_id] = entity_obj
             except Exception as e:
                 print(f"DEBUG: _get_entity({entity_id}) - API call failed: {type(e).__name__}: {e}")
@@ -362,14 +364,13 @@ class AnalysisCache:
             input_hash = self._generate_input_hash(params, analysis_type, template_path)
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
-            print(
-                f"DEBUG: get_cached_analysis(entity_id={entity_id}, analysis_type={analysis_type.value}) "
-                f"- cache_key={cache_key}"
-            )
+            print(f"DEBUG: get_cached_analysis(entity_id={entity_id}, analysis_type={analysis_type.value}) - cache_key={cache_key}")
 
             # Storage retrieval from current entity scope
             cached_file = self.storage.get(cache_key, scope="entity")
-            print(f"DEBUG: get_cached_analysis(entity_id={entity_id}) - storage.get() returned: {type(cached_file).__name__ if cached_file else 'None'}")
+            print(
+                f"DEBUG: get_cached_analysis(entity_id={entity_id}) - storage.get() returned: {type(cached_file).__name__ if cached_file else 'None'}"
+            )
             if cached_file:
                 # Read the base64-encoded data
                 if hasattr(cached_file, "getvalue"):
@@ -395,14 +396,9 @@ class AnalysisCache:
                 f"DEBUG: get_cached_analysis(entity_id={entity_id}, analysis_type={analysis_type.value}) "
                 f"- Exception during storage access: {type(e).__name__}: {e}"
             )
-            print(
-                f"DEBUG: get_cached_analysis(entity_id={entity_id}, analysis_type={analysis_type.value}) "
-                f"- Full traceback:\n{error_details}"
-            )
+            print(f"DEBUG: get_cached_analysis(entity_id={entity_id}, analysis_type={analysis_type.value}) - Full traceback:\n{error_details}")
             if isinstance(e, InternalError):
-                self._write_storage_warning(
-                    f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})"
-                )
+                self._write_storage_warning(f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})")
 
         return None
 
@@ -431,11 +427,11 @@ class AnalysisCache:
         :rtype: bool
         """
         print(f"WARNING: Storage full for entity {entity_id} - attempting automatic cleanup...")
-        
+
         try:
             deleted_entity = 0
             deleted_workspace = 0
-            
+
             # 1. Clear ALL cache files from current entity's storage
             try:
                 entity_keys = self.storage.list(scope="entity")
@@ -448,7 +444,7 @@ class AnalysisCache:
                             pass
             except Exception as e:
                 print(f"WARNING: Failed to clear entity storage: {e}")
-            
+
             # 2. Clear workspace markers and batch results
             try:
                 workspace_keys = self.storage.list(scope="workspace")
@@ -461,20 +457,21 @@ class AnalysisCache:
                             pass
             except Exception as e:
                 print(f"WARNING: Failed to clear workspace storage: {e}")
-            
+
             print(f"INFO: Auto-cleanup freed {deleted_entity} entity files + {deleted_workspace} workspace files")
-            
+
             # 3. Retry the cache save
             try:
                 self.storage.set(cache_key, data=cached_file, scope="entity")
-                print(f"SUCCESS: Auto-cleanup successful - cache saved after cleanup")
+                print("SUCCESS: Auto-cleanup successful - cache saved after cleanup")
                 return True
             except Exception as e:
                 print(f"WARNING: Cache save still failed after cleanup: {type(e).__name__}: {e}")
                 return False
-                
+
         except Exception as e:
             import traceback
+
             print(f"ERROR: Auto-cleanup failed: {type(e).__name__}: {e}")
             print(f"DEBUG: Traceback:\n{traceback.format_exc()}")
             return False
@@ -496,7 +493,9 @@ class AnalysisCache:
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
-        print(f"DEBUG: cache_analysis_results(entity_id={entity_id}, analysis_type={analysis_type.value}) - cache_key={cache_key}, input_hash={input_hash}")
+        print(
+            f"DEBUG: cache_analysis_results(entity_id={entity_id}, analysis_type={analysis_type.value}) - cache_key={cache_key}, input_hash={input_hash}"
+        )
 
         try:
             # Filter results to exclude large binary files (ESA, XML output)
@@ -506,24 +505,28 @@ class AnalysisCache:
                 cacheable_results = extract_cacheable_idea_results(results)
             else:
                 cacheable_results = results  # Fallback
-            
-            print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Filtered from {len(str(results))} to {len(str(cacheable_results))} chars (approx)")
-            
+
+            print(
+                f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Filtered from {len(str(results))} to {len(str(cacheable_results))} chars (approx)"
+            )
+
             # Pickle the filtered results and encode as base64 to avoid binary data issues
             cached_data = pickle.dumps(cacheable_results)
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             size_mb = len(encoded_data) / (1024 * 1024)
             print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Encoded data size: {len(encoded_data)} bytes ({size_mb:.2f} MB)")
-            
+
             # Size check: Skip caching if data is too large (> 20 MB)
             MAX_CACHE_SIZE_MB = 20
             if size_mb > MAX_CACHE_SIZE_MB:
-                print(f"WARNING: cache_analysis_results(entity_id={entity_id}) - Data size {size_mb:.2f} MB exceeds limit of {MAX_CACHE_SIZE_MB} MB, skipping cache save")
-                print(f"WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
+                print(
+                    f"WARNING: cache_analysis_results(entity_id={entity_id}) - Data size {size_mb:.2f} MB exceeds limit of {MAX_CACHE_SIZE_MB} MB, skipping cache save"
+                )
+                print("WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
                 return False
-            
+
             cached_file = File.from_data(encoded_data)
-            
+
             # CRITICAL: Delete old cache files for this entity + analysis type BEFORE saving new one.
             # In practice the entire Storage() API (list/get/set/delete) starts throwing InternalError once
             # the workspace quota is saturated. We therefore avoid Storage.list() and rely on the workspace
@@ -533,13 +536,13 @@ class AnalysisCache:
             print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Checking for old cache via marker...")
             try:
                 import json
-                
+
                 # Read workspace marker to get old hash
                 marker_key = f"bridge_{entity_id}_{analysis_type.value}_cache_status"
                 marker_file = self.storage.get(marker_key, scope="workspace")
                 marker_data = json.loads(marker_file.getvalue())
                 old_hash = marker_data.get("cached_hash")
-                
+
                 if old_hash and old_hash != input_hash:
                     # Construct old cache key from marker and delete it
                     old_cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{old_hash}"
@@ -549,9 +552,7 @@ class AnalysisCache:
                     except Exception as delete_error:
                         print(f"WARNING: Failed to delete old cache {old_cache_key}: {delete_error}")
                         if isinstance(delete_error, InternalError):
-                            self._write_storage_warning(
-                                f"Opslag verwijderen mislukt voor {old_cache_key}"
-                            )
+                            self._write_storage_warning(f"Opslag verwijderen mislukt voor {old_cache_key}")
                 elif old_hash == input_hash:
                     print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Hash unchanged, no deletion needed")
             except FileNotFoundError:
@@ -559,62 +560,56 @@ class AnalysisCache:
             except Exception as marker_error:
                 print(f"WARNING: Failed to read marker for old cache deletion: {marker_error}")
                 if isinstance(marker_error, InternalError):
-                    self._write_storage_warning(
-                        f"Opslag lezen van cache marker mislukt ({analysis_type.value})"
-                    )
-            
+                    self._write_storage_warning(f"Opslag lezen van cache marker mislukt ({analysis_type.value})")
+
             # Write to local entity storage (current entity scope)
             try:
                 self.storage.set(cache_key, data=cached_file, scope="entity")
                 print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Successfully saved to local storage with key={cache_key}")
                 self._clear_storage_warning()
-                
+
                 # Notify parent entity of cache status
                 notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
                 return True
-                
+
             except Exception as storage_error:
                 if isinstance(storage_error, InternalError):
-                    self._write_storage_warning(
-                        f"Opslag schrijven mislukt voor {cache_key}"
-                    )
-                    print(f"WARNING: Storage full detected - attempting automatic cleanup...")
-                    
+                    self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
+                    print("WARNING: Storage full detected - attempting automatic cleanup...")
+
                     # Attempt automatic cleanup and retry
-                    cleanup_success = self._attempt_storage_cleanup_and_retry(
-                        entity_id, cache_key, cached_file
-                    )
-                    
+                    cleanup_success = self._attempt_storage_cleanup_and_retry(entity_id, cache_key, cached_file)
+
                     if cleanup_success:
                         # Cleanup worked! Notify parent and return success
                         try:
                             notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
                         except Exception:
                             pass  # Don't fail if notification fails
-                        
+
                         self._clear_storage_warning()
                         print(f"SUCCESS: Storage auto-cleanup successful for entity {entity_id}")
                         return True
-                    else:
-                        # Cleanup failed - use fail-safe
-                        print(f"WARNING: Storage auto-cleanup failed for entity {entity_id} - using fail-safe")
-                        print(f"WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
-                        return False
-                else:
-                    # Not a storage error, just fail gracefully
-                    import traceback
-                    error_details = traceback.format_exc()
-                    print(f"WARNING: cache_analysis_results(entity_id={entity_id}) - Cache save failed: {type(storage_error).__name__}: {storage_error}")
-                    print(f"WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
-                    print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Full traceback:\n{error_details}")
+                    # Cleanup failed - use fail-safe
+                    print(f"WARNING: Storage auto-cleanup failed for entity {entity_id} - using fail-safe")
+                    print("WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
                     return False
-            
+                # Not a storage error, just fail gracefully
+                import traceback
+
+                error_details = traceback.format_exc()
+                print(f"WARNING: cache_analysis_results(entity_id={entity_id}) - Cache save failed: {type(storage_error).__name__}: {storage_error}")
+                print("WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
+                print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Full traceback:\n{error_details}")
+                return False
+
         except Exception as e:
             # General error during caching setup
             import traceback
+
             error_details = traceback.format_exc()
             print(f"WARNING: cache_analysis_results(entity_id={entity_id}) - Cache preparation failed: {type(e).__name__}: {e}")
-            print(f"WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
+            print("WARNING: Analysis results will be returned but NOT cached. Future runs will recalculate.")
             print(f"DEBUG: cache_analysis_results(entity_id={entity_id}) - Full traceback:\n{error_details}")
             return False
 
@@ -711,7 +706,7 @@ def notify_parent_of_cache_status(
         print(f"DEBUG: notify_parent_of_cache_status(entity_id={entity_id}, type={analysis_type.value}) - Getting parent entity...")
         current_entity = api.API().get_entity(entity_id)
         parent_entity = current_entity.parent()
-        
+
         if parent_entity is None:
             print(f"DEBUG: notify_parent_of_cache_status(entity_id={entity_id}) - No parent entity found, skipping notification")
             return
@@ -734,7 +729,7 @@ def notify_parent_of_cache_status(
         # Write to workspace storage (accessible by all entities)
         parent_storage = Storage()
         parent_storage.set(marker_key, data=marker_file, scope="workspace")
-        
+
         print(f"DEBUG: notify_parent_of_cache_status(entity_id={entity_id}) - Successfully wrote marker to parent storage: {marker_key}")
     except Exception as e:
         # Don't fail the analysis if parent notification fails
@@ -893,7 +888,9 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
         print(f"DEBUG: has_valid_idea_cache(entity_id={entity_id}, expected_hash={expected_hash}) - cache_key={cache_key}")
         try:
             cached_file = cache.storage.get(cache_key, scope="entity")
-            print(f"DEBUG: has_valid_idea_cache(entity_id={entity_id}) - storage.get() returned: {type(cached_file).__name__ if cached_file else 'None'}")
+            print(
+                f"DEBUG: has_valid_idea_cache(entity_id={entity_id}) - storage.get() returned: {type(cached_file).__name__ if cached_file else 'None'}"
+            )
         except Exception as e:
             print(f"DEBUG: has_valid_idea_cache(entity_id={entity_id}) - Exception: {type(e).__name__}: {e}")
             return False
