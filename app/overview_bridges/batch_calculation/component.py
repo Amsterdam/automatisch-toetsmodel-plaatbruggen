@@ -197,7 +197,7 @@ class BatchCalculationComponent:
         # Within each group, sort by max UC descending, then by bridge name
         def sort_key(item: tuple) -> tuple:
             priority, bridge_name, data_row, uc_status, max_uc = item
-            max_uc_value = float(max_uc) if max_uc != "-" and max_uc != "0.0" else -1.0
+            max_uc_value = float(max_uc) if max_uc not in {"-", "0.0"} else -1.0
             # Failed first, then by max UC descending
             uc_priority = 0 if uc_status == "FAILED" else 1
             return (priority, uc_priority, -max_uc_value, bridge_name)

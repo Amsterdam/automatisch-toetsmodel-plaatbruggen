@@ -705,12 +705,7 @@ class OverviewBridgesController(BatchCalculationComponent, ViktorController):
             deleted_count = 0
             for key in all_keys:
                 # Delete cache markers, batch results, running flags, and storage warnings
-                if (
-                    key == STORAGE_WARNING_MARKER_KEY
-                    or key.startswith("analysis_cache_")
-                    or key.startswith("bridge_")
-                    or key.startswith("batch_calculation_")
-                ):
+                if key == STORAGE_WARNING_MARKER_KEY or key.startswith(("analysis_cache_", "bridge_", "batch_calculation_")):
                     try:
                         storage.delete(key, scope="workspace")
                         deleted_count += 1
@@ -720,7 +715,7 @@ class OverviewBridgesController(BatchCalculationComponent, ViktorController):
             # Also clear this entity's own storage
             entity_keys = storage.list(scope="entity")
             for key in entity_keys:
-                if key.startswith("batch_calculation_") or key.startswith("analysis_cache_"):
+                if key.startswith(("batch_calculation_", "analysis_cache_")):
                     try:
                         storage.delete(key, scope="entity")
                         deleted_count += 1

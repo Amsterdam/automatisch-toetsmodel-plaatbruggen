@@ -25,7 +25,14 @@ def _mock_init(self, storage=None) -> None:  # noqa: ANN001
     mock_entity.id = 12345
 
     # Override _get_entity to return mock entity without API call
-    self._get_entity = lambda entity_id: mock_entity
+    self._get_entity = lambda _entity_id: mock_entity
+
+
+def _mock_init_no_override(self, storage=None) -> None:  # noqa: ANN001
+    """Mock __init__ that properly initializes cache object without overriding _get_entity."""
+    self.storage = storage or Mock()
+    self._hash_cache = {}
+    self._entity_cache = {}
 
 
 class TestAnalysisCache(unittest.TestCase):
@@ -189,14 +196,16 @@ class TestAnalysisCache(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_entity.side_effect = Exception("API not available")
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Test cache hit
-                result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", return_value=mock_api),
+        ):
+            cache = AnalysisCache()
+            # Test cache hit
+            result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
 
-                assert result is not None
-                assert result == cached_results
+            assert result is not None
+            assert result == cached_results
 
     def test_get_cached_analysis_cache_miss(self) -> None:
         """Test cache miss scenario."""
@@ -208,13 +217,15 @@ class TestAnalysisCache(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_entity.side_effect = Exception("API not available")
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Test cache miss
-                result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", return_value=mock_api),
+        ):
+            cache = AnalysisCache()
+            # Test cache miss
+            result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
 
-                assert result is None
+            assert result is None
 
     def test_cache_analysis_results(self) -> None:
         """Test caching analysis results."""
@@ -228,14 +239,16 @@ class TestAnalysisCache(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_entity.side_effect = Exception("API not available")
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Cache results
-                cache.cache_analysis_results(self.default_params, AnalysisType.SCIA, self.entity_id, test_results, "/template/path")
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", return_value=mock_api),
+        ):
+            cache = AnalysisCache()
+            # Cache results
+            cache.cache_analysis_results(self.default_params, AnalysisType.SCIA, self.entity_id, test_results, "/template/path")
 
-                # Verify storage was called
-                mock_storage_instance.set.assert_called_once()
+            # Verify storage was called
+            mock_storage_instance.set.assert_called_once()
 
     def test_clear_cache(self) -> None:
         """Test cache clearing."""
@@ -249,22 +262,24 @@ class TestAnalysisCache(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_entity.side_effect = Exception("API not available")
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Test that the method can be called without errors
-                # The actual implementation might have issues with pattern matching
-                # but we can at least test that the method exists and can be called
-                try:
-                    cache.clear_cache(self.entity_id, AnalysisType.SCIA)
-                    cache.clear_cache(self.entity_id)
-                    # If we get here, the method executed without errors
-                    assert True
-                except Exception as e:
-                    self.fail(f"clear_cache method failed with error: {e}")
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", return_value=mock_api),
+        ):
+            cache = AnalysisCache()
+            # Test that the method can be called without errors
+            # The actual implementation might have issues with pattern matching
+            # but we can at least test that the method exists and can be called
+            try:
+                cache.clear_cache(self.entity_id, AnalysisType.SCIA)
+                cache.clear_cache(self.entity_id)
+                # If we get here, the method executed without errors
+                assert True
+            except Exception as e:
+                self.fail(f"clear_cache method failed with error: {e}")
 
-                # Verify that storage.list() was called (which it should be)
-                mock_storage_instance.list.assert_called()
+            # Verify that storage.list() was called (which it should be)
+            mock_storage_instance.list.assert_called()
 
     def test_get_entity_with_api(self) -> None:
         """Test _get_entity method with API available."""
@@ -273,25 +288,31 @@ class TestAnalysisCache(unittest.TestCase):
         mock_entity = Mock()
         mock_entity.id = self.entity_id
 
-        # Mock API
-        mock_api = Mock()
-        mock_api.get_entity.return_value = mock_entity
+        # Mock API - create a Mock class that when instantiated returns a mock with get_entity
+        mock_api_instance = Mock()
+        mock_api_instance.get_entity.return_value = mock_entity
+        mock_api_class = Mock(return_value=mock_api_instance)
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Test getting entity
-                entity = cache._get_entity(self.entity_id)
+        # Don't override _get_entity in this test - we want to test the real method
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+        ):
+            cache = AnalysisCache()
+            # Test getting entity
+            entity = cache._get_entity(self.entity_id)
 
-                # Verify entity was retrieved
-                assert entity == mock_entity
-                mock_api.get_entity.assert_called_once_with(self.entity_id)
+            # Verify entity was retrieved (compare IDs instead of objects)
+            assert entity is not None
+            assert entity.id == mock_entity.id
+            mock_api_instance.get_entity.assert_called_once_with(self.entity_id)
 
-                # Test memoization - second call should use cache
-                entity2 = cache._get_entity(self.entity_id)
-                assert entity2 == mock_entity
-                # API should still only be called once
-                assert mock_api.get_entity.call_count == 1
+            # Test memoization - second call should use cache
+            entity2 = cache._get_entity(self.entity_id)
+            assert entity2 is not None
+            assert entity2.id == mock_entity.id
+            # API should still only be called once
+            assert mock_api_instance.get_entity.call_count == 1
 
     def test_get_entity_without_api(self) -> None:
         """Test _get_entity method when API is unavailable (e.g., in tests)."""
@@ -299,17 +320,21 @@ class TestAnalysisCache(unittest.TestCase):
         mock_storage_instance = Mock()
 
         # Mock API to raise exception
-        mock_api = Mock()
-        mock_api.get_entity.side_effect = Exception("API not available")
+        mock_api_instance = Mock()
+        mock_api_instance.get_entity.side_effect = Exception("API not available")
+        mock_api_class = Mock(return_value=mock_api_instance)
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Test getting entity when API fails
-                entity = cache._get_entity(self.entity_id)
+        # Don't override _get_entity in this test - we want to test the real method
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+        ):
+            cache = AnalysisCache()
+            # Test getting entity when API fails
+            entity = cache._get_entity(self.entity_id)
 
-                # Should return None when API is unavailable
-                assert entity is None
+            # Should return None when API is unavailable
+            assert entity is None
 
     def test_get_cached_analysis_with_entity(self) -> None:
         """Test get_cached_analysis passes entity to Storage.get."""
@@ -327,27 +352,31 @@ class TestAnalysisCache(unittest.TestCase):
         mock_file = File.from_data(encoded_data)
         mock_storage_instance.get.return_value = mock_file
 
-        # Mock API
-        mock_api = Mock()
-        mock_api.get_entity.return_value = mock_entity
+        # Mock API - create a Mock class that when instantiated returns a mock with get_entity
+        mock_api_instance = Mock()
+        mock_api_instance.get_entity.return_value = mock_entity
+        mock_api_class = Mock(return_value=mock_api_instance)
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Test cache hit
-                result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
+        # Don't override _get_entity - use the real method which will call the mocked API
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+        ):
+            cache = AnalysisCache()
+            # Test cache hit
+            result = cache.get_cached_analysis(self.default_params, AnalysisType.SCIA, self.entity_id, "/template/path")
 
-                # Verify result
-                assert result is not None
-                assert result == cached_results
+            # Verify result
+            assert result is not None
+            assert result == cached_results
 
-                # Verify storage.get was called with entity parameter
-                mock_storage_instance.get.assert_called_once()
-                call_args = mock_storage_instance.get.call_args
-                assert "scope" in call_args.kwargs
-                assert call_args.kwargs["scope"] == "entity"
-                assert "entity" in call_args.kwargs
-                assert call_args.kwargs["entity"] == mock_entity
+            # Verify storage.get was called with entity parameter
+            mock_storage_instance.get.assert_called_once()
+            call_args = mock_storage_instance.get.call_args
+            assert "scope" in call_args.kwargs
+            assert call_args.kwargs["scope"] == "entity"
+            assert "entity" in call_args.kwargs
+            assert call_args.kwargs["entity"] == mock_entity
 
     def test_cache_analysis_results_with_entity(self) -> None:
         """Test cache_analysis_results passes entity to Storage.set."""
@@ -359,23 +388,27 @@ class TestAnalysisCache(unittest.TestCase):
         # Test results
         test_results = {"test": "data", "analysis_status": "completed"}
 
-        # Mock API
-        mock_api = Mock()
-        mock_api.get_entity.return_value = mock_entity
+        # Mock API - create a Mock class that when instantiated returns a mock with get_entity
+        mock_api_instance = Mock()
+        mock_api_instance.get_entity.return_value = mock_entity
+        mock_api_class = Mock(return_value=mock_api_instance)
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Cache results
-                cache.cache_analysis_results(self.default_params, AnalysisType.SCIA, self.entity_id, test_results, "/template/path")
+        # Don't override _get_entity - use the real method which will call the mocked API
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+        ):
+            cache = AnalysisCache()
+            # Cache results
+            cache.cache_analysis_results(self.default_params, AnalysisType.SCIA, self.entity_id, test_results, "/template/path")
 
-                # Verify storage.set was called with entity parameter
-                mock_storage_instance.set.assert_called_once()
-                call_args = mock_storage_instance.set.call_args
-                assert "scope" in call_args.kwargs
-                assert call_args.kwargs["scope"] == "entity"
-                assert "entity" in call_args.kwargs
-                assert call_args.kwargs["entity"] == mock_entity
+            # Verify storage.set was called with entity parameter
+            mock_storage_instance.set.assert_called_once()
+            call_args = mock_storage_instance.set.call_args
+            assert "scope" in call_args.kwargs
+            assert call_args.kwargs["scope"] == "entity"
+            assert "entity" in call_args.kwargs
+            assert call_args.kwargs["entity"] == mock_entity
 
     def test_get_cache_info(self) -> None:
         """Test cache info retrieval."""
@@ -387,25 +420,27 @@ class TestAnalysisCache(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_entity.side_effect = Exception("API not available")
 
-        with patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)):
-            with patch("app.bridge.analysis_cache.api.API", return_value=mock_api):
-                cache = AnalysisCache()
-                # Get cache info
-                info = cache.get_cache_info(self.entity_id, AnalysisType.SCIA)
+        with (
+            patch.object(AnalysisCache, "__init__", lambda self: _mock_init(self, mock_storage_instance)),
+            patch("app.bridge.analysis_cache.api.API", return_value=mock_api),
+        ):
+            cache = AnalysisCache()
+            # Get cache info
+            info = cache.get_cache_info(self.entity_id, AnalysisType.SCIA)
 
-                assert isinstance(info, dict)
-                assert "entity_id" in info
-                assert "analysis_types" in info
-                assert "total_cache_entries" in info
+            assert isinstance(info, dict)
+            assert "entity_id" in info
+            assert "analysis_types" in info
+            assert "total_cache_entries" in info
 
-                # Get all cache info
-                all_info = cache.get_cache_info(self.entity_id)
+            # Get all cache info
+            all_info = cache.get_cache_info(self.entity_id)
 
-                assert isinstance(all_info, dict)
-                assert "analysis_types" in all_info
-                # Check that both analysis types are present in the info
-                analysis_types = all_info["analysis_types"]
-                assert isinstance(analysis_types, dict)
+            assert isinstance(all_info, dict)
+            assert "analysis_types" in all_info
+            # Check that both analysis types are present in the info
+            analysis_types = all_info["analysis_types"]
+            assert isinstance(analysis_types, dict)
 
 
 if __name__ == "__main__":
