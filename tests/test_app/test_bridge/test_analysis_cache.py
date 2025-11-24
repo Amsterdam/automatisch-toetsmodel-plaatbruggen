@@ -46,7 +46,7 @@ def _create_mock_api_class(mock_api_instance: Mock) -> type:
     instance = mock_api_instance
 
     class MockAPIClass:
-        def __new__(cls):
+        def __new__(cls) -> Mock:
             return instance
 
     return MockAPIClass
@@ -314,6 +314,7 @@ class TestAnalysisCache(unittest.TestCase):
         with (
             patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
             patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+            patch("viktor.api_v1.API", new=mock_api_class),
         ):
             cache = AnalysisCache()
             # Test getting entity
@@ -345,6 +346,7 @@ class TestAnalysisCache(unittest.TestCase):
         with (
             patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
             patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+            patch("viktor.api_v1.API", new=mock_api_class),
         ):
             cache = AnalysisCache()
             # Test getting entity when API fails
@@ -378,6 +380,7 @@ class TestAnalysisCache(unittest.TestCase):
         with (
             patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
             patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+            patch("viktor.api_v1.API", new=mock_api_class),
         ):
             cache = AnalysisCache()
             # Test cache hit
@@ -414,6 +417,7 @@ class TestAnalysisCache(unittest.TestCase):
         with (
             patch.object(AnalysisCache, "__init__", lambda self: _mock_init_no_override(self, mock_storage_instance)),
             patch("app.bridge.analysis_cache.api.API", new=mock_api_class),
+            patch("viktor.api_v1.API", new=mock_api_class),
         ):
             cache = AnalysisCache()
             # Cache results
