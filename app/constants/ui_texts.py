@@ -118,8 +118,8 @@ DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) 
 
 ### Globale dimensies (bovenaan)
 Gebruik de invoervelden **bovenaan** om snel dimensies toe te passen op alle segmenten tegelijk:
-- Vul de gewenste waarden in voor breedte zone 1, 2, 3 en dikte zone 1+3 en zone 2
-- Klik op de knop **"Pas dimensies toe op alle segmenten"** om deze waarden naar alle segmenten te kopiëren
+- Vul de gewenste waarden in voor breedte zone 1, 2, 3 en dikte zone 1+3 en zone 2.
+- Klik op de knop **"Pas dimensies toe op alle segmenten"** om deze waarden naar alle segmenten te kopiëren.
 
 ### Individuele segmenten (tabel)
 Elk item in de tabel hieronder representeert een dwarsdoorsnede:
