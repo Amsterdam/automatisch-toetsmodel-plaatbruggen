@@ -11,10 +11,10 @@
   - Changed how the dimensions are inputed.
 
 ### Fixed
+- **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
+- **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
 - **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
 
-### Fixed
-- **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
 
 ## [`v0.0.18`] - 2025-12-04
 ### Added
