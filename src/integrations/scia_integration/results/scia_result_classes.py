@@ -67,11 +67,7 @@ def filter_list_by_df_index(index_df: DataFrame, filter_list: list, prefixes: li
     :returns: List of items from ``filter_list`` whose index in ``index_df`` matches any prefix.
     :rtype: list[Any]
     """
-    normalized_indices = {
-        str(df_index).strip()
-        for df_index in index_df.index
-        if any(str(df_index).startswith(prefix) for prefix in prefixes)
-    }
+    normalized_indices = {str(df_index).strip() for df_index in index_df.index if any(str(df_index).startswith(prefix) for prefix in prefixes)}
 
     filtered_items = []
     for combination in filter_list:
