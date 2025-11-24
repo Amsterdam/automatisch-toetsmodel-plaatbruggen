@@ -35,6 +35,23 @@ def _mock_init_no_override(self, storage=None) -> None:  # noqa: ANN001
     self._entity_cache = {}
 
 
+def _create_mock_api_class(mock_api_instance: Mock) -> type:
+    """
+    Create a mock API class that when instantiated returns the given mock instance.
+
+    :param mock_api_instance: The mock API instance to return
+    :returns: A class that returns the mock instance when instantiated
+    """
+    # Store the instance in a closure to avoid issues with class creation
+    instance = mock_api_instance
+
+    class MockAPIClass:
+        def __new__(cls):
+            return instance
+
+    return MockAPIClass
+
+
 class TestAnalysisCache(unittest.TestCase):
     """Test the AnalysisCache class functionality."""
 
@@ -288,10 +305,10 @@ class TestAnalysisCache(unittest.TestCase):
         mock_entity = Mock()
         mock_entity.id = self.entity_id
 
-        # Mock API - create a Mock class that when instantiated returns a mock with get_entity
+        # Mock API - create a Mock instance with get_entity method
         mock_api_instance = Mock()
         mock_api_instance.get_entity.return_value = mock_entity
-        mock_api_class = Mock(return_value=mock_api_instance)
+        mock_api_class = _create_mock_api_class(mock_api_instance)
 
         # Don't override _get_entity in this test - we want to test the real method
         with (
@@ -322,7 +339,7 @@ class TestAnalysisCache(unittest.TestCase):
         # Mock API to raise exception
         mock_api_instance = Mock()
         mock_api_instance.get_entity.side_effect = Exception("API not available")
-        mock_api_class = Mock(return_value=mock_api_instance)
+        mock_api_class = _create_mock_api_class(mock_api_instance)
 
         # Don't override _get_entity in this test - we want to test the real method
         with (
@@ -355,7 +372,7 @@ class TestAnalysisCache(unittest.TestCase):
         # Mock API - create a Mock class that when instantiated returns a mock with get_entity
         mock_api_instance = Mock()
         mock_api_instance.get_entity.return_value = mock_entity
-        mock_api_class = Mock(return_value=mock_api_instance)
+        mock_api_class = _create_mock_api_class(mock_api_instance)
 
         # Don't override _get_entity - use the real method which will call the mocked API
         with (
@@ -391,7 +408,7 @@ class TestAnalysisCache(unittest.TestCase):
         # Mock API - create a Mock class that when instantiated returns a mock with get_entity
         mock_api_instance = Mock()
         mock_api_instance.get_entity.return_value = mock_entity
-        mock_api_class = Mock(return_value=mock_api_instance)
+        mock_api_class = _create_mock_api_class(mock_api_instance)
 
         # Don't override _get_entity - use the real method which will call the mocked API
         with (
