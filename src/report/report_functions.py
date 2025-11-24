@@ -96,6 +96,20 @@ def obtain_loadzone_properties(params: object) -> dict[str, str]:
     return pavement_materials
 
 
+def format_loadzone_properties(pavement_materials: dict[str, str]) -> str:
+    """
+    Convert pavement materials dictionary into a bullet list string suitable for reports.
+
+    :param pavement_materials: Mapping between material names and formatted thickness strings.
+    :type pavement_materials: dict[str, str]
+    :returns: Bullet list string (one material per line) ready for template rendering.
+    :rtype: str
+    """
+    if not pavement_materials:
+        return ""
+    return "\n".join(f"- {material}: {thickness}" for material, thickness in pavement_materials.items())
+
+
 def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]:  # noqa: C901, PLR0912
     """
     Extract unity check values from IDEA analysis results per check category.
@@ -233,6 +247,8 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
     if cached_idea_results is not None:
         unity_checks = obtain_idea_unity_checks(cached_idea_results)
 
+    plate_thickness = obtain_plate_thickness(params)
+    load_zone_properties = obtain_loadzone_properties(params)
     context = {
         "BRIDGE_NAME": params.info.bridge_name,
         "BRIDGE_ID": params.info.bridge_objectnumm,
@@ -243,15 +259,15 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
         "TRAFFICCLASS": return_traffic_class(params),
         "CONCRETE_CLASS": params.concrete_strength_class,
         "REINFORCEMENT_CLASS": params.input.geometrie_wapening.staalsoort,
-        "PLATE_THICKNESS1": obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"],
+        "PLATE_THICKNESS1": plate_thickness["zone_1_1"]["thickness_start_d_line"],
         "PLATE_THICKNESS2": round(
             (
-                obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"]
-                + obtain_plate_thickness(params)["zone_2_1"]["thickness_start_d_line"]
+                plate_thickness["zone_1_1"]["thickness_start_d_line"]
+                + plate_thickness["zone_2_1"]["thickness_start_d_line"]
             ),
             2,
         ),
-        "LOAD_ZONES": obtain_loadzone_properties(params),
+        "LOAD_ZONES": format_loadzone_properties(load_zone_properties),
         "UC_CAPACITY": unity_checks.get("Capaciteit", "N/A"),
         "UC_SHEARFORCE": unity_checks.get("Schuifkracht", "N/A"),
         "UC_TORSION": unity_checks.get("Torsie", "N/A"),
