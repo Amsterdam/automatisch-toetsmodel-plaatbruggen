@@ -399,14 +399,15 @@ def get_cached_analysis_results(
     """Get cached analysis results or run analysis if not cached."""
     cache = _get_analysis_cache()
 
-    # Try to get cached results (hash computation is fast with memoization)
+    # Try to get cached results (hash computation is fast)
+    progress_message(f"Controleren cache voor {analysis_type.value.upper()} analyse...")
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
         progress_message("Gecachte resultaten gevonden - laden...")
         return cached_results
 
     # Run analysis if not cached
-    progress_message("Geen gecachte resultaten gevonden - starten nieuwe analyse...")
+    progress_message(f"⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
         results = analysis_function(params, template_path)
@@ -418,7 +419,7 @@ def get_cached_analysis_results(
 
     # Cache the results
     if results is not None:
-        progress_message("Opslaan resultaten in cache...")
+        progress_message(f"Opslaan {analysis_type.value.upper()} resultaten in cache...")
         cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
 
     return results
