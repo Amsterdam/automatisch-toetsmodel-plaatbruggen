@@ -56,6 +56,7 @@ class ReportViews:
             raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
 
         # Process results using core logic
+        progress_message("Genereren rapport...")
         result = IdeaResultsProcessor.process_idea_results(cached_results)
         report_pdf = create_export_report(params, result)  # Call the report generation function
         if not report_pdf:

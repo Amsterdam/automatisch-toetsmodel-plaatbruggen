@@ -90,6 +90,7 @@ class IdeaIntegration:
         if cached_results is None:
             raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
 
+        progress_message("Verwerken IDEA resultaten voor weergave...")
         result = IdeaResultsProcessor.process_idea_results(cached_results)
 
         if not result["success"] and "error" in result:

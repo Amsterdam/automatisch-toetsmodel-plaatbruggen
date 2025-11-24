@@ -254,6 +254,7 @@ class SciaIntegration:
         # Pass bridge_segments to enable zone mapping
         bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
 
+        progress_message(f"Genereren visualisatie voor {result_type}...")
         return create_scia_cs_plotly_visualization(
             results=results,
             result_type=result_type,
