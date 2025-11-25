@@ -12,19 +12,19 @@ from src.combinations.load_factors import get_dynamic_load_factor
 from src.geometry.load_zone_geometry import get_bridge_geom_data, get_tram_track_y_coordinates
 from src.integrations.scia_integration.constants.vehicles import (
     ACCIDENTAL_VEHICLE_AXLE_SPACING,
+    ACCIDENTAL_VEHICLE_AXLE_SPACING_AMSTERDAM,
     ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM,
     ACCIDENTAL_VEHICLE_FORCE_AXLE_1,
     ACCIDENTAL_VEHICLE_FORCE_AXLE_2,
     ACCIDENTAL_VEHICLE_INSET_DISTANCE,
-    ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM,
-    ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD,
+    ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_STANDARD,
     ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM,
     ACCIDENTAL_VEHICLE_WIDTH_STANDARD,
+    SERVICE_VEHICLE_AXLE_SPACING,
     SERVICE_VEHICLE_FORCE_PER_AXLE,
     SERVICE_VEHICLE_INSET_DISTANCE,
-    SERVICE_VEHICLE_LENGTH,
-    SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING,
-    SERVICE_VEHICLE_WHEEL_CONTACT_AREA,
+    SERVICE_VEHICLE_WHEEL_DIMENSION,
     SERVICE_VEHICLE_WIDTH,
     TRAM_VEHICLE_AXLE_FORCES_N,
     TRAM_VEHICLE_AXLE_SPACING,
@@ -414,41 +414,89 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         raise ValueError(f"Failed to add tram loads: {e}") from e
 
 
-def _create_service_wheel_load(  # noqa: PLR0913
+def _create_vehicle_wheel_loads(
     builder: SciaModelBuilder,
     params: BridgeParametrization,
-    wheel_corners: list[tuple[float, float, float]],
-    load_per_area: float,
-    load_name: str,
+    vehicle_config: dict[str, Any],
+    wheel_forces: dict[str, float],
     load_case_name: str,
+    load_name_prefix: str,
 ) -> None:
-    """Create a single wheel load with optional dispersion."""
-    corner_points_dispersed, load_value_dispersed = dispersal_function(
-        params=params,
-        corner_points=wheel_corners,
-        load_value=load_per_area,
-        load_case_type="axle_load",
-        _load_case_name=load_case_name,
-    )
+    """
+    Create all wheel loads for a vehicle at a specific position.
 
-    if params.spreiding:
-        area = calculate_polygon_area(corner_points_dispersed)
-        if area > 0:
-            builder.create_surface_load(
-                name=load_name,
-                load_case_name=load_case_name,
-                corner_points=corner_points_dispersed,
-                load_value=-load_value_dispersed,
-            )
-    else:
-        area = calculate_polygon_area(wheel_corners)
-        if area > 0:
-            builder.create_surface_load(
-                name=load_name,
-                load_case_name=load_case_name,
-                corner_points=wheel_corners,
-                load_value=-load_per_area,
-            )
+    :param builder: SCIA model builder instance
+    :param params: Bridge parameters
+    :param vehicle_config: Dict with keys: x_pos, vehicle_top_edge, vehicle_length, vehicle_width, wheel_contact_dimension
+    :param wheel_forces: Dict mapping wheel corner keys to force values in N
+    :param load_case_name: Name of the load case
+    :param load_name_prefix: Prefix for load names
+    """
+    x_pos = vehicle_config["x_pos"]
+    vehicle_top_edge = vehicle_config["vehicle_top_edge"]
+    vehicle_length = vehicle_config["vehicle_length"]
+    vehicle_width = vehicle_config["vehicle_width"]
+    wheel_contact_dimension = vehicle_config["wheel_contact_dimension"]
+
+    # Calculate wheel center positions
+    half_contact = wheel_contact_dimension / 2
+    wheel_area = wheel_contact_dimension * wheel_contact_dimension
+
+    # Define wheel positions: (x_center, y_center)
+    wheel_positions = {
+        "bottom_right_wheel_corners": (x_pos + vehicle_length, vehicle_top_edge - vehicle_width),
+        "top_right_wheel_corners": (x_pos + vehicle_length, vehicle_top_edge),
+        "top_left_wheel_corners": (x_pos, vehicle_top_edge),
+        "bottom_left_wheel_corners": (x_pos, vehicle_top_edge - vehicle_width),
+    }
+
+    # Create loads for each wheel
+    for wheel_idx, (wheel_key, (x_center, y_center)) in enumerate(wheel_positions.items(), start=1):
+        # Skip wheels with zero force (e.g., when vehicle_width is zero)
+        force_per_wheel = wheel_forces[wheel_key]
+        if force_per_wheel == 0:
+            continue
+
+        # Calculate wheel corners (order: bottom-right, top-right, top-left, bottom-left)
+        wheel_corners = [
+            (x_center + half_contact, y_center - half_contact, 0.0),
+            (x_center + half_contact, y_center + half_contact, 0.0),
+            (x_center - half_contact, y_center + half_contact, 0.0),
+            (x_center - half_contact, y_center - half_contact, 0.0),
+        ]
+
+        # Calculate load per area
+        load_per_area = force_per_wheel / wheel_area
+
+        # Apply dispersion
+        corner_points_dispersed, load_value_dispersed = dispersal_function(
+            params=params,
+            corner_points=wheel_corners,
+            load_value=load_per_area,
+            load_case_type="axle_load",
+            _load_case_name=load_case_name,
+        )
+
+        load_name = f"{load_name_prefix}_wheel{wheel_idx}"
+
+        if params.spreiding:
+            area = calculate_polygon_area(corner_points_dispersed)
+            if area > 0:
+                builder.create_surface_load(
+                    name=load_name,
+                    load_case_name=load_case_name,
+                    corner_points=corner_points_dispersed,
+                    load_value=-load_value_dispersed,
+                )
+        else:
+            area = calculate_polygon_area(wheel_corners)
+            if area > 0:
+                builder.create_surface_load(
+                    name=load_name,
+                    load_case_name=load_case_name,
+                    corner_points=wheel_corners,
+                    load_value=-load_per_area,
+                )
 
 
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
@@ -467,11 +515,12 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
     """
     try:
         # Dienstvoertuig volgens NEN-EN 1991-2 art. 5.3.2.3
-        vehicle_length = SERVICE_VEHICLE_LENGTH
+        vehicle_length = SERVICE_VEHICLE_AXLE_SPACING
         vehicle_width = SERVICE_VEHICLE_WIDTH
         force_per_axle = SERVICE_VEHICLE_FORCE_PER_AXLE
-        wheel_contact_area = SERVICE_VEHICLE_WHEEL_CONTACT_AREA
+        wheel_contact_dimension = SERVICE_VEHICLE_WHEEL_DIMENSION
         inset_distance = SERVICE_VEHICLE_INSET_DISTANCE
+        service_vehicle_total_length = vehicle_length + wheel_contact_dimension
 
         # Get bridge geometry data
         bridge_geom_data = get_bridge_geom_data(params)
@@ -484,7 +533,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         thickness = dims.thickness
         from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -508,26 +557,31 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
                 vehicle_bottom_edge = y_coords[0] + inset_distance
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # Calculate wheel load properties
-            wheel_area = wheel_contact_area * wheel_contact_area
+            # All wheels have equal force for service vehicle
             force_per_wheel = force_per_axle / 2
-            load_per_area = force_per_wheel / wheel_area
+            wheel_forces = {
+                "bottom_right_wheel_corners": force_per_wheel,
+                "top_right_wheel_corners": force_per_wheel,
+                "top_left_wheel_corners": force_per_wheel,
+                "bottom_left_wheel_corners": force_per_wheel,
+            }
 
-            # Use the helper function to calculate wheel positions
-            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
+            vehicle_config = {
+                "x_pos": x_pos,
+                "vehicle_top_edge": vehicle_top_edge,
+                "vehicle_length": vehicle_length,
+                "vehicle_width": vehicle_width,
+                "wheel_contact_dimension": wheel_contact_dimension,
+            }
 
-            wheel_locations = calc_vehicle_load_locations(
-                x_coord=x_pos,
-                y_coord=vehicle_top_edge,
-                vehicle_length=vehicle_length,
-                vehicle_width=vehicle_width,
-                wheel_contact_area=wheel_contact_area,
+            _create_vehicle_wheel_loads(
+                builder=builder,
+                params=params,
+                vehicle_config=vehicle_config,
+                wheel_forces=wheel_forces,
+                load_case_name=load_case_name,
+                load_name_prefix=f"service_vehicle_{edge_type}_x{x_pos}",
             )
-
-            # Create surface loads for each wheel
-            for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                load_name = f"service_vehicle_{edge_type}_x{x_pos}_wheel{wheel_idx + 1}"
-                _create_service_wheel_load(builder, params, wheel_corners, load_per_area, load_name, load_case_name)
 
         # Create loads for each X position on both edges
         for x_pos in positions:
@@ -538,7 +592,7 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         raise ValueError(f"Failed to add service vehicle loads: {e}") from e
 
 
-def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:  # noqa: C901, PLR0915
+def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """
     Add accidental vehicle loads to the SCIA model using sequenced X positions.
 
@@ -554,15 +608,18 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
     """
     try:
         # Buitengewone belasting volgens NEN-EN 1991-2 art. 5.3.2.3(1)P
-        vehicle_width = ACCIDENTAL_VEHICLE_WIDTH_STANDARD  # From diagram: 1.30 m between wheel centers
-        vehicle_width_amsterdam = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM  # From diagram: 2.0 m between wheel centers
-        force_axle_1 = ACCIDENTAL_VEHICLE_FORCE_AXLE_1  # Q_sv1 = 80 kN, convert to N
-        force_axle_2 = ACCIDENTAL_VEHICLE_FORCE_AXLE_2  # Q_sv2 = 40 kN, convert to N
-        force_axle_amsterdam = ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM  # Q_sv = 240 kN, convert to N
-        wheel_contact_area = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD  # From diagram: 0.20 m contact area
-        wheel_contact_area_amsterdam = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM  # From diagram: 0.4 m contact area
-        axle_spacing = ACCIDENTAL_VEHICLE_AXLE_SPACING  # Derived from 3.0m total - wheel contact areas
-        inset_distance = ACCIDENTAL_VEHICLE_INSET_DISTANCE  # Distance from bridge edge to outer wheel (m)
+        vehicle_width = ACCIDENTAL_VEHICLE_WIDTH_STANDARD
+        vehicle_width_amsterdam = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM
+        force_axle_1 = ACCIDENTAL_VEHICLE_FORCE_AXLE_1
+        force_axle_2 = ACCIDENTAL_VEHICLE_FORCE_AXLE_2
+        force_axle_amsterdam = ACCIDENTAL_VEHICLE_FORCE_AMSTERDAM
+        wheel_contact_dimension = ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_STANDARD
+        wheel_contact_dimension_amsterdam = ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_AMSTERDAM
+        axle_spacing = ACCIDENTAL_VEHICLE_AXLE_SPACING
+        axle_spacing_amsterdam = ACCIDENTAL_VEHICLE_AXLE_SPACING_AMSTERDAM
+        inset_distance = ACCIDENTAL_VEHICLE_INSET_DISTANCE
+        accidental_vehicle_total_length = axle_spacing + wheel_contact_dimension
+        accidental_vehicle_total_length_amsterdam = axle_spacing_amsterdam + wheel_contact_dimension_amsterdam
 
         # Get bridge geometry data
         bridge_geom_data = get_bridge_geom_data(params)
@@ -573,14 +630,12 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
-        from src.integrations.scia_integration.load_system.tandem_sequencer import (
-            tandem_system_sequencer,
-        )
+        from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
         # Obtain different x positions for the accidental vehicles
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_AXLE_SPACING)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length)
         positions_amsterdam = tandem_system_sequencer(length, thickness)
-        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM)
+        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -589,10 +644,8 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         # Get load cases dictionary
         unintended_vehicle_cases = load_cases["unintended_vehicle_cases"]
 
-        # Standard accidental vehicle (2-axle)
         def create_standard_accidental_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], direction: str) -> None:
             """Create standard accidental vehicle loads at a specific X position."""
-            # Get the appropriate load case for this position, edge, and direction
             load_case_key = f"{edge_type}_x{x_pos}_{direction}"
             if load_case_key not in unintended_vehicle_cases:
                 return
@@ -606,75 +659,41 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 vehicle_bottom_edge = y_coords[0] + inset_distance
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # Calculate wheel positions for the ENTIRE vehicle (not per axle)
-            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
-
-            wheel_locations = calc_vehicle_load_locations(
-                x_coord=x_pos,
-                y_coord=vehicle_top_edge,
-                vehicle_length=axle_spacing,  # Distance between axles
-                vehicle_width=vehicle_width,
-                wheel_contact_area=wheel_contact_area,
-            )
-
             # Assign forces to wheels based on direction
-            # Layout: TL/BL = front axle (left side), TR/BR = rear axle (right side)
             if direction == "forward":
                 # Forward: 80kN front axle (TL/BL), 40kN rear axle (TR/BR)
                 wheel_forces = {
-                    "top_left_wheel_corners": force_axle_1 / 2,  # Front left: 40kN
-                    "bottom_left_wheel_corners": force_axle_1 / 2,  # Front right: 40kN
-                    "top_right_wheel_corners": force_axle_2 / 2,  # Rear left: 20kN
-                    "bottom_right_wheel_corners": force_axle_2 / 2,  # Rear right: 20kN
+                    "top_left_wheel_corners": force_axle_1 / 2,
+                    "bottom_left_wheel_corners": force_axle_1 / 2,
+                    "top_right_wheel_corners": force_axle_2 / 2,
+                    "bottom_right_wheel_corners": force_axle_2 / 2,
                 }
             else:  # reverse
                 # Reverse: 40kN front axle (TL/BL), 80kN rear axle (TR/BR)
                 wheel_forces = {
-                    "top_left_wheel_corners": force_axle_2 / 2,  # Front left: 20kN
-                    "bottom_left_wheel_corners": force_axle_2 / 2,  # Front right: 20kN
-                    "top_right_wheel_corners": force_axle_1 / 2,  # Rear left: 40kN
-                    "bottom_right_wheel_corners": force_axle_1 / 2,  # Rear right: 40kN
+                    "top_left_wheel_corners": force_axle_2 / 2,
+                    "bottom_left_wheel_corners": force_axle_2 / 2,
+                    "top_right_wheel_corners": force_axle_1 / 2,
+                    "bottom_right_wheel_corners": force_axle_1 / 2,
                 }
 
-            # Create surface loads for each wheel
-            for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                force_per_wheel = wheel_forces[wheel_loc]
-                wheel_area = wheel_contact_area * wheel_contact_area
-                load_per_area = force_per_wheel / wheel_area
+            vehicle_config = {
+                "x_pos": x_pos,
+                "vehicle_top_edge": vehicle_top_edge,
+                "vehicle_length": axle_spacing,
+                "vehicle_width": vehicle_width,
+                "wheel_contact_dimension": wheel_contact_dimension,
+            }
 
-                # Apply load dispersion if enabled
-                corner_points_dispersed, load_value_dispersed = dispersal_function(
-                    params=params,
-                    corner_points=wheel_corners,
-                    load_value=load_per_area,
-                    load_case_type="axle_load",
-                    _load_case_name=load_case_name,
-                )
+            _create_vehicle_wheel_loads(
+                builder=builder,
+                params=params,
+                vehicle_config=vehicle_config,
+                wheel_forces=wheel_forces,
+                load_case_name=load_case_name,
+                load_name_prefix=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}",
+            )
 
-                load_name = f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}_wheel{wheel_idx + 1}"
-
-                if params.spreiding:
-                    # Check if polygon has non-zero area
-                    area = calculate_polygon_area(corner_points_dispersed)
-                    if area > 0:
-                        builder.create_surface_load(
-                            name=load_name,
-                            load_case_name=load_case_name,
-                            corner_points=corner_points_dispersed,
-                            load_value=-load_value_dispersed,
-                        )
-                else:
-                    # Check if polygon has non-zero area
-                    area = calculate_polygon_area(wheel_corners)
-                    if area > 0:
-                        builder.create_surface_load(
-                            name=load_name,
-                            load_case_name=load_case_name,
-                            corner_points=wheel_corners,
-                            load_value=-load_per_area,
-                        )
-
-        # Amsterdam vehicle (single axle)
         def create_amsterdam_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], vehicle_type: str = "amsterdam") -> None:
             """Create Amsterdam vehicle loads at a specific X position."""
             load_case_key = f"{edge_type}_x{x_pos}_{vehicle_type}"
@@ -687,13 +706,13 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
             is_rotated = "rotated" in vehicle_type
 
             if is_rotated:
-                # Rotated: 2.0m length in X-direction, 0.4m width in Y-direction
-                vehicle_length = ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM
-                vehicle_width = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM
-            else:
-                # Normal: 0.4m length in X-direction, 2.0m width in Y-direction
-                vehicle_length = ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM
+                # Rotated: axle_spacing_amsterdam in X-direction, vehicle_width_amsterdam in Y-direction
+                vehicle_length = axle_spacing_amsterdam
                 vehicle_width = vehicle_width_amsterdam
+            else:
+                # Normal: vehicle_width_amsterdam in X-direction, axle_spacing_amsterdam in Y-direction
+                vehicle_length = vehicle_width_amsterdam
+                vehicle_width = axle_spacing_amsterdam
 
             # Calculate vehicle position
             if edge_type == "y_plus":
@@ -702,53 +721,56 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
                 vehicle_bottom_edge = y_coords[0] + inset_distance
                 vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # Calculate wheel loads
-            wheel_area = wheel_contact_area_amsterdam * wheel_contact_area_amsterdam
-            force_per_wheel = force_axle_amsterdam / 2  # Two wheels per axle
-            load_per_area = force_per_wheel / wheel_area
-
-            # Use helper function to calculate wheel positions
-            from src.integrations.scia_integration.scia_loads.vehicle_load_helpers import calc_vehicle_load_locations
-
-            wheel_locations = calc_vehicle_load_locations(
-                x_coord=x_pos,
-                y_coord=vehicle_top_edge,
-                vehicle_length=vehicle_length,  # Swapped for rotated vehicle
-                vehicle_width=vehicle_width,  # Swapped for rotated vehicle
-                wheel_contact_area=wheel_contact_area_amsterdam,
-            )
-
-            # Create surface loads for each wheel
-            for wheel_idx, (wheel_loc, wheel_corners) in enumerate(wheel_locations.items()):
-                # Apply load dispersion if enabled
-                corner_points_dispersed, load_value_dispersed = dispersal_function(
-                    params=params,
-                    corner_points=wheel_corners,
-                    load_value=load_per_area,
-                    load_case_type="axle_load",
-                    _load_case_name=load_case_name,
-                )
-
-                if params.spreiding:
-                    # Check if polygon has non-zero area
-                    area = calculate_polygon_area(corner_points_dispersed)
-                    if area > 0:
-                        builder.create_surface_load(
-                            name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
-                            load_case_name=load_case_name,
-                            corner_points=corner_points_dispersed,
-                            load_value=-load_value_dispersed,
-                        )
+            # Configure wheel forces
+            force_per_wheel = force_axle_amsterdam / 2
+            if is_rotated:
+                # Rotated: if width is zero, only model two wheels (top left and top right) at same X
+                if vehicle_width_amsterdam == 0:
+                    wheel_forces = {
+                        "bottom_right_wheel_corners": 0.0,
+                        "top_right_wheel_corners": force_per_wheel,
+                        "top_left_wheel_corners": force_per_wheel,
+                        "bottom_left_wheel_corners": 0.0,
+                    }
                 else:
-                    # Check if polygon has non-zero area
-                    area = calculate_polygon_area(wheel_corners)
-                    if area > 0:
-                        builder.create_surface_load(
-                            name=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}_wheel{wheel_idx + 1}",
-                            load_case_name=load_case_name,
-                            corner_points=wheel_corners,
-                            load_value=-load_per_area,
-                        )
+                    wheel_forces = {
+                        "bottom_right_wheel_corners": force_per_wheel,
+                        "top_right_wheel_corners": force_per_wheel,
+                        "top_left_wheel_corners": force_per_wheel,
+                        "bottom_left_wheel_corners": force_per_wheel,
+                    }
+            # Non-rotated: if width_amsterdam is zero, only model two wheels (top left and bottom left) at same Y
+            elif vehicle_width_amsterdam == 0:
+                wheel_forces = {
+                    "bottom_right_wheel_corners": 0.0,
+                    "top_right_wheel_corners": 0.0,
+                    "top_left_wheel_corners": force_per_wheel,
+                    "bottom_left_wheel_corners": force_per_wheel,
+                }
+            else:
+                wheel_forces = {
+                    "bottom_right_wheel_corners": force_per_wheel,
+                    "top_right_wheel_corners": force_per_wheel,
+                    "top_left_wheel_corners": force_per_wheel,
+                    "bottom_left_wheel_corners": force_per_wheel,
+                }
+
+            vehicle_config = {
+                "x_pos": x_pos,
+                "vehicle_top_edge": vehicle_top_edge,
+                "vehicle_length": vehicle_length,
+                "vehicle_width": vehicle_width,
+                "wheel_contact_dimension": wheel_contact_dimension_amsterdam,
+            }
+
+            _create_vehicle_wheel_loads(
+                builder=builder,
+                params=params,
+                vehicle_config=vehicle_config,
+                wheel_forces=wheel_forces,
+                load_case_name=load_case_name,
+                load_name_prefix=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}",
+            )
 
         # Create loads for all positions and vehicle types
         # Standard vehicle: forward and reverse directions for each position

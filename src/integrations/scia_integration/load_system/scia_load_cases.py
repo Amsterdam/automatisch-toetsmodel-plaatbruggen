@@ -7,10 +7,15 @@ the SciaModelBuilder interface.
 
 from typing import Any
 
-from src.integrations.scia_integration.constants import SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING
-from src.integrations.scia_integration.load_system.tandem_sequencer import (
-    tandem_system_sequencer,
+from src.integrations.scia_integration.constants.vehicles import (
+    ACCIDENTAL_VEHICLE_AXLE_SPACING,
+    ACCIDENTAL_VEHICLE_AXLE_SPACING_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_AMSTERDAM,
+    ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_STANDARD,
+    SERVICE_VEHICLE_AXLE_SPACING,
+    SERVICE_VEHICLE_WHEEL_DIMENSION,
 )
+from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 from src.integrations.scia_integration.model.scia_model_interface import SciaLoadCase, SciaModelBuilder
 from src.integrations.scia_integration.scia_enums import (
     LoadCaseActionType,
@@ -261,8 +266,8 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     thickness = dims.thickness
 
     # Get X positions using the same sequencer as tandem loads
-
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING)
+    service_vehicle_total_length = SERVICE_VEHICLE_AXLE_SPACING + SERVICE_VEHICLE_WHEEL_DIMENSION
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length)
 
     cases = {}
 
@@ -317,10 +322,11 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     thickness = dims.thickness
 
     # Get X positions using the same sequencer as tandem loads
-
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
+    accidental_vehicle_total_length = ACCIDENTAL_VEHICLE_AXLE_SPACING + ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_STANDARD
+    accidental_vehicle_total_length_amsterdam = ACCIDENTAL_VEHICLE_AXLE_SPACING_AMSTERDAM + ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_AMSTERDAM
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length)
     positions_amsterdam = tandem_system_sequencer(length, thickness)
-    positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
+    positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam)
 
     cases = {}
     case_counter = 1
