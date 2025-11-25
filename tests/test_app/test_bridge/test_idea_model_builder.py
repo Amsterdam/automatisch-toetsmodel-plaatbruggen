@@ -197,10 +197,10 @@ class TestViktorIdeaModelBuilder:
         mock_forces = MagicMock()
         mock_idea_rcs.ResultOfInternalForces.return_value = mock_forces
 
-        result = builder.create_result_of_internal_forces(Qz=100.0, My=50.0)
+        result = builder.create_result_of_internal_forces(Qz=100.0, My=50.0, N=20.0)
 
         assert result == mock_forces
-        mock_idea_rcs.ResultOfInternalForces.assert_called_once_with(Qz=100.0, My=50.0)
+        mock_idea_rcs.ResultOfInternalForces.assert_called_once_with(Qz=100.0, My=50.0, N=20.0)
 
     @patch("app.bridge.idea_model_builder.idea_rcs")
     def test_create_loading_sls(self, mock_idea_rcs: MagicMock, builder: ViktorIdeaModelBuilder) -> None:
