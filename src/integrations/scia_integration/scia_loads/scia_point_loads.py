@@ -419,24 +419,23 @@ def _create_vehicle_wheel_loads(
     params: BridgeParametrization,
     vehicle_config: dict[str, Any],
     wheel_forces: dict[str, float],
-    load_case_name: str,
-    load_name_prefix: str,
 ) -> None:
     """
     Create all wheel loads for a vehicle at a specific position.
 
     :param builder: SCIA model builder instance
     :param params: Bridge parameters
-    :param vehicle_config: Dict with keys: x_pos, vehicle_top_edge, vehicle_length, vehicle_width, wheel_contact_dimension
+    :param vehicle_config: Dict with keys: x_pos, vehicle_top_edge, vehicle_length, vehicle_width,
+                          wheel_contact_dimension, load_case_name, load_name_prefix
     :param wheel_forces: Dict mapping wheel corner keys to force values in N
-    :param load_case_name: Name of the load case
-    :param load_name_prefix: Prefix for load names
     """
     x_pos = vehicle_config["x_pos"]
     vehicle_top_edge = vehicle_config["vehicle_top_edge"]
     vehicle_length = vehicle_config["vehicle_length"]
     vehicle_width = vehicle_config["vehicle_width"]
     wheel_contact_dimension = vehicle_config["wheel_contact_dimension"]
+    load_case_name = vehicle_config["load_case_name"]
+    load_name_prefix = vehicle_config["load_name_prefix"]
 
     # Calculate wheel center positions
     half_contact = wheel_contact_dimension / 2
@@ -499,6 +498,60 @@ def _create_vehicle_wheel_loads(
                 )
 
 
+def _create_service_vehicle_at_position(
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+    x_pos: float,
+    edge_type: str,
+    y_coords: list[float],
+    service_vehicle_cases: dict[str, Any],
+    vehicle_length: float,
+    vehicle_width: float,
+    wheel_contact_dimension: float,
+    force_per_axle: float,
+    inset_distance: float,
+) -> None:
+    """Create service vehicle loads at a specific X position."""
+    load_case_key = f"{edge_type}_x{x_pos}"
+    if load_case_key not in service_vehicle_cases:
+        return
+
+    load_case_name = service_vehicle_cases[load_case_key].name
+
+    # Calculate vehicle top edge position with 0.5m inset from bridge edge
+    if edge_type == "y_plus":
+        vehicle_top_edge = y_coords[0] - inset_distance
+    else:  # y_minus
+        vehicle_bottom_edge = y_coords[0] + inset_distance
+        vehicle_top_edge = vehicle_bottom_edge + vehicle_width
+
+    # All wheels have equal force for service vehicle
+    force_per_wheel = force_per_axle / 2
+    wheel_forces = {
+        "bottom_right_wheel_corners": force_per_wheel,
+        "top_right_wheel_corners": force_per_wheel,
+        "top_left_wheel_corners": force_per_wheel,
+        "bottom_left_wheel_corners": force_per_wheel,
+    }
+
+    vehicle_config = {
+        "x_pos": x_pos,
+        "vehicle_top_edge": vehicle_top_edge,
+        "vehicle_length": vehicle_length,
+        "vehicle_width": vehicle_width,
+        "wheel_contact_dimension": wheel_contact_dimension,
+        "load_case_name": load_case_name,
+        "load_name_prefix": f"service_vehicle_{edge_type}_x{x_pos}",
+    }
+
+    _create_vehicle_wheel_loads(
+        builder=builder,
+        params=params,
+        vehicle_config=vehicle_config,
+        wheel_forces=wheel_forces,
+    )
+
+
 def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
     """
     Add service vehicle loads to the SCIA model using sequenced X positions.
@@ -542,54 +595,194 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         # Get load cases dictionary
         service_vehicle_cases = load_cases["service_vehicle_cases"]
 
-        def create_service_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float]) -> None:
-            """Create service vehicle loads at a specific X position."""
-            load_case_key = f"{edge_type}_x{x_pos}"
-            if load_case_key not in service_vehicle_cases:
-                return
+        # Create loads for each X position on both edges
+        for x_pos in positions:
+            _create_service_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_plus",
+                y_top_structural_edge_at_d_points,
+                service_vehicle_cases,
+                vehicle_length,
+                vehicle_width,
+                wheel_contact_dimension,
+                force_per_axle,
+                inset_distance,
+            )
+            _create_service_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_minus",
+                y_bridge_bottom_at_d_points,
+                service_vehicle_cases,
+                vehicle_length,
+                vehicle_width,
+                wheel_contact_dimension,
+                force_per_axle,
+                inset_distance,
+            )
 
-            load_case_name = service_vehicle_cases[load_case_key].name
+    except Exception as e:
+        raise ValueError(f"Failed to add service vehicle loads: {e}") from e
 
-            # Calculate vehicle top edge position with 0.5m inset from bridge edge
-            if edge_type == "y_plus":
-                vehicle_top_edge = y_coords[0] - inset_distance
-            else:  # y_minus
-                vehicle_bottom_edge = y_coords[0] + inset_distance
-                vehicle_top_edge = vehicle_bottom_edge + vehicle_width
 
-            # All wheels have equal force for service vehicle
-            force_per_wheel = force_per_axle / 2
+def _create_standard_accidental_vehicle_at_position(
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+    x_pos: float,
+    edge_type: str,
+    y_coords: list[float],
+    direction: str,
+    unintended_vehicle_cases: dict[str, Any],
+    vehicle_width: float,
+    axle_spacing: float,
+    wheel_contact_dimension: float,
+    force_axle_1: float,
+    force_axle_2: float,
+    inset_distance: float,
+) -> None:
+    """Create standard accidental vehicle loads at a specific X position."""
+    load_case_key = f"{edge_type}_x{x_pos}_{direction}"
+    if load_case_key not in unintended_vehicle_cases:
+        return
+
+    load_case_name = unintended_vehicle_cases[load_case_key].name
+
+    # Calculate vehicle top edge position with inset from bridge edge
+    if edge_type == "y_plus":
+        vehicle_top_edge = y_coords[0] - inset_distance
+    else:  # y_minus
+        vehicle_bottom_edge = y_coords[0] + inset_distance
+        vehicle_top_edge = vehicle_bottom_edge + vehicle_width
+
+    # Assign forces to wheels based on direction
+    if direction == "forward":
+        # Forward: 80kN front axle (TL/BL), 40kN rear axle (TR/BR)
+        wheel_forces = {
+            "top_left_wheel_corners": force_axle_1 / 2,
+            "bottom_left_wheel_corners": force_axle_1 / 2,
+            "top_right_wheel_corners": force_axle_2 / 2,
+            "bottom_right_wheel_corners": force_axle_2 / 2,
+        }
+    else:  # reverse
+        # Reverse: 40kN front axle (TL/BL), 80kN rear axle (TR/BR)
+        wheel_forces = {
+            "top_left_wheel_corners": force_axle_2 / 2,
+            "bottom_left_wheel_corners": force_axle_2 / 2,
+            "top_right_wheel_corners": force_axle_1 / 2,
+            "bottom_right_wheel_corners": force_axle_1 / 2,
+        }
+
+    vehicle_config = {
+        "x_pos": x_pos,
+        "vehicle_top_edge": vehicle_top_edge,
+        "vehicle_length": axle_spacing,
+        "vehicle_width": vehicle_width,
+        "wheel_contact_dimension": wheel_contact_dimension,
+        "load_case_name": load_case_name,
+        "load_name_prefix": f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}",
+    }
+
+    _create_vehicle_wheel_loads(
+        builder=builder,
+        params=params,
+        vehicle_config=vehicle_config,
+        wheel_forces=wheel_forces,
+    )
+
+
+def _create_amsterdam_vehicle_at_position(
+    builder: SciaModelBuilder,
+    params: BridgeParametrization,
+    x_pos: float,
+    edge_type: str,
+    y_coords: list[float],
+    vehicle_type: str,
+    unintended_vehicle_cases: dict[str, Any],
+    vehicle_width_amsterdam: float,
+    axle_spacing_amsterdam: float,
+    wheel_contact_dimension_amsterdam: float,
+    force_axle_amsterdam: float,
+    inset_distance: float,
+) -> None:
+    """Create Amsterdam vehicle loads at a specific X position."""
+    load_case_key = f"{edge_type}_x{x_pos}_{vehicle_type}"
+    if load_case_key not in unintended_vehicle_cases:
+        return
+
+    load_case_name = unintended_vehicle_cases[load_case_key].name
+
+    # Determine if this is a rotated vehicle (90-degree rotation)
+    is_rotated = "rotated" in vehicle_type
+
+    if is_rotated:
+        # Rotated: axle_spacing_amsterdam in X-direction, vehicle_width_amsterdam in Y-direction
+        vehicle_length = axle_spacing_amsterdam
+        vehicle_width = float(vehicle_width_amsterdam)
+    else:
+        # Normal: vehicle_width_amsterdam in X-direction, axle_spacing_amsterdam in Y-direction
+        vehicle_length = vehicle_width_amsterdam
+        vehicle_width = float(axle_spacing_amsterdam)
+
+    # Calculate vehicle position
+    if edge_type == "y_plus":
+        vehicle_top_edge = y_coords[0] - inset_distance
+    else:  # y_minus
+        vehicle_bottom_edge = y_coords[0] + inset_distance
+        vehicle_top_edge = vehicle_bottom_edge + vehicle_width
+
+    # Configure wheel forces
+    force_per_wheel = force_axle_amsterdam / 2
+    if is_rotated:
+        # Rotated: if width is zero, only model two wheels (top left and top right) at same X
+        if vehicle_width_amsterdam == 0:
+            wheel_forces = {
+                "bottom_right_wheel_corners": 0.0,
+                "top_right_wheel_corners": force_per_wheel,
+                "top_left_wheel_corners": force_per_wheel,
+                "bottom_left_wheel_corners": 0.0,
+            }
+        else:
             wheel_forces = {
                 "bottom_right_wheel_corners": force_per_wheel,
                 "top_right_wheel_corners": force_per_wheel,
                 "top_left_wheel_corners": force_per_wheel,
                 "bottom_left_wheel_corners": force_per_wheel,
             }
+    # Non-rotated: if width_amsterdam is zero, only model two wheels (top left and bottom left) at same Y
+    elif vehicle_width_amsterdam == 0:
+        wheel_forces = {
+            "bottom_right_wheel_corners": 0.0,
+            "top_right_wheel_corners": 0.0,
+            "top_left_wheel_corners": force_per_wheel,
+            "bottom_left_wheel_corners": force_per_wheel,
+        }
+    else:
+        wheel_forces = {
+            "bottom_right_wheel_corners": force_per_wheel,
+            "top_right_wheel_corners": force_per_wheel,
+            "top_left_wheel_corners": force_per_wheel,
+            "bottom_left_wheel_corners": force_per_wheel,
+        }
 
-            vehicle_config = {
-                "x_pos": x_pos,
-                "vehicle_top_edge": vehicle_top_edge,
-                "vehicle_length": vehicle_length,
-                "vehicle_width": vehicle_width,
-                "wheel_contact_dimension": wheel_contact_dimension,
-            }
+    vehicle_config = {
+        "x_pos": x_pos,
+        "vehicle_top_edge": vehicle_top_edge,
+        "vehicle_length": vehicle_length,
+        "vehicle_width": vehicle_width,
+        "wheel_contact_dimension": wheel_contact_dimension_amsterdam,
+        "load_case_name": load_case_name,
+        "load_name_prefix": f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}",
+    }
 
-            _create_vehicle_wheel_loads(
-                builder=builder,
-                params=params,
-                vehicle_config=vehicle_config,
-                wheel_forces=wheel_forces,
-                load_case_name=load_case_name,
-                load_name_prefix=f"service_vehicle_{edge_type}_x{x_pos}",
-            )
-
-        # Create loads for each X position on both edges
-        for x_pos in positions:
-            create_service_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points)
-            create_service_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points)
-
-    except Exception as e:
-        raise ValueError(f"Failed to add service vehicle loads: {e}") from e
+    _create_vehicle_wheel_loads(
+        builder=builder,
+        params=params,
+        vehicle_config=vehicle_config,
+        wheel_forces=wheel_forces,
+    )
 
 
 def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametrization, load_cases: dict[str, Any]) -> None:
@@ -644,151 +837,131 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         # Get load cases dictionary
         unintended_vehicle_cases = load_cases["unintended_vehicle_cases"]
 
-        def create_standard_accidental_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], direction: str) -> None:
-            """Create standard accidental vehicle loads at a specific X position."""
-            load_case_key = f"{edge_type}_x{x_pos}_{direction}"
-            if load_case_key not in unintended_vehicle_cases:
-                return
-
-            load_case_name = unintended_vehicle_cases[load_case_key].name
-
-            # Calculate vehicle top edge position with inset from bridge edge
-            if edge_type == "y_plus":
-                vehicle_top_edge = y_coords[0] - inset_distance
-            else:  # y_minus
-                vehicle_bottom_edge = y_coords[0] + inset_distance
-                vehicle_top_edge = vehicle_bottom_edge + vehicle_width
-
-            # Assign forces to wheels based on direction
-            if direction == "forward":
-                # Forward: 80kN front axle (TL/BL), 40kN rear axle (TR/BR)
-                wheel_forces = {
-                    "top_left_wheel_corners": force_axle_1 / 2,
-                    "bottom_left_wheel_corners": force_axle_1 / 2,
-                    "top_right_wheel_corners": force_axle_2 / 2,
-                    "bottom_right_wheel_corners": force_axle_2 / 2,
-                }
-            else:  # reverse
-                # Reverse: 40kN front axle (TL/BL), 80kN rear axle (TR/BR)
-                wheel_forces = {
-                    "top_left_wheel_corners": force_axle_2 / 2,
-                    "bottom_left_wheel_corners": force_axle_2 / 2,
-                    "top_right_wheel_corners": force_axle_1 / 2,
-                    "bottom_right_wheel_corners": force_axle_1 / 2,
-                }
-
-            vehicle_config = {
-                "x_pos": x_pos,
-                "vehicle_top_edge": vehicle_top_edge,
-                "vehicle_length": axle_spacing,
-                "vehicle_width": vehicle_width,
-                "wheel_contact_dimension": wheel_contact_dimension,
-            }
-
-            _create_vehicle_wheel_loads(
-                builder=builder,
-                params=params,
-                vehicle_config=vehicle_config,
-                wheel_forces=wheel_forces,
-                load_case_name=load_case_name,
-                load_name_prefix=f"accidental_vehicle_{edge_type}_x{x_pos}_{direction}",
-            )
-
-        def create_amsterdam_vehicle_at_position(x_pos: float, edge_type: str, y_coords: list[float], vehicle_type: str = "amsterdam") -> None:
-            """Create Amsterdam vehicle loads at a specific X position."""
-            load_case_key = f"{edge_type}_x{x_pos}_{vehicle_type}"
-            if load_case_key not in unintended_vehicle_cases:
-                return
-
-            load_case_name = unintended_vehicle_cases[load_case_key].name
-
-            # Determine if this is a rotated vehicle (90-degree rotation)
-            is_rotated = "rotated" in vehicle_type
-
-            if is_rotated:
-                # Rotated: axle_spacing_amsterdam in X-direction, vehicle_width_amsterdam in Y-direction
-                vehicle_length = axle_spacing_amsterdam
-                vehicle_width = vehicle_width_amsterdam
-            else:
-                # Normal: vehicle_width_amsterdam in X-direction, axle_spacing_amsterdam in Y-direction
-                vehicle_length = vehicle_width_amsterdam
-                vehicle_width = axle_spacing_amsterdam
-
-            # Calculate vehicle position
-            if edge_type == "y_plus":
-                vehicle_top_edge = y_coords[0] - inset_distance
-            else:  # y_minus
-                vehicle_bottom_edge = y_coords[0] + inset_distance
-                vehicle_top_edge = vehicle_bottom_edge + vehicle_width
-
-            # Configure wheel forces
-            force_per_wheel = force_axle_amsterdam / 2
-            if is_rotated:
-                # Rotated: if width is zero, only model two wheels (top left and top right) at same X
-                if vehicle_width_amsterdam == 0:
-                    wheel_forces = {
-                        "bottom_right_wheel_corners": 0.0,
-                        "top_right_wheel_corners": force_per_wheel,
-                        "top_left_wheel_corners": force_per_wheel,
-                        "bottom_left_wheel_corners": 0.0,
-                    }
-                else:
-                    wheel_forces = {
-                        "bottom_right_wheel_corners": force_per_wheel,
-                        "top_right_wheel_corners": force_per_wheel,
-                        "top_left_wheel_corners": force_per_wheel,
-                        "bottom_left_wheel_corners": force_per_wheel,
-                    }
-            # Non-rotated: if width_amsterdam is zero, only model two wheels (top left and bottom left) at same Y
-            elif vehicle_width_amsterdam == 0:
-                wheel_forces = {
-                    "bottom_right_wheel_corners": 0.0,
-                    "top_right_wheel_corners": 0.0,
-                    "top_left_wheel_corners": force_per_wheel,
-                    "bottom_left_wheel_corners": force_per_wheel,
-                }
-            else:
-                wheel_forces = {
-                    "bottom_right_wheel_corners": force_per_wheel,
-                    "top_right_wheel_corners": force_per_wheel,
-                    "top_left_wheel_corners": force_per_wheel,
-                    "bottom_left_wheel_corners": force_per_wheel,
-                }
-
-            vehicle_config = {
-                "x_pos": x_pos,
-                "vehicle_top_edge": vehicle_top_edge,
-                "vehicle_length": vehicle_length,
-                "vehicle_width": vehicle_width,
-                "wheel_contact_dimension": wheel_contact_dimension_amsterdam,
-            }
-
-            _create_vehicle_wheel_loads(
-                builder=builder,
-                params=params,
-                vehicle_config=vehicle_config,
-                wheel_forces=wheel_forces,
-                load_case_name=load_case_name,
-                load_name_prefix=f"amsterdam_vehicle_{edge_type}_x{x_pos}_{vehicle_type}",
-            )
-
         # Create loads for all positions and vehicle types
         # Standard vehicle: forward and reverse directions for each position
         for x_pos in positions:
-            create_standard_accidental_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "forward")
-            create_standard_accidental_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "reverse")
-            create_standard_accidental_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "forward")
-            create_standard_accidental_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "reverse")
+            _create_standard_accidental_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_plus",
+                y_top_structural_edge_at_d_points,
+                "forward",
+                unintended_vehicle_cases,
+                vehicle_width,
+                axle_spacing,
+                wheel_contact_dimension,
+                force_axle_1,
+                force_axle_2,
+                inset_distance,
+            )
+            _create_standard_accidental_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_plus",
+                y_top_structural_edge_at_d_points,
+                "reverse",
+                unintended_vehicle_cases,
+                vehicle_width,
+                axle_spacing,
+                wheel_contact_dimension,
+                force_axle_1,
+                force_axle_2,
+                inset_distance,
+            )
+            _create_standard_accidental_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_minus",
+                y_bridge_bottom_at_d_points,
+                "forward",
+                unintended_vehicle_cases,
+                vehicle_width,
+                axle_spacing,
+                wheel_contact_dimension,
+                force_axle_1,
+                force_axle_2,
+                inset_distance,
+            )
+            _create_standard_accidental_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_minus",
+                y_bridge_bottom_at_d_points,
+                "reverse",
+                unintended_vehicle_cases,
+                vehicle_width,
+                axle_spacing,
+                wheel_contact_dimension,
+                force_axle_1,
+                force_axle_2,
+                inset_distance,
+            )
 
         # Amsterdam vehicle: single direction per position
         for x_pos in positions_amsterdam:
-            create_amsterdam_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "amsterdam")
-            create_amsterdam_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "amsterdam")
+            _create_amsterdam_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_plus",
+                y_top_structural_edge_at_d_points,
+                "amsterdam",
+                unintended_vehicle_cases,
+                vehicle_width_amsterdam,
+                axle_spacing_amsterdam,
+                wheel_contact_dimension_amsterdam,
+                force_axle_amsterdam,
+                inset_distance,
+            )
+            _create_amsterdam_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_minus",
+                y_bridge_bottom_at_d_points,
+                "amsterdam",
+                unintended_vehicle_cases,
+                vehicle_width_amsterdam,
+                axle_spacing_amsterdam,
+                wheel_contact_dimension_amsterdam,
+                force_axle_amsterdam,
+                inset_distance,
+            )
 
         # Amsterdam vehicle rotated: single direction per position
         for x_pos in positions_amsterdam_rotated:
-            create_amsterdam_vehicle_at_position(x_pos, "y_plus", y_top_structural_edge_at_d_points, "amsterdam_rotated")
-            create_amsterdam_vehicle_at_position(x_pos, "y_minus", y_bridge_bottom_at_d_points, "amsterdam_rotated")
+            _create_amsterdam_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_plus",
+                y_top_structural_edge_at_d_points,
+                "amsterdam_rotated",
+                unintended_vehicle_cases,
+                vehicle_width_amsterdam,
+                axle_spacing_amsterdam,
+                wheel_contact_dimension_amsterdam,
+                force_axle_amsterdam,
+                inset_distance,
+            )
+            _create_amsterdam_vehicle_at_position(
+                builder,
+                params,
+                x_pos,
+                "y_minus",
+                y_bridge_bottom_at_d_points,
+                "amsterdam_rotated",
+                unintended_vehicle_cases,
+                vehicle_width_amsterdam,
+                axle_spacing_amsterdam,
+                wheel_contact_dimension_amsterdam,
+                force_axle_amsterdam,
+                inset_distance,
+            )
 
     except Exception as e:
         raise ValueError(f"Failed to add accidental vehicle loads: {e}") from e

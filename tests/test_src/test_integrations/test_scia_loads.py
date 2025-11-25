@@ -425,7 +425,7 @@ class TestAccidentalVehicleLoads:
             mock_params.spreiding = True
 
             # Create mock load cases for all vehicle types at all positions
-            mock_load_cases = {"unintended_vehicle_cases": {}}
+            mock_load_cases: dict[str, Any] = {"unintended_vehicle_cases": {}}
             # Standard vehicles (forward/reverse) at positions from first sequencer call
             for pos in [2.0, 5.0, 8.0]:
                 for direction in ["forward", "reverse"]:
@@ -1622,7 +1622,6 @@ class TestLoadBoundaryCompliance:
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
             from src.data_models.scia_models import BridgeDimensionsData
 
@@ -1638,33 +1637,6 @@ class TestLoadBoundaryCompliance:
             )
             mock_sequencer.return_value = [1.0, 15.0, 29.0]  # Positions near edges
             mock_get_geom.return_value = mock_bridge_geom
-
-            # Mock vehicle load locations that would extend beyond boundaries
-            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-                x_coord = kwargs["x_coord"]
-                return {
-                    "top_left_wheel_corners": [(x_coord, 7.5, 0.0), (x_coord + 0.25, 7.5, 0.0), (x_coord + 0.25, 7.75, 0.0), (x_coord, 7.75, 0.0)],
-                    "top_right_wheel_corners": [
-                        (x_coord + 1.5, 7.5, 0.0),
-                        (x_coord + 1.75, 7.5, 0.0),
-                        (x_coord + 1.75, 7.75, 0.0),
-                        (x_coord + 1.5, 7.75, 0.0),
-                    ],
-                    "bottom_left_wheel_corners": [
-                        (x_coord, -7.5, 0.0),
-                        (x_coord + 0.25, -7.5, 0.0),
-                        (x_coord + 0.25, -7.25, 0.0),
-                        (x_coord, -7.25, 0.0),
-                    ],
-                    "bottom_right_wheel_corners": [
-                        (x_coord + 1.5, -7.5, 0.0),
-                        (x_coord + 1.75, -7.5, 0.0),
-                        (x_coord + 1.75, -7.25, 0.0),
-                        (x_coord + 1.5, -7.25, 0.0),
-                    ],
-                }
-
-            mock_calc_locations.side_effect = mock_calc_locations_side_effect
 
             # Create load cases
             mock_load_cases = {
@@ -1702,7 +1674,6 @@ class TestLoadBoundaryCompliance:
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
             from src.data_models.scia_models import BridgeDimensionsData
 
@@ -1723,16 +1694,6 @@ class TestLoadBoundaryCompliance:
                 [10.0, 30.0],  # Amsterdam rotated (length_vehicle=2.0)
             ]
             mock_get_geom.return_value = mock_bridge_geom
-
-            # Mock vehicle load locations
-            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-                x_coord = kwargs["x_coord"]
-                return {
-                    "top_left_wheel_corners": [(x_coord, 9.0, 0.0), (x_coord + 0.2, 9.0, 0.0), (x_coord + 0.2, 9.2, 0.0), (x_coord, 9.2, 0.0)],
-                    "bottom_left_wheel_corners": [(x_coord, -9.0, 0.0), (x_coord + 0.2, -9.0, 0.0), (x_coord + 0.2, -8.8, 0.0), (x_coord, -8.8, 0.0)],
-                }
-
-            mock_calc_locations.side_effect = mock_calc_locations_side_effect
 
             # Create load cases for all combinations
             mock_load_cases = {
