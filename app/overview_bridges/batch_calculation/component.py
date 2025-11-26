@@ -19,7 +19,6 @@ from .utils import (
     check_idea_cache_status,
     deserialize_batch_results,
     extract_uc_summary_from_idea_results,
-    generate_bridge_report_url,
     serialize_batch_results,
     validate_bridge_for_calculation,
 )
@@ -138,7 +137,6 @@ class BatchCalculationComponent:
             max_uc_str = "-"
             uc_status_str = "-"
             failed_checks_str = "-"
-            report_url = "-"
 
             # First try to get from batch_results (preferred source)
             if batch_results and bridge_id in batch_results:
@@ -150,7 +148,6 @@ class BatchCalculationComponent:
                 max_uc_str = f"{max_uc:.2f}" if max_uc is not None else "-"
                 uc_status_str = uc_status if uc_status != "N/A" else "-"
                 failed_checks_str = str(len(failed_checks)) if failed_checks else "0"
-                report_url = generate_bridge_report_url(bridge_id)
 
             # Fallback: if cache says "actueel" but no batch_results, try reading entity cache
             elif is_cached:
@@ -172,7 +169,6 @@ class BatchCalculationComponent:
                         max_uc_str = f"{max_uc:.2f}" if max_uc is not None else "-"
                         uc_status_str = uc_status if uc_status != "N/A" else "-"
                         failed_checks_str = str(len(failed_checks)) if failed_checks else "0"
-                        report_url = generate_bridge_report_url(bridge_id)
 
                         logger.info(f"Bridge {bridge_id}: Successfully read from entity cache - Max UC: {max_uc_str}")
                     else:
@@ -187,7 +183,8 @@ class BatchCalculationComponent:
                 (
                     sort_priority,
                     bridge_name,
-                    [status_display, missing_fields_str, max_uc_str, uc_status_str, failed_checks_str, report_url],
+                    bridge_id,
+                    [status_display, missing_fields_str, max_uc_str, uc_status_str, failed_checks_str],
                     uc_status_str,
                     max_uc_str if max_uc_str != "-" else "0.0",
                 )
@@ -196,7 +193,7 @@ class BatchCalculationComponent:
         # Sort: ready but not cached first, then cached, then not ready
         # Within each group, sort by max UC descending, then by bridge name
         def sort_key(item: tuple) -> tuple:
-            priority, bridge_name, data_row, uc_status, max_uc = item
+            priority, bridge_name, bridge_id, data_row, uc_status, max_uc = item
             max_uc_value = float(max_uc) if max_uc not in {"-", "0.0"} else -1.0
             # Failed first, then by max UC descending
             uc_priority = 0 if uc_status == "FAILED" else 1
@@ -216,11 +213,9 @@ class BatchCalculationComponent:
                 "",
                 "",
                 "",
-                "",
             ],
             [
                 TableCell(time_estimate, text_style="bold"),
-                "",
                 "",
                 "",
                 "",
@@ -241,7 +236,6 @@ class BatchCalculationComponent:
                     "",
                     "",
                     "",
-                    "",
                 ]
             )
 
@@ -252,8 +246,15 @@ class BatchCalculationComponent:
         # Extract bridge data
         bridge_row_headers = []
         bridge_table_data = []
-        for _, bridge_name, data_row, _, _ in bridge_data_list:
+        for _, bridge_name, _bridge_id, data_row, _, _ in bridge_data_list:
+            # Keep bridge name as string in row header
             bridge_row_headers.append(bridge_name)
+            # Use data row directly (VIKTOR TableCell doesn't support HTML links or sticky rows)
+            # NOTE: For improved UX, consider using WebView instead of TableView:
+            # - Clickable entity links to navigate to bridges or reports
+            # - Sticky/frozen summary rows (always visible when scrolling)
+            # See: https://docs.viktor.ai/docs/create-apps/results-and-visualizations/data-and-tables/
+            # and: https://docs.viktor.ai/sdk/api/views/#_TableResult
             bridge_table_data.append(data_row)
 
         # Combine summary and bridge data
@@ -261,7 +262,7 @@ class BatchCalculationComponent:
         final_row_headers = summary_row_headers + bridge_row_headers
 
         # Define column headers
-        headers = ["Status", "Ontbrekende velden", "Max UC", "UC Status", "Gefaalde controles", "Rapport"]
+        headers = ["Status", "Ontbrekende velden", "Max UC", "UC Status", "Gefaalde controles"]
 
         return TableResult(final_table_data, column_headers=headers, row_headers=final_row_headers)
 
