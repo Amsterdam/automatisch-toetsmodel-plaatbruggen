@@ -10,6 +10,7 @@ from viktor.parametrization import (
     Text,
 )
 
+from app.constants import BATCH_CALCULATION_INTRO_TEXT, BATCH_CALCULATION_BUTTONS_TEXT
 
 class OverviewBridgesParametrization(Parametrization):
     """Parametrization for the Overview Bridges entity."""
@@ -72,8 +73,12 @@ class OverviewBridgesParametrization(Parametrization):
 
     # Define the Batch Calculation page
     batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
+    batch_calculation.introduction_text = Text(BATCH_CALCULATION_INTRO_TEXT)
+
+    batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
 
     batch_calculation.action_buttons = Text("### Acties")
+
     batch_calculation.refresh_button = ActionButton(
         "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
     )
