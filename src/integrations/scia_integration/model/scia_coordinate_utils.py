@@ -571,7 +571,7 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     return (None, None)
 
 
-def move_polygon_to_bridge_boundaries(  # noqa: C901
+def move_polygon_to_bridge_boundaries(
     corner_points: list[tuple[float, float, float]], bridge_geom_data: BridgeGeometryData
 ) -> list[tuple[float, float, float]]:
     """
