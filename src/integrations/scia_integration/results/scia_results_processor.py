@@ -18,8 +18,6 @@ CS Table Types (results from SCIA section on plane objects):
 
 import functools
 import logging
-
-logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any, Callable, Union
 
@@ -32,6 +30,8 @@ from src.integrations.scia_integration.constants.results import (
 )
 
 from .scia_result_helpers import get_nested_result_data
+
+logger = logging.getLogger(__name__)
 
 
 def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
@@ -376,31 +376,27 @@ def _map_cs_section_to_zone(
     z = float(z)
 
     # --- Step 1: Determine segment number based on x-coordinate (longitudinal position) ---
-    # Iterate through all segments to find the correct one based on cumulative length
+    # Note: Segment 0 is typically a definition segment with length 0.
+    # Real segments start from index 1 and use that index as the segment_number.
     cumulative_length = 0.0
-    segment_number = 1  # Default to first segment (1-based)
+    segment_number = 1  # Default to first segment
 
-    for i, segment in enumerate(bridge_segments):
+    for i in range(1, len(bridge_segments)):  # Start from index 1
         # Get segment length - support both VIKTOR Munch (l) and Pydantic model (segment_length)
-        segment_length = getattr(segment, "l", None) or getattr(segment, "segment_length", 0.0)
+        segment_length = getattr(bridge_segments[i], "l", None) or getattr(bridge_segments[i], "segment_length", 0.0)
         segment_length = float(segment_length) if segment_length is not None else 0.0
         cumulative_length += segment_length
 
         if x <= cumulative_length:
-            segment_number = i + 1  # 1-based segment number
+            segment_number = i
             break
     else:
         # If x is beyond all segments, assign to last segment
-        segment_number = len(bridge_segments)
+        segment_number = len(bridge_segments) - 1
 
     # --- Step 2: Determine zone type based on y-coordinate (transverse position) ---
-    # Get segment geometry at the identified segment (convert 1-based segment_number to 0-based index)
-    segment_index = segment_number - 1
-    if segment_index < 0:
-        segment_index = 0
-    elif segment_index >= len(bridge_segments):
-        segment_index = len(bridge_segments) - 1
-    segment = bridge_segments[segment_index]
+    # Get segment geometry at the identified segment
+    segment = bridge_segments[segment_number]
 
     # Ensure bz values are floats (may be stored as strings or other types)
     bz2 = float(segment.bz2)
@@ -542,10 +538,9 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
             logger.debug("Zone mapping completed. Unique zones: %s", unique_zones)
             if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
                 logger.warning("Zone mapping produced invalid zones: %s", unique_zones)
-        except Exception as e:
+        except Exception:
             logger.exception(
-                "Zone mapping failed for CS results. Error: %s. Segments: %d, CS sections: %d",
-                e,
+                "Zone mapping failed for CS results. Segments: %d, CS sections: %d",
                 len(bridge_segments) if bridge_segments else 0,
                 len(df_result),
             )

@@ -6,8 +6,6 @@ This module acts as the bridge between the VIKTOR SDK and the core logic from th
 
 import logging
 import xml.etree.ElementTree as ET
-
-logger = logging.getLogger(__name__)
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -58,6 +56,8 @@ else:
         progress_message = None  # type: ignore[misc,assignment]
         OutputFileParser = None  # type: ignore[misc,assignment]
         VIKTOR_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class ViktorSciaModelBuilder(SciaModelBuilder):
@@ -1355,9 +1355,9 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
 
         # Generate envelope dataframe (used by IDEA and analyse resultaten view)
         df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-    except Exception as e:
+    except Exception:
         # Log the error with full traceback so the actual issue is visible
-        logger.exception("Failed to generate CS dataframes: %s", e)
+        logger.exception("Failed to generate CS dataframes")
         # Re-raise so the actual error is visible instead of silently returning empty data
         raise
     else:
