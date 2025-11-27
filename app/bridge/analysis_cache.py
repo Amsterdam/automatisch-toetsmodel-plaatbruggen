@@ -712,9 +712,9 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         "summary": full_results.get("summary"),
     }
 
-    # Include cs_envelope_df if present (parsed, relatively small)
-    if "cs_envelope_df" in full_results:
-        cacheable["cs_envelope_df"] = full_results["cs_envelope_df"]
+    # Include df_cs_envelope if present (parsed, relatively small)
+    if "df_cs_envelope" in full_results:
+        cacheable["df_cs_envelope"] = full_results["df_cs_envelope"]
 
     # Include other DataFrames/parsed results (small)
     for key in ["displacements", "internal_forces", "reactions", "stresses"]:
