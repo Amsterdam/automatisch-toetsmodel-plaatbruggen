@@ -18,8 +18,9 @@ CS_TABLE_TYPES: tuple[Literal["ULS"], Literal["SLS freq"]] = (
 )
 
 # SCIA table name patterns for CS tables
-CS_BASIS_TABLE_PATTERN = "Interne 2D-krachten basis {table_type}"
-CS_ELEMENTAIRE_TABLE_PATTERN = "Interne 2D-krachten elementair {table_type}"
+# Note: CS tables from section on plane objects have "cs" prefix before table_type
+CS_BASIS_TABLE_PATTERN = "Interne 2D-krachten basis cs {table_type}"
+CS_ELEMENTAIRE_TABLE_PATTERN = "Interne 2D-krachten elementair cs {table_type}"
 
 # CS force/moment column names
 CS_SHEAR_FORCE_COLUMNS: tuple[Literal["v_x"], Literal["v_y"]] = ("v_x", "v_y")
