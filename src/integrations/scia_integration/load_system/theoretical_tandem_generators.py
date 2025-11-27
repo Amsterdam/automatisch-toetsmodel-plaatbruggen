@@ -7,7 +7,6 @@ positioned at theoretical traffic lane centers based on geometric bridge divisio
 
 from typing import TYPE_CHECKING, Any
 
-from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.integrations.scia_integration.constants.geometry import (
     DEFAULT_LANE_WIDTH,
     LANE_CENTER_OFFSET_FACTOR,
@@ -16,13 +15,11 @@ from src.integrations.scia_integration.constants.geometry import (
     TANDEM_VEHICLE_LENGTH,
 )
 from src.integrations.scia_integration.constants.loads import (
-    NOBS_DEFAULT,
     TANDEM_CONTACT_AREA_SIDE,
-    TANDEM_LOAD_BASE_MAIN,
-    TANDEM_LOAD_BASE_SECOND,
-    TANDEM_LOAD_BASE_THIRD,
 )
-from src.integrations.scia_integration.load_system.lane_calculations import get_reference_period
+from src.integrations.scia_integration.load_system.load_value_calculators import (
+    calculate_theoretical_tandem_values,
+)
 from src.integrations.scia_integration.load_system.tandem_sequencer import TANDEM_WHEEL_OFFSETS, tandem_system_sequencer
 
 if TYPE_CHECKING:
@@ -130,17 +127,12 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
-    results = []
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-    # Obtain load values
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    # Calculate load values using helper function (same base value for all lanes)
+    base_load = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
+
     # Generate separate load cases for each vehicle
+    results = []
     if lane_y_positions:
         prefix = "BG8"
         load_case_counter = 1
@@ -257,17 +249,12 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
     lane_y_positions = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
-    results = []
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-    # Obtain load values
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    # Calculate load values using helper function (same base value for all lanes)
+    base_load = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
+
     # Generate separate load cases for each vehicle
+    results = []
     if lane_y_positions:
         prefix = "BG9"
         load_case_counter = 1
@@ -388,15 +375,9 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     if not lane_y_positions:
         return []
 
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-    # Obtain load values
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    load_main = TANDEM_LOAD_BASE_MAIN / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_second = TANDEM_LOAD_BASE_SECOND / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    load_third = TANDEM_LOAD_BASE_THIRD / contact_area * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
+    # Calculate load values using helper function (same base value for all lanes)
+    base_load = calculate_theoretical_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Determine how many lanes we have
     num_lanes = len(lane_y_positions)

@@ -10,7 +10,7 @@ by calling methods on the SciaModelBuilder interface.
     A future task is to implement correct, configurable load combination logic based on relevant engineering codes (e.g., NEN 8700/8701).
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 from pandas import DataFrame
@@ -24,6 +24,9 @@ from src.integrations.scia_integration.model.scia_model_interface import SciaLoa
 from src.integrations.scia_integration.scia_enums import LoadCombinationType
 from src.integrations.scia_integration.types import LoadConfiguration
 
+if TYPE_CHECKING:
+    pass
+
 # Type aliases for SCIA objects
 SciaModel = Any
 SciaLoadCase = Any
@@ -35,8 +38,12 @@ SciaLoadCase = Any
 # Mapping from table subject columns to load case series keys
 SUBJECT_TO_SERIES: dict[str, list[str]] = {
     "Permanent": ["self_weight", "dead_load_cases"],
-    "TS": ["tandem_cases"],
-    "UDL": ["udl_traffic_cases"],
+    "TS - rs 1": ["tandem_rs1_cases"],  # Main lane tandem loads
+    "TS - rs 2": ["tandem_rs2_cases"],  # Second lane tandem loads
+    "TS - rs 3": ["tandem_rs3_cases"],  # Third lane tandem loads
+    "UDL - Main": ["udl_main_cases"],  # Main notional lane (RS 1)
+    "UDL - Other": ["udl_other_cases"],  # Adjacent notional lanes (RS 2, RS 3, etc.)
+    "UDL - Rest": ["udl_rest_cases"],  # Rest areas
     "Dienstvoertuig Qserv": ["service_vehicle_cases"],
     "Fiets- en voetpaden": ["pedestrian"],
     "Mensenmenigte": ["pedestrian"],
@@ -82,7 +89,7 @@ def _add_series_to_factors_generic(
 
     :param all_load_cases: Dictionary of all load cases
     :type all_load_cases: dict[str, Any]
-    :param series_key: Key for the load case series (e.g., "tandem_cases")
+    :param series_key: Key for the load case series (e.g., "tandem_rs1_cases")
     :type series_key: str
     :param factor: Load factor to apply
     :type factor: float
@@ -178,7 +185,7 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
     Create SCIA load combinations from a DataFrame of combination factors.
 
     Creates 4 versions of each combination (one per configuration A, B, C, D) ONLY when
-    traffic loads (TS or UDL) are present. For combinations without traffic loads,
+    traffic loads (Tandem or UDL) are present. For combinations without traffic loads,
     creates a single combination without configuration suffix.
 
     Special handling for Config D:
@@ -195,13 +202,15 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
     :type desc_prefix: str
     :param all_load_cases: Dictionary of all load cases
     :type all_load_cases: dict[str, Any]
+    :param params: Bridge parameters
+    :type params: Any
     :returns: List of created combinations
     :rtype: list[SciaLoadCombination]
     """
     results: list[SciaLoadCombination] = []
 
     # Define traffic load subjects that need configuration filtering
-    traffic_subjects = {"TS", "UDL"}
+    traffic_subjects = {"TS - rs 1", "TS - rs 2", "TS - rs 3", "UDL - Main", "UDL - Other", "UDL - Rest"}
 
     for idx, row in df.iterrows():
         # Check if this combination has any traffic loads
@@ -257,10 +266,12 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
                 subject_str = str(subject)
                 is_traffic = subject_str in traffic_subjects
 
+                # Note: For UDL loads, dynamic factors are already applied in prepare_combination_table()
+
                 # Special handling for Config D: tandems are Config D, but UDLs are Config C
                 if config == LoadConfiguration.CONF_D and is_traffic:
                     # For Config D, we need different configs for TS vs UDL
-                    if subject_str == "TS":
+                    if subject_str in ["TS - rs 1", "TS - rs 2", "TS - rs 3"]:
                         # Tandem systems: use Config D
                         for series in _series_list(subject_str):
                             _add_series_to_factors_generic(
@@ -270,7 +281,7 @@ def _create_combinations_from_df(  # noqa: C901, PLR0912
                                 out=load_case_factors,
                                 configuration=LoadConfiguration.CONF_D,
                             )
-                    elif subject_str == "UDL":
+                    elif subject_str in ["UDL - Main", "UDL - Other", "UDL - Rest"]:
                         # UDL loads: use Config C (governing lane position matching)
                         for series in _series_list(subject_str):
                             _add_series_to_factors_generic(
@@ -348,11 +359,33 @@ def load_combination_table_without_rounding(params: Any) -> DataFrame:  # noqa: 
         if design_code is None and hasattr(params_obj, "input") and hasattr(params_obj.input, "berekeningsinstellingen"):
             design_code = getattr(params_obj.input.berekeningsinstellingen, "design_code", None)
 
-        return {
+        # Extract bridge_segments_array for dynamic UDL factor calculation
+        bridge_segments_array = None
+        if hasattr(params_obj, "bridge_segments_array"):
+            # Convert to list of dicts for compatibility
+            bridge_segments_array = [{"l": getattr(segment, "l", 0)} for segment in params_obj.bridge_segments_array]
+        elif hasattr(params_obj, "geometry") and hasattr(params_obj.geometry, "bridge_segments_array"):
+            bridge_segments_array = [{"l": getattr(segment, "l", 0)} for segment in params_obj.geometry.bridge_segments_array]
+
+        # Extract berekeningsniveau and signage for UDL factor calculation
+        berekeningsniveau = getattr(params_obj, "berekeningsniveau", None)
+        signage = getattr(params_obj, "signage", None)
+
+        result = {
             "cc_class": cc_class,
             "design_code": design_code,
             "info": {"construction_year": getattr(getattr(params_obj, "info", None), "construction_year", None)},
         }
+
+        # Add optional parameters if available
+        if bridge_segments_array:
+            result["bridge_segments_array"] = bridge_segments_array
+        if berekeningsniveau:
+            result["berekeningsniveau"] = berekeningsniveau
+        if signage:
+            result["signage"] = signage
+
+        return result
 
     # Convert params to dict format and prepare the initial table
     params_dict = _convert_to_dict(params)
@@ -509,8 +542,12 @@ def create_all_load_combinations(
             "standard_cases": {"self_weight": SciaLoadCase, "pedestrian": SciaLoadCase},
             "dead_load_cases": {"asfalt": SciaLoadCase, "uitvulling": SciaLoadCase, ...},
             "temperature_cases": {"combi_1": SciaLoadCase, ...},
-            "udl_traffic_cases": {"rs_1": SciaLoadCase, ...},
-            "tandem_cases": {"tandem_rs1_x1.2": SciaLoadCase, ...},
+            "udl_main_cases": {"BG4001": SciaLoadCase, ...},
+            "udl_other_cases": {"BG4002": SciaLoadCase, ...},
+            "udl_rest_cases": {"BG4003": SciaLoadCase, ...},
+            "tandem_rs1_cases": {"tandem_rs1_x1.2": SciaLoadCase, ...},
+            "tandem_rs2_cases": {"tandem_rs2_x1.2": SciaLoadCase, ...},
+            "tandem_rs3_cases": {"tandem_rs3_x1.2": SciaLoadCase, ...},
             ...
         }
     :return: A list of created SciaLoadCombination objects
