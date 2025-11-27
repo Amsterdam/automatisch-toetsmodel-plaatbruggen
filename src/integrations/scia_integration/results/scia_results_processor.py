@@ -28,6 +28,7 @@ from src.integrations.scia_integration.constants.results import (
     CS_TABLE_TYPES,
 )
 
+from .scia_force_calculator import fill_missing_force_values
 from .scia_result_helpers import get_nested_result_data
 
 
@@ -424,13 +425,19 @@ def _prepare_basis_dataframe(df_basis: pd.DataFrame) -> pd.DataFrame:
     """
     Prepare basis DataFrame with required columns.
 
+    Basis table contains shear forces (v_x, v_y) and ALWAYS contains basic
+    moments (m_x, m_y, m_xy) and normal forces (n_x, n_y, n_xy).
+
     :param df_basis: Raw basis DataFrame
     :type df_basis: pd.DataFrame
-    :returns: Prepared DataFrame with name, coords_xyz, belasting, and shear forces
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, shear forces, moments, and normal forces
     :rtype: pd.DataFrame
     """
     if not df_basis.empty and "coords_xyz" in df_basis.columns:
-        return df_basis[["Naam", "coords_xyz", "Belasting", "v_x", "v_y"]].copy()
+        # All required columns for basis table (always present)
+        required_cols = ["Naam", "coords_xyz", "Belasting", "v_x", "v_y", "m_x", "m_y", "m_xy", "n_x", "n_y", "n_xy"]
+        
+        return df_basis[required_cols].copy()
     return pd.DataFrame()
 
 
@@ -438,13 +445,22 @@ def _prepare_elementaire_dataframe(df_elementaire: pd.DataFrame) -> pd.DataFrame
     """
     Prepare elementaire DataFrame with required columns.
 
+    Elementaire table contains design moments (m_xD+, m_xD-, m_yD+, m_yD-)
+    and design normal forces (n_xD, n_yD).
+    
+    NOTE: This table does NOT contain m_x, m_y, m_xy, n_x, n_y, n_xy - those are
+    only available in the basis table.
+
     :param df_elementaire: Raw elementaire DataFrame
     :type df_elementaire: pd.DataFrame
-    :returns: Prepared DataFrame with name, coords_xyz, belasting, moments, and normal forces
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, design moments, and design normal forces
     :rtype: pd.DataFrame
     """
     if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
+        # Required columns for elementaire table (m_x, m_y, m_xy, n_x, n_y, n_xy are NOT included)
         elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+        
+        # Filter to only include columns that actually exist in the dataframe
         elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
         return df_elementaire[elementaire_cols_present].copy()
     return pd.DataFrame()
@@ -454,19 +470,60 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
     """
     Merge basis and elementaire DataFrames on (Naam, coords_xyz, Belasting).
 
-    :param df_basis_merge: Prepared basis DataFrame
+    MERGE STRATEGY:
+    Uses an OUTER join to combine data from both tables. This means:
+    - Rows matching on (Naam, coords_xyz, Belasting) in both tables get combined
+    - Rows only in basis table get kept with NaN for elementaire columns
+    - Rows only in elementaire table get kept with NaN for basis columns
+    
+    WHY OUTER JOIN:
+    SCIA separates results into two tables:
+    - Basis table: Contains shear forces (v_x, v_y) and may contain m_x, m_y, m_xy, n_x, n_y, n_xy
+    - Elementaire table: Contains design moments (m_xD+, m_xD-, m_yD+, m_yD-) and normal forces (n_xD, n_yD)
+    
+    Not all coordinates have results in both tables. An outer join ensures we don't lose data.
+
+    NaN VALUE HANDLING:
+    After merging, fills any missing force values (NaN) using calculated values
+    based on available data. This prevents JSON serialization errors from NaN values.
+    
+    IMPORTANT: Zero (0) is a valid result and is NOT replaced. Only NaN values
+    (from unmatched rows) are calculated and filled.
+
+    :param df_basis_merge: Prepared basis DataFrame with shear forces and m_x, m_y, m_xy, n_x, n_y, n_xy
     :type df_basis_merge: pd.DataFrame
-    :param df_elementaire_merge: Prepared elementaire DataFrame
+    :param df_elementaire_merge: Prepared elementaire DataFrame with design moments/forces (no m_x, m_y, m_xy, n_x, n_y, n_xy)
     :type df_elementaire_merge: pd.DataFrame
-    :returns: Merged DataFrame
+    :returns: Merged DataFrame with NaN values filled by calculation
     :rtype: pd.DataFrame
     """
     if not df_basis_merge.empty and not df_elementaire_merge.empty:
-        return df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
+        # STEP 1: Perform outer merge
+        # This combines rows matching on (Naam, coords_xyz, Belasting)
+        # Unmatched rows from either table are kept with NaN values for missing columns
+        print("DEBUG [_merge_basis_and_elementaire]: Performing outer merge on (Naam, coords_xyz, Belasting)")
+        df_merged = df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
+        print(f"DEBUG [_merge_basis_and_elementaire]: Merged dataframe has {len(df_merged)} rows")
+        
+        # STEP 2: Fill NaN values from unmatched rows
+        # When a row exists in only one table, the other table's columns will be NaN
+        # We calculate these missing values using engineering relationships
+        # IMPORTANT: This only fills NaN, not zero values (zero is valid!)
+        print("DEBUG [_merge_basis_and_elementaire]: Filling missing (NaN) values with calculations")
+        df_filled = fill_missing_force_values(df_merged)
+        print("DEBUG [_merge_basis_and_elementaire]: Merge and fill complete")
+        return df_filled
+    
+    # If only one table has data, return it directly (no NaN values to fill)
     if not df_basis_merge.empty:
+        print("ERROR [_merge_basis_and_elementaire]: Only basis table has data - elementaire table is empty!")
         return df_basis_merge.copy()
     if not df_elementaire_merge.empty:
+        print("ERROR [_merge_basis_and_elementaire]: Only elementaire table has data - basis table is empty!")
         return df_elementaire_merge.copy()
+    
+    # Both tables are empty
+    print("ERROR [_merge_basis_and_elementaire]: Both tables are empty - no data to merge!")
     return pd.DataFrame()
 
 
@@ -563,6 +620,15 @@ def _process_single_cs_result_table(
     for col in force_columns:
         if col in df_combined.columns:
             df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
+
+    # Check for any remaining NaN values after merge and calculation
+    # NaN values at this point indicate a problem that needs investigation
+    for col in force_columns:
+        if col in df_combined.columns:
+            nan_count = df_combined[col].isna().sum()
+            if nan_count > 0:
+                print(f"ERROR [_process_single_cs_result_table]: Column '{col}' still has {nan_count} NaN values after merge and calculation!")
+                print(f"ERROR [_process_single_cs_result_table]: This indicates unmatched rows that couldn't be calculated. Investigation required.")
 
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
     # Group by name and filter to keep only rows with the first unique coordinate per group
