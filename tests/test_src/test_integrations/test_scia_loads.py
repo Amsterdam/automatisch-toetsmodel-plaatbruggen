@@ -1507,9 +1507,7 @@ class TestLoadBoundaryCompliance:
                 assert z == 0.0, f"Z coordinate {z} should remain unchanged"
 
     def test_dispersal_function_applies_when_any_corner_inside(self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock) -> None:
-        """
-        Dispersion should be applied when at least one corner lies on the bridge deck, even if others are outside.
-        """
+        """Dispersion should be applied when at least one corner lies on the bridge deck, even if others are outside."""
         from src.integrations.scia_integration.scia_loads import dispersal_function
 
         corner_points = [

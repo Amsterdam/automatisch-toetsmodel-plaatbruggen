@@ -139,10 +139,7 @@ def dispersal_function(  # noqa: C901
 
         # Take minimum dispersion_tot across corners that actually intersect the deck
         positive_dispersions = [dispersion for dispersion in dispersion_tots if dispersion > 0.0]
-        if positive_dispersions:
-            min_dispersion_tot = min(positive_dispersions)
-        else:
-            min_dispersion_tot = 0.0
+        min_dispersion_tot = min(positive_dispersions) if positive_dispersions else 0.0
 
         # Second pass: expand corners using the minimum dispersion_tot
         expanded_coords = []

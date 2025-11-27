@@ -122,12 +122,12 @@ class TestLoadBoundaryCompliance:
         ]
         clipped = move_polygon_to_bridge_boundaries(mixed_points, mock_bridge_geometry)
         expected = [
-            (5.0, 2.0, 0.0),  # Inside - unchanged
-            (25.0, 2.0, 0.0),  # X unchanged (no X clipping)
-            (5.0, 5.0, 0.0),  # Y clipped
-            (25.0, 5.0, 0.0),  # Y clipped, X unchanged
+            (5.0, -1.0, 0.0),  # Entire polygon shifted downward to align with deck edge
+            (25.0, -1.0, 0.0),
+            (5.0, 5.0, 0.0),  # Top points reach deck edge and are clamped
+            (25.0, 5.0, 0.0),
         ]
-        assert clipped == expected, "Only Y coordinates should be clipped"
+        assert clipped == expected, "Polygon should translate in Y while preserving X coordinates"
 
     def test_clip_polygon_preserves_z_coordinates(self, mock_bridge_geometry: Mock) -> None:
         """Test that Z coordinates are preserved during clipping."""
