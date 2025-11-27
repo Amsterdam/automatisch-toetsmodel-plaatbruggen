@@ -13,6 +13,8 @@ This implementation:
 
 from typing import Any
 
+from viktor.external import idea_rcs
+
 from src.integrations.idea_integration.idea_enums import (
     BarSurface,
     ConcAggregateType,
@@ -25,7 +27,6 @@ from src.integrations.idea_integration.idea_enums import (
     ReinforcementMaterial,
     ReinfType,
 )
-from viktor.external import idea_rcs
 
 
 class ViktorIdeaModelBuilder:

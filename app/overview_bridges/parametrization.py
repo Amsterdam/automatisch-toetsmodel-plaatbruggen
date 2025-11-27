@@ -10,7 +10,8 @@ from viktor.parametrization import (
     Text,
 )
 
-from app.constants import BATCH_CALCULATION_INTRO_TEXT, BATCH_CALCULATION_BUTTONS_TEXT
+from app.constants import BATCH_CALCULATION_BUTTONS_TEXT, BATCH_CALCULATION_INTRO_TEXT
+
 
 class OverviewBridgesParametrization(Parametrization):
     """Parametrization for the Overview Bridges entity."""
