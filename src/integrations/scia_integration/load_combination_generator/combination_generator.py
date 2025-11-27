@@ -36,7 +36,7 @@ class TrafficLoadCombinationGenerator:
         external configuration.
         """
 
-    def extract_metadata_from_load_cases(self, all_load_cases: dict[str, Any]) -> dict[str, LoadMetadata]:
+    def extract_metadata_from_load_cases(self, all_load_cases: dict[str, Any]) -> dict[str, LoadMetadata]:  # noqa: C901
         """
         Extract metadata from SCIA load case structure.
 
@@ -50,49 +50,64 @@ class TrafficLoadCombinationGenerator:
         """
         metadata: dict[str, LoadMetadata] = {}
 
-        # Process UDL traffic loads
-        if "udl_traffic_cases" in all_load_cases:
-            udl_cases = all_load_cases["udl_traffic_cases"]
-            if isinstance(udl_cases, dict):
-                for key, load_case in udl_cases.items():
-                    # Skip backward compatibility aliases (rs_1, rs_2, rs_3)
-                    if key in ["rs_1", "rs_2", "rs_3"]:
-                        continue
+        # Process UDL traffic loads - now split into three categories
+        # Combine all UDL cases from the three dictionaries
+        all_udl_cases = {}
+        for udl_key in ["udl_main_cases", "udl_other_cases", "udl_rest_cases"]:
+            if udl_key in all_load_cases and isinstance(all_load_cases[udl_key], dict):
+                all_udl_cases.update(all_load_cases[udl_key])
 
-                    load_name = self._get_load_case_name(load_case, key)
-                    title = self._get_load_case_description(load_case)
-                    config = extract_configuration_from_string(title)
-                    span_idx = self._extract_span_index_from_title(title)
+        # Also check for old structure for backward compatibility
+        if "udl_traffic_cases" in all_load_cases and isinstance(all_load_cases["udl_traffic_cases"], dict):
+            all_udl_cases.update(all_load_cases["udl_traffic_cases"])
 
-                    metadata[load_name] = LoadMetadata(
-                        load_case_name=load_name,
-                        category=LoadCategory.TRAFFIC_UDL,
-                        configuration=config,
-                        span_index=span_idx,
-                        title=title,
-                        load_group_name=self._get_udl_group_name(config),
-                    )
+        if all_udl_cases:
+            for key, load_case in all_udl_cases.items():
+                # Skip backward compatibility aliases (rs_1, rs_2, rs_3)
+                if key in ["rs_1", "rs_2", "rs_3"]:
+                    continue
 
-        # Process tandem system loads
-        if "tandem_cases" in all_load_cases:
-            tandem_cases = all_load_cases["tandem_cases"]
-            if isinstance(tandem_cases, dict):
-                for key, load_case in tandem_cases.items():
-                    load_name = self._get_load_case_name(load_case, key)
-                    title = self._get_load_case_description(load_case)
-                    config = extract_configuration_from_string(title)
-                    lane = self._extract_lane_from_title(title)
-                    position_x = self._extract_position_from_title(title)
+                load_name = self._get_load_case_name(load_case, key)
+                title = self._get_load_case_description(load_case)
+                config = extract_configuration_from_string(title)
+                span_idx = self._extract_span_index_from_title(title)
 
-                    metadata[load_name] = LoadMetadata(
-                        load_case_name=load_name,
-                        category=LoadCategory.TRAFFIC_TANDEM,
-                        configuration=config,
-                        notional_lane=lane,
-                        position_x=position_x,
-                        title=title,
-                        load_group_name=self._get_tandem_group_name(lane),
-                    )
+                metadata[load_name] = LoadMetadata(
+                    load_case_name=load_name,
+                    category=LoadCategory.TRAFFIC_UDL,
+                    configuration=config,
+                    span_index=span_idx,
+                    title=title,
+                    load_group_name=self._get_udl_group_name(config),
+                )
+
+        # Process tandem system loads from three separate dictionaries
+        all_tandem_cases = {}
+        for tandem_key in ["tandem_rs1_cases", "tandem_rs2_cases", "tandem_rs3_cases"]:
+            if tandem_key in all_load_cases and isinstance(all_load_cases[tandem_key], dict):
+                all_tandem_cases.update(all_load_cases[tandem_key])
+
+        # Also check for old structure for backward compatibility
+        if "tandem_cases" in all_load_cases and isinstance(all_load_cases["tandem_cases"], dict):
+            all_tandem_cases.update(all_load_cases["tandem_cases"])
+
+        if all_tandem_cases:
+            for key, load_case in all_tandem_cases.items():
+                load_name = self._get_load_case_name(load_case, key)
+                title = self._get_load_case_description(load_case)
+                config = extract_configuration_from_string(title)
+                lane = self._extract_lane_from_title(title)
+                position_x = self._extract_position_from_title(title)
+
+                metadata[load_name] = LoadMetadata(
+                    load_case_name=load_name,
+                    category=LoadCategory.TRAFFIC_TANDEM,
+                    configuration=config,
+                    notional_lane=lane,
+                    position_x=position_x,
+                    title=title,
+                    load_group_name=self._get_tandem_group_name(lane),
+                )
 
         return metadata
 

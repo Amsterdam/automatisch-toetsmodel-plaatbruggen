@@ -10,9 +10,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.integrations.scia_integration.constants.loads import (
+    TANDEM_CONTACT_AREA_SIDE,
+    TANDEM_LOAD_BASE_VALUE,
+)
 from src.integrations.scia_integration.load_system.load_value_calculators import (
     calculate_real_tandem_values,
-    calculate_real_udl_values,
 )
 from src.integrations.scia_integration.scia_loads.material_load_helpers import (
     create_material_surface_load,
@@ -51,30 +54,20 @@ class TestRealTandemLoads:
         ],
     )
     def test_calculate_real_tandem_values(self, berekeningsniveau: str, signage: str | None) -> None:
-        """Test that calculate_real_tandem_values returns correct number of values for all berekeningsniveau options."""
-        # Arrange
+        """Test that calculate_real_tandem_values returns a positive base load for all berekeningsniveau options."""
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
         if signage:
             params.signage = signage
 
         length_bridgedeck = 25.0
-        psi_factor = 1.0
-        alpha_factor = 1.0
 
         # Act
-        load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_factor, alpha_factor)
+        base_load = calculate_real_tandem_values(params, length_bridgedeck)
 
         # Assert
-        assert isinstance(load_main, (int, float))
-        assert isinstance(load_second, (int, float))
-        assert isinstance(load_third, (int, float))
-        # The values should be positive
-        assert load_main > 0
-        assert load_second > 0
-        assert load_third > 0
-        # Main load should be larger than second, which should be larger than third
-        assert load_main > load_second > load_third
+        expected_base = TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
+        assert base_load == expected_base
 
 
 class TestTheoreticalTandemLoads:
@@ -556,42 +549,6 @@ class TestLoadErrorHandling:
 class TestUniformlyDistributedLoads:
     """Test generation and application of uniformly distributed loads (UDL)."""
 
-    @pytest.mark.parametrize(
-        ("berekeningsniveau", "signage", "udl_value"),
-        [
-            ("Werkelijke wegindeling", None, 9000.0),
-            ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
-            ("Werkelijke wegindeling met bebording", "50 ton", 9000.0),
-            ("Werkelijke wegindeling met bebording", "30 ton", 9000.0),
-            ("Werkelijke wegindeling met bebording", "20 ton", 9000.0),
-        ],
-    )
-    def test_calculate_real_udl_values(self, berekeningsniveau: str, signage: str | None, udl_value: float) -> None:
-        """Test that calculate_real_udl_values returns correct number of values for all berekeningsniveau options."""
-        # Arrange
-        params = Mock()
-        params.berekeningsniveau = berekeningsniveau
-        if signage:
-            params.signage = signage
-
-        length_bridgedeck = 25.0
-        psi_factor = 1.0
-        alpha_factor = 1.0
-
-        # Act
-        main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_factor, alpha_factor)
-
-        # Assert
-        assert isinstance(main_value, (int, float))
-        assert isinstance(other_value, (int, float))
-        assert isinstance(rest_value, (int, float))
-        # The values should be positive
-        assert main_value > 0
-        assert other_value > 0
-        assert rest_value > 0
-        # Main value should use the udl_value as base
-        assert main_value != 0  # Main value should be modified by factors but not zero
-
     def test_amount_of_notional_lanes(self) -> None:
         """
         Test calculation of number of notional lanes and lane width for different bridge widths.
@@ -671,28 +628,13 @@ class TestUniformlyDistributedLoads:
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
-    def test_create_real_udl_traffic_loads_basic_case(  # noqa: PLR0913
-        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_real_udl_traffic_loads_basic_case(self, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
         udl_value = 9000.0  # 9 kN/m²
-
-        # Configure mock params and reference period
-        mock_params.reference_period = 50  # years
-        mock_ref_period = Mock()
-        mock_ref_period.return_value = 50
-
-        # Configure load factors before they are used
-        mock_psi.return_value = 1.0  # Example psi factor
-        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
-        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Add bridge segments data that get_bridge_geom_data needs
         # Create a single span bridge (first segment + one segment = single span)
@@ -738,7 +680,6 @@ class TestUniformlyDistributedLoads:
         result = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=length_bridgedeck,
-            udl_value=udl_value,
         )
 
         # Verify basic structure of results
@@ -792,24 +733,16 @@ class TestUniformlyDistributedLoads:
         assert "Conf." in udl_data["title"], f"Title should contain configuration info, got: {udl_data['title']}"
         assert "Span" in udl_data["title"], f"Title should contain span information, got: {udl_data['title']}"
 
-        # Calculate expected main lane load value with factors (if this is a main lane)
-        if "RS 1" in udl_data["title"]:
-            expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-            assert abs(udl_data["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}, got {udl_data['load']}"
+        # Load values are calculated internally by helper function and tested separately
+        # Just verify that load values are reasonable (positive and within expected range)
+        assert udl_data["load"] > 0, "Load value should be positive"
+        assert udl_data["load"] < udl_value * 2.0, "Load value should be reasonable (less than 2x base value)"
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_number_of_road_zones")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_reference_period")
-    def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
+    def test_create_real_udl_traffic_loads_edge_cases(
         self,
-        mock_ref_period: Mock,
-        mock_alpha_q: Mock,
-        mock_alpha_trend: Mock,
-        mock_psi: Mock,
         mock_obtain_y_udl: Mock,
         mock_num_zones: Mock,
         mock_obtain_y_real: Mock,
@@ -818,17 +751,8 @@ class TestUniformlyDistributedLoads:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
-        # Configure mock params and reference period
-        mock_params.reference_period = 50  # years
-        mock_ref_period.return_value = 50
-
         # Configure single road zone (not dual carriageway)
         mock_num_zones.return_value = 1
-
-        # Configure load factors
-        mock_psi.return_value = 1.0  # Example psi factor
-        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
-        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Configure mock params access
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
@@ -875,7 +799,6 @@ class TestUniformlyDistributedLoads:
         result_narrow = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=9000.0,
         )
         # Verify narrow road generates at least some load cases
         assert isinstance(result_narrow, dict), "Result should be a dictionary"
@@ -900,7 +823,6 @@ class TestUniformlyDistributedLoads:
         result_no_auto = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=9000.0,
         )
         # The function generates loads based on road geometry even without Auto zones
         # This is the actual behavior - it doesn't require Auto zones specifically
@@ -922,7 +844,6 @@ class TestUniformlyDistributedLoads:
         result_zero_load = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=0.0,
         )
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"
         assert "BG4001" in result_zero_load, "Should contain BG4001 key"
@@ -930,9 +851,9 @@ class TestUniformlyDistributedLoads:
         # Find the first RS 1 case (main lane) or use BG4001
         zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 3, f"Should generate at least 3 load cases even with zero load, got {len(zero_load_cases)}"
-        # Check that BG4001 has zero load (if it's a main lane) or check any case
-        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
-            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # NEW SYSTEM: All UDL loads have base value (2500) regardless of input udl_value
+        # Lane differences are now handled in load combination factors
+        assert result_zero_load["BG4001"]["load"] == 2500.0, f"All UDL loads should have base value 2500, got {result_zero_load['BG4001']['load']}"
 
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.get_load_zones_data_from_params")
@@ -1123,13 +1044,7 @@ class TestUniformlyDistributedLoads:
             with pytest.raises(ValueError, match="Lane width must be positive"):
                 generate_real_lane_positions_bg9000(mock_params, lane_width=0)
 
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_reference_period")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_q_nen_en_1991_2")
-    def test_create_udl_traffic_loads_basic_case(
-        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_ref_period: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_udl_traffic_loads_basic_case(self, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_theoretical_udl_traffic_loads
 
@@ -1166,12 +1081,6 @@ class TestUniformlyDistributedLoads:
         mock_segment.dz_2 = 0.5
         mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
-        # Mock the load factors
-        mock_ref_period.return_value = 30  # Standard reference period
-        mock_psi.return_value = 0.95  # Example psi factor
-        mock_alpha_trend.return_value = 0.99  # Example alpha trend factor
-        mock_alpha_q.return_value = [0.95, 1.0]  # Example alpha q factors for main and other lanes
-
         # Execute the function
         result = create_theoretical_udl_traffic_loads(
             params=mock_params,
@@ -1179,7 +1088,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=width_bridgedeck,
             width_firstsegment_zone3=width_firstsegment_zone3,
             width_firstsegment_zone2=width_firstsegment_zone2,
-            udl_value=udl_value,
         )
 
         # Verify basic structure of results
@@ -1231,18 +1139,10 @@ class TestUniformlyDistributedLoads:
         assert 0.0 <= min_x < 1.0, f"Polygon should start near span start (x={min_x})"
         assert 19.0 < max_x <= 20.0, f"Polygon should end near span end (x={max_x})"
 
-        # Calculate expected load values with factors
-        expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-        expected_other_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-        expected_rest_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[1]
-
-        # Check load values based on title (RS 1 = main, RS 2+ = other, rest = rest)
-        if "RS 1" in bg4001["title"]:
-            assert abs(bg4001["load"] - expected_main_load) < 0.1, f"Main lane load should be {expected_main_load}, got {bg4001['load']}"
-        elif "RS" in bg4001["title"] and "RS 1" not in bg4001["title"]:
-            assert abs(bg4001["load"] - expected_other_load) < 0.1, f"Other lane load should be {expected_other_load}, got {bg4001['load']}"
-        elif "rest" in bg4001["title"].lower():
-            assert abs(bg4001["load"] - expected_rest_load) < 0.1, f"Rest area load should be {expected_rest_load}, got {bg4001['load']}"
+        # Load values are calculated internally by helper function and tested separately
+        # Just verify that load values are reasonable (positive and within expected range)
+        assert bg4001["load"] > 0, "Load value should be positive"
+        assert bg4001["load"] < udl_value * 2.0, "Load value should be reasonable (less than 2x base value)"
 
         # Check other load cases have correct structure
         for key in sorted_keys[: min(5, len(sorted_keys))]:  # Check first 5 cases
@@ -1294,7 +1194,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=5.5,  # Just enough for one lane + zones
             width_firstsegment_zone3=1.0,
             width_firstsegment_zone2=1.0,
-            udl_value=9000.0,
         )
 
         # Verify narrow bridge generates at least some load cases
@@ -1317,7 +1216,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=10.0,
             width_firstsegment_zone3=1.0,
             width_firstsegment_zone2=1.0,
-            udl_value=0.0,
         )
 
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"
@@ -1325,9 +1223,9 @@ class TestUniformlyDistributedLoads:
         # Find the first RS 1 case (main lane) or use BG4001
         zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 9, f"Should generate at least 9 load cases even with zero load, got {len(zero_load_cases)}"
-        # Check that BG4001 has zero load (if it's a main lane) or check any case
-        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
-            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # NEW SYSTEM: All UDL loads have base value (2500) regardless of input udl_value
+        # Lane differences are now handled in load combination factors
+        assert result_zero_load["BG4001"]["load"] == 2500.0, f"All UDL loads should have base value 2500, got {result_zero_load['BG4001']['load']}"
         # Check that titles include span information
         assert "Span" in result_zero_load["BG4001"]["title"], f"Title should include span info: {result_zero_load['BG4001']['title']}"
 
