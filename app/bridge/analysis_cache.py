@@ -847,7 +847,7 @@ def get_cached_analysis_results(  # noqa: PLR0913
     progress_message(f"Controleren cache voor {analysis_type.value.upper()} analyse...")
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
-        progress_message(f"{prefix}Gecachte resultaten gevonden - laden...", percentage=percentage)
+        progress_message(f"Gecachte resultaten gevonden - laden...")
         return cached_results
 
     # Run analysis if not cached
