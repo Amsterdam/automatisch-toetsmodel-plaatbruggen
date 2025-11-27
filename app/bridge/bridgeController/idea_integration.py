@@ -10,6 +10,11 @@ This component provides all IDEA RCS-related functionality including:
 import zipfile
 from datetime import datetime, timezone
 
+from viktor.core import File, progress_message
+from viktor.errors import UserError
+from viktor.result import DownloadResult
+from viktor.views import TableResult, TableView
+
 from app.bridge.analysis_cache import get_cached_analysis_results, get_idea_analysis_results, get_idea_model_only
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.utils import validate_reinforcement_zone_selections
@@ -17,10 +22,6 @@ from src.common.constants.technical import AnalysisType
 from src.integrations.idea_integration.idea_data_models import extract_bridge_idea_input_data
 from src.integrations.idea_integration.idea_interface import _get_unique_matching_zone_keys
 from src.integrations.idea_integration.idea_results_processor import IdeaResultsProcessor
-from viktor.core import File, progress_message
-from viktor.errors import UserError
-from viktor.result import DownloadResult
-from viktor.views import TableResult, TableView
 
 
 class IdeaIntegration:
@@ -89,6 +90,7 @@ class IdeaIntegration:
         if cached_results is None:
             raise UserError("IDEA analyse gefaald of geen gecachte resultaten beschikbaar.")
 
+        progress_message("Verwerken IDEA resultaten voor weergave...")
         result = IdeaResultsProcessor.process_idea_results(cached_results)
 
         if not result["success"] and "error" in result:

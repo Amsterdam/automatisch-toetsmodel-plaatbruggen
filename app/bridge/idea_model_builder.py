@@ -13,6 +13,8 @@ This implementation:
 
 from typing import Any
 
+from viktor.external import idea_rcs
+
 from src.integrations.idea_integration.idea_enums import (
     BarSurface,
     ConcAggregateType,
@@ -25,7 +27,6 @@ from src.integrations.idea_integration.idea_enums import (
     ReinforcementMaterial,
     ReinfType,
 )
-from viktor.external import idea_rcs
 
 
 class ViktorIdeaModelBuilder:
@@ -172,7 +173,7 @@ class ViktorIdeaModelBuilder:
         """
         return idea_rcs.LoadingULS(internal_forces)
 
-    def create_result_of_internal_forces(self, Qz: float = 0.0, My: float = 0.0) -> idea_rcs.ResultOfInternalForces:  # noqa: N803
+    def create_result_of_internal_forces(self, Qz: float = 0.0, My: float = 0.0, N: float = 0.0) -> idea_rcs.ResultOfInternalForces:  # noqa: N803
         """
         Create an internal forces result object.
 
@@ -180,10 +181,12 @@ class ViktorIdeaModelBuilder:
         :type Qz: float
         :param My: Bending moment My in kNm
         :type My: float
+        :param N: Normal force N in kN
+        :type N: float
         :returns: Internal forces result object
         :rtype: idea_rcs.ResultOfInternalForces
         """
-        return idea_rcs.ResultOfInternalForces(Qz=Qz, My=My)
+        return idea_rcs.ResultOfInternalForces(Qz=Qz, My=My, N=N)
 
     def get_concrete_material_enum(self, quality: str) -> ConcreteMaterial:
         """

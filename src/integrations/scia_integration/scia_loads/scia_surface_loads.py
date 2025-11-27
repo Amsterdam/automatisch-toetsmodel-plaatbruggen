@@ -42,15 +42,21 @@ def add_udl_loads(
         # Generate UDL loads - this will auto-detect mode from berekeningsniveau
         udl_load_list = generate_udl_loads(params)
 
+        # Combine all UDL load cases from the three dictionaries
+        all_udl_cases = {}
+        all_udl_cases.update(load_cases.get("udl_main_cases", {}))
+        all_udl_cases.update(load_cases.get("udl_other_cases", {}))
+        all_udl_cases.update(load_cases.get("udl_rest_cases", {}))
+
         # Map each polygon to its specific load case
         for load_item in udl_load_list:
             load_case_name = load_item.get("load_case")
             if not load_case_name:
                 continue
 
-            # Find the corresponding SCIA load case
-            if load_case_name in load_cases["udl_traffic_cases"]:
-                scia_case = load_cases["udl_traffic_cases"][load_case_name]
+            # Find the corresponding SCIA load case from combined dictionary
+            if load_case_name in all_udl_cases:
+                scia_case = all_udl_cases[load_case_name]
 
                 # Create surface load for this polygon on its specific load case
                 builder.create_surface_load(

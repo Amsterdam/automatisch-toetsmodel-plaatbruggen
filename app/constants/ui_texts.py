@@ -115,17 +115,25 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 
 # Dimensions segments explanation
 DIMENSIONS_SEGMENTS_EXPLANATION = """Definieer hier de dwarsdoorsneden (snedes) van de brug.
-Elk item in de lijst hieronder representeert een dwarsdoorsnede.
+
+### Globale dimensies (bovenaan)
+Gebruik de invoervelden **bovenaan** om snel dimensies toe te passen op alle segmenten tegelijk:
+- Vul de gewenste waarden in voor breedte zone 1, 2, 3 en dikte zone 1+3 en zone 2.
+- Klik op de knop **"Pas dimensies toe op alle segmenten"** om deze waarden naar alle segmenten te kopiëren.
+
+### Individuele segmenten (tabel)
+Elk item in de tabel hieronder representeert een dwarsdoorsnede:
 - Het **eerste item** definieert de geometrie van het begin van de brug (snede D1).
 - Elk **volgend item** definieert de geometrie van de *volgende* dwarsdoorsnede (D2, D3, etc.).
 - Het veld '**Afstand tot vorige snede**' geeft de lengte van het brugsegment *tussen* de voorgaande en de huidige snede.
   Dit veld is niet zichtbaar voor de eerste snede.
-- De overige dimensievelden beschrijven de eigenschappen van de *huidige* dwarsdoorsnede.
-Standaard zijn twee dwarsdoorsneden (D1 en D2) voorgedefinieerd, wat resulteert in één brugsegment.
-Pas de waarden aan, of voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
+- Het veld '**Oplegging**' geeft aan of de snede een oplegging bevat.
 
-De brug bestaat altijd uit drie zones (1,2 en 3). Voor een brug met slechts één dikte, vul je dezelfde waarde in
-voor 'Dikte zone 1 en 3' en 'Dikte zone 2'.
+Standaard zijn vier dwarsdoorsneden (D1 t/m D4) voorgedefinieerd, wat resulteert in drie brugsegmenten.
+Voeg meer dwarsdoorsneden toe/verwijder ze via de '+' en '-' knoppen.
+
+**Let op:** De brug bestaat altijd uit drie zones (1, 2 en 3). Voor een brug met slechts één dikte,
+vul je dezelfde waarde in voor 'Dikte zone 1 en 3' en 'Dikte zone 2'.
 
 """
 
@@ -223,4 +231,23 @@ Het is mogelijk in de resultaten lijst te klikken op een specifieke rij om alle 
 Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
 
 **Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
+"""
+BATCH_CALCULATION_INTRO_TEXT = """Dit is de berekeningspagina voor de batch berekeningen.
+Hier kan je de berekeningen voor alle bruggen tegelijk uitvoeren. Rechts in de tabel is het statusoverzicht te zien.
+De geschatte tijd geeft een indicatie van de tijd die nodig is om alle bruggen te berekenen, die klaar staan.
+Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld. Deze brug wordt dan geel gekleurd.
+Bruggen die nog informatie missen, worden rood gemarkeerd. In de tweede kolom staan de ontbrekende velden aangegeven, die nog ingevuld moeten worden.
+Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.
+Je kunt vervolgens per brug de resultaten bekijken in de entiteit van de brug zelf.
+
+Let op: Het kan erg lang duren voordat de berekeningen klaar zijn.
+"""
+
+BATCH_CALCULATION_BUTTONS_TEXT = """De volgende knoppen zijn beschikbaar:
+- "Ververs Statusoverzicht" vernieuwt de statusoverzicht tabel zonder opnieuw te berekenen.
+Dit kan gebruikt worden om opnieuw te controleren of alle benodigde velden ingevuld zijn.
+- "Start Berekening" start de berekeningen voor *alle* bruggen die klaar staan.
+- "Wis Workspace Cache" verwijdert de gecachte SCIA en IDEA resultaten uit de workspace storage.
+Dit kan gebruikt worden wanneer invoer van een bestaande brug is gewijzigd, en deze opnieuw berekend moet worden.
+De oude berekeningsresultaten van deze brug die in de app opgeslagen zijn, worden dan verwijderd.
 """

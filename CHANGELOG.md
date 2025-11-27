@@ -1,6 +1,6 @@
 ## [Unreleased]
 ### Added
-  **Shared Cache parameters**: added spreiding to the shared cache parameters
+  **Shared Cache parameters**: added spreiding to the shared cache parameters.
 
 ### Changed
 - **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
@@ -8,6 +8,19 @@
   - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
+- **Load combinations**: Changed the system with which load combinations are generated.
+  - Updated the load combination table with new columns to differentiate between the tandem system and udl notional lanes and rest parts.
+  - Changed the implementation of load value calculation factors alpha trend, psi_NEN, alpha_Q and
+  implented a lane factors to differentiate between governing notional lanes.
+  - Moved calculation of these factors to seperate helper functions.
+  - Implemented these helper functions into the load combination table, which now represent combined load factors.
+  - Changed the load value of the tandem systems in the SCIA model to a default of 100 kN.
+  - Changed the load value of the UDL loads in the SCIA model to a default value of 2.5 kN per square meter.
+
+### Fixed
+- **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
+- **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
+- **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
 
 ## [`v0.0.18`] - 2025-12-04
 ### Added
@@ -19,13 +32,13 @@
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
 Introduced a new naming system with span, lane and configuration identification.
 - Load combinations with group 5 that include the tram loading.
-- **Separated VIKTOR and GitHub Documentation**: Created `VIKTOR_README.md` with simplified user-facing content for VIKTOR platform
-  - VIKTOR shows only essential information: description, usage, and contact
-  - README.md retains full documentation including developer setup for GitHub
-  - Both files maintained separately for clarity
-- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
-- **Caching System Documentation**: Added comprehensive documentation in `.github/Rules/caching_system.md` explaining cache architecture and usage
-- **Dataframe Caching**: SCIA CS dataframes (ULS, SLS freq, envelope) now cached for improved performance across views
+- **Separated VIKTOR and GitHub Documentation**: Created `VIKTOR_README.md` with simplified user-facing content for VIKTOR platform.
+  - VIKTOR shows only essential information: description, usage, and contact.
+  - README.md retains full documentation including developer setup for GitHub.
+  - Both files maintained separately for clarity.
+- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results.
+- **Caching System Documentation**: Added comprehensive documentation in `.github/Rules/caching_system.md` explaining cache architecture and usage.
+- **Dataframe Caching**: SCIA CS dataframes (ULS, SLS freq, envelope) now cached for improved performance across views.
 
 ### Changed
 - Fixed surface loads with zero area which caused model singularities in SCIA.

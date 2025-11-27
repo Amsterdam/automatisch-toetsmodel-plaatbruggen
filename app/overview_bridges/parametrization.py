@@ -10,6 +10,8 @@ from viktor.parametrization import (
     Text,
 )
 
+from app.constants import BATCH_CALCULATION_BUTTONS_TEXT, BATCH_CALCULATION_INTRO_TEXT
+
 try:  # pragma: no cover - fallback for environments without Chat field support
     from viktor.parametrization import Chat
 except ImportError:  # pragma: no cover
@@ -77,9 +79,13 @@ class OverviewBridgesParametrization(Parametrization):
 
     # Define the Batch Calculation page - combined view with status and results
     batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
+    batch_calculation.introduction_text = Text(BATCH_CALCULATION_INTRO_TEXT)
+
+    batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
 
     # Action buttons section
     batch_calculation.action_buttons = Text("### Acties")
+
     batch_calculation.refresh_button = ActionButton(
         "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
     )

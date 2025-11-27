@@ -17,6 +17,9 @@ CS Table Types (results from SCIA section on plane objects):
 """
 
 import functools
+import logging
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any, Callable, Union
 
@@ -373,25 +376,31 @@ def _map_cs_section_to_zone(
     z = float(z)
 
     # --- Step 1: Determine segment number based on x-coordinate (longitudinal position) ---
+    # Iterate through all segments to find the correct one based on cumulative length
     cumulative_length = 0.0
-    segment_number = 1  # Default to first segment
+    segment_number = 1  # Default to first segment (1-based)
 
-    for i in range(1, len(bridge_segments)):  # Start from index 1
+    for i, segment in enumerate(bridge_segments):
         # Get segment length - support both VIKTOR Munch (l) and Pydantic model (segment_length)
-        segment_length = getattr(bridge_segments[i], "l", None) or getattr(bridge_segments[i], "segment_length", 0.0)
+        segment_length = getattr(segment, "l", None) or getattr(segment, "segment_length", 0.0)
         segment_length = float(segment_length) if segment_length is not None else 0.0
         cumulative_length += segment_length
 
         if x <= cumulative_length:
-            segment_number = i
+            segment_number = i + 1  # 1-based segment number
             break
     else:
         # If x is beyond all segments, assign to last segment
-        segment_number = len(bridge_segments) - 1
+        segment_number = len(bridge_segments)
 
     # --- Step 2: Determine zone type based on y-coordinate (transverse position) ---
-    # Get segment geometry at the identified segment
-    segment = bridge_segments[segment_number]
+    # Get segment geometry at the identified segment (convert 1-based segment_number to 0-based index)
+    segment_index = segment_number - 1
+    if segment_index < 0:
+        segment_index = 0
+    elif segment_index >= len(bridge_segments):
+        segment_index = len(bridge_segments) - 1
+    segment = bridge_segments[segment_index]
 
     # Ensure bz values are floats (may be stored as strings or other types)
     bz2 = float(segment.bz2)
@@ -509,12 +518,35 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
     """
     if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
         try:
-            df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
-        except Exception:
-            import traceback
+            # Log segment info for debugging
+            logger.debug(
+                "Zone mapping: %d CS sections, %d bridge segments",
+                len(df_result),
+                len(bridge_segments),
+            )
+            for i, seg in enumerate(bridge_segments):
+                seg_len = getattr(seg, "l", None) or getattr(seg, "segment_length", "N/A")
+                logger.debug("  Segment %d: length=%s, bz1=%s, bz2=%s, bz3=%s", i, seg_len, getattr(seg, "bz1", "N/A"), getattr(seg, "bz2", "N/A"), getattr(seg, "bz3", "N/A"))
 
-            traceback.print_exc()
+            df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
+
+            # Log zone mapping results
+            unique_zones = df_result["zone"].unique().tolist()
+            logger.debug("Zone mapping completed. Unique zones: %s", unique_zones)
+            if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
+                logger.warning("Zone mapping produced invalid zones: %s", unique_zones)
+        except Exception as e:
+            logger.exception(
+                "Zone mapping failed for CS results. Error: %s. Segments: %d, CS sections: %d",
+                e,
+                len(bridge_segments) if bridge_segments else 0,
+                len(df_result),
+            )
             df_result["zone"] = "mapping-failed"
+    elif df_result.empty:
+        logger.warning("Zone mapping skipped: DataFrame is empty")
+    elif not bridge_segments or len(bridge_segments) == 0:
+        logger.warning("Zone mapping skipped: No bridge segments provided")
     return df_result
 
 

@@ -3,7 +3,6 @@
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-
 from viktor.views import PlotlyResult, TableResult
 
 if TYPE_CHECKING:
@@ -104,7 +103,6 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
     """
     from plotly import graph_objects as go
     from plotly.subplots import make_subplots
-
     from viktor.views import PlotlyResult
 
     from .scia_results_processor import process_scia_cs_results

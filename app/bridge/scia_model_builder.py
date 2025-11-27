@@ -4,7 +4,10 @@ Module for constructing SCIA models using a concrete implementation of the SciaM
 This module acts as the bridge between the VIKTOR SDK and the core logic from the src layer.
 """
 
+import logging
 import xml.etree.ElementTree as ET
+
+logger = logging.getLogger(__name__)
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -1352,14 +1355,11 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
 
         # Generate envelope dataframe (used by IDEA and analyse resultaten view)
         df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-    except Exception:
-        # If dataframe generation fails, return empty dataframes
-        # This prevents cache failures but allows the rest of the analysis to succeed
-        return {
-            "df_cs_uls": pd.DataFrame(),
-            "df_cs_sls_freq": pd.DataFrame(),
-            "df_cs_envelope": pd.DataFrame(),
-        }
+    except Exception as e:
+        # Log the error with full traceback so the actual issue is visible
+        logger.exception("Failed to generate CS dataframes: %s", e)
+        # Re-raise so the actual error is visible instead of silently returning empty data
+        raise
     else:
         return {
             "df_cs_uls": df_cs_uls,

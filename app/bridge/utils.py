@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
 
-from src.geometry.model_creator import (
-    LoadZoneGeometryData,
-)
-
 # Import for validate_load_zone_widths - ensure this path is correct
 from viktor import InputViolation  # type: ignore[attr-defined]
 from viktor.errors import UserError
+
+from src.geometry.model_creator import (
+    LoadZoneGeometryData,
+)
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization

@@ -6,11 +6,12 @@ This component provides views for displaying bridge information:
 - Load combinations table
 """
 
+from viktor.errors import UserError
+from viktor.views import MapPoint, MapResult, MapView, TableResult, TableView
+
 from app.bridge.parametrization import BridgeParametrization
 from app.common.map_utils import load_and_filter_bridge_shapefile, process_bridge_geometries, validate_shapefile_exists
 from src.combinations.load_factors import create_load_combination_table
-from viktor.errors import UserError
-from viktor.views import MapPoint, MapResult, MapView, TableResult, TableView
 
 
 class InfoViews:
@@ -62,7 +63,7 @@ class InfoViews:
         return MapResult(features)
 
     @TableView("Belastingscombinaties", duration_guess=1)
-    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002
+    def get_load_combinations_view(self, params: BridgeParametrization, **kwargs) -> TableResult:  # noqa: ARG002, C901
         """
         Display the table of load combinations for the bridge.
 
@@ -97,6 +98,32 @@ class InfoViews:
         if not construction_year or str(construction_year).strip() == "":
             construction_year = "2000"
 
+        # Extract bridge_segments_array for dynamic UDL factor calculation
+        bridge_segments_array = None
+        try:
+            if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+                # Convert to list of dicts for compatibility
+                bridge_segments_array = [{"l": getattr(segment, "l", 0)} for segment in params.bridge_segments_array]
+        except (AttributeError, TypeError):
+            # If extraction fails, leave as None (dynamic factors won't be applied)
+            pass
+
+        # Extract berekeningsniveau and signage for UDL factor calculation
+        berekeningsniveau = None
+        signage = None
+        try:
+            # Try to get from calc_page.calc_level hierarchy
+            if hasattr(params, "calc_page") and hasattr(params.calc_page, "calc_level"):
+                berekeningsniveau = getattr(params.calc_page.calc_level, "calculation_level", None)
+                signage = getattr(params.calc_page.calc_level, "signage", None)
+            # Also try direct access (params.berekeningsniveau might be available)
+            if not berekeningsniveau:
+                berekeningsniveau = getattr(params, "berekeningsniveau", None)
+            if not signage:
+                signage = getattr(params, "signage", None)
+        except (AttributeError, TypeError):
+            pass
+
         load_combination_params = {
             "cc_class": cc_class,
             "design_code": design_code,
@@ -104,6 +131,14 @@ class InfoViews:
                 "construction_year": construction_year,
             },
         }
+
+        # Add optional parameters if available
+        if bridge_segments_array:
+            load_combination_params["bridge_segments_array"] = bridge_segments_array
+        if berekeningsniveau:
+            load_combination_params["berekeningsniveau"] = berekeningsniveau
+        if signage:
+            load_combination_params["signage"] = signage
 
         combination_table = create_load_combination_table(load_combination_params)
         return TableResult(combination_table)

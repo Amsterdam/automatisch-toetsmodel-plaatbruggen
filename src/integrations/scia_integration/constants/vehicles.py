@@ -11,9 +11,9 @@ Existing constants are maintained for backward compatibility during transition.
 
 # Service vehicle loads (NEN-EN 1991-2 art. 5.3.2.3)
 SERVICE_VEHICLE_FORCE_PER_AXLE = 25 * 1000  # 25 kN converted to N
-SERVICE_VEHICLE_LENGTH = 3.0  # Vehicle length in meters
+SERVICE_VEHICLE_AXLE_SPACING = 3.0  # Axle spacing in meters
 SERVICE_VEHICLE_WIDTH = 1.75  # Vehicle width in meters
-SERVICE_VEHICLE_WHEEL_CONTACT_AREA = 0.25  # Square contact area side length in meters
+SERVICE_VEHICLE_WHEEL_DIMENSION = 0.25  # Square contact side length in meters
 SERVICE_VEHICLE_INSET_DISTANCE = 0.5  # Distance from bridge edge to outer wheel in meters
 
 # Accidental vehicle loads (NEN-EN 1991-2 art. 5.3.2.3(1)P)
@@ -33,11 +33,12 @@ TRAM_VEHICLE_AXLE_FORCES_N = [
 ]  # 6 axles with 97 kN each (static load) converted to N
 
 # Accidental vehicle dimensions
-ACCIDENTAL_VEHICLE_WIDTH_STANDARD = 1.30  # Standard vehicle width in meters
-ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM = 2.0  # Amsterdam vehicle width in meters
-ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_STANDARD = 0.20  # Standard contact area in meters
-ACCIDENTAL_VEHICLE_WHEEL_CONTACT_AREA_AMSTERDAM = 0.4  # Amsterdam contact area in meters
-ACCIDENTAL_VEHICLE_AXLE_SPACING = 1.2  # Distance between axles in meters
+ACCIDENTAL_VEHICLE_WIDTH_STANDARD = 1.3  # Standard vehicle width in meters
+ACCIDENTAL_VEHICLE_WIDTH_AMSTERDAM = 0  # Amsterdam vehicle width in meters
+ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_STANDARD = 0.2  # Standard contact area in meters
+ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_AMSTERDAM = 0.4  # Amsterdam contact area in meters
+ACCIDENTAL_VEHICLE_AXLE_SPACING = 3.0  # Distance between axles in meters
+ACCIDENTAL_VEHICLE_AXLE_SPACING_AMSTERDAM = 2.0  # Amsterdam distance between axles in meters
 ACCIDENTAL_VEHICLE_INSET_DISTANCE = 0.5  # Distance from bridge edge in meters
 
 # Tram vehicle dimensions (CAF Urbos 100, drawing EE-780)
@@ -45,6 +46,3 @@ TRAM_VEHICLE_TRACK_GAUGE = 1.435  # Track gauge (distance between rail centerlin
 # Axle spacing: distances between consecutive axles in meters
 # [axle1->axle2, axle2->axle3, axle3->axle4, axle4->axle5, axle5->axle6]
 TRAM_VEHICLE_AXLE_SPACING = [1.8, 8.187, 1.85, 8.187, 1.8]
-
-# Vehicle length for sequencing
-SERVICE_VEHICLE_LENGTH_FOR_SEQUENCING = 3.25  # Length used in tandem system sequencer
