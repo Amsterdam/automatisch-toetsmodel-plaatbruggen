@@ -526,7 +526,14 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
             )
             for i, seg in enumerate(bridge_segments):
                 seg_len = getattr(seg, "l", None) or getattr(seg, "segment_length", "N/A")
-                logger.debug("  Segment %d: length=%s, bz1=%s, bz2=%s, bz3=%s", i, seg_len, getattr(seg, "bz1", "N/A"), getattr(seg, "bz2", "N/A"), getattr(seg, "bz3", "N/A"))
+                logger.debug(
+                    "  Segment %d: length=%s, bz1=%s, bz2=%s, bz3=%s",
+                    i,
+                    seg_len,
+                    getattr(seg, "bz1", "N/A"),
+                    getattr(seg, "bz2", "N/A"),
+                    getattr(seg, "bz3", "N/A"),
+                )
 
             df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
 
