@@ -843,23 +843,15 @@ def get_cached_analysis_results(  # noqa: PLR0913
     """
     cache = _get_analysis_cache()
 
-    # Build progress message prefix from context
-    if analysis_context:
-        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
-        percentage = analysis_context.get("batch_percentage")
-    else:
-        prefix = ""
-        percentage = None
-
-    # Try to get cached results
-    progress_message(f"{prefix}Controleren op gecachte resultaten...", percentage=percentage)
+    # Try to get cached results (hash computation is fast)
+    progress_message(f"Controleren cache voor {analysis_type.value.upper()} analyse...")
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
         progress_message(f"{prefix}Gecachte resultaten gevonden - laden...", percentage=percentage)
         return cached_results
 
     # Run analysis if not cached
-    progress_message(f"{prefix}Geen gecachte resultaten gevonden - starten nieuwe analyse...", percentage=percentage)
+    progress_message(f"⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
         results = analysis_function(params, template_path, analysis_context)
@@ -871,7 +863,7 @@ def get_cached_analysis_results(  # noqa: PLR0913
 
     # Cache the results
     if results is not None:
-        progress_message(f"{prefix}Opslaan resultaten in cache...", percentage=percentage)
+        progress_message(f"Opslaan {analysis_type.value.upper()} resultaten in cache...")
         cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
 
     return results

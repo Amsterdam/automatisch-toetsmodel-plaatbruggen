@@ -111,13 +111,13 @@ class TestStandardLoadCases:
 
         # Mock UDL generator to return sample data
         mock_theoretical.return_value = {
-            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4001": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. A"},
             "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
             "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
-            "BG4004": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. B"},
+            "BG4004": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. B"},
             "BG4005": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. B"},
             "BG4006": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. B"},
-            "BG4007": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. C"},
+            "BG4007": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. C"},
             "BG4008": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. C"},
             "BG4009": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. C"},
         }
@@ -127,9 +127,12 @@ class TestStandardLoadCases:
 
         cases = create_udl_traffic_load_cases(mock_builder, mock_params)
 
-        # Should create 9 load cases
+        # Should create 9 load cases (3 per category)
         assert mock_builder.create_load_case.call_count == 9
-        assert len(cases) >= 9  # May include rs_1, rs_2, rs_3 for backward compatibility
+        assert set(cases.keys()) == {"udl_main_cases", "udl_other_cases", "udl_rest_cases"}
+        assert len(cases["udl_main_cases"]) == 3
+        assert len(cases["udl_other_cases"]) == 3
+        assert len(cases["udl_rest_cases"]) == 3
 
         # Check first case (BG4001) - should be in conf. A group
         mock_builder.create_load_case.assert_any_call(
@@ -306,21 +309,23 @@ class TestTandemLoadCases:
         # Key point: BG8xxx load with "rs 2" in title should go to LG9000
         # and BG9xxx load with "rs 1" in title should go to LG8000
         mock_generate.return_value = [
-            {"load_case": "BG8001", "title": "rs 1 - Conf. A - x = 2.5 m", "wheels": [], "load": 300},
-            {"load_case": "BG8002", "title": "rs 2 - Conf. A - x = 2.5 m", "wheels": [], "load": 200},
-            {"load_case": "BG9001", "title": "rs 1 - Conf. B - x = 5.0 m", "wheels": [], "load": 300},
+            {"load_case": "BG8001", "title": "rs 1 - Conf. A - x = 2.5 m", "wheels": [], "load": 100},
+            {"load_case": "BG8002", "title": "rs 2 - Conf. A - x = 2.5 m", "wheels": [], "load": 100},
+            {"load_case": "BG9001", "title": "rs 1 - Conf. B - x = 5.0 m", "wheels": [], "load": 100},
             {"load_case": "BG9002", "title": "rs 3 - Conf. A - x = 5.0 m", "wheels": [], "load": 100},
-            {"load_case": "BG10001", "title": "rs 1 - Conf. C - x = 7.5 m", "wheels": [], "load": 300},
-            {"load_case": "BG10002", "title": "rs 2 - Conf. C - x = 7.5 m", "wheels": [], "load": 200},
+            {"load_case": "BG10001", "title": "rs 1 - Conf. C - x = 7.5 m", "wheels": [], "load": 100},
+            {"load_case": "BG10002", "title": "rs 2 - Conf. C - x = 7.5 m", "wheels": [], "load": 100},
             {"load_case": "BG10003", "title": "rs 3 - Conf. C - x = 7.5 m", "wheels": [], "load": 100},
         ]
 
         mock_params = Mock()
         cases = create_dynamic_tandem_load_cases(mock_builder, mock_params)
 
-        # Verify all cases were created
+        # Verify all cases were created across the three RS dictionaries
         assert mock_builder.create_load_case.call_count == 7
-        assert len(cases) == 7
+        assert len(cases["tandem_rs1_cases"]) == 3
+        assert len(cases["tandem_rs2_cases"]) == 2
+        assert len(cases["tandem_rs3_cases"]) == 2
 
         # Verify title-based grouping (not based on load case name prefix)
         calls = {call[1]["name"]: call[1] for call in mock_builder.create_load_case.call_args_list}
@@ -415,7 +420,7 @@ class TestCreateAllLoadCases:
 
         # Mock UDL generators to return sample data
         mock_theoretical.return_value = {
-            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4001": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. A"},
             "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
             "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
         }
@@ -433,16 +438,20 @@ class TestCreateAllLoadCases:
         # Check that the result is a dictionary
         assert isinstance(cases, dict)
         # Check that all expected top-level keys are present
-        # Note: Tram is not included by default (defaults to False)
+        # Note: Tram is not included because gating criteria are not met (no berekeningsniveau or tram zones set)
         expected_keys = [
             "self_weight",
             "dead_load_cases",
             "temperature_cases",
-            "udl_traffic_cases",
+            "udl_main_cases",
+            "udl_other_cases",
+            "udl_rest_cases",
             "pedestrian",
             "service_vehicle_cases",
             "unintended_vehicle_cases",
-            "tandem_cases",
+            "tandem_rs1_cases",
+            "tandem_rs2_cases",
+            "tandem_rs3_cases",
         ]
         assert list(cases.keys()) == expected_keys
 
@@ -478,7 +487,7 @@ class TestConditionalLoadCaseCreation:
 
         # Mock UDL generators to return sample data
         mock_theoretical.return_value = {
-            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4001": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. A"},
             "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
             "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
         }
@@ -509,11 +518,15 @@ class TestConditionalLoadCaseCreation:
 
         # All categories should be present
         assert "temperature_cases" in cases
-        assert "udl_traffic_cases" in cases
+        assert "udl_main_cases" in cases
+        assert "udl_other_cases" in cases
+        assert "udl_rest_cases" in cases
         assert "pedestrian" in cases
         assert "service_vehicle_cases" in cases
         assert "unintended_vehicle_cases" in cases
-        assert "tandem_cases" in cases
+        assert "tandem_rs1_cases" in cases
+        assert "tandem_rs2_cases" in cases
+        assert "tandem_rs3_cases" in cases
 
     @patch("src.integrations.scia_integration.load_system.udl_generators.create_real_udl_traffic_loads")
     @patch("src.integrations.scia_integration.load_system.udl_generators.create_theoretical_udl_traffic_loads")
@@ -543,7 +556,7 @@ class TestConditionalLoadCaseCreation:
 
         # Mock UDL generators to return sample data
         mock_theoretical.return_value = {
-            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4001": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. A"},
             "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
             "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
         }
@@ -609,7 +622,7 @@ class TestConditionalLoadCaseCreation:
 
         # Mock UDL generators to return sample data
         mock_theoretical.return_value = {
-            "BG4001": {"polygon": [], "load": 9000.0, "title": "RS 1 - Conf. A"},
+            "BG4001": {"polygon": [], "load": 2500.0, "title": "RS 1 - Conf. A"},
             "BG4002": {"polygon": [], "load": 2500.0, "title": "RS 2 - Conf. A"},
             "BG4003": {"polygon": [], "load": 2500.0, "title": "rest 1 - Conf. A"},
         }
@@ -629,8 +642,12 @@ class TestConditionalLoadCaseCreation:
 
         # All categories should be present (default to all enabled)
         assert "temperature_cases" in cases
-        assert "udl_traffic_cases" in cases
+        assert "udl_main_cases" in cases
+        assert "udl_other_cases" in cases
+        assert "udl_rest_cases" in cases
         assert "pedestrian" in cases
         assert "service_vehicle_cases" in cases
         assert "unintended_vehicle_cases" in cases
-        assert "tandem_cases" in cases
+        assert "tandem_rs1_cases" in cases
+        assert "tandem_rs2_cases" in cases
+        assert "tandem_rs3_cases" in cases

@@ -9,7 +9,6 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
-from src.combinations.load_factors import get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.integrations.scia_integration.constants.geometry import (
     DEFAULT_LANE_WIDTH,
     MINIMUM_BRIDGE_WIDTH_FOR_MULTIPLE_LANES,
@@ -19,9 +18,6 @@ from src.integrations.scia_integration.constants.geometry import (
 )
 from src.integrations.scia_integration.constants.loads import (
     TANDEM_CONTACT_AREA_SIDE,
-)
-from src.integrations.scia_integration.load_system.lane_calculations import (
-    get_reference_period,
 )
 from src.integrations.scia_integration.load_system.load_value_calculators import (
     calculate_real_tandem_values,
@@ -272,15 +268,12 @@ def tandem_systems_real_lanes_bg8000(
     else:
         lane_y_positions = generate_real_lane_positions_bg8000(params, lane_width)
 
-    results = []
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-
-    # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
+    # Calculate loads based on berekeningsniveau (same base value, lane factors applied later)
+    base_load = calculate_real_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Generate separate load cases for each vehicle
+    results = []
     if lane_y_positions:
         prefix = "BG8"
         load_case_counter = 1
@@ -453,15 +446,12 @@ def tandem_systems_real_lanes_bg9000(
     else:
         lane_y_positions = generate_real_lane_positions_bg9000(params, lane_width)
 
-    results = []
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-
-    # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
+    # Calculate loads based on berekeningsniveau (same base value, lane factors applied later)
+    base_load = calculate_real_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Generate separate load cases for each vehicle
+    results = []
     if lane_y_positions:
         prefix = "BG9"
         load_case_counter = 1
@@ -624,12 +614,9 @@ def tandem_systems_real_lanes_bg10000(
     if not lane_y_positions:
         return []
 
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-
-    # Calculate loads based on berekeningsniveau
-    load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_nen_8701_factor, alpha_trend_factor)
+    # Calculate loads based on berekeningsniveau (same base value, lane factors applied later)
+    base_load = calculate_real_tandem_values(params, length_bridgedeck)
+    load_main = load_second = load_third = base_load
 
     # Determine how many lanes we have
     num_lanes = len(lane_y_positions)

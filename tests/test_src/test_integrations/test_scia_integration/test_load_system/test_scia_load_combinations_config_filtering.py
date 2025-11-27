@@ -283,8 +283,8 @@ class TestTrafficLoadDetection(unittest.TestCase):
         df_with_traffic = pd.DataFrame(
             {
                 "Permanent": [1.2],
-                "TS": [1.5],  # Has traffic loads
-                "UDL": [1.5],  # Has traffic loads
+                "TS - rs 1": [1.5],  # Has traffic loads
+                "UDL - Main": [1.5],  # Has traffic loads
             },
             index=["6.10a LC1"],
         )
@@ -296,13 +296,37 @@ class TestTrafficLoadDetection(unittest.TestCase):
         mock_tandem_a = MagicMock()
         mock_tandem_a.description = "Tandem - Conf. A - RS 1"
 
+        mock_tandem_b = MagicMock()
+        mock_tandem_b.description = "Tandem - Conf. B - RS 1"
+
+        mock_tandem_c = MagicMock()
+        mock_tandem_c.description = "Tandem - Conf. C - RS 1"
+
+        mock_tandem_d = MagicMock()
+        mock_tandem_d.description = "Tandem - Conf. D - RS 1"
+
         mock_udl_a = MagicMock()
         mock_udl_a.description = "UDL - Conf. A - Span 1"
 
+        mock_udl_b = MagicMock()
+        mock_udl_b.description = "UDL - Conf. B - Span 1"
+
+        mock_udl_c = MagicMock()
+        mock_udl_c.description = "UDL - Conf. C - Span 1"
+
         all_load_cases = {
             "self_weight": mock_perm,
-            "tandem_cases": {"tandem_a": mock_tandem_a},
-            "udl_traffic_cases": {"udl_a": mock_udl_a},
+            "tandem_rs1_cases": {
+                "tandem_a": mock_tandem_a,
+                "tandem_b": mock_tandem_b,
+                "tandem_c": mock_tandem_c,
+                "tandem_d": mock_tandem_d,
+            },
+            "udl_main_cases": {
+                "udl_a": mock_udl_a,
+                "udl_b": mock_udl_b,
+                "udl_c": mock_udl_c,
+            },
         }
 
         # Call function
@@ -388,8 +412,8 @@ class TestTrafficLoadDetection(unittest.TestCase):
         df_mixed = pd.DataFrame(
             {
                 "Permanent": [1.2, 1.2, 1.2],
-                "TS": [1.5, 0.0, 1.5],  # Row 1: has traffic, Row 2: no traffic, Row 3: has traffic
-                "UDL": [1.5, 0.0, 0.0],
+                "TS - rs 1": [1.5, 0.0, 1.5],  # Row 1: has traffic, Row 2: no traffic, Row 3: has traffic
+                "UDL - Main": [1.5, 0.0, 0.0],
             },
             index=["6.10a LC1", "6.10a Perm", "6.10a gr3"],
         )
@@ -401,13 +425,37 @@ class TestTrafficLoadDetection(unittest.TestCase):
         mock_tandem_a = MagicMock()
         mock_tandem_a.description = "Tandem - Conf. A - RS 1"
 
+        mock_tandem_b = MagicMock()
+        mock_tandem_b.description = "Tandem - Conf. B - RS 1"
+
+        mock_tandem_c = MagicMock()
+        mock_tandem_c.description = "Tandem - Conf. C - RS 1"
+
+        mock_tandem_d = MagicMock()
+        mock_tandem_d.description = "Tandem - Conf. D - RS 1"
+
         mock_udl_a = MagicMock()
         mock_udl_a.description = "UDL - Conf. A - Span 1"
 
+        mock_udl_b = MagicMock()
+        mock_udl_b.description = "UDL - Conf. B - Span 1"
+
+        mock_udl_c = MagicMock()
+        mock_udl_c.description = "UDL - Conf. C - Span 1"
+
         all_load_cases = {
             "self_weight": mock_perm,
-            "tandem_cases": {"tandem_a": mock_tandem_a},
-            "udl_traffic_cases": {"udl_a": mock_udl_a},
+            "tandem_rs1_cases": {
+                "tandem_a": mock_tandem_a,
+                "tandem_b": mock_tandem_b,
+                "tandem_c": mock_tandem_c,
+                "tandem_d": mock_tandem_d,
+            },
+            "udl_main_cases": {
+                "udl_a": mock_udl_a,
+                "udl_b": mock_udl_b,
+                "udl_c": mock_udl_c,
+            },
         }
 
         # Call function
@@ -467,8 +515,8 @@ class TestConfigDSpecialHandling(unittest.TestCase):
         df_with_traffic = pd.DataFrame(
             {
                 "Permanent": [1.2],
-                "TS": [1.5],
-                "UDL": [1.5],
+                "TS - rs 1": [1.5],
+                "UDL - Main": [1.5],
             },
             index=["6.10a LC1"],
         )
@@ -488,11 +536,11 @@ class TestConfigDSpecialHandling(unittest.TestCase):
 
         all_load_cases = {
             "self_weight": mock_perm,
-            "tandem_cases": {
+            "tandem_rs1_cases": {
                 "tandem_c": mock_tandem_c,
                 "tandem_d": mock_tandem_d,
             },
-            "udl_traffic_cases": {
+            "udl_main_cases": {
                 "udl_c": mock_udl_c,
             },
         }

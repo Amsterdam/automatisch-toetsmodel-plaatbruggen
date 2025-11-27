@@ -10,9 +10,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.integrations.scia_integration.constants.loads import (
+    TANDEM_CONTACT_AREA_SIDE,
+    TANDEM_LOAD_BASE_VALUE,
+)
 from src.integrations.scia_integration.load_system.load_value_calculators import (
     calculate_real_tandem_values,
-    calculate_real_udl_values,
 )
 from src.integrations.scia_integration.scia_loads.material_load_helpers import (
     create_material_surface_load,
@@ -51,30 +54,20 @@ class TestRealTandemLoads:
         ],
     )
     def test_calculate_real_tandem_values(self, berekeningsniveau: str, signage: str | None) -> None:
-        """Test that calculate_real_tandem_values returns correct number of values for all berekeningsniveau options."""
-        # Arrange
+        """Test that calculate_real_tandem_values returns a positive base load for all berekeningsniveau options."""
         params = Mock()
         params.berekeningsniveau = berekeningsniveau
         if signage:
             params.signage = signage
 
         length_bridgedeck = 25.0
-        psi_factor = 1.0
-        alpha_factor = 1.0
 
         # Act
-        load_main, load_second, load_third = calculate_real_tandem_values(params, length_bridgedeck, psi_factor, alpha_factor)
+        base_load = calculate_real_tandem_values(params, length_bridgedeck)
 
         # Assert
-        assert isinstance(load_main, (int, float))
-        assert isinstance(load_second, (int, float))
-        assert isinstance(load_third, (int, float))
-        # The values should be positive
-        assert load_main > 0
-        assert load_second > 0
-        assert load_third > 0
-        # Main load should be larger than second, which should be larger than third
-        assert load_main > load_second > load_third
+        expected_base = TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
+        assert base_load == expected_base
 
 
 class TestTheoreticalTandemLoads:
@@ -165,9 +158,8 @@ class TestServiceVehicleLoads:
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data")
-    @patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations")
-    def test_add_service_vehicle_loads_success(  # noqa: PLR0913
-        self, mock_calc_vehicle: Mock, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
+    def test_add_service_vehicle_loads_success(
+        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
     ) -> None:
         """Test successful service vehicle load addition."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
@@ -191,12 +183,8 @@ class TestServiceVehicleLoads:
         mock_bridge_geom_data.y_bridge_bottom_at_d_points = [-5.0, -5.0]
         mock_bridge_geom.return_value = mock_bridge_geom_data
 
-        mock_calc_vehicle.return_value = {
-            "top_left_wheel_corners": [(0, 0, 0), (0.25, 0, 0), (0.25, 0.25, 0), (0, 0.25, 0)],
-            "top_right_wheel_corners": [(3, 0, 0), (3.25, 0, 0), (3.25, 0.25, 0), (3, 0.25, 0)],
-            "bottom_left_wheel_corners": [(0, -1.75, 0), (0.25, -1.75, 0), (0.25, -1.5, 0), (0, -1.5, 0)],
-            "bottom_right_wheel_corners": [(3, -1.75, 0), (3.25, -1.75, 0), (3.25, -1.5, 0), (3, -1.5, 0)],
-        }
+        # Mock spreiding attribute
+        mock_params.spreiding = True
 
         # Create mock load cases
         mock_load_cases = {
@@ -237,12 +225,11 @@ class TestServiceVehicleLoads:
 class TestAccidentalVehicleLoads:
     """Test accidental vehicle load application."""
 
-    @patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data")
-    def test_add_accidental_vehicle_loads_bidirectional(  # noqa: PLR0913
-        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_calc_locations: Mock, mock_builder: Mock, mock_params: Mock
+    def test_add_accidental_vehicle_loads_bidirectional(
+        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
     ) -> None:
         """Test accidental vehicle loads with bidirectional placement."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
@@ -261,9 +248,9 @@ class TestAccidentalVehicleLoads:
         )
         # tandem_system_sequencer is called 3 times: standard, amsterdam, amsterdam_rotated
         mock_sequencer.side_effect = [
-            [2.5, 25.0],  # Standard accidental vehicle (length_vehicle=1.2)
+            [2.5, 25.0],  # Standard accidental vehicle (length_vehicle=3.2)
             [2.5, 25.0],  # Amsterdam vehicle (length_vehicle=0)
-            [2.5, 25.0],  # Amsterdam rotated vehicle (length_vehicle=2.0)
+            [2.5, 25.0],  # Amsterdam rotated vehicle (length_vehicle=2.4)
         ]
 
         mock_bridge_geom_data = Mock()
@@ -271,32 +258,10 @@ class TestAccidentalVehicleLoads:
         mock_bridge_geom_data.y_bridge_bottom_at_d_points = [-5.0, -5.0]
         mock_bridge_geom.return_value = mock_bridge_geom_data
 
-        # Mock calc_vehicle_load_locations to return wheel corner coordinates
-        # The function should return 4 wheels (complete vehicle) relative to the x_coord parameter
-        def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-            """Mock function to return wheel corner coordinates for complete vehicle."""
-            x_coord = kwargs["x_coord"]
-            vehicle_length = kwargs["vehicle_length"]
-            return {
-                "top_left_wheel_corners": [(x_coord, 0.0, 0.0), (x_coord + 0.2, 0.0, 0.0), (x_coord + 0.2, 0.2, 0.0), (x_coord, 0.2, 0.0)],
-                "bottom_left_wheel_corners": [(x_coord, -1.3, 0.0), (x_coord + 0.2, -1.3, 0.0), (x_coord + 0.2, -1.1, 0.0), (x_coord, -1.1, 0.0)],
-                "top_right_wheel_corners": [
-                    (x_coord + vehicle_length, 0.0, 0.0),
-                    (x_coord + vehicle_length + 0.2, 0.0, 0.0),
-                    (x_coord + vehicle_length + 0.2, 0.2, 0.0),
-                    (x_coord + vehicle_length, 0.2, 0.0),
-                ],
-                "bottom_right_wheel_corners": [
-                    (x_coord + vehicle_length, -1.3, 0.0),
-                    (x_coord + vehicle_length + 0.2, -1.3, 0.0),
-                    (x_coord + vehicle_length + 0.2, -1.1, 0.0),
-                    (x_coord + vehicle_length, -1.1, 0.0),
-                ],
-            }
+        # Mock spreiding attribute
+        mock_params.spreiding = True
 
-        mock_calc_locations.side_effect = mock_calc_locations_side_effect
-
-        # Create mock load cases for all combinations (now with forward/reverse directions)
+        # Create mock load cases for all combinations (standard forward/reverse + amsterdam + amsterdam_rotated)
         mock_load_cases = {
             "unintended_vehicle_cases": {
                 "y_plus_x2.5_forward": Mock(name="BG7001"),
@@ -307,13 +272,16 @@ class TestAccidentalVehicleLoads:
                 "y_minus_x2.5_reverse": Mock(name="BG7006"),
                 "y_minus_x25.0_forward": Mock(name="BG7007"),
                 "y_minus_x25.0_reverse": Mock(name="BG7008"),
+                "y_plus_x2.5_amsterdam": Mock(name="BG7009"),
+                "y_plus_x25.0_amsterdam": Mock(name="BG7010"),
+                "y_minus_x2.5_amsterdam": Mock(name="BG7011"),
+                "y_minus_x25.0_amsterdam": Mock(name="BG7012"),
+                "y_plus_x2.5_amsterdam_rotated": Mock(name="BG7013"),
+                "y_plus_x25.0_amsterdam_rotated": Mock(name="BG7014"),
+                "y_minus_x2.5_amsterdam_rotated": Mock(name="BG7015"),
+                "y_minus_x25.0_amsterdam_rotated": Mock(name="BG7016"),
             }
         }
-
-        # Mock the berekeningsinstellingen.spreiding attribute
-        mock_params.input = Mock()
-        mock_params.input.berekeningsinstellingen = Mock()
-        mock_params.input.berekeningsinstellingen.spreiding = True  # Enable dispersion for testing
 
         add_accidental_vehicle_loads(mock_builder, mock_params, mock_load_cases)
 
@@ -322,17 +290,17 @@ class TestAccidentalVehicleLoads:
         # tandem_system_sequencer is now called 3 times (standard, amsterdam, amsterdam_rotated)
         assert mock_sequencer.call_count == 3
         # Verify the calls were made with correct parameters
-        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=1.2)  # Standard accidental vehicle
+        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=3.2)  # Standard accidental vehicle (3.0m axle spacing + 0.2m wheel)
         mock_sequencer.assert_any_call(50.0, 0.5)  # Amsterdam vehicle (no length_vehicle means default 0.0)
-        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=2.0)  # Amsterdam rotated
-        mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times by dispersal_function
+        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=2.4)  # Amsterdam rotated (2.0m axle spacing + 0.4m wheel)
+        mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times
 
-        # Verify calc_vehicle_load_locations was called for standard accidental vehicles
-        # 2 positions × 2 edges × 2 directions = 8 total calls (only standard vehicles, no Amsterdam vehicles in this test)
-        assert mock_calc_locations.call_count == 8
-
-        # Should create loads for 2 positions × 2 edges × 2 directions × 4 wheels = 32 surface loads
-        assert mock_builder.create_surface_load.call_count == 32
+        # Should create loads for:
+        # - Standard: 2 positions × 2 edges × 2 directions × 4 wheels = 32 loads
+        # - Amsterdam: 2 positions × 2 edges × 2 wheels (width=0, only top wheels) = 8 loads
+        # - Amsterdam rotated: 2 positions × 2 edges × 2 wheels (width=0, only top wheels) = 8 loads
+        # Total: 48 surface loads
+        assert mock_builder.create_surface_load.call_count == 48
 
         # Check that individual wheel loads are created with correct values
         calls = mock_builder.create_surface_load.call_args_list
@@ -349,7 +317,6 @@ class TestAccidentalVehicleLoads:
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
 
         with (
-            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
@@ -369,9 +336,9 @@ class TestAccidentalVehicleLoads:
             )
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
-                [10.0],  # Standard vehicle (length_vehicle=1.2)
+                [10.0],  # Standard vehicle (length_vehicle=3.2)
                 [15.0],  # Amsterdam vehicle (length_vehicle=0)
-                [10.0],  # Amsterdam rotated (length_vehicle=2.0)
+                [10.0],  # Amsterdam rotated (length_vehicle=2.4)
             ]
 
             mock_bridge_geom_data = Mock()
@@ -379,28 +346,8 @@ class TestAccidentalVehicleLoads:
             mock_bridge_geom_data.y_bridge_bottom_at_d_points = [-5.0]
             mock_bridge_geom.return_value = mock_bridge_geom_data
 
-            # Mock calc_vehicle_load_locations to return wheel corner coordinates
-            # The function should return coordinates relative to the x_coord parameter
-            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-                """Mock function to return wheel corner coordinates."""
-                x_coord = kwargs["x_coord"]
-                wheel_contact_area = kwargs.get("wheel_contact_area", 0.2)  # Default 0.2 for normal vehicle
-                return {
-                    "top_left_wheel_corners": [
-                        (x_coord, 0.0, 0.0),
-                        (x_coord + wheel_contact_area, 0.0, 0.0),
-                        (x_coord + wheel_contact_area, wheel_contact_area, 0.0),
-                        (x_coord, wheel_contact_area, 0.0),
-                    ],
-                    "bottom_left_wheel_corners": [
-                        (x_coord, -1.3, 0.0),
-                        (x_coord + wheel_contact_area, -1.3, 0.0),
-                        (x_coord + wheel_contact_area, -1.3 + wheel_contact_area, 0.0),
-                        (x_coord, -1.3 + wheel_contact_area, 0.0),
-                    ],
-                }
-
-            mock_calc_locations.side_effect = mock_calc_locations_side_effect
+            # Mock spreiding attribute
+            mock_params.spreiding = True
 
             # Create mock load cases with forward/reverse for standard vehicle and amsterdam suffix for Amsterdam vehicle
             mock_load_cases = {
@@ -411,24 +358,24 @@ class TestAccidentalVehicleLoads:
                     "y_minus_x10.0_reverse": Mock(name="BG7004"),
                     "y_plus_x15.0_amsterdam": Mock(name="BG7005"),
                     "y_minus_x15.0_amsterdam": Mock(name="BG7006"),
+                    "y_plus_x10.0_amsterdam_rotated": Mock(name="BG7007"),
+                    "y_minus_x10.0_amsterdam_rotated": Mock(name="BG7008"),
                 }
             }
 
-            # Mock the berekeningsinstellingen.spreiding attribute
-            mock_params.input = Mock()
-            mock_params.input.berekeningsinstellingen = Mock()
-            mock_params.input.berekeningsinstellingen.spreiding = True  # Enable dispersion for testing
-
             add_accidental_vehicle_loads(mock_builder, mock_params, mock_load_cases)
 
-            # Check axle positioning for forward and reverse
+            # Check that surface loads were created
             calls = mock_builder.create_surface_load.call_args_list
-
-            # Check that surface loads were created (the exact names depend on the implementation)
-            # Just verify that some surface loads were created
             assert len(calls) > 0, "Expected surface loads to be created"
 
-            # Just verify that Amsterdam vehicle loads were created
+            # Verify forward and reverse standard vehicles were created
+            forward_loads = [call for call in calls if "forward" in call.kwargs["name"]]
+            reverse_loads = [call for call in calls if "reverse" in call.kwargs["name"]]
+            assert len(forward_loads) > 0, "Expected forward vehicle loads to be created"
+            assert len(reverse_loads) > 0, "Expected reverse vehicle loads to be created"
+
+            # Verify Amsterdam vehicle loads were created
             amsterdam_loads = [call for call in calls if "amsterdam" in call.kwargs["name"]]
             assert len(amsterdam_loads) > 0, "Expected Amsterdam vehicle loads to be created"
 
@@ -457,9 +404,9 @@ class TestAccidentalVehicleLoads:
 
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
-                [2.0, 5.0, 8.0],  # Normal vehicle positions (length_vehicle=1.2)
+                [2.0, 5.0, 8.0],  # Normal vehicle positions (length_vehicle=3.2)
                 [2.0, 4.0, 6.0, 8.0],  # Amsterdam vehicle positions (length_vehicle=0)
-                [2.0, 5.0, 8.0],  # Amsterdam rotated positions (length_vehicle=2.0)
+                [2.0, 5.0, 8.0],  # Amsterdam rotated positions (length_vehicle=2.4)
             ]
 
             mock_bridge_geom_data = Mock()
@@ -467,15 +414,27 @@ class TestAccidentalVehicleLoads:
             mock_bridge_geom_data.y_bridge_bottom_at_d_points = [-3.0] * 4
             mock_bridge_geom.return_value = mock_bridge_geom_data
 
-            # Create mock load cases for Amsterdam vehicle positions
-            mock_load_cases = {
-                "unintended_vehicle_cases": {f"y_plus_x{pos}_amsterdam": Mock(name=f"BG7{i + 1:03d}") for i, pos in enumerate([2.0, 4.0, 6.0, 8.0])}
-            }
+            # Mock spreiding attribute
+            mock_params.spreiding = True
 
-            # Mock the berekeningsinstellingen.spreiding attribute
-            mock_params.input = Mock()
-            mock_params.input.berekeningsinstellingen = Mock()
-            mock_params.input.berekeningsinstellingen.spreiding = True  # Enable dispersion for testing
+            # Create mock load cases for all vehicle types at all positions
+            mock_load_cases: dict[str, Any] = {"unintended_vehicle_cases": {}}
+            # Standard vehicles (forward/reverse) at positions from first sequencer call
+            for pos in [2.0, 5.0, 8.0]:
+                for direction in ["forward", "reverse"]:
+                    for edge in ["y_plus", "y_minus"]:
+                        key = f"{edge}_x{pos}_{direction}"
+                        mock_load_cases["unintended_vehicle_cases"][key] = Mock(name=f"BG7_std_{key}")
+            # Amsterdam vehicles at positions from second sequencer call
+            for pos in [2.0, 4.0, 6.0, 8.0]:
+                for edge in ["y_plus", "y_minus"]:
+                    key = f"{edge}_x{pos}_amsterdam"
+                    mock_load_cases["unintended_vehicle_cases"][key] = Mock(name=f"BG7_ams_{key}")
+            # Amsterdam rotated vehicles at positions from third sequencer call
+            for pos in [2.0, 5.0, 8.0]:
+                for edge in ["y_plus", "y_minus"]:
+                    key = f"{edge}_x{pos}_amsterdam_rotated"
+                    mock_load_cases["unintended_vehicle_cases"][key] = Mock(name=f"BG7_rot_{key}")
 
             add_accidental_vehicle_loads(mock_builder, mock_params, mock_load_cases)
 
@@ -485,9 +444,9 @@ class TestAccidentalVehicleLoads:
 
             # Verify that tandem_system_sequencer was called 3 times (standard, amsterdam, amsterdam_rotated)
             assert mock_sequencer.call_count == 3
-            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=1.2)  # Standard vehicle
+            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=3.2)  # Standard vehicle (3.0m axle spacing + 0.2m wheel)
             mock_sequencer.assert_any_call(10.0, 0.5)  # Amsterdam vehicle (no length_vehicle)
-            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=2.0)  # Amsterdam rotated
+            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=2.4)  # Amsterdam rotated (2.0m axle spacing + 0.4m wheel)
 
 
 class TestAllLoads:
@@ -590,42 +549,6 @@ class TestLoadErrorHandling:
 class TestUniformlyDistributedLoads:
     """Test generation and application of uniformly distributed loads (UDL)."""
 
-    @pytest.mark.parametrize(
-        ("berekeningsniveau", "signage", "udl_value"),
-        [
-            ("Werkelijke wegindeling", None, 9000.0),
-            ("Werkelijke wegindeling onderliggend wegennet", None, 9000.0),
-            ("Werkelijke wegindeling met bebording", "50 ton", 9000.0),
-            ("Werkelijke wegindeling met bebording", "30 ton", 9000.0),
-            ("Werkelijke wegindeling met bebording", "20 ton", 9000.0),
-        ],
-    )
-    def test_calculate_real_udl_values(self, berekeningsniveau: str, signage: str | None, udl_value: float) -> None:
-        """Test that calculate_real_udl_values returns correct number of values for all berekeningsniveau options."""
-        # Arrange
-        params = Mock()
-        params.berekeningsniveau = berekeningsniveau
-        if signage:
-            params.signage = signage
-
-        length_bridgedeck = 25.0
-        psi_factor = 1.0
-        alpha_factor = 1.0
-
-        # Act
-        main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_factor, alpha_factor)
-
-        # Assert
-        assert isinstance(main_value, (int, float))
-        assert isinstance(other_value, (int, float))
-        assert isinstance(rest_value, (int, float))
-        # The values should be positive
-        assert main_value > 0
-        assert other_value > 0
-        assert rest_value > 0
-        # Main value should use the udl_value as base
-        assert main_value != 0  # Main value should be modified by factors but not zero
-
     def test_amount_of_notional_lanes(self) -> None:
         """
         Test calculation of number of notional lanes and lane width for different bridge widths.
@@ -705,28 +628,13 @@ class TestUniformlyDistributedLoads:
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
-    def test_create_real_udl_traffic_loads_basic_case(  # noqa: PLR0913
-        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_real_udl_traffic_loads_basic_case(self, mock_obtain_y_udl: Mock, mock_obtain_y_real: Mock, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads based on actual road configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
         # Test case parameters
         length_bridgedeck = 20.0  # 20m long bridge
         udl_value = 9000.0  # 9 kN/m²
-
-        # Configure mock params and reference period
-        mock_params.reference_period = 50  # years
-        mock_ref_period = Mock()
-        mock_ref_period.return_value = 50
-
-        # Configure load factors before they are used
-        mock_psi.return_value = 1.0  # Example psi factor
-        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
-        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Add bridge segments data that get_bridge_geom_data needs
         # Create a single span bridge (first segment + one segment = single span)
@@ -772,7 +680,6 @@ class TestUniformlyDistributedLoads:
         result = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=length_bridgedeck,
-            udl_value=udl_value,
         )
 
         # Verify basic structure of results
@@ -826,24 +733,16 @@ class TestUniformlyDistributedLoads:
         assert "Conf." in udl_data["title"], f"Title should contain configuration info, got: {udl_data['title']}"
         assert "Span" in udl_data["title"], f"Title should contain span information, got: {udl_data['title']}"
 
-        # Calculate expected main lane load value with factors (if this is a main lane)
-        if "RS 1" in udl_data["title"]:
-            expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-            assert abs(udl_data["load"] - expected_main_load) < 0.1, f"Main load value should be {expected_main_load}, got {udl_data['load']}"
+        # Load values are calculated internally by helper function and tested separately
+        # Just verify that load values are reasonable (positive and within expected range)
+        assert udl_data["load"] > 0, "Load value should be positive"
+        assert udl_data["load"] < udl_value * 2.0, "Load value should be reasonable (less than 2x base value)"
 
     @patch("src.integrations.scia_integration.load_system.real_tandem_generators.obtain_y_coordinates_road")
     @patch("src.integrations.scia_integration.load_system.udl_generators.get_number_of_road_zones")
     @patch("src.integrations.scia_integration.load_system.udl_generators.obtain_y_coordinates_road")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.load_value_calculators.get_alpha_q_nen_en_1991_2")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_reference_period")
-    def test_create_real_udl_traffic_loads_edge_cases(  # noqa: PLR0913
+    def test_create_real_udl_traffic_loads_edge_cases(
         self,
-        mock_ref_period: Mock,
-        mock_alpha_q: Mock,
-        mock_alpha_trend: Mock,
-        mock_psi: Mock,
         mock_obtain_y_udl: Mock,
         mock_num_zones: Mock,
         mock_obtain_y_real: Mock,
@@ -852,17 +751,8 @@ class TestUniformlyDistributedLoads:
         """Test real UDL traffic loads creation with edge cases."""
         from src.integrations.scia_integration.load_system.udl_generators import create_real_udl_traffic_loads
 
-        # Configure mock params and reference period
-        mock_params.reference_period = 50  # years
-        mock_ref_period.return_value = 50
-
         # Configure single road zone (not dual carriageway)
         mock_num_zones.return_value = 1
-
-        # Configure load factors
-        mock_psi.return_value = 1.0  # Example psi factor
-        mock_alpha_trend.return_value = 1.1  # Example alpha trend factor
-        mock_alpha_q.return_value = [1.0, 0.77, 0.53, 0.0]  # Standard factors for lanes 1-4
 
         # Configure mock params access
         mock_params.__getitem__ = Mock(side_effect=lambda x: "NEN-EN 1991-2" if x == "design_code" else None)
@@ -909,7 +799,6 @@ class TestUniformlyDistributedLoads:
         result_narrow = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=9000.0,
         )
         # Verify narrow road generates at least some load cases
         assert isinstance(result_narrow, dict), "Result should be a dictionary"
@@ -934,7 +823,6 @@ class TestUniformlyDistributedLoads:
         result_no_auto = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=9000.0,
         )
         # The function generates loads based on road geometry even without Auto zones
         # This is the actual behavior - it doesn't require Auto zones specifically
@@ -956,7 +844,6 @@ class TestUniformlyDistributedLoads:
         result_zero_load = create_real_udl_traffic_loads(
             params=mock_params,
             length_bridgedeck=10.0,
-            udl_value=0.0,
         )
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"
         assert "BG4001" in result_zero_load, "Should contain BG4001 key"
@@ -964,9 +851,9 @@ class TestUniformlyDistributedLoads:
         # Find the first RS 1 case (main lane) or use BG4001
         zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 3, f"Should generate at least 3 load cases even with zero load, got {len(zero_load_cases)}"
-        # Check that BG4001 has zero load (if it's a main lane) or check any case
-        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
-            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # NEW SYSTEM: All UDL loads have base value (2500) regardless of input udl_value
+        # Lane differences are now handled in load combination factors
+        assert result_zero_load["BG4001"]["load"] == 2500.0, f"All UDL loads should have base value 2500, got {result_zero_load['BG4001']['load']}"
 
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.road_zone_utils.get_load_zones_data_from_params")
@@ -1157,13 +1044,7 @@ class TestUniformlyDistributedLoads:
             with pytest.raises(ValueError, match="Lane width must be positive"):
                 generate_real_lane_positions_bg9000(mock_params, lane_width=0)
 
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_reference_period")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_psi_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_trend_nen_8701")
-    @patch("src.integrations.scia_integration.load_system.udl_generators.get_alpha_q_nen_en_1991_2")
-    def test_create_udl_traffic_loads_basic_case(
-        self, mock_alpha_q: Mock, mock_alpha_trend: Mock, mock_psi: Mock, mock_ref_period: Mock, mock_params: Mock
-    ) -> None:
+    def test_create_udl_traffic_loads_basic_case(self, mock_params: Mock) -> None:
         """Test creation of UDL traffic loads for a simple bridge configuration."""
         from src.integrations.scia_integration.load_system.udl_generators import create_theoretical_udl_traffic_loads
 
@@ -1200,12 +1081,6 @@ class TestUniformlyDistributedLoads:
         mock_segment.dz_2 = 0.5
         mock_params.bridge_segments_array = [mock_first_segment, mock_segment]
 
-        # Mock the load factors
-        mock_ref_period.return_value = 30  # Standard reference period
-        mock_psi.return_value = 0.95  # Example psi factor
-        mock_alpha_trend.return_value = 0.99  # Example alpha trend factor
-        mock_alpha_q.return_value = [0.95, 1.0]  # Example alpha q factors for main and other lanes
-
         # Execute the function
         result = create_theoretical_udl_traffic_loads(
             params=mock_params,
@@ -1213,7 +1088,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=width_bridgedeck,
             width_firstsegment_zone3=width_firstsegment_zone3,
             width_firstsegment_zone2=width_firstsegment_zone2,
-            udl_value=udl_value,
         )
 
         # Verify basic structure of results
@@ -1265,18 +1139,10 @@ class TestUniformlyDistributedLoads:
         assert 0.0 <= min_x < 1.0, f"Polygon should start near span start (x={min_x})"
         assert 19.0 < max_x <= 20.0, f"Polygon should end near span end (x={max_x})"
 
-        # Calculate expected load values with factors
-        expected_main_load = udl_value * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-        expected_other_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[0]
-        expected_rest_load = 2500.0 * mock_psi.return_value * mock_alpha_trend.return_value * mock_alpha_q.return_value[1]
-
-        # Check load values based on title (RS 1 = main, RS 2+ = other, rest = rest)
-        if "RS 1" in bg4001["title"]:
-            assert abs(bg4001["load"] - expected_main_load) < 0.1, f"Main lane load should be {expected_main_load}, got {bg4001['load']}"
-        elif "RS" in bg4001["title"] and "RS 1" not in bg4001["title"]:
-            assert abs(bg4001["load"] - expected_other_load) < 0.1, f"Other lane load should be {expected_other_load}, got {bg4001['load']}"
-        elif "rest" in bg4001["title"].lower():
-            assert abs(bg4001["load"] - expected_rest_load) < 0.1, f"Rest area load should be {expected_rest_load}, got {bg4001['load']}"
+        # Load values are calculated internally by helper function and tested separately
+        # Just verify that load values are reasonable (positive and within expected range)
+        assert bg4001["load"] > 0, "Load value should be positive"
+        assert bg4001["load"] < udl_value * 2.0, "Load value should be reasonable (less than 2x base value)"
 
         # Check other load cases have correct structure
         for key in sorted_keys[: min(5, len(sorted_keys))]:  # Check first 5 cases
@@ -1328,7 +1194,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=5.5,  # Just enough for one lane + zones
             width_firstsegment_zone3=1.0,
             width_firstsegment_zone2=1.0,
-            udl_value=9000.0,
         )
 
         # Verify narrow bridge generates at least some load cases
@@ -1351,7 +1216,6 @@ class TestUniformlyDistributedLoads:
             width_bridgedeck=10.0,
             width_firstsegment_zone3=1.0,
             width_firstsegment_zone2=1.0,
-            udl_value=0.0,
         )
 
         assert isinstance(result_zero_load, dict), "Result should be a dictionary"
@@ -1359,9 +1223,9 @@ class TestUniformlyDistributedLoads:
         # Find the first RS 1 case (main lane) or use BG4001
         zero_load_cases = [key for key in result_zero_load if key.startswith("BG4")]
         assert len(zero_load_cases) >= 9, f"Should generate at least 9 load cases even with zero load, got {len(zero_load_cases)}"
-        # Check that BG4001 has zero load (if it's a main lane) or check any case
-        if "RS 1" in result_zero_load["BG4001"].get("title", ""):
-            assert abs(result_zero_load["BG4001"]["load"]) < 0.01, f"Should handle zero load value, got {result_zero_load['BG4001']['load']}"
+        # NEW SYSTEM: All UDL loads have base value (2500) regardless of input udl_value
+        # Lane differences are now handled in load combination factors
+        assert result_zero_load["BG4001"]["load"] == 2500.0, f"All UDL loads should have base value 2500, got {result_zero_load['BG4001']['load']}"
         # Check that titles include span information
         assert "Span" in result_zero_load["BG4001"]["title"], f"Title should include span info: {result_zero_load['BG4001']['title']}"
 
@@ -1656,7 +1520,6 @@ class TestLoadBoundaryCompliance:
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
             from src.data_models.scia_models import BridgeDimensionsData
 
@@ -1672,33 +1535,6 @@ class TestLoadBoundaryCompliance:
             )
             mock_sequencer.return_value = [1.0, 15.0, 29.0]  # Positions near edges
             mock_get_geom.return_value = mock_bridge_geom
-
-            # Mock vehicle load locations that would extend beyond boundaries
-            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-                x_coord = kwargs["x_coord"]
-                return {
-                    "top_left_wheel_corners": [(x_coord, 7.5, 0.0), (x_coord + 0.25, 7.5, 0.0), (x_coord + 0.25, 7.75, 0.0), (x_coord, 7.75, 0.0)],
-                    "top_right_wheel_corners": [
-                        (x_coord + 1.5, 7.5, 0.0),
-                        (x_coord + 1.75, 7.5, 0.0),
-                        (x_coord + 1.75, 7.75, 0.0),
-                        (x_coord + 1.5, 7.75, 0.0),
-                    ],
-                    "bottom_left_wheel_corners": [
-                        (x_coord, -7.5, 0.0),
-                        (x_coord + 0.25, -7.5, 0.0),
-                        (x_coord + 0.25, -7.25, 0.0),
-                        (x_coord, -7.25, 0.0),
-                    ],
-                    "bottom_right_wheel_corners": [
-                        (x_coord + 1.5, -7.5, 0.0),
-                        (x_coord + 1.75, -7.5, 0.0),
-                        (x_coord + 1.75, -7.25, 0.0),
-                        (x_coord + 1.5, -7.25, 0.0),
-                    ],
-                }
-
-            mock_calc_locations.side_effect = mock_calc_locations_side_effect
 
             # Create load cases
             mock_load_cases = {
@@ -1736,7 +1572,6 @@ class TestLoadBoundaryCompliance:
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
-            patch("src.integrations.scia_integration.scia_loads.vehicle_load_helpers.calc_vehicle_load_locations") as mock_calc_locations,
         ):
             from src.data_models.scia_models import BridgeDimensionsData
 
@@ -1757,16 +1592,6 @@ class TestLoadBoundaryCompliance:
                 [10.0, 30.0],  # Amsterdam rotated (length_vehicle=2.0)
             ]
             mock_get_geom.return_value = mock_bridge_geom
-
-            # Mock vehicle load locations
-            def mock_calc_locations_side_effect(**kwargs) -> dict[str, list[tuple[float, float, float]]]:
-                x_coord = kwargs["x_coord"]
-                return {
-                    "top_left_wheel_corners": [(x_coord, 9.0, 0.0), (x_coord + 0.2, 9.0, 0.0), (x_coord + 0.2, 9.2, 0.0), (x_coord, 9.2, 0.0)],
-                    "bottom_left_wheel_corners": [(x_coord, -9.0, 0.0), (x_coord + 0.2, -9.0, 0.0), (x_coord + 0.2, -8.8, 0.0), (x_coord, -8.8, 0.0)],
-                }
-
-            mock_calc_locations.side_effect = mock_calc_locations_side_effect
 
             # Create load cases for all combinations
             mock_load_cases = {
