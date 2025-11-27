@@ -9,4 +9,3 @@ __all__ = [
     "format_chat_dataset_for_prompt",
     "generate_batch_chat_response",
 ]
-

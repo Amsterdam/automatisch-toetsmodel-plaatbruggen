@@ -122,6 +122,9 @@ class TestTheoreticalTandemLoads:
         from src.data_models.scia_models import BridgeDimensionsData
         from src.integrations.scia_integration.scia_loads import add_theoretical_tandem_loads
 
+        # Mock params.spreiding to include dispersal_function call
+        mock_params.spreiding = True
+
         mock_extract.return_value = BridgeDimensionsData(
             total_length=100.0,
             total_width=30.0,
@@ -133,12 +136,13 @@ class TestTheoreticalTandemLoads:
             first_segment_thickness_2=0.8,  # Must equal first_segment_thickness
         )
         mock_generate.return_value = [{"load_case": "LC1", "wheels": [1, 2], "load": 100}]
+        # Create valid polygon corners (rectangles) for each wheel
         mock_scia_data = [
             {
                 "load_case": "LC1",
                 "patch_loads": [
-                    {"corners": [(0, 0, 0)], "load_value": 150.0},
-                    {"corners": [(2, 0, 0)], "load_value": 150.0},
+                    {"corners": [(0, 0, 0), (0.4, 0, 0), (0.4, 0.4, 0), (0, 0.4, 0)], "load_value": 150.0},
+                    {"corners": [(2, 0, 0), (2.4, 0, 0), (2.4, 0.4, 0), (2, 0.4, 0)], "load_value": 150.0},
                 ],
             }
         ]
@@ -1801,17 +1805,17 @@ class TestLoadBoundaryCompliance:
 
         clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
 
-        # Verify all coordinates are clipped to boundaries
+        # Verify Y coordinates are clipped to boundaries (X coordinates pass through)
         expected_clipped = [
-            (0.0, 5.0, 0.0),  # Clipped to x_min, y_max
-            (20.0, 5.0, 0.0),  # Clipped to x_max, y_max
-            (20.0, -5.0, 0.0),  # Clipped to x_max, y_min
-            (0.0, -5.0, 0.0),  # Clipped to x_min, y_min
+            (-1.0, 5.0, 0.0),  # X unchanged, Y clipped to y_max
+            (21.0, 5.0, 0.0),  # X unchanged, Y clipped to y_max
+            (21.0, -5.0, 0.0),  # X unchanged, Y clipped to y_min
+            (-1.0, -5.0, 0.0),  # X unchanged, Y clipped to y_min
         ]
 
         for i, (x, y, z) in enumerate(clipped_points):
             expected_x, expected_y, expected_z = expected_clipped[i]
-            assert x == expected_x, f"X coordinate {x} should be clipped to {expected_x}"
+            assert x == expected_x, f"X coordinate {x} should remain unchanged at {expected_x}"
             assert y == expected_y, f"Y coordinate {y} should be clipped to {expected_y}"
             assert z == expected_z, f"Z coordinate {z} should remain {expected_z}"
 

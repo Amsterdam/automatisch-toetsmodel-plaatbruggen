@@ -1,5 +1,7 @@
 """Batch calculation component for OverviewBridgesController."""
 
+import contextlib
+import logging
 import traceback
 from typing import Any
 
@@ -16,12 +18,13 @@ except ImportError:  # pragma: no cover - fallback for local test environments
 
 
 import viktor.api_v1 as api
-from app.bridge.analysis_cache import get_cached_analysis_results, get_idea_analysis_results
-from src.common.constants.technical import AnalysisType
 from viktor.core import Color, Storage, UserMessage, progress_message
 from viktor.errors import UserError
 from viktor.parametrization import Parametrization
 from viktor.views import TableCell, TableResult, TableView
+
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY, _get_analysis_cache, get_cached_analysis_results, get_idea_analysis_results
+from src.common.constants.technical import AnalysisType
 
 from .llm import generate_batch_chat_response
 from .utils import (
@@ -35,26 +38,42 @@ from .utils import (
     validate_bridge_for_calculation,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class BatchCalculationComponent:
     """Component providing batch calculation functionality for multiple bridges."""
 
     @TableView("Statusoverzicht", duration_guess=1)
-    def view_batch_readiness(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: ARG002
+    def view_batch_status_and_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: ARG002, C901, PLR0912, PLR0915
         """
-        Display table showing which bridges are ready for batch calculation.
+        Display unified table showing bridge readiness status and calculation results.
 
-        Shows validation status, missing fields, and dynamic time estimate based on
-        actual count of ready bridges.
+        Shows validation status, missing fields, max UC, UC status, failed checks, and report links.
+        Includes storage warning indicator if storage quota is exceeded.
 
         :param params: Overview Bridges parametrization object
         :type params: Parametrization
         :param entity_id: Entity ID of the Overview Bridges entity
         :type entity_id: int
         :param kwargs: Additional arguments
-        :returns: TableResult with bridge readiness information
+        :returns: TableResult with combined status and results
         :rtype: TableResult
         """
+        storage = Storage()
+
+        # Check for storage warning marker
+        storage_warning_message = None
+        try:
+            warning_file = storage.get(STORAGE_WARNING_MARKER_KEY, scope="workspace")
+            if warning_file:
+                import json
+
+                warning_data = json.loads(warning_file.getvalue())
+                storage_warning_message = warning_data.get("message", "Opslaglimiet bereikt")
+        except (FileNotFoundError, Exception):
+            pass
+
         # Get all Bridge child entities
         viktor_api = api.API()
         try:
@@ -63,6 +82,21 @@ class BatchCalculationComponent:
         except Exception as e:
             raise UserError(f"Fout bij ophalen van bruggen: {e}")
 
+        # Load batch results from storage
+        batch_results = None
+        try:
+            batch_results_file = storage.get("batch_calculation_results", scope="entity")
+            from viktor.core import File
+
+            if isinstance(batch_results_file, bool):
+                logger.warning("Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
+                with contextlib.suppress(Exception):
+                    storage.delete("batch_calculation_results", scope="entity")
+            elif isinstance(batch_results_file, File):
+                batch_results = deserialize_batch_results(batch_results_file)
+        except (FileNotFoundError, TypeError, AttributeError):
+            pass
+
         # Initialize counters
         total_bridges = len(bridge_entities)
         ready_bridges = 0
@@ -70,50 +104,25 @@ class BatchCalculationComponent:
         non_cached_ready_bridges = 0
         bridge_data_list = []
 
-        # Load batch results to get cache hashes if available
-        storage = Storage()
-        batch_results_cache_hashes: dict[int, str] = {}
-        try:
-            batch_results_file = storage.get("batch_calculation_results", scope="entity")
-
-            # Validate storage contents before deserializing
-            from viktor.core import File
-
-            # Check for boolean first (most common invalid type)
-            if isinstance(batch_results_file, bool):
-                print("WARNING: Found boolean value in storage for 'batch_calculation_results' in view_batch_readiness. Deleting invalid entry.")
-                try:
-                    storage.delete("batch_calculation_results", scope="entity")
-                    print("INFO: Deleted invalid boolean entry from storage")
-                except Exception as del_e:
-                    print(f"WARNING: Could not delete invalid storage entry: {del_e}")
-            elif isinstance(batch_results_file, File):
-                batch_results = deserialize_batch_results(batch_results_file)
-                # Extract cache hashes from batch results
-                if isinstance(batch_results, dict):
-                    for bid, result in batch_results.items():
-                        if "cache_hash" in result:
-                            batch_results_cache_hashes[bid] = result["cache_hash"]
-            else:
-                print(
-                    f"WARNING: Unexpected type in storage for 'batch_calculation_results' in view_batch_readiness: {type(batch_results_file).__name__}, expected File"
-                )
-        except (FileNotFoundError, TypeError, AttributeError):
-            # No batch results or error loading - continue without cache hashes
-            pass
-
-        # Validate each bridge and collect data
+        # Process each bridge
         for bridge_entity in bridge_entities:
-            bridge_params = bridge_entity.last_saved_params
             bridge_name = bridge_entity.name
             bridge_id = bridge_entity.id
+
+            # Fetch fresh entity to get most current saved params
+            try:
+                from viktor.api_v1 import API
+
+                fresh_entity = API().get_entity(bridge_id)
+                bridge_params = fresh_entity.last_saved_params
+            except Exception:
+                bridge_params = bridge_entity.last_saved_params
 
             # Validate bridge readiness
             is_ready, missing_fields, _ = validate_bridge_for_calculation(bridge_params, bridge_entity)
 
-            # Check cache status for this bridge (with batch cache hash if available)
-            batch_hash = batch_results_cache_hashes.get(bridge_id)
-            is_cached = check_idea_cache_status(bridge_params, bridge_id, batch_hash)
+            # Check cache status
+            is_cached = check_idea_cache_status(bridge_params, bridge_id, batch_results_cache_hash=None)
 
             if is_ready:
                 ready_bridges += 1
@@ -122,72 +131,171 @@ class BatchCalculationComponent:
                 else:
                     non_cached_ready_bridges += 1
                 missing_fields_str = ""
-            # Format missing fields more cleanly
             elif len(missing_fields) <= 2:
                 missing_fields_str = ", ".join(missing_fields)
             else:
                 missing_fields_str = f"{', '.join(missing_fields[:2])} (+{len(missing_fields) - 2} meer)"
 
-            # Determine status display based on readiness and cache status
+            # Determine status display
             if is_ready:
                 if is_cached:
-                    # Bridge has cached results (green background)
                     status_display = TableCell("✓ Berekening actueel", background_color=Color(144, 238, 144))
-                    sort_priority = 2  # Second priority (after ready but not cached)
+                    sort_priority = 2
                 else:
-                    # Ready but not cached - ready to be calculated (yellow background)
                     status_display = TableCell("✓ Klaar voor berekening", background_color=Color(255, 255, 0))
-                    sort_priority = 1  # First priority (top of list)
+                    sort_priority = 1
             else:
-                # Not ready - missing fields (red background)
                 status_display = TableCell("✗ Niet klaar voor berekening", background_color=Color(255, 200, 200))
-                sort_priority = 3  # Third priority (bottom of list)
+                sort_priority = 3
 
-            # Store data with bridge name for sorting
-            # Note: bridge_name will be used as row header, so we don't include it in data
-            # Tuple: (sort_priority, bridge_name, [status_display, missing_fields_str])
-            bridge_data_list.append((sort_priority, bridge_name, [status_display, missing_fields_str]))
+            # Get results data if available
+            max_uc_str = "-"
+            uc_status_str = "-"
+            failed_checks_str = "-"
 
-        # Sort: ready but not cached first (priority 1), then cached (priority 2), then not ready (priority 3)
-        # Within each group, sort by bridge name
-        bridge_data_list.sort(key=lambda x: (x[0], x[1]))
+            # First try to get from batch_results (preferred source)
+            if batch_results and bridge_id in batch_results:
+                result = batch_results[bridge_id]
+                max_uc = result.get("max_uc")
+                uc_status = result.get("uc_status", "N/A")
+                failed_checks = result.get("failed_checks", [])
 
-        # Calculate time estimate based on non-cached ready bridges only
+                max_uc_str = f"{max_uc:.2f}" if max_uc is not None else "-"
+                uc_status_str = uc_status if uc_status != "N/A" else "-"
+                failed_checks_str = str(len(failed_checks)) if failed_checks else "0"
+
+            # Fallback: if cache says "actueel" but no batch_results, try reading entity cache
+            elif is_cached:
+                try:
+                    logger.info(f"Bridge {bridge_id}: Cache marked as valid but no batch_results entry - reading from entity cache")
+                    cache = _get_analysis_cache()
+                    idea_results = cache.get_cached_analysis(
+                        params=bridge_params, analysis_type=AnalysisType.IDEA, entity_id=bridge_id, template_path=None
+                    )
+
+                    if idea_results is not None:
+                        # Extract UC summary from cached IDEA results
+                        uc_summary = extract_uc_summary_from_idea_results(idea_results)
+
+                        max_uc = uc_summary.get("max_uc")
+                        uc_status = uc_summary.get("status", "N/A")
+                        failed_checks = uc_summary.get("failed_checks", [])
+
+                        max_uc_str = f"{max_uc:.2f}" if max_uc is not None else "-"
+                        uc_status_str = uc_status if uc_status != "N/A" else "-"
+                        failed_checks_str = str(len(failed_checks)) if failed_checks else "0"
+
+                        logger.info(f"Bridge {bridge_id}: Successfully read from entity cache - Max UC: {max_uc_str}")
+                    else:
+                        logger.warning(f"Bridge {bridge_id}: Cache marked valid but get_cached_analysis returned None - showing '-'")
+                except FileNotFoundError:
+                    logger.warning(f"Bridge {bridge_id}: Cache file not found despite marker - showing '-'")
+                except Exception as e:
+                    logger.warning(f"Bridge {bridge_id}: Failed to read entity cache: {type(e).__name__} - showing '-'")
+
+            # Store data with sort priority
+            bridge_data_list.append(
+                (
+                    sort_priority,
+                    bridge_name,
+                    bridge_id,
+                    [status_display, missing_fields_str, max_uc_str, uc_status_str, failed_checks_str],
+                    uc_status_str,
+                    max_uc_str if max_uc_str != "-" else "0.0",
+                )
+            )
+
+        # Sort: ready but not cached first, then cached, then not ready
+        # Within each group, sort by max UC descending, then by bridge name
+        def sort_key(item: tuple) -> tuple:
+            priority, bridge_name, bridge_id, data_row, uc_status, max_uc = item
+            max_uc_value = float(max_uc) if max_uc not in {"-", "0.0"} else -1.0
+            # Failed first, then by max UC descending
+            uc_priority = 0 if uc_status == "FAILED" else 1
+            return (priority, uc_priority, -max_uc_value, bridge_name)
+
+        bridge_data_list.sort(key=sort_key)
+
+        # Calculate time estimate
         time_estimate = calculate_estimated_batch_time(non_cached_ready_bridges)
 
-        # Build summary rows (cleaner formatting without separator)
-        # Use styling for summary rows to make them stand out
+        # Build summary rows
         status_text = f"{ready_bridges} van {total_bridges} gereed • {cached_bridges} berekening actueel"
-
         summary_data = [
             [
                 TableCell(status_text, text_style="bold"),
+                "",
+                "",
+                "",
                 "",
             ],
             [
                 TableCell(time_estimate, text_style="bold"),
                 "",
+                "",
+                "",
+                "",
             ],
         ]
-        summary_row_headers = ["Status", "Geschatte tijd"]
 
-        # Extract bridge data and row headers separately
+        # Add storage warning row if marker exists
+        if storage_warning_message:
+            summary_data.append(
+                [
+                    TableCell(
+                        f"⚠️ OPSLAGMODUS: Berekeningen lopen zonder cache (langzamer). Fout: {storage_warning_message}",
+                        text_style="bold",
+                        background_color=Color(255, 200, 100),  # Orange warning
+                    ),
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
+
+        summary_row_headers = ["Status", "Geschatte tijd"]
+        if storage_warning_message:
+            summary_row_headers.append("Opslagwaarschuwing")
+
+        # Extract bridge data
         bridge_row_headers = []
         bridge_table_data = []
-        for _, bridge_name, data_row in bridge_data_list:
+        for _, bridge_name, _bridge_id, data_row, _, _ in bridge_data_list:
+            # Keep bridge name as string in row header
             bridge_row_headers.append(bridge_name)
+            # Use data row directly (VIKTOR TableCell doesn't support HTML links or sticky rows)
+            # NOTE: For improved UX, consider using WebView instead of TableView:
+            # - Clickable entity links to navigate to bridges or reports
+            # - Sticky/frozen summary rows (always visible when scrolling)
+            # See: https://docs.viktor.ai/docs/create-apps/results-and-visualizations/data-and-tables/
+            # and: https://docs.viktor.ai/sdk/api/views/#_TableResult
             bridge_table_data.append(data_row)
 
         # Combine summary and bridge data
         final_table_data = summary_data + bridge_table_data
         final_row_headers = summary_row_headers + bridge_row_headers
 
-        # Define column headers (removed "Brug" since it's now in row headers)
-        headers = ["Status", "Ontbrekende velden"]
+        # Define column headers
+        headers = ["Status", "Ontbrekende velden", "Max UC", "UC Status", "Gefaalde controles"]
 
         return TableResult(final_table_data, column_headers=headers, row_headers=final_row_headers)
 
-    def run_batch_calculation(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002
+    def refresh_batch_status(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002
+        """
+        Refresh the batch status view without recalculation.
+
+        This is a no-op method - VIKTOR will automatically refresh the view when the button is clicked.
+
+        :param params: Overview Bridges parametrization object
+        :type params: Parametrization
+        :param entity_id: Entity ID of the Overview Bridges entity
+        :type entity_id: int
+        :param kwargs: Additional arguments
+        """
+        UserMessage.info("Statusoverzicht ververst")
+
+    def run_batch_calculation(self, params: Parametrization, entity_id: int, **kwargs) -> None:  # noqa: ARG002, C901, PLR0912, PLR0915
         """
         Execute batch calculation for all ready bridges.
 
@@ -215,7 +323,16 @@ class BatchCalculationComponent:
             # Filter to ready bridges
             ready_bridges = []
             for bridge_entity in bridge_entities:
-                bridge_params = bridge_entity.last_saved_params
+                # Fetch fresh entity to get most current saved params
+                try:
+                    from viktor.api_v1 import API
+
+                    fresh_entity = API().get_entity(bridge_entity.id)
+                    bridge_params = fresh_entity.last_saved_params
+                except Exception:
+                    # Fallback to cached entity if API call fails
+                    bridge_params = bridge_entity.last_saved_params
+
                 is_ready, _, _ = validate_bridge_for_calculation(bridge_params, bridge_entity)
                 if is_ready:
                     ready_bridges.append((bridge_entity, bridge_params))
@@ -233,27 +350,26 @@ class BatchCalculationComponent:
 
                 # Check for boolean first (most common invalid type)
                 if isinstance(batch_results_file, bool):
-                    print("WARNING: Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
-                    try:
+                    logger.warning("Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
+                    with contextlib.suppress(Exception):
                         storage.delete("batch_calculation_results", scope="entity")
-                        print("INFO: Deleted invalid boolean entry from storage")
-                    except Exception as del_e:
-                        print(f"WARNING: Could not delete invalid storage entry: {del_e}")
                 elif isinstance(batch_results_file, File):
-                    print("INFO: Deserializing batch results file...")
-                    batch_results = deserialize_batch_results(batch_results_file)
+                    logger.info("Deserializing batch results file...")
+                    loaded_batch_results = deserialize_batch_results(batch_results_file)
                     # Extract cache hashes from batch results
-                    if isinstance(batch_results, dict):
-                        for bid, result in batch_results.items():
+                    if isinstance(loaded_batch_results, dict):
+                        for bid, result in loaded_batch_results.items():
                             if "cache_hash" in result:
                                 batch_results_cache_hashes[bid] = result["cache_hash"]
                 else:
-                    print(
-                        f"WARNING: Unexpected type in storage for 'batch_calculation_results' in run_batch_calculation: {type(batch_results_file).__name__}, expected File. Skipping cache hash loading."
+                    logger.warning(
+                        "Unexpected type in storage for 'batch_calculation_results' in run_batch_calculation: %s, "
+                        "expected File. Skipping cache hash loading.",
+                        type(batch_results_file).__name__,
                     )
             except (FileNotFoundError, TypeError, AttributeError) as e:
                 # No batch results or error loading - continue without cache hashes
-                print(f"INFO: Could not load batch results cache hashes: {e}")
+                logger.info("Could not load batch results cache hashes: %s", e)
 
             # Separate ready bridges into cached and non-cached
             from app.bridge.analysis_cache import AnalysisCache
@@ -264,8 +380,8 @@ class BatchCalculationComponent:
 
             for bridge_entity, bridge_params in ready_bridges:
                 bridge_id = bridge_entity.id
-                batch_hash = batch_results_cache_hashes.get(bridge_id)
-                is_cached = check_idea_cache_status(bridge_params, bridge_id, batch_hash)
+                # Check cache against CURRENT params to detect any parameter changes
+                is_cached = check_idea_cache_status(bridge_params, bridge_id, batch_results_cache_hash=None)
 
                 if is_cached:
                     cached_bridges_list.append((bridge_entity, bridge_params))
@@ -299,7 +415,11 @@ class BatchCalculationComponent:
 
                     if idea_results is None:
                         # Cache check said it exists but retrieval failed - treat as non-cached and calculate
-                        print(f"WARNING: Bridge {bridge_name} (ID: {bridge_id}): Cache check passed but retrieval failed, treating as non-cached")
+                        logger.warning(
+                            "Bridge %s (ID: %s): Cache check passed but retrieval failed, treating as non-cached",
+                            bridge_name,
+                            bridge_id,
+                        )
                         non_cached_bridges_list.append((bridge_entity, bridge_params))
                         total_non_cached_bridges += 1
                         total_bridges = len(cached_bridges_list) + total_non_cached_bridges  # Update total
@@ -309,7 +429,8 @@ class BatchCalculationComponent:
                     uc_summary = extract_uc_summary_from_idea_results(idea_results)
 
                     # Generate cache hash for this calculation to track cache status
-                    cache_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
+                    # Note: Using private method _generate_input_hash for cache consistency
+                    cache_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)  # noqa: SLF001
 
                     # Store success result with cached flag
                     batch_results[bridge_id] = {
@@ -324,11 +445,11 @@ class BatchCalculationComponent:
                         "cached": True,  # Flag indicating this bridge used cached results
                     }
                     skipped_cached_count += 1
-                    print(f"INFO: Bridge {bridge_name} (ID: {bridge_id}): Loaded from cache. Max UC: {uc_summary.get('max_uc')}")
+                    logger.info("Bridge %s (ID: %s): Loaded from cache. Max UC: %s", bridge_name, bridge_id, uc_summary.get("max_uc"))
 
                 except Exception as e:
                     # Error loading cached results - treat as non-cached and calculate
-                    print(f"WARNING: Bridge {bridge_name} (ID: {bridge_id}): Error loading cached results: {e}, treating as non-cached")
+                    logger.warning("Bridge %s (ID: %s): Error loading cached results: %s, treating as non-cached", bridge_name, bridge_id, e)
                     non_cached_bridges_list.append((bridge_entity, bridge_params))
                     total_non_cached_bridges += 1
                     total_bridges = len(cached_bridges_list) + total_non_cached_bridges  # Update total
@@ -341,40 +462,42 @@ class BatchCalculationComponent:
                     # Test if job is still active by accessing storage
                     # If job is cancelled, storage operations will raise an exception
                     _ = storage.get("batch_calculation_running", scope="entity")
-                except Exception as cancellation_error:
-                    # Job cancelled/context invalid - save partial results and exit
-                    print(f"INFO: Cancellation detected: {cancellation_error}")
-                    print(f"INFO: Processed {completed_count + failed_count} of {total_non_cached_bridges} bridges before cancellation")
+                except FileNotFoundError:
+                    # File not found - could be actual cancellation OR first iteration
+                    # Only treat as cancellation if we've processed at least one bridge
+                    if i > 0:
+                        logger.info("Cancellation detected: batch_calculation_running flag deleted")
+                        logger.info("Processed %d of %d bridges before cancellation", completed_count + failed_count, total_non_cached_bridges)
 
-                    # Store partial results
-                    if batch_results:
-                        print("INFO: Saving partial batch results before exit...")
-                        try:
-                            batch_results_file = serialize_batch_results(batch_results)
-                            storage.set("batch_calculation_results", batch_results_file, scope="entity")
-                            record_batch_last_run_timestamp(storage)
-                            print("INFO: Partial results saved successfully")
-                        except Exception as save_error:
-                            print(f"WARNING: Could not save partial results: {save_error}")
+                        # Store partial results
+                        if batch_results:
+                            logger.info("Saving partial batch results before exit...")
+                            with contextlib.suppress(Exception):
+                                batch_results_file = serialize_batch_results(batch_results)
+                                storage.set("batch_calculation_results", batch_results_file, scope="entity")
+                                record_batch_last_run_timestamp(storage)
+                                logger.info("Partial results saved successfully")
 
-                    # Clear running flag
-                    try:
-                        storage.delete("batch_calculation_running", scope="entity")
-                        print("INFO: Cleared running flag")
-                    except Exception:
-                        pass  # Storage might be unavailable during cancellation
+                        # Clear running flag
+                        with contextlib.suppress(Exception):
+                            storage.delete("batch_calculation_running", scope="entity")
+                            logger.info("Cleared running flag")
 
-                    # Show message to user (nice to have)
-                    try:
-                        UserMessage.info(
-                            f"Batch calculation stopped. Processed {completed_count + failed_count} of {total_non_cached_bridges} bridges."
-                        )
-                    except Exception:
-                        pass  # UserMessage might not be available during cancellation
+                        # Show message to user (nice to have)
+                        with contextlib.suppress(Exception):
+                            UserMessage.info(
+                                f"Batch calculation stopped. Processed {completed_count + failed_count} of {total_non_cached_bridges} bridges."
+                            )
 
-                    # Exit loop cleanly - return early with partial results
-                    print("INFO: Exiting batch calculation due to cancellation")
-                    return
+                        # Exit loop cleanly - return early with partial results
+                        logger.info("Exiting batch calculation due to cancellation")
+                        return
+                    # First iteration and flag doesn't exist - this is normal, continue
+                    logger.info("batch_calculation_running flag not found on first check - continuing (storage may be full or flag not set)")
+                except Exception as storage_error:
+                    # Storage error (likely full) - log but CONTINUE
+                    logger.warning("Storage check failed (%s), continuing calculation in storage-free mode...", type(storage_error).__name__)
+                    # Don't exit - keep calculating without storage
 
                 bridge_name = bridge_entity.name
                 bridge_id = bridge_entity.id
@@ -412,14 +535,15 @@ class BatchCalculationComponent:
 
                     if idea_results is None:
                         error_msg = "IDEA analyse gefaald of geen gecachte resultaten beschikbaar."
-                        print(f"ERROR: Bridge {bridge_name} (ID: {bridge_id}): {error_msg}")
-                        raise UserError(error_msg)
+                        logger.error("Bridge %s (ID: %s): %s", bridge_name, bridge_id, error_msg)
+                        raise UserError(error_msg)  # noqa: TRY301
 
                     # Extract UC summary
                     uc_summary = extract_uc_summary_from_idea_results(idea_results)
 
                     # Generate cache hash for this calculation to track cache status
-                    cache_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)
+                    # Note: Using private method _generate_input_hash for cache consistency
+                    cache_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)  # noqa: SLF001
 
                     # Store success result with cache hash
                     batch_results[bridge_id] = {
@@ -434,11 +558,13 @@ class BatchCalculationComponent:
                         "cached": False,  # Flag indicating this bridge was calculated (not cached)
                     }
                     completed_count += 1
-                    print(f"INFO: Bridge {bridge_name} (ID: {bridge_id}): Successfully calculated. Max UC: {uc_summary.get('max_uc')}")
+                    logger.info("Bridge %s (ID: %s): Successfully calculated. Max UC: %s", bridge_name, bridge_id, uc_summary.get("max_uc"))
 
                     # Show completion progress
+                    max_uc_value = uc_summary.get("max_uc", "N/A")
+                    uc_display = f"{max_uc_value:.2f}" if isinstance(max_uc_value, (int, float)) else str(max_uc_value)
                     progress_message(
-                        message=f"Bridge {current_bridge_position}/{total_bridges}: {bridge_name}\nBerekening voltooid (Max UC: {uc_summary.get('max_uc', 'N/A'):.2f})",
+                        message=f"Bridge {current_bridge_position}/{total_bridges}: {bridge_name}\nBerekening voltooid (Max UC: {uc_display})",
                         percentage=percentage,
                     )
 
@@ -448,15 +574,11 @@ class BatchCalculationComponent:
                     error_message = str(e)
                     error_traceback = traceback.format_exc()
 
-                    print(f"ERROR: Bridge {bridge_name} (ID: {bridge_id}): Calculation failed with {error_type}: {error_message}")
-                    print(f"DEBUG: Full traceback for {bridge_name}:\n{error_traceback}")
+                    logger.exception("Bridge %s (ID: %s): Calculation failed", bridge_name, bridge_id)
 
                     # Store error result with detailed error message
                     # Truncate traceback if too long, but keep first line (most important)
-                    if len(error_traceback) > 500:
-                        short_error = f"{error_type}: {error_message}\n(...)"
-                    else:
-                        short_error = f"{error_type}: {error_message}"
+                    short_error = f"{error_type}: {error_message}\n(...)" if len(error_traceback) > 500 else f"{error_type}: {error_message}"
 
                     batch_results[bridge_id] = {
                         "bridge_name": bridge_name,
@@ -476,10 +598,16 @@ class BatchCalculationComponent:
                         percentage=percentage,
                     )
 
-            # Store aggregated results in parent entity Storage
-            batch_results_file = serialize_batch_results(batch_results)
-            storage.set("batch_calculation_results", batch_results_file, scope="entity")
-            record_batch_last_run_timestamp(storage)
+            # Store aggregated results in parent entity Storage (storage-free fallback mode)
+            try:
+                batch_results_file = serialize_batch_results(batch_results)
+                storage.set("batch_calculation_results", batch_results_file, scope="entity")
+                record_batch_last_run_timestamp(storage)
+                logger.info("Batch results saved to storage successfully")
+            except Exception as storage_error:
+                logger.warning("Failed to save batch results to storage (%s) - results available in this session only", type(storage_error).__name__)
+                # Continue - results are still in memory for this job
+                # User can see them in current view, just won't persist
 
             # Build completion message with skipped cached bridges information
             total_processed = completed_count + failed_count + skipped_cached_count
@@ -519,15 +647,21 @@ class BatchCalculationComponent:
 
             # Show completion message to user
             UserMessage.success(completion_msg)
-            print(
-                f"INFO: Batch calculation completed: {completed_count} calculated, {skipped_cached_count} skipped (cached), {failed_count} failed out of {total_processed} bridges"
+            logger.info(
+                "Batch calculation completed: %d calculated, %d skipped (cached), %d failed out of %d bridges",
+                completed_count,
+                skipped_cached_count,
+                failed_count,
+                total_processed,
             )
         finally:
-            # Always clear running flag, even if an error occurred
+            # Always try to clear running flag, even if an error occurred
             try:
                 storage.delete("batch_calculation_running", scope="entity")
-            except Exception:
-                pass
+                logger.info("Cleared batch_calculation_running flag")
+            except Exception as cleanup_error:
+                logger.warning("Failed to clear running flag (%s) - not critical", type(cleanup_error).__name__)
+                # Don't fail - this is cleanup, storage might be full
 
     @TableView("Start berekening / Weergeven resultaten", duration_guess=6)
     def view_batch_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:
@@ -560,22 +694,19 @@ class BatchCalculationComponent:
 
             # Check for boolean first (most common invalid type)
             if isinstance(batch_results_file, bool):
-                print("WARNING: Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
-                try:
+                logger.warning("Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
+                with contextlib.suppress(Exception):
                     storage.delete("batch_calculation_results", scope="entity")
-                    print("INFO: Deleted invalid boolean entry from storage")
-                except Exception as del_e:
-                    print(f"WARNING: Could not delete invalid storage entry: {del_e}")
             elif isinstance(batch_results_file, File):
                 batch_results = deserialize_batch_results(batch_results_file)
             else:
-                print(f"WARNING: Unexpected type in storage for 'batch_calculation_results': {type(batch_results_file).__name__}, expected File")
+                logger.warning("Unexpected type in storage for 'batch_calculation_results': %s, expected File", type(batch_results_file).__name__)
         except FileNotFoundError:
             # No batch calculation results stored yet - will trigger calculation below
             pass
         except (TypeError, AttributeError) as e:
             # Error deserializing - log and continue without results
-            print(f"WARNING: Error deserializing batch results: {e}")
+            logger.warning("Error deserializing batch results: %s", e)
             batch_results = None
 
         # Check if we need to trigger a batch calculation
@@ -585,7 +716,7 @@ class BatchCalculationComponent:
         if not batch_results or len(batch_results) == 0:
             # No results found - need to trigger calculation
             should_trigger_calculation = True
-            print("INFO: No batch results found - will trigger batch calculation...")
+            logger.info("No batch results found - will trigger batch calculation...")
         else:
             # Check if there are ready bridges that need calculation (not cached)
             try:
@@ -599,11 +730,11 @@ class BatchCalculationComponent:
 
                 if isinstance(batch_results, File):
                     # If it's still a File, deserialize it
-                    print("INFO: batch_results is still a File, deserializing...")
+                    logger.info("batch_results is still a File, deserializing...")
                     batch_results = deserialize_batch_results(batch_results)
                 elif not isinstance(batch_results, dict):
                     # batch_results should be a dict at this point
-                    print(f"WARNING: batch_results is not a dict or File: {type(batch_results).__name__}. Cannot extract cache hashes.")
+                    logger.warning("batch_results is not a dict or File: %s. Cannot extract cache hashes.", type(batch_results).__name__)
                     batch_results = None
 
                 batch_results_cache_hashes: dict[int, str] = {}
@@ -632,9 +763,9 @@ class BatchCalculationComponent:
 
                 if ready_bridges_needing_calculation > 0:
                     should_trigger_calculation = True
-                    print(f"INFO: Found {ready_bridges_needing_calculation} ready bridges needing calculation - will trigger batch calculation...")
+                    logger.info("Found %d ready bridges needing calculation - will trigger batch calculation...", ready_bridges_needing_calculation)
             except Exception as e:
-                print(f"WARNING: Error checking for ready bridges: {e} - will not auto-trigger calculation")
+                logger.warning("Error checking for ready bridges: %s - will not auto-trigger calculation", e)
 
         if should_trigger_calculation:
             # Trigger batch calculation
@@ -652,11 +783,9 @@ class BatchCalculationComponent:
                             # Since we can't easily check if job is actually running,
                             # we'll clear the flag and allow new calculation to start
                             # (If calculation was actually running, it would have been caught earlier)
-                            print("INFO: Found running flag - clearing to allow new calculation (previous may have been cancelled)")
-                            try:
+                            logger.info("Found running flag - clearing to allow new calculation (previous may have been cancelled)")
+                            with contextlib.suppress(Exception):
                                 storage.delete("batch_calculation_running", scope="entity")
-                            except Exception:
-                                pass
                             # Continue to start new calculation
                 except FileNotFoundError:
                     # No running flag - safe to start calculation
@@ -668,20 +797,15 @@ class BatchCalculationComponent:
                 storage.set("batch_calculation_running", File.from_data("running"), scope="entity")
 
                 # Trigger batch calculation automatically
-                print("INFO: Triggering batch calculation...", flush=True)
+                logger.info("Triggering batch calculation...")
                 try:
                     self.run_batch_calculation(params, entity_id, **kwargs)
                 except Exception:
-                    import traceback
-
-                    traceback_str = traceback.format_exc()
                     raise
 
                 # Clear running flag
-                try:
+                with contextlib.suppress(Exception):
                     storage.delete("batch_calculation_running", scope="entity")
-                except Exception:
-                    pass
 
                 # Try to load results again after calculation
                 try:
@@ -692,18 +816,16 @@ class BatchCalculationComponent:
 
                     # Check for boolean first (most common invalid type)
                     if isinstance(batch_results_file, bool):
-                        print("WARNING: Found boolean value in storage for 'batch_calculation_results' after calculation. Deleting invalid entry.")
-                        try:
+                        logger.warning("Found boolean value in storage for 'batch_calculation_results' after calculation. Deleting invalid entry.")
+                        with contextlib.suppress(Exception):
                             storage.delete("batch_calculation_results", scope="entity")
-                            print("INFO: Deleted invalid boolean entry from storage")
-                        except Exception as del_e:
-                            print(f"WARNING: Could not delete invalid storage entry: {del_e}")
                         batch_results = None
                     elif isinstance(batch_results_file, File):
                         batch_results = deserialize_batch_results(batch_results_file)
                     else:
-                        print(
-                            f"WARNING: Unexpected type in storage for 'batch_calculation_results' after calculation: {type(batch_results_file).__name__}, expected File"
+                        logger.warning(
+                            "Unexpected type in storage for 'batch_calculation_results' after calculation: %s, expected File",
+                            type(batch_results_file).__name__,
                         )
                         batch_results = None
                 except FileNotFoundError:
@@ -711,18 +833,13 @@ class BatchCalculationComponent:
                     batch_results = None
                 except (TypeError, AttributeError) as e:
                     # Error deserializing - log and continue without results
-                    print(f"WARNING: Error deserializing batch results after calculation: {e}")
+                    logger.warning("Error deserializing batch results after calculation: %s", e)
                     batch_results = None
             except Exception as e:
                 # Clear running flag on error
-                try:
+                with contextlib.suppress(Exception):
                     storage.delete("batch_calculation_running", scope="entity")
-                except Exception:
-                    pass
-                import traceback
-
-                full_traceback = traceback.format_exc()
-                print(f"ERROR: Error triggering batch calculation: {e}", flush=True)
+                logger.exception("Error triggering batch calculation: %s", e)
                 return TableResult(
                     [["Fout bij starten batchberekening", f"{type(e).__name__}: {str(e)[:100]}", "", "", ""]],
                     column_headers=["Berekening Status", "Max UC", "UC Status", "Gefaalde controles", "Rapport"],
@@ -820,7 +937,7 @@ class BatchCalculationComponent:
             # Re-raise UserError as-is (it already has appropriate messages)
             raise
         except Exception as exc:
-            print(f"ERROR: Chat response generation failed: {exc}")
+            logger.exception("Chat response generation failed: %s", exc)
             return ChatResult(
                 conversation,
                 "Het is niet gelukt om een antwoord op te halen van de AI-service. Probeer het later nog eens.",

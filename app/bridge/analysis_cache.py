@@ -6,12 +6,19 @@ recalculating when input parameters haven't changed.
 """
 
 import base64
+import contextlib
 import hashlib
 import json
 import pickle
 from collections.abc import Callable
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
+
+import viktor.api_v1 as api
+from viktor.core import File, Storage, progress_message
+from viktor.errors import InternalError, UserError
+from viktor.external import idea_rcs
 
 from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
@@ -20,9 +27,8 @@ from src.integrations.idea_integration.idea_interface import create_bridge_idea_
 from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_cs_results_for_idea,
 )
-from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
-from viktor.external import idea_rcs
+
+STORAGE_WARNING_MARKER_KEY = "storage_warning_state"
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -270,6 +276,34 @@ class AnalysisCache:
         """Initialize the analysis cache with VIKTOR Storage."""
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
+        self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
+
+    def _write_storage_warning(self, message: str) -> None:
+        """Persist a workspace-level warning so the UI can notify the user."""
+        try:
+            payload = json.dumps(
+                {
+                    "message": message,
+                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+                }
+            )
+            self.storage.set(
+                STORAGE_WARNING_MARKER_KEY,
+                data=File.from_data(payload),
+                scope="workspace",
+            )
+        except Exception:
+            # If storage is already inaccessible we cannot do much—ignore.
+            pass
+
+    def _clear_storage_warning(self) -> None:
+        """Remove the workspace warning marker once storage succeeds again."""
+        try:
+            self.storage.delete(STORAGE_WARNING_MARKER_KEY, scope="workspace")
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
 
     def _extract_params(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> dict[str, Any]:  # noqa: ANN401
         """
@@ -316,6 +350,26 @@ class AnalysisCache:
         self._hash_cache[cache_key] = computed_hash
         return computed_hash
 
+    def _get_entity(self, entity_id: int) -> Any:  # noqa: ANN401
+        """
+        Get entity object for the given entity ID with memoization.
+
+        This retrieves the entity so it can be passed to Storage methods
+        for cross-entity storage access per VIKTOR SDK documentation.
+
+        :param entity_id: Entity ID
+        :type entity_id: int
+        :returns: Entity object or None if unavailable
+        :rtype: Any
+        """
+        if entity_id not in self._entity_cache:
+            try:
+                entity_obj = api.API().get_entity(entity_id)
+                self._entity_cache[entity_id] = entity_obj
+            except Exception:
+                self._entity_cache[entity_id] = None
+        return self._entity_cache[entity_id]
+
     def get_cached_analysis(
         self,
         params: Any,  # noqa: ANN401
@@ -324,13 +378,21 @@ class AnalysisCache:
         template_path: str | None = None,
     ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
+        cache_key = ""
         try:
             # Generate hash (with memoization - this should be fast on subsequent calls)
             input_hash = self._generate_input_hash(params, analysis_type, template_path)
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
-            # Storage retrieval is the potentially slow operation
-            cached_file = self.storage.get(cache_key, scope="entity")
+            # Get entity object for cross-entity storage access
+            entity = self._get_entity(entity_id)
+
+            # Storage retrieval from entity scope
+            if entity is not None:
+                cached_file = self.storage.get(cache_key, scope="entity", entity=entity)
+            else:
+                # Fallback: use current entity scope if API unavailable
+                cached_file = self.storage.get(cache_key, scope="entity")
             if cached_file:
                 # Read the base64-encoded data
                 if hasattr(cached_file, "getvalue"):
@@ -348,31 +410,168 @@ class AnalysisCache:
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
                 return pickle.loads(cached_data)
-        except Exception:
-            pass
+        except Exception as e:
+            if isinstance(e, InternalError):
+                self._write_storage_warning(f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})")
 
         return None
 
-    def cache_analysis_results(
+    def _attempt_storage_cleanup_and_retry(
+        self,
+        _entity_id: int,
+        cache_key: str,
+        cached_file: File,
+    ) -> bool:
+        """
+        Attempt to free up storage space and retry cache save.
+
+        When storage is full (5 GB limit), this method:
+        1. Clears ALL cache files from current entity
+        2. Clears workspace markers
+        3. Retries the cache save once
+        4. Returns success/failure
+
+        :param entity_id: Entity ID for logging
+        :type entity_id: int
+        :param cache_key: Cache key to save
+        :type cache_key: str
+        :param cached_file: File object to save
+        :type cached_file: File
+        :returns: True if retry succeeded, False otherwise
+        :rtype: bool
+        """
+        try:
+            # 1. Clear ALL cache files from current entity's storage
+            try:
+                entity_keys = self.storage.list(scope="entity")
+                for key in entity_keys:
+                    if key.startswith("analysis_cache_"):
+                        with contextlib.suppress(Exception):
+                            self.storage.delete(key, scope="entity")
+            except Exception:
+                pass
+
+            # 2. Clear workspace markers and batch results
+            try:
+                workspace_keys = self.storage.list(scope="workspace")
+                for key in workspace_keys:
+                    if key.startswith(("bridge_", "batch_calculation_", "analysis_cache_")):
+                        with contextlib.suppress(Exception):
+                            self.storage.delete(key, scope="workspace")
+            except Exception:
+                pass
+
+            # 3. Retry the cache save
+            self.storage.set(cache_key, data=cached_file, scope="entity")
+            return True  # noqa: TRY300
+        except Exception:
+            return False
+
+    def cache_analysis_results(  # noqa: C901, PLR0912
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,
         entity_id: int,
         results: dict[str, Any],
         template_path: str | None = None,
-    ) -> None:
-        """Cache analysis results."""
+    ) -> bool:
+        """
+        Cache analysis results.
+
+        :returns: True if caching succeeded, False if it failed
+        :rtype: bool
+        """
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
         try:
-            # Pickle the results and encode as base64 to avoid binary data issues
-            cached_data = pickle.dumps(results)
+            # Filter results to exclude large binary files (ESA, XML output)
+            if analysis_type == AnalysisType.SCIA:
+                cacheable_results = extract_cacheable_scia_results(results)
+            elif analysis_type == AnalysisType.IDEA:
+                cacheable_results = extract_cacheable_idea_results(results)
+            else:
+                cacheable_results = results  # Fallback
+
+            # Pickle the filtered results and encode as base64 to avoid binary data issues
+            cached_data = pickle.dumps(cacheable_results)
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
+            size_mb = len(encoded_data) / (1024 * 1024)
+
+            # Size check: Skip caching if data is too large (> 20 MB)
+            max_cache_size_mb = 20
+            if size_mb > max_cache_size_mb:
+                return False
+
             cached_file = File.from_data(encoded_data)
-            self.storage.set(cache_key, data=cached_file, scope="entity")
+
+            # CRITICAL: Delete old cache files for this entity + analysis type BEFORE saving new one.
+            # In practice the entire Storage() API (list/get/set/delete) starts throwing InternalError once
+            # the workspace quota is saturated. We therefore avoid Storage.list() and rely on the workspace
+            # marker to know exactly which cache key to delete. If even Storage.get(marker_key) fails we
+            # simply log it and continue – the next calculation will have to recalc until someone purges
+            # storage manually (cache button, viktor-cli clear, or platform support).
+            try:
+                import json
+
+                # Read workspace marker to get old hash
+                marker_key = f"bridge_{entity_id}_{analysis_type.value}_cache_status"
+                marker_file = self.storage.get(marker_key, scope="workspace")
+                marker_data = json.loads(marker_file.getvalue())
+                old_hash = marker_data.get("cached_hash")
+
+                if old_hash and old_hash != input_hash:
+                    # Construct old cache key from marker and delete it
+                    old_cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{old_hash}"
+                    try:
+                        self.storage.delete(old_cache_key, scope="entity")
+                    except Exception as delete_error:
+                        if isinstance(delete_error, InternalError):
+                            self._write_storage_warning(f"Opslag verwijderen mislukt voor {old_cache_key}")
+            except FileNotFoundError:
+                pass
+            except Exception as marker_error:
+                if isinstance(marker_error, InternalError):
+                    self._write_storage_warning(f"Opslag lezen van cache marker mislukt ({analysis_type.value})")
+
+            # Get entity object for cross-entity storage access
+            entity = self._get_entity(entity_id)
+
+            # Write to local entity storage
+            try:
+                if entity is not None:
+                    self.storage.set(cache_key, data=cached_file, scope="entity", entity=entity)
+                else:
+                    # Fallback: use current entity scope if API unavailable
+                    self.storage.set(cache_key, data=cached_file, scope="entity")
+                self._clear_storage_warning()
+
+                # Notify parent entity of cache status
+                notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
+                return True  # noqa: TRY300
+
+            except Exception as storage_error:
+                if isinstance(storage_error, InternalError):
+                    self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
+
+                    # Attempt automatic cleanup and retry
+                    cleanup_success = self._attempt_storage_cleanup_and_retry(entity_id, cache_key, cached_file)
+
+                    if cleanup_success:
+                        # Cleanup worked! Notify parent and return success
+                        with contextlib.suppress(Exception):
+                            notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
+
+                        self._clear_storage_warning()
+                        return True
+                    # Cleanup failed - use fail-safe
+                    return False
+                # Not a storage error, just fail gracefully
+                return False
+
         except Exception:
-            pass
+            # General error during caching setup
+            return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
         """Clear cache for a specific entity and analysis type."""
@@ -439,6 +638,133 @@ def _get_analysis_cache() -> AnalysisCache:
     return _analysis_cache
 
 
+def notify_parent_of_cache_status(
+    entity_id: int,
+    analysis_type: AnalysisType,
+    cache_hash: str,
+) -> None:
+    """
+    Notify parent entity that this bridge has cached results.
+
+    Writes a lightweight marker file to parent's storage so the overview
+    can check cache status without cross-entity storage access.
+
+    :param entity_id: Bridge entity ID
+    :type entity_id: int
+    :param analysis_type: Analysis type (SCIA or IDEA)
+    :type analysis_type: AnalysisType
+    :param cache_hash: Hash of cached parameters
+    :type cache_hash: str
+    :returns: None
+    :rtype: None
+    """
+    try:
+        # Get parent entity
+        current_entity = api.API().get_entity(entity_id)
+        parent_entity = current_entity.parent()
+
+        if parent_entity is None:
+            return
+
+        # Create marker data
+        marker_data = {
+            "entity_id": entity_id,
+            "analysis_type": analysis_type.value,
+            "cache_hash": cache_hash,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+        # Write to parent storage
+        marker_key = f"bridge_{entity_id}_{analysis_type.value}_cache_status"
+        marker_json = json.dumps(marker_data)
+        marker_file = File.from_data(marker_json)
+
+        # Write to workspace storage (accessible by all entities)
+        parent_storage = Storage()
+        parent_storage.set(marker_key, data=marker_file, scope="workspace")
+    except Exception:
+        # Don't fail the analysis if parent notification fails
+        pass
+
+
+def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extract only cacheable data from SCIA results (exclude large binary files).
+
+    Excludes:
+    - xml_output (10+ MB raw XML)
+    - esa_model (50+ MB binary ESA file)
+    - Large raw data in xml_parsing
+
+    Includes:
+    - Parsed DataFrames (cs_envelope_df, etc.)
+    - Summary dict
+    - Analysis status
+    - Other small processed data
+
+    :param full_results: Complete SCIA analysis results
+    :type full_results: dict[str, Any]
+    :returns: Filtered results suitable for caching
+    :rtype: dict[str, Any]
+    """
+    cacheable = {
+        "analysis_status": full_results.get("analysis_status"),
+        "summary": full_results.get("summary"),
+    }
+
+    # Include cs_envelope_df if present (parsed, relatively small)
+    if "cs_envelope_df" in full_results:
+        cacheable["cs_envelope_df"] = full_results["cs_envelope_df"]
+
+    # Include other DataFrames/parsed results (small)
+    for key in ["displacements", "internal_forces", "reactions", "stresses"]:
+        if key in full_results:
+            cacheable[key] = full_results[key]
+
+    # Exclude: xml_output, esa_model (too large)
+    # Note: Downloads will need to regenerate these if needed
+
+    return cacheable
+
+
+def extract_cacheable_idea_results(full_results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extract only cacheable data from IDEA results (exclude large binary files).
+
+    Excludes:
+    - idea_xml_input_bytes (can regenerate from model)
+    - output_content (large raw output bytes)
+    - Full model object if it contains large binary data
+
+    Includes:
+    - Parsed section results
+    - Analysis status
+    - Capacity ratios, utilization data
+    - Other small processed data
+
+    :param full_results: Complete IDEA analysis results
+    :type full_results: dict[str, Any]
+    :returns: Filtered results suitable for caching
+    :rtype: dict[str, Any]
+    """
+    cacheable = {
+        "analysis_status": full_results.get("analysis_status"),
+    }
+
+    # Include section_results (parsed, small)
+    if "section_results" in full_results:
+        cacheable["section_results"] = full_results["section_results"]
+
+    # Include error if present
+    if "error" in full_results:
+        cacheable["error"] = full_results["error"]
+
+    # Exclude: idea_xml_input_bytes, output_content, model (too large or regenerable)
+    # Note: XML download will regenerate from params if needed
+
+    return cacheable
+
+
 def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa: ANN401
     """
     Check if valid SCIA cache exists that can be used for IDEA analysis.
@@ -473,10 +799,7 @@ def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa:
         cs_envelope_df = process_scia_cs_results_for_idea(scia_results, bridge_segments)
 
         # If processing succeeds and returns non-empty DataFrame, cache is valid
-        if cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty:
-            return True
-
-        return False
+        return cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty
     except Exception:
         # Processing failed - cache is invalid or incomplete
         return False
@@ -502,7 +825,8 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
     cache = _get_analysis_cache()
 
     # Generate hash for current parameters
-    current_hash = cache._generate_input_hash(params, AnalysisType.IDEA, None)
+    # Note: Using private method _generate_input_hash for cache consistency
+    current_hash = cache._generate_input_hash(params, AnalysisType.IDEA, None)  # noqa: SLF001
 
     # If expected_hash is provided, it must match current hash exactly
     # This ensures that if parameters changed, cache is considered invalid
@@ -514,16 +838,17 @@ def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None 
         cache_key = f"analysis_cache_{entity_id}_{AnalysisType.IDEA.value}_{expected_hash}"
         try:
             cached_file = cache.storage.get(cache_key, scope="entity")
-            return cached_file is not None
         except Exception:
             return False
+        else:
+            return cached_file is not None
 
     # Otherwise, check cache for current parameters
     idea_results = cache.get_cached_analysis(params, AnalysisType.IDEA, entity_id)
     return idea_results is not None
 
 
-def get_cached_analysis_results(
+def get_cached_analysis_results(  # noqa: PLR0913
     params: Any,  # noqa: ANN401
     analysis_type: AnalysisType,
     entity_id: int,

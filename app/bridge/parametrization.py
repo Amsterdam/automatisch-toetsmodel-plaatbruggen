@@ -5,28 +5,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.constants import (
-    BRIDGE_DATA_PATH,
-    CALCULATION_LEVEL_OPTIONS,
-    CALCULATION_SETTINGS_INFO_TEXT,
-    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
-    CONCRETEQUALITY_CSV_PATH,
-    DIMENSIONS_SEGMENTS_EXPLANATION,
-    IDEA_INFO_TEXT,
-    LOAD_CASE_SELECTION_DEFAULT,
-    LOAD_CASE_SELECTION_HEADER_TEXT,
-    LOAD_CASE_SELECTION_NOTE_TEXT,
-    LOAD_ZONE_TYPES,
-    LOAD_ZONES_INFO_TEXT,
-    MAX_LOAD_ZONE_SEGMENT_FIELDS,
-    OPTIMIZATION_EXPLANATION_TEXT,
-    PAVEMENT_MATERIAL_OPTIONS,
-    REINFORCEMENT_INFO_TEXT,
-    SCIA_INFO_TEXT,
-    SIGNAGE_OPTIONS,
-)
-from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
-from src.common.materials import get_reinforcement_qualities
+from viktor.core import Storage
 from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
@@ -50,6 +29,30 @@ from viktor.parametrization import (
     TextAreaField,
     TextField,
 )
+
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
+from app.constants import (
+    BRIDGE_DATA_PATH,
+    CALCULATION_LEVEL_OPTIONS,
+    CALCULATION_SETTINGS_INFO_TEXT,
+    CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
+    CONCRETEQUALITY_CSV_PATH,
+    DIMENSIONS_SEGMENTS_EXPLANATION,
+    IDEA_INFO_TEXT,
+    LOAD_CASE_SELECTION_DEFAULT,
+    LOAD_CASE_SELECTION_HEADER_TEXT,
+    LOAD_CASE_SELECTION_NOTE_TEXT,
+    LOAD_ZONE_TYPES,
+    LOAD_ZONES_INFO_TEXT,
+    MAX_LOAD_ZONE_SEGMENT_FIELDS,
+    OPTIMIZATION_EXPLANATION_TEXT,
+    PAVEMENT_MATERIAL_OPTIONS,
+    REINFORCEMENT_INFO_TEXT,
+    SCIA_INFO_TEXT,
+    SIGNAGE_OPTIONS,
+)
+from src.common.constants.technical import STANDARD_REBAR_DIAMETERS
+from src.common.materials import get_reinforcement_qualities
 
 # --- Helper function for rebar diameter options ---
 
@@ -135,6 +138,51 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         counts["Tandem systeem belastingen"] = 30  # Estimated
 
     return counts
+
+
+# --- Storage warning helpers -------------------------------------------------
+
+
+def _read_storage_warning_marker() -> dict[str, str] | None:
+    """Read the workspace storage warning marker if it exists."""
+    storage = Storage()
+    try:
+        warning_file = storage.get(STORAGE_WARNING_MARKER_KEY, scope="workspace")
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        return {"message": f"Opslagstatus onbekend (lezen mislukt: {exc})", "timestamp": ""}
+
+    raw_value = warning_file.getvalue()
+    if isinstance(raw_value, bytes):
+        raw_value = raw_value.decode("utf-8")
+
+    try:
+        data = json.loads(raw_value)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    return {"message": str(raw_value), "timestamp": ""}
+
+
+def _storage_warning_visible(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
+    """Visibility callback that returns True when a storage warning marker exists."""
+    return _read_storage_warning_marker() is not None
+
+
+def _storage_warning_message(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """Return the warning message (including timestamp) shown to the user."""
+    payload = _read_storage_warning_marker()
+    if not payload:
+        return ""
+
+    message = payload.get("message") or "Opslaglimiet bereikt."
+    timestamp = payload.get("timestamp")
+    if timestamp:
+        return f"{message} (laatst bijgewerkt: {timestamp} UTC)"
+    return message
 
 
 # --- Helper functions for Bridge Data Loading ---
@@ -780,6 +828,17 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # ----------------------------------------
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
+
+    input.dimensions.storage_warning_alert = Text(
+        "⚠️ Opslaglimiet bereikt\nWis de workspace cache met de knop op het statusoverzicht of hergenereer alle entities.",
+        visible=_storage_warning_visible,
+    )
+    input.dimensions.storage_warning_details = OutputField(
+        "Opslagstatus",
+        value=_storage_warning_message,
+        visible=_storage_warning_visible,
+        flex=100,
+    )
 
     input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
 

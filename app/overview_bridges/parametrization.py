@@ -81,8 +81,26 @@ class OverviewBridgesParametrization(Parametrization):
     # Moved regenerate_button below the manager
     bridge_overview.regenerate_button = ActionButton("(Her)genereer Bruggen", method="regenerate_bridges_action")
 
-    # Define the Batch Calculation page
-    batch_calculation = Page("Batch Berekening", views=["view_batch_readiness", "view_batch_results"])
+    # Define the Batch Calculation page - combined view with status and results
+    batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
+
+    # Action buttons section
+    batch_calculation.action_buttons = Text("### Acties")
+    batch_calculation.refresh_button = ActionButton(
+        "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
+    )
+    batch_calculation.calculate_button = ActionButton(
+        "Start Berekening", method="run_batch_calculation", description="Start batch berekening voor alle bruggen die klaar zijn"
+    )
+
+    # Cache management section
+    batch_calculation.cache_section = Text("### Cache Beheer")
+    batch_calculation.clear_cache_button = ActionButton(
+        "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
+    )
+
+    # Chat section for querying batch results
+    batch_calculation.chat_section = Text("### Resultaten Chat")
     batch_calculation.chat_guidance = Text(
         "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
         "en start nooit automatisch een nieuwe berekening."
@@ -94,15 +112,3 @@ class OverviewBridgesParametrization(Parametrization):
         first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
         flex=100,
     )
-    # batch_calculation.intro = Text(
-    #     "## Batch Berekening\n\n"
-    #     "Op deze pagina kunt u alle bruggen in één keer doorrekenen. "
-    #     "De berekening voert voor elke geschikte brug een volledige SCIA + IDEA analyse uit.\n\n"
-    #     "**Let op**: Een batchberekening kan lang duren (15-30 minuten per brug). "
-    #     "U kunt de berekening op elk moment stoppen - de voortgang wordt automatisch opgeslagen."
-    # )
-    # batch_calculation.run_button = ActionButton(
-    #     "Start Batch Berekening",
-    #     method="run_batch_calculation",
-    #     description="Voer berekening uit voor alle geschikte bruggen"
-    # )

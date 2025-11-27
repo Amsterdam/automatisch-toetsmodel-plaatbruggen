@@ -13,7 +13,7 @@ from viktor.errors import UserError
 from .context import build_batch_chat_context, format_chat_dataset_for_prompt
 
 
-def generate_batch_chat_response(entity_id: int, messages: list[dict[str, Any]]) -> str:  # noqa: ANN401
+def generate_batch_chat_response(entity_id: int, messages: list[dict[str, Any]]) -> str:
     """
     Generate a chat response for batch calculation results using OpenAI GPT-5 Nano.
 
@@ -34,9 +34,7 @@ def generate_batch_chat_response(entity_id: int, messages: list[dict[str, Any]])
 
     dataset = build_batch_chat_context(entity_id)
     if not dataset.get("bridges"):
-        raise UserError(
-            "Er zijn nog geen batchresultaten beschikbaar voor deze overzichtsentity. Voer eerst een batchberekening uit."
-        )
+        raise UserError("Er zijn nog geen batchresultaten beschikbaar voor deze overzichtsentity. Voer eerst een batchberekening uit.")
 
     dataset_summary = format_chat_dataset_for_prompt(dataset)
     system_prompt = (
@@ -94,9 +92,7 @@ def generate_batch_chat_response(entity_id: int, messages: list[dict[str, Any]])
         )
 
     if OpenAI is None:
-        raise UserError(
-            "De Python-package 'openai' is niet geïnstalleerd. Installeer deze afhankelijkheid om de chatfunctie te gebruiken."
-        )
+        raise UserError("De Python-package 'openai' is niet geïnstalleerd. Installeer deze afhankelijkheid om de chatfunctie te gebruiken.")
 
     client = OpenAI(api_key=api_key)
     try:
@@ -172,4 +168,3 @@ def generate_batch_chat_response(entity_id: int, messages: list[dict[str, Any]])
         raise UserError("Het is niet gelukt om een antwoord op te halen van de AI-service. Probeer het later nog eens.") from exc
 
     return answer
-

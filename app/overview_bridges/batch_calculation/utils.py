@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 LAST_BATCH_RUN_KEY = "batch_calculation_last_run"
 
 
-def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, C901, PLR0912
+def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001, C901, PLR0912, PLR0915
     """
     Check if bridge is ready for calculation and calculate completion percentage.
 
@@ -27,7 +27,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
 
     :param bridge_params: Bridge parametrization object
     :type bridge_params: Any
-    :param bridge_entity: Bridge entity object
+    :param bridge_entity: Bridge entity object (unused, kept for API compatibility)
     :type bridge_entity: Any
     :returns: Tuple of (is_ready, missing_fields, completion_percentage)
     :rtype: tuple[bool, list[str], float]
@@ -242,10 +242,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
         passed_checks += 1
 
     # Calculate completion percentage
-    if total_checks > 0:
-        completion_percentage = (passed_checks / total_checks) * 100.0
-    else:
-        completion_percentage = 0.0
+    completion_percentage = (passed_checks / total_checks) * 100.0 if total_checks > 0 else 0.0
 
     is_ready = len(missing_fields) == 0
 
@@ -381,14 +378,16 @@ def extract_uc_summary_from_idea_results(idea_results: dict[str, Any]) -> dict[s
     }
 
 
-def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_results_cache_hash: str | None = None) -> bool:  # noqa: ANN401
+def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_results_cache_hash: str | None = None) -> bool:  # noqa: ANN401, C901
     """
     Check if valid IDEA analysis results are cached for a bridge.
 
     IDEA cache existence implies SCIA cache is valid, since IDEA cannot run without SCIA.
     Therefore, we only need to check IDEA cache.
 
-    :param bridge_params: Bridge parametrization object (used if batch_results_cache_hash not provided)
+    Reads cache status marker from parent (overview) storage to avoid cross-entity access issues.
+
+    :param bridge_params: Bridge parametrization object (used to generate current hash)
     :type bridge_params: Any
     :param bridge_entity_id: Bridge entity ID
     :type bridge_entity_id: int
@@ -397,12 +396,68 @@ def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_res
     :returns: True if valid cached IDEA results exist, False otherwise
     :rtype: bool
     """
-    from app.bridge.analysis_cache import has_valid_idea_cache
+    import json
+
+    from viktor.core import Storage
+
+    from app.bridge.analysis_cache import _get_analysis_cache
+    from src.common.constants.technical import AnalysisType
 
     try:
-        # IDEA cache existence is proof that SCIA cache is valid
-        # (IDEA cannot be calculated without SCIA)
-        return has_valid_idea_cache(bridge_params, bridge_entity_id, batch_results_cache_hash)
+        # Read marker from parent (overview) storage
+        marker_key = f"bridge_{bridge_entity_id}_idea_cache_status"
+        storage = Storage()
+
+        try:
+            marker_file = storage.get(marker_key, scope="workspace")
+        except Exception:
+            return False
+
+        # Parse marker data
+        marker_json = marker_file.getvalue() if hasattr(marker_file, "getvalue") else marker_file
+        if isinstance(marker_json, bytes):
+            marker_json = marker_json.decode("utf-8")
+        marker_data = json.loads(marker_json)
+
+        cached_hash = marker_data.get("cache_hash")
+
+        # If batch_results_cache_hash provided, use it for comparison
+        if batch_results_cache_hash is not None:
+            result = cached_hash == batch_results_cache_hash
+            # Verify actual cache file exists (not just marker)
+            if result:  # Only verify if hash matches
+                try:
+                    cache = _get_analysis_cache()
+                    # Try to read actual cache file from entity storage
+                    cache_file = cache.get_cached_analysis(
+                        params=bridge_params, analysis_type=AnalysisType.IDEA, entity_id=bridge_entity_id, template_path=None
+                    )
+                    if cache_file is None:
+                        result = False
+                except FileNotFoundError:
+                    result = False
+                except Exception:
+                    result = False
+            return result
+
+        # Otherwise, generate current hash and compare
+        cache = _get_analysis_cache()
+        current_hash = cache._generate_input_hash(bridge_params, AnalysisType.IDEA, None)  # noqa: SLF001
+        result = cached_hash == current_hash
+        # Verify actual cache file exists (not just marker)
+        if result:  # Only verify if hash matches
+            try:
+                # Try to read actual cache file from entity storage
+                cache_file = cache.get_cached_analysis(
+                    params=bridge_params, analysis_type=AnalysisType.IDEA, entity_id=bridge_entity_id, template_path=None
+                )
+                if cache_file is None:
+                    result = False
+            except FileNotFoundError:
+                result = False
+            except Exception:
+                result = False
+        return result  # noqa: TRY300
 
     except Exception:
         # If cache check fails (e.g., storage issues), assume no cache
@@ -494,21 +549,21 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     # Check for boolean first (most common invalid type)
     if isinstance(stored_file, bool):
         error_msg = f"Received boolean instead of File: {stored_file}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         raise TypeError(error_msg)
 
     # Then check for File type
     if not isinstance(stored_file, File):
         file_type = type(stored_file)
         error_msg = f"Expected File object, got {file_type.__name__}: {stored_file}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         raise TypeError(error_msg)
 
     # Verify method exists before calling it
     if not hasattr(stored_file, "open_binary"):
         file_type = type(stored_file)
         error_msg = f"File object missing 'open_binary' method. Got type: {file_type.__name__}, value: {stored_file}"
-        print(f"ERROR: {error_msg}")
+        logger.error(error_msg)
         raise TypeError(error_msg)
 
     # Extract content from file object
@@ -516,13 +571,12 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     try:
         with stored_file.open_binary() as f:
             encoded_data = f.read()
-    except AttributeError as e:
+    except AttributeError:
         # This should not happen if hasattr check passed, but catch it anyway
         file_type = type(stored_file)
-        error_msg = f"open_binary() failed on {file_type.__name__}: {e}"
-        print(f"ERROR: {error_msg}")
+        logger.exception("open_binary() failed on %s", file_type.__name__)
         # Try fallback methods as last resort
-        print("WARNING: Attempting fallback methods for file extraction")
+        logger.warning("Attempting fallback methods for file extraction")
         if hasattr(stored_file, "getvalue"):
             encoded_data = stored_file.getvalue()
         elif hasattr(stored_file, "read"):

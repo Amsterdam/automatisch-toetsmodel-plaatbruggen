@@ -4,6 +4,8 @@ import json
 from typing import Any
 
 import viktor.api_v1 as api
+from viktor.core import Storage
+
 from app.constants import BRIDGE_DATA_PATH
 from app.overview_bridges.batch_calculation.utils import (
     check_idea_cache_status,
@@ -12,7 +14,6 @@ from app.overview_bridges.batch_calculation.utils import (
     load_batch_last_run_timestamp,
     validate_bridge_for_calculation,
 )
-from viktor.core import File, Storage
 
 MAX_BRIDGES_IN_CHAT_CONTEXT = 60
 
@@ -656,4 +657,3 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
         lines.append("Geen brugdata beschikbaar.")
 
     return "\n".join(lines)
-

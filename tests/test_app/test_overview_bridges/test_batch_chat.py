@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from app.overview_bridges.batch_calculation import component as batch_component
+from app.overview_bridges.batch_calculation import llm
 from app.overview_bridges.batch_calculation import utils as batch_utils
 
 
@@ -16,28 +17,46 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
             return [dummy_bridge]
 
     dummy_api = SimpleNamespace(get_entity=lambda entity_id: DummyParent())
-    monkeypatch.setattr(batch_utils.api, "API", lambda: dummy_api)
+
+    # Patch the API class - need to create a mock that can be called
+    class MockAPI:
+        def __init__(self):
+            pass
+
+        def get_entity(self, entity_id):
+            return DummyParent()
+
+    # Patch api.API() call in context module
+    monkeypatch.setattr(llm.context.api, "API", MockAPI)
+
+    class DummyFile:
+        """Mock File object for Storage.get() return value."""
 
     class DummyStorage:
         def get(self, key, scope):
             if key == "batch_calculation_results":
-                return object()
+                return DummyFile()
             raise FileNotFoundError
 
-    monkeypatch.setattr(batch_utils, "Storage", DummyStorage)
-    monkeypatch.setattr(
-        batch_utils, "deserialize_batch_results", lambda stored: {1: {"status": "Voltooid", "uc_status": "PASSED", "uc_breakdown": None}}
-    )
+    monkeypatch.setattr(llm.context, "Storage", DummyStorage)
+
+    # Patch deserialize_batch_results in both utils and context modules
+    # (context imports it from utils, so we need to patch it where it's used)
+    def mock_deserialize(stored_file):
+        return {1: {"status": "Voltooid", "uc_status": "PASSED", "uc_breakdown": None, "cached": False}}
+
+    monkeypatch.setattr(batch_utils, "deserialize_batch_results", mock_deserialize)
+    monkeypatch.setattr(llm.context, "deserialize_batch_results", mock_deserialize)
     monkeypatch.setattr(batch_utils, "load_batch_last_run_timestamp", lambda storage: "2024-01-01T00:00:00Z")
     monkeypatch.setattr(
-        batch_utils,
+        llm.context,
         "_load_filtered_bridge_map",
         lambda: {"BRU0010": {"OBJECTNUMM": "BRU0010", "stadsdeel": "Centrum", "lth": "9600", "type": "Type 3"}},
     )
     monkeypatch.setattr(batch_utils, "validate_bridge_for_calculation", lambda params, entity: (True, [], 100.0))
     monkeypatch.setattr(batch_utils, "check_idea_cache_status", lambda params, bridge_id, batch_results_cache_hash=None: False)
 
-    dataset = batch_utils.build_batch_chat_context(entity_id=123)
+    dataset = llm.context.build_batch_chat_context(entity_id=123)
 
     assert dataset["summary"]["total_bridges"] == 1
     assert dataset["summary"]["calculated"] == 1
@@ -57,17 +76,22 @@ def test_chat_batch_results_requires_api_key(monkeypatch):
     def _fail_if_called(*args, **kwargs):
         raise AssertionError("build_batch_chat_context should not be invoked when API key is missing")
 
-    monkeypatch.setattr(batch_component, "build_batch_chat_context", _fail_if_called)
-    monkeypatch.setattr(batch_component.os, "getenv", lambda key: None)
+    monkeypatch.setattr(llm.context, "build_batch_chat_context", _fail_if_called)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: None)
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
         lambda conversation, content: {"conversation": conversation, "content": content},
     )
 
-    result = component.chat_batch_results(params, entity_id=1)
+    # The component re-raises UserError, so we need to catch it
+    import pytest
+    from viktor.errors import UserError
 
-    assert "OPENAI_API_KEY" in result["content"]
+    with pytest.raises(UserError) as exc_info:
+        component.chat_batch_results(params, entity_id=1)
+
+    assert "OPENAI_API_KEY" in str(exc_info.value)
 
 
 def test_chat_batch_results_invokes_openai(monkeypatch):
@@ -90,7 +114,7 @@ def test_chat_batch_results_invokes_openai(monkeypatch):
             "last_batch_run": "2024-01-01T00:00:00Z",
             "dataset_truncated": False,
         },
-        "field_descriptions": batch_utils.CHAT_FIELD_DESCRIPTIONS,
+        "field_descriptions": llm.context.CHAT_FIELD_DESCRIPTIONS,
         "bridges": [
             {
                 "bridge_id": 1,
@@ -115,8 +139,9 @@ def test_chat_batch_results_invokes_openai(monkeypatch):
         ],
     }
 
-    monkeypatch.setattr(batch_component, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(batch_component.os, "getenv", lambda key: "test-key")
+    # Patch build_batch_chat_context in handler module (where it's imported from context)
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-key")
 
     captured = {}
 
@@ -132,7 +157,7 @@ def test_chat_batch_results_invokes_openai(monkeypatch):
             captured["payload"] = kwargs
             return DummyResponse()
 
-    monkeypatch.setattr(batch_component, "OpenAI", DummyClient)
+    monkeypatch.setattr(llm.handler, "OpenAI", DummyClient)
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
@@ -166,7 +191,7 @@ def test_chat_batch_results_uses_model_dump(monkeypatch):
             "last_batch_run": "2024-01-01T00:00:00Z",
             "dataset_truncated": False,
         },
-        "field_descriptions": batch_utils.CHAT_FIELD_DESCRIPTIONS,
+        "field_descriptions": llm.context.CHAT_FIELD_DESCRIPTIONS,
         "bridges": [
             {
                 "bridge_id": 1,
@@ -191,8 +216,9 @@ def test_chat_batch_results_uses_model_dump(monkeypatch):
         ],
     }
 
-    monkeypatch.setattr(batch_component, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(batch_component.os, "getenv", lambda key: "test-key")
+    # Patch build_batch_chat_context in handler module (where it's imported from context)
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-key")
 
     class DummyResponse:
         output_text = None
@@ -204,7 +230,7 @@ def test_chat_batch_results_uses_model_dump(monkeypatch):
         def __init__(self, api_key):
             self.responses = SimpleNamespace(create=lambda **kwargs: DummyResponse())
 
-    monkeypatch.setattr(batch_component, "OpenAI", DummyClient)
+    monkeypatch.setattr(llm.handler, "OpenAI", DummyClient)
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
@@ -236,7 +262,7 @@ def test_chat_batch_results_handles_text_objects(monkeypatch):
             "last_batch_run": "2024-01-01T00:00:00Z",
             "dataset_truncated": False,
         },
-        "field_descriptions": batch_utils.CHAT_FIELD_DESCRIPTIONS,
+        "field_descriptions": llm.context.CHAT_FIELD_DESCRIPTIONS,
         "bridges": [
             {
                 "bridge_id": 1,
@@ -261,8 +287,9 @@ def test_chat_batch_results_handles_text_objects(monkeypatch):
         ],
     }
 
-    monkeypatch.setattr(batch_component, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(batch_component.os, "getenv", lambda key: "test-key")
+    # Patch build_batch_chat_context in handler module (where it's imported from context)
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-key")
 
     class DummyText:
         def __init__(self, value: str):
@@ -284,7 +311,7 @@ def test_chat_batch_results_handles_text_objects(monkeypatch):
         def __init__(self, api_key):
             self.responses = SimpleNamespace(create=lambda **kwargs: DummyResponse())
 
-    monkeypatch.setattr(batch_component, "OpenAI", DummyClient)
+    monkeypatch.setattr(llm.handler, "OpenAI", DummyClient)
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
@@ -390,7 +417,7 @@ def test_format_chat_dataset_for_prompt(monkeypatch):
         ],
     }
 
-    formatted = batch_utils.format_chat_dataset_for_prompt(dataset)
+    formatted = llm.context.format_chat_dataset_for_prompt(dataset)
 
     assert "Totaal bruggen: 2" in formatted
     assert "Brug 1" in formatted
@@ -427,8 +454,9 @@ def test_chat_handles_incomplete_response(monkeypatch):
         "bridges": [{"bridge_id": 1, "name": "Test Bridge"}],
     }
 
-    monkeypatch.setattr(batch_component, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(batch_component.os, "getenv", lambda key: "test-api-key" if key == "OPENAI_API_KEY" else None)
+    # Patch build_batch_chat_context in handler module (where it's imported from context)
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-api-key" if key == "OPENAI_API_KEY" else None)
 
     # Mock incomplete response
     class DummyIncompleteDetails:
@@ -450,7 +478,7 @@ def test_chat_handles_incomplete_response(monkeypatch):
     class DummyOpenAIClient:
         responses = DummyResponsesAPI()
 
-    monkeypatch.setattr(batch_component, "OpenAI", lambda api_key: DummyOpenAIClient())
+    monkeypatch.setattr(llm.handler, "OpenAI", lambda api_key: DummyOpenAIClient())
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
