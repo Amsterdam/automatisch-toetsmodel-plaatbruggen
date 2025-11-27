@@ -1506,9 +1506,7 @@ class TestLoadBoundaryCompliance:
                 assert -5.0 <= y <= 5.0, f"Y coordinate {y} should be within bridge width [-5.0, 5.0]"
                 assert z == 0.0, f"Z coordinate {z} should remain unchanged"
 
-    def test_dispersal_function_applies_when_any_corner_inside(
-        self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock
-    ) -> None:
+    def test_dispersal_function_applies_when_any_corner_inside(self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock) -> None:
         """
         Dispersion should be applied when at least one corner lies on the bridge deck, even if others are outside.
         """
@@ -1553,9 +1551,7 @@ class TestLoadBoundaryCompliance:
         assert pytest.approx(dispersed_coords[3][0], rel=0, abs=1e-6) == corner_points[3][0] - expected_shift
         assert dispersed_load != load_value, "Dispersion should adjust load magnitude when area changes"
 
-    def test_dispersal_function_skips_when_all_corners_outside(
-        self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock
-    ) -> None:
+    def test_dispersal_function_skips_when_all_corners_outside(self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock) -> None:
         """Dispersion should be skipped when all corners fall outside the bridge deck."""
         from src.integrations.scia_integration.scia_loads import dispersal_function
 
