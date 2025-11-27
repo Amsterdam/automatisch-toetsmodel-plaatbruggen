@@ -1,11 +1,17 @@
+"""Tests for batch calculation chat functionality."""
+
 from types import SimpleNamespace
+from typing import Any, ClassVar, NoReturn, Optional
+
+import pytest
 
 from app.overview_bridges.batch_calculation import component as batch_component
 from app.overview_bridges.batch_calculation import llm
 from app.overview_bridges.batch_calculation import utils as batch_utils
 
 
-def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
+def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that build_batch_chat_context includes filtered metadata in the dataset."""
     dummy_bridge = SimpleNamespace(
         id=1,
         name="Brug 1",
@@ -13,17 +19,15 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
     )
 
     class DummyParent:
-        def children(self, entity_type_names):
+        def children(self, entity_type_names: Any = None) -> list[Any]:  # noqa: ANN401, ARG002
             return [dummy_bridge]
-
-    dummy_api = SimpleNamespace(get_entity=lambda entity_id: DummyParent())
 
     # Patch the API class - need to create a mock that can be called
     class MockAPI:
-        def __init__(self):
+        def __init__(self) -> None:
             pass
 
-        def get_entity(self, entity_id):
+        def get_entity(self, _entity_id: int) -> DummyParent:
             return DummyParent()
 
     # Patch api.API() call in context module
@@ -33,7 +37,7 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
         """Mock File object for Storage.get() return value."""
 
     class DummyStorage:
-        def get(self, key, scope):
+        def get(self, key: str, scope: Optional[str] = None) -> DummyFile:  # noqa: ARG002
             if key == "batch_calculation_results":
                 return DummyFile()
             raise FileNotFoundError
@@ -42,19 +46,19 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
 
     # Patch deserialize_batch_results in both utils and context modules
     # (context imports it from utils, so we need to patch it where it's used)
-    def mock_deserialize(stored_file):
+    def mock_deserialize(_stored_file: Any) -> dict[int, dict[str, Any]]:  # noqa: ANN401
         return {1: {"status": "Voltooid", "uc_status": "PASSED", "uc_breakdown": None, "cached": False}}
 
     monkeypatch.setattr(batch_utils, "deserialize_batch_results", mock_deserialize)
     monkeypatch.setattr(llm.context, "deserialize_batch_results", mock_deserialize)
-    monkeypatch.setattr(batch_utils, "load_batch_last_run_timestamp", lambda storage: "2024-01-01T00:00:00Z")
+    monkeypatch.setattr(batch_utils, "load_batch_last_run_timestamp", lambda _storage: "2024-01-01T00:00:00Z")
     monkeypatch.setattr(
         llm.context,
         "_load_filtered_bridge_map",
         lambda: {"BRU0010": {"OBJECTNUMM": "BRU0010", "stadsdeel": "Centrum", "lth": "9600", "type": "Type 3"}},
     )
-    monkeypatch.setattr(batch_utils, "validate_bridge_for_calculation", lambda params, entity: (True, [], 100.0))
-    monkeypatch.setattr(batch_utils, "check_idea_cache_status", lambda params, bridge_id, batch_results_cache_hash=None: False)
+    monkeypatch.setattr(batch_utils, "validate_bridge_for_calculation", lambda _params, _entity: (True, [], 100.0))
+    monkeypatch.setattr(batch_utils, "check_idea_cache_status", lambda _params, _bridge_id, _batch_results_cache_hash=None: False)
 
     dataset = llm.context.build_batch_chat_context(entity_id=123)
 
@@ -64,20 +68,21 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch):
     assert dataset["bridges"][0]["filtered_metadata"]["stadsdeel"] == "Centrum"
 
 
-def test_chat_batch_results_requires_api_key(monkeypatch):
+def test_chat_batch_results_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that chat_batch_results raises UserError when API key is missing."""
     component = batch_component.BatchCalculationComponent()
 
     class DummyConversation:
-        def get_messages(self):
+        def get_messages(self) -> list[dict[str, str]]:
             return [{"role": "user", "content": "vraag"}]
 
     params = SimpleNamespace(batch_calculation=SimpleNamespace(batch_results_chat=DummyConversation()))
 
-    def _fail_if_called(*args, **kwargs):
+    def _fail_if_called(*_args: Any, **_kwargs: Any) -> NoReturn:  # noqa: ANN401
         raise AssertionError("build_batch_chat_context should not be invoked when API key is missing")
 
     monkeypatch.setattr(llm.context, "build_batch_chat_context", _fail_if_called)
-    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: None)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda _key: None)
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
@@ -85,7 +90,6 @@ def test_chat_batch_results_requires_api_key(monkeypatch):
     )
 
     # The component re-raises UserError, so we need to catch it
-    import pytest
     from viktor.errors import UserError
 
     with pytest.raises(UserError) as exc_info:
@@ -94,11 +98,12 @@ def test_chat_batch_results_requires_api_key(monkeypatch):
     assert "OPENAI_API_KEY" in str(exc_info.value)
 
 
-def test_chat_batch_results_invokes_openai(monkeypatch):
+def test_chat_batch_results_invokes_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that chat_batch_results invokes OpenAI API correctly."""
     component = batch_component.BatchCalculationComponent()
 
     class DummyConversation:
-        def get_messages(self):
+        def get_messages(self) -> list[dict[str, str]]:
             return [{"role": "user", "content": "Welke bruggen falen?"}]
 
     params = SimpleNamespace(batch_calculation=SimpleNamespace(batch_results_chat=DummyConversation()))
@@ -140,20 +145,20 @@ def test_chat_batch_results_invokes_openai(monkeypatch):
     }
 
     # Patch build_batch_chat_context in handler module (where it's imported from context)
-    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-key")
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda _entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda _key: "test-key")
 
-    captured = {}
+    captured: dict[str, Any] = {}
 
     class DummyResponse:
         output_text = "antwoord"
 
     class DummyClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key: str) -> None:
             captured["api_key"] = api_key
             self.responses = SimpleNamespace(create=self._create)
 
-        def _create(self, **kwargs):
+        def _create(self, **kwargs: Any) -> DummyResponse:  # noqa: ANN401
             captured["payload"] = kwargs
             return DummyResponse()
 
@@ -171,11 +176,12 @@ def test_chat_batch_results_invokes_openai(monkeypatch):
     assert captured["payload"]["model"] == "gpt-5-nano"
 
 
-def test_chat_batch_results_uses_model_dump(monkeypatch):
+def test_chat_batch_results_uses_model_dump(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that chat_batch_results uses model_dump when output_text is not available."""
     component = batch_component.BatchCalculationComponent()
 
     class DummyConversation:
-        def get_messages(self):
+        def get_messages(self) -> list[dict[str, str]]:
             return [{"role": "user", "content": "Welke bruggen falen?"}]
 
     params = SimpleNamespace(batch_calculation=SimpleNamespace(batch_results_chat=DummyConversation()))
@@ -217,18 +223,18 @@ def test_chat_batch_results_uses_model_dump(monkeypatch):
     }
 
     # Patch build_batch_chat_context in handler module (where it's imported from context)
-    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-key")
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda _entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda _key: "test-key")
 
     class DummyResponse:
         output_text = None
 
-        def model_dump(self):
+        def model_dump(self) -> dict[str, Any]:
             return {"output": [{"content": [{"text": "antwoord"}]}]}
 
     class DummyClient:
-        def __init__(self, api_key):
-            self.responses = SimpleNamespace(create=lambda **kwargs: DummyResponse())
+        def __init__(self, api_key: str) -> None:  # noqa: ARG002
+            self.responses = SimpleNamespace(create=lambda **_kwargs: DummyResponse())
 
     monkeypatch.setattr(llm.handler, "OpenAI", DummyClient)
     monkeypatch.setattr(
@@ -242,11 +248,12 @@ def test_chat_batch_results_uses_model_dump(monkeypatch):
     assert result["content"] == "antwoord"
 
 
-def test_chat_batch_results_handles_text_objects(monkeypatch):
+def test_chat_batch_results_handles_text_objects(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that chat_batch_results handles text objects in response output."""
     component = batch_component.BatchCalculationComponent()
 
     class DummyConversation:
-        def get_messages(self):
+        def get_messages(self) -> list[dict[str, str]]:
             return [{"role": "user", "content": "Welke bruggen falen?"}]
 
     params = SimpleNamespace(batch_calculation=SimpleNamespace(batch_results_chat=DummyConversation()))
@@ -288,28 +295,28 @@ def test_chat_batch_results_handles_text_objects(monkeypatch):
     }
 
     # Patch build_batch_chat_context in handler module (where it's imported from context)
-    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
-    monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-key")
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda _entity_id: dataset)
+    monkeypatch.setattr(llm.handler.os, "getenv", lambda _key: "test-key")
 
     class DummyText:
-        def __init__(self, value: str):
+        def __init__(self, value: str) -> None:
             self.value = value
 
     class DummyChunk:
-        def __init__(self, text):
+        def __init__(self, text: Any) -> None:  # noqa: ANN401
             self.text = text
 
     class DummyOutput:
-        def __init__(self, content):
+        def __init__(self, content: Any) -> None:  # noqa: ANN401
             self.content = content
 
     class DummyResponse:
-        output_text = None
-        output = [DummyOutput([DummyChunk(DummyText("antwoord via attr"))])]
+        output_text: Any = None
+        output: ClassVar[list[DummyOutput]] = [DummyOutput([DummyChunk(DummyText("antwoord via attr"))])]
 
     class DummyClient:
-        def __init__(self, api_key):
-            self.responses = SimpleNamespace(create=lambda **kwargs: DummyResponse())
+        def __init__(self, api_key: str) -> None:  # noqa: ARG002
+            self.responses = SimpleNamespace(create=lambda **_kwargs: DummyResponse())
 
     monkeypatch.setattr(llm.handler, "OpenAI", DummyClient)
     monkeypatch.setattr(
@@ -323,7 +330,8 @@ def test_chat_batch_results_handles_text_objects(monkeypatch):
     assert result["content"] == "antwoord via attr"
 
 
-def test_format_chat_dataset_for_prompt(monkeypatch):
+def test_format_chat_dataset_for_prompt() -> None:
+    """Test that format_chat_dataset_for_prompt formats dataset correctly."""
     dataset = {
         "summary": {
             "total_bridges": 2,
@@ -438,12 +446,12 @@ def test_format_chat_dataset_for_prompt(monkeypatch):
     assert "2 opleggingen" in formatted or "opleggingen" in formatted
 
 
-def test_chat_handles_incomplete_response(monkeypatch):
+def test_chat_handles_incomplete_response(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test handling of incomplete OpenAI responses due to token limits."""
     component = batch_component.BatchCalculationComponent()
 
     class DummyConversation:
-        def get_messages(self):
+        def get_messages(self) -> list[dict[str, str]]:
             return [{"role": "user", "content": "Welke bruggen?"}]
 
     params = SimpleNamespace(batch_calculation=SimpleNamespace(batch_results_chat=DummyConversation()))
@@ -455,7 +463,7 @@ def test_chat_handles_incomplete_response(monkeypatch):
     }
 
     # Patch build_batch_chat_context in handler module (where it's imported from context)
-    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda entity_id: dataset)
+    monkeypatch.setattr(llm.handler, "build_batch_chat_context", lambda _entity_id: dataset)
     monkeypatch.setattr(llm.handler.os, "getenv", lambda key: "test-api-key" if key == "OPENAI_API_KEY" else None)
 
     # Mock incomplete response
@@ -463,26 +471,26 @@ def test_chat_handles_incomplete_response(monkeypatch):
         reason = "max_output_tokens"
 
     class DummyResponse:
-        output_text = None
-        output = []
+        output_text: Any = None
+        output: ClassVar[list[Any]] = []
         status = "incomplete"
         incomplete_details = DummyIncompleteDetails()
 
-        def model_dump(self):
+        def model_dump(self) -> dict[str, list[Any]]:
             return {"output": []}
 
     class DummyResponsesAPI:
-        def create(self, **kwargs):
+        def create(self, **_kwargs: Any) -> DummyResponse:  # noqa: ANN401
             return DummyResponse()
 
     class DummyOpenAIClient:
         responses = DummyResponsesAPI()
 
-    monkeypatch.setattr(llm.handler, "OpenAI", lambda api_key: DummyOpenAIClient())
+    monkeypatch.setattr(llm.handler, "OpenAI", lambda api_key=None, **kwargs: DummyOpenAIClient())  # noqa: ARG005
     monkeypatch.setattr(
         batch_component,
         "ChatResult",
-        lambda conversation, content: SimpleNamespace(message=content),
+        lambda _conversation, content: SimpleNamespace(message=content),
     )
 
     result = component.chat_batch_results(params, entity_id=999)

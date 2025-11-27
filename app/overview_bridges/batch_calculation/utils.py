@@ -346,7 +346,7 @@ def extract_uc_summary_from_idea_results(idea_results: dict[str, Any]) -> dict[s
     }
 
     # Find maximum UC value for each check type
-    uc_breakdown = {}
+    uc_breakdown: dict[str, float | None] = {}
     max_overall_uc = 0.0
     failed_checks = []
 

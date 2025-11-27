@@ -13,13 +13,7 @@ from viktor.parametrization import (
 try:  # pragma: no cover - fallback for environments without Chat field support
     from viktor.parametrization import Chat
 except ImportError:  # pragma: no cover
-
-    class Chat:  # type: ignore[too-many-ancestors]
-        """Fallback Chat field placeholder for environments without SDK support."""
-
-        def __init__(self, *args, **kwargs) -> None:
-            self.args = args
-            self.kwargs = kwargs
+    Chat = None  # type: ignore[assignment, misc]
 
 
 class OverviewBridgesParametrization(Parametrization):
@@ -105,10 +99,11 @@ class OverviewBridgesParametrization(Parametrization):
         "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
         "en start nooit automatisch een nieuwe berekening."
     )
-    batch_calculation.batch_results_chat = Chat(
-        "Resultaten chat",
-        method="chat_batch_results",
-        placeholder="Bijv. 'Welke bruggen uit 1950-1980 hebben UC > 1?'",
-        first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
-        flex=100,
-    )
+    if Chat is not None:
+        batch_calculation.batch_results_chat = Chat(
+            "Resultaten chat",
+            method="chat_batch_results",
+            placeholder="Bijv. 'Welke bruggen uit 1950-1980 hebben UC > 1?'",
+            first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
+            flex=100,
+        )

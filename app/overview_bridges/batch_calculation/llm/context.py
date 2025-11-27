@@ -293,7 +293,7 @@ def _extract_segment_geometry(params: Any) -> dict[str, Any]:  # noqa: ANN401
 
         # Support type
         is_support = getattr(segment, "is_support", None)
-        seg_data["support_type"] = str(is_support) if is_support else None
+        seg_data["support_type"] = str(is_support) if is_support else None  # type: ignore[assignment]
         if is_support and is_support != "Nee":
             support_count += 1
 
@@ -379,7 +379,7 @@ def build_batch_chat_context(entity_id: int) -> dict[str, Any]:
     filtered_map = _load_filtered_bridge_map()
 
     records: list[dict[str, Any]] = []
-    summary = {
+    summary: dict[str, Any] = {
         "total_bridges": len(bridge_entities),
         "calculated": 0,
         "failed": 0,
@@ -480,6 +480,181 @@ def build_batch_chat_context(entity_id: int) -> dict[str, Any]:
     }
 
 
+def _format_bridge_metadata_parts(bridge: dict[str, Any]) -> list[str]:  # noqa: C901
+    """
+    Format basic and filtered metadata parts for a bridge.
+
+    :param bridge: Bridge data dictionary
+    :type bridge: dict[str, Any]
+    :returns: List of metadata part strings
+    :rtype: list[str]
+    """
+    metadata_parts = []
+    build_year = bridge.get("construction_year")
+    length = bridge.get("total_length_m")
+    width = bridge.get("total_width_m")
+    filtered = bridge.get("filtered_metadata", {})
+
+    if build_year:
+        metadata_parts.append(f"bouwjaar {build_year}")
+    if length:
+        metadata_parts.append(f"{length:.1f}m lang")
+    if width:
+        metadata_parts.append(f"{width:.1f}m breed")
+
+    if filtered.get("straat"):
+        metadata_parts.append(f"straat: {filtered['straat']}")
+    if filtered.get("stadsdeel"):
+        metadata_parts.append(f"stadsdeel: {filtered['stadsdeel']}")
+    if filtered.get("type"):
+        metadata_parts.append(f"type: {filtered['type']}")
+    if filtered.get("gebruik"):
+        metadata_parts.append(f"gebruik: {filtered['gebruik']}")
+    if filtered.get("aantal_velden"):
+        metadata_parts.append(f"{filtered['aantal_velden']} velden")
+    if filtered.get("statisch_systeem"):
+        metadata_parts.append(f"systeem: {filtered['statisch_systeem']}")
+    if filtered.get("voorgespannen") is True:
+        metadata_parts.append("voorgespannen")
+    elif filtered.get("voorgespannen") is False:
+        metadata_parts.append("niet voorgespannen")
+    if filtered.get("vlag_arb"):
+        metadata_parts.append(f"ARB: {filtered['vlag_arb']}")
+
+    return metadata_parts
+
+
+def _format_segment_geometry_parts(segment_geom: dict[str, Any]) -> list[str]:
+    """
+    Format segment geometry parts for a bridge.
+
+    :param segment_geom: Segment geometry dictionary
+    :type segment_geom: dict[str, Any]
+    :returns: List of segment geometry part strings
+    :rtype: list[str]
+    """
+    parts = []
+    dz = segment_geom.get("thickness_z1z3")
+    dz2 = segment_geom.get("thickness_z2")
+    if dz is not None and dz2 is not None:
+        parts.append(f"dikte: z1/z3={dz:.2f}m, z2={dz2:.2f}m")
+    elif dz is not None:
+        parts.append(f"dikte z1/z3: {dz:.2f}m")
+
+    num_segs = segment_geom.get("num_segments", 0)
+    support_cnt = segment_geom.get("support_count", 0)
+    if num_segs > 0:
+        seg_parts = [f"{num_segs} segmenten"]
+        if support_cnt > 0:
+            seg_parts.append(f"{support_cnt} opleggingen")
+
+        segments = segment_geom.get("segments", [])
+        if segments:
+            lengths = [s.get("length") for s in segments if s.get("length") is not None]
+            if lengths and len(lengths) > 0:
+                lengths_str = "-".join([f"{length:.1f}" for length in lengths])
+                seg_parts.append(f"lengtes: {lengths_str}m")
+
+            widths = [s.get("total_width") for s in segments if s.get("total_width") is not None]
+            if widths and len(set(widths)) > 1:
+                seg_parts.append("variabele breedte")
+
+        parts.append(", ".join(seg_parts))
+
+    return parts
+
+
+def _format_design_parameters_parts(design_params: dict[str, Any]) -> list[str]:
+    """
+    Format design parameters parts for a bridge.
+
+    :param design_params: Design parameters dictionary
+    :type design_params: dict[str, Any]
+    :returns: List of design parameter part strings
+    :rtype: list[str]
+    """
+    parts = []
+    if design_params.get("cc_class"):
+        parts.append(f"CC: {design_params['cc_class']}")
+    if design_params.get("concrete_strength_class"):
+        parts.append(f"beton: {design_params['concrete_strength_class']}")
+    if design_params.get("staalsoort"):
+        parts.append(f"staal: {design_params['staalsoort']}")
+    if design_params.get("berekeningsniveau"):
+        parts.append(f"niveau: {design_params['berekeningsniveau']}")
+    if design_params.get("load_zones_summary"):
+        parts.append(design_params["load_zones_summary"])
+
+    segment_geom = design_params.get("segment_geometry")
+    if segment_geom:
+        parts.extend(_format_segment_geometry_parts(segment_geom))
+
+    return parts
+
+
+def _format_bridge_calculation_status(bridge: dict[str, Any]) -> str:  # noqa: C901
+    """
+    Format calculation status and results for a bridge.
+
+    :param bridge: Bridge data dictionary
+    :type bridge: dict[str, Any]
+    :returns: Formatted status string
+    :rtype: str
+    """
+    classification = bridge.get("classification", "onbekend")
+    max_uc = bridge.get("max_uc")
+    cached = bridge.get("cached")
+    failed_checks_count = bridge.get("failed_checks_count") or 0
+
+    if classification == "calculated":
+        uc_str = f"UC {max_uc:.2f}" if isinstance(max_uc, (int, float)) else "UC onbekend"
+        results_available = "berekeningsresultaten beschikbaar" if cached else "berekend"
+
+        uc_breakdown = bridge.get("uc_breakdown")
+        if uc_breakdown:
+            uc_values = []
+            uc_names = {
+                "uc_capaciteit": "capaciteit",
+                "uc_schuifkracht": "schuifkracht",
+                "uc_torsie": "torsie",
+                "uc_interactie": "interactie",
+                "uc_scheurwijdte": "scheurwijdte",
+                "uc_detailing": "detailing",
+                "uc_spanningslimieten": "spanningslimieten",
+            }
+            for key, name in uc_names.items():
+                value = uc_breakdown.get(key)
+                if value is not None and value > 0:
+                    uc_values.append((name, value))
+
+            uc_values.sort(key=lambda x: x[1], reverse=True)
+            top_uc = uc_values[:3]
+
+            if top_uc:
+                top_str = ", ".join([f"{name} {val:.2f}" for name, val in top_uc])
+                status = f" → {uc_str} (hoogste: {top_str}) ({results_available})"
+            else:
+                status = f" → {uc_str} ({results_available})"
+        else:
+            status = f" → {uc_str} ({results_available})"
+
+        if failed_checks_count > 0:
+            status += f", {failed_checks_count} checks gefaald"
+
+        return status
+    if classification == "pending":
+        return " → klaar voor berekening"
+    if classification == "not_ready":
+        missing_fields = bridge.get("missing_fields", [])
+        if missing_fields:
+            missing_preview = ", ".join(missing_fields[:3])
+            if len(missing_fields) > 3:
+                missing_preview += f" (+{len(missing_fields) - 3} meer)"
+            return f" → ontbrekende gegevens: {missing_preview}"
+        return " → ontbrekende gegevens"
+    return ""
+
+
 def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
     """
     Convert the structured dataset to a concise textual summary for the LLM prompt.
@@ -507,149 +682,24 @@ def format_chat_dataset_for_prompt(dataset: dict[str, Any]) -> str:
     for bridge in bridges:
         name = bridge.get("name") or "Onbekend"
         objectnumm = bridge.get("objectnumm") or "?"
-        bridge_id = bridge.get("bridge_id")
-        classification = bridge.get("classification", "onbekend")
-        build_year = bridge.get("construction_year")
-        length = bridge.get("total_length_m")
-        width = bridge.get("total_width_m")
-        max_uc = bridge.get("max_uc")
-        cached = bridge.get("cached")
-        failed_checks_count = bridge.get("failed_checks_count") or 0
-        missing_fields = bridge.get("missing_fields") or []
-        filtered = bridge.get("filtered_metadata", {})
         design_params = bridge.get("design_parameters")
 
         # Build user-friendly bridge line
         parts = [f"• {name} ({objectnumm})"]
 
         # Add basic metadata
-        metadata_parts = []
-        if build_year:
-            metadata_parts.append(f"bouwjaar {build_year}")
-        if length:
-            metadata_parts.append(f"{length:.1f}m lang")
-        if width:
-            metadata_parts.append(f"{width:.1f}m breed")
-
-        # Add filtered metadata
-        if filtered.get("straat"):
-            metadata_parts.append(f"straat: {filtered['straat']}")
-        if filtered.get("stadsdeel"):
-            metadata_parts.append(f"stadsdeel: {filtered['stadsdeel']}")
-        if filtered.get("type"):
-            metadata_parts.append(f"type: {filtered['type']}")
-        if filtered.get("gebruik"):
-            metadata_parts.append(f"gebruik: {filtered['gebruik']}")
-        if filtered.get("aantal_velden"):
-            metadata_parts.append(f"{filtered['aantal_velden']} velden")
-        if filtered.get("statisch_systeem"):
-            metadata_parts.append(f"systeem: {filtered['statisch_systeem']}")
-        if filtered.get("voorgespannen") is True:
-            metadata_parts.append("voorgespannen")
-        elif filtered.get("voorgespannen") is False:
-            metadata_parts.append("niet voorgespannen")
-        if filtered.get("vlag_arb"):
-            metadata_parts.append(f"ARB: {filtered['vlag_arb']}")
-
+        metadata_parts = _format_bridge_metadata_parts(bridge)
         # Add design parameters for calculated/pending bridges
         if design_params:
-            if design_params.get("cc_class"):
-                metadata_parts.append(f"CC: {design_params['cc_class']}")
-            if design_params.get("concrete_strength_class"):
-                metadata_parts.append(f"beton: {design_params['concrete_strength_class']}")
-            if design_params.get("staalsoort"):
-                metadata_parts.append(f"staal: {design_params['staalsoort']}")
-            if design_params.get("berekeningsniveau"):
-                metadata_parts.append(f"niveau: {design_params['berekeningsniveau']}")
-            if design_params.get("load_zones_summary"):
-                metadata_parts.append(design_params["load_zones_summary"])
-
-            # Add segment geometry if available
-            segment_geom = design_params.get("segment_geometry")
-            if segment_geom:
-                # Thickness values
-                dz = segment_geom.get("thickness_z1z3")
-                dz2 = segment_geom.get("thickness_z2")
-                if dz is not None and dz2 is not None:
-                    metadata_parts.append(f"dikte: z1/z3={dz:.2f}m, z2={dz2:.2f}m")
-                elif dz is not None:
-                    metadata_parts.append(f"dikte z1/z3: {dz:.2f}m")
-
-                # Segment count and support count
-                num_segs = segment_geom.get("num_segments", 0)
-                support_cnt = segment_geom.get("support_count", 0)
-                if num_segs > 0:
-                    seg_parts = []
-                    seg_parts.append(f"{num_segs} segmenten")
-                    if support_cnt > 0:
-                        seg_parts.append(f"{support_cnt} opleggingen")
-
-                    # Show segment lengths if available
-                    segments = segment_geom.get("segments", [])
-                    if segments:
-                        lengths = [s.get("length") for s in segments if s.get("length") is not None]
-                        if lengths and len(lengths) > 0:
-                            lengths_str = "-".join([f"{l:.1f}" for l in lengths])
-                            seg_parts.append(f"lengtes: {lengths_str}m")
-
-                        # Check if widths vary across segments
-                        widths = [s.get("total_width") for s in segments if s.get("total_width") is not None]
-                        if widths and len(set(widths)) > 1:
-                            seg_parts.append("variabele breedte")
-
-                    metadata_parts.append(", ".join(seg_parts))
+            metadata_parts.extend(_format_design_parameters_parts(design_params))
 
         if metadata_parts:
             parts.append(f" [{', '.join(metadata_parts)}]")
 
         # Add calculation status and results
-        if classification == "calculated":
-            uc_str = f"UC {max_uc:.2f}" if isinstance(max_uc, (int, float)) else "UC onbekend"
-            results_available = "berekeningsresultaten beschikbaar" if cached else "berekend"
-
-            # Add UC breakdown showing top 3 highest values prominently
-            uc_breakdown = bridge.get("uc_breakdown")
-            if uc_breakdown:
-                # Collect all UC values with their names
-                uc_values = []
-                uc_names = {
-                    "uc_capaciteit": "capaciteit",
-                    "uc_schuifkracht": "schuifkracht",
-                    "uc_torsie": "torsie",
-                    "uc_interactie": "interactie",
-                    "uc_scheurwijdte": "scheurwijdte",
-                    "uc_detailing": "detailing",
-                    "uc_spanningslimieten": "spanningslimieten",
-                }
-                for key, name in uc_names.items():
-                    value = uc_breakdown.get(key)
-                    if value is not None and value > 0:
-                        uc_values.append((name, value))
-
-                # Sort by value descending and take top 3
-                uc_values.sort(key=lambda x: x[1], reverse=True)
-                top_uc = uc_values[:3]
-
-                if top_uc:
-                    top_str = ", ".join([f"{name} {val:.2f}" for name, val in top_uc])
-                    parts.append(f" → {uc_str} (hoogste: {top_str}) ({results_available})")
-                else:
-                    parts.append(f" → {uc_str} ({results_available})")
-            else:
-                parts.append(f" → {uc_str} ({results_available})")
-
-            if failed_checks_count > 0:
-                parts.append(f", {failed_checks_count} checks gefaald")
-        elif classification == "pending":
-            parts.append(" → klaar voor berekening")
-        elif classification == "not_ready":
-            if missing_fields:
-                missing_preview = ", ".join(missing_fields[:3])
-                if len(missing_fields) > 3:
-                    missing_preview += f" (+{len(missing_fields) - 3} meer)"
-                parts.append(f" → ontbrekende gegevens: {missing_preview}")
-            else:
-                parts.append(" → ontbrekende gegevens")
+        status = _format_bridge_calculation_status(bridge)
+        if status:
+            parts.append(status)
 
         lines.append("".join(parts))
 
