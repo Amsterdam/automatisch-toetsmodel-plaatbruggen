@@ -706,17 +706,47 @@ def create_tram_track_tandem_load_cases(
     return cases
 
 
+def _should_enable_tram_loads(params: Any) -> bool:  # noqa: ANN401
+    """
+    Check if tram load cases should be enabled based on criteria.
+
+    Tram loads are only enabled when:
+    1. Calculation level is one of the three "Werkelijke wegindeling" options
+    2. At least one tram load zone is defined
+
+    :param params: Bridge parameters containing berekeningsniveau and load_zones_data_array.
+    :return: True if tram loads should be enabled, False otherwise.
+    :rtype: bool
+    """
+    # Check calculation level - must be one of the three "Werkelijke wegindeling" options
+    try:
+        berekeningsniveau = getattr(params, "berekeningsniveau", None)
+        if berekeningsniveau not in [
+            "Werkelijke wegindeling",
+            "Werkelijke wegindeling onderliggend wegennet",
+            "Werkelijke wegindeling met bebording",
+        ]:
+            return False
+    except (AttributeError, TypeError):
+        return False
+
+    # Check if at least one tram zone exists
+    num_tram_tracks = count_tram_tracks_from_params(params)
+    return num_tram_tracks > 0
+
+
 def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa: ANN401
     """
     Extract load case selection from the parametrization table.
+
+    Tram loads are automatically disabled if the required criteria are not met,
+    even if the user has checked the checkbox in the UI.
 
     :param params: Bridge parameters containing load_case_selection_table.
     :return: Dictionary mapping load type names to boolean inclusion status.
     :rtype: dict[str, bool]
     """
-    # Default selection (all enabled except Tram) for backward compatibility
-    # Note: Tram is disabled by default to match UI default (unchecked).
-    # User must explicitly enable tram loads via the checkbox.
+    # Default selection (all enabled including Tram)
     default_selection = {
         "Eigen gewicht": True,
         "Permanent": True,
@@ -726,13 +756,16 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
         "Dienstvoertuig": True,
         "Onbedoeld voertuig": True,
         "TS": True,
-        "Tram": False,  # Default False - requires explicit user enablement
+        "Tram": True,  # Default True - gating logic enforces conditions
     }
 
     try:
         # Try to get the table from params
         table = getattr(params, "load_case_selection_table", None)
         if table is None:
+            # Apply gating logic to default selection
+            if not _should_enable_tram_loads(params):
+                default_selection["Tram"] = False
             return default_selection
 
         # Extract selection from table rows and merge with defaults
@@ -743,8 +776,15 @@ def _get_load_case_selection_from_table(params: Any) -> dict[str, bool]:  # noqa
             include = row.get("include", True)
             if load_type:  # Only add non-empty load types
                 selection[load_type] = include
+
+        # Apply gating logic: force Tram to False if criteria not met
+        if not _should_enable_tram_loads(params):
+            selection["Tram"] = False
+
     except (AttributeError, TypeError, KeyError):
         # Fallback to default if table is not available or malformed
+        if not _should_enable_tram_loads(params):
+            default_selection["Tram"] = False
         return default_selection
     else:
         return selection

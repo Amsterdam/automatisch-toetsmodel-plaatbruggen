@@ -62,7 +62,7 @@ LOAD_CASE_SELECTION_DEFAULT: list[dict[str, Any]] = [
         "load_case_count": "dynamisch",  # Estimated default
     },
     {
-        "include": False,  # Default to False - only enable when conditions are met
+        "include": True,  # Default to True - gating logic enforces conditions in load case creation
         "load_type": "Tram",
         "load_case_range": "BG11000-BG12000 serie",
         "load_case_count": "dynamisch",  # Estimated default

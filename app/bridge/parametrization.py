@@ -22,6 +22,7 @@ from viktor.parametrization import (
     Page,
     Parametrization,
     RowLookup,
+    SetParamsButton,
     Tab,
     Table,
     Text,
@@ -784,6 +785,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
 
+    # Global input fields for applying dimensions to all segments
+    input.dimensions.bz1_input = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz2_input = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz3_input = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.lb_separator = LineBreak()
+    input.dimensions.dz_input = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m", min=0.05, flex=50)
+    input.dimensions.dz_2_input = NumberField("Dikte zone 2", default=0.8, suffix="m", min=0.05, flex=50)
+    input.dimensions.lb_0 = LineBreak()
+    input.dimensions.apply_dimensions_button = SetParamsButton(
+        "Pas dimensies toe op alle segmenten",
+        method="apply_dimensions_to_all_segments",
+        description="Klik om de bovenstaande waarden toe te passen op alle segmenten in de tabel hieronder",
+    )
+
     input.dimensions.array = DynamicArray(
         "Brug dimensies",
         row_label="D-",
@@ -798,9 +813,11 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
 
-    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
-    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
-    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
+    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1, visible=False)
+
+    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1, visible=False)
+
+    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1, visible=False)
 
     # Thickness fields - editable only on first segment, read-only on others
     # Using callbacks to get first segment's values for output fields
@@ -836,14 +853,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=0.7,
         suffix="m",
         min=0.05,
-        visible=_dz_input_visibility,
+        visible=False,
         description="Dikte van zones 1 en 3 (geldt voor gehele brug)",
-    )
-    input.dimensions.array.dz_output = OutputField(
-        "Dikte zone 1 en 3",
-        value=_get_first_segment_dz,
-        suffix="m",
-        visible=_dz_output_visibility,
     )
 
     input.dimensions.array.dz_2 = NumberField(
@@ -851,14 +862,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=0.8,
         suffix="m",
         min=0.05,
-        visible=_dz_input_visibility,
+        visible=False,
         description="Dikte van zone 2 (geldt voor gehele brug)",
-    )
-    input.dimensions.array.dz_2_output = OutputField(
-        "Dikte zone 2",
-        value=_get_first_segment_dz_2,
-        suffix="m",
-        visible=_dz_output_visibility,
     )
 
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
