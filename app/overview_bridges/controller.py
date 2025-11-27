@@ -24,6 +24,7 @@ from viktor.parametrization import Parametrization  # Import for type hint
 from viktor.result import DownloadResult  # Import DownloadResult
 from viktor.views import MapPoint, MapResult, MapView, WebResult, WebView  # Use MapPolygon instead of MapPolyline
 
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
 from app.common.map_utils import (  # Import shared utilities
     get_default_shapefile_path,
     get_filtered_bridges_json_path,
@@ -39,10 +40,11 @@ from app.constants import (  # Replace relative imports with absolute imports
 )
 
 # Import the parametrization from the separate file
+from .batch_calculation import BatchCalculationComponent
 from .parametrization import OverviewBridgesParametrization
 
 
-class OverviewBridgesController(ViktorController):
+class OverviewBridgesController(BatchCalculationComponent, ViktorController):
     """Controller for the Overview Bridges entity."""
 
     label = "Overzicht Bruggen"  # Updated label
@@ -677,3 +679,64 @@ class OverviewBridgesController(ViktorController):
 
         # 4. Show success message
         UserMessage.success(f"Bruggen (her)gegenereerd: {created_count} nieuwe bruggen aangemaakt, {updated_count} bestaande bruggen bijgewerkt.")
+
+    def clear_workspace_storage(self, params: Parametrization, **kwargs) -> None:  # noqa: ARG002
+        """
+        Clear all workspace storage and trigger entity-level cleanup.
+
+        This clears workspace-scoped cache markers and batch results.
+        Note: Entity-scoped storage (actual cache files per bridge) is automatically
+        cleaned by the auto-cleanup system when storage fills up.
+
+        :param params: Parametrization (unused, required by VIKTOR)
+        :type params: Parametrization
+        :param kwargs: Additional keyword arguments
+        :type kwargs: Any
+        :returns: None
+        :rtype: None
+        """
+        from viktor.core import Storage
+
+        storage = Storage()
+
+        # Clear workspace storage (markers and batch results)
+        try:
+            all_keys = storage.list(scope="workspace")
+            deleted_count = 0
+            for key in all_keys:
+                # Delete cache markers, batch results, running flags, and storage warnings
+                if key == STORAGE_WARNING_MARKER_KEY or key.startswith(("analysis_cache_", "bridge_", "batch_calculation_")):
+                    try:
+                        storage.delete(key, scope="workspace")
+                        deleted_count += 1
+                    except Exception:
+                        pass
+
+            # Also clear this entity's own storage
+            entity_keys = storage.list(scope="entity")
+            for key in entity_keys:
+                if key.startswith(("batch_calculation_", "analysis_cache_")):
+                    try:
+                        storage.delete(key, scope="entity")
+                        deleted_count += 1
+                    except Exception:
+                        pass
+
+            # Show feedback
+            UserMessage.success(
+                f"Workspace cache gewist: {deleted_count} bestanden verwijderd. "
+                f"Entity-level caches worden automatisch gewist bij volgende berekening."
+            )
+        except Exception as e:
+            UserMessage.error(f"Fout bij wissen cache: {e}")
+
+    # ============================================================================================================
+    # Explicit Method References for VIKTOR Introspection
+    # ============================================================================================================
+    # CRITICAL: VIKTOR's introspection doesn't follow MRO, so inherited methods from BatchCalculationComponent
+    # must be explicitly referenced here for VIKTOR to find them.
+
+    # From BatchCalculationComponent
+    view_batch_status_and_results = BatchCalculationComponent.view_batch_status_and_results
+    refresh_batch_status = BatchCalculationComponent.refresh_batch_status
+    run_batch_calculation = BatchCalculationComponent.run_batch_calculation

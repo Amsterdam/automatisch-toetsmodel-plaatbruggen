@@ -232,3 +232,22 @@ Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken
 
 **Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
 """
+BATCH_CALCULATION_INTRO_TEXT = """Dit is de berekeningspagina voor de batch berekeningen.
+Hier kan je de berekeningen voor alle bruggen tegelijk uitvoeren. Rechts in de tabel is het statusoverzicht te zien.
+De geschatte tijd geeft een indicatie van de tijd die nodig is om alle bruggen te berekenen, die klaar staan.
+Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld. Deze brug wordt dan geel gekleurd.
+Bruggen die nog informatie missen, worden rood gemarkeerd. In de tweede kolom staan de ontbrekende velden aangegeven, die nog ingevuld moeten worden.
+Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.
+Je kunt vervolgens per brug de resultaten bekijken in de entiteit van de brug zelf.
+
+Let op: Het kan erg lang duren voordat de berekeningen klaar zijn.
+"""
+
+BATCH_CALCULATION_BUTTONS_TEXT = """De volgende knoppen zijn beschikbaar:
+- "Ververs Statusoverzicht" vernieuwt de statusoverzicht tabel zonder opnieuw te berekenen.
+Dit kan gebruikt worden om opnieuw te controleren of alle benodigde velden ingevuld zijn.
+- "Start Berekening" start de berekeningen voor *alle* bruggen die klaar staan.
+- "Wis Workspace Cache" verwijdert de gecachte SCIA en IDEA resultaten uit de workspace storage.
+Dit kan gebruikt worden wanneer invoer van een bestaande brug is gewijzigd, en deze opnieuw berekend moet worden.
+De oude berekeningsresultaten van deze brug die in de app opgeslagen zijn, worden dan verwijderd.
+"""
