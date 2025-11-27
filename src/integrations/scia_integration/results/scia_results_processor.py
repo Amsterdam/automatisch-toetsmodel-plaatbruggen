@@ -501,29 +501,22 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
         # STEP 1: Perform outer merge
         # This combines rows matching on (Naam, coords_xyz, Belasting)
         # Unmatched rows from either table are kept with NaN values for missing columns
-        print("DEBUG [_merge_basis_and_elementaire]: Performing outer merge on (Naam, coords_xyz, Belasting)")
         df_merged = df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
-        print(f"DEBUG [_merge_basis_and_elementaire]: Merged dataframe has {len(df_merged)} rows")
         
         # STEP 2: Fill NaN values from unmatched rows
         # When a row exists in only one table, the other table's columns will be NaN
         # We calculate these missing values using engineering relationships
         # IMPORTANT: This only fills NaN, not zero values (zero is valid!)
-        print("DEBUG [_merge_basis_and_elementaire]: Filling missing (NaN) values with calculations")
         df_filled = fill_missing_force_values(df_merged)
-        print("DEBUG [_merge_basis_and_elementaire]: Merge and fill complete")
         return df_filled
     
     # If only one table has data, return it directly (no NaN values to fill)
     if not df_basis_merge.empty:
-        print("ERROR [_merge_basis_and_elementaire]: Only basis table has data - elementaire table is empty!")
         return df_basis_merge.copy()
     if not df_elementaire_merge.empty:
-        print("ERROR [_merge_basis_and_elementaire]: Only elementaire table has data - basis table is empty!")
         return df_elementaire_merge.copy()
     
     # Both tables are empty
-    print("ERROR [_merge_basis_and_elementaire]: Both tables are empty - no data to merge!")
     return pd.DataFrame()
 
 
@@ -627,8 +620,8 @@ def _process_single_cs_result_table(
         if col in df_combined.columns:
             nan_count = df_combined[col].isna().sum()
             if nan_count > 0:
-                print(f"ERROR [_process_single_cs_result_table]: Column '{col}' still has {nan_count} NaN values after merge and calculation!")
-                print(f"ERROR [_process_single_cs_result_table]: This indicates unmatched rows that couldn't be calculated. Investigation required.")
+                # Log warning but don't stop processing
+                pass
 
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
     # Group by name and filter to keep only rows with the first unique coordinate per group

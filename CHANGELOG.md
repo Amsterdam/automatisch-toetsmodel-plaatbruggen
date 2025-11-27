@@ -1,6 +1,7 @@
 ## [Unreleased]
 ### Added
   **Shared Cache parameters**: added spreiding to the shared cache parameters.
+  **SCIA CS Results Data Source Tracking**: Added "Bron" column to CS result tables (ULS, SLS freq, envelope) to indicate whether values are from SCIA match ("SCIA") or calculated ("Afgeleid") when no match exists between basis and elementaire tables.
 
 ### Changed
 - **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import.
@@ -9,11 +10,13 @@
   - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn.
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute()).
   - Changed how the dimensions are inputed.
+- **SCIA CS Missing Value Calculation**: Implemented SCIA elementary design magnitude formulas to calculate missing design moments and normal forces when basis and elementaire tables don't have matching rows. Uses proper engineering relationships: mxd_plus/minus, myd_plus/minus, nxd, nyd formulas from `scia_elem_des_mag.py`.
 
 ### Fixed
 - **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
 - **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
 - **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
+- **SCIA CS NaN Values**: Fixed JSON serialization errors caused by NaN values in CS results. When outer merge creates NaN for unmatched rows, missing values are now calculated using SCIA formulas instead of causing serialization failures.
 
 
 ## [`v0.0.18`] - 2025-12-04
