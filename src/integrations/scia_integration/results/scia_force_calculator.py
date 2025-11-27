@@ -5,11 +5,19 @@ This module provides functions to calculate missing force components when there'
 no match between basis and elementaire dataframes during the merge operation.
 
 The calculations are based on engineering relationships between different force
-components. These are placeholder implementations that will be refined later with
-proper structural engineering formulas.
+components and implement the SCIA elementary design magnitude formulas.
 """
 
 import pandas as pd
+
+from src.integrations.scia_integration.results.scia_elem_des_mag import (
+    mxd_minus,
+    mxd_plus,
+    myd_minus,
+    myd_plus,
+    nxd,
+    nyd,
+)
 
 
 def calculate_missing_shear_forces(row: pd.Series) -> tuple[float, float]:  # type: ignore[type-arg]
@@ -64,98 +72,78 @@ def calculate_missing_shear_forces(row: pd.Series) -> tuple[float, float]:  # ty
 
 def calculate_missing_moments(row: pd.Series) -> tuple[float, float, float, float]:  # type: ignore[type-arg]
     """
-    Calculate missing moments (m_xD+, m_xD-, m_yD+, m_yD-) from available shear force data.
+    Calculate missing moments (m_xD+, m_xD-, m_yD+, m_yD-) from available moment data.
 
-    This is a placeholder implementation using a simplified relationship.
-    TODO: Replace with proper structural engineering formulas.
+    Uses the SCIA elementary design magnitude formulas based on basic moment components
+    (m_x, m_y, m_xy) to calculate the design moments.
 
     Debug prints show intermediate calculations.
 
-    :param row: DataFrame row with force/moment data
+    :param row: DataFrame row with force/moment data (must contain m_x, m_y, m_xy)
     :type row: pd.Series
     :returns: Tuple of (m_xD+, m_xD-, m_yD+, m_yD-) calculated values
     :rtype: tuple[float, float, float, float]
     """
     print(f"DEBUG [calculate_missing_moments]: Calculating moments for {row.get('Naam', 'unknown')}")
 
-    # Try to derive moments from shear forces (simplified relationship)
-    # In reality, M = ∫V dx, but we use a simplified approximation here
-    m_xd_plus = 0.0
-    m_xd_minus = 0.0
-    m_yd_plus = 0.0
-    m_yd_minus = 0.0
-
-    # Check if we have shear force data to work with
-    v_x = pd.to_numeric(row.get("v_x", 0.0), errors="coerce")
-    v_y = pd.to_numeric(row.get("v_y", 0.0), errors="coerce")
+    # Get basic moment components (these should come from the basis table)
+    m_x = pd.to_numeric(row.get("m_x", 0.0), errors="coerce")
+    m_y = pd.to_numeric(row.get("m_y", 0.0), errors="coerce")
+    m_xy = pd.to_numeric(row.get("m_xy", 0.0), errors="coerce")
 
     # Replace NaN with 0
-    v_x = 0.0 if pd.isna(v_x) else v_x
-    v_y = 0.0 if pd.isna(v_y) else v_y
+    m_x = 0.0 if pd.isna(m_x) else m_x
+    m_y = 0.0 if pd.isna(m_y) else m_y
+    m_xy = 0.0 if pd.isna(m_xy) else m_xy
 
-    print(f"DEBUG [calculate_missing_moments]: Available shear forces - v_x={v_x}, v_y={v_y}")
+    print(f"DEBUG [calculate_missing_moments]: Basic moments - m_x={m_x}, m_y={m_y}, m_xy={m_xy}")
 
-    # Simplified approximation: M ≈ V * 0.5 (placeholder formula)
-    # This assumes a characteristic length of 0.5m for the moment arm
-    if v_y != 0.0:
-        m_xd_plus = v_y * 0.5
-        m_xd_minus = -v_y * 0.5  # Negative for opposite side
-        print(f"DEBUG [calculate_missing_moments]: Calculated m_xD from v_y: m_xD+={m_xd_plus}, m_xD-={m_xd_minus}")
+    # Calculate design moments using SCIA formulas
+    m_xd_plus = mxd_plus(m_x, m_y, m_xy)
+    m_xd_minus = mxd_minus(m_x, m_y, m_xy)
+    m_yd_plus = myd_plus(m_x, m_y, m_xy)
+    m_yd_minus = myd_minus(m_x, m_y, m_xy)
 
-    if v_x != 0.0:
-        m_yd_plus = v_x * 0.5
-        m_yd_minus = -v_x * 0.5  # Negative for opposite side
-        print(f"DEBUG [calculate_missing_moments]: Calculated m_yD from v_x: m_yD+={m_yd_plus}, m_yD-={m_yd_minus}")
-
-    print(f"DEBUG [calculate_missing_moments]: Final calculated moments - m_xD+={m_xd_plus}, m_xD-={m_xd_minus}, m_yD+={m_yd_plus}, m_yD-={m_yd_minus}")
+    print(f"DEBUG [calculate_missing_moments]: Calculated design moments - m_xD+={m_xd_plus}, m_xD-={m_xd_minus}, m_yD+={m_yd_plus}, m_yD-={m_yd_minus}")
 
     return m_xd_plus, m_xd_minus, m_yd_plus, m_yd_minus
 
 
 def calculate_missing_normal_forces(row: pd.Series) -> tuple[float, float]:  # type: ignore[type-arg]
     """
-    Calculate missing normal forces (n_xD, n_yD) from available force/moment data.
+    Calculate missing normal forces (n_xD, n_yD) from available force data.
 
-    This is a placeholder implementation using a simplified relationship.
-    TODO: Replace with proper structural engineering formulas.
+    Uses the SCIA elementary design magnitude formulas based on basic force components
+    (n_x, n_y, n_xy) to calculate the design normal forces.
 
     Debug prints show intermediate calculations.
 
-    :param row: DataFrame row with force/moment data
+    :param row: DataFrame row with force/moment data (must contain n_x, n_y, n_xy)
     :type row: pd.Series
     :returns: Tuple of (n_xD, n_yD) calculated values
     :rtype: tuple[float, float]
     """
     print(f"DEBUG [calculate_missing_normal_forces]: Calculating normal forces for {row.get('Naam', 'unknown')}")
 
-    # Try to derive normal forces from shear forces (simplified relationship)
-    # This is a very rough approximation for placeholder purposes
-    n_xd = 0.0
-    n_yd = 0.0
-
-    # Check if we have shear force data to work with
-    v_x = pd.to_numeric(row.get("v_x", 0.0), errors="coerce")
-    v_y = pd.to_numeric(row.get("v_y", 0.0), errors="coerce")
+    # Get basic force components (these should come from the basis table)
+    n_x = pd.to_numeric(row.get("n_x", 0.0), errors="coerce")
+    n_y = pd.to_numeric(row.get("n_y", 0.0), errors="coerce")
+    n_xy = pd.to_numeric(row.get("n_xy", 0.0), errors="coerce")
 
     # Replace NaN with 0
-    v_x = 0.0 if pd.isna(v_x) else v_x
-    v_y = 0.0 if pd.isna(v_y) else v_y
+    n_x = 0.0 if pd.isna(n_x) else n_x
+    n_y = 0.0 if pd.isna(n_y) else n_y
+    n_xy = 0.0 if pd.isna(n_xy) else n_xy
 
-    print(f"DEBUG [calculate_missing_normal_forces]: Available shear forces - v_x={v_x}, v_y={v_y}")
+    print(f"DEBUG [calculate_missing_normal_forces]: Basic forces - n_x={n_x}, n_y={n_y}, n_xy={n_xy}")
 
-    # Simplified approximation: N ≈ 2 * V (placeholder formula)
-    # This is just a rough estimate for now
-    if v_x != 0.0:
-        n_xd = 2.0 * abs(v_x)
-        print(f"DEBUG [calculate_missing_normal_forces]: Calculated n_xD from v_x: {n_xd}")
+    # Calculate design normal forces using SCIA formulas
+    n_xd_calc = nxd(n_x, n_y, n_xy)
+    n_yd_calc = nyd(n_x, n_y, n_xy)
 
-    if v_y != 0.0:
-        n_yd = 2.0 * abs(v_y)
-        print(f"DEBUG [calculate_missing_normal_forces]: Calculated n_yD from v_y: {n_yd}")
+    print(f"DEBUG [calculate_missing_normal_forces]: Calculated design forces - n_xD={n_xd_calc}, n_yD={n_yd_calc}")
 
-    print(f"DEBUG [calculate_missing_normal_forces]: Final calculated normal forces - n_xD={n_xd}, n_yD={n_yd}")
-
-    return n_xd, n_yd
+    return n_xd_calc, n_yd_calc
 
 
 def fill_missing_force_values(df_merged: pd.DataFrame) -> pd.DataFrame:
@@ -175,11 +163,16 @@ def fill_missing_force_values(df_merged: pd.DataFrame) -> pd.DataFrame:
     These NaN values cause JSON serialization errors. We calculate them
     using placeholder formulas that will be refined later.
 
+    BRON COLUMN:
+    Adds a "Bron" column to track data source:
+    - "SCIA": Values come from a match between basis and elementaire tables
+    - "Afgeleid": Values were calculated because no match existed
+
     Debug prints show which rows are being processed and what calculations are performed.
 
     :param df_merged: Merged dataframe with potential NaN values
     :type df_merged: pd.DataFrame
-    :returns: Dataframe with NaN values replaced by calculated values
+    :returns: Dataframe with NaN values replaced by calculated values and "Bron" column added
     :rtype: pd.DataFrame
     """
     if df_merged.empty:
@@ -190,6 +183,9 @@ def fill_missing_force_values(df_merged: pd.DataFrame) -> pd.DataFrame:
 
     # Create a copy to avoid modifying the original
     df_filled = df_merged.copy()
+
+    # Initialize Bron column - default to "SCIA" (matched data)
+    df_filled["Bron"] = "SCIA"
 
     # Track which rows have missing data
     rows_with_missing_data = 0
@@ -210,6 +206,9 @@ def fill_missing_force_values(df_merged: pd.DataFrame) -> pd.DataFrame:
         if has_missing_shear or has_missing_moments or has_missing_normal:
             rows_with_missing_data += 1
             print(f"DEBUG [fill_missing_force_values]: Row {idx} has missing (NaN) data: shear={has_missing_shear}, moments={has_missing_moments}, normal={has_missing_normal}")
+            
+            # Mark this row as derived (calculated) since it has missing data
+            df_filled.at[idx, "Bron"] = "Afgeleid"
 
             # Calculate missing shear forces ONLY if they are NaN
             if has_missing_shear:

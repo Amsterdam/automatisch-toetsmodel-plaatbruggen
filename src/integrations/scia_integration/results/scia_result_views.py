@@ -740,6 +740,7 @@ def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
         [
             "Coordinates",
             "Belasting",
+            "Bron",
             "Max For",
             "Vx (kN/m)",
             "Vy (kN/m)",
@@ -811,6 +812,9 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
 
         # Get belasting (load case name)
         belasting = row.get("belasting", "N/A")
+        
+        # Get bron (data source)
+        bron = row.get("Bron", "SCIA")
 
         # Get which column this row represents the max for
         max_for_column = row.get("max_for_column", "N/A")
@@ -838,13 +842,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
 
         # Build row data - order must match headers exactly
         if has_zone_column:
-            # With zone: Name, Zone, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (13 columns)
+            # With zone: Name, Zone, Coordinates, Belasting, Bron, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (14 columns)
             zone = row.get("zone", "N/A")
             row_data = [
                 str(name),
                 str(zone),
                 coords,
                 str(belasting),
+                str(bron),
                 str(max_for_column),
                 v_x_val,
                 v_y_val,
@@ -856,11 +861,12 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 n_yd_val,
             ]
         else:
-            # Without zone: Name, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (12 columns)
+            # Without zone: Name, Coordinates, Belasting, Bron, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (13 columns)
             row_data = [
                 str(name),
                 coords,
                 str(belasting),
+                str(bron),
                 str(max_for_column),
                 v_x_val,
                 v_y_val,
@@ -1003,6 +1009,7 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
             "Naam",
             "Coördinaten",
             "Belasting",
+            "Bron",
             "Max For",
             "Vx (kN/m)",
             "Vy (kN/m)",
@@ -1024,6 +1031,7 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
             coords_xyz = row.get("coords_xyz", (0.0, 0.0, 0.0))
             coords = format_coordinates_safe(coords_xyz)
             belasting = row.get("belasting", "N/A")
+            bron = row.get("Bron", "SCIA")
             max_for_column = row.get("max_for_column", "N/A")
 
             # Get force/moment values
@@ -1052,6 +1060,7 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
                 str(name),
                 coords,
                 str(belasting),
+                str(bron),
                 str(max_for_column),
                 v_x_val,
                 v_y_val,
@@ -1073,13 +1082,14 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
         traceback.print_exc()
         error_message = f"Fout bij verwerken CS envelopes: {str(e)[:100]}..."
         return TableResult(
-            [["Fout", error_message, "", "", "", "", "", "", "", "", "", "", "", ""]],
+            [["Fout", error_message, "", "", "", "", "", "", "", "", "", "", "", "", ""]],
             column_headers=[
                 "Zone",
                 "Type",
                 "Naam",
                 "Coördinaten",
                 "Belasting",
+                "Bron",
                 "Max For",
                 "Vx (kN/m)",
                 "Vy (kN/m)",
