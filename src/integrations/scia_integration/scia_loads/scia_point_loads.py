@@ -137,8 +137,12 @@ def dispersal_function(  # noqa: C901
             dispersion_tot = min((deck_half + load_full), 0.5)  # Ensure maximum dispersion of 0.5m to either side
             dispersion_tots.append(dispersion_tot)
 
-        # Take minimum dispersion_tot across all corners for conservative results
-        min_dispersion_tot = min(dispersion_tots)
+        # Take minimum dispersion_tot across corners that actually intersect the deck
+        positive_dispersions = [dispersion for dispersion in dispersion_tots if dispersion > 0.0]
+        if positive_dispersions:
+            min_dispersion_tot = min(positive_dispersions)
+        else:
+            min_dispersion_tot = 0.0
 
         # Second pass: expand corners using the minimum dispersion_tot
         expanded_coords = []
@@ -178,11 +182,11 @@ def dispersal_function(  # noqa: C901
 
     # Clip dispersed coordinates to bridge boundaries
     from src.geometry.load_zone_geometry import get_bridge_geom_data
-    from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+    from src.integrations.scia_integration.model.scia_coordinate_utils import move_polygon_to_bridge_boundaries
 
     bridge_geom_data = get_bridge_geom_data(params)  # type: ignore[arg-type]
     if bridge_geom_data is not None:
-        dispersed_load_coords = clip_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
+        dispersed_load_coords = move_polygon_to_bridge_boundaries(dispersed_load_coords, bridge_geom_data)
 
     # Calculate load areas and load value
     initial_load_area = _calculate_quadrilateral_area(coords=corner_points)
