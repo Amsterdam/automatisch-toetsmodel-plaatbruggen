@@ -236,10 +236,10 @@ Let op: Het kan erg lang duren voordat de berekeningen klaar zijn.
 """
 
 BATCH_CALCULATION_BUTTONS_TEXT = """De volgende knoppen zijn beschikbaar:
-- "Ververs Statusoverzicht" vernieuwt de statusoverzicht tabel zonder opnieuw te berekenen. 
+- "Ververs Statusoverzicht" vernieuwt de statusoverzicht tabel zonder opnieuw te berekenen.
 Dit kan gebruikt worden om opnieuw te controleren of alle benodigde velden ingevuld zijn.
 - "Start Berekening" start de berekeningen voor *alle* bruggen die klaar staan.
-- "Wis Workspace Cache" verwijdert de gecachte SCIA en IDEA resultaten uit de workspace storage. 
+- "Wis Workspace Cache" verwijdert de gecachte SCIA en IDEA resultaten uit de workspace storage.
 Dit kan gebruikt worden wanneer invoer van een bestaande brug is gewijzigd, en deze opnieuw berekend moet worden.
 De oude berekeningsresultaten van deze brug die in de app opgeslagen zijn, worden dan verwijderd.
 """
