@@ -18,7 +18,6 @@ CS Table Types (results from SCIA section on plane objects):
 
 import functools
 import logging
-from pathlib import Path
 from typing import Any, Callable, Union
 
 import pandas as pd
@@ -32,31 +31,6 @@ from src.integrations.scia_integration.constants.results import (
 from .scia_result_helpers import get_nested_result_data
 
 logger = logging.getLogger(__name__)
-
-
-def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
-    """
-    Export DataFrame to Excel file for debugging (view processing).
-
-    Creates files in C:/temp/ directory for easy manual inspection.
-
-    :param df: DataFrame to export
-    :type df: pd.DataFrame
-    :param filename: Name of the Excel file (without extension)
-    :type filename: str
-    :param sheet_name: Name of the Excel sheet
-    :type sheet_name: str
-    """
-    try:
-        # Create temp directory if it doesn't exist
-        temp_dir = Path("C:/temp")
-        temp_dir.mkdir(exist_ok=True)
-
-        # Export to Excel
-        filepath = temp_dir / f"{filename}.xlsx"
-        df.to_excel(filepath, sheet_name=sheet_name, index=False)
-    except Exception:
-        pass
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -506,28 +480,10 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
     """
     if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
         try:
-            # Log segment info for debugging
-            logger.debug(
-                "Zone mapping: %d CS sections, %d bridge segments",
-                len(df_result),
-                len(bridge_segments),
-            )
-            for i, seg in enumerate(bridge_segments):
-                seg_len = getattr(seg, "l", None) or getattr(seg, "segment_length", "N/A")
-                logger.debug(
-                    "  Segment %d: length=%s, bz1=%s, bz2=%s, bz3=%s",
-                    i,
-                    seg_len,
-                    getattr(seg, "bz1", "N/A"),
-                    getattr(seg, "bz2", "N/A"),
-                    getattr(seg, "bz3", "N/A"),
-                )
-
             df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
 
             # Log zone mapping results
             unique_zones = df_result["zone"].unique().tolist()
-            logger.debug("Zone mapping completed. Unique zones: %s", unique_zones)
             if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
                 logger.warning("Zone mapping produced invalid zones: %s", unique_zones)
         except Exception:
@@ -647,11 +603,6 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     for selected_table in selected_result_tables:
         df_result = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
         results_cs[selected_table] = df_result
-
-        # DEBUG EXPORT: Export processed CS results for view
-        if not df_result.empty:
-            safe_table_name = selected_table.replace(" ", "_")
-            _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
 
     return results_cs
 
