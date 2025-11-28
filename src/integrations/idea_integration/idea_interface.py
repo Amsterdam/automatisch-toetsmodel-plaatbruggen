@@ -590,15 +590,15 @@ def _apply_cs_loads_to_slabs(  # noqa: C901
                 moment_col = cfg["moment"]
                 normal_col = cfg["normal"]
 
-                # Get ULS values
-                qz_uls = uls_row.get(shear_col, 0)
-                my_uls = uls_row.get(moment_col, 0)
-                n_uls = uls_row.get(normal_col, 0)
+                # Get ULS values - convert numpy types to native Python floats for JSON serialization
+                qz_uls = float(uls_row.get(shear_col, 0))
+                my_uls = float(uls_row.get(moment_col, 0))
+                n_uls = float(uls_row.get(normal_col, 0))
 
-                # Get SLS freq values
-                qz_freq = sls_row.get(shear_col, 0)
-                my_freq = sls_row.get(moment_col, 0)
-                n_freq = sls_row.get(normal_col, 0)
+                # Get SLS freq values - convert numpy types to native Python floats for JSON serialization
+                qz_freq = float(sls_row.get(shear_col, 0))
+                my_freq = float(sls_row.get(moment_col, 0))
+                n_freq = float(sls_row.get(normal_col, 0))
 
                 # Build description
                 cs_name = uls_row.get("name", "Unknown")
