@@ -1506,6 +1506,80 @@ class TestLoadBoundaryCompliance:
                 assert -5.0 <= y <= 5.0, f"Y coordinate {y} should be within bridge width [-5.0, 5.0]"
                 assert z == 0.0, f"Z coordinate {z} should remain unchanged"
 
+    def test_dispersal_function_applies_when_any_corner_inside(self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock) -> None:
+        """Dispersion should be applied when at least one corner lies on the bridge deck, even if others are outside."""
+        from src.integrations.scia_integration.scia_loads import dispersal_function
+
+        corner_points = [
+            (19.5, 6.0, 0.0),  # Outside deck in +Y
+            (19.5, 4.0, 0.0),  # Inside deck
+            (18.5, 4.0, 0.0),  # Inside deck
+            (18.5, 6.0, 0.0),  # Outside deck in +Y
+        ]
+        load_value = 500.0
+
+        with (
+            patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
+            patch("src.integrations.scia_integration.model.scia_coordinate_utils.get_dispersion_at_coord") as mock_get_dispersion,
+            patch("src.integrations.scia_integration.model.scia_coordinate_utils.move_polygon_to_bridge_boundaries") as mock_clip_polygon,
+        ):
+            mock_get_geom.return_value = mock_bridge_geometry
+            mock_clip_polygon.side_effect = lambda coords, _data: coords
+            # First two corners inside deck -> positive dispersion; others outside -> zero dispersion
+            mock_get_dispersion.side_effect = [
+                {"deck_zone": [0.0], "load_zone": []},
+                {"deck_zone": [0.2], "load_zone": []},
+                {"deck_zone": [0.2], "load_zone": []},
+                {"deck_zone": [0.0], "load_zone": []},
+            ]
+
+            dispersed_coords, dispersed_load = dispersal_function(
+                params=mock_params_with_dispersion,
+                corner_points=corner_points,
+                load_value=load_value,
+                load_case_type="axle_load",
+            )
+
+        # Expect dispersion applied using minimum positive value (0.1m half-deck dispersion)
+        expected_shift = 0.1
+        assert dispersed_coords != corner_points, "Dispersion should modify corner coordinates"
+        assert pytest.approx(dispersed_coords[0][0], rel=0, abs=1e-6) == corner_points[0][0] + expected_shift
+        assert pytest.approx(dispersed_coords[1][0], rel=0, abs=1e-6) == corner_points[1][0] + expected_shift
+        assert pytest.approx(dispersed_coords[2][0], rel=0, abs=1e-6) == corner_points[2][0] - expected_shift
+        assert pytest.approx(dispersed_coords[3][0], rel=0, abs=1e-6) == corner_points[3][0] - expected_shift
+        assert dispersed_load != load_value, "Dispersion should adjust load magnitude when area changes"
+
+    def test_dispersal_function_skips_when_all_corners_outside(self, mock_params_with_dispersion: Mock, mock_bridge_geometry: Mock) -> None:
+        """Dispersion should be skipped when all corners fall outside the bridge deck."""
+        from src.integrations.scia_integration.scia_loads import dispersal_function
+
+        corner_points = [
+            (25.0, 6.5, 0.0),
+            (25.5, 6.5, 0.0),
+            (25.5, 6.0, 0.0),
+            (25.0, 6.0, 0.0),
+        ]
+        load_value = 200.0
+
+        with (
+            patch("src.geometry.load_zone_geometry.get_bridge_geom_data") as mock_get_geom,
+            patch("src.integrations.scia_integration.model.scia_coordinate_utils.get_dispersion_at_coord") as mock_get_dispersion,
+            patch("src.integrations.scia_integration.model.scia_coordinate_utils.move_polygon_to_bridge_boundaries") as mock_clip_polygon,
+        ):
+            mock_get_geom.return_value = mock_bridge_geometry
+            mock_clip_polygon.side_effect = lambda coords, _data: coords
+            mock_get_dispersion.return_value = {"deck_zone": [], "load_zone": []}
+
+            dispersed_coords, dispersed_load = dispersal_function(
+                params=mock_params_with_dispersion,
+                corner_points=corner_points,
+                load_value=load_value,
+                load_case_type="axle_load",
+            )
+
+        assert dispersed_coords == corner_points, "No dispersion expected when polygon is entirely outside the deck"
+        assert dispersed_load == load_value, "Load value should remain unchanged when dispersion is skipped"
+
     def test_service_vehicle_loads_stay_within_boundaries(self, mock_builder: Mock, mock_params_with_dispersion: Mock) -> None:
         """Test that service vehicle loads with dispersion stay within bridge boundaries."""
         from src.integrations.scia_integration.scia_loads import add_service_vehicle_loads
@@ -1616,9 +1690,9 @@ class TestLoadBoundaryCompliance:
                     assert 0.0 <= x <= 40.0, f"Accidental vehicle load X coordinate {x} exceeds bridge length"
                     assert -10.0 <= y <= 10.0, f"Accidental vehicle load Y coordinate {y} exceeds bridge width"
 
-    def test_clip_polygon_to_bridge_boundaries_function(self, mock_bridge_geometry: Mock) -> None:
-        """Test the clip_polygon_to_bridge_boundaries function directly."""
-        from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+    def test_move_polygon_to_bridge_boundaries_function(self, mock_bridge_geometry: Mock) -> None:
+        """Test the move_polygon_to_bridge_boundaries function directly."""
+        from src.integrations.scia_integration.model.scia_coordinate_utils import move_polygon_to_bridge_boundaries
 
         # Test with coordinates that extend beyond boundaries
         corner_points = [
@@ -1628,7 +1702,7 @@ class TestLoadBoundaryCompliance:
             (-1.0, -6.0, 0.0),  # X too small, Y too small
         ]
 
-        clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
+        clipped_points = move_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
 
         # Verify Y coordinates are clipped to boundaries (X coordinates pass through)
         expected_clipped = [
@@ -1646,7 +1720,7 @@ class TestLoadBoundaryCompliance:
 
     def test_clip_polygon_with_coordinates_within_boundaries(self, mock_bridge_geometry: Mock) -> None:
         """Test that coordinates already within boundaries are not modified."""
-        from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+        from src.integrations.scia_integration.model.scia_coordinate_utils import move_polygon_to_bridge_boundaries
 
         # Test with coordinates already within boundaries
         corner_points = [
@@ -1656,16 +1730,16 @@ class TestLoadBoundaryCompliance:
             (5.0, -2.0, 0.0),
         ]
 
-        clipped_points = clip_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
+        clipped_points = move_polygon_to_bridge_boundaries(corner_points, mock_bridge_geometry)
 
         # Verify coordinates are unchanged
         assert clipped_points == corner_points, "Coordinates within boundaries should not be modified"
 
     def test_clip_polygon_with_empty_input(self, mock_bridge_geometry: Mock) -> None:
         """Test that empty input returns empty output."""
-        from src.integrations.scia_integration.model.scia_coordinate_utils import clip_polygon_to_bridge_boundaries
+        from src.integrations.scia_integration.model.scia_coordinate_utils import move_polygon_to_bridge_boundaries
 
-        clipped_points = clip_polygon_to_bridge_boundaries([], mock_bridge_geometry)
+        clipped_points = move_polygon_to_bridge_boundaries([], mock_bridge_geometry)
         assert clipped_points == [], "Empty input should return empty output"
 
 
