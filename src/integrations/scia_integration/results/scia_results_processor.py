@@ -237,36 +237,47 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
 
     These tables contain results from SCIA section on plane objects (cross sections).
 
-    New table series:
-    - Interne 2D-krachten basis cs ULS
-    - Interne 2D-krachten elementair cs ULS
-    - Interne 2D-krachten basis cs SLS kar
-    - Interne 2D-krachten elementair cs SLS kar
-    - Interne 2D-krachten basis cs SLS freq
-    - Interne 2D-krachten elementair cs SLS freq
+    Table series (section on plane results in standard 2D force tables):
+    - Interne 2D-krachten basis ULS
+    - Interne 2D-krachten elementair ULS
+    - Interne 2D-krachten basis SLS freq
+    - Interne 2D-krachten elementair SLS freq
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
-    :param table_type: Table type to extract (e.g., "cs ULS", "cs SLS kar", "cs SLS freq")
+    :param table_type: Table type to extract (e.g., "ULS", "SLS freq")
     :type table_type: str
     :returns: Tuple of (basis_data, elementaire_data)
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
+    # DEBUG: Log available tables in xml_parsing
+    parsed_tables = results.get("xml_parsing", {}).get("parsed_tables", {})
+    if parsed_tables:
+        logger.info("CS table search - Available tables in xml_parsing: %s", list(parsed_tables.keys()))
+    else:
+        logger.warning("CS table search - No parsed_tables found in xml_parsing! xml_parsing keys: %s", list(results.get("xml_parsing", {}).keys()))
+
     # Read "basis grootheden" CS table
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
+    logger.info("CS table search - Looking for basis table: '%s'", basis_table_name)
     basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
 
     # If not found with p1, try p0 (nodes)
     if basis_data is None:
         basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
 
+    logger.info("CS table search - Basis table '%s' found: %s", basis_table_name, basis_data is not None)
+
     # Read "elementaire ontwerpgrootheden" CS table
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
+    logger.info("CS table search - Looking for elementaire table: '%s'", elementaire_table_name)
     elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
 
     # If not found with p1, try p0 (nodes)
     if elementaire_data is None:
         elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
+
+    logger.info("CS table search - Elementaire table '%s' found: %s", elementaire_table_name, elementaire_data is not None)
 
     return basis_data, elementaire_data
 
