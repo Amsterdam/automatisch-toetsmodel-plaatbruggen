@@ -172,11 +172,11 @@ def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float
     :type df: pd.DataFrame
     :param col: Column name to get the value with maximum absolute value from
     :type col: str
-    :returns: Original value that has maximum absolute value, or NaN if not found or not numeric
-    :rtype: float
+    :returns: Original value that has maximum absolute value, or "N/A" if not found or not numeric
+    :rtype: float | str
     """
     if "coords_xyz" not in df.columns or col not in df.columns:
-        return float("nan")
+        return "N/A"
 
     # Convert coords_value to tuple for consistent comparison
     if isinstance(coords_value, list):
@@ -186,12 +186,12 @@ def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float
     matches = df[df["coords_xyz"] == coords_value]
 
     if matches.empty:
-        return float("nan")
+        return "N/A"
 
     # Convert to numeric, handling any non-numeric values as NaN, then find the value with maximum absolute value
     numeric_values = pd.to_numeric(matches[col], errors="coerce")
     if numeric_values.isna().all():
-        return float("nan")
+        return "N/A"
     # Find the original value that has the maximum absolute value
     max_abs_idx = numeric_values.abs().idxmax()
     return numeric_values.loc[max_abs_idx]
@@ -505,16 +505,23 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
         
         # STEP 2: Fill NaN values from unmatched rows
         # When a row exists in only one table, the other table's columns will be NaN
-        # We calculate these missing values using engineering relationships
+        # Calculate these missing values using engineering relationships
         # IMPORTANT: This only fills NaN, not zero values (zero is valid!)
         df_filled = fill_missing_force_values(df_merged)
+        
+        # STEP 3: Fill any remaining NaN values with "N/A" for JSON serialization
+        df_filled = df_filled.fillna("N/A")
         return df_filled
     
-    # If only one table has data, return it directly (no NaN values to fill)
+    # If only one table has data, fill NaN and return it
     if not df_basis_merge.empty:
-        return df_basis_merge.copy()
+        df_result = df_basis_merge.copy()
+        df_result = df_result.fillna("N/A")
+        return df_result
     if not df_elementaire_merge.empty:
-        return df_elementaire_merge.copy()
+        df_result = df_elementaire_merge.copy()
+        df_result = df_result.fillna("N/A")
+        return df_result
     
     # Both tables are empty
     return pd.DataFrame()
@@ -535,11 +542,15 @@ def _extract_max_force_rows(df_combined: pd.DataFrame, force_columns: list[str])
     for (name, coords_xyz), group in df_combined.groupby(["name", "coords_xyz"]):
         for force_col in force_columns:
             if force_col in group.columns:
-                abs_max_idx = group[force_col].abs().idxmax()
-                if pd.notna(abs_max_idx):
-                    max_row = group.loc[abs_max_idx].copy()
-                    max_row["max_for_column"] = force_col
-                    result_rows.append(max_row)  # type: ignore[arg-type]
+                # Filter out N/A values and convert to numeric before finding max
+                numeric_col = pd.to_numeric(group[force_col], errors="coerce")
+                # Only process if we have valid numeric values
+                if not numeric_col.isna().all():
+                    abs_max_idx = numeric_col.abs().idxmax()
+                    if pd.notna(abs_max_idx):
+                        max_row = group.loc[abs_max_idx].copy()
+                        max_row["max_for_column"] = force_col
+                        result_rows.append(max_row)  # type: ignore[arg-type]
     return result_rows
 
 
@@ -613,15 +624,8 @@ def _process_single_cs_result_table(
     for col in force_columns:
         if col in df_combined.columns:
             df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
-
-    # Check for any remaining NaN values after merge and calculation
-    # NaN values at this point indicate a problem that needs investigation
-    for col in force_columns:
-        if col in df_combined.columns:
-            nan_count = df_combined[col].isna().sum()
-            if nan_count > 0:
-                # Log warning but don't stop processing
-                pass
+    
+    # DON'T fill NaN with "N/A" yet - we need numeric values for abs() operations
 
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
     # Group by name and filter to keep only rows with the first unique coordinate per group
@@ -632,9 +636,13 @@ def _process_single_cs_result_table(
     mask = df_combined.apply(lambda row: row["coords_xyz"] == first_coords_per_name[row["name"]], axis=1)
     df_combined = df_combined[mask].reset_index(drop=True)
 
-    # Extract rows with max absolute values
+    # Extract rows with max absolute values (handles NaN internally)
     result_rows = _extract_max_force_rows(df_combined, force_columns)
     df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
+    
+    # NOW fill any remaining NaN values with "N/A" after numeric operations are complete
+    if not df_result.empty:
+        df_result = df_result.fillna("N/A")
 
     # Add zone mapping if bridge_segments are provided and return
     return _add_zone_mapping(df_result, bridge_segments)
@@ -676,6 +684,11 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     # Create DataFrames for each selected CS result class table
     for selected_table in selected_result_tables:
         df_result = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
+        
+        # Fill any remaining NaN values with "N/A" for JSON serialization
+        if not df_result.empty:
+            df_result = df_result.fillna("N/A")
+        
         results_cs[selected_table] = df_result
 
         # DEBUG EXPORT: Export processed CS results for view
@@ -742,14 +755,18 @@ def _extract_envelope_for_zone_and_type(
 
     for force_col in force_columns:
         if force_col in zone_type_data.columns:
-            abs_max_idx = zone_type_data[force_col].abs().idxmax()
-            if pd.notna(abs_max_idx):
-                combination_key = (zone, result_type, force_col, abs_max_idx)
-                if combination_key not in seen_combinations:
-                    seen_combinations.add(combination_key)
-                    row = zone_type_data.loc[abs_max_idx].copy()
-                    row["max_for_column"] = force_col
-                    envelope_rows.append(row)  # type: ignore[arg-type]
+            # Filter out N/A values and convert to numeric before finding max
+            numeric_col = pd.to_numeric(zone_type_data[force_col], errors="coerce")
+            # Only process if we have valid numeric values
+            if not numeric_col.isna().all():
+                abs_max_idx = numeric_col.abs().idxmax()
+                if pd.notna(abs_max_idx):
+                    combination_key = (zone, result_type, force_col, abs_max_idx)
+                    if combination_key not in seen_combinations:
+                        seen_combinations.add(combination_key)
+                        row = zone_type_data.loc[abs_max_idx].copy()
+                        row["max_for_column"] = force_col
+                        envelope_rows.append(row)  # type: ignore[arg-type]
 
     return envelope_rows
 
@@ -930,7 +947,7 @@ def _populate_force_values_from_lookup(unique_coords_df: pd.DataFrame, lookup_di
             max_abs_val = max(coord_values, key=abs)
             values.append(max_abs_val)
         else:
-            values.append(float("nan"))
+            values.append("N/A")
     unique_coords_df[column_name] = values
 
 
@@ -994,7 +1011,11 @@ def process_scia_2d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
     # Create DataFrames for each selected result class table
     for selected_table in selected_result_tables:
-        results_2d[selected_table] = _process_single_result_table(selected_data_scia, selected_table)
+        df = _process_single_result_table(selected_data_scia, selected_table)
+        # Fill any remaining NaN values with "N/A"
+        if not df.empty:
+            df = df.fillna("N/A")
+        results_2d[selected_table] = df
 
     return results_2d
 
