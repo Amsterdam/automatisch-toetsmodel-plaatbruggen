@@ -151,20 +151,6 @@ class OverviewBridgesParametrization(Parametrization):
         "Start Berekening", method="run_batch_calculation", description="Start batch berekening voor alle bruggen die klaar zijn"
     )
 
-    # Cache management section
-    batch_calculation.cache_section = Text("### Cache Beheer")
-    batch_calculation.clear_cache_button = ActionButton(
-        "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
-    )
-
-    # Storage status monitoring section (technical/developer info)
-    batch_calculation.storage_status_section = Text("### Opslag Status (Technisch)")
-    batch_calculation.storage_status = OutputField(
-        "Laatste opslag operatie",
-        value=_get_storage_status_text,
-        flex=100,
-    )
-
     # Chat section for querying batch results
     batch_calculation.chat_section = Text("### Resultaten Chat")
     batch_calculation.chat_guidance = Text(
@@ -179,3 +165,16 @@ class OverviewBridgesParametrization(Parametrization):
             first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
             flex=100,
         )
+
+    # Technical/developer info section at the bottom
+    batch_calculation.nerd_info_section = Text("### Info voor nerds")
+    batch_calculation.cache_section = Text("#### Cache Beheer")
+    batch_calculation.clear_cache_button = ActionButton(
+        "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
+    )
+    batch_calculation.storage_status_section = Text("#### Opslag Status")
+    batch_calculation.storage_status = OutputField(
+        "Laatste opslag operatie",
+        value=_get_storage_status_text,
+        flex=100,
+    )
