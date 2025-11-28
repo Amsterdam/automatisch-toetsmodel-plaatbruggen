@@ -135,10 +135,10 @@ def nxd(nx: float, ny: float, nxy: float) -> float:
         
     Returns:
         The x-direction design force according to:
-        nx + |nxy| for nx ≤ ny and nx ≥ -|nxy|
-        nx + |nxy| for nx > ny and ny ≥ -|nxy|
-        0 for nx ≤ ny and nx < -|nxy|
-        nx + nxy²/|ny| for nx > ny and ny < -|nxy|
+        (1) nx + |nxy| for nx ≤ ny and nx ≥ -|nxy|
+        (2) nx + |nxy| for nx > ny and ny ≥ -|nxy|
+        (3) 0 for nx ≤ ny and nx < -|nxy|
+        (4) nx + nxy²/|ny| for nx > ny and ny < -|nxy|
     """
     abs_nxy = abs(nxy)
     abs_ny = abs(ny)
@@ -165,10 +165,10 @@ def nyd(nx: float, ny: float, nxy: float) -> float:
         
     Returns:
         The y-direction design force according to:
-        ny + |nxy| for nx ≤ ny and nx ≥ -|nxy|
-        ny + |nxy| for nx > ny and ny ≥ -|nxy|
-        ny + nxy²/|nx| for nx ≤ ny and nx < -|nxy|
-        0 for nx > ny and ny < -|nxy|
+        (1) ny + |nxy| for nx ≤ ny and nx ≥ -|nxy|
+        (2) ny + |nxy| for nx > ny and ny ≥ -|nxy|
+        (3) ny + nxy²/|nx| for nx ≤ ny and nx < -|nxy|
+        (4) 0 for nx > ny and ny < -|nxy|
     """
     abs_nxy = abs(nxy)
     abs_nx = abs(nx)
