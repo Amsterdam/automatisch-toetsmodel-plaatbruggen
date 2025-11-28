@@ -99,6 +99,16 @@ class OverviewBridgesParametrization(Parametrization):
         "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
     )
 
+    # Storage status monitoring section
+    batch_calculation.storage_status_section = Text("### Opslag Status")
+    batch_calculation.storage_status_info = Text(
+        "**Laatste opslag operatie status:**\n\n"
+        "Deze informatie toont of de batch resultaten succesvol zijn opgeslagen en eventuele fouten tijdens opslag operaties."
+    )
+    batch_calculation.storage_status_refresh = ActionButton(
+        "Ververs Opslag Status", method="get_storage_status", description="Haal de laatste opslag status op"
+    )
+
     # Chat section for querying batch results
     batch_calculation.chat_section = Text("### Resultaten Chat")
     batch_calculation.chat_guidance = Text(

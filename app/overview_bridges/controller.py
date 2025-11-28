@@ -730,6 +730,68 @@ class OverviewBridgesController(BatchCalculationComponent, ViktorController):
         except Exception as e:
             UserMessage.error(f"Fout bij wissen cache: {e}")
 
+    def get_storage_status(self, params: Parametrization, **kwargs) -> None:  # noqa: ARG002
+        """
+        Display the last storage operation status for batch calculation results.
+
+        Shows timestamp, success status, message, and details of the last storage operation.
+        Useful for monitoring storage operations in production.
+
+        :param params: Parametrization (unused, required by VIKTOR)
+        :type params: Parametrization
+        :param kwargs: Additional keyword arguments
+        :type kwargs: Any
+        :returns: None
+        :rtype: None
+        """
+        from datetime import datetime
+
+        from viktor.core import Storage
+
+        from app.overview_bridges.batch_calculation.utils import load_storage_status
+
+        storage = Storage()
+        status = load_storage_status(storage)
+
+        if status is None:
+            UserMessage.info("Geen opslag status beschikbaar. Voer een batch berekening uit om status te zien.")
+            return
+
+        # Format status message
+        timestamp_str = status.get("timestamp", "Onbekend")
+        try:
+            dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+            timestamp_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        except Exception:
+            pass
+
+        success = status.get("success", False)
+        message = status.get("message", "Geen bericht")
+        details = status.get("details", {})
+
+        status_icon = "✓" if success else "✗"
+        status_text = "SUCCES" if success else "GEFAALD"
+
+        detail_lines = []
+        if details:
+            for key, value in details.items():
+                detail_lines.append(f"  - {key}: {value}")
+
+        detail_text = "\n".join(detail_lines) if detail_lines else "  (geen details)"
+
+        full_message = (
+            f"**Laatste opslag operatie:**\n\n"
+            f"**Status:** {status_icon} {status_text}\n"
+            f"**Tijdstip:** {timestamp_str}\n"
+            f"**Bericht:** {message}\n\n"
+            f"**Details:**\n{detail_text}"
+        )
+
+        if success:
+            UserMessage.success(full_message)
+        else:
+            UserMessage.warning(full_message)
+
     # ============================================================================================================
     # Explicit Method References for VIKTOR Introspection
     # ============================================================================================================

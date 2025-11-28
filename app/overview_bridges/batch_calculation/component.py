@@ -660,11 +660,30 @@ class BatchCalculationComponent:
                         # Store partial results
                         if batch_results:
                             logger.info("Saving partial batch results before exit...")
-                            with contextlib.suppress(Exception):
+                            try:
                                 batch_results_file = serialize_batch_results(batch_results)
                                 storage.set("batch_calculation_results", batch_results_file, scope="entity")
                                 record_batch_last_run_timestamp(storage)
                                 logger.info("Partial results saved successfully")
+                                # Record successful partial save
+                                from app.overview_bridges.batch_calculation.utils import record_storage_status
+
+                                record_storage_status(
+                                    storage,
+                                    success=True,
+                                    message="Partial batch results saved (interrupted calculation)",
+                                    details={"partial": True, "bridges_processed": len(batch_results)},
+                                )
+                            except Exception as partial_save_error:
+                                # Record failed partial save
+                                from app.overview_bridges.batch_calculation.utils import record_storage_status
+
+                                record_storage_status(
+                                    storage,
+                                    success=False,
+                                    message=f"Failed to save partial results: {type(partial_save_error).__name__}",
+                                    details={"partial": True, "error_type": type(partial_save_error).__name__},
+                                )
 
                         # Clear running flag
                         with contextlib.suppress(Exception):
@@ -792,8 +811,39 @@ class BatchCalculationComponent:
                 storage.set("batch_calculation_results", batch_results_file, scope="entity")
                 record_batch_last_run_timestamp(storage)
                 logger.info("Batch results saved to storage successfully")
+                # Record successful storage operation
+                from app.overview_bridges.batch_calculation.utils import record_storage_status
+
+                record_storage_status(
+                    storage,
+                    success=True,
+                    message="Batch results saved successfully",
+                    details={
+                        "bridges_calculated": completed_count,
+                        "bridges_failed": failed_count,
+                        "bridges_skipped": skipped_cached_count,
+                        "total_bridges": total_processed,
+                    },
+                )
             except Exception as storage_error:
-                logger.warning("Failed to save batch results to storage (%s) - results available in this session only", type(storage_error).__name__)
+                error_type = type(storage_error).__name__
+                error_message = str(storage_error)
+                logger.warning("Failed to save batch results to storage (%s) - results available in this session only", error_type)
+                # Record failed storage operation
+                from app.overview_bridges.batch_calculation.utils import record_storage_status
+
+                record_storage_status(
+                    storage,
+                    success=False,
+                    message=f"Storage operation failed: {error_type}",
+                    details={
+                        "error_type": error_type,
+                        "error_message": error_message,
+                        "bridges_calculated": completed_count,
+                        "bridges_failed": failed_count,
+                        "bridges_skipped": skipped_cached_count,
+                    },
+                )
                 # Continue - results are still in memory for this job
                 # User can see them in current view, just won't persist
 

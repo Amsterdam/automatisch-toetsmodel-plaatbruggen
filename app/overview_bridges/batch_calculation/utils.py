@@ -12,6 +12,7 @@ from viktor.errors import UserError
 logger = logging.getLogger(__name__)
 
 LAST_BATCH_RUN_KEY = "batch_calculation_last_run"
+STORAGE_STATUS_KEY = "batch_calculation_storage_status"
 
 
 def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001, C901, PLR0912, PLR0915
@@ -513,6 +514,64 @@ def load_batch_last_run_timestamp(storage: Storage) -> str | None:
         if isinstance(value, bytes):
             value = value.decode("utf-8")
         return value.strip() or None
+    return None
+
+
+def record_storage_status(storage: Storage, success: bool, message: str, details: dict[str, Any] | None = None) -> None:
+    """
+    Record storage operation status for monitoring in production.
+
+    :param storage: VIKTOR storage instance
+    :type storage: Storage
+    :param success: Whether the storage operation succeeded
+    :type success: bool
+    :param message: Status message
+    :type message: str
+    :param details: Optional additional details (e.g., number of results saved, error type)
+    :type details: dict[str, Any] | None
+    """
+    import json
+
+    status_data = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "success": success,
+        "message": message,
+        "details": details or {},
+    }
+    try:
+        status_json = json.dumps(status_data, indent=2)
+        storage.set(STORAGE_STATUS_KEY, File.from_data(status_json), scope="entity")
+    except Exception as e:
+        logger.warning("Failed to record storage status: %s", e)
+
+
+def load_storage_status(storage: Storage) -> dict[str, Any] | None:
+    """
+    Load the last storage operation status.
+
+    :param storage: VIKTOR storage instance
+    :type storage: Storage
+    :returns: Status dictionary with timestamp, success, message, and details, or None if not available
+    :rtype: dict[str, Any] | None
+    """
+    try:
+        status_file = storage.get(STORAGE_STATUS_KEY, scope="entity")
+    except FileNotFoundError:
+        return None
+    if isinstance(status_file, bool):
+        return None
+    if isinstance(status_file, File):
+        try:
+            import json
+
+            with status_file.open() as fh:
+                content = fh.read()
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8")
+                return json.loads(content)
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning("Failed to load storage status: %s", e)
+            return None
     return None
 
 
