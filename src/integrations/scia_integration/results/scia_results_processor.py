@@ -258,24 +258,18 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
         logger.warning("CS table search - No parsed_tables found in xml_parsing! xml_parsing keys: %s", list(results.get("xml_parsing", {}).keys()))
 
     # Read "basis grootheden" CS table
+    # Data key is the Dutch header from SCIA XML: "Basis grootheden - Resultaten op snedes:"
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
     logger.info("CS table search - Looking for basis table: '%s'", basis_table_name)
-    basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
-
-    # If not found with p1, try p0 (nodes)
-    if basis_data is None:
-        basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
+    basis_data = get_nested_result_data(results, basis_table_name, data_key="Basis grootheden - Resultaten op snedes:")
 
     logger.info("CS table search - Basis table '%s' found: %s", basis_table_name, basis_data is not None)
 
     # Read "elementaire ontwerpgrootheden" CS table
+    # Data key is the Dutch header from SCIA XML: "Elementaire ontwerpgrootheden - Resultaten op snedes:"
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
     logger.info("CS table search - Looking for elementaire table: '%s'", elementaire_table_name)
-    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
-
-    # If not found with p1, try p0 (nodes)
-    if elementaire_data is None:
-        elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
+    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="Elementaire ontwerpgrootheden - Resultaten op snedes:")
 
     logger.info("CS table search - Elementaire table '%s' found: %s", elementaire_table_name, elementaire_data is not None)
 
