@@ -5,6 +5,7 @@ from viktor.parametrization import (
     ChildEntityManager,
     DownloadButton,
     FileField,
+    OutputField,
     Page,
     Parametrization,
     Text,
@@ -16,6 +17,63 @@ try:  # pragma: no cover - fallback for environments without Chat field support
     from viktor.parametrization import Chat
 except ImportError:  # pragma: no cover
     Chat = None  # type: ignore[assignment, misc]
+
+
+def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """
+    Get formatted storage status text for OutputField.
+
+    Returns technical storage operation status for developers.
+    Shows last storage operation timestamp, success/failure, and details.
+
+    :param params: Parametrization (unused, required by VIKTOR)
+    :type params: Any
+    :param kwargs: Additional keyword arguments
+    :type kwargs: Any
+    :returns: Formatted status text
+    :rtype: str
+    """
+    from datetime import datetime
+
+    from viktor.core import Storage
+
+    from app.overview_bridges.batch_calculation.utils import load_storage_status
+
+    storage = Storage()
+    status = load_storage_status(storage)
+
+    if status is None:
+        return "**Geen opslag status beschikbaar.**\n\nVoer een batch berekening uit om status te zien."
+
+    # Format timestamp
+    timestamp_str = status.get("timestamp", "Onbekend")
+    try:
+        dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+        timestamp_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+    except Exception:
+        pass
+
+    success = status.get("success", False)
+    message = status.get("message", "Geen bericht")
+    details = status.get("details", {})
+
+    status_icon = "✓" if success else "✗"
+    status_text = "SUCCES" if success else "GEFAALD"
+
+    # Format details
+    detail_lines = []
+    if details:
+        for key, value in details.items():
+            detail_lines.append(f"  • {key}: {value}")
+
+    detail_text = "\n".join(detail_lines) if detail_lines else "  (geen details)"
+
+    return (
+        f"**Status:** {status_icon} {status_text}\n"
+        f"**Tijdstip:** {timestamp_str}\n"
+        f"**Bericht:** {message}\n\n"
+        f"**Details:**\n{detail_text}"
+    )
 
 
 class OverviewBridgesParametrization(Parametrization):
@@ -99,14 +157,12 @@ class OverviewBridgesParametrization(Parametrization):
         "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
     )
 
-    # Storage status monitoring section
-    batch_calculation.storage_status_section = Text("### Opslag Status")
-    batch_calculation.storage_status_info = Text(
-        "**Laatste opslag operatie status:**\n\n"
-        "Deze informatie toont of de batch resultaten succesvol zijn opgeslagen en eventuele fouten tijdens opslag operaties."
-    )
-    batch_calculation.storage_status_refresh = ActionButton(
-        "Ververs Opslag Status", method="get_storage_status", description="Haal de laatste opslag status op"
+    # Storage status monitoring section (technical/developer info)
+    batch_calculation.storage_status_section = Text("### Opslag Status (Technisch)")
+    batch_calculation.storage_status = OutputField(
+        "Laatste opslag operatie",
+        value=_get_storage_status_text,
+        flex=100,
     )
 
     # Chat section for querying batch results
