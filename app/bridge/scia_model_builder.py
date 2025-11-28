@@ -1342,13 +1342,6 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
     :param bridge_segments: Bridge segments for zone mapping
     :return: Dictionary with cached dataframes
     """
-    # DEBUG: Log bridge segments info
-    logger.info(
-        "CS DataFrame generation - bridge_segments: %s (count: %d)",
-        type(bridge_segments).__name__ if bridge_segments else "None",
-        len(bridge_segments) if bridge_segments else 0,
-    )
-
     try:
         from src.integrations.scia_integration.results.scia_results_processor import (
             extract_cs_force_envelopes,
@@ -1360,20 +1353,8 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
         df_cs_uls = cs_results.get("ULS", pd.DataFrame())
         df_cs_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
 
-        # DEBUG: Log DataFrame sizes
-        logger.info(
-            "CS DataFrame generation - df_cs_uls rows: %d, df_cs_sls_freq rows: %d",
-            len(df_cs_uls),
-            len(df_cs_sls_freq),
-        )
-
         # Generate envelope dataframe (used by IDEA and analyse resultaten view)
         df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-
-        # DEBUG: Log envelope DataFrame size
-        logger.info("CS DataFrame generation - df_cs_envelope rows: %d", len(df_cs_envelope))
-        if df_cs_envelope.empty:
-            logger.warning("CS DataFrame generation - df_cs_envelope is EMPTY!")
     except Exception:
         # Log the error with full traceback so the actual issue is visible
         logger.exception("Failed to generate CS dataframes")
