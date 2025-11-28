@@ -11,7 +11,7 @@ from viktor.parametrization import (
     Text,
 )
 
-from app.constants import BATCH_CALCULATION_BUTTONS_TEXT, BATCH_CALCULATION_INTRO_TEXT
+from app.constants import BATCH_CALCULATION_BUTTONS_TEXT
 
 try:  # pragma: no cover - fallback for environments without Chat field support
     from viktor.parametrization import Chat
@@ -137,9 +137,14 @@ class OverviewBridgesParametrization(Parametrization):
 
     # Define the Batch Calculation page - combined view with status and results
     batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
-    batch_calculation.introduction_text = Text(BATCH_CALCULATION_INTRO_TEXT)
+    
+    # Short introduction
+    batch_calculation.introduction_text = Text(
+        "Op deze pagina kun je batch berekeningen uitvoeren voor alle bruggen tegelijk. "
+        "Rechts in de tabel zie je het statusoverzicht met de berekeningsstatus per brug."
+    )
 
-    # Chat section for querying batch results (moved to top for better visibility)
+    # Chat section for querying batch results
     batch_calculation.chat_section = Text("### Resultaten Chat")
     batch_calculation.chat_guidance = Text(
         "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
@@ -154,6 +159,14 @@ class OverviewBridgesParametrization(Parametrization):
             flex=100,
         )
 
+    # Information about calculations and buttons
+    batch_calculation.calculation_info = Text("### Over de berekening")
+    batch_calculation.calculation_details = Text(
+        "Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld (geel gemarkeerd). "
+        "Bruggen die nog informatie missen worden rood gemarkeerd met de ontbrekende velden. "
+        "Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.\n\n"
+        "**Let op:** Het kan erg lang duren voordat de berekeningen klaar zijn."
+    )
     batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
 
     # Action buttons section
