@@ -69,7 +69,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         """Initializes the ViktorSciaModelBuilder."""
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-        self.model: scia.Model = scia.Model()
+        mesh_setup = scia.MeshSetup(average_1d=0.2, average_2d=0.2, division_2d_1d=50)
+        self.model: scia.Model = scia.Model(MeshSetup=mesh_setup)
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
