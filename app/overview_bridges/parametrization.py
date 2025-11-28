@@ -11,7 +11,6 @@ from viktor.parametrization import (
     Text,
 )
 
-
 try:  # pragma: no cover - fallback for environments without Chat field support
     from viktor.parametrization import Chat
 except ImportError:  # pragma: no cover
@@ -67,12 +66,7 @@ def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
 
     detail_text = "\n".join(detail_lines) if detail_lines else "  (geen details)"
 
-    return (
-        f"Status: {status_icon} {status_text}\n"
-        f"Tijdstip: {timestamp_str}\n"
-        f"Bericht: {message}\n\n"
-        f"Details:\n{detail_text}"
-    )
+    return f"Status: {status_icon} {status_text}\nTijdstip: {timestamp_str}\nBericht: {message}\n\nDetails:\n{detail_text}"
 
 
 class OverviewBridgesParametrization(Parametrization):
@@ -136,7 +130,7 @@ class OverviewBridgesParametrization(Parametrization):
 
     # Define the Batch Calculation page - combined view with status and results
     batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
-    
+
     # Short introduction
     batch_calculation.introduction_text = Text(
         "Op deze pagina kun je batch berekeningen uitvoeren voor alle bruggen tegelijk. "
