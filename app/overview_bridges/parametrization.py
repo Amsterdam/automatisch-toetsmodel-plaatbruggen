@@ -139,19 +139,7 @@ class OverviewBridgesParametrization(Parametrization):
     batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
     batch_calculation.introduction_text = Text(BATCH_CALCULATION_INTRO_TEXT)
 
-    batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
-
-    # Action buttons section
-    batch_calculation.action_buttons = Text("### Acties")
-
-    batch_calculation.refresh_button = ActionButton(
-        "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
-    )
-    batch_calculation.calculate_button = ActionButton(
-        "Start Berekening", method="run_batch_calculation", description="Start batch berekening voor alle bruggen die klaar zijn"
-    )
-
-    # Chat section for querying batch results
+    # Chat section for querying batch results (moved to top for better visibility)
     batch_calculation.chat_section = Text("### Resultaten Chat")
     batch_calculation.chat_guidance = Text(
         "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
@@ -166,8 +154,20 @@ class OverviewBridgesParametrization(Parametrization):
             flex=100,
         )
 
+    batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
+
+    # Action buttons section
+    batch_calculation.action_buttons = Text("### Acties")
+
+    batch_calculation.refresh_button = ActionButton(
+        "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
+    )
+    batch_calculation.calculate_button = ActionButton(
+        "Start Berekening", method="run_batch_calculation", description="Start batch berekening voor alle bruggen die klaar zijn"
+    )
+
     # Technical/developer info section at the bottom
-    batch_calculation.nerd_info_section = Text("### Info voor nerds")
+    batch_calculation.nerd_info_section = Text("### Tools en Info voor nerds")
     batch_calculation.cache_section = Text("#### Cache Beheer")
     batch_calculation.clear_cache_button = ActionButton(
         "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
