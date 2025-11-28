@@ -11,7 +11,6 @@ from viktor.parametrization import (
     Text,
 )
 
-from app.constants import BATCH_CALCULATION_BUTTONS_TEXT
 
 try:  # pragma: no cover - fallback for environments without Chat field support
     from viktor.parametrization import Chat
@@ -43,7 +42,7 @@ def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
     status = load_storage_status(storage)
 
     if status is None:
-        return "**Geen opslag status beschikbaar.**\n\nVoer een batch berekening uit om status te zien."
+        return "Geen opslag status beschikbaar.\n\nVoer een batch berekening uit om status te zien."
 
     # Format timestamp
     timestamp_str = status.get("timestamp", "Onbekend")
@@ -69,10 +68,10 @@ def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
     detail_text = "\n".join(detail_lines) if detail_lines else "  (geen details)"
 
     return (
-        f"**Status:** {status_icon} {status_text}\n"
-        f"**Tijdstip:** {timestamp_str}\n"
-        f"**Bericht:** {message}\n\n"
-        f"**Details:**\n{detail_text}"
+        f"Status: {status_icon} {status_text}\n"
+        f"Tijdstip: {timestamp_str}\n"
+        f"Bericht: {message}\n\n"
+        f"Details:\n{detail_text}"
     )
 
 
@@ -167,8 +166,6 @@ class OverviewBridgesParametrization(Parametrization):
         "Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.\n\n"
         "**Let op:** Het kan erg lang duren voordat de berekeningen klaar zijn."
     )
-    batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
-
     # Action buttons section
     batch_calculation.action_buttons = Text("### Acties")
 
@@ -180,7 +177,7 @@ class OverviewBridgesParametrization(Parametrization):
     )
 
     # Technical/developer info section at the bottom
-    batch_calculation.nerd_info_section = Text("### Tools en Info voor nerds")
+    batch_calculation.nerd_info_section = Text("### Technische tools en info voor nerds")
     batch_calculation.cache_section = Text("#### Cache Beheer")
     batch_calculation.clear_cache_button = ActionButton(
         "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
