@@ -806,6 +806,8 @@ class BatchCalculationComponent:
                     )
 
             # Store aggregated results in parent entity Storage (storage-free fallback mode)
+            # Calculate total_processed before try block (needed for storage status recording)
+            total_processed = completed_count + failed_count + skipped_cached_count
             try:
                 batch_results_file = serialize_batch_results(batch_results)
                 storage.set("batch_calculation_results", batch_results_file, scope="entity")
@@ -848,7 +850,6 @@ class BatchCalculationComponent:
                 # User can see them in current view, just won't persist
 
             # Build completion message with skipped cached bridges information
-            total_processed = completed_count + failed_count + skipped_cached_count
             message_parts = []
 
             if skipped_cached_count > 0:
