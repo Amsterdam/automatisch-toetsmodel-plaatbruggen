@@ -1,18 +1,13 @@
 """Utility functions for batch calculation."""
 
 import base64
-import logging
 import pickle
 from datetime import datetime, timezone
 from typing import Any
 
+from app.constants.technical import LAST_BATCH_RUN_KEY, STORAGE_STATUS_KEY
 from viktor.core import File, Storage
 from viktor.errors import UserError
-
-logger = logging.getLogger(__name__)
-
-LAST_BATCH_RUN_KEY = "batch_calculation_last_run"
-STORAGE_STATUS_KEY = "batch_calculation_storage_status"
 
 
 def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001, C901, PLR0912, PLR0915
@@ -542,7 +537,7 @@ def record_storage_status(storage: Storage, success: bool, message: str, details
         status_json = json.dumps(status_data, indent=2)
         storage.set(STORAGE_STATUS_KEY, File.from_data(status_json), scope="entity")
     except Exception as e:
-        logger.warning("Failed to record storage status: %s", e)
+        print(f"Warning: Failed to record storage status: {e}")
 
 
 def load_storage_status(storage: Storage) -> dict[str, Any] | None:
@@ -570,7 +565,7 @@ def load_storage_status(storage: Storage) -> dict[str, Any] | None:
                     content = content.decode("utf-8")
                 return json.loads(content)
         except (json.JSONDecodeError, Exception) as e:
-            logger.warning("Failed to load storage status: %s", e)
+            print(f"Warning: Failed to load storage status: {e}")
             return None
     return None
 
@@ -608,21 +603,21 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     # Check for boolean first (most common invalid type)
     if isinstance(stored_file, bool):
         error_msg = f"Received boolean instead of File: {stored_file}"
-        logger.error(error_msg)
+        print(f"Error: {error_msg}")
         raise TypeError(error_msg)
 
     # Then check for File type
     if not isinstance(stored_file, File):
         file_type = type(stored_file)
         error_msg = f"Expected File object, got {file_type.__name__}: {stored_file}"
-        logger.error(error_msg)
+        print(f"Error: {error_msg}")
         raise TypeError(error_msg)
 
     # Verify method exists before calling it
     if not hasattr(stored_file, "open_binary"):
         file_type = type(stored_file)
         error_msg = f"File object missing 'open_binary' method. Got type: {file_type.__name__}, value: {stored_file}"
-        logger.error(error_msg)
+        print(f"Error: {error_msg}")
         raise TypeError(error_msg)
 
     # Extract content from file object
@@ -633,9 +628,11 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     except AttributeError:
         # This should not happen if hasattr check passed, but catch it anyway
         file_type = type(stored_file)
-        logger.exception("open_binary() failed on %s", file_type.__name__)
+        print(f"Error: open_binary() failed on {file_type.__name__}")
+        import traceback
+        print(traceback.format_exc())
         # Try fallback methods as last resort
-        logger.warning("Attempting fallback methods for file extraction")
+        print("Warning: Attempting fallback methods for file extraction")
         if hasattr(stored_file, "getvalue"):
             encoded_data = stored_file.getvalue()
         elif hasattr(stored_file, "read"):

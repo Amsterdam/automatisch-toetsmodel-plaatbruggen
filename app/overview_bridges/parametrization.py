@@ -1,5 +1,8 @@
 """Module for the Overview Bridges entity parametrization."""
 
+from datetime import datetime
+
+from viktor.core import Storage
 from viktor.parametrization import (
     ActionButton,
     ChildEntityManager,
@@ -16,6 +19,8 @@ try:  # pragma: no cover - fallback for environments without Chat field support
 except ImportError:  # pragma: no cover
     Chat = None  # type: ignore[assignment, misc]
 
+from app.overview_bridges.batch_calculation.utils import load_storage_status
+
 
 def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
     """
@@ -31,11 +36,6 @@ def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
     :returns: Formatted status text
     :rtype: str
     """
-    from datetime import datetime
-
-    from viktor.core import Storage
-
-    from app.overview_bridges.batch_calculation.utils import load_storage_status
 
     storage = Storage()
     status = load_storage_status(storage)

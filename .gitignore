@@ -182,4 +182,3 @@ cython_debug/
 
 # SCIA output files (large XML/ESA files)
 scia_output*.xml
-*.esa

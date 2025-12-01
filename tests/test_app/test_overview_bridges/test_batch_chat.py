@@ -5,6 +5,7 @@ from typing import Any, ClassVar, NoReturn, Optional
 
 import pytest
 
+from app.constants.technical import CHAT_FIELD_DESCRIPTIONS
 from app.overview_bridges.batch_calculation import component as batch_component
 from app.overview_bridges.batch_calculation import llm
 from app.overview_bridges.batch_calculation import utils as batch_utils
@@ -119,7 +120,7 @@ def test_chat_batch_results_invokes_openai(monkeypatch: pytest.MonkeyPatch) -> N
             "last_batch_run": "2024-01-01T00:00:00Z",
             "dataset_truncated": False,
         },
-        "field_descriptions": llm.context.CHAT_FIELD_DESCRIPTIONS,
+        "field_descriptions": CHAT_FIELD_DESCRIPTIONS,
         "bridges": [
             {
                 "bridge_id": 1,
@@ -197,7 +198,7 @@ def test_chat_batch_results_uses_model_dump(monkeypatch: pytest.MonkeyPatch) -> 
             "last_batch_run": "2024-01-01T00:00:00Z",
             "dataset_truncated": False,
         },
-        "field_descriptions": llm.context.CHAT_FIELD_DESCRIPTIONS,
+        "field_descriptions": CHAT_FIELD_DESCRIPTIONS,
         "bridges": [
             {
                 "bridge_id": 1,
@@ -269,7 +270,7 @@ def test_chat_batch_results_handles_text_objects(monkeypatch: pytest.MonkeyPatch
             "last_batch_run": "2024-01-01T00:00:00Z",
             "dataset_truncated": False,
         },
-        "field_descriptions": llm.context.CHAT_FIELD_DESCRIPTIONS,
+        "field_descriptions": CHAT_FIELD_DESCRIPTIONS,
         "bridges": [
             {
                 "bridge_id": 1,

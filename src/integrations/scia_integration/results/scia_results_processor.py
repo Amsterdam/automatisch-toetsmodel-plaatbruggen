@@ -17,7 +17,6 @@ CS Table Types (results from SCIA section on plane objects):
 """
 
 import functools
-import logging
 from typing import Any, Callable, Union
 
 import pandas as pd
@@ -29,8 +28,6 @@ from src.integrations.scia_integration.constants.results import (
 )
 
 from .scia_result_helpers import get_nested_result_data
-
-logger = logging.getLogger(__name__)
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -485,18 +482,18 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
             # Log zone mapping results
             unique_zones = df_result["zone"].unique().tolist()
             if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
-                logger.warning("Zone mapping produced invalid zones: %s", unique_zones)
-        except Exception:
-            logger.exception(
-                "Zone mapping failed for CS results. Segments: %d, CS sections: %d",
-                len(bridge_segments) if bridge_segments else 0,
-                len(df_result),
+                print(f"Warning: Zone mapping produced invalid zones: {unique_zones}")
+        except Exception as e:
+            import traceback
+            print(
+                f"Error: Zone mapping failed for CS results. Segments: {len(bridge_segments) if bridge_segments else 0}, CS sections: {len(df_result)}"
             )
+            print(traceback.format_exc())
             df_result["zone"] = "mapping-failed"
     elif df_result.empty:
-        logger.warning("Zone mapping skipped: DataFrame is empty")
+        print("Warning: Zone mapping skipped: DataFrame is empty")
     elif not bridge_segments or len(bridge_segments) == 0:
-        logger.warning("Zone mapping skipped: No bridge segments provided")
+        print("Warning: Zone mapping skipped: No bridge segments provided")
     return df_result
 
 
