@@ -114,9 +114,9 @@ class TandemSystemVehicle(BaseModel):
     wheel_spacing_longitudinal: float = Field(default=1.2, gt=0, le=5, description="Distance between axles in meters")
     wheel_spacing_transverse: float = Field(default=2.0, gt=0, le=5, description="Distance between left/right wheels in meters")
 
-    # Load values (from constants: TANDEM_LOAD_BASE_MAIN, TANDEM_LOAD_BASE_SECOND, TANDEM_LOAD_BASE_THIRD)
-    load_main_lane_kn: float = Field(default=300.0, gt=0, le=500, description="Load for main lane in kN")
-    load_second_lane_kn: float = Field(default=200.0, gt=0, le=500, description="Load for second lane in kN")
+    # Load values (base load scaled per lane factor; stored in kN for documentation)
+    load_main_lane_kn: float = Field(default=100.0, gt=0, le=500, description="Load for main lane in kN")
+    load_second_lane_kn: float = Field(default=100.0, gt=0, le=500, description="Load for second lane in kN")
     load_third_lane_kn: float = Field(default=100.0, gt=0, le=500, description="Load for third lane in kN")
 
     vehicle_type: Literal["tandem"] = Field(default="tandem", description="Vehicle type identifier")
@@ -220,37 +220,92 @@ class AmsterdamAccidentalVehicle(BaseModel):
 
 class TramVehicle(BaseModel):
     """
-    Tram vehicle specification (placeholder for future implementation).
+    Tram vehicle specification (CAF Urbos 100, drawing EE-780).
 
-    Defines basic structure for tram vehicle loads to be used in future
-    bridge analyses requiring tram track loading.
+    Defines tram vehicle loads and dimensions for bridge analyses requiring tram track loading.
+    Based on CAF Urbos 100 specification with 6 axles and specific axle spacing configuration.
+    Static loads are subject to dynamic amplification per NEN-EN 1991-2 art. 4.3.4.2 (d).
+    Vehicle length is calculated from the sum of axle spacing values.
     """
 
-    # Geometry (to be defined based on project requirements)
-    length: float = Field(default=20.0, gt=0, le=50, description="Tram vehicle length in meters")
+    # Geometry (from TRAM_VEHICLE_* constants)
     width: float = Field(default=2.4, gt=0, le=10, description="Tram vehicle width in meters")
     wheel_dim_x: float = Field(default=0.6, gt=0, le=1, description="Wheel contact patch dimension along X-axis (longitudinal) in meters")
     wheel_dim_y: float = Field(default=0.6, gt=0, le=1, description="Wheel contact patch dimension along Y-axis (transverse) in meters")
-    wheel_spacing_longitudinal: float = Field(default=2.0, gt=0, le=10, description="Distance between axles in meters")
-    wheel_spacing_transverse: float = Field(default=1.5, gt=0, le=5, description="Distance between left/right wheels in meters")
+    wheel_spacing_longitudinal: list[float] = Field(
+        default=[1.8, 8.187, 1.85, 8.187, 1.8],
+        description="List of distances between consecutive axles in meters [axle1->2, 2->3, 3->4, 4->5, 5->6]",
+    )
+    wheel_spacing_transverse: float = Field(default=1.435, gt=0, le=5, description="Track gauge (distance between left/right wheels) in meters")
 
-    # Load (placeholder - to be defined)
-    load_per_wheel_kn: float | None = Field(default=None, gt=0, le=1000, description="Load per wheel in kN")
+    # Load (values in kN, matching field name axle_forces_kn)
+    axle_forces_kn: list[float] = Field(
+        default=[97.0, 97.0, 97.0, 97.0, 97.0, 97.0],
+        description="List of static forces for each axle in kN (before dynamic amplification)",
+    )
 
     # Tram-specific
-    track_gauge_m: float | None = Field(default=None, gt=1.0, le=2.0, description="Tram track gauge width in meters")
+    track_gauge_m: float = Field(default=1.435, gt=1.0, le=2.0, description="Tram track gauge width in meters")
 
     vehicle_type: Literal["tram"] = Field(default="tram", description="Vehicle type identifier")
 
+    @property
+    def length(self) -> float:
+        """Calculate vehicle length from axle spacing (sum of all spacing between axles)."""
+        return sum(self.wheel_spacing_longitudinal)
+
+    @property
+    def num_axles(self) -> int:
+        """Get number of axles from the length of axle_forces_kn list."""
+        return len(self.axle_forces_kn)
+
     @field_validator("track_gauge_m")
     @classmethod
-    def validate_track_gauge(cls, v: float | None) -> float | None:
+    def validate_track_gauge(cls, v: float) -> float:
         """Validate track gauge is realistic for trams."""
-        if v is not None and v < 1.0:
+        if v < 1.0:
             raise ValueError(f"Track gauge {v}m is too narrow (minimum 1.0m)")
-        if v is not None and v > 2.0:
+        if v > 2.0:
             raise ValueError(f"Track gauge {v}m is too wide (maximum 2.0m)")
         return v
+
+    @field_validator("wheel_spacing_longitudinal")
+    @classmethod
+    def validate_axle_spacing_list(cls, v: list[float]) -> list[float]:
+        """Validate axle spacing list has realistic values."""
+        if len(v) < 1:
+            raise ValueError("At least one axle spacing value is required")
+        for i, spacing in enumerate(v):
+            if spacing <= 0:
+                raise ValueError(f"Axle spacing {i + 1} must be positive, got {spacing}m")
+            if spacing > 15:
+                raise ValueError(f"Axle spacing {i + 1} is unrealistic: {spacing}m (maximum 15m)")
+        return v
+
+    @field_validator("axle_forces_kn")
+    @classmethod
+    def validate_axle_forces(cls, v: list[float]) -> list[float]:
+        """Validate axle forces are positive and realistic."""
+        if len(v) < 1:
+            raise ValueError("At least one axle force is required")
+        for i, force in enumerate(v):
+            if force <= 0:
+                raise ValueError(f"Axle {i + 1} force must be positive, got {force}kN")
+            if force > 1000:
+                raise ValueError(f"Axle {i + 1} force is unrealistic: {force}kN (maximum 1000kN)")
+        return v
+
+    @model_validator(mode="after")
+    def validate_axles_consistency(self) -> "TramVehicle":
+        """Validate that number of axle forces matches axle spacing configuration."""
+        # For N axles, we need N-1 spacing values
+        expected_spacings = len(self.axle_forces_kn) - 1
+        if len(self.wheel_spacing_longitudinal) != expected_spacings:
+            raise ValueError(
+                f"Number of axle spacings ({len(self.wheel_spacing_longitudinal)}) doesn't match expected "
+                f"({expected_spacings}) for {len(self.axle_forces_kn)} axles"
+            )
+        return self
 
     model_config = ConfigDict(validate_assignment=True)
 

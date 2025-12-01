@@ -8,7 +8,7 @@ to eliminate circular imports. It coordinates between theoretical and real tande
 from typing import Any, Callable
 
 from src.data_models.scia_models import BridgeDimensionsData
-from src.integrations.scia_integration.constants import DEFAULT_UDL_VALUE
+from src.integrations.scia_integration.constants import UDL_BASE_VALUE
 from src.integrations.scia_integration.types import BridgeParams, LoadGroup, LoadMode, LoadType
 
 # Type aliases for different function signatures
@@ -168,13 +168,13 @@ def generate_tandem_loads(params: BridgeParams, mode: LoadMode | str | None = No
     return all_loads
 
 
-def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None, udl_value: float = DEFAULT_UDL_VALUE) -> list[dict[str, Any]]:
+def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None, udl_value: float = UDL_BASE_VALUE) -> list[dict[str, Any]]:
     """
     Generate all UDL loads for a bridge.
 
     :param params: Bridge parameters
     :param mode: Load generation mode (ignored - always uses berekeningsniveau parameter)
-    :param udl_value: UDL value in N/m² (default: DEFAULT_UDL_VALUE)
+    :param udl_value: Override value for UDL loads (N/m²), defaults to :data:`UDL_BASE_VALUE`
     :returns: List of all UDL load cases (BG4001, BG4002, BG4003)
     :raises ValueError: When mode is invalid or generation fails
     """
@@ -197,10 +197,15 @@ def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None,
     try:
         if mode == LoadMode.THEORETICAL:
             udl_results = create_theoretical_udl_traffic_loads(
-                params, dims.total_length, dims.total_width, dims.zone3_width, dims.zone2_width, udl_value
+                params,
+                dims.total_length,
+                dims.total_width,
+                dims.zone3_width,
+                dims.zone2_width,
+                udl_value=udl_value,
             )
         elif mode == LoadMode.ACTUAL:
-            udl_results = create_real_udl_traffic_loads(params, dims.total_length, udl_value)
+            udl_results = create_real_udl_traffic_loads(params, dims.total_length, udl_value=udl_value)
         else:
             _raise_unsupported_udl_mode_error(mode)
 
@@ -225,7 +230,7 @@ def generate_udl_loads(params: BridgeParams, mode: LoadMode | str | None = None,
 
 
 def generate_all_loads(
-    params: BridgeParams, load_types: list[LoadType] | None = None, mode: LoadMode | str | None = None, udl_value: float = DEFAULT_UDL_VALUE
+    params: BridgeParams, load_types: list[LoadType] | None = None, mode: LoadMode | str | None = None, udl_value: float = UDL_BASE_VALUE
 ) -> dict[str, list[dict[str, Any]]]:
     """
     Generate all types of loads for a bridge.

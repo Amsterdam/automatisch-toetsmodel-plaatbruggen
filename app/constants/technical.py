@@ -17,49 +17,55 @@ LOAD_CASE_SELECTION_DEFAULT: list[dict[str, Any]] = [
         "include": True,
         "load_type": "Eigen gewicht",
         "load_case_range": "BG1001",
-        "load_case_count": 1,
+        "load_case_count": "1",
     },
     {
         "include": True,
         "load_type": "Permanent",
         "load_case_range": "BG2001-BG2005",
-        "load_case_count": 5,
+        "load_case_count": "5",
     },
     {
         "include": True,
         "load_type": "Temperatuur",
         "load_case_range": "BG3001-BG3004",
-        "load_case_count": 4,
+        "load_case_count": "4",
     },
     {
         "include": True,
         "load_type": "UDL",
-        "load_case_range": "BG4001-BG4003",
-        "load_case_count": 3,
+        "load_case_range": "BG4000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
     {
         "include": True,
         "load_type": "Voetgangers",
         "load_case_range": "BG5001",
-        "load_case_count": 1,
+        "load_case_count": "1",
     },
     {
         "include": True,
         "load_type": "Dienstvoertuig",
-        "load_case_range": "BG6001-BG6xxx",
-        "load_case_count": 20,  # Estimated default
+        "load_case_range": "BG6000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
     {
         "include": True,
         "load_type": "Onbedoeld voertuig",
-        "load_case_range": "BG7001-BG7xxx",
-        "load_case_count": 50,  # Estimated default
+        "load_case_range": "BG7000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
     {
         "include": True,
         "load_type": "TS",
-        "load_case_range": "BG8001-BG10xxx",
-        "load_case_count": 30,  # Estimated default
+        "load_case_range": "BG8000-BG10000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
+    },
+    {
+        "include": True,  # Default to True - gating logic enforces conditions in load case creation
+        "load_type": "Tram",
+        "load_case_range": "BG11000-BG12000 serie",
+        "load_case_count": "dynamisch",  # Estimated default
     },
 ]
 
@@ -81,3 +87,25 @@ SIGNAGE_OPTIONS = [
     "25 ton",
     "20 ton",
 ]
+
+# Maximum number of bridges to include in chat context
+MAX_BRIDGES_IN_CHAT_CONTEXT = 60
+
+# Field descriptions for LLM chat context
+CHAT_FIELD_DESCRIPTIONS = {
+    "construction_year": "Stichtingsjaar van de brug (filtered_bridges.json of parametrisatie).",
+    "total_length_m": "Totale lengte in meters; voorkeur uit parametrisatie, anders filtered_bridges.json.",
+    "total_width_m": "Totale brugbreedte in meters (voor zover bekend).",
+    "max_uc": "Hoogste unity check (UC) uit IDEA; UC ≥ 1 betekent afkeur.",
+    "uc_status": "IDEA-status: PASSED of FAILED op basis van max UC.",
+    "classification": (
+        "Verwerkingsstatus: calculated (berekend), failed (berekend maar UC ≥ 1 of fout), "
+        "pending (wel compleet, nog niet berekend) of not_ready (ontbrekende invoer)."
+    ),
+    "cached": "Geeft aan of resultaten rechtstreeks uit de analyse-cache komen.",
+    "missing_fields": "Lijst van ontbrekende verplichte invoervelden indien de brug nog niet berekend kan worden.",
+}
+
+# Storage keys for batch calculation
+LAST_BATCH_RUN_KEY = "batch_calculation_last_run"
+STORAGE_STATUS_KEY = "batch_calculation_storage_status"

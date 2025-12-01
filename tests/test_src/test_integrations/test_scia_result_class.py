@@ -14,9 +14,14 @@ from src.integrations.scia_integration.results import scia_result_classes
 class DummyLoadCombination:
     """Dummy class to simulate a load combination object for result class tests."""
 
-    def __init__(self, index: str) -> None:
-        """Initialize with an index string."""
+    def __init__(self, index: str, name: str | None = None) -> None:
+        """Initialize with an index string and optional SCIA name."""
         self.index = index
+        self.name = name or index
+
+    def __repr__(self) -> str:
+        """Debug representation."""
+        return f"DummyLoadCombination(index={self.index!r}, name={self.name!r})"
 
 
 class DummySciaModelBuilder:
@@ -51,7 +56,16 @@ def make_test_df_and_list() -> tuple[pd.DataFrame, list[DummyLoadCombination]]:
     """
     indices = ["6.10a Perm", "6.10a gr1a", "6.14b Perm", "6.15b gr1a", "6.16b gr2", "6.67 Perm", "6.69 gr1a"]
     test_df = pd.DataFrame(index=indices)
-    filter_list = [DummyLoadCombination(idx) for idx in indices]
+    scia_names = [
+        "6.10a Perm",
+        "6.10a gr1a - Config A",
+        "6.14b Perm",
+        "6.15b gr1a - Config B",
+        "6.16b gr2 - Config C",
+        "6.67 Perm",
+        "6.69 gr1a - Config D",
+    ]
+    filter_list = [DummyLoadCombination(idx, name=name) for idx, name in zip(indices, scia_names, strict=True)]
     return test_df, filter_list
 
 
@@ -64,17 +78,15 @@ class TestResultClassFiltering:
         # Test for 6.14b
         result = scia_result_classes.filter_list_by_df_index(test_df, filter_list, ["6.14b"])
         assert len(result) == 1
-        assert result[0].index == "6.14b Perm"
+        assert {combo.index for combo in result} == {"6.14b Perm"}
         # Test for 6.15b and 6.16b
         result = scia_result_classes.filter_list_by_df_index(test_df, filter_list, ["6.15b", "6.16b"])
         assert len(result) == 2
-        assert result[0].index == "6.15b gr1a"
-        assert result[1].index == "6.16b gr2"
+        assert {combo.index for combo in result} == {"6.15b gr1a", "6.16b gr2"}
         # Test for 6.10a
         result = scia_result_classes.filter_list_by_df_index(test_df, filter_list, ["6.10a"])
         assert len(result) == 2
-        assert result[0].index == "6.10a Perm"
-        assert result[1].index == "6.10a gr1a"
+        assert {combo.index for combo in result} == {"6.10a Perm", "6.10a gr1a"}
 
 
 class TestResultClassCreation:
@@ -89,7 +101,7 @@ class TestResultClassCreation:
         result = scia_result_classes.create_uls_result_class_from_table(params, builder, filter_list)  # type: ignore[arg-type]
         assert result[0]["name"] == "ULS"
         assert len(result[0]["combinations"]) == 2
-        assert result[0]["combinations"][0].index == "6.10a Perm"
+        assert {combo.index for combo in result[0]["combinations"]} == {"6.10a Perm", "6.10a gr1a"}
 
     def test_create_sls_kar_result_class_from_table(self) -> None:
         """Test creation of SLS characteristic result class using create_sls_kar_result_class_from_table."""
@@ -133,8 +145,7 @@ class TestResultClassCreation:
         result = scia_result_classes.create_fat_result_class_from_table(params, builder, filter_list)  # type: ignore[arg-type]
         assert result[0]["name"] == "FAT"
         assert len(result[0]["combinations"]) == 2
-        assert result[0]["combinations"][0].index == "6.67 Perm"
-        assert result[0]["combinations"][1].index == "6.69 gr1a"
+        assert {combo.index for combo in result[0]["combinations"]} == {"6.67 Perm", "6.69 gr1a"}
 
     def test_create_all_result_classes(self) -> None:
         """Test creation of all result classes together using create_all_result_classes."""

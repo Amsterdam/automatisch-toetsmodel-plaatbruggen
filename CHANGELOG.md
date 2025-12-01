@@ -1,16 +1,51 @@
+## [Unreleased]
+### Added
+  **Shared Cache parameters**: added spreiding to the shared cache parameters.
+
+### Changed
+- **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
+  - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP
+  - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
+  - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
+  - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
+- **Load combinations**: Changed the system with which load combinations are generated.
+  - Updated the load combination table with new columns to differentiate between the tandem system and udl notional lanes and rest parts.
+  - Changed the implementation of load value calculation factors alpha trend, psi_NEN, alpha_Q and
+  implented a lane factors to differentiate between governing notional lanes.
+  - Moved calculation of these factors to seperate helper functions.
+  - Implemented these helper functions into the load combination table, which now represent combined load factors.
+  - Changed the load value of the tandem systems in the SCIA model to a default of 100 kN.
+  - Changed the load value of the UDL loads in the SCIA model to a default value of 2.5 kN per square meter.
+- **Mesh to 0.2**: changed the mesh of 2d members from 1.0 to 0.2 m.
+
+### Fixed
+- **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
+- **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
+- **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
+- **Load polygon dispersal**: Fixed proper load polygon dispersal for load polygons around bridge deck edges.
+  - Service vehicle and accidental vehicle loads are now positioned correctly along the edge of the bridge deck.
+  - Adapted the existing function `clip_polygon_to_bridge_boundaries()` to `move_polygon_to_bridge_boundaries()`, to comply with new functionality of this helper function.
+
+## [`v0.0.18`] - 2025-12-04
+### Added
+- Added tram loading to the load selection table.
+
 ## [`v0.0.17`] - 2025-11-13
 ### Added
 - Temperature loads on 2D elements
 - **UDL load system**: Added "schaakbordpatroon" for UDL in BG4000 series.
 Introduced a new naming system with span, lane and configuration identification.
 - Load combinations with group 5 that include the tram loading.
-- **Separated VIKTOR and GitHub Documentation**: Created `VIKTOR_README.md` with simplified user-facing content for VIKTOR platform
-  - VIKTOR shows only essential information: description, usage, and contact
-  - README.md retains full documentation including developer setup for GitHub
-  - Both files maintained separately for clarity
-- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results
+- **Separated VIKTOR and GitHub Documentation**: Created `VIKTOR_README.md` with simplified user-facing content for VIKTOR platform.
+  - VIKTOR shows only essential information: description, usage, and contact.
+  - README.md retains full documentation including developer setup for GitHub.
+  - Both files maintained separately for clarity.
+- **SCIA CS Visualization**: New interactive PlotlyView for visualizing SCIA Cross Section (CS) analysis results.
+- **Caching System Documentation**: Added comprehensive documentation in `.github/Rules/caching_system.md` explaining cache architecture and usage.
+- **Dataframe Caching**: SCIA CS dataframes (ULS, SLS freq, envelope) now cached for improved performance across views.
 
 ### Changed
+- Fixed surface loads with zero area which caused model singularities in SCIA.
 - Changed the load case naming system for the UDL series, according to the new load polygon positioning system.
 - Changed the load case naming system for the tandem loads. Now every tandem load has its own load case and better identifier.
 - Re-assigned the UDL and tandem loads to load groups.
@@ -27,8 +62,15 @@ New folder in the directory for the load combination generator.
   - Nieuwe kolommen met verduidelijking toegevoegd aan IDEA resultaat tabellen. 
 - **SCIA Results Parser Optimization**: Major performance improvements to `extract_analysis_results` in `scia_model_builder.py`:
   - Reduced XML file reads from 6 to 1 (60-80% performance improvement)
+  - Added dataframe caching for CS results (ULS, SLS freq, envelope)
+- **Cache Performance Optimization**: Optimized cache checking with hash memoization (10-50x faster on repeated checks)
+- **SCIA Views Performance**: All SCIA CS views now use cached dataframes instead of reprocessing XML data
 - **SCIA UI text**: updated the UI text.
 - **UI text invoer dimensies**: changed UI tekst by renaming code variable names like bz, bz2 and dz etc.
+
+### Fixed
+- **IDEA Integration**: Fixed SCIA to IDEA data flow to properly use cached envelope dataframes with correct column naming (_max suffix)
+- **SCIA Table Sorting**: Fixed force/moment columns (Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD) to use numeric values instead of strings with units, enabling proper sorting in SCIA CS ULS, SCIA CS SLS freq, and SCIA Analyse Resultaten tables
 
 ### Removed
 - **SCIA Results Cleanup**: Removed 3 unused functions from `scia_results_processor.py` (~75 lines):

@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from viktor.core import Storage
 from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
@@ -22,6 +23,7 @@ from viktor.parametrization import (
     Page,
     Parametrization,
     RowLookup,
+    SetParamsButton,
     Tab,
     Table,
     Text,
@@ -29,6 +31,7 @@ from viktor.parametrization import (
     TextField,
 )
 
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
 from app.constants import (
     BRIDGE_DATA_PATH,
     CALCULATION_LEVEL_OPTIONS,
@@ -136,6 +139,51 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         counts["Tandem systeem belastingen"] = 30  # Estimated
 
     return counts
+
+
+# --- Storage warning helpers -------------------------------------------------
+
+
+def _read_storage_warning_marker() -> dict[str, str] | None:
+    """Read the workspace storage warning marker if it exists."""
+    storage = Storage()
+    try:
+        warning_file = storage.get(STORAGE_WARNING_MARKER_KEY, scope="workspace")
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        return {"message": f"Opslagstatus onbekend (lezen mislukt: {exc})", "timestamp": ""}
+
+    raw_value = warning_file.getvalue()
+    if isinstance(raw_value, bytes):
+        raw_value = raw_value.decode("utf-8")
+
+    try:
+        data = json.loads(raw_value)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    return {"message": str(raw_value), "timestamp": ""}
+
+
+def _storage_warning_visible(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
+    """Visibility callback that returns True when a storage warning marker exists."""
+    return _read_storage_warning_marker() is not None
+
+
+def _storage_warning_message(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """Return the warning message (including timestamp) shown to the user."""
+    payload = _read_storage_warning_marker()
+    if not payload:
+        return ""
+
+    message = payload.get("message") or "Opslaglimiet bereikt."
+    timestamp = payload.get("timestamp")
+    if timestamp:
+        return f"{message} (laatst bijgewerkt: {timestamp} UTC)"
+    return message
 
 
 # --- Helper functions for Bridge Data Loading ---
@@ -782,7 +830,32 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
 
+    input.dimensions.storage_warning_alert = Text(
+        "⚠️ Opslaglimiet bereikt\nWis de workspace cache met de knop op het statusoverzicht of hergenereer alle entities.",
+        visible=_storage_warning_visible,
+    )
+    input.dimensions.storage_warning_details = OutputField(
+        "Opslagstatus",
+        value=_storage_warning_message,
+        visible=_storage_warning_visible,
+        flex=100,
+    )
+
     input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
+
+    # Global input fields for applying dimensions to all segments
+    input.dimensions.bz1_input = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz2_input = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.bz3_input = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1, flex=33)
+    input.dimensions.lb_separator = LineBreak()
+    input.dimensions.dz_input = NumberField("Dikte zone 1 en 3", default=0.7, suffix="m", min=0.05, flex=50)
+    input.dimensions.dz_2_input = NumberField("Dikte zone 2", default=0.8, suffix="m", min=0.05, flex=50)
+    input.dimensions.lb_0 = LineBreak()
+    input.dimensions.apply_dimensions_button = SetParamsButton(
+        "Pas dimensies toe op alle segmenten",
+        method="apply_dimensions_to_all_segments",
+        description="Klik om de bovenstaande waarden toe te passen op alle segmenten in de tabel hieronder",
+    )
 
     input.dimensions.array = DynamicArray(
         "Brug dimensies",
@@ -798,9 +871,11 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
     input.dimensions.array.is_first_segment = BooleanField("Is First Segment Marker", default=False, visible=False)
 
-    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1)
-    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1)
-    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1)
+    input.dimensions.array.bz1 = NumberField("Breedte zone 1", default=10.0, suffix="m", min=0.1, visible=False)
+
+    input.dimensions.array.bz2 = NumberField("Breedte zone 2", default=3.0, suffix="m", min=0.1, visible=False)
+
+    input.dimensions.array.bz3 = NumberField("Breedte zone 3", default=15.0, suffix="m", min=0.1, visible=False)
 
     # Thickness fields - editable only on first segment, read-only on others
     # Using callbacks to get first segment's values for output fields
@@ -836,14 +911,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=0.7,
         suffix="m",
         min=0.05,
-        visible=_dz_input_visibility,
+        visible=False,
         description="Dikte van zones 1 en 3 (geldt voor gehele brug)",
-    )
-    input.dimensions.array.dz_output = OutputField(
-        "Dikte zone 1 en 3",
-        value=_get_first_segment_dz,
-        suffix="m",
-        visible=_dz_output_visibility,
     )
 
     input.dimensions.array.dz_2 = NumberField(
@@ -851,14 +920,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default=0.8,
         suffix="m",
         min=0.05,
-        visible=_dz_input_visibility,
+        visible=False,
         description="Dikte van zone 2 (geldt voor gehele brug)",
-    )
-    input.dimensions.array.dz_2_output = OutputField(
-        "Dikte zone 2",
-        value=_get_first_segment_dz_2,
-        suffix="m",
-        visible=_dz_output_visibility,
     )
 
     input.dimensions.array.col_6 = NumberField("alpha", default=0.0, suffix="Graden", visible=False)
@@ -1258,17 +1321,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     )
 
     # Define table columns (order determines display order)
-    calc_page.calc_selection.load_case_selection_table.include = BooleanField(" ", description="Schakel deze belastingen in/uit voor het SCIA model")
+    calc_page.calc_selection.load_case_selection_table.include = BooleanField(
+        " ",
+        description="Schakel deze belastingen in/uit voor het SCIA model",
+    )
     calc_page.calc_selection.load_case_selection_table.load_type = TextField(
-        "Belastingtype", description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)"
+        "Belastingtype",
+        description="Type van de belasting (bijv. Eigen gewicht, Verkeersbelastingen)",
     )
     calc_page.calc_selection.load_case_selection_table.load_case_range = TextField(
-        "Belastinggevallen", description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)"
+        "Belastinggevallen",
+        description="Range van belastinggevallen die worden gegenereerd (bijv. BG1001, BG2001-BG2005)",
     )
-    calc_page.calc_selection.load_case_selection_table.load_case_count = NumberField(
+    calc_page.calc_selection.load_case_selection_table.load_case_count = TextField(
         "Aantal belastinggevallen",
-        suffix="",
-        visible=True,
         description="Aantal belastinggevallen dat wordt gegenereerd - indicator voor rekentijd impact",
     )
 
@@ -1310,7 +1376,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     scia.downloads.info_text = Text(SCIA_INFO_TEXT)
 
     # Download buttons - use DownloadButton instead of ActionButton
-    scia.downloads.download_xml_button = DownloadButton("Download XML Files", method="download_scia_xml_files", longpoll=True)
+    scia.downloads.download_xml_button = DownloadButton("Download input files", method="download_scia_xml_files", longpoll=True)
 
     scia.downloads.download_esa_button = DownloadButton("Download ESA Model", method="download_scia_esa_model", longpoll=True)
 

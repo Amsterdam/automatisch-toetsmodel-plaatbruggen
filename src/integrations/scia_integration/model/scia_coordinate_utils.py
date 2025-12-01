@@ -571,15 +571,15 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     return (None, None)
 
 
-def clip_polygon_to_bridge_boundaries(
+def move_polygon_to_bridge_boundaries(
     corner_points: list[tuple[float, float, float]], bridge_geom_data: BridgeGeometryData
 ) -> list[tuple[float, float, float]]:
     """
-    Clip a polygon to stay within bridge boundaries.
+    Align a polygon with bridge deck boundaries without shrinking its surface.
 
     :param corner_points: List of 3D corner points [(x, y, z), ...]
     :param bridge_geom_data: Bridge geometry data containing boundary information
-    :returns: Clipped corner points within bridge boundaries
+    :returns: Corner points translated (only in Y) so patches touch deck edges without clipping
     """
     if not corner_points:
         return corner_points
@@ -587,20 +587,45 @@ def clip_polygon_to_bridge_boundaries(
     # Extract bridge boundaries
     if not hasattr(bridge_geom_data, "x_coords_d_points"):
         return corner_points  # Return original if no geometry data
-    x_min = bridge_geom_data.x_coords_d_points[0]
-    x_max = bridge_geom_data.x_coords_d_points[-1]
+
+    # Get Y boundaries from bridge geometry
     y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]
     y_max = bridge_geom_data.y_top_structural_edge_at_d_points[0]
 
-    clipped_points = []
-    for x, y, z in corner_points:
-        # Clip X coordinates
-        clipped_x = max(x_min, min(x_max, x))
-        # Clip Y coordinates
-        clipped_y = max(y_min, min(y_max, y))
-        clipped_points.append((clipped_x, clipped_y, z))
+    y_values = [point[1] for point in corner_points]
+    current_min = min(y_values)
+    current_max = max(y_values)
 
-    return clipped_points
+    def _calculate_y_shift() -> float:
+        """
+        Determine how far the polygon must be translated in Y so it borders the deck edge
+        without altering its size. Positive shift moves the polygon upwards (towards +Y).
+        """
+        if current_min >= y_min and current_max <= y_max:
+            return 0.0
+        if current_min < y_min and current_max <= y_max:
+            return y_min - current_min
+        if current_max > y_max and current_min >= y_min:
+            return y_max - current_max
+
+        # Polygon exceeds both edges; align centers to minimize truncation.
+        polygon_mid = (current_min + current_max) / 2.0
+        deck_mid = (y_min + y_max) / 2.0
+        return deck_mid - polygon_mid
+
+    y_shift = _calculate_y_shift()
+
+    adjusted_points: list[tuple[float, float, float]] = []
+    for x_coord, y_coord, z_coord in corner_points:
+        new_y = y_coord + y_shift
+        # Safety clamp to prevent floating point drift outside deck boundaries.
+        if new_y < y_min:
+            new_y = y_min
+        elif new_y > y_max:
+            new_y = y_max
+        adjusted_points.append((x_coord, new_y, z_coord))
+
+    return adjusted_points
 
 
 def _get_material_dispersion_angle(material: str) -> int | None:

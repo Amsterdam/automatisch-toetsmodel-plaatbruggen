@@ -254,6 +254,7 @@ class SciaIntegration:
         # Pass bridge_segments to enable zone mapping
         bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
 
+        progress_message(f"Genereren visualisatie voor {result_type}...")
         return create_scia_cs_plotly_visualization(
             results=results,
             result_type=result_type,
@@ -362,10 +363,15 @@ class SciaIntegration:
 
             bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
+            # Load ESA template to include in ZIP (binary file)
+            esa_content = template_path.read_bytes()
+
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr(f"SCIA_model_{bridge_id}.xml", xml_content)
                 z.writestr("viktor.xml.def", def_content)
+                # Add ESA template for manual import
+                z.writestr("model.esa", esa_content)
 
             return DownloadResult(file_content=zip_file_obj, file_name=f"{bridge_id}_Input_Files.zip")
 
