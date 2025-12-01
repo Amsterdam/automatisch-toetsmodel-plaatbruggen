@@ -1,16 +1,71 @@
 """Module for the Overview Bridges entity parametrization."""
 
+from datetime import datetime
+
+from viktor.core import Storage
 from viktor.parametrization import (
     ActionButton,
     ChildEntityManager,
     DownloadButton,
     FileField,
+    OutputField,
     Page,
     Parametrization,
     Text,
 )
 
-from app.constants import BATCH_CALCULATION_BUTTONS_TEXT, BATCH_CALCULATION_INTRO_TEXT
+try:  # pragma: no cover - fallback for environments without Chat field support
+    from viktor.parametrization import Chat
+except ImportError:  # pragma: no cover
+    Chat = None  # type: ignore[assignment, misc]
+
+from app.overview_bridges.batch_calculation.utils import load_storage_status
+
+
+def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """
+    Get formatted storage status text for OutputField.
+
+    Returns technical storage operation status for developers.
+    Shows last storage operation timestamp, success/failure, and details.
+
+    :param params: Parametrization (unused, required by VIKTOR)
+    :type params: Any
+    :param kwargs: Additional keyword arguments
+    :type kwargs: Any
+    :returns: Formatted status text
+    :rtype: str
+    """
+    storage = Storage()
+    status = load_storage_status(storage)
+
+    if status is None:
+        return "Geen opslag status beschikbaar.\n\nVoer een batch berekening uit om status te zien."
+
+    # Format timestamp
+    timestamp_str = status.get("timestamp", "Onbekend")
+    try:
+        dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+        timestamp_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+    except Exception:
+        pass
+
+    success = status.get("success", False)
+    message = status.get("message", "Geen bericht")
+    details = status.get("details", {})
+
+    status_icon = "✓" if success else "✗"
+    status_text = "SUCCES" if success else "GEFAALD"
+
+    # Format details
+    detail_lines = []
+    if details:
+        for key, value in details.items():
+            detail_lines.append(f"  • {key}: {value}")
+
+    detail_text = "\n".join(detail_lines) if detail_lines else "  (geen details)"
+
+    return f"Status: {status_icon} {status_text}\nTijdstip: {timestamp_str}\nBericht: {message}\n\nDetails:\n{detail_text}"
 
 
 class OverviewBridgesParametrization(Parametrization):
@@ -72,12 +127,39 @@ class OverviewBridgesParametrization(Parametrization):
     # Moved regenerate_button below the manager
     bridge_overview.regenerate_button = ActionButton("(Her)genereer Bruggen", method="regenerate_bridges_action")
 
-    # Define the Batch Calculation page
+    # Define the Batch Calculation page - combined view with status and results
     batch_calculation = Page("Statusoverzicht", views=["view_batch_status_and_results"])
-    batch_calculation.introduction_text = Text(BATCH_CALCULATION_INTRO_TEXT)
 
-    batch_calculation.action_buttons_text = Text(BATCH_CALCULATION_BUTTONS_TEXT)
+    # Short introduction
+    batch_calculation.introduction_text = Text(
+        "Op deze pagina kun je batch berekeningen uitvoeren voor alle bruggen tegelijk. "
+        "Rechts in de tabel zie je het statusoverzicht met de berekeningsstatus per brug."
+    )
 
+    # Chat section for querying batch results
+    batch_calculation.chat_section = Text("### Resultaten Chat")
+    batch_calculation.chat_guidance = Text(
+        "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
+        "en start nooit automatisch een nieuwe berekening."
+    )
+    if Chat is not None:
+        batch_calculation.batch_results_chat = Chat(
+            "Resultaten chat",
+            method="chat_batch_results",
+            placeholder="Bijv. 'Welke bruggen uit 1950-1980 hebben UC > 1?'",
+            first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
+            flex=100,
+        )
+
+    # Information about calculations and buttons
+    batch_calculation.calculation_info = Text("### Over de berekening")
+    batch_calculation.calculation_details = Text(
+        "Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld (geel gemarkeerd). "
+        "Bruggen die nog informatie missen worden rood gemarkeerd met de ontbrekende velden. "
+        "Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.\n\n"
+        "**Let op:** Het kan erg lang duren voordat de berekeningen klaar zijn."
+    )
+    # Action buttons section
     batch_calculation.action_buttons = Text("### Acties")
 
     batch_calculation.refresh_button = ActionButton(
@@ -87,7 +169,15 @@ class OverviewBridgesParametrization(Parametrization):
         "Start Berekening", method="run_batch_calculation", description="Start batch berekening voor alle bruggen die klaar zijn"
     )
 
-    batch_calculation.cache_section = Text("### Cache Beheer")
+    # Technical/developer info section at the bottom
+    batch_calculation.nerd_info_section = Text("### Technische tools en info voor nerds")
+    batch_calculation.cache_section = Text("#### Cache Beheer")
     batch_calculation.clear_cache_button = ActionButton(
         "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
+    )
+    batch_calculation.storage_status_section = Text("#### Opslag Status")
+    batch_calculation.storage_status = OutputField(
+        "Laatste opslag operatie",
+        value=_get_storage_status_text,
+        flex=100,
     )

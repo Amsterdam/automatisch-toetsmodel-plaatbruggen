@@ -68,8 +68,33 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
 
     # Create IDEA model with the SCIA results
     progress_message(f"{prefix}Genereren IDEA model...", percentage=percentage)
-    model = create_bridge_idea_model(params, entity_id, scia_results_dict)
-    idea_xml_input_bytes = model.generate_xml_input()
+    try:
+        model = create_bridge_idea_model(params, entity_id, scia_results_dict)
+    except UserError:
+        # Re-raise UserError as-is (already has helpful message)
+        raise
+    except Exception as e:
+        # Wrap other exceptions with helpful context
+        raise UserError(
+            f"IDEA model generatie gefaald: {e!s}. "
+            "Mogelijk zijn de brugparameters gewijzigd na een eerdere berekening. "
+            "Probeer de cache te wissen en opnieuw te berekenen."
+        ) from e
+
+    # Generate XML input - this may raise ExecutionError from IDEA SDK
+    try:
+        idea_xml_input_bytes = model.generate_xml_input()
+    except Exception as e:
+        # IDEA SDK may raise ExecutionError with "Idea model cannot be generated"
+        error_msg = str(e)
+        if "cannot be generated" in error_msg.lower() or "cannot be generated" in error_msg:
+            raise UserError(
+                "IDEA model kan niet worden gegenereerd. "
+                "Mogelijke oorzaken: geen dwarsdoorsneden gemaakt, geen belastingen toegepast, of ongeldige geometrie. "
+                "Controleer of de wapeningszones overeenkomen met de brugsegmenten en of SCIA resultaten beschikbaar zijn. "
+                "Als de brugparameters zijn gewijzigd, wis de cache en voer een nieuwe berekening uit."
+            ) from e
+        raise UserError(f"IDEA model XML generatie gefaald: {e!s}") from e
 
     # Run IDEA analysis
     progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
@@ -219,7 +244,8 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     if bridge_segments is None:
         bridge_segments = []
 
-    # Process SCIA CS (Cross Section) envelope results for IDEA
+    # Always process through process_scia_cs_results_for_idea to ensure proper column naming
+    # This function is smart - it will use cached df_cs_envelope if available
     # This returns a single DataFrame with filtered ULS and SLS freq envelope data
     progress_message(f"{prefix}Verwerken SCIA CS resultaten voor IDEA...", percentage=percentage)
     cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
@@ -686,9 +712,9 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         "summary": full_results.get("summary"),
     }
 
-    # Include cs_envelope_df if present (parsed, relatively small)
-    if "cs_envelope_df" in full_results:
-        cacheable["cs_envelope_df"] = full_results["cs_envelope_df"]
+    # Include df_cs_envelope if present (parsed, relatively small)
+    if "df_cs_envelope" in full_results:
+        cacheable["df_cs_envelope"] = full_results["df_cs_envelope"]
 
     # Include other DataFrames/parsed results (small)
     for key in ["displacements", "internal_forces", "reactions", "stresses"]:
@@ -843,8 +869,16 @@ def get_cached_analysis_results(  # noqa: PLR0913
     """
     cache = _get_analysis_cache()
 
-    # Try to get cached results (hash computation is fast)
-    progress_message(f"Controleren cache voor {analysis_type.value.upper()} analyse...")
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    # Try to get cached results (hash computation is fast with memoization)
+    progress_message(f"{prefix}Controleren op gecachte resultaten...", percentage=percentage)
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
         progress_message("Gecachte resultaten gevonden - laden...")

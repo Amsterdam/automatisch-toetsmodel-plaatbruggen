@@ -1353,14 +1353,11 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
 
         # Generate envelope dataframe (used by IDEA and analyse resultaten view)
         df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-    except Exception:
-        # If dataframe generation fails, return empty dataframes
-        # This prevents cache failures but allows the rest of the analysis to succeed
-        return {
-            "df_cs_uls": pd.DataFrame(),
-            "df_cs_sls_freq": pd.DataFrame(),
-            "df_cs_envelope": pd.DataFrame(),
-        }
+    except Exception as e:
+        # Print the error so the actual issue is visible
+        print(f"Error: Failed to generate CS dataframes: {e}")
+        # Re-raise so the actual error is visible instead of silently returning empty data
+        raise
     else:
         return {
             "df_cs_uls": df_cs_uls,

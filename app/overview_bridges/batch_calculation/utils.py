@@ -1,14 +1,14 @@
 """Utility functions for batch calculation."""
 
 import base64
-import logging
 import pickle
+from datetime import datetime, timezone
 from typing import Any
 
-from viktor.core import File
+from viktor.core import File, Storage
 from viktor.errors import UserError
 
-logger = logging.getLogger(__name__)
+from app.constants.technical import LAST_BATCH_RUN_KEY, STORAGE_STATUS_KEY
 
 
 def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001, C901, PLR0912, PLR0915
@@ -270,13 +270,49 @@ def calculate_estimated_batch_time(num_ready_bridges: int) -> str:
     return f"{min_hours}-{max_hours} uur ({min_minutes}-{max_minutes} minuten)"
 
 
+def _find_header_index(headers: list[str], target: str) -> int | None:
+    """
+    Find index of header in list, return None if not found.
+
+    :param headers: List of header strings
+    :type headers: list[str]
+    :param target: Target header to find
+    :type target: str
+    :returns: Index of header or None if not found
+    :rtype: int | None
+    """
+    try:
+        return headers.index(target)
+    except ValueError:
+        return None
+
+
+def _safe_parse_uc(value: Any) -> float | None:  # noqa: ANN401
+    """
+    Safely parse UC value from string or number, return None for N/A.
+
+    :param value: Value to parse (can be string, number, or None)
+    :type value: Any
+    :returns: Parsed float value or None
+    :rtype: float | None
+    """
+    if value is None or value == "N/A":
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
 def extract_uc_summary_from_idea_results(idea_results: dict[str, Any]) -> dict[str, Any]:
     """
     Extract UC summary from IDEA analysis results.
 
+    Now includes detailed breakdown of all 7 UC check types.
+
     :param idea_results: IDEA analysis results dictionary
     :type idea_results: dict[str, Any]
-    :returns: Summary dictionary with max_uc, status, failed_checks
+    :returns: Summary dictionary with max_uc, status, failed_checks, and uc_breakdown
     :rtype: dict[str, Any]
     """
     from src.integrations.idea_integration.idea_results_processor import IdeaResultsProcessor
@@ -288,22 +324,55 @@ def extract_uc_summary_from_idea_results(idea_results: dict[str, Any]) -> dict[s
             "max_uc": None,
             "status": "FAILED",
             "failed_checks": [],
+            "uc_breakdown": None,
             "error": processed.get("error", "Unknown error"),
         }
 
-    # Extract UC values from table data
-    max_uc = 0.0
+    headers = processed.get("headers", [])
+    data = processed.get("data", [])
+
+    # Map header indices for UC columns
+    uc_indices = {
+        "uc_capaciteit": _find_header_index(headers, "UC Capaciteit"),
+        "uc_schuifkracht": _find_header_index(headers, "UC Schuifkracht"),
+        "uc_torsie": _find_header_index(headers, "UC Torsie"),
+        "uc_interactie": _find_header_index(headers, "UC Interactie"),
+        "uc_scheurwijdte": _find_header_index(headers, "UC Scheurwijdte"),
+        "uc_detailing": _find_header_index(headers, "UC Detailing"),
+        "uc_spanningslimieten": _find_header_index(headers, "UC Spanningslimieten"),
+    }
+
+    # Find maximum UC value for each check type
+    uc_breakdown: dict[str, float | None] = {}
+    max_overall_uc = 0.0
     failed_checks = []
 
-    for row in processed.get("data", []):
-        # Row format varies, extract UC values where available
-        if len(row) > 1 and isinstance(row[1], (int, float)):
-            uc_value = float(row[1])
-            max_uc = max(max_uc, uc_value)
-            if uc_value >= 1.0:
-                failed_checks.append(row[0] if row else "Unknown")
+    for check_name, col_idx in uc_indices.items():
+        if col_idx is None:
+            uc_breakdown[check_name] = None
+            continue
 
-    return {"max_uc": max_uc, "status": "PASSED" if max_uc < 1.0 else "FAILED", "failed_checks": failed_checks}
+        max_uc_for_check = 0.0
+        for row in data:
+            if col_idx < len(row):
+                uc_value = _safe_parse_uc(row[col_idx])
+                if uc_value is not None:
+                    max_uc_for_check = max(max_uc_for_check, uc_value)
+                    max_overall_uc = max(max_overall_uc, uc_value)
+
+                    if uc_value >= 1.0:
+                        section_name = row[0] if len(row) > 0 else "Unknown"
+                        if section_name not in failed_checks:
+                            failed_checks.append(section_name)
+
+        uc_breakdown[check_name] = max_uc_for_check if max_uc_for_check > 0 else None
+
+    return {
+        "max_uc": max_overall_uc,
+        "status": "PASSED" if max_overall_uc < 1.0 else "FAILED",
+        "failed_checks": failed_checks,
+        "uc_breakdown": uc_breakdown,
+    }
 
 
 def check_idea_cache_status(bridge_params: Any, bridge_entity_id: int, batch_results_cache_hash: str | None = None) -> bool:  # noqa: ANN401, C901
@@ -404,6 +473,104 @@ def generate_bridge_report_url(entity_id: int) -> str:
     return f"/app/entity/{entity_id}/rapport"
 
 
+def record_batch_last_run_timestamp(storage: Storage, timestamp: datetime | None = None) -> None:
+    """
+    Store the timestamp of the last successful batch calculation run.
+
+    :param storage: VIKTOR storage instance
+    :type storage: Storage
+    :param timestamp: Timestamp to store. Defaults to current UTC time if not provided.
+    :type timestamp: datetime | None
+    """
+    ts = timestamp or datetime.now(timezone.utc)
+    storage.set(LAST_BATCH_RUN_KEY, File.from_data(ts.isoformat()), scope="entity")
+
+
+def load_batch_last_run_timestamp(storage: Storage) -> str | None:
+    """
+    Load the timestamp of the last successful batch calculation run.
+
+    :param storage: VIKTOR storage instance
+    :type storage: Storage
+    :returns: ISO formatted timestamp or None if not available
+    :rtype: str | None
+    """
+    try:
+        ts_file = storage.get(LAST_BATCH_RUN_KEY, scope="entity")
+    except FileNotFoundError:
+        return None
+    if isinstance(ts_file, bool):
+        return None
+    if isinstance(ts_file, File):
+        with ts_file.open() as fh:
+            content = fh.read().strip()
+            return content or None
+    if hasattr(ts_file, "getvalue"):
+        value = ts_file.getvalue()
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        return value.strip() or None
+    return None
+
+
+def record_storage_status(storage: Storage, success: bool, message: str, details: dict[str, Any] | None = None) -> None:
+    """
+    Record storage operation status for monitoring in production.
+
+    :param storage: VIKTOR storage instance
+    :type storage: Storage
+    :param success: Whether the storage operation succeeded
+    :type success: bool
+    :param message: Status message
+    :type message: str
+    :param details: Optional additional details (e.g., number of results saved, error type)
+    :type details: dict[str, Any] | None
+    """
+    import json
+
+    status_data = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "success": success,
+        "message": message,
+        "details": details or {},
+    }
+    try:
+        status_json = json.dumps(status_data, indent=2)
+        storage.set(STORAGE_STATUS_KEY, File.from_data(status_json), scope="entity")
+    except Exception as e:
+        print(f"Warning: Failed to record storage status: {e}")
+
+
+def load_storage_status(storage: Storage) -> dict[str, Any] | None:
+    """
+    Load the last storage operation status.
+
+    :param storage: VIKTOR storage instance
+    :type storage: Storage
+    :returns: Status dictionary with timestamp, success, message, and details, or None if not available
+    :rtype: dict[str, Any] | None
+    """
+    try:
+        status_file = storage.get(STORAGE_STATUS_KEY, scope="entity")
+    except FileNotFoundError:
+        return None
+    if isinstance(status_file, bool):
+        return None
+    if isinstance(status_file, File):
+        try:
+            import json
+
+            with status_file.open() as fh:
+                content = fh.read()
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8")
+                return json.loads(content)
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"Warning: Failed to load storage status: {e}")
+            return None
+    return None
+
+
 def serialize_batch_results(batch_results: dict[int, dict[str, Any]]) -> File:
     """
     Serialize batch results dictionary to a VIKTOR File object.
@@ -433,28 +600,25 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     :rtype: dict[int, dict[str, Any]]
     :raises TypeError: If stored_file is not a File object
     """
-    # DEBUG: Detailed type information at function entry
-    from viktor.core import File
-
     # Validate input type - be very explicit about what we expect
     # Check for boolean first (most common invalid type)
     if isinstance(stored_file, bool):
         error_msg = f"Received boolean instead of File: {stored_file}"
-        logger.error(error_msg)
+        print(f"Error: {error_msg}")
         raise TypeError(error_msg)
 
     # Then check for File type
     if not isinstance(stored_file, File):
         file_type = type(stored_file)
         error_msg = f"Expected File object, got {file_type.__name__}: {stored_file}"
-        logger.error(error_msg)
+        print(f"Error: {error_msg}")
         raise TypeError(error_msg)
 
     # Verify method exists before calling it
     if not hasattr(stored_file, "open_binary"):
         file_type = type(stored_file)
         error_msg = f"File object missing 'open_binary' method. Got type: {file_type.__name__}, value: {stored_file}"
-        logger.error(error_msg)
+        print(f"Error: {error_msg}")
         raise TypeError(error_msg)
 
     # Extract content from file object
@@ -465,9 +629,12 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
     except AttributeError:
         # This should not happen if hasattr check passed, but catch it anyway
         file_type = type(stored_file)
-        logger.exception("open_binary() failed on %s", file_type.__name__)
+        print(f"Error: open_binary() failed on {file_type.__name__}")
+        import traceback
+
+        print(traceback.format_exc())
         # Try fallback methods as last resort
-        logger.warning("Attempting fallback methods for file extraction")
+        print("Warning: Attempting fallback methods for file extraction")
         if hasattr(stored_file, "getvalue"):
             encoded_data = stored_file.getvalue()
         elif hasattr(stored_file, "read"):
