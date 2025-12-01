@@ -16,6 +16,7 @@
   - Implemented these helper functions into the load combination table, which now represent combined load factors.
   - Changed the load value of the tandem systems in the SCIA model to a default of 100 kN.
   - Changed the load value of the UDL loads in the SCIA model to a default value of 2.5 kN per square meter.
+- **Mesh to 0.2**: changed the mesh of 2d members from 1.0 to 0.2 m.
 
 ### Fixed
 - **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
