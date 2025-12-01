@@ -36,7 +36,6 @@ def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
     :returns: Formatted status text
     :rtype: str
     """
-
     storage = Storage()
     status = load_storage_status(storage)
 

@@ -5,9 +5,10 @@ import pickle
 from datetime import datetime, timezone
 from typing import Any
 
-from app.constants.technical import LAST_BATCH_RUN_KEY, STORAGE_STATUS_KEY
 from viktor.core import File, Storage
 from viktor.errors import UserError
+
+from app.constants.technical import LAST_BATCH_RUN_KEY, STORAGE_STATUS_KEY
 
 
 def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> tuple[bool, list[str], float]:  # noqa: ANN401, ARG001, C901, PLR0912, PLR0915
@@ -630,6 +631,7 @@ def deserialize_batch_results(stored_file: File) -> dict[int, dict[str, Any]]:
         file_type = type(stored_file)
         print(f"Error: open_binary() failed on {file_type.__name__}")
         import traceback
+
         print(traceback.format_exc())
         # Try fallback methods as last resort
         print("Warning: Attempting fallback methods for file extraction")

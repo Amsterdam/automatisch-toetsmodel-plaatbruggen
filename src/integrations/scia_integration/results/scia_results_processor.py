@@ -483,8 +483,9 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
             unique_zones = df_result["zone"].unique().tolist()
             if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
                 print(f"Warning: Zone mapping produced invalid zones: {unique_zones}")
-        except Exception as e:
+        except Exception:
             import traceback
+
             print(
                 f"Error: Zone mapping failed for CS results. Segments: {len(bridge_segments) if bridge_segments else 0}, CS sections: {len(df_result)}"
             )

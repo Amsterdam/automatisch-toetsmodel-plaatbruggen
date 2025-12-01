@@ -47,7 +47,7 @@ def _load_batch_results_from_storage(storage: Storage) -> dict[int, dict[str, An
         batch_results_file = storage.get("batch_calculation_results", scope="entity")
 
         if isinstance(batch_results_file, bool):
-            print(f"Warning: Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
+            print("Warning: Found boolean value in storage for 'batch_calculation_results'. Deleting invalid entry.")
             with contextlib.suppress(Exception):
                 storage.delete("batch_calculation_results", scope="entity")
             return None
@@ -600,9 +600,7 @@ class BatchCalculationComponent:
 
                     if idea_results is None:
                         # Cache check said it exists but retrieval failed - treat as non-cached and calculate
-                        print(
-                            f"Warning: Bridge {bridge_name} (ID: {bridge_id}): Cache check passed but retrieval failed, treating as non-cached"
-                        )
+                        print(f"Warning: Bridge {bridge_name} (ID: {bridge_id}): Cache check passed but retrieval failed, treating as non-cached")
                         non_cached_bridges_list.append((bridge_entity, bridge_params))
                         total_non_cached_bridges += 1
                         total_bridges = len(cached_bridges_list) + total_non_cached_bridges  # Update total

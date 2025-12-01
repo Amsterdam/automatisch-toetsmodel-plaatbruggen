@@ -48,4 +48,3 @@ def build_system_prompt(dataset_summary: str) -> str:
         "BESCHIKBARE DATA:\n"
         f"{dataset_summary}"
     )
-
