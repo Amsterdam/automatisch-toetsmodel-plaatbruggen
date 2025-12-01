@@ -16,11 +16,15 @@
   - Implemented these helper functions into the load combination table, which now represent combined load factors.
   - Changed the load value of the tandem systems in the SCIA model to a default of 100 kN.
   - Changed the load value of the UDL loads in the SCIA model to a default value of 2.5 kN per square meter.
+- **Mesh to 0.2**: changed the mesh of 2d members from 1.0 to 0.2 m.
 
 ### Fixed
 - **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
 - **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
 - **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
+- **Load polygon dispersal**: Fixed proper load polygon dispersal for load polygons around bridge deck edges.
+  - Service vehicle and accidental vehicle loads are now positioned correctly along the edge of the bridge deck.
+  - Adapted the existing function `clip_polygon_to_bridge_boundaries()` to `move_polygon_to_bridge_boundaries()`, to comply with new functionality of this helper function.
 
 ## [`v0.0.18`] - 2025-12-04
 ### Added
