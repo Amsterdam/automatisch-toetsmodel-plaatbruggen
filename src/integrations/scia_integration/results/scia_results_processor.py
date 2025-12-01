@@ -487,7 +487,9 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
             import traceback
 
             print(
-                f"Error: Zone mapping failed for CS results. Segments: {len(bridge_segments) if bridge_segments else 0}, CS sections: {len(df_result)}"
+                f"Error: Zone mapping failed for CS results. "
+                f"Segments: {len(bridge_segments) if bridge_segments else 0}, "
+                f"CS sections: {len(df_result)}"
             )
             print(traceback.format_exc())
             df_result["zone"] = "mapping-failed"
