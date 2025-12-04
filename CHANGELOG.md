@@ -1,6 +1,9 @@
-## [Unreleased]
+## [`v0.0.19`] - 2025-12-04
+
+## [`v0.0.18`] - 2025-12-01
 ### Added
   **Shared Cache parameters**: added spreiding to the shared cache parameters.
+  - Added tram loading to the load selection table.
 
 ### Changed
 - **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
@@ -26,9 +29,7 @@
   - Service vehicle and accidental vehicle loads are now positioned correctly along the edge of the bridge deck.
   - Adapted the existing function `clip_polygon_to_bridge_boundaries()` to `move_polygon_to_bridge_boundaries()`, to comply with new functionality of this helper function.
 
-## [`v0.0.18`] - 2025-12-04
-### Added
-- Added tram loading to the load selection table.
+
 
 ## [`v0.0.17`] - 2025-11-13
 ### Added
