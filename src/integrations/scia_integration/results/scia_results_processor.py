@@ -17,7 +17,6 @@ CS Table Types (results from SCIA section on plane objects):
 """
 
 import functools
-from pathlib import Path
 from typing import Any, Callable, Union
 
 import pandas as pd
@@ -30,31 +29,6 @@ from src.integrations.scia_integration.constants.results import (
 
 from .scia_force_calculator import fill_missing_force_values
 from .scia_result_helpers import get_nested_result_data
-
-
-def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
-    """
-    Export DataFrame to Excel file for debugging (view processing).
-
-    Creates files in C:/temp/ directory for easy manual inspection.
-
-    :param df: DataFrame to export
-    :type df: pd.DataFrame
-    :param filename: Name of the Excel file (without extension)
-    :type filename: str
-    :param sheet_name: Name of the Excel sheet
-    :type sheet_name: str
-    """
-    try:
-        # Create temp directory if it doesn't exist
-        temp_dir = Path("C:/temp")
-        temp_dir.mkdir(exist_ok=True)
-
-        # Export to Excel
-        filepath = temp_dir / f"{filename}.xlsx"
-        df.to_excel(filepath, sheet_name=sheet_name, index=False)
-    except Exception:
-        pass
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -235,34 +209,28 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
 
     These tables contain results from SCIA section on plane objects (cross sections).
 
-    New table series:
-    - Interne 2D-krachten basis cs ULS
-    - Interne 2D-krachten elementair cs ULS
-    - Interne 2D-krachten basis cs SLS freq
-    - Interne 2D-krachten elementair cs SLS freq
+    Table series (section on plane results in standard 2D force tables):
+    - Interne 2D-krachten basis ULS
+    - Interne 2D-krachten elementair ULS
+    - Interne 2D-krachten basis SLS freq
+    - Interne 2D-krachten elementair SLS freq
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
-    :param table_type: Table type to extract (e.g., "cs ULS", "cs SLS freq")
+    :param table_type: Table type to extract (e.g., "ULS", "SLS freq")
     :type table_type: str
     :returns: Tuple of (basis_data, elementaire_data)
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
     # Read "basis grootheden" CS table
+    # Data key is the Dutch header from SCIA XML: "Basis grootheden - Resultaten op snedes:"
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
-    basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
-
-    # If not found with p1, try p0 (nodes)
-    if basis_data is None:
-        basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
+    basis_data = get_nested_result_data(results, basis_table_name, data_key="Basis grootheden - Resultaten op snedes:")
 
     # Read "elementaire ontwerpgrootheden" CS table
+    # Data key is the Dutch header from SCIA XML: "Elementaire ontwerpgrootheden - Resultaten op snedes:"
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
-    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
-
-    # If not found with p1, try p0 (nodes)
-    if elementaire_data is None:
-        elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
+    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="Elementaire ontwerpgrootheden - Resultaten op snedes:")
 
     return basis_data, elementaire_data
 
@@ -371,6 +339,8 @@ def _map_cs_section_to_zone(
     z = float(z)
 
     # --- Step 1: Determine segment number based on x-coordinate (longitudinal position) ---
+    # Note: Segment 0 is typically a definition segment with length 0.
+    # Real segments start from index 1 and use that index as the segment_number.
     cumulative_length = 0.0
     segment_number = 1  # Default to first segment
 
@@ -568,11 +538,25 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
     if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
         try:
             df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
+
+            # Log zone mapping results
+            unique_zones = df_result["zone"].unique().tolist()
+            if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
+                print(f"Warning: Zone mapping produced invalid zones: {unique_zones}")
         except Exception:
             import traceback
 
-            traceback.print_exc()
+            print(
+                f"Error: Zone mapping failed for CS results. "
+                f"Segments: {len(bridge_segments) if bridge_segments else 0}, "
+                f"CS sections: {len(df_result)}"
+            )
+            print(traceback.format_exc())
             df_result["zone"] = "mapping-failed"
+    elif df_result.empty:
+        print("Warning: Zone mapping skipped: DataFrame is empty")
+    elif not bridge_segments or len(bridge_segments) == 0:
+        print("Warning: Zone mapping skipped: No bridge segments provided")
     return df_result
 
 
@@ -690,11 +674,6 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
             df_result = df_result.fillna("N/A")
         
         results_cs[selected_table] = df_result
-
-        # DEBUG EXPORT: Export processed CS results for view
-        if not df_result.empty:
-            safe_table_name = selected_table.replace(" ", "_")
-            _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
 
     return results_cs
 

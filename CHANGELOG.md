@@ -1,4 +1,6 @@
-## [Unreleased]
+## [`v0.0.19`] - 2025-12-04
+
+## [`v0.0.18`] - 2025-12-01
 ### Added
   **Shared Cache parameters**: added spreiding to the shared cache parameters.
   **SCIA CS Results Data Source Tracking**: Added "Bron" column to CS result tables (ULS, SLS freq, envelope) to indicate whether values are from SCIA match ("SCIA") or calculated ("Afgeleid") when no match exists between basis and elementaire tables.
@@ -11,17 +13,26 @@
   - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute()).
   - Changed how the dimensions are inputed.
 - **SCIA CS Missing Value Calculation**: Implemented SCIA elementary design magnitude formulas to calculate missing design moments and normal forces when basis and elementaire tables don't have matching rows. Uses proper engineering relationships: mxd_plus/minus, myd_plus/minus, nxd, nyd formulas from `scia_elem_des_mag.py`.
+  - Added tram loading to the load selection table.
+- **Load combinations**: Changed the system with which load combinations are generated.
+  - Updated the load combination table with new columns to differentiate between the tandem system and udl notional lanes and rest parts.
+  - Changed the implementation of load value calculation factors alpha trend, psi_NEN, alpha_Q and
+  implented a lane factors to differentiate between governing notional lanes.
+  - Moved calculation of these factors to seperate helper functions.
+  - Implemented these helper functions into the load combination table, which now represent combined load factors.
+  - Changed the load value of the tandem systems in the SCIA model to a default of 100 kN.
+  - Changed the load value of the UDL loads in the SCIA model to a default value of 2.5 kN per square meter.
+- **Mesh to 0.2**: changed the mesh of 2d members from 1.0 to 0.2 m.
 
 ### Fixed
 - **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
 - **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
 - **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
 - **SCIA CS NaN Values**: Fixed JSON serialization errors caused by NaN values in CS results. When outer merge creates NaN for unmatched rows, missing values are now calculated using SCIA formulas instead of causing serialization failures.
+- **Load polygon dispersal**: Fixed proper load polygon dispersal for load polygons around bridge deck edges.
+  - Service vehicle and accidental vehicle loads are now positioned correctly along the edge of the bridge deck.
+  - Adapted the existing function `clip_polygon_to_bridge_boundaries()` to `move_polygon_to_bridge_boundaries()`, to comply with new functionality of this helper function.
 
-
-## [`v0.0.18`] - 2025-12-04
-### Added
-- Added tram loading to the load selection table.
 
 ## [`v0.0.17`] - 2025-11-13
 ### Added
