@@ -479,7 +479,7 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
         # When a row exists in only one table, the other table's columns will be NaN
         # Calculate these missing values using engineering relationships
         # IMPORTANT: This only fills NaN, not zero values (zero is valid!)
-        # df_filled = fill_missing_force_values(df_merged) # noqa: C901, PLR0912, ERA001
+        # df_filled = fill_missing_force_values(df_merged) # noqa: ERA001
         df_filled = df_merged
 
         # STEP 3: Fill any remaining NaN values with "N/A" for JSON serialization
