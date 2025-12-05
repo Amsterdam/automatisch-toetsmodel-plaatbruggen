@@ -665,41 +665,20 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     :returns: Dictionary containing DataFrames for each CS result table type
     :rtype: dict[str, pd.DataFrame]
     """
-    print("\n=== DEBUG: process_scia_cs_results START ===")
-
     # First, check if data is already cached as DataFrames (happens when loading from cache)
     if "df_cs_uls" in results and "df_cs_sls_freq" in results:
-        print("DEBUG: CS DataFrames already in cache!")
         df_uls = results.get("df_cs_uls", pd.DataFrame())
         df_sls = results.get("df_cs_sls_freq", pd.DataFrame())
-        print(f"DEBUG: df_cs_uls type: {type(df_uls)}, empty: {df_uls.empty if hasattr(df_uls, 'empty') else 'N/A'}")
-        print(f"DEBUG: df_cs_sls_freq type: {type(df_sls)}, empty: {df_sls.empty if hasattr(df_sls, 'empty') else 'N/A'}")
-        if not df_uls.empty:
-            print(f"DEBUG: df_cs_uls shape: {df_uls.shape}, columns: {list(df_uls.columns)}")
-        if not df_sls.empty:
-            print(f"DEBUG: df_cs_sls_freq shape: {df_sls.shape}, columns: {list(df_sls.columns)}")
-        print("=== DEBUG: process_scia_cs_results END (using cached DataFrames) ===\n")
         return {"ULS": df_uls, "SLS freq": df_sls}
 
     # Second, check if we have xml_parsing data (required to generate dataframes)
-    print("DEBUG: Inspecting results structure...")
     if "xml_parsing" not in results:
-        print("DEBUG: 'xml_parsing' key NOT found in results")
-        print(f"DEBUG: Results keys: {list(results.keys())}")
-        print("WARNING: Cannot process CS results - xml_parsing data not available (old cache?)")
-        print("SOLUTION: Clear cache or run new analysis to regenerate data")
-        print("=== DEBUG: process_scia_cs_results END (no data available) ===\n")
+        # If xml_parsing data is not available, return empty DataFrames
+        # This happens when cache is loaded but xml_parsing was never stored
         return {"ULS": pd.DataFrame(), "SLS freq": pd.DataFrame()}
 
-    print("DEBUG: 'xml_parsing' key exists in results")
-    if "parsed_tables" in results.get("xml_parsing", {}):
-        parsed_tables = results["xml_parsing"]["parsed_tables"]
-        print(f"DEBUG: 'parsed_tables' exists with {len(parsed_tables)} tables")
-        print(f"DEBUG: Available table names: {list(parsed_tables.keys())}")
-    else:
-        print("DEBUG: 'parsed_tables' key NOT found in xml_parsing")
-        print("WARNING: Cannot process CS results - parsed_tables not available")
-        print("=== DEBUG: process_scia_cs_results END (no data available) ===\n")
+    if "parsed_tables" not in results.get("xml_parsing", {}):
+        # No parsed tables available
         return {"ULS": pd.DataFrame(), "SLS freq": pd.DataFrame()}
 
     # Setting to read SCIA xml for CS forces - only ULS and SLS freq
