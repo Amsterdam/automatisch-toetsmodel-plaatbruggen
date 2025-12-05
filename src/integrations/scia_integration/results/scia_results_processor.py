@@ -133,7 +133,7 @@ def get_name_for_coords(coords_value: tuple[float, float, float] | list[float], 
     return "zone name not found"
 
 
-def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float], df: pd.DataFrame, col: str) -> float:
+def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float], df: pd.DataFrame, col: str) -> float | str:
     """
     Get the original value that has the maximum absolute value for a specific column matching the given coordinates.
 
@@ -483,18 +483,13 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
         df_filled = fill_missing_force_values(df_merged)
 
         # STEP 3: Fill any remaining NaN values with "N/A" for JSON serialization
-        df_filled = df_filled.fillna("N/A")
-        return df_filled
+        return df_filled.fillna("N/A")
 
     # If only one table has data, fill NaN and return it
     if not df_basis_merge.empty:
-        df_result = df_basis_merge.copy()
-        df_result = df_result.fillna("N/A")
-        return df_result
+        return df_basis_merge.copy().fillna("N/A")
     if not df_elementaire_merge.empty:
-        df_result = df_elementaire_merge.copy()
-        df_result = df_result.fillna("N/A")
-        return df_result
+        return df_elementaire_merge.copy().fillna("N/A")
 
     # Both tables are empty
     return pd.DataFrame()
@@ -1042,11 +1037,11 @@ def process_scia_2d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
     # Create DataFrames for each selected result class table
     for selected_table in selected_result_tables:
-        df = _process_single_result_table(selected_data_scia, selected_table)
+        df_table = _process_single_result_table(selected_data_scia, selected_table)
         # Fill any remaining NaN values with "N/A"
-        if not df.empty:
-            df = df.fillna("N/A")
-        results_2d[selected_table] = df
+        if not df_table.empty:
+            df_table = df_table.fillna("N/A")
+        results_2d[selected_table] = df_table
 
     return results_2d
 

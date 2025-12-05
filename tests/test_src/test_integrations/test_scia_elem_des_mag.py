@@ -5,6 +5,8 @@ This module tests the functions in src.integrations.scia_integration.results.sci
 using real data from SCIA analysis results.
 """
 
+from typing import Any
+
 import pytest
 
 from src.integrations.scia_integration.results.scia_elem_des_mag import (
@@ -25,7 +27,7 @@ class TestSciaElemDesMagWithRealData:
     """
 
     @pytest.fixture
-    def test_cases(self):
+    def test_cases(self) -> list[dict[str, Any]]:
         """
         Provide test case data from SCIA analysis results.
 
@@ -381,7 +383,7 @@ class TestSciaElemDesMagWithRealData:
             },
         ]
 
-    def test_all_load_cases_comprehensive(self, test_cases):
+    def test_all_load_cases_comprehensive(self, test_cases: list[dict[str, Any]]) -> None:
         """Test all design magnitude calculations for all load cases against expected SCIA results."""
         for case in test_cases:
             load_case = case["load_case"]
@@ -415,7 +417,7 @@ class TestSciaElemDesMagWithRealData:
 
             assert nyd_result == pytest.approx(case["expected_nyd"], abs=0.02), f"{load_case}: nyd expected {case['expected_nyd']}, got {nyd_result}"
 
-    def test_config_a_perm_1(self, test_cases):
+    def test_config_a_perm_1(self, test_cases: list[dict[str, Any]]) -> None:
         """Test 6.10a Perm/1 load case calculations."""
         case = test_cases[0]
 
@@ -426,7 +428,7 @@ class TestSciaElemDesMagWithRealData:
         assert nxd(case["nx"], case["ny"], case["nxy"]) == pytest.approx(0.00, abs=0.02)
         assert nyd(case["nx"], case["ny"], case["nxy"]) == pytest.approx(0.00, abs=0.02)
 
-    def test_config_a_2(self, test_cases):
+    def test_config_a_2(self, test_cases: list[dict[str, Any]]) -> None:
         """Test 6.10a gr1a - Config A/2 load case calculations."""
         case = test_cases[1]
 
@@ -437,7 +439,7 @@ class TestSciaElemDesMagWithRealData:
         assert nxd(case["nx"], case["ny"], case["nxy"]) == pytest.approx(0.00, abs=0.02)
         assert nyd(case["nx"], case["ny"], case["nxy"]) == pytest.approx(-45.85, abs=0.02)
 
-    def test_config_a_3(self, test_cases):
+    def test_config_a_3(self, test_cases: list[dict[str, Any]]) -> None:
         """Test 6.10a gr1a - Config A/3 load case calculations."""
         case = test_cases[2]
 
@@ -452,19 +454,19 @@ class TestSciaElemDesMagWithRealData:
 class TestSciaElemDesMagEdgeCases:
     """Test edge cases and boundary conditions for elementary design magnitude calculations."""
 
-    def test_mxd_plus_zero_values(self):
+    def test_mxd_plus_zero_values(self) -> None:
         """Test mxd_plus with all zero values."""
         result = mxd_plus(0.0, 0.0, 0.0)
         assert result == 0.0
 
-    def test_mxd_minus_zero_my(self):
+    def test_mxd_minus_zero_my(self) -> None:
         """Test mxd_minus with zero my to check division protection."""
         result = mxd_minus(-10.0, 0.0, 5.0)
         # my = 0 is not < 0, so use: max(mx + |mxy|, 0)
         # max(-10 + 5, 0) = max(-5, 0) = 0
         assert result == 0.0
 
-    def test_myd_plus_zero_mx(self):
+    def test_myd_plus_zero_mx(self) -> None:
         """Test myd_plus with zero mx to check division protection."""
         result = myd_plus(0.0, -10.0, 5.0)
         # mx <= my: 0 <= -10 is False
@@ -473,14 +475,14 @@ class TestSciaElemDesMagEdgeCases:
         # Condition (4): 0
         assert result == 0.0
 
-    def test_myd_minus_zero_mx(self):
+    def test_myd_minus_zero_mx(self) -> None:
         """Test myd_minus with zero mx to check division protection."""
         result = myd_minus(0.0, 10.0, 5.0)
         # myd_minus always uses: max(my + |mxy|, 0)
         # max(10 + 5, 0) = 15
         assert result == 15.0
 
-    def test_nxd_zero_ny(self):
+    def test_nxd_zero_ny(self) -> None:
         """Test nxd with zero ny to check division protection."""
         result = nxd(10.0, 0.0, 5.0)
         # nx > ny: 10 > 0
@@ -488,14 +490,14 @@ class TestSciaElemDesMagEdgeCases:
         # Condition (2): nx + |nxy| = 10 + 5 = 15
         assert result == 15.0
 
-    def test_nyd_zero_nx(self):
+    def test_nyd_zero_nx(self) -> None:
         """Test nyd with zero nx to check division protection."""
         result = nyd(0.0, -10.0, 5.0)
         # nx = 0 is not > 0, so use: min(ny, 0)
         # min(-10, 0) = -10
         assert result == -10.0
 
-    def test_negative_moments(self):
+    def test_negative_moments(self) -> None:
         """Test all functions with negative moment values."""
         mx, my, mxy = -50.0, -30.0, -20.0
 
@@ -510,7 +512,7 @@ class TestSciaElemDesMagEdgeCases:
         assert isinstance(myd_plus_result, (int, float))
         assert isinstance(myd_minus_result, (int, float))
 
-    def test_positive_forces(self):
+    def test_positive_forces(self) -> None:
         """Test force functions with positive force values."""
         nx, ny, nxy = 100.0, 50.0, 30.0
 

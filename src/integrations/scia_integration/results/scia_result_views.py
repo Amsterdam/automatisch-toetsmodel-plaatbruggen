@@ -68,7 +68,7 @@ def get_available_cs_coordinates(
         return []
 
 
-def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0912, PLR0915
+def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915
     results: dict[str, Any],
     *,
     result_type: str,
@@ -226,6 +226,24 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0912, PLR091
 
         # Build DataFrame from filtered rows
         df_filtered = pd.DataFrame(filtered_rows)
+
+        # Filter for max_type: get rows where max_for_column matches max_type
+        df_max = df_filtered[df_filtered["max_for_column"] == max_type].copy()
+
+        if df_max.empty:
+            # Return empty plot with message
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Geen data gevonden voor maximale waarde {max_type}",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font={"size": 16},
+            )
+            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
+            return PlotlyResult(fig.to_json())
 
         if direction == "X-richting":
             # X-richting: plot along X (length), so we vary X coordinate

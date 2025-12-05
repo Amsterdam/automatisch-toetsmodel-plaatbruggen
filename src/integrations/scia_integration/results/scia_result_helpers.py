@@ -40,8 +40,6 @@ def get_nested_result_data(
         if not data:
             return None
 
-        result = data.get(data_key, None)
-
-        return result
+        return data.get(data_key, None)
     except (AttributeError, KeyError, TypeError):
         return None
