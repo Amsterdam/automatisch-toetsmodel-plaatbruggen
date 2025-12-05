@@ -17,7 +17,7 @@ CS Table Types (results from SCIA section on plane objects):
 """
 
 import functools
-from typing import Any, Callable, Union
+from typing import Any
 
 import pandas as pd
 
@@ -409,7 +409,7 @@ def _prepare_basis_dataframe(df_basis: pd.DataFrame) -> pd.DataFrame:
     if not df_basis.empty and "coords_xyz" in df_basis.columns:
         # All required columns for basis table (always present)
         required_cols = ["Naam", "coords_xyz", "Belasting", "v_x", "v_y", "m_x", "m_y", "m_xy", "n_x", "n_y", "n_xy"]
-        
+
         return df_basis[required_cols].copy()
     return pd.DataFrame()
 
@@ -420,7 +420,7 @@ def _prepare_elementaire_dataframe(df_elementaire: pd.DataFrame) -> pd.DataFrame
 
     Elementaire table contains design moments (m_xD+, m_xD-, m_yD+, m_yD-)
     and design normal forces (n_xD, n_yD).
-    
+
     NOTE: This table does NOT contain m_x, m_y, m_xy, n_x, n_y, n_xy - those are
     only available in the basis table.
 
@@ -432,7 +432,7 @@ def _prepare_elementaire_dataframe(df_elementaire: pd.DataFrame) -> pd.DataFrame
     if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
         # Required columns for elementaire table (m_x, m_y, m_xy, n_x, n_y, n_xy are NOT included)
         elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
-        
+
         # Filter to only include columns that actually exist in the dataframe
         elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
         return df_elementaire[elementaire_cols_present].copy()
@@ -448,18 +448,18 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
     - Rows matching on (Naam, coords_xyz, Belasting) in both tables get combined
     - Rows only in basis table get kept with NaN for elementaire columns
     - Rows only in elementaire table get kept with NaN for basis columns
-    
+
     WHY OUTER JOIN:
     SCIA separates results into two tables:
     - Basis table: Contains shear forces (v_x, v_y) and may contain m_x, m_y, m_xy, n_x, n_y, n_xy
     - Elementaire table: Contains design moments (m_xD+, m_xD-, m_yD+, m_yD-) and normal forces (n_xD, n_yD)
-    
+
     Not all coordinates have results in both tables. An outer join ensures we don't lose data.
 
     NaN VALUE HANDLING:
     After merging, fills any missing force values (NaN) using calculated values
     based on available data. This prevents JSON serialization errors from NaN values.
-    
+
     IMPORTANT: Zero (0) is a valid result and is NOT replaced. Only NaN values
     (from unmatched rows) are calculated and filled.
 
@@ -475,17 +475,17 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
         # This combines rows matching on (Naam, coords_xyz, Belasting)
         # Unmatched rows from either table are kept with NaN values for missing columns
         df_merged = df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
-        
+
         # STEP 2: Fill NaN values from unmatched rows
         # When a row exists in only one table, the other table's columns will be NaN
         # Calculate these missing values using engineering relationships
         # IMPORTANT: This only fills NaN, not zero values (zero is valid!)
         df_filled = fill_missing_force_values(df_merged)
-        
+
         # STEP 3: Fill any remaining NaN values with "N/A" for JSON serialization
         df_filled = df_filled.fillna("N/A")
         return df_filled
-    
+
     # If only one table has data, fill NaN and return it
     if not df_basis_merge.empty:
         df_result = df_basis_merge.copy()
@@ -495,7 +495,7 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
         df_result = df_elementaire_merge.copy()
         df_result = df_result.fillna("N/A")
         return df_result
-    
+
     # Both tables are empty
     return pd.DataFrame()
 
@@ -598,26 +598,25 @@ def _process_single_cs_result_table(
     # Prepare and merge dataframes
     df_basis_merge = _prepare_basis_dataframe(df_basis)
     df_elementaire_merge = _prepare_elementaire_dataframe(df_elementaire)
-    
-    print(f"  DEBUG: After prepare - df_basis_merge shape: {df_basis_merge.shape}")
-    print(f"  DEBUG: After prepare - df_elementaire_merge shape: {df_elementaire_merge.shape}")
-    
-    df_combined = _merge_basis_and_elementaire(df_basis_merge, df_elementaire_merge)
-    
-    print(f"  DEBUG: After merge - df_combined shape: {df_combined.shape}, empty: {df_combined.empty}")
-    if not df_combined.empty:
-        print(f"  DEBUG: df_combined columns: {list(df_combined.columns)}")
-        print(f"  DEBUG: df_combined first 2 rows:\n{df_combined.head(2)}")
-
-    if df_combined.empty:
-    # Prepare and merge dataframes
-    df_basis_merge = _prepare_basis_dataframe(df_basis)
-    df_elementaire_merge = _prepare_elementaire_dataframe(df_elementaire)
-    
     df_combined = _merge_basis_and_elementaire(df_basis_merge, df_elementaire_merge)
 
     if df_combined.empty:
-        return pd.DataFrame()e filtering to preserve them
+        return pd.DataFrame()
+
+    # Rename columns for consistency
+    df_combined = df_combined.rename(columns={"Naam": "name", "Belasting": "belasting"})
+
+    # Convert force columns to numeric
+    force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+    for col in force_columns:
+        if col in df_combined.columns:
+            df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
+
+    # DON'T fill NaN with "N/A" yet - we need numeric values for abs() operations
+
+    # DEDUPLICATION: For each CS name, keep only the first unique coordinate
+    # Group by name and filter to keep only rows with the first unique coordinate per group
+    # Store name values before filtering to preserve them
     first_coords_per_name = df_combined.groupby("name")["coords_xyz"].first()
 
     # Create boolean mask for rows to keep
@@ -627,7 +626,7 @@ def _process_single_cs_result_table(
     # Extract rows with max absolute values (handles NaN internally)
     result_rows = _extract_max_force_rows(df_combined, force_columns)
     df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
-    
+
     print(f"  DEBUG: After extract max - df_result shape: {df_result.shape}, empty: {df_result.empty}")
     print(f"  DEBUG: Number of result_rows: {len(result_rows)}")
     if not df_result.empty:
@@ -636,13 +635,24 @@ def _process_single_cs_result_table(
     # Extract rows with max absolute values (handles NaN internally)
     result_rows = _extract_max_force_rows(df_combined, force_columns)
     df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
-    
+
     # NOW fill any remaining NaN values with "N/A" after numeric operations are complete
     if not df_result.empty:
         df_result = df_result.fillna("N/A")
 
     # Add zone mapping if bridge_segments are provided and return
-    return _add_zone_mapping(df_result, bridge_segments)t values for cross section elements.
+    final_result = _add_zone_mapping(df_result, bridge_segments)
+    print(f"  DEBUG: After zone mapping - final_result shape: {final_result.shape}")
+    return final_result
+
+
+def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:
+    """
+    Process SCIA CS (Cross Section) force analysis results to create DataFrames.
+
+    This function extracts CS force data from SCIA results, processes coordinates,
+    and creates DataFrames with unique coordinate locations and their corresponding
+    maximum force/moment values for cross section elements.
 
     CS tables contain:
     - v_x, v_y: Shear forces (from basis table)
@@ -661,7 +671,7 @@ def _process_single_cs_result_table(
     :rtype: dict[str, pd.DataFrame]
     """
     print("\n=== DEBUG: process_scia_cs_results START ===")
-    
+
     # First, check if data is already cached as DataFrames (happens when loading from cache)
     if "df_cs_uls" in results and "df_cs_sls_freq" in results:
         print("DEBUG: CS DataFrames already in cache!")
@@ -674,11 +684,8 @@ def _process_single_cs_result_table(
         if not df_sls.empty:
             print(f"DEBUG: df_cs_sls_freq shape: {df_sls.shape}, columns: {list(df_sls.columns)}")
         print("=== DEBUG: process_scia_cs_results END (using cached DataFrames) ===\n")
-        return {
-            "ULS": df_uls,
-            "SLS freq": df_sls
-        }
-    
+        return {"ULS": df_uls, "SLS freq": df_sls}
+
     # Second, check if we have xml_parsing data (required to generate dataframes)
     print("DEBUG: Inspecting results structure...")
     if "xml_parsing" not in results:
@@ -687,11 +694,8 @@ def _process_single_cs_result_table(
         print("WARNING: Cannot process CS results - xml_parsing data not available (old cache?)")
         print("SOLUTION: Clear cache or run new analysis to regenerate data")
         print("=== DEBUG: process_scia_cs_results END (no data available) ===\n")
-        return {
-            "ULS": pd.DataFrame(),
-            "SLS freq": pd.DataFrame()
-        }
-    
+        return {"ULS": pd.DataFrame(), "SLS freq": pd.DataFrame()}
+
     print("DEBUG: 'xml_parsing' key exists in results")
     if "parsed_tables" in results.get("xml_parsing", {}):
         parsed_tables = results["xml_parsing"]["parsed_tables"]
@@ -701,11 +705,8 @@ def _process_single_cs_result_table(
         print("DEBUG: 'parsed_tables' key NOT found in xml_parsing")
         print("WARNING: Cannot process CS results - parsed_tables not available")
         print("=== DEBUG: process_scia_cs_results END (no data available) ===\n")
-        return {
-            "ULS": pd.DataFrame(),
-            "SLS freq": pd.DataFrame()
-        }
-    
+        return {"ULS": pd.DataFrame(), "SLS freq": pd.DataFrame()}
+
     # Setting to read SCIA xml for CS forces - only ULS and SLS freq
     selected_result_tables = ["ULS", "SLS freq"]
 
@@ -718,11 +719,11 @@ def _process_single_cs_result_table(
     # Create DataFrames for each selected CS result class table
     for selected_table in selected_result_tables:
         df_result = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
-        
+
         # Fill any remaining NaN values with "N/A" for JSON serialization
         if not df_result.empty:
             df_result = df_result.fillna("N/A")
-        
+
         results_cs[selected_table] = df_result
 
     return results_cs
@@ -932,6 +933,7 @@ def _create_lookup_dictionaries(df: pd.DataFrame, columns: list[str]) -> tuple[d
     # Return empty dict for first element (was name_lookup, no longer needed but kept for compatibility)
     return {}, value_lookups
 
+
 def _process_selected_result_tables(results: dict[str, Any], selected_result_tables: list[str]) -> dict[str, Any]:
     """Process and merge SCIA table data for selected result tables."""
     selected_data_scia = {}
@@ -1047,7 +1049,6 @@ def process_scia_2d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
         results_2d[selected_table] = df
 
     return results_2d
-
 
 
 # Simple cache for processed results to avoid reprocessing the same data

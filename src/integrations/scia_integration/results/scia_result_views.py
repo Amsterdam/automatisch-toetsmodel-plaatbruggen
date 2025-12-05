@@ -68,7 +68,7 @@ def get_available_cs_coordinates(
         return []
 
 
-def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR0912, PLR0915
+def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0912, PLR0915
     results: dict[str, Any],
     *,
     result_type: str,
@@ -209,37 +209,11 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
                 # Skip rows with invalid coordinates
                 continue
 
-        print(f"DEBUG: Filtered {len(filtered_rows)} rows at position {position:.2f}m (tolerance={tolerance})")
-        
-        if not filtered_rows:
-            # Return empty plot with message
-            print(f"DEBUG: No rows found after filtering for position {position:.2f}m")
-            fig = go.Figure()
-            fig.add_annotation(
-                text=f"Geen data gevonden bij {direction} positie {position:.2f}m",
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                # Skip rows with invalid coordinates
-                continue
-
         if not filtered_rows:
             # Return empty plot with message
             fig = go.Figure()
             fig.add_annotation(
                 text=f"Geen data gevonden bij {direction} positie {position:.2f}m",
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=0.5,
-        # Filter for max_type: get rows where max_for_column matches max_type
-        df_max = df_filtered[df_filtered["max_for_column"] == max_type].copy()
-
-        if df_max.empty:
-            # Return empty plot with message
-            fig = go.Figure()
-            fig.add_annotation(
-                text=f"Geen data gevonden voor maximale waarde {max_type}",
                 xref="paper",
                 yref="paper",
                 x=0.5,
@@ -248,7 +222,10 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
                 font={"size": 16},
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
-            return PlotlyResult(fig.to_json()) cross-sections perpendicular to Y, varying along Y
+            return PlotlyResult(fig.to_json())
+
+        # Build DataFrame from filtered rows
+        df_filtered = pd.DataFrame(filtered_rows)
 
         if direction == "X-richting":
             # X-richting: plot along X (length), so we vary X coordinate
@@ -509,6 +486,12 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
 
         traceback.print_exc()
         # Return error plot
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"Fout bij verwerken CS data: {e!s}",
+            xref="paper",
+            yref="paper",
+            x=0.5,
             y=0.5,
             showarrow=False,
             font={"size": 14},
@@ -812,7 +795,7 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
 
         # Get belasting (load case name)
         belasting = row.get("belasting", "N/A")
-        
+
         # Get bron (data source)
         bron = row.get("Bron", "SCIA")
 
