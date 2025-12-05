@@ -160,12 +160,7 @@ def fill_missing_force_values(df_merged: pd.DataFrame) -> pd.DataFrame:
     for idx, row in df_filled.iterrows():
         # Check for missing (NaN) values - IMPORTANT: pd.isna() checks for NaN, not 0!
         has_missing_shear = pd.isna(row.get("v_x")) or pd.isna(row.get("v_y"))
-        has_missing_moments = (
-            pd.isna(row.get("m_xD+"))
-            or pd.isna(row.get("m_xD-"))
-            or pd.isna(row.get("m_yD+"))
-            or pd.isna(row.get("m_yD-"))
-        )
+        has_missing_moments = pd.isna(row.get("m_xD+")) or pd.isna(row.get("m_xD-")) or pd.isna(row.get("m_yD+")) or pd.isna(row.get("m_yD-"))
         has_missing_normal = pd.isna(row.get("n_xD")) or pd.isna(row.get("n_yD"))
 
         # Only process rows that actually have NaN values (from unmatched merge)

@@ -716,6 +716,12 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "df_cs_envelope" in full_results:
         cacheable["df_cs_envelope"] = full_results["df_cs_envelope"]
 
+    # Include CS dataframes if present (needed for CS ULS/SLS freq views)
+    if "df_cs_uls" in full_results:
+        cacheable["df_cs_uls"] = full_results["df_cs_uls"]
+    if "df_cs_sls_freq" in full_results:
+        cacheable["df_cs_sls_freq"] = full_results["df_cs_sls_freq"]
+
     # Include other DataFrames/parsed results (small)
     for key in ["displacements", "internal_forces", "reactions", "stresses"]:
         if key in full_results:

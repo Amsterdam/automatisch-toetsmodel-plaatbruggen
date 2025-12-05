@@ -28,6 +28,20 @@ def get_nested_result_data(
     :rtype: dict[str, Any] | None
     """
     try:
-        return results.get("xml_parsing", {}).get("parsed_tables", {}).get(table_name, {}).get("data", {}).get(data_key, None)
+        xml_parsing = results.get("xml_parsing", {})
+        parsed_tables = xml_parsing.get("parsed_tables", {})
+
+        if table_name not in parsed_tables:
+            return None
+
+        table_data = parsed_tables.get(table_name, {})
+
+        data = table_data.get("data", {})
+        if not data:
+            return None
+
+        result = data.get(data_key, None)
+
+        return result
     except (AttributeError, KeyError, TypeError):
         return None

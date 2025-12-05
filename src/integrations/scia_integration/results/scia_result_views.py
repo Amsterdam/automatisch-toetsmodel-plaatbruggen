@@ -209,6 +209,20 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
                 # Skip rows with invalid coordinates
                 continue
 
+        print(f"DEBUG: Filtered {len(filtered_rows)} rows at position {position:.2f}m (tolerance={tolerance})")
+        
+        if not filtered_rows:
+            # Return empty plot with message
+            print(f"DEBUG: No rows found after filtering for position {position:.2f}m")
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Geen data gevonden bij {direction} positie {position:.2f}m",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                # Skip rows with invalid coordinates
+                continue
+
         if not filtered_rows:
             # Return empty plot with message
             fig = go.Figure()
@@ -218,15 +232,6 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
                 yref="paper",
                 x=0.5,
                 y=0.5,
-                showarrow=False,
-                font={"size": 16},
-            )
-            fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
-            return PlotlyResult(fig.to_json())
-
-        # Convert filtered rows to DataFrame
-        df_filtered = pd.DataFrame(filtered_rows)
-
         # Filter for max_type: get rows where max_for_column matches max_type
         df_max = df_filtered[df_filtered["max_for_column"] == max_type].copy()
 
@@ -243,12 +248,7 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
                 font={"size": 16},
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
-            return PlotlyResult(fig.to_json())
-
-        # Sort by the other coordinate (for proper line plotting)
-        # CRITICAL: X-richting = plot along X (length), Y-richting = plot along Y (width)
-        # When X-richting is selected: we want cross-sections perpendicular to X, varying along X
-        # When Y-richting is selected: we want cross-sections perpendicular to Y, varying along Y
+            return PlotlyResult(fig.to_json()) cross-sections perpendicular to Y, varying along Y
 
         if direction == "X-richting":
             # X-richting: plot along X (length), so we vary X coordinate
@@ -495,6 +495,13 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
             hovermode="x unified",
         )
 
+        fig.update_layout(
+            title_text=title_text,
+            height=1200,  # Tall enough for 4 subplots
+            showlegend=True,
+            hovermode="x unified",
+        )
+
         return PlotlyResult(fig.to_json())
 
     except Exception as e:
@@ -502,13 +509,6 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
 
         traceback.print_exc()
         # Return error plot
-        fig = go.Figure()
-        error_msg = str(e)[:200]  # Truncate to 200 chars
-        fig.add_annotation(
-            text=f"Fout bij maken visualisatie: {error_msg}",
-            xref="paper",
-            yref="paper",
-            x=0.5,
             y=0.5,
             showarrow=False,
             font={"size": 14},

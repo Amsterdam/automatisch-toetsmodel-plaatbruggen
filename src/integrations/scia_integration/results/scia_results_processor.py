@@ -223,14 +223,14 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
     # Read "basis grootheden" CS table
-    # Data key is the Dutch header from SCIA XML: "Basis grootheden - Resultaten op snedes:"
+    # CS tables store data directly in 'p0' (nodes), not under nested Dutch headers
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
-    basis_data = get_nested_result_data(results, basis_table_name, data_key="Basis grootheden - Resultaten op snedes:")
+    basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
 
     # Read "elementaire ontwerpgrootheden" CS table
-    # Data key is the Dutch header from SCIA XML: "Elementaire ontwerpgrootheden - Resultaten op snedes:"
+    # CS tables store data directly in 'p0' (nodes), not under nested Dutch headers
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
-    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="Elementaire ontwerpgrootheden - Resultaten op snedes:")
+    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
 
     return basis_data, elementaire_data
 
@@ -280,6 +280,9 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
 
         basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)
         elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)
+
+        selected_data_scia_cs[basis_table_name] = basis_data
+        selected_data_scia_cs[elementaire_table_name] = elementaire_data
 
         selected_data_scia_cs[basis_table_name] = basis_data
         selected_data_scia_cs[elementaire_table_name] = elementaire_data
@@ -595,25 +598,26 @@ def _process_single_cs_result_table(
     # Prepare and merge dataframes
     df_basis_merge = _prepare_basis_dataframe(df_basis)
     df_elementaire_merge = _prepare_elementaire_dataframe(df_elementaire)
+    
+    print(f"  DEBUG: After prepare - df_basis_merge shape: {df_basis_merge.shape}")
+    print(f"  DEBUG: After prepare - df_elementaire_merge shape: {df_elementaire_merge.shape}")
+    
+    df_combined = _merge_basis_and_elementaire(df_basis_merge, df_elementaire_merge)
+    
+    print(f"  DEBUG: After merge - df_combined shape: {df_combined.shape}, empty: {df_combined.empty}")
+    if not df_combined.empty:
+        print(f"  DEBUG: df_combined columns: {list(df_combined.columns)}")
+        print(f"  DEBUG: df_combined first 2 rows:\n{df_combined.head(2)}")
+
+    if df_combined.empty:
+    # Prepare and merge dataframes
+    df_basis_merge = _prepare_basis_dataframe(df_basis)
+    df_elementaire_merge = _prepare_elementaire_dataframe(df_elementaire)
+    
     df_combined = _merge_basis_and_elementaire(df_basis_merge, df_elementaire_merge)
 
     if df_combined.empty:
-        return pd.DataFrame()
-
-    # Rename columns for consistency
-    df_combined = df_combined.rename(columns={"Naam": "name", "Belasting": "belasting"})
-
-    # Convert force columns to numeric
-    force_columns = ["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
-    for col in force_columns:
-        if col in df_combined.columns:
-            df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
-    
-    # DON'T fill NaN with "N/A" yet - we need numeric values for abs() operations
-
-    # DEDUPLICATION: For each CS name, keep only the first unique coordinate
-    # Group by name and filter to keep only rows with the first unique coordinate per group
-    # Store name values before filtering to preserve them
+        return pd.DataFrame()e filtering to preserve them
     first_coords_per_name = df_combined.groupby("name")["coords_xyz"].first()
 
     # Create boolean mask for rows to keep
@@ -624,21 +628,21 @@ def _process_single_cs_result_table(
     result_rows = _extract_max_force_rows(df_combined, force_columns)
     df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
     
+    print(f"  DEBUG: After extract max - df_result shape: {df_result.shape}, empty: {df_result.empty}")
+    print(f"  DEBUG: Number of result_rows: {len(result_rows)}")
+    if not df_result.empty:
+        print(f"  DEBUG: df_result columns: {list(df_result.columns)}")
+        print(f"  DEBUG: df_result first 3 rows:\n{df_result.head(3)}")
+    # Extract rows with max absolute values (handles NaN internally)
+    result_rows = _extract_max_force_rows(df_combined, force_columns)
+    df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
+    
     # NOW fill any remaining NaN values with "N/A" after numeric operations are complete
     if not df_result.empty:
         df_result = df_result.fillna("N/A")
 
     # Add zone mapping if bridge_segments are provided and return
-    return _add_zone_mapping(df_result, bridge_segments)
-
-
-def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:
-    """
-    Process SCIA CS (Cross Section) force analysis results to create DataFrames.
-
-    This function extracts CS force data from SCIA results, processes coordinates,
-    and creates DataFrames with unique coordinate locations and their corresponding
-    maximum force/moment values for cross section elements.
+    return _add_zone_mapping(df_result, bridge_segments)t values for cross section elements.
 
     CS tables contain:
     - v_x, v_y: Shear forces (from basis table)
@@ -656,6 +660,52 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     :returns: Dictionary containing DataFrames for each CS result table type
     :rtype: dict[str, pd.DataFrame]
     """
+    print("\n=== DEBUG: process_scia_cs_results START ===")
+    
+    # First, check if data is already cached as DataFrames (happens when loading from cache)
+    if "df_cs_uls" in results and "df_cs_sls_freq" in results:
+        print("DEBUG: CS DataFrames already in cache!")
+        df_uls = results.get("df_cs_uls", pd.DataFrame())
+        df_sls = results.get("df_cs_sls_freq", pd.DataFrame())
+        print(f"DEBUG: df_cs_uls type: {type(df_uls)}, empty: {df_uls.empty if hasattr(df_uls, 'empty') else 'N/A'}")
+        print(f"DEBUG: df_cs_sls_freq type: {type(df_sls)}, empty: {df_sls.empty if hasattr(df_sls, 'empty') else 'N/A'}")
+        if not df_uls.empty:
+            print(f"DEBUG: df_cs_uls shape: {df_uls.shape}, columns: {list(df_uls.columns)}")
+        if not df_sls.empty:
+            print(f"DEBUG: df_cs_sls_freq shape: {df_sls.shape}, columns: {list(df_sls.columns)}")
+        print("=== DEBUG: process_scia_cs_results END (using cached DataFrames) ===\n")
+        return {
+            "ULS": df_uls,
+            "SLS freq": df_sls
+        }
+    
+    # Second, check if we have xml_parsing data (required to generate dataframes)
+    print("DEBUG: Inspecting results structure...")
+    if "xml_parsing" not in results:
+        print("DEBUG: 'xml_parsing' key NOT found in results")
+        print(f"DEBUG: Results keys: {list(results.keys())}")
+        print("WARNING: Cannot process CS results - xml_parsing data not available (old cache?)")
+        print("SOLUTION: Clear cache or run new analysis to regenerate data")
+        print("=== DEBUG: process_scia_cs_results END (no data available) ===\n")
+        return {
+            "ULS": pd.DataFrame(),
+            "SLS freq": pd.DataFrame()
+        }
+    
+    print("DEBUG: 'xml_parsing' key exists in results")
+    if "parsed_tables" in results.get("xml_parsing", {}):
+        parsed_tables = results["xml_parsing"]["parsed_tables"]
+        print(f"DEBUG: 'parsed_tables' exists with {len(parsed_tables)} tables")
+        print(f"DEBUG: Available table names: {list(parsed_tables.keys())}")
+    else:
+        print("DEBUG: 'parsed_tables' key NOT found in xml_parsing")
+        print("WARNING: Cannot process CS results - parsed_tables not available")
+        print("=== DEBUG: process_scia_cs_results END (no data available) ===\n")
+        return {
+            "ULS": pd.DataFrame(),
+            "SLS freq": pd.DataFrame()
+        }
+    
     # Setting to read SCIA xml for CS forces - only ULS and SLS freq
     selected_result_tables = ["ULS", "SLS freq"]
 
