@@ -790,11 +790,9 @@ class BatchCalculationComponent:
             UserMessage.success(completion_msg)
         finally:
             # Always try to clear running flag, even if an error occurred
-            try:
+            # Don't fail - this is cleanup, storage might be full
+            with contextlib.suppress(Exception):
                 storage.delete("batch_calculation_running", scope="entity")
-            except Exception:
-                # Don't fail - this is cleanup, storage might be full
-                pass
 
     @TableView("Start berekening / Weergeven resultaten", duration_guess=6)
     def view_batch_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:
