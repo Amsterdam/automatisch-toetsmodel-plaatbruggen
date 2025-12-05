@@ -415,7 +415,7 @@ class AnalysisCache:
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
                 results = pickle.loads(cached_data)
-                
+
                 # Store in request-level cache for subsequent views in same request
                 self._request_cache[cache_key] = results
                 return results
