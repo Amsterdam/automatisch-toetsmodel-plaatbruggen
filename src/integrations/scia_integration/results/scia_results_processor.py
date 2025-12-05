@@ -627,8 +627,7 @@ def _process_single_cs_result_table(
         df_result = df_result.fillna("N/A")
 
     # Add zone mapping if bridge_segments are provided and return
-    final_result = _add_zone_mapping(df_result, bridge_segments)
-    return final_result
+    return _add_zone_mapping(df_result, bridge_segments)
 
 
 def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] | None = None) -> dict[str, pd.DataFrame]:

@@ -9,12 +9,23 @@
   - All CS views (ULS, SLS freq, Analyse Resultaten, CS visualisatie) now handle old cache gracefully with informative messages
   - CS views properly display force, moment, and normal force data for all cross sections
 
+- **Statusoverzicht Cache Status Display**: Fixed bridges showing "Klaar voor berekening" instead of "Berekening actueel" after successful batch calculation
+  - Status determination now checks both entity cache AND batch results storage
+  - Bridges in batch_results are correctly marked as cached regardless of cache file validation
+  - "Ververs Statusoverzicht" button now correctly displays updated status for all calculated bridges
+
 ### Changed
 - **Request-Level Cache Optimization**: Added in-memory request-level cache to prevent redundant storage lookups when multiple views load the same SCIA/IDEA results
   - First view loads from storage and caches results in memory
   - Subsequent views in same request reuse in-memory cache (instant access)
   - Dramatically improves performance when switching between SCIA views (CS ULS, CS visualisatie, Analyse Resultaten)
   - Visualization parameter changes no longer trigger storage lookups or recalculations
+
+- **Batch Calculation Robustness**: Removed unreliable cancellation check mechanism that caused batch calculations to stop prematurely
+  - Fixed progress counter to correctly display bridge numbers (e.g., "1/3", "2/3", "3/3")
+  - Removed file-based cancellation check that wasn't persisting reliably in storage
+  - Batch calculation now processes all bridges without false positive exits
+  - Users can still cancel via VIKTOR UI which terminates the entire job
 
 ## [`v0.0.18`] - 2025-12-01
 ### Added

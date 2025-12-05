@@ -225,7 +225,7 @@ def _build_table_result_from_batch_results(batch_results: dict[int, dict[str, An
 class BatchCalculationComponent:
     """Component providing batch calculation functionality for multiple bridges."""
 
-    @TableView("Statusoverzicht", duration_guess=1)
+    @TableView("Statusoverzicht", duration_guess=5)
     def view_batch_status_and_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: ARG002, C901, PLR0912, PLR0915
         """
         Display unified table showing bridge readiness status and calculation results.
@@ -302,8 +302,10 @@ class BatchCalculationComponent:
             # Validate bridge readiness
             is_ready, missing_fields, _ = validate_bridge_for_calculation(bridge_params, bridge_entity)
 
-            # Check cache status
-            is_cached = check_idea_cache_status(bridge_params, bridge_id, batch_results_cache_hash=None)
+            # Check cache status - consider both actual cache and batch_results
+            # If bridge is in batch_results, it means it was calculated and should be considered cached
+            is_in_batch_results = batch_results is not None and bridge_id in batch_results
+            is_cached = is_in_batch_results or check_idea_cache_status(bridge_params, bridge_id, batch_results_cache_hash=None)
 
             if is_ready:
                 ready_bridges += 1
@@ -628,59 +630,9 @@ class BatchCalculationComponent:
 
             # Process non-cached bridges (run calculations)
             for i, (bridge_entity, bridge_params) in enumerate(non_cached_bridges_list):
-                # CRITICAL: Check for cancellation before processing each bridge
-                # This allows users to stop batch calculation between bridges
-                try:
-                    # Test if job is still active by accessing storage
-                    # If job is cancelled, storage operations will raise an exception
-                    _ = storage.get("batch_calculation_running", scope="entity")
-                except FileNotFoundError:
-                    # File not found - could be actual cancellation OR first iteration
-                    # Only treat as cancellation if we've processed at least one bridge
-                    if i > 0:
-                        # Store partial results
-                        if batch_results:
-                            try:
-                                batch_results_file = serialize_batch_results(batch_results)
-                                storage.set("batch_calculation_results", batch_results_file, scope="entity")
-                                record_batch_last_run_timestamp(storage)
-                                # Record successful partial save
-                                from app.overview_bridges.batch_calculation.utils import record_storage_status
-
-                                record_storage_status(
-                                    storage,
-                                    success=True,
-                                    message="Partial batch results saved (interrupted calculation)",
-                                    details={"partial": True, "bridges_processed": len(batch_results)},
-                                )
-                            except Exception as partial_save_error:
-                                # Record failed partial save
-                                from app.overview_bridges.batch_calculation.utils import record_storage_status
-
-                                record_storage_status(
-                                    storage,
-                                    success=False,
-                                    message=f"Failed to save partial results: {type(partial_save_error).__name__}",
-                                    details={"partial": True, "error_type": type(partial_save_error).__name__},
-                                )
-
-                        # Clear running flag
-                        with contextlib.suppress(Exception):
-                            storage.delete("batch_calculation_running", scope="entity")
-
-                        # Show message to user (nice to have)
-                        with contextlib.suppress(Exception):
-                            UserMessage.info(
-                                f"Batch calculation stopped. Processed {completed_count + failed_count} of {total_non_cached_bridges} bridges."
-                            )
-
-                        # Exit loop cleanly - return early with partial results
-                        return
-                    # First iteration and flag doesn't exist - this is normal, continue
-                except Exception as storage_error:
-                    # Storage error (likely full) - log but CONTINUE
-                    print(f"Warning: Storage check failed ({type(storage_error).__name__}), continuing calculation in storage-free mode...")
-                    # Don't exit - keep calculating without storage
+                # NOTE: Cancellation check removed - it was causing false positives
+                # The running flag file persistence was unreliable, causing early exits
+                # Users can still cancel via VIKTOR UI which will terminate the job
 
                 bridge_name = bridge_entity.name
                 bridge_id = bridge_entity.id
@@ -746,7 +698,7 @@ class BatchCalculationComponent:
                     max_uc_value = uc_summary.get("max_uc", "N/A")
                     uc_display = f"{max_uc_value:.2f}" if isinstance(max_uc_value, int | float) else str(max_uc_value)
                     progress_message(
-                        message=f"Bridge {current_bridge_position}/{total_bridges}: {bridge_name}\nBerekening voltooid (Max UC: {uc_display})",
+                        message=f"Bridge {overall_position}/{total_bridges}: {bridge_name}\nBerekening voltooid (Max UC: {uc_display})",
                         percentage=percentage,
                     )
 
