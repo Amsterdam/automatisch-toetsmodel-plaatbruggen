@@ -975,11 +975,11 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
         # Try to use cached dataframe first
         df_envelope = results.get("df_cs_envelope")
 
-        # If not in cache, process on demand
-        if df_envelope is None or df_envelope.empty:
+        # If not in cache or not a DataFrame, process on demand
+        if df_envelope is None or not isinstance(df_envelope, pd.DataFrame) or df_envelope.empty:
             df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
 
-        if df_envelope.empty:
+        if df_envelope is None or df_envelope.empty:
             return TableResult(
                 [["Geen gegevens", "Geen CS resultaten beschikbaar", "", "", "", "", "", "", "", "", "", "", "", ""]],
                 column_headers=[

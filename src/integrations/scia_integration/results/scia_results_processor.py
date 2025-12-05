@@ -791,6 +791,12 @@ def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[An
     :returns: Combined DataFrame with envelope results sorted by zone and result type
     :rtype: pd.DataFrame
     """
+    # Check if envelope is already cached
+    if "df_cs_envelope" in results:
+        df_envelope = results.get("df_cs_envelope")
+        if isinstance(df_envelope, pd.DataFrame) and not df_envelope.empty:
+            return df_envelope
+
     # Process CS results to get ULS and SLS freq DataFrames
     cs_results = process_scia_cs_results(results, bridge_segments)
 
