@@ -112,8 +112,8 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0911, PLR0912, PLR091
         cache_key = "df_cs_uls" if result_type == "ULS" else "df_cs_sls_freq"
         df_cs_results = results.get(cache_key)
 
-        # If not in cache, process on demand
-        if df_cs_results is None or df_cs_results.empty:
+        # If not in cache or not a valid DataFrame, process on demand
+        if not isinstance(df_cs_results, pd.DataFrame) or df_cs_results.empty:
             cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
             df_cs_results = cs_results.get(result_type, pd.DataFrame())
 
