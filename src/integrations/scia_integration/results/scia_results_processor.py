@@ -27,7 +27,6 @@ from src.integrations.scia_integration.constants.results import (
     CS_TABLE_TYPES,
 )
 
-from .scia_force_calculator import fill_missing_force_values
 from .scia_result_helpers import get_nested_result_data
 
 
