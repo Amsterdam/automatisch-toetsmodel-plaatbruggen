@@ -121,13 +121,13 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0911, PLR0912, PLR091
             # Return empty plot with message
             fig = go.Figure()
             fig.add_annotation(
-                text=f"Geen {result_type} data beschikbaar",
+                text=f"Geen {result_type} CS data beschikbaar.<br>Verwijder de cache en voer een nieuwe SCIA analyse uit.",
                 xref="paper",
                 yref="paper",
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font={"size": 16},
+                font={"size": 14},
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
             return PlotlyResult(fig.to_json())

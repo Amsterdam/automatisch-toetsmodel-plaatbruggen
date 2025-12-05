@@ -622,22 +622,12 @@ def _process_single_cs_result_table(
     result_rows = _extract_max_force_rows(df_combined, force_columns)
     df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
 
-    print(f"  DEBUG: After extract max - df_result shape: {df_result.shape}, empty: {df_result.empty}")
-    print(f"  DEBUG: Number of result_rows: {len(result_rows)}")
-    if not df_result.empty:
-        print(f"  DEBUG: df_result columns: {list(df_result.columns)}")
-        print(f"  DEBUG: df_result first 3 rows:\n{df_result.head(3)}")
-    # Extract rows with max absolute values (handles NaN internally)
-    result_rows = _extract_max_force_rows(df_combined, force_columns)
-    df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
-
     # NOW fill any remaining NaN values with "N/A" after numeric operations are complete
     if not df_result.empty:
         df_result = df_result.fillna("N/A")
 
     # Add zone mapping if bridge_segments are provided and return
     final_result = _add_zone_mapping(df_result, bridge_segments)
-    print(f"  DEBUG: After zone mapping - final_result shape: {final_result.shape}")
     return final_result
 
 

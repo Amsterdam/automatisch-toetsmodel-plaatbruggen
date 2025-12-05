@@ -277,6 +277,7 @@ class AnalysisCache:
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
         self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
+        self._request_cache: dict[str, dict[str, Any]] = {}  # Request-level cache for analysis results
 
     def _write_storage_warning(self, message: str) -> None:
         """Persist a workspace-level warning so the UI can notify the user."""
@@ -384,6 +385,10 @@ class AnalysisCache:
             input_hash = self._generate_input_hash(params, analysis_type, template_path)
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
+            # Check request-level cache first (fastest - in-memory)
+            if cache_key in self._request_cache:
+                return self._request_cache[cache_key]
+
             # Get entity object for cross-entity storage access
             entity = self._get_entity(entity_id)
 
@@ -409,7 +414,11 @@ class AnalysisCache:
 
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
-                return pickle.loads(cached_data)
+                results = pickle.loads(cached_data)
+                
+                # Store in request-level cache for subsequent views in same request
+                self._request_cache[cache_key] = results
+                return results
         except Exception as e:
             if isinstance(e, InternalError):
                 self._write_storage_warning(f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})")
@@ -545,6 +554,9 @@ class AnalysisCache:
                     # Fallback: use current entity scope if API unavailable
                     self.storage.set(cache_key, data=cached_file, scope="entity")
                 self._clear_storage_warning()
+
+                # Store in request-level cache as well
+                self._request_cache[cache_key] = cacheable_results
 
                 # Notify parent entity of cache status
                 notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
@@ -887,11 +899,11 @@ def get_cached_analysis_results(  # noqa: PLR0913
     progress_message(f"{prefix}Controleren op gecachte resultaten...", percentage=percentage)
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
-        progress_message("Gecachte resultaten gevonden - laden...")
+        progress_message(f"{prefix}✓ Cache gevonden - resultaten worden geladen...")
         return cached_results
 
     # Run analysis if not cached
-    progress_message(f"⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
+    progress_message(f"{prefix}⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
         results = analysis_function(params, template_path, analysis_context)

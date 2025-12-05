@@ -4,9 +4,17 @@
 - **SCIA CS ULS/SLS View Empty Data Issue**: Fixed missing data in SCIA Cross Section (CS) ULS and SLS freq visualization views
   - Root cause: CS tables use different data structure (`p0` key) compared to regular 2D force tables (nested Dutch headers)
   - Updated `find_2d_force_tables_cs()` to use correct data key `"p0"` instead of Dutch header keys
-  - Added CS dataframes (`df_cs_uls`, `df_cs_sls_freq`) to cache storage for improved performance
-  - Enhanced `process_scia_cs_results()` to use cached dataframes when available
-  - CS views now properly display force, moment, and normal force data for all cross sections
+  - Added CS dataframes (`df_cs_uls`, `df_cs_sls_freq`, `df_cs_envelope`) to cache storage for improved performance
+  - Enhanced `process_scia_cs_results()` and `extract_cs_force_envelopes()` to use cached dataframes when available
+  - All CS views (ULS, SLS freq, Analyse Resultaten, CS visualisatie) now handle old cache gracefully with informative messages
+  - CS views properly display force, moment, and normal force data for all cross sections
+
+### Changed
+- **Request-Level Cache Optimization**: Added in-memory request-level cache to prevent redundant storage lookups when multiple views load the same SCIA/IDEA results
+  - First view loads from storage and caches results in memory
+  - Subsequent views in same request reuse in-memory cache (instant access)
+  - Dramatically improves performance when switching between SCIA views (CS ULS, CS visualisatie, Analyse Resultaten)
+  - Visualization parameter changes no longer trigger storage lookups or recalculations
 
 ## [`v0.0.18`] - 2025-12-01
 ### Added
