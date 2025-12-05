@@ -166,34 +166,34 @@ def fill_missing_force_values(df_merged: pd.DataFrame) -> pd.DataFrame:  # noqa:
         # Only process rows that actually have NaN values (from unmatched merge)
         if has_missing_shear or has_missing_moments or has_missing_normal:
             # Mark this row as derived (calculated) since it has missing data
-            df_filled.at[idx, "Bron"] = "Afgeleid"  # type: ignore[index]
+            df_filled.at[idx, "Bron"] = "Afgeleid"  # type: ignore[index]  # noqa: PD008
 
             # Calculate missing shear forces ONLY if they are NaN
             if has_missing_shear:
                 v_x_calc, v_y_calc = calculate_missing_shear_forces(row)
                 if pd.isna(row.get("v_x")):
-                    df_filled.at[idx, "v_x"] = v_x_calc  # type: ignore[index]
+                    df_filled.at[idx, "v_x"] = v_x_calc  # type: ignore[index]  # noqa: PD008
                 if pd.isna(row.get("v_y")):
-                    df_filled.at[idx, "v_y"] = v_y_calc  # type: ignore[index]
+                    df_filled.at[idx, "v_y"] = v_y_calc  # type: ignore[index]  # noqa: PD008
 
             # Calculate missing moments ONLY if they are NaN
             if has_missing_moments:
                 m_xd_plus_calc, m_xd_minus_calc, m_yd_plus_calc, m_yd_minus_calc = calculate_missing_moments(row)
                 if pd.isna(row.get("m_xD+")):
-                    df_filled.at[idx, "m_xD+"] = m_xd_plus_calc  # type: ignore[index]
+                    df_filled.at[idx, "m_xD+"] = m_xd_plus_calc  # type: ignore[index]  # noqa: PD008
                 if pd.isna(row.get("m_xD-")):
-                    df_filled.at[idx, "m_xD-"] = m_xd_minus_calc  # type: ignore[index]
+                    df_filled.at[idx, "m_xD-"] = m_xd_minus_calc  # type: ignore[index]  # noqa: PD008
                 if pd.isna(row.get("m_yD+")):
-                    df_filled.at[idx, "m_yD+"] = m_yd_plus_calc  # type: ignore[index]
+                    df_filled.at[idx, "m_yD+"] = m_yd_plus_calc  # type: ignore[index]  # noqa: PD008
                 if pd.isna(row.get("m_yD-")):
-                    df_filled.at[idx, "m_yD-"] = m_yd_minus_calc  # type: ignore[index]
+                    df_filled.at[idx, "m_yD-"] = m_yd_minus_calc  # type: ignore[index]  # noqa: PD008
 
             # Calculate missing normal forces ONLY if they are NaN
             if has_missing_normal:
                 n_xd_calc, n_yd_calc = calculate_missing_normal_forces(row)
                 if pd.isna(row.get("n_xD")):
-                    df_filled.at[idx, "n_xD"] = n_xd_calc  # type: ignore[index]
+                    df_filled.at[idx, "n_xD"] = n_xd_calc  # type: ignore[index]  # noqa: PD008
                 if pd.isna(row.get("n_yD")):
-                    df_filled.at[idx, "n_yD"] = n_yd_calc  # type: ignore[index]
+                    df_filled.at[idx, "n_yD"] = n_yd_calc  # type: ignore[index]  # noqa: PD008
 
     return df_filled
