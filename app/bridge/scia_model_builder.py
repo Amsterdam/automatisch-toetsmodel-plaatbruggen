@@ -80,6 +80,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
         self.load_combinations: dict[str, scia.LoadCombination] = {}  # Track load combinations
         self.result_classes: dict[str, scia.ResultClass] = {}  # Track result classes
+        self.integration_strips: dict[str, scia.IntegrationStrip] = {}  # Map custom_name -> strip object
 
     def create_material(self, name: str, material_id: int = 0) -> scia.Material:
         """Creates a material and stores it."""
@@ -157,6 +158,52 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         # Store the section for later reference
         self.sections_on_plane[name] = section
         return section
+
+    def create_integration_strip(
+        self,
+        plane: str,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        width: float,
+        custom_name: str,
+    ) -> scia.IntegrationStrip:
+        """
+        Creates an integration strip on a plane and stores it with custom name.
+
+        Integration strips are used to extract integrated forces and stresses
+        across a defined strip width on a plane element.
+
+        Uses workaround to set custom name via _name attribute after creation.
+
+        :param plane: Name of the plane to create the strip on
+        :param point_1: Start point (x, y, z) coordinates in [m]
+        :param point_2: End point (x, y, z) coordinates in [m]
+        :param width: Width of the integration strip in [m]
+        :param custom_name: Custom name for the strip (e.g., 'strip_Z1_1_X_1')
+        :return: Created IntegrationStrip object
+        """
+        # Get the plane object from stored plates
+        if plane not in self.plates:
+            raise ValueError(f"Plane '{plane}' not found in model. Create the plane first.")
+
+        plane_obj = self.plates[plane]
+
+        # Create the SCIA integration strip (SDK generates default name)
+        integration_strip = self.model.create_integration_strip(
+            plane=plane_obj,
+            point_1=point_1,
+            point_2=point_2,
+            width=width,
+        )
+        
+        # Workaround: Set custom name via private _name attribute
+        if hasattr(integration_strip, '_name'):
+            integration_strip._name = custom_name
+        
+        # Store strip with custom name
+        self.integration_strips[custom_name] = integration_strip
+
+        return integration_strip
 
     def create_load_group(
         self,
