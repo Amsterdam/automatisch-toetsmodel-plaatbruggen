@@ -1301,7 +1301,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Spreiding van verkeersbelasting",
         default=True,
         name="spreiding",
-        description="Indien aangevinkt, wordt de verticale verkeersbelasting van de BG6000 tot en met de BG11000 serie, uitgespreid over een breder vlak",
+        description="Indien aangevinkt, wordt de verticale verkeersbelasting van de BG6000 tot en met de BG11000 serie,\
+        uitgespreid over een breder vlak.",
     )
 
     # ----------------------------------
