@@ -20,10 +20,10 @@ Strip Placement Logic:
 - Overlap prevention: Regular strips avoid support areas using exclusion zones
 
 Strip Naming:
-- Regular: strip_{zone}_{width}_{direction}_{number}
-- Support: strip_sup-{x}_{zone}_{width}_{direction}_{number}
+- Regular: strip_dir-{direction}_reg_{zone}_w-{width}_nr-{number}
+- Support: strip_dir-{direction}_sup-{x}_{zone}_w-{width}_nr-{number}
 - Zone format: Z1-1, Z2-1, Z3-2 (hyphen separator for clarity)
-- Examples: strip_Z1-1_1.0_X_1, strip_sup-5.0_Z1-1_0.54_Y_1
+- Examples: strip_dir-x_reg_Z1-1_w-1.0_nr-1, strip_dir-y_sup-5.0_Z1-1_w-0.54_nr-1
 """
 
 from typing import Any
@@ -281,7 +281,7 @@ def _create_integration_strip_x_direction(
 
         half_width = strip_width / 2
         for seg_idx, (x_start, x_end) in enumerate(x_segments):
-            custom_name = f"strip_{zone_name}_{strip_width:.2f}_X_{seg_idx + 1}"
+            custom_name = f"strip_dir-x_reg_{zone_name}_w-{strip_width:.2f}_nr-{seg_idx + 1}"
 
             integration_strip = builder.create_integration_strip(
                 plane=plane_name,
@@ -331,8 +331,8 @@ def _create_integration_strip_x_direction(
     for strip_y in strip_positions:
         # Create strips in each X segment
         for x_start, x_end in x_segments:
-            # Generate custom name: strip_{zone}_{width}_{direction}_{number}
-            custom_name = f"strip_{zone_name}_{strip_width:.1f}_X_{strip_counter}"
+            # Generate custom name: strip_dir-{direction}_reg_{zone}_w-{width}_nr-{number}
+            custom_name = f"strip_dir-x_reg_{zone_name}_w-{strip_width:.1f}_nr-{strip_counter}"
 
             # Create the strip with custom name
             integration_strip = builder.create_integration_strip(
@@ -388,7 +388,7 @@ def _create_integration_strip_y_direction(
 
         # Format zone name: Z1_1 -> Z1-1
         zone_name = plane_name.replace("_", "-")
-        custom_name = f"strip_{zone_name}_{strip_width:.1f}_Y_1"
+        custom_name = f"strip_dir-y_reg_{zone_name}_w-{strip_width:.1f}_nr-1"
 
         integration_strip = builder.create_integration_strip(
             plane=plane_name,
@@ -408,7 +408,7 @@ def _create_integration_strip_y_direction(
 
         # Format zone name: Z1_1 -> Z1-1
         zone_name = plane_name.replace("_", "-")
-        custom_name = f"strip_{zone_name}_{strip_width:.1f}_Y_1"
+        custom_name = f"strip_dir-y_reg_{zone_name}_w-{strip_width:.1f}_nr-1"
 
         integration_strip = builder.create_integration_strip(
             plane=plane_name,
@@ -528,8 +528,8 @@ def _create_integration_strip_y_direction(
     # Create integration strips
     zone_name = plane_name.replace("_", "-")
     for i, strip_x in enumerate(filtered_positions):
-        # Generate custom name: strip_{zone}_{width}_{direction}_{number}
-        custom_name = f"strip_{zone_name}_{strip_width:.1f}_Y_{i + 1}"
+        # Generate custom name: strip_dir-{direction}_reg_{zone}_w-{width}_nr-{number}
+        custom_name = f"strip_dir-y_reg_{zone_name}_w-{strip_width:.1f}_nr-{i + 1}"
 
         # Create the strip with custom name
         integration_strip = builder.create_integration_strip(
@@ -670,7 +670,7 @@ def _create_support_strips(
 
         # Create Y-direction strip (transverse, perpendicular to support)
         for side, strip_x_center in strip_locations:
-            custom_name = f"strip_sup-{support_x:.1f}_{zone_name}_{support_strip_width:.2f}_Y_1"
+            custom_name = f"strip_dir-y_sup-{support_x:.1f}_{zone_name}_w-{support_strip_width:.2f}_nr-1"
 
             integration_strip = builder.create_integration_strip(
                 plane=plane_name,
@@ -736,7 +736,7 @@ def _create_support_x_strips(
         strip_width = zone_width_y
         strip_y = (y_bounds["y_min"] + y_bounds["y_max"]) / 2
 
-        custom_name = f"strip_sup-{support_x:.1f}_{zone_name}_{strip_width:.2f}_X_1"
+        custom_name = f"strip_dir-x_sup-{support_x:.1f}_{zone_name}_w-{strip_width:.2f}_nr-1"
 
         integration_strip = builder.create_integration_strip(
             plane=plane_name,
@@ -768,7 +768,7 @@ def _create_support_x_strips(
         strip_positions.append(y_bounds["y_min"] + half_width)
 
     for i, strip_y in enumerate(strip_positions):
-        custom_name = f"strip_sup-{support_x:.1f}_{zone_name}_{strip_width:.1f}_X_{i + 1}"
+        custom_name = f"strip_dir-x_sup-{support_x:.1f}_{zone_name}_w-{strip_width:.1f}_nr-{i + 1}"
 
         integration_strip = builder.create_integration_strip(
             plane=plane_name,
