@@ -1363,11 +1363,12 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "SCIA",
         views=[
             "get_3d_view",
-            "get_scia_cs_results_view_uls",
-            "get_scia_cs_results_view_sls_freq",
-            "get_scia_results_table",
-            "get_scia_cs_visualization",
+            # "get_scia_cs_results_view_uls",
+            # "get_scia_cs_results_view_sls_freq",
+            # "get_scia_results_table",
+            # "get_scia_cs_visualization",
             # Integration strip views
+            "get_integration_strip_envelopes",
             "get_integration_strip_uls_x_reg",
             "get_integration_strip_uls_y_reg",
             "get_integration_strip_uls_x_sup",
@@ -1376,7 +1377,6 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "get_integration_strip_slsfreq_y_reg",
             "get_integration_strip_slsfreq_x_sup",
             "get_integration_strip_slsfreq_y_sup",
-            "get_integration_strip_envelopes",
         ],
     )
 
@@ -1393,80 +1393,80 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # Analysis button
     scia.downloads.run_analysis_button = DownloadButton("Download SCIA Output XML", method="download_scia_output_xml", longpoll=True)
 
-    # ----------------------------------
-    # --- SCIA Page -> Visualisatie tab ---
-    # ----------------------------------
-    scia.visualization = Tab("Visualisatie")
+#     # ----------------------------------
+#     # --- SCIA Page -> Visualisatie tab ---
+#     # ----------------------------------
+#     scia.visualization = Tab("Visualisatie")
 
-    scia.visualization.info_text = Text(
-        """## SCIA CS Resultaten Visualisatie
+#     scia.visualization.info_text = Text(
+#         """## SCIA CS Resultaten Visualisatie
 
-Configureer de visualisatie van doorsnede krachten en momenten uit de SCIA analyse.
+# Configureer de visualisatie van doorsnede krachten en momenten uit de SCIA analyse.
 
-Deze visualisatie toont de krachten en momenten in het brugdek op basis van de SCIA Cross Section (CS) analyse resultaten.
-Selecteer de richting (X of Y), het type resultaat (ULS of SLS frequente), en de doorsnede positie om de grafieken te bekijken.
+# Deze visualisatie toont de krachten en momenten in het brugdek op basis van de SCIA Cross Section (CS) analyse resultaten.
+# Selecteer de richting (X of Y), het type resultaat (ULS of SLS frequente), en de doorsnede positie om de grafieken te bekijken.
 
-**Hoe te gebruiken:**
-1. **Resultaattype**: Kies tussen ULS (Ultimate Limit State) of SLS freq (Serviceability Limit State frequent) resultaten
-2. **Richting**:
-   - X-richting = langsdoorsneden (variërend van links naar rechts over de bruglengte)
-   - Y-richting = dwarsdoorsneden (variërend van boven naar beneden over de brugbreedte)
-3. **Maximale waarde voor**: Selecteer voor welke kracht/moment component de maximale envelop waarden worden getoond
-4. **Doorsnede nummer**: Kies welke specifieke doorsnede u wilt bekijken (0 = eerste doorsnede)
+# **Hoe te gebruiken:**
+# 1. **Resultaattype**: Kies tussen ULS (Ultimate Limit State) of SLS freq (Serviceability Limit State frequent) resultaten
+# 2. **Richting**:
+#    - X-richting = langsdoorsneden (variërend van links naar rechts over de bruglengte)
+#    - Y-richting = dwarsdoorsneden (variërend van boven naar beneden over de brugbreedte)
+# 3. **Maximale waarde voor**: Selecteer voor welke kracht/moment component de maximale envelop waarden worden getoond
+# 4. **Doorsnede nummer**: Kies welke specifieke doorsnede u wilt bekijken (0 = eerste doorsnede)
 
-De grafieken tonen vier subplots met dwarskrachten, momenten in X- en Y-richting, en normaalkrachten.
-"""
-    )
+# De grafieken tonen vier subplots met dwarskrachten, momenten in X- en Y-richting, en normaalkrachten.
+# """
+#     )
 
-    scia.visualization.lb1 = LineBreak()
+#     scia.visualization.lb1 = LineBreak()
 
-    # Result type selection
-    scia.visualization.result_type = OptionField(
-        "Resultaattype",
-        options=["ULS", "SLS freq"],
-        default="ULS",
-        variant="radio",
-        description="Selecteer of ULS of SLS frequente resultaten getoond moeten worden",
-    )
+#     # Result type selection
+#     scia.visualization.result_type = OptionField(
+#         "Resultaattype",
+#         options=["ULS", "SLS freq"],
+#         default="ULS",
+#         variant="radio",
+#         description="Selecteer of ULS of SLS frequente resultaten getoond moeten worden",
+#     )
 
-    scia.visualization.lb2 = LineBreak()
+#     scia.visualization.lb2 = LineBreak()
 
-    # Direction selection
-    scia.visualization.direction = OptionField(
-        "Richting",
-        options=["X-richting", "Y-richting"],
-        default="X-richting",
-        variant="radio",
-        description="X-richting = langsdoorsneden (links naar rechts), Y-richting = dwarsdoorsneden (boven naar beneden)",
-    )
+#     # Direction selection
+#     scia.visualization.direction = OptionField(
+#         "Richting",
+#         options=["X-richting", "Y-richting"],
+#         default="X-richting",
+#         variant="radio",
+#         description="X-richting = langsdoorsneden (links naar rechts), Y-richting = dwarsdoorsneden (boven naar beneden)",
+#     )
 
-    scia.visualization.lb3 = LineBreak()
+#     scia.visualization.lb3 = LineBreak()
 
-    # Max type selection
-    scia.visualization.max_type = OptionField(
-        "Maximale waarde voor",
-        options=["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"],
-        default="m_xD+",
-        description="Selecteer voor welke kracht/moment component de maximale waarden getoond worden",
-    )
+#     # Max type selection
+#     scia.visualization.max_type = OptionField(
+#         "Maximale waarde voor",
+#         options=["v_x", "v_y", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"],
+#         default="m_xD+",
+#         description="Selecteer voor welke kracht/moment component de maximale waarden getoond worden",
+#     )
 
-    scia.visualization.lb4 = LineBreak()
+#     scia.visualization.lb4 = LineBreak()
 
-    # Position selection - using index-based selection for simplicity
-    scia.visualization.position_index = NumberField(
-        "Doorsnede nummer",
-        default=0,
-        min=0,
-        step=1,
-        description="Selecteer het doorsnede nummer (begint bij 0). Voor X-richting: van links naar rechts. Voor Y-richting: van boven naar beneden.",
-    )
+#     # Position selection - using index-based selection for simplicity
+#     scia.visualization.position_index = NumberField(
+#         "Doorsnede nummer",
+#         default=0,
+#         min=0,
+#         step=1,
+#         description="Selecteer het doorsnede nummer (begint bij 0). Voor X-richting: van links naar rechts. Voor Y-richting: van boven naar beneden.",
+#     )
 
-    scia.visualization.info_position = Text(
-        """
-**Tip:** Doorsnede nummering begint bij 0 (eerste doorsnede). In de grafiek wordt dit getoond als doorsnede 1.
-De beschikbare doorsnedes worden automatisch bepaald op basis van de SCIA analyse resultaten.
-"""
-    )
+#     scia.visualization.info_position = Text(
+#         """
+# **Tip:** Doorsnede nummering begint bij 0 (eerste doorsnede). In de grafiek wordt dit getoond als doorsnede 1.
+# De beschikbare doorsnedes worden automatisch bepaald op basis van de SCIA analyse resultaten.
+# """
+#     )
 
     # ----------------------------------
     # --- IDEA StatiCa Page ---
