@@ -480,7 +480,6 @@ def _create_integration_strip_y_direction(
                     gap_fill_position = excl_start - 0.5  # 0.5m before support exclusion edge
                     if gap_fill_position > x_bounds["x_start"] and gap_fill_position not in strip_positions:
                         strip_positions.append(gap_fill_position)
-                        print(f"[DEBUG]     Adding gap-fill Y-strip at X={gap_fill_position:.3f}m (gap={gap_size:.3f}m before support exclusion at X={excl_start:.3f}m)")
         
         # Check gap at the segment end
         last_strip_x = max(strip_positions) if strip_positions else min_x_after_exclusion

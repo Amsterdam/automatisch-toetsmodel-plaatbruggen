@@ -753,16 +753,22 @@ def extract_cacheable_idea_results(full_results: dict[str, Any]) -> dict[str, An
     """
     Extract only cacheable data from IDEA results (exclude large binary files).
 
-    Excludes:
-    - idea_xml_input_bytes (can regenerate from model)
-    - output_content (large raw output bytes)
-    - Full model object if it contains large binary data
+    This function stores the complete IDEA results including model and binary files
+    needed for downloads. While these files are large, they are necessary for:
+    - XML download (needs idea_xml_input_bytes)
+    - Results download (needs all files for ZIP creation)
+
+    The alternative would be to regenerate these files on-demand, but that would
+    require running the IDEA analysis again, which is slower than caching.
 
     Includes:
+    - model (IDEA model object, needed for XML generation)
+    - idea_xml_input_bytes (XML input file)
+    - idea_rcs_model (RCS model file)
+    - idea_xml_output_bytes (XML output file)
+    - output_content (raw output for parsing)
     - Parsed section results
     - Analysis status
-    - Capacity ratios, utilization data
-    - Other small processed data
 
     :param full_results: Complete IDEA analysis results
     :type full_results: dict[str, Any]
@@ -781,8 +787,18 @@ def extract_cacheable_idea_results(full_results: dict[str, Any]) -> dict[str, An
     if "error" in full_results:
         cacheable["error"] = full_results["error"]
 
-    # Exclude: idea_xml_input_bytes, output_content, model (too large or regenerable)
-    # Note: XML download will regenerate from params if needed
+    # Include model and binary files for downloads
+    # Note: These are large but necessary for download functionality
+    if "model" in full_results:
+        cacheable["model"] = full_results["model"]
+    if "idea_xml_input_bytes" in full_results:
+        cacheable["idea_xml_input_bytes"] = full_results["idea_xml_input_bytes"]
+    if "idea_rcs_model" in full_results:
+        cacheable["idea_rcs_model"] = full_results["idea_rcs_model"]
+    if "idea_xml_output_bytes" in full_results:
+        cacheable["idea_xml_output_bytes"] = full_results["idea_xml_output_bytes"]
+    if "output_content" in full_results:
+        cacheable["output_content"] = full_results["output_content"]
 
     return cacheable
 

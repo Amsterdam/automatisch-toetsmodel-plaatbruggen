@@ -182,7 +182,7 @@ class IdeaModelBuilder(Protocol):
         """
         ...
 
-    def create_result_of_internal_forces(self, Qz: float = 0.0, My: float = 0.0) -> IdeaResultOfInternalForces:  # noqa: N803
+    def create_result_of_internal_forces(self, Qz: float = 0.0, My: float = 0.0, N: float = 0.0) -> IdeaResultOfInternalForces:  # noqa: N803
         """
         Create an internal forces result object.
 
@@ -190,6 +190,8 @@ class IdeaModelBuilder(Protocol):
         :type Qz: float
         :param My: Bending moment My in kNm
         :type My: float
+        :param N: Normal force N in kN
+        :type N: float
         :returns: Internal forces result object
         :rtype: IdeaResultOfInternalForces
         """
