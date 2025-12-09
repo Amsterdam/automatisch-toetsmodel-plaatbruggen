@@ -195,11 +195,11 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             point_2=point_2,
             width=width,
         )
-        
+
         # Workaround: Set custom name via private _name attribute
-        if hasattr(integration_strip, '_name'):
+        if hasattr(integration_strip, "_name"):
             integration_strip._name = custom_name
-        
+
         # Store strip with custom name
         self.integration_strips[custom_name] = integration_strip
 

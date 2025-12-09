@@ -20,7 +20,7 @@ from src.integrations.scia_integration.scia_loads import create_all_loads
 
 from .scia_integration_strips import create_all_integration_strips
 from .scia_model_interface import SciaModelBuilder
-from .scia_section_on_plane import create_all_sections_on_plane, create_section_definitions
+from .scia_section_on_plane import create_section_definitions
 from .scia_supports import create_all_supports
 
 
