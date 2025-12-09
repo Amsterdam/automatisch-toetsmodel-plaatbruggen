@@ -734,6 +734,10 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "df_cs_sls_freq" in full_results:
         cacheable["df_cs_sls_freq"] = full_results["df_cs_sls_freq"]
 
+    # Include integration strips if present (needed for integration strip views)
+    if "integration_strips" in full_results:
+        cacheable["integration_strips"] = full_results["integration_strips"]
+
     # Include other DataFrames/parsed results (small)
     for key in ["displacements", "internal_forces", "reactions", "stresses"]:
         if key in full_results:

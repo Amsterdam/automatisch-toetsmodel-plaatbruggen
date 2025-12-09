@@ -27,6 +27,10 @@ from src.integrations.scia_integration.results.scia_result_views import (
     create_scia_cs_plotly_visualization,
     create_scia_cs_results_table,
 )
+from src.integrations.scia_integration.results.scia_integration_strips_views import (
+    create_integration_strip_envelope_table_view,
+    create_integration_strip_table_view,
+)
 
 
 class SciaIntegration:
@@ -186,6 +190,180 @@ class SciaIntegration:
         # Pass bridge_segments to enable zone mapping
         bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
         return create_scia_cs_envelope_table(results, bridge_segments=bridge_segments)
+
+    # ============================================================================================================
+    # Integration Strip Results Table Views
+    # ============================================================================================================
+
+    @TableView("Integratiestroken ULS x reg", duration_guess=600)
+    def get_integration_strip_uls_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display ULS results for x-direction regular integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "ULS_x_reg")
+
+    @TableView("Integratiestroken ULS y reg", duration_guess=600)
+    def get_integration_strip_uls_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display ULS results for y-direction regular integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "ULS_y_reg")
+
+    @TableView("Integratiestroken ULS x sup", duration_guess=600)
+    def get_integration_strip_uls_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display ULS results for x-direction support integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "ULS_x_sup")
+
+    @TableView("Integratiestroken ULS y sup", duration_guess=600)
+    def get_integration_strip_uls_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display ULS results for y-direction support integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "ULS_y_sup")
+
+    @TableView("Integratiestroken SLSfreq x reg", duration_guess=600)
+    def get_integration_strip_slsfreq_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS frequent results for x-direction regular integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "SLSfreq_x_reg")
+
+    @TableView("Integratiestroken SLSfreq y reg", duration_guess=600)
+    def get_integration_strip_slsfreq_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS frequent results for y-direction regular integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "SLSfreq_y_reg")
+
+    @TableView("Integratiestroken SLSfreq x sup", duration_guess=600)
+    def get_integration_strip_slsfreq_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS frequent results for x-direction support integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "SLSfreq_x_sup")
+
+    @TableView("Integratiestroken SLSfreq y sup", duration_guess=600)
+    def get_integration_strip_slsfreq_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display SLS frequent results for y-direction support integration strips.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with integration strip results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_table_view(results, "SLSfreq_y_sup")
+
+    @TableView("Integratiestroken Enveloppen", duration_guess=600)
+    def get_integration_strip_envelopes(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """
+        Display aggregated min/max force envelopes from integration strips.
+
+        Shows minimum and maximum values for all force/moment components per zone,
+        direction, and limit state.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: TableResult with envelope results
+        :rtype: TableResult
+        """
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_integration_strip_envelope_table_view(results)
+
+    def _get_scia_results_with_cache(self, params: BridgeParametrization, **kwargs) -> dict:
+        """
+        Helper method to get SCIA results with caching.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :param kwargs: Additional arguments including entity_id
+        :returns: SCIA results dictionary
+        :rtype: dict
+        :raises UserError: If analysis fails
+        """
+        if not params.bridge_segments_array:
+            raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
+
+        template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+        entity_id = kwargs.get("entity_id")
+        if not isinstance(entity_id, int):
+            raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
+
+        def _raise_scia_error(error_msg: str = "SCIA resultaten konden niet worden opgehaald.") -> NoReturn:
+            raise UserError(error_msg)
+
+        progress_message("Laden van gecachte SCIA analyse of starten nieuwe analyse...")
+        try:
+            results = get_cached_analysis_results(
+                params=params,
+                analysis_type=AnalysisType.SCIA,
+                entity_id=entity_id,
+                analysis_function=get_scia_analysis_results,
+                template_path=str(template_path),
+            )
+            if results is None:
+                _raise_scia_error()
+            
+            return results
+        except TimeoutError:
+            _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
+        except Exception as e:
+            traceback.print_exc()
+            _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
     # ============================================================================================================
     # SCIA CS Visualization

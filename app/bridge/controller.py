@@ -80,6 +80,17 @@ class BridgeController(
     get_scia_cs_results_view_sls_freq = SciaIntegration.get_scia_cs_results_view_sls_freq
     get_scia_results_table = SciaIntegration.get_scia_results_table
     get_scia_cs_visualization = SciaIntegration.get_scia_cs_visualization
+    # Integration strip views
+    get_integration_strip_uls_x_reg = SciaIntegration.get_integration_strip_uls_x_reg
+    get_integration_strip_uls_y_reg = SciaIntegration.get_integration_strip_uls_y_reg
+    get_integration_strip_uls_x_sup = SciaIntegration.get_integration_strip_uls_x_sup
+    get_integration_strip_uls_y_sup = SciaIntegration.get_integration_strip_uls_y_sup
+    get_integration_strip_slsfreq_x_reg = SciaIntegration.get_integration_strip_slsfreq_x_reg
+    get_integration_strip_slsfreq_y_reg = SciaIntegration.get_integration_strip_slsfreq_y_reg
+    get_integration_strip_slsfreq_x_sup = SciaIntegration.get_integration_strip_slsfreq_x_sup
+    get_integration_strip_slsfreq_y_sup = SciaIntegration.get_integration_strip_slsfreq_y_sup
+    get_integration_strip_envelopes = SciaIntegration.get_integration_strip_envelopes
+    # Downloads
     download_scia_esa_model = SciaIntegration.download_scia_esa_model
     download_scia_xml_files = SciaIntegration.download_scia_xml_files
     download_scia_output_xml = SciaIntegration.download_scia_output_xml

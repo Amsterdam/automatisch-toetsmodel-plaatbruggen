@@ -1363,12 +1363,18 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
     cached_dataframes = _generate_and_cache_cs_dataframes(results, bridge_segments)
     results.update(cached_dataframes)
 
+    # Process and cache integration strip results
+    progress_message("Verwerken en cachen integratiestroken...")
+    cached_integration_strips = _generate_and_cache_integration_strips(results)
+    results.update(cached_integration_strips)
+
     # Add summary information
     results["summary"] = {
         "analysis_status": results.get("analysis_status", "unknown"),
         "xml_parsing": results.get("xml_parsing", {}),
         "has_esa_model": esa_model is not None,
         "has_cached_dataframes": bool(cached_dataframes),
+        "has_integration_strips": bool(cached_integration_strips),
     }
 
     return results
@@ -1413,6 +1419,38 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
         }
 
 
+def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Generate and return integration strip dataframes for caching.
+
+    Processes all 8 integration strip tables and creates an envelope DataFrame.
+
+    :param results: Raw SCIA analysis results
+    :return: Dictionary with cached integration strip data
+    """
+    try:
+        from src.integrations.scia_integration.results.scia_integration_strips_processor import (
+            process_all_integration_strips,
+        )
+
+        # Process all integration strip results
+        integration_strips_data = process_all_integration_strips(results)
+
+        return {
+            "integration_strips": integration_strips_data,
+        }
+    except Exception as e:
+        # Print the error so the actual issue is visible
+        print(f"Error: Failed to generate integration strip dataframes: {e}")
+        # Return empty structure rather than failing completely
+        return {
+            "integration_strips": {
+                "tables": {},
+                "envelope": pd.DataFrame(),
+            },
+        }
+
+
 def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001
     """
     Module-level factory for SCIA input and analysis.
@@ -1431,3 +1469,4 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     # Note: This is a simplified version for testing - in production you might want
     # to actually run the SCIA analysis here
     return xml_file, def_file, None
+
