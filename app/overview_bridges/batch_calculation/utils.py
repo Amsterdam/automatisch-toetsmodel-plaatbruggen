@@ -2,7 +2,7 @@
 
 import base64
 import pickle
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from viktor.core import File, Storage
@@ -482,7 +482,7 @@ def record_batch_last_run_timestamp(storage: Storage, timestamp: datetime | None
     :param timestamp: Timestamp to store. Defaults to current UTC time if not provided.
     :type timestamp: datetime | None
     """
-    ts = timestamp or datetime.now(timezone.utc)
+    ts = timestamp or datetime.now(UTC)
     storage.set(LAST_BATCH_RUN_KEY, File.from_data(ts.isoformat()), scope="entity")
 
 
@@ -529,7 +529,7 @@ def record_storage_status(storage: Storage, success: bool, message: str, details
     import json
 
     status_data = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "success": success,
         "message": message,
         "details": details or {},

@@ -19,6 +19,7 @@ def _mock_init(self, storage=None) -> None:  # noqa: ANN001
     self.storage = storage or Mock()
     self._hash_cache = {}
     self._entity_cache = {}
+    self._request_cache = {}  # Request-level cache
 
     # Mock entity object
     mock_entity = Mock()
@@ -33,6 +34,7 @@ def _mock_init_no_override(self, storage=None) -> None:  # noqa: ANN001
     self.storage = storage or Mock()
     self._hash_cache = {}
     self._entity_cache = {}
+    self._request_cache = {}  # Request-level cache
 
 
 def _create_mock_api_class(mock_api_instance: Mock) -> type:

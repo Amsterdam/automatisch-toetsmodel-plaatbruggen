@@ -5,7 +5,7 @@ This module contains models for load combination parameters, design codes,
 and consequence classes used in structural analysis.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -33,7 +33,7 @@ class LoadCombinationConfig(BaseModel):
     @classmethod
     def validate_construction_year_realistic(cls, v: int, _info: ValidationInfo) -> int:
         """Validate that construction year is realistic for bridge structures."""
-        current_year = datetime.now(timezone.utc).year
+        current_year = datetime.now(UTC).year
 
         if v > current_year + 10:
             raise ValueError(f"Construction year {v} is too far in the future (max: {current_year + 10})")

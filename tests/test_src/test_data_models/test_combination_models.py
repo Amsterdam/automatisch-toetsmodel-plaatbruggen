@@ -1,7 +1,7 @@
 """Tests for load combination Pydantic models."""
 
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -81,7 +81,7 @@ class TestLoadCombinationConfig(unittest.TestCase):
 
     def test_construction_year_too_future_rejected(self) -> None:
         """Test that construction years too far in the future are rejected."""
-        current_year = datetime.now(timezone.utc).year
+        current_year = datetime.now(UTC).year
         future_year = current_year + 20  # Too far in future
 
         with pytest.raises(ValidationError) as exc_info:
@@ -93,7 +93,7 @@ class TestLoadCombinationConfig(unittest.TestCase):
 
     def test_construction_year_edge_cases_valid(self) -> None:
         """Test construction year edge cases that should be valid."""
-        current_year = datetime.now(timezone.utc).year
+        current_year = datetime.now(UTC).year
 
         # Test minimum valid year
         config_min = LoadCombinationConfig(cc_class="CC2", design_code="NEN 8700 verbouw", construction_year=1850)

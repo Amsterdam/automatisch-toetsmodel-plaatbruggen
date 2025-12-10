@@ -1,7 +1,7 @@
 """Tests for batch calculation chat functionality."""
 
 from types import SimpleNamespace
-from typing import Any, ClassVar, NoReturn, Optional
+from typing import Any, ClassVar, NoReturn
 
 import pytest
 
@@ -38,7 +38,7 @@ def test_build_batch_chat_context_includes_filtered_metadata(monkeypatch: pytest
         """Mock File object for Storage.get() return value."""
 
     class DummyStorage:
-        def get(self, key: str, scope: Optional[str] = None) -> DummyFile:  # noqa: ARG002
+        def get(self, key: str, scope: str | None = None) -> DummyFile:  # noqa: ARG002
             if key == "batch_calculation_results":
                 return DummyFile()
             raise FileNotFoundError
