@@ -5,7 +5,8 @@ This module contains the core load generation logic extracted from scia_bridge_g
 to eliminate circular imports. It coordinates between theoretical and real tandem/UDL generators.
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from src.data_models.scia_models import BridgeDimensionsData
 from src.integrations.scia_integration.constants import UDL_BASE_VALUE

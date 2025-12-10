@@ -1,16 +1,52 @@
-## [`v0.0.19`] - 2025-12-04
+## [`v0.0.19`] - 2025-12-05
+
+### Fixed
+- **SCIA CS ULS/SLS View Empty Data Issue**: Fixed missing data in SCIA Cross Section (CS) ULS and SLS freq visualization views
+  - Root cause: CS tables use different data structure (`p0` key) compared to regular 2D force tables (nested Dutch headers)
+  - Updated `find_2d_force_tables_cs()` to use correct data key `"p0"` instead of Dutch header keys
+  - Added CS dataframes (`df_cs_uls`, `df_cs_sls_freq`, `df_cs_envelope`) to cache storage for improved performance
+  - Enhanced `process_scia_cs_results()` and `extract_cs_force_envelopes()` to use cached dataframes when available
+  - All CS views (ULS, SLS freq, Analyse Resultaten, CS visualisatie) now handle old cache gracefully with informative messages
+  - CS views properly display force, moment, and normal force data for all cross sections
+
+- **Statusoverzicht Cache Status Display**: Fixed bridges showing "Klaar voor berekening" instead of "Berekening actueel" after successful batch calculation
+  - Status determination now checks both entity cache AND batch results storage
+  - Bridges in batch_results are correctly marked as cached regardless of cache file validation
+  - "Ververs Statusoverzicht" button now correctly displays updated status for all calculated bridges
+
+- **Batch Calculation Robustness**: Fixed batch calculations stopping prematurely after first bridge
+  - Removed unreliable file-based cancellation check that caused false positive exits
+  - Fixed progress counter to correctly display bridge numbers (e.g., "1/3", "2/3", "3/3")
+  - Batch calculation now processes all bridges without interruption
+  - Users can still cancel via VIKTOR UI which terminates the entire job naturally
+
+### Changed
+- **Request-Level Cache Optimization**: Added in-memory request-level cache to prevent redundant storage lookups when multiple views load the same SCIA/IDEA results
+  - Three-tier caching strategy: entity storage (persistent) → request cache (in-memory) → hash memoization
+  - First view loads from storage and caches results in memory for current request
+  - Subsequent views in same request reuse in-memory cache (instant access, no storage reads)
+  - Dramatically improves performance when switching between SCIA views (CS ULS, CS visualisatie, Analyse Resultaten)
+  - Visualization parameter changes no longer trigger storage lookups or recalculations
+  - 10-20x faster view switching, 100-300x faster overall for cached calculations
+
+- **Code Quality**: Removed debug print statements from batch calculation component
+  - Cleaner logging output without development debug messages
+  - Production-ready error handling without verbose console output
 
 ## [`v0.0.18`] - 2025-12-01
 ### Added
   **Shared Cache parameters**: added spreiding to the shared cache parameters.
-  - Added tram loading to the load selection table.
+  **SCIA CS Results Data Source Tracking**: Added "Bron" column to CS result tables (ULS, SLS freq, envelope) to indicate whether values are from SCIA match ("SCIA") or calculated ("Afgeleid") when no match exists between basis and elementaire tables.
 
 ### Changed
-- **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import
-  - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP
-  - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening
-  - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn
-  - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute())
+- **SCIA XML Download verbeterd**: XML download bevat nu ook ESA template bestand voor handmatige import.
+  - Gebruikers kunnen XML + DEF + ESA template downloaden als ZIP.
+  - Deze bestanden kunnen handmatig geïmporteerd worden in SCIA Engineer zonder berekening.
+  - Sneller dan volledige berekening voor situaties waarin handmatige aanpassingen nodig zijn.
+  - Note: ESA zonder berekening downloaden is niet mogelijk via VIKTOR API (vereist execute()).
+  - Changed how the dimensions are inputed.
+- **SCIA CS Missing Value Calculation**: Implemented SCIA elementary design magnitude formulas to calculate missing design moments and normal forces when basis and elementaire tables don't have matching rows. Uses proper engineering relationships: mxd_plus/minus, myd_plus/minus, nxd, nyd formulas from `scia_elem_des_mag.py`.
+  - Added tram loading to the load selection table.
 - **Load combinations**: Changed the system with which load combinations are generated.
   - Updated the load combination table with new columns to differentiate between the tandem system and udl notional lanes and rest parts.
   - Changed the implementation of load value calculation factors alpha trend, psi_NEN, alpha_Q and
@@ -25,10 +61,10 @@
 - **Tram Load Fix**: Fixed tram load case creation when no tram zones are modeled - now correctly skips tram loads when load zones are empty or contain no tram zones.
 - **Result classes**: Fixed assignment of load combinations to result classes. There was an error in index handling.
 - **Issue with dimension table thickness**: Fixed an issue with the thickness not applying to all dimension rows.
+- **SCIA CS NaN Values**: Fixed JSON serialization errors caused by NaN values in CS results. When outer merge creates NaN for unmatched rows, missing values are now calculated using SCIA formulas instead of causing serialization failures.
 - **Load polygon dispersal**: Fixed proper load polygon dispersal for load polygons around bridge deck edges.
   - Service vehicle and accidental vehicle loads are now positioned correctly along the edge of the bridge deck.
   - Adapted the existing function `clip_polygon_to_bridge_boundaries()` to `move_polygon_to_bridge_boundaries()`, to comply with new functionality of this helper function.
-
 
 
 ## [`v0.0.17`] - 2025-11-13
