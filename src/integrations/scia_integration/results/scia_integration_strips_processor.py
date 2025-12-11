@@ -230,12 +230,12 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             width = float(row["strip_width"]) if row["strip_width"] else 1.0
             # Only correct if width is not 1.0 (with small tolerance for floating point)
             if abs(width - 1.0) > 0.01:
-                df.loc[idx, "corrected"] = True  # type: ignore[index]
+                df.loc[idx, "corrected"] = True  # type: ignore[index, call-overload]
                 # Divide force/moment values by width to get per-meter values
                 for col in force_moment_cols:
-                    if col in df.columns and pd.notna(df.loc[idx, col]):  # type: ignore[index]
-                        value = df.loc[idx, col]
-                        df.loc[idx, col] = float(value) / width  # type: ignore[index, arg-type]
+                    if col in df.columns and pd.notna(df.loc[idx, col]):  # type: ignore[index, call-overload]
+                        value = df.loc[idx, col]  # type: ignore[index, call-overload]
+                        df.loc[idx, col] = float(value) / width  # type: ignore[index, call-overload, arg-type]
         except (ValueError, TypeError, ZeroDivisionError):  # noqa: PERF203
             # If width parsing fails or is zero, don't correct
             pass
