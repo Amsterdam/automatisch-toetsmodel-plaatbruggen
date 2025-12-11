@@ -20,7 +20,6 @@ from src.integrations.scia_integration.scia_loads import create_all_loads
 
 from .scia_integration_strips import create_all_integration_strips
 from .scia_model_interface import SciaModelBuilder
-from .scia_section_on_plane import create_section_definitions
 from .scia_supports import create_all_supports
 
 
@@ -130,7 +129,6 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
 
     # 1. Build Geometry and get back the ordered list of plate names
     plate_names = create_bridge_geometry(builder, params)
-    section_definitions = create_section_definitions(params)
 
     # 2. Extract support types from parameters
     support_types = None
@@ -144,23 +142,20 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     # 3. Build Line Supports with user-specified support types
     create_all_supports(builder, plate_names, support_types)
 
-    # 4. Build Sections on Plane
-    # create_all_sections_on_plane(builder, section_definitions)
-
-    # 5. Build Integration Strips
+    # 4. Build Integration Strips
     create_all_integration_strips(builder, params)
 
-    # 6. Build Load Groups
+    # 5. Build Load Groups
     create_all_load_groups(builder)
 
-    # 7. Build ALL Load Cases (standard and dynamic)
+    # 6. Build ALL Load Cases (standard and dynamic)
     all_load_cases = create_all_load_cases(builder, params)
 
-    # 8. Apply all loads to the now-existing cases
+    # 7. Apply all loads to the now-existing cases
     create_all_loads(builder, params, all_load_cases)
 
-    # 9. Build Load Combinations (after loads are applied)
+    # 8. Build Load Combinations (after loads are applied)
     all_load_combinations = create_all_load_combinations(params, builder, all_load_cases)
 
-    # 10. Create Result Classes to tell SCIA which combinations to analyze
+    # 9. Create Result Classes to tell SCIA which combinations to analyze
     create_all_result_classes(params, builder, all_load_combinations)

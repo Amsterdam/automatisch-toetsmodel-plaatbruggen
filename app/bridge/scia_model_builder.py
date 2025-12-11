@@ -74,7 +74,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
-        self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
@@ -120,44 +119,6 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         )
         self.plates[name] = plate
         return plate
-
-    def create_section_on_plane(
-        self,
-        point_1: tuple[float, float, float],
-        point_2: tuple[float, float, float],
-        *,
-        name: str,
-        draw: Any | None = None,  # noqa: ANN401
-        direction_of_cut: tuple[float, float, float] | None = None,
-    ) -> scia.SectionOnPlane:
-        """
-        Creates a section on a plane and stores it.
-
-        :param point_1: Start coordinates (x, y, z) in [m]
-        :param point_2: End coordinates (x, y, z) in [m]
-        :param name: Name which will be shown in SCIA
-        :param draw: Defines the plane in which the section is drawn (default: Z_DIRECTION)
-        :param direction_of_cut: In-plane vector (x, y, z) defining the direction of cut in [m]
-        :return: Created SectionOnPlane object
-        """
-        # Build kwargs for optional parameters
-        kwargs = {}
-        if draw is not None:
-            kwargs["draw"] = draw
-        if direction_of_cut is not None:
-            kwargs["direction_of_cut"] = direction_of_cut
-
-        # Create the SCIA section on plane
-        section = self.model.create_section_on_plane(
-            point_1=point_1,
-            point_2=point_2,
-            name=name,
-            **kwargs,
-        )
-
-        # Store the section for later reference
-        self.sections_on_plane[name] = section
-        return section
 
     def create_integration_strip(
         self,
@@ -1357,12 +1318,6 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
     esa_model = _extract_esa_model_for_caching(analysis)
     results["esa_model"] = esa_model
 
-    # Process and cache dataframes for CS results
-    progress_message("Verwerken en cachen CS dataframes...")
-    bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-    cached_dataframes = _generate_and_cache_cs_dataframes(results, bridge_segments)
-    results.update(cached_dataframes)
-
     # Process and cache integration strip results
     progress_message("Verwerken en cachen integratiestroken...")
     cached_integration_strips = _generate_and_cache_integration_strips(results)
@@ -1373,50 +1328,10 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
         "analysis_status": results.get("analysis_status", "unknown"),
         "xml_parsing": results.get("xml_parsing", {}),
         "has_esa_model": esa_model is not None,
-        "has_cached_dataframes": bool(cached_dataframes),
         "has_integration_strips": bool(cached_integration_strips),
     }
 
     return results
-
-
-def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: list[Any] | None) -> dict[str, Any]:
-    """
-    Generate and return CS dataframes for caching.
-
-    Creates three dataframes:
-    - df_cs_uls: CS ULS results
-    - df_cs_sls_freq: CS SLS freq results
-    - df_cs_envelope: Combined envelope for IDEA
-
-    :param results: Raw SCIA analysis results
-    :param bridge_segments: Bridge segments for zone mapping
-    :return: Dictionary with cached dataframes
-    """
-    try:
-        from src.integrations.scia_integration.results.scia_results_processor import (
-            extract_cs_force_envelopes,
-            process_scia_cs_results,
-        )
-
-        # Process CS results to get individual dataframes
-        cs_results = process_scia_cs_results(results, bridge_segments)
-        df_cs_uls = cs_results.get("ULS", pd.DataFrame())
-        df_cs_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
-
-        # Generate envelope dataframe (used by IDEA and analyse resultaten view)
-        df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-    except Exception as e:
-        # Print the error so the actual issue is visible
-        print(f"Error: Failed to generate CS dataframes: {e}")
-        # Re-raise so the actual error is visible instead of silently returning empty data
-        raise
-    else:
-        return {
-            "df_cs_uls": df_cs_uls,
-            "df_cs_sls_freq": df_cs_sls_freq,
-            "df_cs_envelope": df_cs_envelope,
-        }
 
 
 def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str, Any]:

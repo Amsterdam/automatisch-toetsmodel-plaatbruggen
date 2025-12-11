@@ -24,9 +24,6 @@ from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
 from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
-from src.integrations.idea_integration.scia_to_idea_functions import (
-    process_scia_cs_results_for_idea,
-)
 
 STORAGE_WARNING_MARKER_KEY = "storage_warning_state"
 
@@ -233,28 +230,20 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
 
-    # Process SCIA results using the dedicated functions
+    # Validate SCIA results
     if results is None:
         raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
 
-    # Get bridge segments for CS results zone mapping
-    bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+    # Check if integration strips are available (mandatory for IDEA)
+    if "integration_strips" not in results:
+        raise UserError(
+            "Geen integratiestroken beschikbaar in SCIA resultaten. "
+            "IDEA analyse vereist integratiestroken. Voer een nieuwe SCIA berekening uit."
+        )
 
-    # Ensure bridge_segments is a list for type checking
-    if bridge_segments is None:
-        bridge_segments = []
-
-    # Always process through process_scia_cs_results_for_idea to ensure proper column naming
-    # This function is smart - it will use cached df_cs_envelope if available
-    # This returns a single DataFrame with filtered ULS and SLS freq envelope data
-    progress_message(f"{prefix}Verwerken SCIA CS resultaten voor IDEA...", percentage=percentage)
-    cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
-
-    # Return results dictionary with the envelope DataFrame
-    # The results are wrapped to maintain compatibility with existing code
+    # Return results dictionary (integration strips will be processed by IDEA interface)
     return {
         "results": results,
-        "cs_envelope": cs_envelope_df,
     }
 
 
@@ -825,21 +814,22 @@ def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa:
     if scia_results is None:
         return False
 
-    # Validate cache by trying to process it the same way IDEA does
-    # This ensures the cache contains the required CS table data
+    # Validate cache by checking if integration strips are available
+    # Integration strips are mandatory for IDEA analysis
     try:
-        # Get bridge segments from params
-        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-        if bridge_segments is None or not isinstance(bridge_segments, list) or len(bridge_segments) == 0:
+        # Check if integration strips exist in the results
+        if "integration_strips" not in scia_results:
             return False
 
-        # Try to process the results the same way IDEA does
-        cs_envelope_df = process_scia_cs_results_for_idea(scia_results, bridge_segments)
+        # Verify integration strips have data
+        integration_strips = scia_results.get("integration_strips")
+        if integration_strips is None or not integration_strips:
+            return False
 
-        # If processing succeeds and returns non-empty DataFrame, cache is valid
-        return cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty
+        # Cache is valid if integration strips are present and non-empty
+        return True
     except Exception:
-        # Processing failed - cache is invalid or incomplete
+        # Error accessing results - cache is invalid
         return False
 
 

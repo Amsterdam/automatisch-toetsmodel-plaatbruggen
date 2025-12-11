@@ -219,7 +219,7 @@ def _build_table_result_from_batch_results(batch_results: dict[int, dict[str, An
 class BatchCalculationComponent:
     """Component providing batch calculation functionality for multiple bridges."""
 
-    @TableView("Statusoverzicht", duration_guess=5)
+    @TableView("Statusoverzicht", duration_guess=2)
     def view_batch_status_and_results(self, params: Parametrization, entity_id: int, **kwargs) -> TableResult:  # noqa: ARG002, C901, PLR0912, PLR0915
         """
         Display unified table showing bridge readiness status and calculation results.

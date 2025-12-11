@@ -35,13 +35,13 @@ from src.integrations.scia_integration.load_system.road_zone_utils import (
     obtain_y_coordinates_road,
     obtain_y_coordinates_two_road_zones,
 )
+from src.integrations.scia_integration.load_system.span_utils import (
+    Span,
+    _identify_spans,
+)
 from src.integrations.scia_integration.load_system.theoretical_tandem_generators import (
     generate_theoretical_lane_positions_bg8000,
     generate_theoretical_lane_positions_bg9000,
-)
-from src.integrations.scia_integration.model.scia_section_on_plane import (
-    Span,
-    _identify_spans,
 )
 
 if TYPE_CHECKING:

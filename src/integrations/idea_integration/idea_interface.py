@@ -38,7 +38,6 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
-from src.integrations.idea_integration.scia_to_idea_functions import process_scia_cs_results_for_idea
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
@@ -463,179 +462,6 @@ def _create_slabs_with_reinforcement(
     return created_slabs
 
 
-def _process_scia_cs_results_for_idea_input(
-    scia_envelope_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Process SCIA CS (Cross Section) envelope DataFrame for IDEA input.
-
-    The input DataFrame comes from process_scia_cs_results_for_idea and contains
-    filtered envelope data with ULS and SLS freq results combined. Each row represents
-    a maximum absolute force/moment value for a specific zone and result type.
-
-    Each row will be translated into load cases for both directions (langs/dwars) in IDEA.
-
-    Columns in input:
-    - v_x_max, v_y_max, m_xD+_max, m_xD-_max, m_yD+_max, m_yD-_max, n_xD_max, n_yD_max
-    - name, zone, coords_xyz, belasting, max_for_column, result_type (ULS or SLS freq)
-
-    :param scia_envelope_df: DataFrame with CS envelope results from process_scia_cs_results_for_idea
-    :type scia_envelope_df: pd.DataFrame
-    :returns: Processed dataframe ready for IDEA load application (same as input, just validated)
-    :rtype: pd.DataFrame
-    """
-    if scia_envelope_df.empty:
-        return pd.DataFrame()
-
-    # Add Mx and My columns - select value with maximum absolute magnitude while preserving sign
-    df_processed = scia_envelope_df.copy()
-
-    if all(col in df_processed.columns for col in ["m_xD+_max", "m_xD-_max"]):
-        df_processed["Mx"] = df_processed[["m_xD+_max", "m_xD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-
-    if all(col in df_processed.columns for col in ["m_yD+_max", "m_yD-_max"]):
-        df_processed["My"] = df_processed[["m_yD+_max", "m_yD-_max"]].apply(lambda row: row.loc[row.abs().idxmax()], axis=1)
-
-    # Add normal force columns (Nx, Ny) if present
-    if "n_xD_max" in df_processed.columns:
-        df_processed["Nx"] = df_processed["n_xD_max"]
-    if "n_yD_max" in df_processed.columns:
-        df_processed["Ny"] = df_processed["n_yD_max"]
-
-    return df_processed
-
-
-def _apply_cs_loads_to_slabs(  # noqa: C901
-    created_slabs: dict[str, dict],
-    df_all: pd.DataFrame,
-    builder: Any,  # noqa: ANN401
-) -> int:
-    """
-    Apply load cases from SCIA CS (Cross Section) envelope results to each slab using builder pattern.
-
-    For each unique zone and direction (langs/dwars), creates ONE extreme combining:
-    - ULS row for that zone
-    - SLS freq row for that zone
-
-    Each extreme has:
-    - Shear forces (v_x or v_y depending on direction) → Qz in IDEA
-    - Bending moments (Mx or My depending on direction) → My in IDEA
-    - Normal forces (Nx or Ny depending on direction) → N in IDEA (if supported)
-
-    :param created_slabs: Dictionary of created slabs with zones and slab objects
-    :type created_slabs: dict[str, dict]
-    :param df_all: Envelope dataframe with ULS and SLS freq results (individual rows per result_type)
-    :type df_all: pd.DataFrame
-    :param builder: IDEA model builder instance
-    :type builder: Any
-    :returns: Number of load cases applied
-    :rtype: int
-    """
-    # Early return if dataframe is empty
-    if df_all.empty:
-        return 0
-
-    loads_applied = 0
-
-    # For langs cs: link IDEA vz to SCIA vy and IDEA My to SCIA My
-    # For dwars cs: link IDEA vz to SCIA vx and IDEA My to SCIA Mx
-    orient = {
-        "langs": {"shear": "v_y_max", "moment": "My", "normal": "Ny"},
-        "dwars": {"shear": "v_x_max", "moment": "Mx", "normal": "Nx"},
-    }
-
-    def _format_coords(coords: list | tuple | str | float | None) -> str:
-        if coords is None:
-            return "No_coords"
-        if isinstance(coords, (list, tuple)):
-            return f"({','.join(str(c) for c in coords)})"
-        return str(coords)
-
-    for slab_key, slab_data in created_slabs.items():
-        zones = slab_data.get("zones") or []
-        if not zones:
-            continue
-
-        df_slab = df_all[df_all["zone"].isin(zones)]
-        if df_slab.empty:
-            continue
-
-        desc_prefix = slab_key.replace(".", "_")
-
-        # Get unique combinations of (zone, max_for_column)
-        unique_combinations = df_slab[["zone", "max_for_column"]].drop_duplicates()
-
-        for _, combo_row in unique_combinations.iterrows():
-            zone = combo_row["zone"]
-            max_for = combo_row["max_for_column"]
-
-            # Filter data for this specific (zone, max_for_column) combination
-            df_combo = df_slab[(df_slab["zone"] == zone) & (df_slab["max_for_column"] == max_for)]
-
-            # Split by result_type
-            df_uls = df_combo[df_combo["result_type"] == "ULS"]
-            df_sls = df_combo[df_combo["result_type"] == "SLS freq"]
-
-            # Get the rows (should be one ULS and one SLS freq for this combination)
-            uls_row = df_uls.iloc[0]
-            sls_row = df_sls.iloc[0]
-
-            # Create extremes for both directions
-            for direction, cfg in orient.items():
-                slab = slab_data.get(f"slab_{direction}")
-                if slab is None:
-                    continue
-
-                shear_col = cfg["shear"]
-                moment_col = cfg["moment"]
-                normal_col = cfg["normal"]
-
-                # Get ULS values - convert numpy types to native Python floats for JSON serialization
-                qz_uls = float(uls_row.get(shear_col, 0))
-                my_uls = float(uls_row.get(moment_col, 0))
-                n_uls = float(uls_row.get(normal_col, 0))
-
-                # Get SLS freq values - convert numpy types to native Python floats for JSON serialization
-                qz_freq = float(sls_row.get(shear_col, 0))
-                my_freq = float(sls_row.get(moment_col, 0))
-                n_freq = float(sls_row.get(normal_col, 0))
-
-                # Build description
-                cs_name = uls_row.get("name", "Unknown")
-                coords = _format_coords(uls_row.get("coords_xyz"))
-                belasting_uls = uls_row.get("belasting", "Unknown")
-                belasting_sls = sls_row.get("belasting", "Unknown")
-
-                description = f"{desc_prefix}_{direction}-{zone}-{cs_name}-{coords}-{max_for}-ULS:{belasting_uls}/SLS:{belasting_sls}"
-
-                # Create internal forces for ULS (fundamental)
-                internal_forces_fund = builder.create_result_of_internal_forces(
-                    Qz=qz_uls,
-                    My=my_uls,
-                    N=n_uls,
-                )
-                fund = builder.create_loading_uls(internal_forces_fund)
-
-                # Create internal forces for SLS freq (frequent)
-                internal_forces_freq = builder.create_result_of_internal_forces(
-                    Qz=qz_freq,
-                    My=my_freq,
-                    N=n_freq,
-                )
-                freq = builder.create_loading_sls(internal_forces_freq)
-
-                # Create the extreme combining ULS and SLS freq
-                builder.create_extreme_on_slab(
-                    slab,
-                    description=description,
-                    frequent=freq,
-                    fundamental=fund,
-                )
-                loads_applied += 1
-
-    return loads_applied
-
-
 def _apply_integration_strip_loads_to_slabs(  # noqa: C901
     created_slabs: dict[str, dict],
     df_strips: pd.DataFrame,
@@ -872,89 +698,40 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
 
             warnings.warn(f"Integration strips verwerking mislukt: {e}. Valt terug op CS resultaten.", stacklevel=2)
 
-    # If integration strips are available, use them
-    if use_integration_strips and not df_strips_all.empty:
-        # Apply integration strip loads to slabs using builder
-        loads_applied = _apply_integration_strip_loads_to_slabs(created_slabs, df_strips_all, builder)
+    # Integration strips are now mandatory (CS fallback removed)
+    if not use_integration_strips or df_strips_all.empty:
+        from viktor.errors import UserError
 
-        # Validate that loads were applied
-        if loads_applied == 0:
-            from viktor.errors import UserError
+        raise UserError(
+            "Geen integratiestroken resultaten beschikbaar in SCIA resultaten. "
+            "IDEA model kan niet worden gegenereerd zonder integratiestroken. "
+            "Voer een nieuwe SCIA berekening uit om integratiestroken te genereren."
+        )
 
-            # Get zones from created slabs and SCIA data for error message
-            slab_zones = set()
-            for slab_data in created_slabs.values():
-                zones = slab_data.get("zones", [])
-                slab_zones.update(zones)
+    # Apply integration strip loads to slabs using builder
+    loads_applied = _apply_integration_strip_loads_to_slabs(created_slabs, df_strips_all, builder)
 
-            strip_zones = set()
-            if "zone" in df_strips_all.columns:
-                strip_zones = set(df_strips_all["zone"].unique())
+    # Validate that loads were applied
+    if loads_applied == 0:
+        from viktor.errors import UserError
 
-            raise UserError(
-                f"Geen belastingen kunnen worden toegepast vanuit integratiestroken. "
-                f"Zones in brugsegmenten: {sorted(slab_zones)}, "
-                f"Zones in integratiestroken: {sorted(strip_zones)}. "
-                "De zones komen niet overeen - mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening. "
-                "Wis de cache en voer een nieuwe SCIA berekening uit."
-            )
-    else:
-        # Fallback to CS results (legacy approach)
-        # Process SCIA CS (Cross Section) envelope results for IDEA input
-        # Check if envelope DataFrame is already provided (from cache)
-        if "cs_envelope" in scia_results_dict and scia_results_dict["cs_envelope"] is not None:
-            df_cs_envelope = scia_results_dict["cs_envelope"]
-        else:
-            # Process SCIA results to get envelope DataFrame
-            # Get the results dict, ensuring it's a dict type
-            results_data_raw = scia_results_dict.get("results", {})
-            results_data = results_data_raw if isinstance(results_data_raw, dict) else {}
-            df_cs_envelope = process_scia_cs_results_for_idea(results_data, input_data.bridge_segments)
+        # Get zones from created slabs and SCIA data for error message
+        slab_zones = set()
+        for slab_data in created_slabs.values():
+            zones = slab_data.get("zones", [])
+            slab_zones.update(zones)
 
-        # Process the envelope DataFrame for IDEA input (merges ULS and SLS freq)
-        df_cs_all = _process_scia_cs_results_for_idea_input(df_cs_envelope)
+        strip_zones = set()
+        if "zone" in df_strips_all.columns:
+            strip_zones = set(df_strips_all["zone"].unique())
 
-        # Validate that CS envelope data exists
-        if df_cs_all.empty:
-            from viktor.errors import UserError
-
-            # Get zones from created slabs for error message
-            all_zones = []
-            for slab_data in created_slabs.values():
-                zones = slab_data.get("zones", [])
-                all_zones.extend(zones)
-            unique_zones = sorted(set(all_zones))
-
-            raise UserError(
-                f"Geen dwarsdoorsnede krachten gevonden in SCIA resultaten voor zones: {', '.join(unique_zones)}. "
-                "IDEA model kan niet worden gegenereerd. "
-                "Mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening - wis de cache en voer een nieuwe SCIA berekening uit."
-            )
-
-        # Apply CS loads to slabs using builder
-        loads_applied = _apply_cs_loads_to_slabs(created_slabs, df_cs_all, builder)
-
-        # Validate that loads were applied
-        if loads_applied == 0:
-            from viktor.errors import UserError
-
-            # Get zones from created slabs and SCIA data for error message
-            slab_zones = set()
-            for slab_data in created_slabs.values():
-                zones = slab_data.get("zones", [])
-                slab_zones.update(zones)
-
-            scia_zones = set()
-            if "zone" in df_cs_all.columns:
-                scia_zones = set(df_cs_all["zone"].unique())
-
-            raise UserError(
-                f"Geen belastingen kunnen worden toegepast op de dwarsdoorsneden. "
-                f"Zones in brugsegmenten: {sorted(slab_zones)}, "
-                f"Zones in SCIA resultaten: {sorted(scia_zones)}. "
-                "De zones komen niet overeen - mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening. "
-                "Wis de cache en voer een nieuwe SCIA berekening uit."
-            )
+        raise UserError(
+            f"Geen belastingen kunnen worden toegepast vanuit integratiestroken. "
+            f"Zones in brugsegmenten: {sorted(slab_zones)}, "
+            f"Zones in integratiestroken: {sorted(strip_zones)}. "
+            "De zones komen niet overeen - mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening. "
+            "Wis de cache en voer een nieuwe SCIA berekening uit."
+        )
 
     return model
 

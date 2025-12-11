@@ -76,10 +76,6 @@ class BridgeController(
     get_load_zones_view = GeometryViews.get_load_zones_view
 
     # From SciaIntegration
-    get_scia_cs_results_view_uls = SciaIntegration.get_scia_cs_results_view_uls
-    get_scia_cs_results_view_sls_freq = SciaIntegration.get_scia_cs_results_view_sls_freq
-    get_scia_results_table = SciaIntegration.get_scia_results_table
-    get_scia_cs_visualization = SciaIntegration.get_scia_cs_visualization
     # Integration strip views
     get_integration_strip_uls_x_reg = SciaIntegration.get_integration_strip_uls_x_reg
     get_integration_strip_uls_y_reg = SciaIntegration.get_integration_strip_uls_y_reg

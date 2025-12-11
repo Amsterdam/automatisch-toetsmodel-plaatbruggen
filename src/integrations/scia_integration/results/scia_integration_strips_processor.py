@@ -216,6 +216,15 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     force_moment_cols = ["N", "V_y", "V_z", "M_x", "M_y", "M_z"]
 
+    # Convert force/moment columns to numeric to avoid type comparison errors
+    for col in force_moment_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Also convert dx column to numeric if present
+    if "dx" in df.columns:
+        df["dx"] = pd.to_numeric(df["dx"], errors="coerce")
+
     for idx, row in df.iterrows():
         try:
             width = float(row["strip_width"]) if row["strip_width"] else 1.0

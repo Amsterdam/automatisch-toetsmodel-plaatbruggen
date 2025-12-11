@@ -103,8 +103,6 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 ### Tabbladen
 
 - **3D Model**: Interactieve 3D-weergave van het brugmodel.
-- **SCIA CS ULS**: Maximale snedekrachten per doorsnede (Ultimate Limit State).
-- **SCIA CS SLS Freq**: Maximale snedekrachten per doorsnede (Serviceability Limit State frequent).
 - **SCIA Analyse Resultaten**: Maximale snedekrachten per zone voor IDEA toetsingen.
 
 ### Download Opties
@@ -160,14 +158,13 @@ IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
 Deze pagina toont de IDEA RCS snedetoetsingen en IDEA download opties.
 
-### Modelopbouw in 6 stappen
+### Modelopbouw in 5 stappen
 Het proces werkt als volgt:
-1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) per doorsnede bepaald.
+1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) uitgelezen via integratie strips.
 2. Deze krachten worden automatisch uit de SCIA-resultaten gehaald.
 3. Per zone worden de maximale absolute waarden bepaald (envelope).
 4. De resultaten worden omgezet naar het IDEA-formaat.
-5. Momenten (Mx, My), normaalkrachten (Nx, Ny) én dwarskrachten (Qz) worden gecombineerd en uitgelezen.
-6. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
+5. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
     worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
     Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen:
     - In de **langsdoorsnede** wordt de **dwarswapening** gecontroleerd (Qz = v_y, My = My, N = Ny)
