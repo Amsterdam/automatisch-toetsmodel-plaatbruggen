@@ -83,9 +83,7 @@ def process_integration_strips_for_idea(
         raise ValueError(error_msg)
 
     # Map the forces based on direction
-    idea_df = _map_strip_forces_to_idea_format(idea_df)
-
-    return idea_df
+    return _map_strip_forces_to_idea_format(idea_df)
 
 
 def _map_strip_forces_to_idea_format(

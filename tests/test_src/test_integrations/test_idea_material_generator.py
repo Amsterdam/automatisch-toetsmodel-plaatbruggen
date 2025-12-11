@@ -85,7 +85,7 @@ class TestConcreteMaterialFromCSV:
         assert material_data["ThermalExpansion"] == 1.2e-05
 
         # Test that boolean values are converted
-        assert isinstance(material_data["PlainConcreteDiagram"], (bool, str))
+        assert isinstance(material_data["PlainConcreteDiagram"], bool | str)
         if isinstance(material_data["PlainConcreteDiagram"], str):
             assert material_data["PlainConcreteDiagram"] == "False"
 

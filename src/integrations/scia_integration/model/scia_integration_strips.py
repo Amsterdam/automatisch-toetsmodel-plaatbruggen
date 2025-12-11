@@ -98,12 +98,7 @@ def _get_zone_thickness(params: Any, zone_position: int, segment_idx: int) -> fl
     segment = params.bridge_segments_array[segment_idx]
 
     # Get thickness - dz for zones 1 and 3, dz_2 for zone 2
-    if zone_position in [1, 3]:
-        thickness = getattr(segment, "dz", 0.5)
-    else:  # zone_position == 2
-        thickness = getattr(segment, "dz_2", 0.5)
-
-    return thickness
+    return getattr(segment, "dz", 0.5) if zone_position in [1, 3] else getattr(segment, "dz_2", 0.5)
 
 
 def _get_excluded_x_ranges(supports: list[dict[str, Any]], zone_position: int, segment_idx: int, params: Any) -> list[tuple[float, float]]:  # noqa: ANN401
@@ -209,10 +204,10 @@ def _split_range_by_exclusions(
     segments = []
     current_pos = range_start
 
-    for excl_start, excl_end in sorted_exclusions:
+    for orig_excl_start, orig_excl_end in sorted_exclusions:
         # Clip exclusion to range boundaries
-        excl_start = max(excl_start, range_start)
-        excl_end = min(excl_end, range_end)
+        excl_start = max(orig_excl_start, range_start)
+        excl_end = min(orig_excl_end, range_end)
 
         # Skip if exclusion is outside range
         if excl_end <= range_start or excl_start >= range_end:
@@ -232,7 +227,7 @@ def _split_range_by_exclusions(
     return segments
 
 
-def _create_integration_strip_x_direction(
+def _create_integration_strip_x_direction(  # noqa: PLR0913
     builder: SciaModelBuilder,
     plane_name: str,
     zone_position: int,
@@ -265,7 +260,6 @@ def _create_integration_strip_x_direction(
 
     # Skip if zone is too small
     if zone_width_y < 0.1 or zone_length_x < 0.1:
-        print(f"  [WARNING] Zone too small for integration strips (width: {zone_width_y:.3f}m, length: {zone_length_x:.3f}m)")
         return
 
     # Special case: zone narrower than 1m - place single strip with reduced width
@@ -283,15 +277,13 @@ def _create_integration_strip_x_direction(
         for seg_idx, (x_start, x_end) in enumerate(x_segments):
             custom_name = f"strip_dir-x_reg_{zone_name}_w-{strip_width:.2f}_nr-{seg_idx + 1}"
 
-            integration_strip = builder.create_integration_strip(
+            builder.create_integration_strip(
                 plane=plane_name,
                 point_1=(x_start, strip_y, 0.0),
                 point_2=(x_end, strip_y, 0.0),
                 width=strip_width,
                 custom_name=custom_name,
             )
-
-            actual_name = getattr(integration_strip, "name", custom_name)
 
         return
 
@@ -320,8 +312,6 @@ def _create_integration_strip_x_direction(
         # No strips placed yet, add one at y_min + half_width
         strip_positions.append(y_bounds["y_min"] + half_width)
 
-    num_strips = len(strip_positions)
-
     # Split X range by excluded areas
     x_segments = _split_range_by_exclusions(x_bounds["x_start"], x_bounds["x_end"], excluded_ranges)
 
@@ -335,7 +325,7 @@ def _create_integration_strip_x_direction(
             custom_name = f"strip_dir-x_reg_{zone_name}_w-{strip_width:.1f}_nr-{strip_counter}"
 
             # Create the strip with custom name
-            integration_strip = builder.create_integration_strip(
+            builder.create_integration_strip(
                 plane=plane_name,
                 point_1=(x_start, strip_y, 0.0),
                 point_2=(x_end, strip_y, 0.0),
@@ -345,7 +335,7 @@ def _create_integration_strip_x_direction(
             strip_counter += 1
 
 
-def _create_integration_strip_y_direction(
+def _create_integration_strip_y_direction(  # noqa: PLR0913, PLR0912, C901
     builder: SciaModelBuilder,
     plane_name: str,
     zone_position: int,
@@ -378,7 +368,6 @@ def _create_integration_strip_y_direction(
 
     # Skip if zone is too small
     if zone_width_y < 0.1 or zone_length_x < 0.1:
-        print(f"  [WARNING] Zone too small for integration strips (width: {zone_width_y:.3f}m, length: {zone_length_x:.3f}m)")
         return
 
     # Special case: zone narrower than 1m - place single strip with reduced width
@@ -390,15 +379,13 @@ def _create_integration_strip_y_direction(
         zone_name = plane_name.replace("_", "-")
         custom_name = f"strip_dir-y_reg_{zone_name}_w-{strip_width:.1f}_nr-1"
 
-        integration_strip = builder.create_integration_strip(
+        builder.create_integration_strip(
             plane=plane_name,
             point_1=(strip_x, y_bounds["y_min"], 0.0),
             point_2=(strip_x, y_bounds["y_max"], 0.0),
             width=strip_width,
             custom_name=custom_name,
         )
-
-        actual_name = getattr(integration_strip, "name", custom_name)
         return
 
     # Special case: zone shorter than 1m - place single strip with reduced width
@@ -410,15 +397,13 @@ def _create_integration_strip_y_direction(
         zone_name = plane_name.replace("_", "-")
         custom_name = f"strip_dir-y_reg_{zone_name}_w-{strip_width:.1f}_nr-1"
 
-        integration_strip = builder.create_integration_strip(
+        builder.create_integration_strip(
             plane=plane_name,
             point_1=(strip_x, y_bounds["y_min"], 0.0),
             point_2=(strip_x, y_bounds["y_max"], 0.0),
             width=strip_width,
             custom_name=custom_name,
         )
-
-        actual_name = getattr(integration_strip, "name", custom_name)
         return
 
     # Standard case: zone >= 1m, use 1m strips
@@ -492,9 +477,6 @@ def _create_integration_strip_y_direction(
                 gap_fill_position = x_bounds["x_end"] - 0.5
                 if gap_fill_position not in strip_positions:
                     strip_positions.append(gap_fill_position)
-                    print(
-                        f"[DEBUG]     Adding end Y-strip at X={gap_fill_position:.3f}m (gap={gap_to_boundary:.3f}m to boundary at X={x_bounds['x_end']:.3f}m)"
-                    )
             # Case 1: Gap <= 0.5m - no extra strip needed (implicit)
 
     elif x_bounds["x_end"] - x_bounds["x_start"] >= strip_width:
@@ -525,7 +507,7 @@ def _create_integration_strip_y_direction(
         custom_name = f"strip_dir-y_reg_{zone_name}_w-{strip_width:.1f}_nr-{i + 1}"
 
         # Create the strip with custom name
-        integration_strip = builder.create_integration_strip(
+        builder.create_integration_strip(
             plane=plane_name,
             point_1=(strip_x, y_bounds["y_min"], 0.0),
             point_2=(strip_x, y_bounds["y_max"], 0.0),
@@ -598,7 +580,7 @@ def create_all_integration_strips(builder: SciaModelBuilder, params: Any) -> Non
             )
 
 
-def _create_support_strips(
+def _create_support_strips(  # noqa: PLR0913, PLR0912, C901
     builder: SciaModelBuilder,
     plane_name: str,
     zone_position: int,
@@ -665,7 +647,7 @@ def _create_support_strips(
         for side, strip_x_center in strip_locations:
             custom_name = f"strip_dir-y_sup-{support_x:.1f}_{zone_name}_w-{support_strip_width:.2f}_nr-1"
 
-            integration_strip = builder.create_integration_strip(
+            builder.create_integration_strip(
                 plane=plane_name,
                 point_1=(strip_x_center, y_bounds["y_min"], 0.0),
                 point_2=(strip_x_center, y_bounds["y_max"], 0.0),
@@ -700,7 +682,7 @@ def _create_support_strips(
             )
 
 
-def _create_support_x_strips(
+def _create_support_x_strips(  # noqa: PLR0913
     builder: SciaModelBuilder,
     plane_name: str,
     zone_name: str,
@@ -708,7 +690,7 @@ def _create_support_x_strips(
     x_min: float,
     x_max: float,
     support_x: float,
-    side: str,
+    side: str,  # noqa: ARG001
 ) -> None:
     """
     Create X-direction strips in support area.
@@ -731,7 +713,7 @@ def _create_support_x_strips(
 
         custom_name = f"strip_dir-x_sup-{support_x:.1f}_{zone_name}_w-{strip_width:.2f}_nr-1"
 
-        integration_strip = builder.create_integration_strip(
+        builder.create_integration_strip(
             plane=plane_name,
             point_1=(x_min, strip_y, 0.0),
             point_2=(x_max, strip_y, 0.0),
@@ -763,7 +745,7 @@ def _create_support_x_strips(
     for i, strip_y in enumerate(strip_positions):
         custom_name = f"strip_dir-x_sup-{support_x:.1f}_{zone_name}_w-{strip_width:.1f}_nr-{i + 1}"
 
-        integration_strip = builder.create_integration_strip(
+        builder.create_integration_strip(
             plane=plane_name,
             point_1=(x_min, strip_y, 0.0),
             point_2=(x_max, strip_y, 0.0),

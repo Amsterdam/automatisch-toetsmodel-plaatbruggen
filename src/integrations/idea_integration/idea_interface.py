@@ -682,8 +682,8 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
             )
 
             # Get the results dict
-            results_data_raw = scia_results_dict.get("results", {})
-            results_data = results_data_raw if isinstance(results_data_raw, dict) else {}
+            results_data_raw: Any = scia_results_dict.get("results", {})
+            results_data: dict[str, Any] = results_data_raw if isinstance(results_data_raw, dict) else {}
 
             # Process integration strips for IDEA
             df_strips_all = process_integration_strips_for_idea(results_data)

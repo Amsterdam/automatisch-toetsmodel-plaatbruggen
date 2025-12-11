@@ -205,13 +205,13 @@ class SciaIntegration:
             )
             if results is None:
                 _raise_scia_error()
-
-            return results
         except TimeoutError:
             _raise_scia_error(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             traceback.print_exc()
             _raise_scia_error(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
+        else:
+            return results
 
     # ============================================================================================================
     # SCIA Downloads

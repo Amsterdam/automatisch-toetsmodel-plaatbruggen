@@ -1,3 +1,4 @@
+# ruff: noqa: PD901, PD008
 """
 Integration Strip Results Processing for SCIA Analysis.
 
@@ -229,19 +230,19 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             width = float(row["strip_width"]) if row["strip_width"] else 1.0
             # Only correct if width is not 1.0 (with small tolerance for floating point)
             if abs(width - 1.0) > 0.01:
-                df.at[idx, "corrected"] = True
+                df.loc[idx, "corrected"] = True  # type: ignore[index]
                 # Divide force/moment values by width to get per-meter values
                 for col in force_moment_cols:
-                    if col in df.columns and pd.notna(df.at[idx, col]):
-                        df.at[idx, col] = float(df.at[idx, col]) / width
-        except (ValueError, TypeError, ZeroDivisionError):
+                    if col in df.columns and pd.notna(df.loc[idx, col]):  # type: ignore[index]
+                        df.loc[idx, col] = float(df.loc[idx, col]) / width  # type: ignore[index]
+        except (ValueError, TypeError, ZeroDivisionError):  # noqa: PERF203
             # If width parsing fails or is zero, don't correct
             pass
 
     return df
 
 
-def process_integration_strip_envelopes(  # noqa: C901
+def process_integration_strip_envelopes(  # noqa: C901, PLR0912
     tables: dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     """
@@ -295,7 +296,7 @@ def process_integration_strip_envelopes(  # noqa: C901
                 continue
 
             # Get unique zones from both tables
-            zones = set()
+            zones: set[str] = set()
             if not df_reg.empty and "zone" in df_reg.columns:
                 zones.update(df_reg["zone"].unique())
             if not df_sup.empty and "zone" in df_sup.columns:
@@ -376,9 +377,8 @@ def process_all_integration_strips(
     # Add parsed columns to each table
     processed_tables = {}
     for key, df in tables.items():
-        if not df.empty:
-            df = add_parsed_columns_to_dataframe(df)
-        processed_tables[key] = df
+        processed_df = add_parsed_columns_to_dataframe(df) if not df.empty else df
+        processed_tables[key] = processed_df
 
     # Create envelope DataFrame
     df_envelope = process_integration_strip_envelopes(processed_tables)

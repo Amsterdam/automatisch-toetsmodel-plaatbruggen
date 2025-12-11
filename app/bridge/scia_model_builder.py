@@ -159,7 +159,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         # Workaround: Set custom name via private _name attribute
         if hasattr(integration_strip, "_name"):
-            integration_strip._name = custom_name
+            integration_strip._name = custom_name  # noqa: SLF001
 
         # Store strip with custom name
         self.integration_strips[custom_name] = integration_strip
@@ -1350,10 +1350,6 @@ def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str,
 
         # Process all integration strip results
         integration_strips_data = process_all_integration_strips(results)
-
-        return {
-            "integration_strips": integration_strips_data,
-        }
     except Exception as e:
         # Print the error so the actual issue is visible
         print(f"Error: Failed to generate integration strip dataframes: {e}")
@@ -1363,6 +1359,10 @@ def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str,
                 "tables": {},
                 "envelope": pd.DataFrame(),
             },
+        }
+    else:
+        return {
+            "integration_strips": integration_strips_data,
         }
 
 

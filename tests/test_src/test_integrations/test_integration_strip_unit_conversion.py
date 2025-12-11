@@ -1,3 +1,4 @@
+# ruff: noqa: PD901, PD008
 """
 Test unit conversion and width correction for integration strip results.
 

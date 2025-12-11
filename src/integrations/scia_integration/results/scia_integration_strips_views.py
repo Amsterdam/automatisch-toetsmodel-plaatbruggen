@@ -1,3 +1,4 @@
+# ruff: noqa: PD901
 """
 VIKTOR View Functions for Integration Strip Results.
 
@@ -41,7 +42,7 @@ def _create_integration_strip_headers() -> list[str]:
     ]
 
 
-def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:
+def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:  # noqa: C901
     """
     Format integration strip DataFrame for display in VIKTOR TableResult.
 
@@ -147,7 +148,7 @@ def create_integration_strip_table_view(
     return TableResult(data, column_headers=headers)
 
 
-def create_integration_strip_envelope_table_view(
+def create_integration_strip_envelope_table_view(  # noqa: C901
     results: dict[str, Any],
 ) -> TableResult:
     """

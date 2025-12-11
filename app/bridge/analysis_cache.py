@@ -822,14 +822,12 @@ def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa:
 
         # Verify integration strips have data
         integration_strips = scia_results.get("integration_strips")
-        if integration_strips is None or not integration_strips:
-            return False
-
-        # Cache is valid if integration strips are present and non-empty
-        return True
     except Exception:
         # Error accessing results - cache is invalid
         return False
+    else:
+        # Cache is valid if integration strips are present and non-empty
+        return not (integration_strips is None or not integration_strips)
 
 
 def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None = None) -> bool:  # noqa: ANN401
