@@ -109,7 +109,6 @@ def extract_integration_strip_table(
         # Rename columns to internal names
         return df.rename(columns=STRIP_COLUMN_MAPPING)
 
-
     return pd.DataFrame()
 
 
@@ -388,5 +387,3 @@ def process_all_integration_strips(
         "tables": processed_tables,
         "envelope": df_envelope,
     }
-
-

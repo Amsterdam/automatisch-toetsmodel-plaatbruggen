@@ -164,4 +164,3 @@ def map_integration_strip_forces_to_cross_section_format(
     :rtype: pd.DataFrame
     """
     return _map_strip_forces_to_idea_format(df_strips)
-

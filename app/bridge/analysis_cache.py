@@ -237,8 +237,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     # Check if integration strips are available (mandatory for IDEA)
     if "integration_strips" not in results:
         raise UserError(
-            "Geen integratiestroken beschikbaar in SCIA resultaten. "
-            "IDEA analyse vereist integratiestroken. Voer een nieuwe SCIA berekening uit."
+            "Geen integratiestroken beschikbaar in SCIA resultaten. IDEA analyse vereist integratiestroken. Voer een nieuwe SCIA berekening uit."
         )
 
     # Return results dictionary (integration strips will be processed by IDEA interface)

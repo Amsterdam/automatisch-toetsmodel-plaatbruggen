@@ -39,14 +39,14 @@ SUPPORT_STRIP_FACTOR = 0.9  # Factor for support strip dimensions (0.9 * thickne
 def _get_support_locations(params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     """
     Get all support locations with their X coordinates and types.
-    
+
     Bridge segments array structure:
     - Row 0: Start of bridge at X=0 (start of section 1), length=0
     - Row 1: End of section 1 (at X=0+length_1), Row 1's 'l' field = length of section 1
     - Row 2: End of section 2 (at X=0+length_1+length_2), Row 2's 'l' field = length of section 2
     - Row 3: End of section 3 (at X=0+length_1+length_2+length_3), Row 3's 'l' field = length of section 3
     - etc.
-    
+
     Each row has an 'is_support' field indicating if there's a support at that location.
     'is_support' values: 'Nee' (no support) or support type like 'Verende oplegging (x,y)'
 
@@ -55,13 +55,13 @@ def _get_support_locations(params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     """
     supports = []
     num_rows = len(params.bridge_segments_array)
-    
+
     # Detect supports from bridge_segments_array
     # Row 0: Start of bridge at X=0 (start of section 1)
     row_0_support = getattr(params.bridge_segments_array[0], "is_support", "Nee")
     if row_0_support and row_0_support != "Nee":
         supports.append({"x_coord": 0.0, "segment_idx": 0, "type": "start"})
-    
+
     # Rows 1 to n-1: Each row represents a segment boundary
     # Row i is at the end of section i (and start of section i+1 if not last row)
     # Row i's 'l' field contains the LENGTH of section i
@@ -71,9 +71,9 @@ def _get_support_locations(params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
         # Row i's length is the length OF section i, add it to get position of this row
         segment_length = getattr(row, "l", 0.0)
         cumulative_x += segment_length
-        
+
         is_support = getattr(row, "is_support", "Nee")
-        
+
         if is_support and is_support != "Nee":
             # Determine support type based on position
             if row_idx == num_rows - 1:
@@ -82,7 +82,7 @@ def _get_support_locations(params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
             else:
                 # Intermediate row = intermediate support (end of section i / start of section i+1)
                 supports.append({"x_coord": cumulative_x, "segment_idx": row_idx, "type": "intermediate"})
-    
+
     return supports
 
 
@@ -102,7 +102,7 @@ def _get_zone_thickness(params: Any, zone_position: int, segment_idx: int) -> fl
         thickness = getattr(segment, "dz", 0.5)
     else:  # zone_position == 2
         thickness = getattr(segment, "dz_2", 0.5)
-    
+
     return thickness
 
 
@@ -429,7 +429,7 @@ def _create_integration_strip_y_direction(
     # Working forward: x_min + 0.5, x_min + 1.0, x_min + 1.5, etc.
     # This matches the bridge construction direction (X=0 to increasing X)
     strip_positions = []
-    
+
     # Find the minimum allowed X (after any start exclusion zone)
     min_x_after_exclusion = x_bounds["x_start"] + half_width
     for excl_start, excl_end in excluded_ranges:
@@ -437,12 +437,11 @@ def _create_integration_strip_y_direction(
         if excl_start <= x_bounds["x_start"] + 0.1:  # Exclusion at or near start
             # First regular strip should be at: exclusion_end + half_width
             candidate_min = excl_end + half_width
-            if candidate_min > min_x_after_exclusion:
-                min_x_after_exclusion = candidate_min
-    
+            min_x_after_exclusion = max(min_x_after_exclusion, candidate_min)
+
     # Start from minimum allowed position and work forward
     current_x = min_x_after_exclusion
-    
+
     # Place strips every STRIP_SPACING (0.5m) until we reach the end
     while current_x <= x_bounds["x_end"] - half_width:
         strip_positions.append(current_x)
@@ -453,56 +452,51 @@ def _create_integration_strip_y_direction(
     # 1. Gap <= 0.5m: No extra strip needed
     # 2. Gap > 0.5m, NO support: Add strip at boundary_x - 0.5m
     # 3. Gap > 0.5m, HAS support: Add strip at support_exclusion_start - 0.5m
-    
+
     if strip_positions:
         # Find all exclusion zones that are not at the segment start
         # Sort them by start position
-        interior_exclusions = [
-            (excl_start, excl_end) 
-            for excl_start, excl_end in excluded_ranges 
-            if excl_start > x_bounds["x_start"] + 0.1
-        ]
+        interior_exclusions = [(excl_start, excl_end) for excl_start, excl_end in excluded_ranges if excl_start > x_bounds["x_start"] + 0.1]
         interior_exclusions.sort()
-        
+
         # Check gap before each interior exclusion zone (support areas)
         for excl_start, excl_end in interior_exclusions:
             # Find the last regular strip before this exclusion
             strips_before_exclusion = [x for x in strip_positions if x + half_width < excl_start - 0.05]
-            
+
             if strips_before_exclusion:
                 last_strip_before = max(strips_before_exclusion)
                 gap_start = last_strip_before + half_width  # Edge of last strip
                 gap_end = excl_start  # Start of exclusion zone
                 gap_size = gap_end - gap_start
-                
+
                 # Case 3: Gap > 0.5m with support - add strip at excl_start - 0.5m
                 if gap_size > 0.5 + 0.05:  # 5cm tolerance
                     gap_fill_position = excl_start - 0.5  # 0.5m before support exclusion edge
                     if gap_fill_position > x_bounds["x_start"] and gap_fill_position not in strip_positions:
                         strip_positions.append(gap_fill_position)
-        
+
         # Check gap at the segment end
         last_strip_x = max(strip_positions) if strip_positions else min_x_after_exclusion
         last_coverage_end = last_strip_x + half_width
-        
+
         # Check if there's an exclusion zone at the segment end
-        has_exclusion_at_end = any(
-            excl_end >= x_bounds["x_end"] - 0.1 
-            for _, excl_end in excluded_ranges
-        )
-        
+        has_exclusion_at_end = any(excl_end >= x_bounds["x_end"] - 0.1 for _, excl_end in excluded_ranges)
+
         if not has_exclusion_at_end:
             # Case 2: No support at end, check gap to boundary
             gap_to_boundary = x_bounds["x_end"] - last_coverage_end
-            
+
             if gap_to_boundary > 0.5 + 0.05:  # Gap > 0.5m
                 # Add strip at boundary - 0.5m
                 gap_fill_position = x_bounds["x_end"] - 0.5
                 if gap_fill_position not in strip_positions:
                     strip_positions.append(gap_fill_position)
-                    print(f"[DEBUG]     Adding end Y-strip at X={gap_fill_position:.3f}m (gap={gap_to_boundary:.3f}m to boundary at X={x_bounds['x_end']:.3f}m)")
+                    print(
+                        f"[DEBUG]     Adding end Y-strip at X={gap_fill_position:.3f}m (gap={gap_to_boundary:.3f}m to boundary at X={x_bounds['x_end']:.3f}m)"
+                    )
             # Case 1: Gap <= 0.5m - no extra strip needed (implicit)
-            
+
     elif x_bounds["x_end"] - x_bounds["x_start"] >= strip_width:
         # No strips placed yet but zone is large enough, add one at minimum position
         strip_positions.append(min_x_after_exclusion)
@@ -514,7 +508,7 @@ def _create_integration_strip_y_direction(
         is_excluded = False
         strip_x_min = strip_x - half_width
         strip_x_max = strip_x + half_width
-        
+
         for excl_start, excl_end in excluded_ranges:
             # Check if strip's coverage area overlaps with excluded range
             # Overlap occurs if: strip_x_min < excl_end AND strip_x_max > excl_start
@@ -642,7 +636,7 @@ def _create_support_strips(
         # Check if support is at segment start or end boundary
         at_start = abs(support_x - x_bounds["x_start"]) < 0.01
         at_end = abs(support_x - x_bounds["x_end"]) < 0.01
-        
+
         if not (at_start or at_end):
             continue
 

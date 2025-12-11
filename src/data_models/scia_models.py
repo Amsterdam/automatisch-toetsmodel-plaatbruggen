@@ -183,9 +183,7 @@ class Span(BaseModel):
     min_thickness: float = Field(gt=0.05, le=5.0, description="Minimum thickness in [m]")
     span_index: int = Field(gt=0, description="Index of the span (1-based)")
     num_segment_definitions: int = Field(ge=2, description="Number of segment definition points")
-    intermediate_segment_x_positions: list[float] = Field(
-        default_factory=list, description="X-coordinates of intermediate segment boundaries in [m]"
-    )
+    intermediate_segment_x_positions: list[float] = Field(default_factory=list, description="X-coordinates of intermediate segment boundaries in [m]")
 
     @field_validator("end_x")
     @classmethod

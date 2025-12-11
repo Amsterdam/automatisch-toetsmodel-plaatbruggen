@@ -62,17 +62,19 @@ class TestWidthCorrection:
     def test_width_correction_applied(self) -> None:
         """Test that width correction is applied when width != 1.0."""
         # Create test dataframe with width = 2.0
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_w-2.0_nr-1"],
-            "dx": [0.5],
-            "load_case": ["LC1"],
-            "N": [2000.0],  # N
-            "V_y": [4000.0],  # N
-            "V_z": [6000.0],  # N
-            "M_x": [8000.0],  # Nm
-            "M_y": [10000.0],  # Nm
-            "M_z": [12000.0],  # Nm
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_w-2.0_nr-1"],
+                "dx": [0.5],
+                "load_case": ["LC1"],
+                "N": [2000.0],  # N
+                "V_y": [4000.0],  # N
+                "V_z": [6000.0],  # N
+                "M_x": [8000.0],  # Nm
+                "M_y": [10000.0],  # Nm
+                "M_z": [12000.0],  # Nm
+            }
+        )
 
         # Apply parsing and correction
         df = add_parsed_columns_to_dataframe(df)
@@ -91,17 +93,19 @@ class TestWidthCorrection:
     def test_width_correction_not_applied_for_width_one(self) -> None:
         """Test that width correction is NOT applied when width = 1.0."""
         # Create test dataframe with width = 1.0
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_w-1.0_nr-1"],
-            "dx": [0.5],
-            "load_case": ["LC1"],
-            "N": [2000.0],
-            "V_y": [4000.0],
-            "V_z": [6000.0],
-            "M_x": [8000.0],
-            "M_y": [10000.0],
-            "M_z": [12000.0],
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_w-1.0_nr-1"],
+                "dx": [0.5],
+                "load_case": ["LC1"],
+                "N": [2000.0],
+                "V_y": [4000.0],
+                "V_z": [6000.0],
+                "M_x": [8000.0],
+                "M_y": [10000.0],
+                "M_z": [12000.0],
+            }
+        )
 
         # Apply parsing and correction
         df = add_parsed_columns_to_dataframe(df)
@@ -120,14 +124,16 @@ class TestWidthCorrection:
     def test_width_correction_with_missing_width(self) -> None:
         """Test that no correction is applied when width is missing."""
         # Create test dataframe without width in name
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_nr-1"],
-            "dx": [0.5],
-            "load_case": ["LC1"],
-            "N": [2000.0],
-            "V_y": [4000.0],
-            "V_z": [6000.0],
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_nr-1"],
+                "dx": [0.5],
+                "load_case": ["LC1"],
+                "N": [2000.0],
+                "V_y": [4000.0],
+                "V_z": [6000.0],
+            }
+        )
 
         # Apply parsing and correction
         df = add_parsed_columns_to_dataframe(df)
@@ -146,22 +152,24 @@ class TestUnitConversionInViews:
     def test_format_with_unit_conversion_and_correction(self) -> None:
         """Test that formatting applies both unit conversion and shows correction status."""
         # Create test dataframe with width correction applied
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_w-2.0_nr-1"],
-            "dx": [0.5],
-            "load_case": ["LC1"],
-            "N": [1000.0],  # Already corrected, in N
-            "V_y": [2000.0],  # Already corrected, in N
-            "V_z": [3000.0],  # Already corrected, in N
-            "M_x": [4000.0],  # Already corrected, in Nm
-            "M_y": [5000.0],  # Already corrected, in Nm
-            "M_z": [6000.0],  # Already corrected, in Nm
-            "corrected": [True],
-            "zone": ["Z1-1"],
-            "direction": ["x"],
-            "strip_type": ["reg"],
-            "strip_number": ["1"],
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_w-2.0_nr-1"],
+                "dx": [0.5],
+                "load_case": ["LC1"],
+                "N": [1000.0],  # Already corrected, in N
+                "V_y": [2000.0],  # Already corrected, in N
+                "V_z": [3000.0],  # Already corrected, in N
+                "M_x": [4000.0],  # Already corrected, in Nm
+                "M_y": [5000.0],  # Already corrected, in Nm
+                "M_z": [6000.0],  # Already corrected, in Nm
+                "corrected": [True],
+                "zone": ["Z1-1"],
+                "direction": ["x"],
+                "strip_type": ["reg"],
+                "strip_number": ["1"],
+            }
+        )
 
         # Format for display
         data = _format_integration_strip_table_data(df)
@@ -186,22 +194,24 @@ class TestUnitConversionInViews:
     def test_format_without_correction(self) -> None:
         """Test formatting for strips without width correction."""
         # Create test dataframe without correction
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_w-1.0_nr-1"],
-            "dx": [0.5],
-            "load_case": ["LC1"],
-            "N": [1000.0],
-            "V_y": [2000.0],
-            "V_z": [3000.0],
-            "M_x": [4000.0],
-            "M_y": [5000.0],
-            "M_z": [6000.0],
-            "corrected": [False],
-            "zone": ["Z1-1"],
-            "direction": ["x"],
-            "strip_type": ["reg"],
-            "strip_number": ["1"],
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_w-1.0_nr-1"],
+                "dx": [0.5],
+                "load_case": ["LC1"],
+                "N": [1000.0],
+                "V_y": [2000.0],
+                "V_z": [3000.0],
+                "M_x": [4000.0],
+                "M_y": [5000.0],
+                "M_z": [6000.0],
+                "corrected": [False],
+                "zone": ["Z1-1"],
+                "direction": ["x"],
+                "strip_type": ["reg"],
+                "strip_number": ["1"],
+            }
+        )
 
         # Format for display
         data = _format_integration_strip_table_data(df)
@@ -221,22 +231,24 @@ class TestUnitConversionInViews:
     def test_large_values_unit_conversion(self) -> None:
         """Test unit conversion with large values."""
         # Create test dataframe with large values
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_w-1.0_nr-1"],
-            "dx": [0.5],
-            "load_case": ["LC1"],
-            "N": [1000000.0],  # 1000 kN
-            "V_y": [500000.0],  # 500 kN
-            "V_z": [0.0],
-            "M_x": [2000000.0],  # 2000 kNm
-            "M_y": [0.0],
-            "M_z": [0.0],
-            "corrected": [False],
-            "zone": ["Z1-1"],
-            "direction": ["x"],
-            "strip_type": ["reg"],
-            "strip_number": ["1"],
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_w-1.0_nr-1"],
+                "dx": [0.5],
+                "load_case": ["LC1"],
+                "N": [1000000.0],  # 1000 kN
+                "V_y": [500000.0],  # 500 kN
+                "V_z": [0.0],
+                "M_x": [2000000.0],  # 2000 kNm
+                "M_y": [0.0],
+                "M_z": [0.0],
+                "corrected": [False],
+                "zone": ["Z1-1"],
+                "direction": ["x"],
+                "strip_type": ["reg"],
+                "strip_number": ["1"],
+            }
+        )
 
         # Format for display
         data = _format_integration_strip_table_data(df)
@@ -253,17 +265,19 @@ class TestIntegratedWorkflow:
     def test_complete_workflow_with_width_correction(self) -> None:
         """Test complete workflow: parse name, apply correction, format with unit conversion."""
         # Create raw dataframe as it would come from SCIA
-        df = pd.DataFrame({
-            "name": ["strip_dir-x_reg_Z1-1_w-2.0_nr-1"],
-            "dx": [1.0],
-            "load_case": ["ULS_LC1"],
-            "N": [4000.0],  # N - total over 2.0m width
-            "V_y": [8000.0],  # N - total over 2.0m width
-            "V_z": [12000.0],  # N - total over 2.0m width
-            "M_x": [16000.0],  # Nm - total over 2.0m width
-            "M_y": [20000.0],  # Nm - total over 2.0m width
-            "M_z": [24000.0],  # Nm - total over 2.0m width
-        })
+        df = pd.DataFrame(
+            {
+                "name": ["strip_dir-x_reg_Z1-1_w-2.0_nr-1"],
+                "dx": [1.0],
+                "load_case": ["ULS_LC1"],
+                "N": [4000.0],  # N - total over 2.0m width
+                "V_y": [8000.0],  # N - total over 2.0m width
+                "V_z": [12000.0],  # N - total over 2.0m width
+                "M_x": [16000.0],  # Nm - total over 2.0m width
+                "M_y": [20000.0],  # Nm - total over 2.0m width
+                "M_z": [24000.0],  # Nm - total over 2.0m width
+            }
+        )
 
         # Step 1: Apply parsing and width correction
         df = add_parsed_columns_to_dataframe(df)

@@ -1384,4 +1384,3 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     # Note: This is a simplified version for testing - in production you might want
     # to actually run the SCIA analysis here
     return xml_file, def_file, None
-

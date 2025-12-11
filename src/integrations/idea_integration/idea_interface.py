@@ -542,9 +542,7 @@ def _apply_integration_strip_loads_to_slabs(  # noqa: C901
                 continue
 
             # Filter data for this specific combination
-            df_combo = df_slab[
-                (df_slab["zone"] == zone) & (df_slab["direction"] == strip_direction) & (df_slab["filtered_for"] == filtered_for)
-            ]
+            df_combo = df_slab[(df_slab["zone"] == zone) & (df_slab["direction"] == strip_direction) & (df_slab["filtered_for"] == filtered_for)]
 
             # Split by limit_state
             df_uls = df_combo[df_combo["limit_state"] == "ULS"]

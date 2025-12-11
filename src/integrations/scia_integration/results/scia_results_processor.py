@@ -12,10 +12,6 @@ from typing import Any
 import pandas as pd
 
 
-
-from .scia_result_helpers import get_nested_result_data
-
-
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
     """
     Merges 'x', 'y', and 'z' keys into a single 'coords_xyz' key (list of (x, y, z) tuples) and removes the originals.
@@ -186,6 +182,8 @@ def _extract_scia_table_data(results: dict[str, Any], selected_table: str) -> tu
     )
 
     return basis_data, elementaire_data
+
+
 def _extract_scia_1d_table_data(results: dict[str, Any], selected_table: str) -> dict[str, Any] | None:
     """
     Extract 1D forces data for a specific table from SCIA results.

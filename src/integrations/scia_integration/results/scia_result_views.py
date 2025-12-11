@@ -3,14 +3,11 @@
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-from viktor.views import PlotlyResult, TableResult
+from viktor.views import TableResult
 
 if TYPE_CHECKING:
-    from src.integrations.scia_integration.results.scia_unit_conversion import SciaUnitConverter
+    pass
 
-from src.integrations.scia_integration.constants.results import (
-    MAX_ERROR_MESSAGE_LENGTH,
-)
 
 from .scia_results_processor import (
     get_processed_results_with_cache,
@@ -222,5 +219,3 @@ def create_scia_node_results_table(results: dict[str, Any], result_type: str) ->
             "MyD- Max (kNm)",
         ]
         return TableResult([["Verwerkingsfout", error_message, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]], column_headers=default_headers)
-
-

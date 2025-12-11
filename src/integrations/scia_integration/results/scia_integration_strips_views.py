@@ -248,9 +248,7 @@ def create_integration_strip_envelope_table_view(
     return TableResult(data, column_headers=headers)
 
 
-def create_all_integration_strip_views(
-    results: dict[str, Any]
-) -> dict[str, TableResult]:
+def create_all_integration_strip_views(results: dict[str, Any]) -> dict[str, TableResult]:
     """
     Create VIKTOR TableResult views for all 8 integration strip tables.
 
@@ -265,5 +263,3 @@ def create_all_integration_strip_views(
         views[table_key] = create_integration_strip_table_view(results, table_key)
 
     return views
-
-
