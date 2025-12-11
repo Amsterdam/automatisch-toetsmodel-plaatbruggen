@@ -234,7 +234,8 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 # Divide force/moment values by width to get per-meter values
                 for col in force_moment_cols:
                     if col in df.columns and pd.notna(df.loc[idx, col]):  # type: ignore[index]
-                        df.loc[idx, col] = float(df.loc[idx, col]) / width  # type: ignore[index]
+                        value = df.loc[idx, col]
+                        df.loc[idx, col] = float(value) / width  # type: ignore[index, arg-type]
         except (ValueError, TypeError, ZeroDivisionError):  # noqa: PERF203
             # If width parsing fails or is zero, don't correct
             pass
