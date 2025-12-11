@@ -6,7 +6,7 @@ Integration strips replace the previous cross-section (section on plane) approac
 
 The module processes 8 types of tables from SCIA:
 - ULS_x_reg: ULS results for x-direction regular strips
-- ULS_y_reg: ULS results for y-direction regular strips  
+- ULS_y_reg: ULS results for y-direction regular strips
 - ULS_x_sup: ULS results for x-direction support strips
 - ULS_y_sup: ULS results for y-direction support strips
 - SLSfreq_x_reg: SLS frequent results for x-direction regular strips
@@ -83,37 +83,33 @@ def extract_integration_strip_table(
         return pd.DataFrame()
 
     # The table is directly under its name (e.g., "ULS_x_reg")
-    
+
     table_data = parsed_tables.get(table_name)
-    
+
     if not table_data:
         return pd.DataFrame()
-    
+
     # Extract the actual data from nested structure
     # The data is under "data" key
     nested_data = table_data.get("data", {})
-    
+
     # Check if nested_data has a 'p0' key with the actual table data
-    if isinstance(nested_data, dict) and 'p0' in nested_data:
-        actual_data = nested_data['p0']
-        
+    if isinstance(nested_data, dict) and "p0" in nested_data:
+        actual_data = nested_data["p0"]
+
         # If p0 contains the actual table dictionary
-        if isinstance(actual_data, dict):
-            strip_data = actual_data
-        else:
-            strip_data = nested_data
+        strip_data = actual_data if isinstance(actual_data, dict) else nested_data
     else:
         strip_data = nested_data
-    
+
     if strip_data and isinstance(strip_data, dict):
         # Convert to DataFrame
         df = pd.DataFrame(strip_data)
 
         # Rename columns to internal names
-        df = df.rename(columns=STRIP_COLUMN_MAPPING)
+        return df.rename(columns=STRIP_COLUMN_MAPPING)
 
-        return df
-    
+
     return pd.DataFrame()
 
 
@@ -142,7 +138,7 @@ def parse_strip_name(strip_name: str) -> dict[str, str]:
     Parse integration strip name to extract zone, direction, type, and number.
 
     Example strip name: "strip_dir-x_reg_Z1-1_w-1.0_nr-1"
-    
+
     Extracts:
     - direction: "x" or "y"
     - strip_type: "reg" (regular) or "sup" (support)
@@ -192,9 +188,13 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add parsed zone, direction, and strip type columns to integration strip DataFrame.
 
+    Also applies width correction to force and moment values when strip width != 1.0 m.
+    The values from SCIA are total forces/moments over the strip width, so we need to
+    divide by the width to get per-meter values when width != 1.0.
+
     :param df: DataFrame with integration strip results
     :type df: pd.DataFrame
-    :returns: DataFrame with additional parsed columns
+    :returns: DataFrame with additional parsed columns and width-corrected values
     :rtype: pd.DataFrame
     """
     if df.empty or "name" not in df.columns:
@@ -210,6 +210,26 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df["strip_width"] = parsed_data.apply(lambda x: x["width"])
     df["strip_number"] = parsed_data.apply(lambda x: x["number"])
 
+    # Apply width correction to force/moment columns
+    # Initialize corrected flag
+    df["corrected"] = False
+
+    force_moment_cols = ["N", "V_y", "V_z", "M_x", "M_y", "M_z"]
+
+    for idx, row in df.iterrows():
+        try:
+            width = float(row["strip_width"]) if row["strip_width"] else 1.0
+            # Only correct if width is not 1.0 (with small tolerance for floating point)
+            if abs(width - 1.0) > 0.01:
+                df.at[idx, "corrected"] = True
+                # Divide force/moment values by width to get per-meter values
+                for col in force_moment_cols:
+                    if col in df.columns and pd.notna(df.at[idx, col]):
+                        df.at[idx, col] = float(df.at[idx, col]) / width
+        except (ValueError, TypeError, ZeroDivisionError):
+            # If width parsing fails or is zero, don't correct
+            pass
+
     return df
 
 
@@ -222,7 +242,7 @@ def process_integration_strip_envelopes(  # noqa: C901
     For each unique combination of zone, direction, and limit state (ULS/SLS freq):
     - Find min/max N, M_x, M_y, M_z from both reg and sup strips
     - Find min/max V_y, V_z from reg strips only
-    
+
     Returns a DataFrame with one row per envelope value, including:
     - zone: Zone identifier (e.g., "Z1-1")
     - direction: "x" or "y"
@@ -289,10 +309,7 @@ def process_integration_strip_envelopes(  # noqa: C901
 
                     # Find min and max
                     for envelope_type in ["min", "max"]:
-                        if envelope_type == "min":
-                            idx = zone_combined[col].idxmin()
-                        else:
-                            idx = zone_combined[col].idxmax()
+                        idx = zone_combined[col].idxmin() if envelope_type == "min" else zone_combined[col].idxmax()
 
                         if pd.notna(idx):
                             row = zone_combined.loc[idx].copy()
@@ -307,10 +324,7 @@ def process_integration_strip_envelopes(  # noqa: C901
 
                     # Find min and max
                     for envelope_type in ["min", "max"]:
-                        if envelope_type == "min":
-                            idx = zone_reg[col].idxmin()
-                        else:
-                            idx = zone_reg[col].idxmax()
+                        idx = zone_reg[col].idxmin() if envelope_type == "min" else zone_reg[col].idxmax()
 
                         if pd.notna(idx):
                             row = zone_reg.loc[idx].copy()

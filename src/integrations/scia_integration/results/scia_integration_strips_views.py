@@ -12,7 +12,6 @@ from viktor.views import TableResult
 
 from .scia_integration_strips_processor import (
     INTEGRATION_STRIP_TABLES,
-    extract_all_integration_strip_tables,
     process_all_integration_strips,
 )
 
@@ -34,6 +33,7 @@ def _create_integration_strip_headers() -> list[str]:
         "M_x [kNm]",
         "M_y [kNm]",
         "M_z [kNm]",
+        "Gecorrigeerd",
         "Zone",
         "Richting",
         "Type",
@@ -45,6 +45,8 @@ def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:
     """
     Format integration strip DataFrame for display in VIKTOR TableResult.
 
+    Applies unit conversion (N to kN, Nm to kNm) and width correction if needed.
+
     :param df: DataFrame with integration strip results
     :type df: pd.DataFrame
     :returns: List of rows for table display
@@ -52,7 +54,7 @@ def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:
     """
     if df.empty:
         # Return a single row with "No data" message to avoid empty table errors
-        return [["Geen data", "", "", "", "", "", "", "", "", "", "", "", ""]]
+        return [["Geen data", "", "", "", "", "", "", "", "", "", "", "", "", ""]]
 
     # Define columns to include in output
     output_columns = [
@@ -65,6 +67,7 @@ def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:
         "M_x",
         "M_y",
         "M_z",
+        "corrected",
         "zone",
         "direction",
         "strip_type",
@@ -81,11 +84,28 @@ def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:
         for col in available_columns:
             value = row.get(col, "")
             # Format numeric values
-            if col in ["dx", "N", "V_y", "V_z", "M_x", "M_y", "M_z"] and pd.notna(value):
+            if col in ["dx"] and pd.notna(value):
                 try:
                     row_data.append(f"{float(value):.2f}")
                 except (ValueError, TypeError):
                     row_data.append(str(value))
+            elif col in ["N", "V_y", "V_z"] and pd.notna(value):
+                # Forces: convert N to kN
+                try:
+                    value_kn = float(value) / 1000.0
+                    row_data.append(f"{value_kn:.2f}")
+                except (ValueError, TypeError):
+                    row_data.append(str(value))
+            elif col in ["M_x", "M_y", "M_z"] and pd.notna(value):
+                # Moments: convert Nm to kNm
+                try:
+                    value_knm = float(value) / 1000.0
+                    row_data.append(f"{value_knm:.2f}")
+                except (ValueError, TypeError):
+                    row_data.append(str(value))
+            elif col == "corrected":
+                # Show if value was corrected for width
+                row_data.append("Ja" if value else "Nee")
             else:
                 row_data.append(str(value) if pd.notna(value) else "")
         data.append(row_data)
@@ -106,7 +126,7 @@ def create_integration_strip_table_view(
     :type table_key: str
     :returns: TableResult with integration strip data
     :rtype: TableResult
-    """    
+    """
     # Check if we have cached processed results
     integration_strips = results.get("integration_strips")
 
@@ -117,7 +137,7 @@ def create_integration_strip_table_view(
 
     # Get the specific table
     tables = integration_strips.get("tables", {})
-    
+
     df = tables.get(table_key, pd.DataFrame())
 
     # Format data for display (includes "No data" row if empty)
@@ -154,6 +174,7 @@ def create_integration_strip_envelope_table_view(
         "Richting",
         "Grenstoestand",
         "Gefilterd voor",
+        "Strook naam",
         "dx [m]",
         "Belasting",
         "N [kN]",
@@ -162,11 +183,12 @@ def create_integration_strip_envelope_table_view(
         "M_x [kNm]",
         "M_y [kNm]",
         "M_z [kNm]",
+        "Gecorrigeerd",
     ]
 
     if df_envelope.empty:
         # Return single row with "No data" message to avoid empty table errors
-        no_data_row = ["Geen data"] + [""] * 11  # 12 columns total
+        no_data_row = ["Geen data"] + [""] * 13  # 14 columns total
         return TableResult([no_data_row], column_headers=headers)
 
     # Define columns to include
@@ -175,6 +197,7 @@ def create_integration_strip_envelope_table_view(
         "direction",
         "limit_state",
         "filtered_for",
+        "name",
         "dx",
         "load_case",
         "N",
@@ -183,6 +206,7 @@ def create_integration_strip_envelope_table_view(
         "M_x",
         "M_y",
         "M_z",
+        "corrected",
     ]
 
     # Filter to only include columns that exist
@@ -195,11 +219,28 @@ def create_integration_strip_envelope_table_view(
         for col in available_columns:
             value = row.get(col, "")
             # Format numeric values
-            if col in ["dx", "N", "V_y", "V_z", "M_x", "M_y", "M_z"] and pd.notna(value):
+            if col in ["dx"] and pd.notna(value):
                 try:
                     row_data.append(f"{float(value):.2f}")
                 except (ValueError, TypeError):
                     row_data.append(str(value))
+            elif col in ["N", "V_y", "V_z"] and pd.notna(value):
+                # Forces: convert N to kN
+                try:
+                    value_kn = float(value) / 1000.0
+                    row_data.append(f"{value_kn:.2f}")
+                except (ValueError, TypeError):
+                    row_data.append(str(value))
+            elif col in ["M_x", "M_y", "M_z"] and pd.notna(value):
+                # Moments: convert Nm to kNm
+                try:
+                    value_knm = float(value) / 1000.0
+                    row_data.append(f"{value_knm:.2f}")
+                except (ValueError, TypeError):
+                    row_data.append(str(value))
+            elif col == "corrected":
+                # Show if value was corrected for width
+                row_data.append("Ja" if value else "Nee")
             else:
                 row_data.append(str(value) if pd.notna(value) else "")
         data.append(row_data)
@@ -220,7 +261,7 @@ def create_all_integration_strip_views(
     """
     views = {}
 
-    for table_key in INTEGRATION_STRIP_TABLES.keys():
+    for table_key in INTEGRATION_STRIP_TABLES:
         views[table_key] = create_integration_strip_table_view(results, table_key)
 
     return views
