@@ -10,33 +10,35 @@ def mxd_plus(mx: float, my: float, mxy: float) -> float:
     """
     Calculate the positive x-direction design moment (mxd+).
 
-    Calculate the design moment in the positive x-direction based on the input moments.
-    The calculation depends on the sign of my:
-
-    - When my > 0 (positive moment): Uses the squared formula mx - mxy²/|my| to account
-      for reduced torsional contribution when perpendicular moment is positive.
-    - When my < 0 (negative moment): Uses mx - |mxy| for direct torsional contribution.
-    - When my = 0: Returns 0.0 as no moment can be calculated without reference.
-
-    The result is clamped to non-positive values (≤ 0) to ensure only compression
-    is captured in this direction.
+    Bottom layer (tension) design moment in x-direction.
+    Based on EC2 Table G.2: Required capacity mRdx.
 
     Args:
-        mx: Moment in x-direction (kNm/m)
-        my: Moment in y-direction (kNm/m)
-        mxy: Torsional moment (kNm/m)
+        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
+        my: Moment in y-direction (kNm/m) - corresponds to mEdy
+        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
 
     Returns:
-        The positive x-direction design moment (kNm/m), clamped to non-positive values.
+        mxd+: Design moment for bottom reinforcement in x-direction (kNm/m) - corresponds to mRdx
 
     """
-    if my > 0:
-        # Positive my: Use squared formula for reduced torsional contribution
-        return min(mx - mxy**2 / abs(my), 0.0)
-    if my < 0:
-        # Negative my: Use linear formula for full torsional contribution
-        return min(mx - abs(mxy), 0.0)
-    # Zero my: No reference moment exists
+    # Row 1: mEdx >= -|mEdxy|, mEdy >= -|mEdxy|
+    if mx >= -abs(mxy) and my >= -abs(mxy):
+        return mx + abs(mxy)
+    
+    # Row 2: mEdx <= mEdy, mEdx < -|mEdxy|, mEdx*mEdy >= m²Edxy
+    if mx <= my and mx < -abs(mxy) and mx * my >= mxy**2:
+        return 0.0
+    
+    # Row 3: mEdx >= mEdy, mEdy < -|mEdxy|, mEdx*mEdy <= m²Edxy
+    if mx >= my and my < -abs(mxy) and mx * my <= mxy**2:
+        return mx + mxy**2 / abs(my)
+    
+    # Row 4: mEdx < 0, mEdy < 0, mEdx*mEdy > m²Edxy
+    if mx < 0 and my < 0 and mx * my > mxy**2:
+        return 0.0
+    
+    # Default fallback
     return 0.0
 
 
@@ -44,66 +46,71 @@ def mxd_minus(mx: float, my: float, mxy: float) -> float:
     """
     Calculate the negative x-direction design moment (mxd-).
 
-    Calculate the design moment in the negative x-direction (compression) based on
-    the input moments. The calculation depends on the sign of my:
-
-    - When my < 0 (negative moment): Uses the squared formula mx + mxy²/|my| to account
-      for reduced torsional contribution when perpendicular moment is negative.
-    - When my >= 0 (positive or zero): Uses mx + |mxy| for direct torsional contribution.
-
-    The result is clamped to non-negative values (≥ 0) as this represents compression
-    in the negative x-direction.
+    Top layer (compression/tension) design moment in x-direction.
+    Based on EC2 Table G.3: Required capacity m'Rdx.
 
     Args:
-        mx: Moment in x-direction (kNm/m)
-        my: Moment in y-direction (kNm/m)
-        mxy: Torsional moment (kNm/m)
+        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
+        my: Moment in y-direction (kNm/m) - corresponds to mEdy
+        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
 
     Returns:
-        The negative x-direction design moment (kNm/m), clamped to non-negative values.
+        mxd-: Design moment for top reinforcement in x-direction (kNm/m) - corresponds to m'Rdx
 
     """
-    if my < 0:
-        # Negative my: Use squared formula for reduced torsional contribution
-        return max(mx + mxy**2 / abs(my), 0.0)
-    if my > 0:
-        # Positive my: Use linear formula for full torsional contribution
-        return max(mx + abs(mxy), 0.0)
-    # Zero my: Use linear formula to avoid division issues
-    return max(mx + abs(mxy), 0.0)
+    # Row 1: mEdx <= |mEdxy|, mEdy <= |mEdxy|
+    if mx <= abs(mxy) and my <= abs(mxy):
+        return -mx + abs(mxy)
+    
+    # Row 2: mEdx >= mEdy, mEdx > |mEdxy|, mEdx*mEdy <= m²Edxy
+    if mx >= my and mx > abs(mxy) and mx * my <= mxy**2:
+        return 0.0
+    
+    # Row 3: mEdx <= mEdy, mEdy > |mEdxy|, mEdx*mEdy <= m²Edxy
+    if mx <= my and my > abs(mxy) and mx * my <= mxy**2:
+        return -mx + mxy**2 / abs(my)
+    
+    # Row 4: mEdx > 0, mEdy > 0, mEdx*mEdy > m²Edxy
+    if mx > 0 and my > 0 and mx * my > mxy**2:
+        return 0.0
+    
+    # Default fallback
+    return 0.0
 
 
 def myd_plus(mx: float, my: float, mxy: float) -> float:
     """
     Calculate the positive y-direction design moment (myd+).
 
-    Calculate the design moment in the positive y-direction based on the input moments.
-    The calculation depends on the sign of mx:
-
-    - When mx > 0 (positive moment): Uses the squared formula my - mxy²/|mx| to account
-      for reduced torsional contribution when perpendicular moment is positive.
-    - When mx < 0 (negative moment): Uses my - |mxy| for direct torsional contribution.
-    - When mx = 0: Returns 0.0 as no moment can be calculated without reference.
-
-    The result is clamped to non-positive values (≤ 0) to ensure only compression
-    is captured in this direction.
+    Bottom layer (tension) design moment in y-direction.
+    Based on EC2 Table G.2: Required capacity mRdy.
 
     Args:
-        mx: Moment in x-direction (kNm/m)
-        my: Moment in y-direction (kNm/m)
-        mxy: Torsional moment (kNm/m)
+        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
+        my: Moment in y-direction (kNm/m) - corresponds to mEdy
+        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
 
     Returns:
-        The positive y-direction design moment (kNm/m), clamped to non-positive values.
+        myd+: Design moment for bottom reinforcement in y-direction (kNm/m) - corresponds to mRdy
 
     """
-    if mx > 0:
-        # Positive mx: Use squared formula for reduced torsional contribution
-        return min(my - mxy**2 / abs(mx), 0.0)
-    if mx < 0:
-        # Negative mx: Use linear formula for full torsional contribution
-        return min(my - abs(mxy), 0.0)
-    # Zero mx: No reference moment exists
+    # Row 1: mEdx >= -|mEdxy|, mEdy >= -|mEdxy|
+    if mx >= -abs(mxy) and my >= -abs(mxy):
+        return my + abs(mxy)
+    
+    # Row 2: mEdx <= mEdy, mEdx < -|mEdxy|, mEdx*mEdy >= m²Edxy
+    if mx <= my and mx < -abs(mxy) and mx * my >= mxy**2:
+        return my + mxy**2 / abs(mx)
+    
+    # Row 3: mEdx >= mEdy, mEdy < -|mEdxy|, mEdx*mEdy <= m²Edxy
+    if mx >= my and my < -abs(mxy) and mx * my <= mxy**2:
+        return 0.0
+    
+    # Row 4: mEdx < 0, mEdy < 0, mEdx*mEdy > m²Edxy
+    if mx < 0 and my < 0 and mx * my > mxy**2:
+        return 0.0
+    
+    # Default fallback
     return 0.0
 
 
@@ -111,33 +118,36 @@ def myd_minus(mx: float, my: float, mxy: float) -> float:
     """
     Calculate the negative y-direction design moment (myd-).
 
-    Calculate the design moment in the negative y-direction (compression) based on
-    the input moments. The calculation is independent of the sign of mx:
-
-    - When mx < 0 (negative moment): Uses my + |mxy| for direct torsional contribution.
-    - When mx > 0 (positive moment): Uses my + |mxy| for direct torsional contribution.
-    - When mx = 0: Uses my + |mxy| for direct torsional contribution.
-
-    The result is clamped to non-negative values (≥ 0) as this represents compression
-    in the negative y-direction.
+    Top layer (compression/tension) design moment in y-direction.
+    Based on EC2 Table G.3: Required capacity m'Rdy.
 
     Args:
-        mx: Moment in x-direction (kNm/m)
-        my: Moment in y-direction (kNm/m)
-        mxy: Torsional moment (kNm/m)
+        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
+        my: Moment in y-direction (kNm/m) - corresponds to mEdy
+        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
 
     Returns:
-        The negative y-direction design moment (kNm/m), clamped to non-negative values.
+        myd-: Design moment for top reinforcement in y-direction (kNm/m) - corresponds to m'Rdy
 
     """
-    if mx < 0:
-        # Negative mx: Use linear formula for full torsional contribution
-        return max(my + abs(mxy), 0.0)
-    if mx > 0:
-        # Positive mx: Use linear formula for full torsional contribution
-        return max(my + abs(mxy), 0.0)
-    # Zero mx: Use linear formula for full torsional contribution
-    return max(my + abs(mxy), 0.0)
+    # Row 1: mEdx <= |mEdxy|, mEdy <= |mEdxy|
+    if mx <= abs(mxy) and my <= abs(mxy):
+        return -my + abs(mxy)
+    
+    # Row 2: mEdx >= mEdy, mEdx > |mEdxy|, mEdx*mEdy <= m²Edxy
+    if mx >= my and mx > abs(mxy) and mx * my <= mxy**2:
+        return -my + mxy**2 / abs(mx)
+    
+    # Row 3: mEdx <= mEdy, mEdy > |mEdxy|, mEdx*mEdy <= m²Edxy
+    if mx <= my and my > abs(mxy) and mx * my <= mxy**2:
+        return 0.0
+    
+    # Row 4: mEdx > 0, mEdy > 0, mEdx*mEdy > m²Edxy
+    if mx > 0 and my > 0 and mx * my > mxy**2:
+        return 0.0
+    
+    # Default fallback
+    return 0.0
 
 
 def nxd(nx: float, ny: float, nxy: float) -> float:
@@ -145,15 +155,12 @@ def nxd(nx: float, ny: float, nxy: float) -> float:
     Calculate the x-direction design force (nxd).
 
     Calculate the design force in the x-direction based on the input forces.
-    The calculation depends on the sign of ny:
+    According to EC2 flowchart for wall design:
 
-    - When ny < 0 (negative force): Uses the squared formula nx + nxy²/|ny| to account
-      for reduced shear force contribution when perpendicular force is negative.
-    - When ny > 0 (positive force): Uses nx + |nxy| for direct shear contribution.
-    - When ny = 0: Uses nx + |nxy| for direct shear contribution.
+    - When ny >= 0: Uses nx + |nxy|
+    - When ny < 0: Uses nx + nxy²/|ny|
 
-    The result is clamped to non-negative values (≥ 0) as this represents tension
-    in the x-direction.
+    The result is clamped to non-negative values (≥ 0) as this represents tension.
 
     Args:
         nx: Force in x-direction (kN/m)
@@ -164,14 +171,11 @@ def nxd(nx: float, ny: float, nxy: float) -> float:
         The x-direction design force (kN/m), clamped to non-negative values.
 
     """
-    if ny < 0:
-        # Negative ny: Use squared formula for reduced shear contribution
-        return max(nx + nxy**2 / abs(ny), 0.0)
-    if ny > 0:
-        # Positive ny: Use linear formula for full shear contribution
+    if ny >= 0:
+        # Positive or zero ny: Use linear formula
         return max(nx + abs(nxy), 0.0)
-    # Zero ny: Use linear formula for full shear contribution
-    return max(nx + abs(nxy), 0.0)
+    # Negative ny: Use squared formula
+    return max(nx + nxy**2 / abs(ny), 0.0)
 
 
 def nyd(nx: float, ny: float, nxy: float) -> float:
@@ -179,15 +183,11 @@ def nyd(nx: float, ny: float, nxy: float) -> float:
     Calculate the y-direction design force (nyd).
 
     Calculate the design force in the y-direction based on the input forces.
-    The calculation depends on the sign of nx:
+    According to EC2 flowchart for wall design:
 
-    - When nx > 0 (positive force): Uses ny + |nxy| for direct shear contribution.
-    - When nx < 0 (negative force): Uses the squared formula ny + nxy²/|nx| for reduced
-      shear contribution.
-    - When nx = 0: Uses ny directly without shear contribution.
-
-    The result clamping depends on nx sign: no clamping when nx > 0, clamped to
-    non-positive values (≤ 0) when nx ≤ 0.
+    - When nx > 0: Uses ny + |nxy| (no clamping)
+    - When nx < 0: Uses ny + nxy²/|nx| (clamped to non-positive)
+    - When nx = 0: Uses ny (clamped to non-positive)
 
     Args:
         nx: Force in x-direction (kN/m)
@@ -195,14 +195,15 @@ def nyd(nx: float, ny: float, nxy: float) -> float:
         nxy: Shear force (kN/m)
 
     Returns:
-        The y-direction design force (kN/m). Clamping depends on nx sign.
+        The y-direction design force (kN/m). No clamping when nx > 0,
+        clamped to non-positive (≤ 0) when nx ≤ 0.
 
     """
     if nx > 0:
-        # Positive nx: Use linear formula for full shear contribution
+        # Positive nx: Use linear formula, no clamping
         return ny + abs(nxy)
     if nx < 0:
-        # Negative nx: Use squared formula for reduced shear contribution
+        # Negative nx: Use squared formula, clamp to non-positive
         return min(ny + nxy**2 / abs(nx), 0.0)
-    # Zero nx: No shear contribution applied
+    # Zero nx: No shear contribution, clamp to non-positive
     return min(ny, 0.0)
