@@ -359,7 +359,7 @@ class AnalysisCache:
                 self._entity_cache[entity_id] = None
         return self._entity_cache[entity_id]
 
-    def get_cached_analysis(
+    def get_cached_analysis(  # noqa: C901
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,
@@ -408,7 +408,7 @@ class AnalysisCache:
 
                 # Store in request-level cache for subsequent views in same request
                 self._request_cache[cache_key] = results
-                
+
                 # Limit request cache size to prevent memory issues
                 # Keep only the most recent 10 entries per entity
                 if len(self._request_cache) > 10:
@@ -416,7 +416,7 @@ class AnalysisCache:
                     keys_to_remove = list(self._request_cache.keys())[:-10]
                     for key_to_remove in keys_to_remove:
                         del self._request_cache[key_to_remove]
-                
+
                 return results
         except Exception as e:
             if isinstance(e, InternalError):
@@ -567,7 +567,7 @@ class AnalysisCache:
             except Exception as storage_error:
                 # Storage write failed - store in request-level cache anyway for this session
                 self._request_cache[cache_key] = cacheable_results
-                
+
                 if isinstance(storage_error, InternalError):
                     self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
 
@@ -589,10 +589,8 @@ class AnalysisCache:
         except Exception:
             # General error during caching setup
             # Still try to populate request cache if we got this far (cacheable_results should exist)
-            try:
+            with contextlib.suppress(Exception):
                 self._request_cache[cache_key] = cacheable_results
-            except Exception:
-                pass  # If even this fails, give up completely
             return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
@@ -955,8 +953,7 @@ def get_cached_analysis_results(  # noqa: PLR0913
             import logging
 
             logging.warning(
-                f"Failed to cache {analysis_type.value.upper()} results for entity {entity_id}. "
-                "Results will need to be recalculated on next request."
+                f"Failed to cache {analysis_type.value.upper()} results for entity {entity_id}. Results will need to be recalculated on next request."
             )
 
     return results
