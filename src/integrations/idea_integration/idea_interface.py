@@ -479,9 +479,15 @@ def _apply_integration_strip_loads_to_slabs(  # noqa: C901
     - Y-direction strips (y_reg/y_sup) → langs (longitudinal) cross-section in IDEA
 
     Force mapping (already done in process_integration_strips_for_idea):
+    For X-direction strips (transverse/dwars):
     - N → N (normal force)
-    - Qz → Qz (shear force, mapped from V_z for x-strips, V_y for y-strips)
-    - My → My (bending moment, mapped from M_x for x-strips, M_y for y-strips)
+    - V_z → Qz (shear force)
+    - M_x → My (bending moment)
+
+    For Y-direction strips (longitudinal/langs):
+    - N → N (normal force)
+    - V_z → Qz (shear force)
+    - M_y → My (bending moment)
 
     :param created_slabs: Dictionary of created slabs with zones and slab objects
     :type created_slabs: dict[str, dict]
