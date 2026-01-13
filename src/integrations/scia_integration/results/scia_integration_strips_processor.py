@@ -27,9 +27,12 @@ Each table contains internal 1D forces with columns:
 - M_z (bending moment z)
 """
 
+import logging
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Table names expected in SCIA XML output
 INTEGRATION_STRIP_TABLES = {
@@ -178,8 +181,9 @@ def parse_strip_name(strip_name: str) -> dict[str, str]:
             elif part.startswith("nr-"):
                 parsed["number"] = part.replace("nr-", "")
 
-    except Exception:
-        pass
+    except Exception as e:
+        # Log parsing failures for debugging purposes
+        logger.debug("Failed to parse strip name '%s': %s", strip_name, e)
 
     return parsed
 
@@ -210,7 +214,7 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df["strip_width"] = parsed_data.apply(lambda x: x["width"])
     df["strip_number"] = parsed_data.apply(lambda x: x["number"])
 
-    # Apply width correction to force/moment columns
+    # Apply width correction to force/moment columns (vectorized for performance)
     # Initialize corrected flag
     df["corrected"] = False
 
@@ -225,20 +229,28 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if "dx" in df.columns:
         df["dx"] = pd.to_numeric(df["dx"], errors="coerce")
 
-    for idx, row in df.iterrows():
-        try:
-            width = float(row["strip_width"]) if row["strip_width"] else 1.0
-            # Only correct if width is not 1.0 (with small tolerance for floating point)
-            if abs(width - 1.0) > 0.01:
-                df.loc[idx, "corrected"] = True  # type: ignore[index, call-overload]
-                # Divide force/moment values by width to get per-meter values
-                for col in force_moment_cols:
-                    if col in df.columns and pd.notna(df.loc[idx, col]):  # type: ignore[index, call-overload]
-                        value = df.loc[idx, col]  # type: ignore[index, call-overload]
-                        df.loc[idx, col] = float(value) / width  # type: ignore[index, call-overload, arg-type]
-        except (ValueError, TypeError, ZeroDivisionError):  # noqa: PERF203
-            # If width parsing fails or is zero, don't correct
-            pass
+    # Convert strip_width to numeric, defaulting to 1.0 for missing/invalid values
+    df["strip_width_numeric"] = pd.to_numeric(df["strip_width"], errors="coerce").fillna(1.0)
+
+    # Create mask for rows that need correction (width != 1.0 with tolerance)
+    # Use vectorized abs() operation instead of loop
+    correction_mask = (df["strip_width_numeric"].abs() - 1.0).abs() > 0.01
+
+    # Set corrected flag for rows that need correction
+    df.loc[correction_mask, "corrected"] = True
+
+    # Apply width correction vectorized: divide force/moment columns by width
+    # Only for rows where correction_mask is True and width is not zero
+    valid_width_mask = correction_mask & (df["strip_width_numeric"] != 0.0)
+
+    if valid_width_mask.any():
+        for col in force_moment_cols:
+            if col in df.columns:
+                # Divide column values by width for rows that need correction
+                df.loc[valid_width_mask, col] = df.loc[valid_width_mask, col] / df.loc[valid_width_mask, "strip_width_numeric"]
+
+    # Drop temporary numeric width column
+    df = df.drop(columns=["strip_width_numeric"])
 
     return df
 

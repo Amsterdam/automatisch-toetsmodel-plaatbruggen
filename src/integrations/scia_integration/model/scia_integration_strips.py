@@ -26,9 +26,32 @@ Strip Naming:
 - Examples: strip_dir-x_reg_Z1-1_w-1.0_nr-1, strip_dir-y_sup-5.0_Z1-1_w-0.54_nr-1
 """
 
-from typing import Any
+from typing import Any, TypedDict
 
 from .scia_model_interface import SciaModelBuilder
+
+
+class SupportLocation(TypedDict):
+    """Type definition for support location dictionary."""
+
+    x_coord: float
+    segment_idx: int
+    type: str  # 'start', 'end', or 'intermediate'
+
+
+class ZoneBoundaries(TypedDict):
+    """Type definition for zone boundary dictionary."""
+
+    y_min: float
+    y_max: float
+
+
+class ZoneXBoundaries(TypedDict):
+    """Type definition for zone X-axis boundary dictionary."""
+
+    x_start: float
+    x_end: float
+
 
 # Integration strip configuration
 STRIP_WIDTH = 1.0  # Width of each integration strip in meters
@@ -36,7 +59,7 @@ STRIP_SPACING = 0.5  # Spacing between strip centers in meters
 SUPPORT_STRIP_FACTOR = 0.9  # Factor for support strip dimensions (0.9 * thickness)
 
 
-def _get_support_locations(params: Any) -> list[dict[str, Any]]:  # noqa: ANN401
+def _get_support_locations(params: Any) -> list[SupportLocation]:  # noqa: ANN401
     """
     Get all support locations with their X coordinates and types.
 
@@ -101,7 +124,12 @@ def _get_zone_thickness(params: Any, zone_position: int, segment_idx: int) -> fl
     return getattr(segment, "dz", 0.5) if zone_position in [1, 3] else getattr(segment, "dz_2", 0.5)
 
 
-def _get_excluded_x_ranges(supports: list[dict[str, Any]], zone_position: int, segment_idx: int, params: Any) -> list[tuple[float, float]]:  # noqa: ANN401
+def _get_excluded_x_ranges(
+    supports: list[SupportLocation],
+    zone_position: int,
+    segment_idx: int,
+    params: Any,  # noqa: ANN401
+) -> list[tuple[float, float]]:
     """
     Get X ranges that should be excluded from regular strip placement (support strip areas).
 
@@ -135,7 +163,7 @@ def _get_excluded_x_ranges(supports: list[dict[str, Any]], zone_position: int, s
     return excluded_ranges
 
 
-def _calculate_zone_boundaries(params: Any, zone_position: int, segment_idx: int) -> dict[str, float]:  # noqa: ANN401
+def _calculate_zone_boundaries(params: Any, zone_position: int, segment_idx: int) -> ZoneBoundaries:  # noqa: ANN401
     """
     Calculate the Y-axis boundaries for a specific zone.
 
@@ -167,7 +195,7 @@ def _calculate_zone_boundaries(params: Any, zone_position: int, segment_idx: int
     return {"y_min": y_min, "y_max": y_max}
 
 
-def _calculate_zone_x_boundaries(params: Any, segment_idx: int) -> dict[str, float]:  # noqa: ANN401
+def _calculate_zone_x_boundaries(params: Any, segment_idx: int) -> ZoneXBoundaries:  # noqa: ANN401
     """
     Calculate the X-axis (longitudinal) boundaries for a specific segment.
 
