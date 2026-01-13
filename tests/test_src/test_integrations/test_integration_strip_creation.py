@@ -223,17 +223,17 @@ class TestWidthCorrection:
         df = add_parsed_columns_to_dataframe(strip_data_with_varying_widths)
 
         # Width 1.0: should not be corrected
-        assert df.loc[0, "corrected"] is False  # type: ignore[call-overload]
+        assert not df.loc[0, "corrected"]  # type: ignore[call-overload]
         assert df.loc[0, "N"] == 100.0  # type: ignore[call-overload]
 
         # Width 2.0: should be divided by 2
-        assert df.loc[1, "corrected"] is True  # type: ignore[call-overload]
+        assert df.loc[1, "corrected"]  # type: ignore[call-overload]
         assert df.loc[1, "N"] == 100.0  # type: ignore[call-overload]  # 200 / 2
         assert df.loc[1, "V_y"] == 10.0  # type: ignore[call-overload]  # 20 / 2
         assert df.loc[1, "M_z"] == 50.0  # type: ignore[call-overload]  # 100 / 2
 
         # Width 0.5: should be divided by 0.5 (multiplied by 2)
-        assert df.loc[2, "corrected"] is True  # type: ignore[call-overload]
+        assert df.loc[2, "corrected"]  # type: ignore[call-overload]
         assert df.loc[2, "N"] == 100.0  # type: ignore[call-overload]  # 50 / 0.5
         assert df.loc[2, "V_y"] == 10.0  # type: ignore[call-overload]  # 5 / 0.5
 
@@ -253,12 +253,15 @@ class TestWidthCorrection:
             }
         )
 
+        # Store original values before correction
+        original_values = {col: float(df[col].iloc[0]) for col in FORCE_MOMENT_COLUMNS}
+
         df_corrected = add_parsed_columns_to_dataframe(df)
 
         for col in FORCE_MOMENT_COLUMNS:
-            expected_value = float(df[col].iloc[0]) / 2.0
-            actual_value = df_corrected[col].iloc[0]
-            assert abs(actual_value - expected_value) < 0.01, f"Column {col} not corrected properly"
+            actual_value = float(df_corrected[col].iloc[0])
+            expected_value = original_values[col] / 2.0
+            assert abs(actual_value - expected_value) < 0.01, f"Column {col} not corrected properly: expected {expected_value}, got {actual_value}"
 
     def test_parsed_columns_added(self, strip_data_with_varying_widths: pd.DataFrame) -> None:
         """Test that parsed columns are added correctly."""
@@ -499,11 +502,11 @@ class TestCompleteProcessing:
         df_uls = result["tables"]["ULS_x_reg"]
 
         # First row has width 1.0 - no correction
-        assert df_uls.loc[0, "corrected"] is False  # type: ignore[call-overload]
+        assert not df_uls.loc[0, "corrected"]  # type: ignore[call-overload]
         assert df_uls.loc[0, "N"] == 100.0  # type: ignore[call-overload]
 
         # Second row has width 2.0 - should be corrected
-        assert df_uls.loc[1, "corrected"] is True  # type: ignore[call-overload]
+        assert df_uls.loc[1, "corrected"]  # type: ignore[call-overload]
         assert df_uls.loc[1, "N"] == 200.0  # type: ignore[call-overload]  # 400 / 2
 
     def test_empty_results_handling(self) -> None:
