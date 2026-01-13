@@ -195,7 +195,7 @@ def _summarize_load_zones(params: Any) -> str:  # noqa: ANN401
     :rtype: str
     """
     load_zones_array = getattr(params, "load_zones_data_array", None)
-    if not load_zones_array or not isinstance(load_zones_array, (list, tuple)):
+    if not load_zones_array or not isinstance(load_zones_array, list | tuple):
         return "Geen belastingzones"
 
     # Count zone types
@@ -235,7 +235,7 @@ def _extract_segment_geometry(params: Any) -> dict[str, Any]:  # noqa: ANN401
 
     # Access bridge segments array
     segments_array = getattr(params, "bridge_segments_array", None)
-    if not segments_array or not isinstance(segments_array, (list, tuple)):
+    if not segments_array or not isinstance(segments_array, list | tuple):
         return geometry
 
     geometry["num_segments"] = len(segments_array)
@@ -334,7 +334,7 @@ def _extract_design_parameters(params: Any) -> dict[str, Any]:  # noqa: ANN401
 
     # Count reinforcement zones
     reinforcement_zones = getattr(params, "reinforcement_zones_array", None)
-    if reinforcement_zones and isinstance(reinforcement_zones, (list, tuple)):
+    if reinforcement_zones and isinstance(reinforcement_zones, list | tuple):
         design_params["reinforcement_zones_count"] = len(reinforcement_zones)
     else:
         design_params["reinforcement_zones_count"] = 0
@@ -396,7 +396,7 @@ def build_batch_chat_context(entity_id: int) -> dict[str, Any]:
             if cache_flag:
                 summary["cached_results"] += 1
             if (
-                (isinstance(max_uc, (int, float)) and max_uc >= 1)
+                (isinstance(max_uc, int | float) and max_uc >= 1)
                 or (isinstance(uc_status, str) and uc_status.upper() == "FAILED")
                 or ("Gefaald" in str(status_label))
             ):
@@ -592,7 +592,7 @@ def _format_bridge_calculation_status(bridge: dict[str, Any]) -> str:  # noqa: C
     failed_checks_count = bridge.get("failed_checks_count") or 0
 
     if classification == "calculated":
-        uc_str = f"UC {max_uc:.2f}" if isinstance(max_uc, (int, float)) else "UC onbekend"
+        uc_str = f"UC {max_uc:.2f}" if isinstance(max_uc, int | float) else "UC onbekend"
         results_available = "berekeningsresultaten beschikbaar" if cached else "berekend"
 
         uc_breakdown = bridge.get("uc_breakdown")

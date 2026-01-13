@@ -266,7 +266,7 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
 
     # Get the length of data (assume all columns have same length)
     first_column = next(iter(column_data.values()))
-    if not isinstance(first_column, (list, tuple)):
+    if not isinstance(first_column, list | tuple):
         # If it's not a list/tuple, treat as single value
         return [column_data]
 
@@ -276,7 +276,7 @@ def _convert_columns_to_rows(column_data: dict[str, Any]) -> list[dict[str, Any]
     for i in range(num_rows):
         row = {}
         for column_name, column_values in column_data.items():
-            if isinstance(column_values, (list, tuple)) and i < len(column_values):
+            if isinstance(column_values, list | tuple) and i < len(column_values):
                 row[column_name] = column_values[i]
             else:
                 row[column_name] = column_values  # Single value
@@ -435,7 +435,7 @@ def _derive_location_from_coordinates(row: dict[str, Any] | object) -> str:
     if coords_xyz is not None:
         try:
             # coords_xyz is a tuple (x, y, z)
-            x_val = float(coords_xyz[0]) if isinstance(coords_xyz, (tuple, list)) and len(coords_xyz) >= 1 else float(coords_xyz)
+            x_val = float(coords_xyz[0]) if isinstance(coords_xyz, tuple | list) and len(coords_xyz) >= 1 else float(coords_xyz)
             return _map_x_coordinate_to_zone(x_val)
         except (ValueError, TypeError, IndexError):
             return "Z1_1"  # Default fallback

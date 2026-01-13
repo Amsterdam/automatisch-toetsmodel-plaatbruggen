@@ -507,10 +507,10 @@ class TestSciaElemDesMagEdgeCases:
         myd_minus_result = myd_minus(mx, my, mxy)
 
         # All results should be numbers (not NaN or inf)
-        assert isinstance(mxd_plus_result, (int, float))
-        assert isinstance(mxd_minus_result, (int, float))
-        assert isinstance(myd_plus_result, (int, float))
-        assert isinstance(myd_minus_result, (int, float))
+        assert isinstance(mxd_plus_result, int | float)
+        assert isinstance(mxd_minus_result, int | float)
+        assert isinstance(myd_plus_result, int | float)
+        assert isinstance(myd_minus_result, int | float)
 
     def test_positive_forces(self) -> None:
         """Test force functions with positive force values."""

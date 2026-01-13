@@ -51,23 +51,23 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
 
                 # Check dz (thickness) - required
                 dz = getattr(segment, "dz", None)
-                if dz is None or (isinstance(dz, (int, float)) and dz <= 0):
+                if dz is None or (isinstance(dz, int | float) and dz <= 0):
                     segment_issues.append("dikte (dz)")
 
                 # Check dz_2 (secondary thickness) - required
                 dz_2 = getattr(segment, "dz_2", None)
-                if dz_2 is None or (isinstance(dz_2, (int, float)) and dz_2 <= 0):
+                if dz_2 is None or (isinstance(dz_2, int | float) and dz_2 <= 0):
                     segment_issues.append("dikte 2 (dz_2)")
 
                 # Check bz1, bz2, bz3 (bridge zone widths)
                 bz1 = getattr(segment, "bz1", None)
                 bz2 = getattr(segment, "bz2", None)
                 bz3 = getattr(segment, "bz3", None)
-                if bz1 is None or (isinstance(bz1, (int, float)) and bz1 <= 0):
+                if bz1 is None or (isinstance(bz1, int | float) and bz1 <= 0):
                     segment_issues.append("breedte zone 1 (bz1)")
-                if bz2 is None or (isinstance(bz2, (int, float)) and bz2 <= 0):
+                if bz2 is None or (isinstance(bz2, int | float) and bz2 <= 0):
                     segment_issues.append("breedte zone 2 (bz2)")
-                if bz3 is None or (isinstance(bz3, (int, float)) and bz3 <= 0):
+                if bz3 is None or (isinstance(bz3, int | float) and bz3 <= 0):
                     segment_issues.append("breedte zone 3 (bz3)")
 
                 # Check is_support (support) - required
@@ -111,7 +111,7 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
                 has_width = False
                 for d_idx in range(1, 16):
                     d_width = getattr(zone, f"d{d_idx}_width", None)
-                    if d_width is not None and isinstance(d_width, (int, float)) and d_width > 0:
+                    if d_width is not None and isinstance(d_width, int | float) and d_width > 0:
                         has_width = True
                         break
 
@@ -216,13 +216,13 @@ def validate_bridge_for_calculation(bridge_params: Any, bridge_entity: Any) -> t
 
             # Check dekking_boven (top cover)
             dekking_boven = getattr(geometrie_wapening, "dekking_boven", None)
-            if dekking_boven is None or (isinstance(dekking_boven, (int, float)) and dekking_boven <= 0):
+            if dekking_boven is None or (isinstance(dekking_boven, int | float) and dekking_boven <= 0):
                 missing_fields.append("Dekking boven (dekking_boven)")
                 reinforcement_geometry_valid = False
 
             # Check dekking_onder (bottom cover)
             dekking_onder = getattr(geometrie_wapening, "dekking_onder", None)
-            if dekking_onder is None or (isinstance(dekking_onder, (int, float)) and dekking_onder <= 0):
+            if dekking_onder is None or (isinstance(dekking_onder, int | float) and dekking_onder <= 0):
                 missing_fields.append("Dekking onder (dekking_onder)")
                 reinforcement_geometry_valid = False
 

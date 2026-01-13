@@ -130,7 +130,7 @@ class TestEnumBridgePattern:
         value = ReinforcementClass.A.value
 
         # Value should be either an object (SDK enum) or a string (fallback)
-        assert isinstance(value, (object, str))
+        assert isinstance(value, object | str)
 
         # Test that we can access the value attribute
         assert hasattr(ReinforcementClass.A, "value")

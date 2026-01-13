@@ -9,8 +9,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.model.scia_model_interface import (
     SciaAnalysis,
@@ -37,6 +35,7 @@ from src.integrations.scia_integration.scia_enums import (
 # Global VIKTOR imports with error handling for CI/testing environments
 if TYPE_CHECKING:
     from viktor.core import File, progress_message
+    from viktor.errors import UserError
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
 
@@ -44,6 +43,7 @@ if TYPE_CHECKING:
 else:
     try:
         from viktor.core import File, progress_message
+        from viktor.errors import UserError
         from viktor.external import scia
         from viktor.external.scia import OutputFileParser
 
@@ -54,6 +54,7 @@ else:
         File = None  # type: ignore[misc,assignment]
         progress_message = None  # type: ignore[misc,assignment]
         OutputFileParser = None  # type: ignore[misc,assignment]
+        UserError = Exception  # type: ignore[misc,assignment]
         VIKTOR_AVAILABLE = False
 
 
@@ -74,12 +75,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
-        self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}
         self.load_groups: dict[str, scia.LoadGroup] = {}
         self.load_cases: dict[str, scia.LoadCase] = {}
         self.surface_loads: dict[str, scia.FreeSurfaceLoad] = {}  # Track surface loads
         self.load_combinations: dict[str, scia.LoadCombination] = {}  # Track load combinations
         self.result_classes: dict[str, scia.ResultClass] = {}  # Track result classes
+        self.integration_strips: dict[str, scia.IntegrationStrip] = {}  # Map custom_name -> strip object
 
     def create_material(self, name: str, material_id: int = 0) -> scia.Material:
         """Creates a material and stores it."""
@@ -120,43 +121,51 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.plates[name] = plate
         return plate
 
-    def create_section_on_plane(
+    def create_integration_strip(
         self,
+        plane: str,
         point_1: tuple[float, float, float],
         point_2: tuple[float, float, float],
-        *,
-        name: str,
-        draw: Any | None = None,  # noqa: ANN401
-        direction_of_cut: tuple[float, float, float] | None = None,
-    ) -> scia.SectionOnPlane:
+        width: float,
+        custom_name: str,
+    ) -> scia.IntegrationStrip:
         """
-        Creates a section on a plane and stores it.
+        Creates an integration strip on a plane and stores it with custom name.
 
-        :param point_1: Start coordinates (x, y, z) in [m]
-        :param point_2: End coordinates (x, y, z) in [m]
-        :param name: Name which will be shown in SCIA
-        :param draw: Defines the plane in which the section is drawn (default: Z_DIRECTION)
-        :param direction_of_cut: In-plane vector (x, y, z) defining the direction of cut in [m]
-        :return: Created SectionOnPlane object
+        Integration strips are used to extract integrated forces and stresses
+        across a defined strip width on a plane element.
+
+        Uses workaround to set custom name via _name attribute after creation.
+
+        :param plane: Name of the plane to create the strip on
+        :param point_1: Start point (x, y, z) coordinates in [m]
+        :param point_2: End point (x, y, z) coordinates in [m]
+        :param width: Width of the integration strip in [m]
+        :param custom_name: Custom name for the strip (e.g., 'strip_Z1_1_X_1')
+        :return: Created IntegrationStrip object
         """
-        # Build kwargs for optional parameters
-        kwargs = {}
-        if draw is not None:
-            kwargs["draw"] = draw
-        if direction_of_cut is not None:
-            kwargs["direction_of_cut"] = direction_of_cut
+        # Get the plane object from stored plates
+        if plane not in self.plates:
+            raise ValueError(f"Plane '{plane}' not found in model. Create the plane first.")
 
-        # Create the SCIA section on plane
-        section = self.model.create_section_on_plane(
+        plane_obj = self.plates[plane]
+
+        # Create the SCIA integration strip (SDK generates default name)
+        integration_strip = self.model.create_integration_strip(
+            plane=plane_obj,
             point_1=point_1,
             point_2=point_2,
-            name=name,
-            **kwargs,
+            width=width,
         )
 
-        # Store the section for later reference
-        self.sections_on_plane[name] = section
-        return section
+        # Workaround: Set custom name via private _name attribute
+        if hasattr(integration_strip, "_name"):
+            integration_strip._name = custom_name  # noqa: SLF001
+
+        # Store strip with custom name
+        self.integration_strips[custom_name] = integration_strip
+
+        return integration_strip
 
     def create_load_group(
         self,
@@ -1310,60 +1319,47 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
     esa_model = _extract_esa_model_for_caching(analysis)
     results["esa_model"] = esa_model
 
-    # Process and cache dataframes for CS results
-    progress_message("Verwerken en cachen CS dataframes...")
-    bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-    cached_dataframes = _generate_and_cache_cs_dataframes(results, bridge_segments)
-    results.update(cached_dataframes)
+    # Process and cache integration strip results
+    progress_message("Verwerken en cachen integratiestroken...")
+    cached_integration_strips = _generate_and_cache_integration_strips(results)
+    results.update(cached_integration_strips)
 
     # Add summary information
     results["summary"] = {
         "analysis_status": results.get("analysis_status", "unknown"),
         "xml_parsing": results.get("xml_parsing", {}),
         "has_esa_model": esa_model is not None,
-        "has_cached_dataframes": bool(cached_dataframes),
+        "has_integration_strips": bool(cached_integration_strips),
     }
 
     return results
 
 
-def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: list[Any] | None) -> dict[str, Any]:
+def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str, Any]:
     """
-    Generate and return CS dataframes for caching.
+    Generate and return integration strip dataframes for caching.
 
-    Creates three dataframes:
-    - df_cs_uls: CS ULS results
-    - df_cs_sls_freq: CS SLS freq results
-    - df_cs_envelope: Combined envelope for IDEA
+    Processes all 8 integration strip tables and creates an envelope DataFrame.
 
     :param results: Raw SCIA analysis results
-    :param bridge_segments: Bridge segments for zone mapping
-    :return: Dictionary with cached dataframes
+    :return: Dictionary with cached integration strip data
     """
     try:
-        from src.integrations.scia_integration.results.scia_results_processor import (
-            extract_cs_force_envelopes,
-            process_scia_cs_results,
+        from src.integrations.scia_integration.results.scia_integration_strips_processor import (
+            process_all_integration_strips,
         )
 
-        # Process CS results to get individual dataframes
-        cs_results = process_scia_cs_results(results, bridge_segments)
-        df_cs_uls = cs_results.get("ULS", pd.DataFrame())
-        df_cs_sls_freq = cs_results.get("SLS freq", pd.DataFrame())
-
-        # Generate envelope dataframe (used by IDEA and analyse resultaten view)
-        df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
+        # Process all integration strip results
+        integration_strips_data = process_all_integration_strips(results)
     except Exception as e:
-        # Print the error so the actual issue is visible
-        print(f"Error: Failed to generate CS dataframes: {e}")
-        # Re-raise so the actual error is visible instead of silently returning empty data
-        raise
-    else:
-        return {
-            "df_cs_uls": df_cs_uls,
-            "df_cs_sls_freq": df_cs_sls_freq,
-            "df_cs_envelope": df_cs_envelope,
-        }
+        # Raise UserError for consistent error handling (matching analysis_cache.py behavior)
+        raise UserError(
+            f"Fout bij genereren integratiestroken: {e!s}. Voer een nieuwe SCIA berekening uit om de integratiestroken opnieuw te genereren."
+        ) from e
+
+    return {
+        "integration_strips": integration_strips_data,
+    }
 
 
 def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001

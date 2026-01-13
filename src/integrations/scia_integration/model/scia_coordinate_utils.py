@@ -369,7 +369,7 @@ def get_bridge_load_zone_coordinates(params: object) -> dict[str, list[list[floa
             def _get_width_for_d(load_zone_obj: object, d_point: int, *, use_next_if_penultimate: bool = False) -> float:
                 try:
                     wad = getattr(load_zone_obj, "width_at_d")
-                    if isinstance(wad, (list, tuple)) and 1 <= d_point <= len(wad):
+                    if isinstance(wad, list | tuple) and 1 <= d_point <= len(wad):
                         index = d_point - 1
                         if use_next_if_penultimate and index == len(wad) - 2:
                             index = min(index + 1, len(wad) - 1)
@@ -513,7 +513,7 @@ def get_deck_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     bridge_segments = getattr(params, "bridge_segments_array", None)
     if not bridge_segments:
         raise IndexError("No bridge segments provided")
-    if not (isinstance(coord, (tuple, list)) and len(coord) == 3):
+    if not (isinstance(coord, tuple | list) and len(coord) == 3):
         raise ValueError("Coordinate must be a tuple or list of 3 values (x, y, z)")
 
     x, y, _ = coord
@@ -554,7 +554,7 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     load_zones = getattr(params, "load_zones_data_array", None)
     if not load_zones:
         raise IndexError("No bridge load zones provided")
-    if not (isinstance(coord, (tuple, list)) and len(coord) == 3):
+    if not (isinstance(coord, tuple | list) and len(coord) == 3):
         raise ValueError("Coordinate must be a tuple or list of 3 values (x, y, z)")
 
     x, y, _ = coord
@@ -790,7 +790,7 @@ def get_dispersion_at_coord(
     :returns: Dictionary with keys 'deck_zone' and 'load_zone', values are lists of horizontal dispersion distances
     :rtype: dict[str, list[float]]
     """
-    if isinstance(coord, (list, tuple)) and len(coord) == 3:
+    if isinstance(coord, list | tuple) and len(coord) == 3:
         coord_f: tuple[float, float, float] = (float(coord[0]), float(coord[1]), float(coord[2]))
     else:
         coord_f = (0.0, 0.0, 0.0)

@@ -1,3 +1,29 @@
+## [`v0.0.20`] - 2025-12-11
+
+### Added
+- **Integration Strips Implementation**: Complete implementation of SCIA integration strips to replace cross-section (section on plane) approach
+  - Added integration strip creation in SCIA model (regular and support strips in x and y directions)
+  - Implemented strip results extraction and processing from SCIA XML output
+  - Support for 8 strip table types: ULS/SLSfreq × x/y directions × regular/support strips
+  - Strip results include internal 1D forces (N, Vy, Vz, Mx, My, Mz) at positions along strips
+  - Added strip result views with unit conversion and width normalization
+  - Integration strips data passed to IDEA interface with dummy coupling
+  - Updated SCIA ESA template to support integration strips
+  - Added comprehensive test suite for strip unit conversion and processing
+
+### Changed
+- **Cross-Section Approach Removed**: Cleaned up deprecated cross-section (CS) related code and UI components
+  - Removed CS-specific UI elements and views
+  - Integration strips now serve as primary method for internal force extraction
+- **SCIA Results Caching**: Enhanced caching system to store integration strip results
+  - Strip results cached alongside other SCIA analysis data
+  - Improved performance for repeated strip result access
+
+### Fixed
+- **Integration Strip Unit Conversion**: Fixed unit and width normalization for strip results
+  - Corrected force and moment unit conversions (kN, kNm)
+  - Fixed width correction factors for normalized force values
+
 ## [`v0.0.19`] - 2025-12-05
 
 ### Fixed
