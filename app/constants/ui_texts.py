@@ -172,6 +172,8 @@ Het proces werkt als volgt:
      - N → N (normaalkracht)
      - V_z → Qz (dwarskracht)
      - M_y → My (buigend moment)
+   - **Gecorrigeerd kolom:** Geeft aan of de waarden gecorrigeerd zijn omdat de integratie strip een breedte < 1 m heeft.
+     De krachten worden automatisch omgerekend naar krachten per meter breedte.
 5. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
     worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
     Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen in IDEA.

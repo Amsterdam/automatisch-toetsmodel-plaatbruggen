@@ -138,8 +138,6 @@ def _map_strip_forces_to_idea_format(
     if y_mask.any():
         if "V_z" in result_df.columns:
             result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_z"]
-        elif "V_y" in result_df.columns:
-            result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_y"]
         if "M_y" in result_df.columns:
             result_df.loc[y_mask, "My"] = result_df.loc[y_mask, "M_y"]
 
