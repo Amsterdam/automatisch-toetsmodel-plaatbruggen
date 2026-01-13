@@ -128,14 +128,20 @@ def _map_strip_forces_to_idea_format(
     # X-direction: V_z → Qz, M_x → My
     x_mask = result_df["direction"] == "x"
     if x_mask.any():
-        result_df.loc[x_mask, "Qz"] = result_df.loc[x_mask, "V_z"]
-        result_df.loc[x_mask, "My"] = result_df.loc[x_mask, "M_x"]
+        if "V_z" in result_df.columns:
+            result_df.loc[x_mask, "Qz"] = result_df.loc[x_mask, "V_z"]
+        if "M_x" in result_df.columns:
+            result_df.loc[x_mask, "My"] = result_df.loc[x_mask, "M_x"]
 
     # Y-direction: V_z → Qz, M_y → My
     y_mask = result_df["direction"] == "y"
     if y_mask.any():
-        result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_z"]
-        result_df.loc[y_mask, "My"] = result_df.loc[y_mask, "M_y"]
+        if "V_z" in result_df.columns:
+            result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_z"]
+        elif "V_y" in result_df.columns:
+            result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_y"]
+        if "M_y" in result_df.columns:
+            result_df.loc[y_mask, "My"] = result_df.loc[y_mask, "M_y"]
 
     # Note: N is already present and doesn't need mapping
 

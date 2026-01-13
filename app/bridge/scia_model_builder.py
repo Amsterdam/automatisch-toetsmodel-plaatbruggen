@@ -9,8 +9,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
 from src.integrations.scia_integration.model.scia_model_interface import (
     SciaAnalysis,
@@ -37,6 +35,7 @@ from src.integrations.scia_integration.scia_enums import (
 # Global VIKTOR imports with error handling for CI/testing environments
 if TYPE_CHECKING:
     from viktor.core import File, progress_message
+    from viktor.errors import UserError
     from viktor.external import scia
     from viktor.external.scia import OutputFileParser
 
@@ -44,6 +43,7 @@ if TYPE_CHECKING:
 else:
     try:
         from viktor.core import File, progress_message
+        from viktor.errors import UserError
         from viktor.external import scia
         from viktor.external.scia import OutputFileParser
 
@@ -54,6 +54,7 @@ else:
         File = None  # type: ignore[misc,assignment]
         progress_message = None  # type: ignore[misc,assignment]
         OutputFileParser = None  # type: ignore[misc,assignment]
+        UserError = Exception  # type: ignore[misc,assignment]
         VIKTOR_AVAILABLE = False
 
 
@@ -1351,19 +1352,14 @@ def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str,
         # Process all integration strip results
         integration_strips_data = process_all_integration_strips(results)
     except Exception as e:
-        # Print the error so the actual issue is visible
-        print(f"Error: Failed to generate integration strip dataframes: {e}")
-        # Return empty structure rather than failing completely
-        return {
-            "integration_strips": {
-                "tables": {},
-                "envelope": pd.DataFrame(),
-            },
-        }
-    else:
-        return {
-            "integration_strips": integration_strips_data,
-        }
+        # Raise UserError for consistent error handling (matching analysis_cache.py behavior)
+        raise UserError(
+            f"Fout bij genereren integratiestroken: {e!s}. Voer een nieuwe SCIA berekening uit om de integratiestroken opnieuw te genereren."
+        ) from e
+
+    return {
+        "integration_strips": integration_strips_data,
+    }
 
 
 def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001
