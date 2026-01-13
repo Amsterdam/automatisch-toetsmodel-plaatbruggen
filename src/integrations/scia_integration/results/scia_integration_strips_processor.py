@@ -250,9 +250,7 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 df.loc[valid_width_mask, col] = df.loc[valid_width_mask, col] / df.loc[valid_width_mask, "strip_width_numeric"]
 
     # Drop temporary numeric width column
-    df = df.drop(columns=["strip_width_numeric"])
-
-    return df
+    return df.drop(columns=["strip_width_numeric"])
 
 
 def process_integration_strip_envelopes(  # noqa: C901, PLR0912

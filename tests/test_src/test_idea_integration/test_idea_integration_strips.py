@@ -17,6 +17,8 @@ Tests cover:
 - Error handling for missing or invalid data
 """
 
+from typing import Any
+
 import pandas as pd
 import pytest
 
@@ -159,10 +161,7 @@ class TestLoadCaseCreation:
         ]
 
         for dx_value, expected in test_cases:
-            if dx_value is None:
-                result = "NoPos"
-            else:
-                result = f"{float(dx_value):.2f}m"
+            result = "NoPos" if dx_value is None else f"{float(dx_value):.2f}m"
             assert result == expected, f"Failed for dx={dx_value}"
 
     def test_load_case_naming(self) -> None:
@@ -221,18 +220,18 @@ class TestStripDataValidation:
             }
         )
 
-        for slab_key, slab_data in created_slabs.items():
+        for slab_data in created_slabs.values():
             zones = slab_data.get("zones") or []
             df_slab = df_strips[df_strips["zone"].isin(zones)]
 
             # Should only have Z1-1 and Z2-1
             assert set(df_slab["zone"]) == {"Z1-1", "Z2-1"}
-            assert "Z3-1" not in df_slab["zone"].values
+            assert "Z3-1" not in df_slab["zone"].to_numpy()
 
     def test_strip_results_presence_check(self) -> None:
         """Test checking for presence of integration_strips in results."""
         # Case 1: Results with integration_strips
-        results_with_strips = {
+        results_with_strips: dict[str, dict[str, Any]] = {
             "results": {
                 "integration_strips": {
                     "tables": {},
@@ -244,10 +243,12 @@ class TestStripDataValidation:
         assert "integration_strips" in results_with_strips["results"]
         integration_strips = results_with_strips["results"]["integration_strips"]
         assert "envelope" in integration_strips
-        assert not integration_strips["envelope"].empty
+        envelope_df = integration_strips["envelope"]
+        assert isinstance(envelope_df, pd.DataFrame)
+        assert not envelope_df.empty
 
         # Case 2: Results without integration_strips
-        results_without_strips = {"results": {}}
+        results_without_strips: dict[str, dict[str, Any]] = {"results": {}}
 
         assert "integration_strips" not in results_without_strips["results"]
 

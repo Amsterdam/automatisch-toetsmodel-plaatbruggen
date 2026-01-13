@@ -1,3 +1,4 @@
+# ruff: noqa: PD901
 """
 Test module for integration strip creation and processing.
 
@@ -111,7 +112,7 @@ class TestIntegrationStripExtraction:
 
     def test_extract_table_no_xml_parsing(self) -> None:
         """Test extraction when xml_parsing is missing."""
-        results = {"some_other_data": {}}
+        results: dict[str, dict[str, Any]] = {"some_other_data": {}}
         df = extract_integration_strip_table(results, "ULS_x_reg")
 
         assert df.empty, "Should return empty DataFrame when xml_parsing is missing"
@@ -408,7 +409,7 @@ class TestEnvelopeGeneration:
 
     def test_envelope_empty_tables(self) -> None:
         """Test envelope generation with all empty tables."""
-        empty_tables = {key: pd.DataFrame() for key in INTEGRATION_STRIP_TABLES.keys()}
+        empty_tables = {key: pd.DataFrame() for key in INTEGRATION_STRIP_TABLES}
         df_envelope = process_integration_strip_envelopes(empty_tables)
 
         assert df_envelope.empty, "Should return empty DataFrame for empty input"

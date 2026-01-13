@@ -76,14 +76,14 @@ def _get_support_locations(params: Any) -> list[SupportLocation]:  # noqa: ANN40
     :param params: Bridge parameters
     :return: List of support info dicts with 'x_coord', 'segment_idx', 'type' ('start', 'end', or 'intermediate')
     """
-    supports = []
+    supports: list[SupportLocation] = []
     num_rows = len(params.bridge_segments_array)
 
     # Detect supports from bridge_segments_array
     # Row 0: Start of bridge at X=0 (start of section 1)
     row_0_support = getattr(params.bridge_segments_array[0], "is_support", "Nee")
     if row_0_support and row_0_support != "Nee":
-        supports.append({"x_coord": 0.0, "segment_idx": 0, "type": "start"})
+        supports.append(SupportLocation(x_coord=0.0, segment_idx=0, type="start"))
 
     # Rows 1 to n-1: Each row represents a segment boundary
     # Row i is at the end of section i (and start of section i+1 if not last row)
@@ -101,10 +101,10 @@ def _get_support_locations(params: Any) -> list[SupportLocation]:  # noqa: ANN40
             # Determine support type based on position
             if row_idx == num_rows - 1:
                 # Last row = end support
-                supports.append({"x_coord": cumulative_x, "segment_idx": row_idx, "type": "end"})
+                supports.append(SupportLocation(x_coord=cumulative_x, segment_idx=row_idx, type="end"))
             else:
                 # Intermediate row = intermediate support (end of section i / start of section i+1)
-                supports.append({"x_coord": cumulative_x, "segment_idx": row_idx, "type": "intermediate"})
+                supports.append(SupportLocation(x_coord=cumulative_x, segment_idx=row_idx, type="intermediate"))
 
     return supports
 
@@ -192,7 +192,7 @@ def _calculate_zone_boundaries(params: Any, zone_position: int, segment_idx: int
     else:
         raise ValueError(f"Invalid zone position: {zone_position}. Must be 1, 2, or 3.")
 
-    return {"y_min": y_min, "y_max": y_max}
+    return ZoneBoundaries(y_min=y_min, y_max=y_max)
 
 
 def _calculate_zone_x_boundaries(params: Any, segment_idx: int) -> ZoneXBoundaries:  # noqa: ANN401
@@ -207,7 +207,7 @@ def _calculate_zone_x_boundaries(params: Any, segment_idx: int) -> ZoneXBoundari
     x_start = sum(seg.l for seg in params.bridge_segments_array[:segment_idx])
     x_end = x_start + params.bridge_segments_array[segment_idx].l
 
-    return {"x_start": x_start, "x_end": x_end}
+    return ZoneXBoundaries(x_start=x_start, x_end=x_end)
 
 
 def _split_range_by_exclusions(
@@ -614,7 +614,7 @@ def _create_support_strips(  # noqa: PLR0913, PLR0912, C901
     zone_position: int,
     segment_idx: int,
     params: Any,  # noqa: ANN401
-    supports: list[dict[str, Any]],
+    supports: list[SupportLocation],
 ) -> None:
     """
     Create support strips near support locations for a zone.
@@ -714,7 +714,7 @@ def _create_support_x_strips(  # noqa: PLR0913
     builder: SciaModelBuilder,
     plane_name: str,
     zone_name: str,
-    y_bounds: dict[str, float],
+    y_bounds: ZoneBoundaries,
     x_min: float,
     x_max: float,
     support_x: float,

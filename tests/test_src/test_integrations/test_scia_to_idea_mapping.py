@@ -1,3 +1,4 @@
+# ruff: noqa: PD901
 """
 Test module for SCIA to IDEA mapping functionality.
 
@@ -90,7 +91,7 @@ class TestProcessIntegrationStripsForIdea:
 
     def test_missing_integration_strips_raises_error(self) -> None:
         """Test that missing integration_strips data raises ValueError."""
-        results_no_strips = {"other_data": {}}
+        results_no_strips: dict[str, dict[str, Any]] = {"other_data": {}}
 
         with pytest.raises(ValueError, match="Integration strips data not found"):
             process_integration_strips_for_idea(results_no_strips)
