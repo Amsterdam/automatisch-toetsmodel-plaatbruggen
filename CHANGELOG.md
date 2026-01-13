@@ -1,3 +1,13 @@
+## [`v0.0.21`] - 2026-01-12
+
+### Fixed
+- **SCIA Cache Reuse for Integration Strip Views**: Fixed issue where SCIA calculation would restart when viewing integration strip envelopes after downloading IDEA model
+
+- **IDEA Force Mapping for Y-Direction Strips**: Corrected force mapping from SCIA to IDEA for Y-direction (langs/longitudinal) integration strips
+  - Fixed shear force mapping: Changed from V_y → Qz to V_z → Qz for Y-direction strips
+  - Bending moment mapping remains M_y → My for Y-direction strips
+  - X-direction (dwars/transverse) strips already correctly mapped V_z → Qz and M_x → My
+
 ## [`v0.0.20`] - 2025-12-11
 
 ### Added

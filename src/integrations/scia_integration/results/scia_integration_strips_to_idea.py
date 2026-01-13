@@ -13,7 +13,7 @@ Mapping logic:
 
 Force mapping:
 - For X-direction strips: N → N, V_z → Qz, M_x → My
-- For Y-direction strips: N → N, V_y → Qz, M_y → My
+- For Y-direction strips: N → N, V_z → Qz, M_y → My
 
 For each zone and each value of "filtered_for" (gefilterd voor), we create one extreme
 combining ULS and SLS freq data.
@@ -99,7 +99,7 @@ def _map_strip_forces_to_idea_format(
 
     For Y-direction strips (longitudinal/langs):
     - N → N (normal force)
-    - V_y → Qz (shear force)
+    - V_z → Qz (shear force)
     - M_y → My (bending moment)
 
     Also normalizes zone names from "Z1-1" format to "1-1" format to match
@@ -133,11 +133,11 @@ def _map_strip_forces_to_idea_format(
         if "M_x" in result_df.columns:
             result_df.loc[x_mask, "My"] = result_df.loc[x_mask, "M_x"]
 
-    # Y-direction: V_y → Qz, M_y → My
+    # Y-direction: V_z → Qz, M_y → My
     y_mask = result_df["direction"] == "y"
     if y_mask.any():
-        if "V_y" in result_df.columns:
-            result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_y"]
+        if "V_z" in result_df.columns:
+            result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "V_z"]
         if "M_y" in result_df.columns:
             result_df.loc[y_mask, "My"] = result_df.loc[y_mask, "M_y"]
 

@@ -359,7 +359,7 @@ class AnalysisCache:
                 self._entity_cache[entity_id] = None
         return self._entity_cache[entity_id]
 
-    def get_cached_analysis(
+    def get_cached_analysis(  # noqa: C901
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,
@@ -374,6 +374,8 @@ class AnalysisCache:
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
             # Check request-level cache first (fastest - in-memory)
+            # Note: _request_cache persists across HTTP requests as a global singleton
+            # This is intentional for performance within the same worker process
             if cache_key in self._request_cache:
                 return self._request_cache[cache_key]
 
@@ -406,6 +408,15 @@ class AnalysisCache:
 
                 # Store in request-level cache for subsequent views in same request
                 self._request_cache[cache_key] = results
+
+                # Limit request cache size to prevent memory issues
+                # Keep only the most recent 10 entries per entity
+                if len(self._request_cache) > 10:
+                    # Remove oldest entries (simple FIFO)
+                    keys_to_remove = list(self._request_cache.keys())[:-10]
+                    for key_to_remove in keys_to_remove:
+                        del self._request_cache[key_to_remove]
+
                 return results
         except Exception as e:
             if isinstance(e, InternalError):
@@ -498,6 +509,9 @@ class AnalysisCache:
             # Size check: Skip caching if data is too large (> 20 MB)
             max_cache_size_mb = 20
             if size_mb > max_cache_size_mb:
+                # Cache is too large for storage, but store in request-level cache anyway
+                # This helps with multiple views in the same request/session
+                self._request_cache[cache_key] = cacheable_results
                 return False
 
             cached_file = File.from_data(encoded_data)
@@ -551,6 +565,9 @@ class AnalysisCache:
                 return True  # noqa: TRY300
 
             except Exception as storage_error:
+                # Storage write failed - store in request-level cache anyway for this session
+                self._request_cache[cache_key] = cacheable_results
+
                 if isinstance(storage_error, InternalError):
                     self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
 
@@ -564,13 +581,16 @@ class AnalysisCache:
 
                         self._clear_storage_warning()
                         return True
-                    # Cleanup failed - use fail-safe
+                    # Cleanup failed - but request cache is populated, so partial success
                     return False
-                # Not a storage error, just fail gracefully
+                # Not a storage error, just fail gracefully (but request cache is still populated)
                 return False
 
         except Exception:
             # General error during caching setup
+            # Still try to populate request cache if we got this far (cacheable_results should exist)
+            with contextlib.suppress(Exception):
+                self._request_cache[cache_key] = cacheable_results
             return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
@@ -907,6 +927,10 @@ def get_cached_analysis_results(  # noqa: PLR0913
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
         progress_message(f"{prefix}✓ Cache gevonden - resultaten worden geladen...")
+        # Store in request-level cache for reuse within this request
+        input_hash = cache._generate_input_hash(params, analysis_type, template_path)  # noqa: SLF001
+        cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
+        cache._request_cache[cache_key] = cached_results  # noqa: SLF001
         return cached_results
 
     # Run analysis if not cached
@@ -920,9 +944,16 @@ def get_cached_analysis_results(  # noqa: PLR0913
         # Fallback: try calling with just params
         raise UserError("Unsupported analysis type for caching.")
 
-    # Cache the results
+    # Cache the results and log if caching fails
     if results is not None:
         progress_message(f"Opslaan {analysis_type.value.upper()} resultaten in cache...")
-        cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
+        cache_success = cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
+        if not cache_success:
+            # Caching failed - log warning but continue (analysis completed successfully)
+            import logging
+
+            logging.warning(
+                f"Failed to cache {analysis_type.value.upper()} results for entity {entity_id}. Results will need to be recalculated on next request."
+            )
 
     return results

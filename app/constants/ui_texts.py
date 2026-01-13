@@ -163,12 +163,20 @@ Het proces werkt als volgt:
 1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) uitgelezen via integratie strips.
 2. Deze krachten worden automatisch uit de SCIA-resultaten gehaald.
 3. Per zone worden de maximale absolute waarden bepaald (envelope).
-4. De resultaten worden omgezet naar het IDEA-formaat.
+4. De resultaten worden van SCIA omgezet naar het IDEA-formaat:
+   - **X-richting strips (dwars/transversaal):**
+     - N → N (normaalkracht)
+     - V_z → Qz (dwarskracht)
+     - M_x → My (buigend moment)
+   - **Y-richting strips (langs/longitudinaal):**
+     - N → N (normaalkracht)
+     - V_z → Qz (dwarskracht)
+     - M_y → My (buigend moment)
+   - **Gecorrigeerd kolom:** Geeft aan of de waarden gecorrigeerd zijn omdat de integratie strip een breedte < 1 m heeft.
+     De krachten worden automatisch omgerekend naar krachten per meter breedte.
 5. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
     worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
-    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen:
-    - In de **langsdoorsnede** wordt de **dwarswapening** gecontroleerd (Qz = v_y, My = My, N = Ny)
-    - In de **dwarsdoorsnede** wordt de **langswapening** gecontroleerd (Qz = v_x, My = Mx, N = Nx)
+    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen in IDEA.
 
 Voor elke unieke combinatie van plaatdikte en wapening worden alle relevante krachtencombinaties als extremen toegevoegd.
 

@@ -139,9 +139,9 @@ class TestForceMapping:
                 "dx": [0.7, 0.8],
                 "load_case": ["LC3", "LC4"],
                 "N": [120.0, 110.0],
-                "V_y": [25.0, 28.0],  # Should map to Qz
-                "V_z": [12.0, 11.0],  # Should NOT be used for Y-direction
-                "M_x": [35.0, 38.0],  # Should NOT be used for Y-direction
+                "V_y": [25.0, 28.0],  # Not used for Y-direction
+                "V_z": [12.0, 11.0],  # Should map to Qz for Y-direction
+                "M_x": [35.0, 38.0],  # Not used for Y-direction
                 "M_y": [45.0, 48.0],  # Should map to My
                 "M_z": [55.0, 58.0],
             }
@@ -161,16 +161,16 @@ class TestForceMapping:
         assert result.loc[1, "My"] == 22.0
 
     def test_y_direction_force_mapping(self, y_direction_strips: pd.DataFrame) -> None:
-        """Test that Y-direction strips map V_y → Qz and M_y → My."""
+        """Test that Y-direction strips map V_z → Qz and M_y → My."""
         result = _map_strip_forces_to_idea_format(y_direction_strips)
 
         # Check first row
-        assert result.loc[0, "Qz"] == 25.0, "V_y should map to Qz for Y-direction"
+        assert result.loc[0, "Qz"] == 12.0, "V_z should map to Qz for Y-direction"
         assert result.loc[0, "My"] == 45.0, "M_y should map to My for Y-direction"
         assert result.loc[0, "N"] == 120.0, "N should be preserved"
 
         # Check second row
-        assert result.loc[1, "Qz"] == 28.0
+        assert result.loc[1, "Qz"] == 11.0
         assert result.loc[1, "My"] == 48.0
 
     def test_mixed_directions_mapping(self, x_direction_strips: pd.DataFrame, y_direction_strips: pd.DataFrame) -> None:
@@ -186,7 +186,7 @@ class TestForceMapping:
         # Check Y-direction (last two rows)
         y_row_idx = len(x_direction_strips)
         assert result.loc[y_row_idx, "direction"] == "y"
-        assert result.loc[y_row_idx, "Qz"] == 25.0  # From V_y
+        assert result.loc[y_row_idx, "Qz"] == 12.0  # From V_z
         assert result.loc[y_row_idx, "My"] == 45.0  # From M_y
 
 
@@ -381,7 +381,7 @@ class TestErrorHandlingAndEdgeCases:
 
         # Y-direction negative values
         assert result.loc[1, "N"] == -110.0
-        assert result.loc[1, "Qz"] == -25.0  # From V_y
+        assert result.loc[1, "Qz"] == -12.0  # From V_z
         assert result.loc[1, "My"] == -45.0  # From M_y
 
 
