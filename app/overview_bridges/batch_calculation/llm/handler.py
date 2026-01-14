@@ -16,7 +16,7 @@ from .system_prompt import build_system_prompt
 
 
 def _format_newlines_for_viktor(text: str) -> str:
-    """
+    r"""
     Format newlines for proper display in VIKTOR Chat component.
 
     VIKTOR's Chat doesn't render single \\n as line breaks.
@@ -33,8 +33,7 @@ def _format_newlines_for_viktor(text: str) -> str:
     # Then convert single newlines to double
     text = text.replace("\n", "\n\n")
     # Restore paragraphs (which should stay as double newlines)
-    text = text.replace("<<PARAGRAPH>>", "\n\n")
-    return text
+    return text.replace("<<PARAGRAPH>>", "\n\n")
 
 
 def _extract_answer_from_response(response: Any) -> str | None:  # noqa: ANN401, C901, PLR0912
