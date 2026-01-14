@@ -8,6 +8,7 @@ from viktor.parametrization import (
     ChildEntityManager,
     DownloadButton,
     FileField,
+    LineBreak,
     OutputField,
     Page,
     Parametrization,
@@ -22,50 +23,42 @@ except ImportError:  # pragma: no cover
 from app.overview_bridges.batch_calculation.utils import load_storage_status
 
 
-def _get_storage_status_text(params, **kwargs) -> str:  # noqa: ANN001, ARG001
-    """
-    Get formatted storage status text for OutputField.
-
-    Returns technical storage operation status for developers.
-    Shows last storage operation timestamp, success/failure, and details.
-
-    :param params: Parametrization (unused, required by VIKTOR)
-    :type params: Any
-    :param kwargs: Additional keyword arguments
-    :type kwargs: Any
-    :returns: Formatted status text
-    :rtype: str
-    """
+def _get_storage_status(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """Get storage status (success/fail) for OutputField."""
     storage = Storage()
     status = load_storage_status(storage)
-
     if status is None:
-        return "Geen opslag status beschikbaar.\n\nVoer een batch berekening uit om status te zien."
+        return "Geen data"
+    success = status.get("success", False)
+    return "✓ SUCCES" if success else "✗ GEFAALD"
 
-    # Format timestamp
+
+def _get_storage_timestamp(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """Get storage timestamp for OutputField."""
+    storage = Storage()
+    status = load_storage_status(storage)
+    if status is None:
+        return "-"
     timestamp_str = status.get("timestamp", "Onbekend")
     try:
         dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-        timestamp_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
-        pass
+        return timestamp_str
 
-    success = status.get("success", False)
-    message = status.get("message", "Geen bericht")
+
+def _get_storage_details(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """Get storage details summary for OutputField."""
+    storage = Storage()
+    status = load_storage_status(storage)
+    if status is None:
+        return "Voer eerst een batch berekening uit"
     details = status.get("details", {})
-
-    status_icon = "✓" if success else "✗"
-    status_text = "SUCCES" if success else "GEFAALD"
-
-    # Format details
-    detail_lines = []
-    if details:
-        for key, value in details.items():
-            detail_lines.append(f"  • {key}: {value}")
-
-    detail_text = "\n".join(detail_lines) if detail_lines else "  (geen details)"
-
-    return f"Status: {status_icon} {status_text}\nTijdstip: {timestamp_str}\nBericht: {message}\n\nDetails:\n{detail_text}"
+    if not details:
+        return "(geen details)"
+    # Compact format: "calculated: 0, failed: 0, skipped: 1, total: 1"
+    parts = [f"{k.replace('bridges_', '')}: {v}" for k, v in details.items()]
+    return ", ".join(parts)
 
 
 class OverviewBridgesParametrization(Parametrization):
@@ -136,31 +129,24 @@ class OverviewBridgesParametrization(Parametrization):
         "Rechts in de tabel zie je het statusoverzicht met de berekeningsstatus per brug."
     )
 
-    # Chat section for querying batch results
-    batch_calculation.chat_section = Text("### Resultaten Chat")
-    batch_calculation.chat_guidance = Text(
-        "Stel hier gerichte vragen over reeds berekende bruggen. De chat leest alleen bestaande batchresultaten "
-        "en start nooit automatisch een nieuwe berekening."
-    )
     if Chat is not None:
         batch_calculation.batch_results_chat = Chat(
-            "Resultaten chat",
+            "Stel vragen over berekende bruggen. Chat leest alleen bestaande resultaten en start geen nieuwe berekening.",
             method="chat_batch_results",
-            placeholder="Bijv. 'Welke bruggen uit 1950-1980 hebben UC > 1?'",
-            first_message="Vraag bijvoorbeeld: 'Welke bruggen hebben UC boven de 1,2?'",
+            placeholder="Bijv. 'Wat is de relatie tussen het bouwjaar en de UC'",
+            first_message="Vraag bijvoorbeeld: 'Welke bruggen tussen 1950 en 1980 hebben UC boven de 1?'",
             flex=100,
         )
 
     # Information about calculations and buttons
-    batch_calculation.calculation_info = Text("### Over de berekening")
     batch_calculation.calculation_details = Text(
+        "### Over de berekening\n\n"
         "Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld (geel gemarkeerd). "
         "Bruggen die nog informatie missen worden rood gemarkeerd met de ontbrekende velden. "
         "Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.\n\n"
-        "**Let op:** Het kan erg lang duren voordat de berekeningen klaar zijn."
+        "**Let op:** Het kan erg lang duren voordat de berekeningen klaar zijn.\n"
+        "### Acties\n\n"
     )
-    # Action buttons section
-    batch_calculation.action_buttons = Text("### Acties")
 
     batch_calculation.refresh_button = ActionButton(
         "Ververs Statusoverzicht", method="refresh_batch_status", description="Herlaad de status en resultaten zonder opnieuw te berekenen"
@@ -170,14 +156,12 @@ class OverviewBridgesParametrization(Parametrization):
     )
 
     # Technical/developer info section at the bottom
-    batch_calculation.nerd_info_section = Text("### Technische tools en info voor nerds")
-    batch_calculation.cache_section = Text("#### Cache Beheer")
+    batch_calculation.cache_section = Text("#### Cache Beheer & Opslag Status")
     batch_calculation.clear_cache_button = ActionButton(
         "Wis Workspace Cache", method="clear_workspace_storage", description="Verwijder alle gecachte SCIA en IDEA resultaten uit workspace storage"
     )
-    batch_calculation.storage_status_section = Text("#### Opslag Status")
-    batch_calculation.storage_status = OutputField(
-        "Laatste opslag operatie",
-        value=_get_storage_status_text,
-        flex=100,
-    )
+    batch_calculation.lb_storage_status_separator = LineBreak()
+    batch_calculation.storage_status = OutputField("#### Berekening status", value=_get_storage_status, flex=50)
+    batch_calculation.storage_timestamp = OutputField("#### Tijdstip van laatste batch berekening", value=_get_storage_timestamp, flex=50)
+    batch_calculation.lb_storage_details_separator = LineBreak()
+    batch_calculation.storage_details = OutputField("#### Opslag details", value=_get_storage_details, flex=100)
