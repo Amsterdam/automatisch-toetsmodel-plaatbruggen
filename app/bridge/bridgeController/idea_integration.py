@@ -8,7 +8,7 @@ This component provides all IDEA RCS-related functionality including:
 """
 
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from viktor.core import File, progress_message
 from viktor.errors import UserError
@@ -153,7 +153,7 @@ class IdeaIntegration:
             if not xml_content:
                 self._raise_empty_idea_xml_error()  # type: ignore[attr-defined]
 
-            analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            analysis_datetime = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
             return DownloadResult(idea_xml_input_bytes, f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
 
@@ -209,7 +209,7 @@ class IdeaIntegration:
         if not idea_input_xml_content:
             self._raise_empty_idea_xml_error()  # type: ignore[attr-defined]
 
-        analysis_datetime = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        analysis_datetime = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
         zip_file_obj = File()
         with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:

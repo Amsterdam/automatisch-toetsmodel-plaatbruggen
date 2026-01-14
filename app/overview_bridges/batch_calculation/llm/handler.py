@@ -1,6 +1,7 @@
 """LLM handler for batch calculation chat functionality."""
 
 import os
+import re
 from typing import Any
 
 try:
@@ -14,6 +15,27 @@ from .context import build_batch_chat_context, format_chat_dataset_for_prompt
 from .system_prompt import build_system_prompt
 
 
+def _format_newlines_for_viktor(text: str) -> str:
+    r"""
+    Format newlines for proper display in VIKTOR Chat component.
+
+    VIKTOR's Chat doesn't render single \\n as line breaks.
+    This converts single newlines to double newlines for proper paragraph spacing.
+
+    :param text: Raw text from LLM
+    :type text: str
+    :returns: Text with formatted newlines
+    :rtype: str
+    """
+    # Replace single newlines with double newlines (but preserve existing double newlines)
+    # First normalize: replace 2+ newlines with a placeholder
+    text = re.sub(r"\n{2,}", "<<PARAGRAPH>>", text)
+    # Then convert single newlines to double
+    text = text.replace("\n", "\n\n")
+    # Restore paragraphs (which should stay as double newlines)
+    return text.replace("<<PARAGRAPH>>", "\n\n")
+
+
 def _extract_answer_from_response(response: Any) -> str | None:  # noqa: ANN401, C901, PLR0912
     """
     Extract answer text from OpenAI response object.
@@ -25,7 +47,7 @@ def _extract_answer_from_response(response: Any) -> str | None:  # noqa: ANN401,
     """
     answer = getattr(response, "output_text", None)
     if answer:
-        return answer
+        return _format_newlines_for_viktor(answer)
 
     fragments: list[str] = []
     output = getattr(response, "output", None)
@@ -67,7 +89,7 @@ def _extract_answer_from_response(response: Any) -> str | None:  # noqa: ANN401,
             pass
 
     if fragments:
-        return "\n".join(fragments)
+        return _format_newlines_for_viktor("\n".join(fragments))
     return None
 
 

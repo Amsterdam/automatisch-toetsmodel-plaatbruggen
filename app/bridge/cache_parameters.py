@@ -63,6 +63,15 @@ SHARED_PARAMETERS: list[ParameterGroup] = [
         ],
     },
     {
+        "name": "load_case_selection",
+        "paths": [
+            "load_case_selection_table[*].include",
+            "load_case_selection_table[*].load_type",
+            "load_case_selection_table[*].load_case_range",
+            "load_case_selection_table[*].load_case_count",
+        ],
+    },
+    {
         "name": "materials",
         "paths": [
             "concrete_strength_class",

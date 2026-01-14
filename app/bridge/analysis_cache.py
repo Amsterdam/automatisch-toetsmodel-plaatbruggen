@@ -24,9 +24,6 @@ from app.bridge.scia_model_builder import get_scia_analysis_results
 from app.constants import SCIA_TEMPLATE_PATH
 from src.common.constants.technical import AnalysisType
 from src.integrations.idea_integration.idea_interface import create_bridge_idea_model
-from src.integrations.idea_integration.scia_to_idea_functions import (
-    process_scia_cs_results_for_idea,
-)
 
 STORAGE_WARNING_MARKER_KEY = "storage_warning_state"
 
@@ -233,28 +230,19 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
 
-    # Process SCIA results using the dedicated functions
+    # Validate SCIA results
     if results is None:
         raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
 
-    # Get bridge segments for CS results zone mapping
-    bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+    # Check if integration strips are available (mandatory for IDEA)
+    if "integration_strips" not in results:
+        raise UserError(
+            "Geen integratiestroken beschikbaar in SCIA resultaten. IDEA analyse vereist integratiestroken. Voer een nieuwe SCIA berekening uit."
+        )
 
-    # Ensure bridge_segments is a list for type checking
-    if bridge_segments is None:
-        bridge_segments = []
-
-    # Always process through process_scia_cs_results_for_idea to ensure proper column naming
-    # This function is smart - it will use cached df_cs_envelope if available
-    # This returns a single DataFrame with filtered ULS and SLS freq envelope data
-    progress_message(f"{prefix}Verwerken SCIA CS resultaten voor IDEA...", percentage=percentage)
-    cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
-
-    # Return results dictionary with the envelope DataFrame
-    # The results are wrapped to maintain compatibility with existing code
+    # Return results dictionary (integration strips will be processed by IDEA interface)
     return {
         "results": results,
-        "cs_envelope": cs_envelope_df,
     }
 
 
@@ -277,6 +265,7 @@ class AnalysisCache:
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
         self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
+        self._request_cache: dict[str, dict[str, Any]] = {}  # Request-level cache for analysis results
 
     def _write_storage_warning(self, message: str) -> None:
         """Persist a workspace-level warning so the UI can notify the user."""
@@ -370,7 +359,7 @@ class AnalysisCache:
                 self._entity_cache[entity_id] = None
         return self._entity_cache[entity_id]
 
-    def get_cached_analysis(
+    def get_cached_analysis(  # noqa: C901
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,
@@ -383,6 +372,12 @@ class AnalysisCache:
             # Generate hash (with memoization - this should be fast on subsequent calls)
             input_hash = self._generate_input_hash(params, analysis_type, template_path)
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
+
+            # Check request-level cache first (fastest - in-memory)
+            # Note: _request_cache persists across HTTP requests as a global singleton
+            # This is intentional for performance within the same worker process
+            if cache_key in self._request_cache:
+                return self._request_cache[cache_key]
 
             # Get entity object for cross-entity storage access
             entity = self._get_entity(entity_id)
@@ -409,7 +404,20 @@ class AnalysisCache:
 
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
-                return pickle.loads(cached_data)
+                results = pickle.loads(cached_data)
+
+                # Store in request-level cache for subsequent views in same request
+                self._request_cache[cache_key] = results
+
+                # Limit request cache size to prevent memory issues
+                # Keep only the most recent 10 entries per entity
+                if len(self._request_cache) > 10:
+                    # Remove oldest entries (simple FIFO)
+                    keys_to_remove = list(self._request_cache.keys())[:-10]
+                    for key_to_remove in keys_to_remove:
+                        del self._request_cache[key_to_remove]
+
+                return results
         except Exception as e:
             if isinstance(e, InternalError):
                 self._write_storage_warning(f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})")
@@ -501,6 +509,9 @@ class AnalysisCache:
             # Size check: Skip caching if data is too large (> 20 MB)
             max_cache_size_mb = 20
             if size_mb > max_cache_size_mb:
+                # Cache is too large for storage, but store in request-level cache anyway
+                # This helps with multiple views in the same request/session
+                self._request_cache[cache_key] = cacheable_results
                 return False
 
             cached_file = File.from_data(encoded_data)
@@ -546,11 +557,17 @@ class AnalysisCache:
                     self.storage.set(cache_key, data=cached_file, scope="entity")
                 self._clear_storage_warning()
 
+                # Store in request-level cache as well
+                self._request_cache[cache_key] = cacheable_results
+
                 # Notify parent entity of cache status
                 notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
                 return True  # noqa: TRY300
 
             except Exception as storage_error:
+                # Storage write failed - store in request-level cache anyway for this session
+                self._request_cache[cache_key] = cacheable_results
+
                 if isinstance(storage_error, InternalError):
                     self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
 
@@ -564,13 +581,16 @@ class AnalysisCache:
 
                         self._clear_storage_warning()
                         return True
-                    # Cleanup failed - use fail-safe
+                    # Cleanup failed - but request cache is populated, so partial success
                     return False
-                # Not a storage error, just fail gracefully
+                # Not a storage error, just fail gracefully (but request cache is still populated)
                 return False
 
         except Exception:
             # General error during caching setup
+            # Still try to populate request cache if we got this far (cacheable_results should exist)
+            with contextlib.suppress(Exception):
+                self._request_cache[cache_key] = cacheable_results
             return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
@@ -716,6 +736,16 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "df_cs_envelope" in full_results:
         cacheable["df_cs_envelope"] = full_results["df_cs_envelope"]
 
+    # Include CS dataframes if present (needed for CS ULS/SLS freq views)
+    if "df_cs_uls" in full_results:
+        cacheable["df_cs_uls"] = full_results["df_cs_uls"]
+    if "df_cs_sls_freq" in full_results:
+        cacheable["df_cs_sls_freq"] = full_results["df_cs_sls_freq"]
+
+    # Include integration strips if present (needed for integration strip views)
+    if "integration_strips" in full_results:
+        cacheable["integration_strips"] = full_results["integration_strips"]
+
     # Include other DataFrames/parsed results (small)
     for key in ["displacements", "internal_forces", "reactions", "stresses"]:
         if key in full_results:
@@ -731,16 +761,22 @@ def extract_cacheable_idea_results(full_results: dict[str, Any]) -> dict[str, An
     """
     Extract only cacheable data from IDEA results (exclude large binary files).
 
-    Excludes:
-    - idea_xml_input_bytes (can regenerate from model)
-    - output_content (large raw output bytes)
-    - Full model object if it contains large binary data
+    This function stores the complete IDEA results including model and binary files
+    needed for downloads. While these files are large, they are necessary for:
+    - XML download (needs idea_xml_input_bytes)
+    - Results download (needs all files for ZIP creation)
+
+    The alternative would be to regenerate these files on-demand, but that would
+    require running the IDEA analysis again, which is slower than caching.
 
     Includes:
+    - model (IDEA model object, needed for XML generation)
+    - idea_xml_input_bytes (XML input file)
+    - idea_rcs_model (RCS model file)
+    - idea_xml_output_bytes (XML output file)
+    - output_content (raw output for parsing)
     - Parsed section results
     - Analysis status
-    - Capacity ratios, utilization data
-    - Other small processed data
 
     :param full_results: Complete IDEA analysis results
     :type full_results: dict[str, Any]
@@ -759,8 +795,18 @@ def extract_cacheable_idea_results(full_results: dict[str, Any]) -> dict[str, An
     if "error" in full_results:
         cacheable["error"] = full_results["error"]
 
-    # Exclude: idea_xml_input_bytes, output_content, model (too large or regenerable)
-    # Note: XML download will regenerate from params if needed
+    # Include model and binary files for downloads
+    # Note: These are large but necessary for download functionality
+    if "model" in full_results:
+        cacheable["model"] = full_results["model"]
+    if "idea_xml_input_bytes" in full_results:
+        cacheable["idea_xml_input_bytes"] = full_results["idea_xml_input_bytes"]
+    if "idea_rcs_model" in full_results:
+        cacheable["idea_rcs_model"] = full_results["idea_rcs_model"]
+    if "idea_xml_output_bytes" in full_results:
+        cacheable["idea_xml_output_bytes"] = full_results["idea_xml_output_bytes"]
+    if "output_content" in full_results:
+        cacheable["output_content"] = full_results["output_content"]
 
     return cacheable
 
@@ -787,22 +833,21 @@ def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa:
     if scia_results is None:
         return False
 
-    # Validate cache by trying to process it the same way IDEA does
-    # This ensures the cache contains the required CS table data
+    # Validate cache by checking if integration strips are available
+    # Integration strips are mandatory for IDEA analysis
     try:
-        # Get bridge segments from params
-        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
-        if bridge_segments is None or not isinstance(bridge_segments, list) or len(bridge_segments) == 0:
+        # Check if integration strips exist in the results
+        if "integration_strips" not in scia_results:
             return False
 
-        # Try to process the results the same way IDEA does
-        cs_envelope_df = process_scia_cs_results_for_idea(scia_results, bridge_segments)
-
-        # If processing succeeds and returns non-empty DataFrame, cache is valid
-        return cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty
+        # Verify integration strips have data
+        integration_strips = scia_results.get("integration_strips")
     except Exception:
-        # Processing failed - cache is invalid or incomplete
+        # Error accessing results - cache is invalid
         return False
+    else:
+        # Cache is valid if integration strips are present and non-empty
+        return not (integration_strips is None or not integration_strips)
 
 
 def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None = None) -> bool:  # noqa: ANN401
@@ -881,11 +926,15 @@ def get_cached_analysis_results(  # noqa: PLR0913
     progress_message(f"{prefix}Controleren op gecachte resultaten...", percentage=percentage)
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
-        progress_message("Gecachte resultaten gevonden - laden...")
+        progress_message(f"{prefix}✓ Cache gevonden - resultaten worden geladen...")
+        # Store in request-level cache for reuse within this request
+        input_hash = cache._generate_input_hash(params, analysis_type, template_path)  # noqa: SLF001
+        cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
+        cache._request_cache[cache_key] = cached_results  # noqa: SLF001
         return cached_results
 
     # Run analysis if not cached
-    progress_message(f"⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
+    progress_message(f"{prefix}⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
         results = analysis_function(params, template_path, analysis_context)
@@ -895,9 +944,16 @@ def get_cached_analysis_results(  # noqa: PLR0913
         # Fallback: try calling with just params
         raise UserError("Unsupported analysis type for caching.")
 
-    # Cache the results
+    # Cache the results and log if caching fails
     if results is not None:
         progress_message(f"Opslaan {analysis_type.value.upper()} resultaten in cache...")
-        cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
+        cache_success = cache.cache_analysis_results(params, analysis_type, entity_id, results, template_path)
+        if not cache_success:
+            # Caching failed - log warning but continue (analysis completed successfully)
+            import logging
+
+            logging.warning(
+                f"Failed to cache {analysis_type.value.upper()} results for entity {entity_id}. Results will need to be recalculated on next request."
+            )
 
     return results

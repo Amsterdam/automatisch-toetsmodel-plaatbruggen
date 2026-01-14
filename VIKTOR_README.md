@@ -10,11 +10,14 @@ Als u deze documentatie op GitHub bekijkt, kunt u de live productie-applicatie [
 
 ## Gebruik
 
-De applicatie biedt de volgende functionaliteiten:
+### Overzicht Bruggen Entity
 
--   **Overzicht Bruggen Pagina:** Navigeer hierheen voor een overzicht van alle bruggen die beschikbaar zijn om door te rekenen.
--   **Batch Berekening Pagina:** Navigeer naar deze pagina om in één klik alle (geselecteerde) bruggen te berekenen en de status hiervan te volgen.
--   **Resultaten Pagina:** Navigeer naar deze pagina om de eindresultaten van de berekeningen in te zien.
+De **Overzicht Bruggen** entity bevat de volgende pagina's:
+
+-   **Startpagina:** Documentatie en versiegeschiedenis (Readme and Changelog)
+-   **Brug Database Management:** Upload en beheer bruggegevens via CSV/Excel bestanden
+-   **Overzicht Bruggen:** Interactieve kaartweergave van alle beschikbare bruggen en beheer van individuele bruggen
+-   **Statusoverzicht:** Batch berekeningen uitvoeren, status volgen en resultaten bekijken
 
 *Elke pagina bevat meer gedetailleerde informatie en specifieke functionaliteiten.*
 

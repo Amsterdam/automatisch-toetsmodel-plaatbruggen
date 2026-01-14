@@ -116,7 +116,7 @@ class IdeaResultsProcessor:
             result = value.get("Result", "N/A")
             check_value = value.get("CheckValue", "N/A")
             # Format CheckValue if it's a number
-            if isinstance(check_value, (int, float)):
+            if isinstance(check_value, int | float):
                 check_value = f"{check_value:.{CHECK_VALUE_PRECISION_2}f}"
             return (str(result), str(check_value))
         return (str(value), "N/A")
@@ -139,7 +139,7 @@ class IdeaResultsProcessor:
         result = result_dict.get("Result", "N/A")
         check_value = result_dict.get("CheckValue", "N/A")
         # Format CheckValue if it's a number
-        if isinstance(check_value, (int, float)):
+        if isinstance(check_value, int | float):
             check_value = f"{check_value:.{CHECK_VALUE_PRECISION_3}f}"
         return (str(result), str(check_value))
 
