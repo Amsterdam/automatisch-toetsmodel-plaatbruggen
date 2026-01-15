@@ -321,7 +321,7 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     return cases
 
 
-def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, SciaLoadCase]:  # noqa: ANN401
+def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, SciaLoadCase]:  # noqa: ANN401, PLR0912, C901
     """
     Create unintended vehicle load cases with dynamic positioning based on bridge geometry.
     Creates loads for both forward and reverse directions on edges (RS 1 and RS 3).
