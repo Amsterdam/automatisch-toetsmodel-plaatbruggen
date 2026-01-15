@@ -264,7 +264,7 @@ class TestStandardLoadCases:
             first_segment_thickness_2=0.5,
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        
+
         # Mock params with positive y-side selection
         mock_params = Mock()
         mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Positieve y-zijde"
@@ -307,7 +307,7 @@ class TestStandardLoadCases:
             first_segment_thickness_2=0.5,
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
-        
+
         # Mock params with negative y-side selection
         mock_params = Mock()
         mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Negatieve y-zijde"
@@ -354,7 +354,7 @@ class TestStandardLoadCases:
             [5.0, 45.0],  # Amsterdam
             [10.0, 40.0],  # Amsterdam rotated
         ]
-        
+
         # Mock params with positive y-side selection
         mock_params = Mock()
         mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Positieve y-zijde"
@@ -403,7 +403,7 @@ class TestStandardLoadCases:
             [5.0, 45.0],  # Amsterdam
             [10.0, 40.0],  # Amsterdam rotated
         ]
-        
+
         # Mock params with negative y-side selection
         mock_params = Mock()
         mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Negatieve y-zijde"
