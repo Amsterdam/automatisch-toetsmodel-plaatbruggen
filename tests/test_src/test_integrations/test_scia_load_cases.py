@@ -367,7 +367,7 @@ class TestStandardLoadCases:
         assert len(cases) == expected_count
 
         # Verify only y_plus keys exist
-        for key in cases.keys():
+        for key in cases:
             assert "y_plus" in key
             assert "y_minus" not in key
 
@@ -416,7 +416,7 @@ class TestStandardLoadCases:
         assert len(cases) == expected_count
 
         # Verify only y_minus keys exist
-        for key in cases.keys():
+        for key in cases:
             assert "y_minus" in key
             assert "y_plus" not in key
 
