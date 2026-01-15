@@ -247,6 +247,190 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_service_vehicle_load_cases_positive_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+        """Test service vehicle load cases when only positive y-side is selected."""
+        from src.data_models.scia_models import BridgeDimensionsData
+
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.5,
+        )
+        mock_sequencer.return_value = [2.5, 25.0, 47.5]
+        
+        # Mock params with positive y-side selection
+        mock_params = Mock()
+        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Positieve y-zijde"
+
+        cases = create_service_vehicle_load_cases(mock_builder, mock_params)
+
+        # Should create only 3 cases for y_plus
+        assert mock_builder.create_load_case.call_count == 3
+        assert len(cases) == 3
+
+        # Check keys only include y_plus
+        expected_keys = ["y_plus_x2.5", "y_plus_x25.0", "y_plus_x47.5"]
+        assert list(cases.keys()) == expected_keys
+
+        # Verify numbering starts at BG6001 and continues sequentially
+        mock_builder.create_load_case.assert_any_call(
+            name="BG6001",
+            description="Verkeer, dienstvoertuig - y+ - x = 2.5 m",
+            group_name="LG6000 - Dienstvoertuig",
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
+        )
+
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_service_vehicle_load_cases_negative_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+        """Test service vehicle load cases when only negative y-side is selected."""
+        from src.data_models.scia_models import BridgeDimensionsData
+
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.5,
+        )
+        mock_sequencer.return_value = [2.5, 25.0, 47.5]
+        
+        # Mock params with negative y-side selection
+        mock_params = Mock()
+        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Negatieve y-zijde"
+
+        cases = create_service_vehicle_load_cases(mock_builder, mock_params)
+
+        # Should create only 3 cases for y_minus
+        assert mock_builder.create_load_case.call_count == 3
+        assert len(cases) == 3
+
+        # Check keys only include y_minus
+        expected_keys = ["y_minus_x2.5", "y_minus_x25.0", "y_minus_x47.5"]
+        assert list(cases.keys()) == expected_keys
+
+        # Verify numbering starts at BG6001 (not BG6004)
+        mock_builder.create_load_case.assert_any_call(
+            name="BG6001",
+            description="Verkeer, dienstvoertuig - y- - x = 2.5 m",
+            group_name="LG6000 - Dienstvoertuig",
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
+        )
+
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_unintended_vehicle_load_cases_positive_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+        """Test unintended vehicle load cases when only positive y-side is selected."""
+        from src.data_models.scia_models import BridgeDimensionsData
+
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.5,
+        )
+        mock_sequencer.side_effect = [
+            [2.5, 25.0, 47.5],  # Standard vehicle
+            [5.0, 45.0],  # Amsterdam
+            [10.0, 40.0],  # Amsterdam rotated
+        ]
+        
+        # Mock params with positive y-side selection
+        mock_params = Mock()
+        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Positieve y-zijde"
+
+        cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
+
+        # Expected: 3 positions × 2 directions (forward/reverse) + 2 Amsterdam + 2 Amsterdam rotated = 10 cases
+        expected_count = 3 * 2 + 2 + 2
+        assert mock_builder.create_load_case.call_count == expected_count
+        assert len(cases) == expected_count
+
+        # Verify only y_plus keys exist
+        for key in cases.keys():
+            assert "y_plus" in key
+            assert "y_minus" not in key
+
+        # Check first case numbering starts at BG7001
+        mock_builder.create_load_case.assert_any_call(
+            name="BG7001",
+            description="Verkeer, onbedoeld voertuig - y+ forward - x = 2.5 m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
+        )
+
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
+    def test_create_unintended_vehicle_load_cases_negative_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+        """Test unintended vehicle load cases when only negative y-side is selected."""
+        from src.data_models.scia_models import BridgeDimensionsData
+
+        mock_extract.return_value = BridgeDimensionsData(
+            total_length=50.0,
+            total_width=20.0,
+            thickness=0.5,
+            zone1_width=7.0,
+            zone2_width=6.0,
+            zone3_width=7.0,
+            first_segment_thickness=0.5,
+            first_segment_thickness_2=0.5,
+        )
+        mock_sequencer.side_effect = [
+            [2.5, 25.0, 47.5],  # Standard vehicle
+            [5.0, 45.0],  # Amsterdam
+            [10.0, 40.0],  # Amsterdam rotated
+        ]
+        
+        # Mock params with negative y-side selection
+        mock_params = Mock()
+        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Negatieve y-zijde"
+
+        cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
+
+        # Expected: 3 positions × 2 directions (forward/reverse) + 2 Amsterdam + 2 Amsterdam rotated = 10 cases
+        expected_count = 3 * 2 + 2 + 2
+        assert mock_builder.create_load_case.call_count == expected_count
+        assert len(cases) == expected_count
+
+        # Verify only y_minus keys exist
+        for key in cases.keys():
+            assert "y_minus" in key
+            assert "y_plus" not in key
+
+        # Check first case numbering starts at BG7001 (not BG7011)
+        mock_builder.create_load_case.assert_any_call(
+            name="BG7001",
+            description="Verkeer, onbedoeld voertuig - y- forward - x = 2.5 m",
+            group_name="LG7000 - Onbedoeld voertuig",
+            case_type=LoadCaseActionType.VARIABLE,
+            variable_type=VariableLoadType.STATIC,
+            specification=LoadCaseSpecification.STANDARD,
+            duration=LoadCaseDuration.SHORT,
+        )
+
 
 class TestTandemLoadCases:
     """Tests for creating tandem load case definitions with dynamic X positions."""
