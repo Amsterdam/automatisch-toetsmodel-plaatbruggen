@@ -1321,6 +1321,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         default="Beide kanten van het brugdek",
         description="Locatie van de belastingen voor dienstvoertuig en onbedoeld voertuig, op het brugdek.",
         variant="radio",
+        name="service_unintended_vehicle_selection",
         flex=80,
     )
 

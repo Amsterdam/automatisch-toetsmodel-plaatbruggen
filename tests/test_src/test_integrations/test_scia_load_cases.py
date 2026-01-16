@@ -170,6 +170,7 @@ class TestStandardLoadCases:
         )
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
+        mock_params.service_unintended_vehicle_selection = "Beide kanten van het brugdek"
 
         cases = create_service_vehicle_load_cases(mock_builder, mock_params)
 
@@ -227,6 +228,7 @@ class TestStandardLoadCases:
             [10.0, 40.0],  # Third call: length_vehicle=2.0 (Amsterdam rotated)
         ]
         mock_params = Mock()
+        mock_params.service_unintended_vehicle_selection = "Beide kanten van het brugdek"
 
         cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
 
@@ -267,7 +269,7 @@ class TestStandardLoadCases:
 
         # Mock params with positive y-side selection
         mock_params = Mock()
-        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Positieve y-zijde"
+        mock_params.service_unintended_vehicle_selection = "Positieve y-zijde"
 
         cases = create_service_vehicle_load_cases(mock_builder, mock_params)
 
@@ -310,7 +312,7 @@ class TestStandardLoadCases:
 
         # Mock params with negative y-side selection
         mock_params = Mock()
-        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Negatieve y-zijde"
+        mock_params.service_unintended_vehicle_selection = "Negatieve y-zijde"
 
         cases = create_service_vehicle_load_cases(mock_builder, mock_params)
 
@@ -357,7 +359,7 @@ class TestStandardLoadCases:
 
         # Mock params with positive y-side selection
         mock_params = Mock()
-        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Positieve y-zijde"
+        mock_params.service_unintended_vehicle_selection = "Positieve y-zijde"
 
         cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
 
@@ -406,7 +408,7 @@ class TestStandardLoadCases:
 
         # Mock params with negative y-side selection
         mock_params = Mock()
-        mock_params.calc_page.calc_selection.service_unintended_vehicle_selection = "Negatieve y-zijde"
+        mock_params.service_unintended_vehicle_selection = "Negatieve y-zijde"
 
         cases = create_unintended_vehicle_load_cases(mock_builder, mock_params)
 

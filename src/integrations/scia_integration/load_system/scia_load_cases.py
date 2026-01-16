@@ -276,11 +276,9 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     service_vehicle_total_length = SERVICE_VEHICLE_AXLE_SPACING + SERVICE_VEHICLE_WHEEL_DIMENSION
     positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length)
 
-    # Get side selection from parameters (with safe nested attribute access)
-    try:
-        side_selection = params.calc_page.calc_selection.service_unintended_vehicle_selection
-    except (AttributeError, TypeError):
-        side_selection = "Beide kanten van het brugdek"
+    # Get side selection from parameters
+    # Access directly by name (defined in parametrization with name="service_unintended_vehicle_selection")
+    side_selection = getattr(params, "service_unintended_vehicle_selection", "Beide kanten van het brugdek")
 
     cases = {}
     case_counter = 1
@@ -351,11 +349,9 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     positions_amsterdam = tandem_system_sequencer(length, thickness)
     positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam)
 
-    # Get side selection from parameters (with safe nested attribute access)
-    try:
-        side_selection = params.calc_page.calc_selection.service_unintended_vehicle_selection
-    except (AttributeError, TypeError):
-        side_selection = "Beide kanten van het brugdek"
+    # Get side selection from parameters
+    # Access directly by name (defined in parametrization with name="service_unintended_vehicle_selection")
+    side_selection = getattr(params, "service_unintended_vehicle_selection", "Beide kanten van het brugdek")
 
     cases = {}
     case_counter = 1
