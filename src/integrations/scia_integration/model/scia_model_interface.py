@@ -239,24 +239,29 @@ class SciaModelBuilder(Protocol):
         """
         ...
 
-    def create_section_on_plane(
+    def create_integration_strip(
         self,
+        plane: str,
         point_1: tuple[float, float, float],
         point_2: tuple[float, float, float],
-        *,
-        name: str,
-        draw: Any | None = None,  # noqa: ANN401
-        direction_of_cut: tuple[float, float, float] | None = None,
-    ) -> SciaSectionOnPlane:
+        width: float,
+        custom_name: str,
+    ) -> SciaIntegrationStrip:
         """
-        Creates a section on a plane in the SCIA model.
+        Creates an integration strip on a plane in the SCIA model.
 
-        :param point_1: Start coordinates (x, y, z) in [m]
-        :param point_2: End coordinates (x, y, z) in [m]
-        :param name: Name which will be shown in SCIA
-        :param draw: Defines the plane in which the section is drawn (default: Z_DIRECTION)
-        :param direction_of_cut: In-plane vector (x, y, z) defining the direction of cut in [m]
-        :return: The created SectionOnPlane object
+        Integration strips are used to extract integrated forces and stresses
+        across a defined strip width on a plane element.
+
+        The SDK auto-generates names, but we override them using the _name attribute
+        workaround to set meaningful custom names.
+
+        :param plane: Name of the plane to create the strip on
+        :param point_1: Start point (x, y, z) coordinates in [m]
+        :param point_2: End point (x, y, z) coordinates in [m]
+        :param width: Width of the integration strip in [m]
+        :param custom_name: Custom name for the strip (e.g., 'strip_Z1_1_X_1')
+        :return: The created IntegrationStrip object with custom name set
         """
         ...
 

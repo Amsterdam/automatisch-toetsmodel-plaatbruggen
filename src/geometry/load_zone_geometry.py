@@ -386,7 +386,7 @@ def get_load_zones_data_from_params(params: Any) -> list[LoadZoneData]:  # noqa:
                 field_name = f"d{i}_width"
                 value = getattr(row_param, field_name, None)
                 # Ensure width is float or None
-                temp_row_data[field_name] = float(value) if isinstance(value, (int, float)) else None
+                temp_row_data[field_name] = float(value) if isinstance(value, int | float) else None
 
             # Create LoadZoneData object with validation
             try:

@@ -18,8 +18,8 @@ from src.integrations.scia_integration.load_system.scia_load_group import create
 from src.integrations.scia_integration.results.scia_result_classes import create_all_result_classes
 from src.integrations.scia_integration.scia_loads import create_all_loads
 
+from .scia_integration_strips import create_all_integration_strips
 from .scia_model_interface import SciaModelBuilder
-from .scia_section_on_plane import create_all_sections_on_plane, create_section_definitions
 from .scia_supports import create_all_supports
 
 
@@ -129,7 +129,6 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
 
     # 1. Build Geometry and get back the ordered list of plate names
     plate_names = create_bridge_geometry(builder, params)
-    section_definitions = create_section_definitions(params)
 
     # 2. Extract support types from parameters
     support_types = None
@@ -143,8 +142,8 @@ def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None
     # 3. Build Line Supports with user-specified support types
     create_all_supports(builder, plate_names, support_types)
 
-    # 4. Build Sections on Plane
-    create_all_sections_on_plane(builder, section_definitions)
+    # 4. Build Integration Strips
+    create_all_integration_strips(builder, params)
 
     # 5. Build Load Groups
     create_all_load_groups(builder)

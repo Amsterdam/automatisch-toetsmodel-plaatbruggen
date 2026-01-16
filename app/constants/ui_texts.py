@@ -103,8 +103,6 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 ### Tabbladen
 
 - **3D Model**: Interactieve 3D-weergave van het brugmodel.
-- **SCIA CS ULS**: Maximale snedekrachten per doorsnede (Ultimate Limit State).
-- **SCIA CS SLS Freq**: Maximale snedekrachten per doorsnede (Serviceability Limit State frequent).
 - **SCIA Analyse Resultaten**: Maximale snedekrachten per zone voor IDEA toetsingen.
 
 ### Download Opties
@@ -160,18 +158,25 @@ IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
 Deze pagina toont de IDEA RCS snedetoetsingen en IDEA download opties.
 
-### Modelopbouw in 6 stappen
+### Modelopbouw in 5 stappen
 Het proces werkt als volgt:
-1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) per doorsnede bepaald.
+1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) uitgelezen via integratie strips.
 2. Deze krachten worden automatisch uit de SCIA-resultaten gehaald.
 3. Per zone worden de maximale absolute waarden bepaald (envelope).
-4. De resultaten worden omgezet naar het IDEA-formaat.
-5. Momenten (Mx, My), normaalkrachten (Nx, Ny) én dwarskrachten (Qz) worden gecombineerd en uitgelezen.
-6. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
+4. De resultaten worden van SCIA omgezet naar het IDEA-formaat:
+   - **X-richting strips (dwars/transversaal):**
+     - N → N (normaalkracht)
+     - V_z → Qz (dwarskracht)
+     - M_x → My (buigend moment)
+   - **Y-richting strips (langs/longitudinaal):**
+     - N → N (normaalkracht)
+     - V_z → Qz (dwarskracht)
+     - M_y → My (buigend moment)
+   - **Gecorrigeerd kolom:** Geeft aan of de waarden gecorrigeerd zijn omdat de integratie strip een breedte < 1 m heeft.
+     De krachten worden automatisch omgerekend naar krachten per meter breedte.
+5. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
     worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
-    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen:
-    - In de **langsdoorsnede** wordt de **dwarswapening** gecontroleerd (Qz = v_y, My = My, N = Ny)
-    - In de **dwarsdoorsnede** wordt de **langswapening** gecontroleerd (Qz = v_x, My = Mx, N = Nx)
+    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen in IDEA.
 
 Voor elke unieke combinatie van plaatdikte en wapening worden alle relevante krachtencombinaties als extremen toegevoegd.
 
@@ -231,4 +236,14 @@ Het is mogelijk in de resultaten lijst te klikken op een specifieke rij om alle 
 Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
 
 **Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
+"""
+BATCH_CALCULATION_INTRO_TEXT = """Dit is de berekeningspagina voor de batch berekeningen.
+Hier kan je de berekeningen voor alle bruggen tegelijk uitvoeren. Rechts in de tabel is het statusoverzicht te zien.
+De geschatte tijd geeft een indicatie van de tijd die nodig is om alle bruggen te berekenen, die klaar staan.
+Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld. Deze brug wordt dan geel gekleurd.
+Bruggen die nog informatie missen, worden rood gemarkeerd. In de tweede kolom staan de ontbrekende velden aangegeven, die nog ingevuld moeten worden.
+Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.
+Je kunt vervolgens per brug de resultaten bekijken in de entiteit van de brug zelf.
+
+Let op: Het kan erg lang duren voordat de berekeningen klaar zijn.
 """

@@ -109,7 +109,7 @@ def _calculate_zone_width(  # noqa: PLR0913
         for i in range(zone_index):
             prev_zone = load_zones_data[i]
             width_value = getattr(prev_zone, "d1_width", None)
-            prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+            prev_width = float(width_value) if isinstance(width_value, int | float) else 0.0
             cumulative_width += prev_width
     else:
         # Second auto zone: accumulate all zones between first and second auto zone
@@ -118,12 +118,12 @@ def _calculate_zone_width(  # noqa: PLR0913
         for i in range(prev_auto_index, zone_index):
             prev_zone = load_zones_data[i]
             width_value = getattr(prev_zone, "d1_width", None)
-            prev_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+            prev_width = float(width_value) if isinstance(width_value, int | float) else 0.0
             cumulative_width += prev_width
 
     # Get the width of this auto zone
     width_value = getattr(zone, "d1_width", None)
-    zone_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+    zone_width = float(width_value) if isinstance(width_value, int | float) else 0.0
 
     # If this auto zone is the last zone in the array, calculate remaining width
     if zone_index == len(load_zones_data) - 1:
@@ -221,7 +221,7 @@ def obtain_y_coordinates_road(
     for zone in load_zones_data_params:
         # Get d1_width, ensure it's a valid number
         width_value = getattr(zone, "d1_width", None)
-        d1_width = float(width_value) if isinstance(width_value, (int, float)) else 0.0
+        d1_width = float(width_value) if isinstance(width_value, int | float) else 0.0
 
         # if zone is not last zone in load_zones_data_params, accumulate widths
         if zone != load_zones_data_params[-1]:

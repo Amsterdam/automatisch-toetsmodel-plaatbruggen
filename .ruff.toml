@@ -110,5 +110,10 @@ max-statements = 75
 "scripts/run_enhanced_tests.py" = ["T201", "C901", "PLR0912"]
 "ruft.py" = ["T201"]
 "setup_dev.py" = ["T201", "TRY300"]
+# Production code files that use print for Error/Warning messages only
+"app/bridge/scia_model_builder.py" = ["T201"]
+"app/overview_bridges/batch_calculation/component.py" = ["T201"]
+"app/overview_bridges/batch_calculation/utils.py" = ["T201"]
+"src/integrations/scia_integration/results/scia_results_processor.py" = ["T201"]
 # Temperature load calculations use uppercase variables (T_0, T_min, etc.) for readability and alignment with engineering notation
 "src/temperature/temperature_load.py" = ["N803", "N806", "PLR0913"]

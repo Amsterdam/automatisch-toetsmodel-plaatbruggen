@@ -9,7 +9,6 @@ All functions are independent of the VIKTOR SDK and suitable for use in the core
 
 from typing import TYPE_CHECKING, Any
 
-from src.combinations.load_factors import get_alpha_q_nen_en_1991_2, get_alpha_trend_nen_8701, get_psi_nen_8701
 from src.integrations.scia_integration.constants.geometry import (
     DEFAULT_LANE_WIDTH,
     LANE_CENTER_OFFSET_FACTOR,
@@ -22,32 +21,27 @@ from src.integrations.scia_integration.constants.load_cases import (
     REST_AREA_TITLE_PREFIX,
 )
 from src.integrations.scia_integration.constants.loads import (
-    DEFAULT_UDL_VALUE,
-    NOBS_DEFAULT,
-    UDL_OTHER_LANE_VALUE,
-    UDL_REST_AREA_VALUE,
+    UDL_BASE_VALUE,
 )
 from src.integrations.scia_integration.load_system.lane_calculations import (
     amount_of_notional_lanes,
     amount_of_notional_lanes_from_center,
-    get_reference_period,
 )
-from src.integrations.scia_integration.load_system.load_value_calculators import (
-    calculate_real_udl_values,
-)
+
+# UDL values are now handled directly with UDL_BASE_VALUE constant
 from src.integrations.scia_integration.load_system.road_zone_utils import (
     get_number_of_road_zones,
     get_widths_of_two_road_zones,
     obtain_y_coordinates_road,
     obtain_y_coordinates_two_road_zones,
 )
+from src.integrations.scia_integration.load_system.span_utils import (
+    Span,
+    _identify_spans,
+)
 from src.integrations.scia_integration.load_system.theoretical_tandem_generators import (
     generate_theoretical_lane_positions_bg8000,
     generate_theoretical_lane_positions_bg9000,
-)
-from src.integrations.scia_integration.model.scia_section_on_plane import (
-    Span,
-    _identify_spans,
 )
 
 if TYPE_CHECKING:
@@ -281,13 +275,13 @@ def _generate_lane_load_cases(  # noqa: PLR0913
 # ========================================================================
 
 
-def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
+def create_theoretical_udl_traffic_loads(  # noqa: C901, PLR0913
     params: "BridgeParametrization",
     length_bridgedeck: float,
     width_bridgedeck: float,
     width_firstsegment_zone3: float,
     width_firstsegment_zone2: float,
-    udl_value: float = DEFAULT_UDL_VALUE,
+    udl_value: float = UDL_BASE_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create UDLs for all notional lanes and remaining areas.
@@ -302,7 +296,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
     :param width_bridgedeck: Bridge width in meters
     :param width_firstsegment_zone3: Zone 3 width (for lane offset)
     :param width_firstsegment_zone2: Zone 2 width (for lane offset)
-    :param udl_value: UDL value for main lane in N/m² (default DEFAULT_UDL_VALUE)
+    :param udl_value: UDL value for main lane in N/m² (default :data:`UDL_BASE_VALUE`)
     :returns: Dict with keys BG4001, BG4002, etc., each containing a single polygon with load and title
     """
     # Create an empty results dictionary
@@ -328,14 +322,11 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
             )
         ]
 
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-    # Obtain load values
-    main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-    rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
+    # Use the provided UDL value for all lane types - dynamic factors are applied in load combinations
+    main_value = udl_value
+    other_value = udl_value
+    rest_value = udl_value
+
     # Calculate amount of notional lanes and lane width when starting on one side of the bridge deck
     max_lanes, lane_width = amount_of_notional_lanes(width_bridgedeck)  # Maximum number of lanes to consider and lane width
 
@@ -460,7 +451,7 @@ def create_theoretical_udl_traffic_loads(  # noqa: PLR0913, C901
 def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     params: "BridgeParametrization",
     length_bridgedeck: float,
-    udl_value: float = DEFAULT_UDL_VALUE,
+    udl_value: float = UDL_BASE_VALUE,
 ) -> dict[str, dict[str, Any]]:
     """
     Create real uniform distributed load (UDL) traffic loads for the bridge.
@@ -475,7 +466,7 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
     :type params: BridgeParametrization
     :param length_bridgedeck: Length of the bridge deck
     :type length_bridgedeck: float
-    :param udl_value: Uniform distributed load value (default: DEFAULT_UDL_VALUE)
+    :param udl_value: Uniform distributed load value (default: :data:`UDL_BASE_VALUE`)
     :type udl_value: float
     :returns: Dict with keys BG4001, BG4002, etc., each containing a single polygon with load and title
     :rtype: dict[str, dict[str, Any]]
@@ -505,11 +496,10 @@ def create_real_udl_traffic_loads(  # noqa: PLR0912, C901, PLR0915
             )
         ]
 
-    # Obtain required factors for vertical traffic loading (LM1 and LM2)
-    psi_nen_8701_factor = get_psi_nen_8701(length_bridgedeck, get_reference_period(params))
-    alpha_trend_factor = get_alpha_trend_nen_8701(length_bridgedeck, (get_reference_period(params) + 2010))
-    # Calculate UDL values based on berekeningsniveau
-    main_value, other_value, rest_value = calculate_real_udl_values(params, length_bridgedeck, udl_value, psi_nen_8701_factor, alpha_trend_factor)
+    # Use the provided UDL value for all lane types - dynamic factors are applied in load combinations
+    main_value = udl_value
+    other_value = udl_value
+    rest_value = udl_value
 
     # Check if we have two road zones
     num_road_zones = get_number_of_road_zones(params)

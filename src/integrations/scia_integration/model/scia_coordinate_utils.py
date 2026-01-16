@@ -369,7 +369,7 @@ def get_bridge_load_zone_coordinates(params: object) -> dict[str, list[list[floa
             def _get_width_for_d(load_zone_obj: object, d_point: int, *, use_next_if_penultimate: bool = False) -> float:
                 try:
                     wad = getattr(load_zone_obj, "width_at_d")
-                    if isinstance(wad, (list, tuple)) and 1 <= d_point <= len(wad):
+                    if isinstance(wad, list | tuple) and 1 <= d_point <= len(wad):
                         index = d_point - 1
                         if use_next_if_penultimate and index == len(wad) - 2:
                             index = min(index + 1, len(wad) - 1)
@@ -513,7 +513,7 @@ def get_deck_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     bridge_segments = getattr(params, "bridge_segments_array", None)
     if not bridge_segments:
         raise IndexError("No bridge segments provided")
-    if not (isinstance(coord, (tuple, list)) and len(coord) == 3):
+    if not (isinstance(coord, tuple | list) and len(coord) == 3):
         raise ValueError("Coordinate must be a tuple or list of 3 values (x, y, z)")
 
     x, y, _ = coord
@@ -554,7 +554,7 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     load_zones = getattr(params, "load_zones_data_array", None)
     if not load_zones:
         raise IndexError("No bridge load zones provided")
-    if not (isinstance(coord, (tuple, list)) and len(coord) == 3):
+    if not (isinstance(coord, tuple | list) and len(coord) == 3):
         raise ValueError("Coordinate must be a tuple or list of 3 values (x, y, z)")
 
     x, y, _ = coord
@@ -571,15 +571,15 @@ def get_load_mat_and_thick_at_coord(params: object, coord: tuple[float, float, f
     return (None, None)
 
 
-def clip_polygon_to_bridge_boundaries(
+def move_polygon_to_bridge_boundaries(
     corner_points: list[tuple[float, float, float]], bridge_geom_data: BridgeGeometryData
 ) -> list[tuple[float, float, float]]:
     """
-    Clip a polygon to stay within bridge boundaries.
+    Align a polygon with bridge deck boundaries without shrinking its surface.
 
     :param corner_points: List of 3D corner points [(x, y, z), ...]
     :param bridge_geom_data: Bridge geometry data containing boundary information
-    :returns: Clipped corner points within bridge boundaries
+    :returns: Corner points translated (only in Y) so patches touch deck edges without clipping
     """
     if not corner_points:
         return corner_points
@@ -592,13 +592,40 @@ def clip_polygon_to_bridge_boundaries(
     y_min = bridge_geom_data.y_bridge_bottom_at_d_points[0]
     y_max = bridge_geom_data.y_top_structural_edge_at_d_points[0]
 
-    clipped_points = []
-    for x, y, z in corner_points:
-        # Clip Y coordinates only (X coordinates pass through unchanged)
-        clipped_y = max(y_min, min(y_max, y))
-        clipped_points.append((x, clipped_y, z))
+    y_values = [point[1] for point in corner_points]
+    current_min = min(y_values)
+    current_max = max(y_values)
 
-    return clipped_points
+    def _calculate_y_shift() -> float:
+        """
+        Determine how far the polygon must be translated in Y so it borders the deck edge
+        without altering its size. Positive shift moves the polygon upwards (towards +Y).
+        """
+        if current_min >= y_min and current_max <= y_max:
+            return 0.0
+        if current_min < y_min and current_max <= y_max:
+            return y_min - current_min
+        if current_max > y_max and current_min >= y_min:
+            return y_max - current_max
+
+        # Polygon exceeds both edges; align centers to minimize truncation.
+        polygon_mid = (current_min + current_max) / 2.0
+        deck_mid = (y_min + y_max) / 2.0
+        return deck_mid - polygon_mid
+
+    y_shift = _calculate_y_shift()
+
+    adjusted_points: list[tuple[float, float, float]] = []
+    for x_coord, y_coord, z_coord in corner_points:
+        new_y = y_coord + y_shift
+        # Safety clamp to prevent floating point drift outside deck boundaries.
+        if new_y < y_min:
+            new_y = y_min
+        elif new_y > y_max:
+            new_y = y_max
+        adjusted_points.append((x_coord, new_y, z_coord))
+
+    return adjusted_points
 
 
 def _get_material_dispersion_angle(material: str) -> int | None:
@@ -763,7 +790,7 @@ def get_dispersion_at_coord(
     :returns: Dictionary with keys 'deck_zone' and 'load_zone', values are lists of horizontal dispersion distances
     :rtype: dict[str, list[float]]
     """
-    if isinstance(coord, (list, tuple)) and len(coord) == 3:
+    if isinstance(coord, list | tuple) and len(coord) == 3:
         coord_f: tuple[float, float, float] = (float(coord[0]), float(coord[1]), float(coord[2]))
     else:
         coord_f = (0.0, 0.0, 0.0)

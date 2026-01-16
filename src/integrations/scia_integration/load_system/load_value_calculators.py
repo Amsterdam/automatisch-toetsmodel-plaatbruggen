@@ -7,112 +7,58 @@ UDL values, and pavement loads based on design codes and material properties.
 
 from typing import TYPE_CHECKING, Any
 
-from src.combinations.load_factors import get_alpha_q_nen_en_1991_2
-from src.common.constants import SIGNAGE_LOAD_FACTORS
 from src.common.materials import get_material_densities
 from src.integrations.scia_integration.constants.loads import (
-    ALPHA_Q_MAIN_LANE_ONDERLIGGEND,
-    ALPHA_Q_ONDERLIGGEND,
-    ALPHA_Q_OTHER_LANE_ONDERLIGGEND,
-    NOBS_DEFAULT,
-    SIGNAGE_WEIGHT_OPTIONS,
     TANDEM_CONTACT_AREA_SIDE,
-    TANDEM_LOAD_BASE_MAIN,
-    TANDEM_LOAD_BASE_SECOND,
-    TANDEM_LOAD_BASE_THIRD,
-    UDL_OTHER_LANE_VALUE,
-    UDL_REST_AREA_VALUE,
+    TANDEM_LOAD_BASE_VALUE,
 )
 
 if TYPE_CHECKING:
     from app.bridge.parametrization import BridgeParametrization
 
 
+def calculate_theoretical_tandem_values(
+    params: "BridgeParametrization",  # noqa: ARG001
+    length_bridgedeck: float,  # noqa: ARG001
+) -> float:
+    """
+    Calculate theoretical tandem base load (per unit area).
+
+    In the new system, all tandem loads use the same base value (100 kN = 625000 N/m²).
+    Lane-specific factors and dynamic factors (psi, alpha_trend, alpha_q) are applied
+    at the load combination stage, not here.
+
+    :param params: Bridge parameters (unused, kept for API compatibility)
+    :type params: BridgeParametrization
+    :param length_bridgedeck: Length of the bridge deck (unused, kept for API compatibility)
+    :type length_bridgedeck: float
+    :returns: Base load value in N/m² (same for all tandem lanes)
+    :rtype: float
+    """
+    # Convert base load (N) to load per unit area (N/m²)
+    return TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
+
+
 def calculate_real_tandem_values(
-    params: "BridgeParametrization",
-    length_bridgedeck: float,
-    psi_nen_8701_factor: float,
-    alpha_trend_factor: float,
-) -> tuple[float, float, float]:
+    params: "BridgeParametrization",  # noqa: ARG001
+    length_bridgedeck: float,  # noqa: ARG001
+) -> float:
     """
-    Calculate tandem values based on berekeningsniveau and other factors.
+    Calculate real tandem base load (per unit area).
 
-    :param params: Bridge parameters containing berekeningsniveau and signage settings
-    :param length_bridgedeck: Length of the bridge deck
-    :param psi_nen_8701_factor: NEN 8701 factor
-    :param alpha_trend_factor: Alpha trend factor from NEN 8701
-    :returns: Tuple of (load_main, load_second, load_third)
+    In the new system, all tandem loads use the same base value (100 kN = 625000 N/m²).
+    Lane-specific factors and dynamic factors (psi, alpha_trend, alpha_q) are applied
+    at the load combination stage, not here.
+
+    :param params: Bridge parameters (unused, kept for API compatibility)
+    :type params: BridgeParametrization
+    :param length_bridgedeck: Length of the bridge deck (unused, kept for API compatibility)
+    :type length_bridgedeck: float
+    :returns: Base load value in N/m² (same for all tandem lanes)
+    :rtype: float
     """
-    contact_area = TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE
-    base_main = TANDEM_LOAD_BASE_MAIN / contact_area
-    base_second = TANDEM_LOAD_BASE_SECOND / contact_area
-    base_third = TANDEM_LOAD_BASE_THIRD / contact_area
-
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factor = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)[0]
-        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factor = ALPHA_Q_ONDERLIGGEND
-        load_main = base_main * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_second = base_second * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-        load_third = base_third * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factor
-    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
-        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
-        load_main = base_main * load_factor
-        load_second = base_second * load_factor
-        load_third = base_third * load_factor
-    else:  # Fallback for safety
-        load_main = base_main
-        load_second = base_second
-        load_third = base_third
-
-    return load_main, load_second, load_third
-
-
-def calculate_real_udl_values(
-    params: "BridgeParametrization",
-    length_bridgedeck: float,
-    udl_value: float,
-    psi_nen_8701_factor: float,
-    alpha_trend_factor: float,
-) -> tuple[float, float, float]:
-    """
-    Calculate UDL values based on berekeningsniveau and other factors.
-
-    :param params: Bridge parameters containing berekeningsniveau and signage settings
-    :param length_bridgedeck: Length of the bridge deck
-    :param udl_value: Base UDL value
-    :param psi_nen_8701_factor: NEN 8701 factor
-    :param alpha_trend_factor: Alpha trend factor from NEN 8701
-    :returns: Tuple of (main_value, other_value, rest_value)
-    """
-    if params.berekeningsniveau == "Werkelijke wegindeling":
-        alpha_q_factors = get_alpha_q_nen_en_1991_2(length_bridgedeck, nobs=NOBS_DEFAULT)
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling onderliggend wegennet":
-        alpha_q_factors = [ALPHA_Q_MAIN_LANE_ONDERLIGGEND, ALPHA_Q_OTHER_LANE_ONDERLIGGEND]
-        main_value = udl_value * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[0]
-        other_value = UDL_OTHER_LANE_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-        rest_value = UDL_REST_AREA_VALUE * psi_nen_8701_factor * alpha_trend_factor * alpha_q_factors[1]
-    elif params.berekeningsniveau == "Werkelijke wegindeling met bebording":
-        # Get the selected signage option and map to load factor
-        signage_index = SIGNAGE_WEIGHT_OPTIONS.index(params.signage)
-        load_factor = SIGNAGE_LOAD_FACTORS[signage_index]
-        # Apply the load factor to all values
-        main_value = udl_value * load_factor
-        other_value = UDL_OTHER_LANE_VALUE
-        rest_value = UDL_REST_AREA_VALUE
-    else:  # Fallback for safety
-        main_value = udl_value
-        other_value = UDL_OTHER_LANE_VALUE
-        rest_value = UDL_REST_AREA_VALUE
-
-    return main_value, other_value, rest_value
+    # Convert base load (N) to load per unit area (N/m²)
+    return TANDEM_LOAD_BASE_VALUE / (TANDEM_CONTACT_AREA_SIDE * TANDEM_CONTACT_AREA_SIDE)
 
 
 def calculate_pavement_load_from_dynamic_array(

@@ -3,6 +3,7 @@ numpy
 scipy
 pandas
 markdown
+openai>=1.43.0
 geopandas
 plotly
 shapely
