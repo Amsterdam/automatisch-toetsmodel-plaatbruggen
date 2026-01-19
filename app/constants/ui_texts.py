@@ -108,6 +108,8 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 ### Download Opties
 - **Download input files** → XML + DEF + ESA template in ZIP voor handmatige import in SCIA.
 - **Download ESA Model** → ESA inclusief berekeningsresultaten (doorgerekend).
+  - Kleine modellen (< 250 MB): Direct uit cache (instant download bij tweede keer).
+  - Grote modellen (≥ 250 MB): Wordt elke keer opnieuw berekend (10+ minuten).
 - **Download SCIA Output XML** → Output resultaten in XML format (doorgerekend).
 """
 
