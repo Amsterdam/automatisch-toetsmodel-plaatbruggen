@@ -242,10 +242,12 @@ class SciaIntegration:
         """Download SCIA ESA model using cached results, or recalculate if ESA not in cache."""
         try:
             template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            progress_message("Controleren op gecachte SCIA resultaten...")
             results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
             if results is not None and results.get("esa_model"):
                 # ESA model found in cache - return it directly
+                progress_message("✓ ESA model gevonden in cache")
                 esa_content = results["esa_model"]
                 filename = f"SCIA_model_{bridge_id}.esa"
                 file_obj = File.from_data(esa_content)
@@ -254,6 +256,7 @@ class SciaIntegration:
             # ESA model not in cache - check if results exist but ESA was excluded (too large)
             if results is not None:
                 summary = results.get("summary", {})
+                progress_message(f"⚠ Cache gevonden maar ESA model ontbreekt. Summary: {summary}")
                 if summary.get("esa_model_too_large"):
                     # ESA was too large to cache - inform user and recalculate
                     progress_message(
@@ -270,6 +273,7 @@ class SciaIntegration:
                 return self._download_scia_esa_model_direct(params, bridge_id)
 
             # No cached results at all - fallback to direct download
+            progress_message("⚠ Geen cache gevonden - nieuwe berekening wordt gestart...")
             self._raise_analysis_failed_error()  # type: ignore[attr-defined]
 
         except Exception as e:
