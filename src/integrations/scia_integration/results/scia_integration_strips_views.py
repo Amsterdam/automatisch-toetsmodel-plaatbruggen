@@ -17,6 +17,20 @@ from .scia_integration_strips_processor import (
 )
 
 
+def _create_no_data_row(message: str, num_columns: int) -> list[list[str]]:
+    """
+    Create a single-row table with a message for cases where no data is available.
+
+    :param message: Message to display in the first column
+    :type message: str
+    :param num_columns: Total number of columns in the table
+    :type num_columns: int
+    :returns: List containing a single row with the message and empty strings
+    :rtype: list[list[str]]
+    """
+    return [[message] + [""] * (num_columns - 1)]
+
+
 def _create_integration_strip_headers() -> list[str]:
     """
     Create column headers for integration strip result tables.
@@ -53,9 +67,10 @@ def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:  
     :returns: List of rows for table display
     :rtype: list[list[Any]]
     """
+    num_columns = 14  # Total columns in integration strip table
+
     if df.empty:
-        # Return a single row with "No data" message to avoid empty table errors
-        return [["Geen data", "", "", "", "", "", "", "", "", "", "", "", "", ""]]
+        return _create_no_data_row("Geen data", num_columns)
 
     # Define columns to include in output
     output_columns = [
@@ -77,6 +92,13 @@ def _format_integration_strip_table_data(df: pd.DataFrame) -> list[list[Any]]:  
 
     # Filter to only include columns that exist
     available_columns = [col for col in output_columns if col in df.columns]
+
+    # Check if extraction failed (DataFrame has rows but no expected columns)
+    if not available_columns:
+        return _create_no_data_row(
+            "Data extractie mislukt - controleer SCIA output formaat",
+            num_columns,
+        )
 
     # Convert DataFrame to list of lists
     data = []
@@ -148,7 +170,7 @@ def create_integration_strip_table_view(
     return TableResult(data, column_headers=headers)
 
 
-def create_integration_strip_envelope_table_view(  # noqa: C901
+def create_integration_strip_envelope_table_view(  # noqa: C901, PLR0912
     results: dict[str, Any],
 ) -> TableResult:
     """
@@ -187,10 +209,13 @@ def create_integration_strip_envelope_table_view(  # noqa: C901
         "Gecorrigeerd",
     ]
 
+    num_columns = 14  # Total columns in envelope table
+
     if df_envelope.empty:
-        # Return single row with "No data" message to avoid empty table errors
-        no_data_row = ["Geen data"] + [""] * 13  # 14 columns total
-        return TableResult([no_data_row], column_headers=headers)
+        return TableResult(
+            _create_no_data_row("Geen data", num_columns),
+            column_headers=headers,
+        )
 
     # Define columns to include
     output_columns = [
@@ -212,6 +237,13 @@ def create_integration_strip_envelope_table_view(  # noqa: C901
 
     # Filter to only include columns that exist
     available_columns = [col for col in output_columns if col in df_envelope.columns]
+
+    # Check if extraction failed (DataFrame has rows but no expected columns)
+    if not available_columns:
+        return TableResult(
+            _create_no_data_row("Envelope data extractie mislukt", num_columns),
+            column_headers=headers,
+        )
 
     # Format data
     data = []

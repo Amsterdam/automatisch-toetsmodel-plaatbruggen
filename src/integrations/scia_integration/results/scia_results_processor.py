@@ -4,12 +4,75 @@ Core functions for processing SCIA analysis results data.
 This module provides utilities to extract and process SCIA analysis results including:
 - 2D force tables (basis and elementaire ontwerpgrootheden)
 - 1D force tables (integration strips)
+- Shared extraction utilities for nested SCIA XML data structures
 """
 
 import functools
+import logging
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# Key used by SCIA SDK for integration strip results
+INTEGRATION_STRIP_DATA_KEY = "Resultaten over integratiestroken:"
+
+
+def extract_nested_table_data(  # noqa: PLR0911
+    table_data: dict[str, Any] | None,
+    expected_columns: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """
+    Extract nested data from SCIA table structure using known key patterns.
+
+    The SCIA SDK returns table data in nested structures. This function handles
+    the common patterns:
+    1. data -> "Resultaten over integratiestroken:" (integration strips)
+    2. data -> "p0" (legacy/node-based tables)
+    3. data directly contains the columns (flat structure)
+
+    :param table_data: Raw table data from SCIA parsed_tables
+    :type table_data: dict[str, Any] | None
+    :param expected_columns: Optional list of expected column names to validate structure
+    :type expected_columns: list[str] | None
+    :returns: Extracted data dictionary or None if extraction fails
+    :rtype: dict[str, Any] | None
+    """
+    if not table_data or not isinstance(table_data, dict):
+        return None
+
+    nested_data = table_data.get("data", {})
+    if not isinstance(nested_data, dict):
+        logger.debug("Table data 'data' key is not a dict: %s", type(nested_data))
+        return None
+
+    # Strategy 1: Integration strip key (most common for 1D results)
+    if INTEGRATION_STRIP_DATA_KEY in nested_data:
+        result = nested_data[INTEGRATION_STRIP_DATA_KEY]
+        if isinstance(result, dict):
+            logger.debug("Extracted data using key '%s'", INTEGRATION_STRIP_DATA_KEY)
+            return result
+
+    # Strategy 2: p0 key (used for node-based 2D results)
+    if "p0" in nested_data:
+        result = nested_data["p0"]
+        if isinstance(result, dict):
+            logger.debug("Extracted data using 'p0' key")
+            return result
+
+    # Strategy 3: Check if nested_data directly contains expected columns
+    if expected_columns and any(col in nested_data for col in expected_columns):
+        logger.debug("Using nested_data directly (contains expected columns)")
+        return nested_data
+
+    # Strategy 4: Return nested_data if it has any content (fallback)
+    if nested_data:
+        logger.debug("Using nested_data as fallback")
+        return nested_data
+
+    logger.debug("No extractable data found in table_data")
+    return None
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -447,19 +510,10 @@ def _extract_integration_strip_results(results: dict[str, Any], result_type: str
     xml_parsing = results.get("xml_parsing", {})
     parsed_tables = xml_parsing.get("parsed_tables", {})
     table_name = f"Interne 1D-krachten {selected_table}"
-    table_data = parsed_tables.get(table_name, {}).get("data", {})
+    table_data = parsed_tables.get(table_name, {})
 
-    # Look for integration strip results
-    integration_strip_results = table_data.get("Resultaten over integratiestroken:")
-    if (not integration_strip_results or not isinstance(integration_strip_results, dict)) and table_data:
-        # If no integration strip results, check for other data structure
-        # Look for any other data structure that might contain the results
-        for value in table_data.values():
-            if isinstance(value, dict) and len(value) > 0:
-                integration_strip_results = value
-                break
-
-    return integration_strip_results
+    # Use the shared extraction utility
+    return extract_nested_table_data(table_data)
 
 
 # Module-level cache for processed results
