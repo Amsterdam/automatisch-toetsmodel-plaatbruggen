@@ -2,11 +2,21 @@
 
 ### Fixed
 - **Request-Level Cache in Online Environment**: Fixed critical caching issue where SCIA analysis results were not being reused across different views in VIKTOR's online platform
-  - Changed `_request_cache` from instance variable to class-level variable in `AnalysisCache`
+  - Changed `request_cache` from instance variable to class-level variable in `AnalysisCache`
   - Ensures in-memory cache is shared across all `AnalysisCache` instances within the same worker process
   - Views like "Integratiestroken Enveloppen" now correctly reuse cached SCIA results instead of recalculating
   - This fix enables proper two-level caching: fast in-memory access + persistent VIKTOR Storage
-  - Updated tests to handle class-level cache and prevent test interference
+
+- **ESA Model Recalculation Issue**: Fixed issue where downloading ESA model after IDEA calculation would trigger full SCIA recalculation in both local and online environments
+  - Root cause: ESA models larger than 250MB were not being cached, causing cache hits to fall back to full recalculation
+  - Removed 250MB ESA filter - ESA models are now always cached regardless of size
+  - Removed arbitrary 20MB total size limit that prevented Storage caching
+  - When clicking "Download ESA Model" after running IDEA analysis, the cached ESA is now reused instantly
+  - Applies to both local and online environments (issue was with Storage persistence, not request-level cache)
+  
+- **Code Quality**: Fixed Ruff linting errors
+  - Added `ClassVar` annotation for mutable class attributes (RUF012)
+  - Renamed `_request_cache` to public `request_cache` to avoid private member access warning (SLF001)
 
 ## [`v0.0.21`] - 2026-01-12
 
