@@ -755,9 +755,6 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "xml_output" in full_results:
         cacheable["xml_output"] = full_results["xml_output"]
 
-    # Exclude: esa_model (too large - 50+ MB)
-    # Note: ESA downloads will need to regenerate if needed
-
     return cacheable
 
 
