@@ -1,3 +1,13 @@
+## [`v0.0.23`] - 2026-01-19
+
+### Changed
+- **Cache Size Limit Increased to 250MB**: Increased total cache size limit from 50MB to 250MB across all caching logic
+  - Updated `max_cache_size_mb` in `cache_analysis_results()` from 50MB to 250MB
+  - Updated smart ESA filtering logic to use 250MB threshold for total cache size
+  - Updated all related comments and documentation to reflect 250MB limit
+  - Allows caching of larger analysis results for better performance
+  - ESA models still excluded intelligently if they would push total cache over 250MB
+
 ## [`v0.0.22`] - 2026-01-19
 
 ### Fixed
@@ -14,7 +24,6 @@
   - If including ESA would exceed 250MB, ESA is excluded but other results remain cached
   - ESA files regenerated on-demand when excluded (quick operation)
   - Maximizes cache efficiency while respecting Storage limits
-  - Total cache size limit increased to 250MB for better performance
   - Added diagnostic progress messages to identify cache status
   
 ### Fixed (continued)
