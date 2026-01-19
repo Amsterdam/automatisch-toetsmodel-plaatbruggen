@@ -239,21 +239,37 @@ class SciaIntegration:
         return self._download_scia_esa_model_direct(params, bridge_id)
 
     def _download_scia_esa_model_cached(self, params: BridgeParametrization, entity_id: int, bridge_id: str) -> DownloadResult:
-        """Download SCIA ESA model using cached results."""
+        """Download SCIA ESA model using cached results, or recalculate if ESA not in cache."""
         try:
             template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
             results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
             if results is not None and results.get("esa_model"):
+                # ESA model found in cache - return it directly
                 esa_content = results["esa_model"]
                 filename = f"SCIA_model_{bridge_id}.esa"
                 file_obj = File.from_data(esa_content)
                 return DownloadResult(file_content=file_obj, file_name=filename)
 
+            # ESA model not in cache - check if results exist but ESA was excluded (too large)
             if results is not None:
-                error_details = results.get("error", "Onbekende fout")
-                self._raise_missing_esa_error(error_details)  # type: ignore[attr-defined]
+                summary = results.get("summary", {})
+                if summary.get("esa_model_too_large"):
+                    # ESA was too large to cache - inform user and recalculate
+                    progress_message(
+                        f"ESA model te groot voor cache ({summary.get('esa_model_size_mb', 'N/A')} MB). Model wordt opnieuw gegenereerd..."
+                    )
+                elif not summary.get("esa_model_cached", True):
+                    # ESA not cached for other reason - recalculate
+                    progress_message("ESA model niet in cache. Model wordt opnieuw gegenereerd...")
+                else:
+                    # Cache exists but ESA missing - unexpected state
+                    progress_message("ESA model niet beschikbaar in cache. Model wordt opnieuw gegenereerd...")
 
+                # Recalculate ESA model directly (don't re-run full analysis)
+                return self._download_scia_esa_model_direct(params, bridge_id)
+
+            # No cached results at all - fallback to direct download
             self._raise_analysis_failed_error()  # type: ignore[attr-defined]
 
         except Exception as e:
