@@ -712,15 +712,14 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     Extract only cacheable data from SCIA results (exclude large binary files).
 
     Excludes:
-    - xml_output (10+ MB raw XML)
     - esa_model (50+ MB binary ESA file)
-    - Large raw data in xml_parsing
 
     Includes:
-    - Parsed DataFrames (cs_envelope_df, etc.)
+    - xml_output (needed for downloads)
+    - Parsed DataFrames (cs_envelope_df, integration_strips, etc.)
     - Summary dict
     - Analysis status
-    - Other small processed data
+    - Other processed data
 
     :param full_results: Complete SCIA analysis results
     :type full_results: dict[str, Any]
