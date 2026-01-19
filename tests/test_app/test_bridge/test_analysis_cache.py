@@ -65,7 +65,7 @@ class TestAnalysisCache(unittest.TestCase):
     def tearDown(self) -> None:
         """Clean up after each test."""
         # Clear the class-level request cache to prevent test interference
-        AnalysisCache._request_cache.clear()
+        AnalysisCache.request_cache.clear()
 
     def test_analysis_type_enum(self) -> None:
         """Test AnalysisType enum values."""
