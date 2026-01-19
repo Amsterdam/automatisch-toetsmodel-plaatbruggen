@@ -7,12 +7,17 @@
   - Views like "Integratiestroken Enveloppen" now correctly reuse cached SCIA results instead of recalculating
   - This fix enables proper two-level caching: fast in-memory access + persistent VIKTOR Storage
 
-- **Cache Size Optimization**: Adjusted total cache size limit from 20MB to 50MB for better balance between storage and performance
-  - Results larger than 50MB stored only in request-level cache (fast access within same session)
-  - Results under 50MB persisted to VIKTOR Storage (available across requests)
-  - ESA models still filtered if > 250MB to prevent excessive storage use
-  - Added diagnostic progress messages to help identify caching issues
+### Changed
+- **Smart ESA Model Caching**: Implemented intelligent ESA caching based on total cache size
+  - ESA models > 250MB are never cached
+  - ESA models < 250MB are cached only if total cache stays under 250MB limit
+  - If including ESA would exceed 250MB, ESA is excluded but other results remain cached
+  - ESA files regenerated on-demand when excluded (quick operation)
+  - Maximizes cache efficiency while respecting Storage limits
+  - Total cache size limit increased to 250MB for better performance
+  - Added diagnostic progress messages to identify cache status
   
+### Fixed (continued)
 - **Code Quality**: Fixed Ruff linting errors
   - Added `ClassVar` annotation for mutable class attributes (RUF012)
   - Renamed `_request_cache` to public `request_cache` to avoid private member access warning (SLF001)

@@ -757,10 +757,12 @@ def _process_esa_model_for_cache(esa_model: bytes | None, cacheable: dict[str, A
 
 def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
     """
-    Extract only cacheable data from SCIA results (conditionally exclude very large binary files).
+    Extract cacheable data from SCIA results with smart ESA filtering.
 
-    Conditionally excludes:
-    - esa_model: Only cached if size is less than 250 MB (to prevent storage overflow)
+    ESA model caching logic:
+    - If ESA > 250MB: Never cached
+    - If ESA < 250MB but total cache > 250MB: ESA excluded to keep cache under limit
+    - If ESA < 250MB and total cache < 250MB: ESA included
 
     Includes:
     - xml_output (needed for downloads)
@@ -802,9 +804,41 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "xml_output" in full_results:
         cacheable["xml_output"] = full_results["xml_output"]
 
-    # Conditionally include ESA model if size is reasonable (< 250 MB)
+    # Smart ESA model caching:
+    # First, check cache size without ESA. If adding ESA would exceed 50MB, exclude it.
     if "esa_model" in full_results:
-        _process_esa_model_for_cache(full_results["esa_model"], cacheable)
+        esa_model = full_results["esa_model"]
+        esa_size_bytes = len(esa_model) if esa_model else 0
+        esa_size_mb = esa_size_bytes / (1024 * 1024)
+
+        # Calculate current cache size without ESA
+        import pickle
+
+        test_data = pickle.dumps(cacheable)
+        current_size_mb = len(test_data) / (1024 * 1024)
+        projected_size_mb = current_size_mb + esa_size_mb
+
+        if "summary" not in cacheable:
+            cacheable["summary"] = {}
+        if not isinstance(cacheable["summary"], dict):
+            cacheable["summary"] = {}
+
+        cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+
+        # Only cache ESA if: 1) ESA < 250MB AND 2) Total cache would be < 50MB
+        if esa_size_mb >= 250:
+            # ESA too large - never cache it
+            cacheable["summary"]["esa_model_cached"] = False
+            cacheable["summary"]["esa_model_too_large"] = True
+        elif projected_size_mb > 50:
+            # ESA would push cache over 50MB limit - exclude it
+            cacheable["summary"]["esa_model_cached"] = False
+            cacheable["summary"]["esa_excluded_due_to_size"] = True
+            cacheable["summary"]["projected_cache_size_mb"] = round(projected_size_mb, 2)
+        else:
+            # ESA fits within limits - cache it
+            cacheable["esa_model"] = esa_model
+            cacheable["summary"]["esa_model_cached"] = True
 
     return cacheable
 
