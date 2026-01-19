@@ -761,7 +761,7 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
             # Check size in bytes
             esa_size_bytes = len(esa_model) if isinstance(esa_model, bytes) else 0
             esa_size_mb = esa_size_bytes / (1024 * 1024)
-            
+
             # Only cache if under 250 MB threshold
             if esa_size_mb < 250:
                 cacheable["esa_model"] = esa_model
@@ -769,12 +769,11 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
                 if "summary" in cacheable and isinstance(cacheable["summary"], dict):
                     cacheable["summary"]["esa_model_cached"] = True
                     cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
-            else:
-                # ESA too large - don't cache it
-                if "summary" in cacheable and isinstance(cacheable["summary"], dict):
-                    cacheable["summary"]["esa_model_cached"] = False
-                    cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
-                    cacheable["summary"]["esa_model_too_large"] = True
+            # ESA too large - don't cache it
+            elif "summary" in cacheable and isinstance(cacheable["summary"], dict):
+                cacheable["summary"]["esa_model_cached"] = False
+                cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+                cacheable["summary"]["esa_model_too_large"] = True
 
     return cacheable
 

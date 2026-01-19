@@ -256,14 +256,16 @@ class SciaIntegration:
                 summary = results.get("summary", {})
                 if summary.get("esa_model_too_large"):
                     # ESA was too large to cache - inform user and recalculate
-                    progress_message(f"ESA model te groot voor cache ({summary.get('esa_model_size_mb', 'N/A')} MB). Model wordt opnieuw gegenereerd...")
+                    progress_message(
+                        f"ESA model te groot voor cache ({summary.get('esa_model_size_mb', 'N/A')} MB). Model wordt opnieuw gegenereerd..."
+                    )
                 elif not summary.get("esa_model_cached", True):
                     # ESA not cached for other reason - recalculate
                     progress_message("ESA model niet in cache. Model wordt opnieuw gegenereerd...")
                 else:
                     # Cache exists but ESA missing - unexpected state
                     progress_message("ESA model niet beschikbaar in cache. Model wordt opnieuw gegenereerd...")
-                
+
                 # Recalculate ESA model directly (don't re-run full analysis)
                 return self._download_scia_esa_model_direct(params, bridge_id)
 
