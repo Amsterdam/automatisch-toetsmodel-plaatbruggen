@@ -509,8 +509,8 @@ class AnalysisCache:
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             size_mb = len(encoded_data) / (1024 * 1024)
 
-            # Size check: Skip caching if data is too large (> 50 MB)
-            max_cache_size_mb = 50
+            # Size check: Skip caching if data is too large (> 250 MB)
+            max_cache_size_mb = 250
             if size_mb > max_cache_size_mb:
                 # Cache is too large for storage, but store in request-level cache anyway
                 # This helps with multiple views in the same request/session
@@ -805,7 +805,7 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         cacheable["xml_output"] = full_results["xml_output"]
 
     # Smart ESA model caching:
-    # First, check cache size without ESA. If adding ESA would exceed 50MB, exclude it.
+    # First, check cache size without ESA. If adding ESA would exceed 250MB, exclude it.
     if "esa_model" in full_results:
         esa_model = full_results["esa_model"]
         esa_size_bytes = len(esa_model) if esa_model else 0
