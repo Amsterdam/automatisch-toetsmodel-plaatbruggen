@@ -1315,6 +1315,16 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     calc_page.calc_selection.lb_load_case_selection = LineBreak()
 
+    calc_page.calc_selection.service_unintended_vehicle_selection = OptionField(
+        "Locatie dienstvoertuig en onbedoeld voertuig",
+        options=["Positieve y-zijde", "Negatieve y-zijde", "Beide kanten van het brugdek"],
+        default="Beide kanten van het brugdek",
+        description="Locatie van de belastingen voor dienstvoertuig en onbedoeld voertuig, op het brugdek.",
+        variant="radio",
+        name="service_unintended_vehicle_selection",
+        flex=80,
+    )
+
     calc_page.calc_selection.load_case_selection_table = Table(
         "Belastingselectie",
         name="load_case_selection_table",
