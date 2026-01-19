@@ -827,13 +827,13 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         summary: dict[str, Any] = cacheable["summary"]  # type: ignore[assignment]
         summary["esa_model_size_mb"] = round(esa_size_mb, 2)
 
-        # Only cache ESA if: 1) ESA < 250MB AND 2) Total cache would be < 50MB
+        # Only cache ESA if: 1) ESA < 250MB AND 2) Total cache would be < 250MB
         if esa_size_mb >= 250:
             # ESA too large - never cache it
             summary["esa_model_cached"] = False
             summary["esa_model_too_large"] = True
-        elif projected_size_mb > 50:
-            # ESA would push cache over 50MB limit - exclude it
+        elif projected_size_mb > 250:
+            # ESA would push cache over 250MB limit - exclude it
             summary["esa_model_cached"] = False
             summary["esa_excluded_due_to_size"] = True
             summary["projected_cache_size_mb"] = round(projected_size_mb, 2)
