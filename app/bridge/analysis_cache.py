@@ -509,8 +509,20 @@ class AnalysisCache:
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             size_mb = len(encoded_data) / (1024 * 1024)
 
+            # Size check: Skip caching if data is too large (> 50 MB)
+            max_cache_size_mb = 50
+            if size_mb > max_cache_size_mb:
+                # Cache is too large for storage, but store in request-level cache anyway
+                # This helps with multiple views in the same request/session
+                import logging
+
+                logging.warning(
+                    f"Cache too large for Storage ({size_mb:.2f} MB > {max_cache_size_mb} MB). Storing in request cache only for entity {entity_id}"
+                )
+                AnalysisCache.request_cache[cache_key] = cacheable_results
+                return False
+
             # Log size for monitoring
-            # ESA models are now always cached to prevent recalculation on download
             import logging
 
             logging.info(f"Caching {analysis_type.value.upper()} results for entity {entity_id}: {size_mb:.2f} MB")
@@ -710,9 +722,9 @@ def notify_parent_of_cache_status(
 
 def _process_esa_model_for_cache(esa_model: bytes | None, cacheable: dict[str, Any]) -> None:
     """
-    Process ESA model for caching.
+    Process ESA model for caching based on size threshold.
 
-    Always caches ESA models to ensure they're available for download without recalculation.
+    Only caches ESA models under 250 MB to prevent storage overflow.
     Updates the cacheable dict in-place with ESA model and metadata.
 
     :param esa_model: ESA model bytes or None
@@ -729,21 +741,28 @@ def _process_esa_model_for_cache(esa_model: bytes | None, cacheable: dict[str, A
     esa_size_bytes = len(esa_model) if isinstance(esa_model, bytes) else 0
     esa_size_mb = esa_size_bytes / (1024 * 1024)
 
-    # Always cache the ESA model
-    cacheable["esa_model"] = esa_model
-    
-    # Update summary with ESA metadata
-    if "summary" in cacheable and isinstance(cacheable["summary"], dict):
-        cacheable["summary"]["esa_model_cached"] = True
+    # Only cache if under 250 MB threshold
+    if esa_size_mb < 250:
+        cacheable["esa_model"] = esa_model
+        # Update summary to indicate ESA was cached
+        if "summary" in cacheable and isinstance(cacheable["summary"], dict):
+            cacheable["summary"]["esa_model_cached"] = True
+            cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+    # ESA too large - don't cache it
+    elif "summary" in cacheable and isinstance(cacheable["summary"], dict):
+        cacheable["summary"]["esa_model_cached"] = False
         cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+        cacheable["summary"]["esa_model_too_large"] = True
 
 
 def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
     """
-    Extract cacheable data from SCIA results.
+    Extract only cacheable data from SCIA results (conditionally exclude very large binary files).
+
+    Conditionally excludes:
+    - esa_model: Only cached if size is less than 250 MB (to prevent storage overflow)
 
     Includes:
-    - esa_model (always cached to avoid recalculation on download)
     - xml_output (needed for downloads)
     - Parsed DataFrames (cs_envelope_df, integration_strips, etc.)
     - Summary dict
@@ -783,7 +802,7 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "xml_output" in full_results:
         cacheable["xml_output"] = full_results["xml_output"]
 
-    # Always include ESA model to avoid recalculation on download
+    # Conditionally include ESA model if size is reasonable (< 250 MB)
     if "esa_model" in full_results:
         _process_esa_model_for_cache(full_results["esa_model"], cacheable)
 

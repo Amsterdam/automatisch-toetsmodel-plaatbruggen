@@ -7,12 +7,10 @@
   - Views like "Integratiestroken Enveloppen" now correctly reuse cached SCIA results instead of recalculating
   - This fix enables proper two-level caching: fast in-memory access + persistent VIKTOR Storage
 
-- **ESA Model Recalculation Issue**: Fixed issue where downloading ESA model after IDEA calculation would trigger full SCIA recalculation in both local and online environments
-  - Root cause: ESA models larger than 250MB were not being cached, causing cache hits to fall back to full recalculation
-  - Removed 250MB ESA filter - ESA models are now always cached regardless of size
-  - Removed arbitrary 20MB total size limit that prevented Storage caching
-  - When clicking "Download ESA Model" after running IDEA analysis, the cached ESA is now reused instantly
-  - Applies to both local and online environments (issue was with Storage persistence, not request-level cache)
+- **Cache Size Limit Issue**: Removed arbitrary 20MB total cache size limit that prevented SCIA results from being persisted to VIKTOR Storage
+  - Cache is now always written to Storage regardless of size (ESA models still filtered if > 250MB)
+  - Improves cache hit rate across different views and requests
+  - Added diagnostic progress messages to help identify caching issues
   
 - **Code Quality**: Fixed Ruff linting errors
   - Added `ClassVar` annotation for mutable class attributes (RUF012)
