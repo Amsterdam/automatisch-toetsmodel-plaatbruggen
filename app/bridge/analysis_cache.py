@@ -755,7 +755,7 @@ def _process_esa_model_for_cache(esa_model: bytes | None, cacheable: dict[str, A
         cacheable["summary"]["esa_model_too_large"] = True
 
 
-def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
+def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912, C901
     """
     Extract cacheable data from SCIA results with smart ESA filtering.
 
@@ -823,22 +823,24 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         if not isinstance(cacheable["summary"], dict):
             cacheable["summary"] = {}
 
-        cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+        # Use typed variable to help MyPy
+        summary: dict[str, Any] = cacheable["summary"]  # type: ignore[assignment]
+        summary["esa_model_size_mb"] = round(esa_size_mb, 2)
 
         # Only cache ESA if: 1) ESA < 250MB AND 2) Total cache would be < 50MB
         if esa_size_mb >= 250:
             # ESA too large - never cache it
-            cacheable["summary"]["esa_model_cached"] = False
-            cacheable["summary"]["esa_model_too_large"] = True
+            summary["esa_model_cached"] = False
+            summary["esa_model_too_large"] = True
         elif projected_size_mb > 50:
             # ESA would push cache over 50MB limit - exclude it
-            cacheable["summary"]["esa_model_cached"] = False
-            cacheable["summary"]["esa_excluded_due_to_size"] = True
-            cacheable["summary"]["projected_cache_size_mb"] = round(projected_size_mb, 2)
+            summary["esa_model_cached"] = False
+            summary["esa_excluded_due_to_size"] = True
+            summary["projected_cache_size_mb"] = round(projected_size_mb, 2)
         else:
             # ESA fits within limits - cache it
             cacheable["esa_model"] = esa_model
-            cacheable["summary"]["esa_model_cached"] = True
+            summary["esa_model_cached"] = True
 
     return cacheable
 
