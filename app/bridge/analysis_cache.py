@@ -709,10 +709,10 @@ def notify_parent_of_cache_status(
 
 def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
     """
-    Extract only cacheable data from SCIA results (exclude large binary files).
+    Extract only cacheable data from SCIA results (conditionally exclude very large binary files).
 
-    Excludes:
-    - esa_model (50+ MB binary ESA file)
+    Conditionally excludes:
+    - esa_model: Only cached if size is less than 250 MB (to prevent storage overflow)
 
     Includes:
     - xml_output (needed for downloads)
@@ -753,6 +753,28 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     # Include xml_output for downloads (moderate size, but needed)
     if "xml_output" in full_results:
         cacheable["xml_output"] = full_results["xml_output"]
+
+    # Conditionally include ESA model if size is reasonable (< 250 MB)
+    if "esa_model" in full_results:
+        esa_model = full_results["esa_model"]
+        if esa_model is not None:
+            # Check size in bytes
+            esa_size_bytes = len(esa_model) if isinstance(esa_model, bytes) else 0
+            esa_size_mb = esa_size_bytes / (1024 * 1024)
+            
+            # Only cache if under 250 MB threshold
+            if esa_size_mb < 250:
+                cacheable["esa_model"] = esa_model
+                # Update summary to indicate ESA was cached
+                if "summary" in cacheable and isinstance(cacheable["summary"], dict):
+                    cacheable["summary"]["esa_model_cached"] = True
+                    cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+            else:
+                # ESA too large - don't cache it
+                if "summary" in cacheable and isinstance(cacheable["summary"], dict):
+                    cacheable["summary"]["esa_model_cached"] = False
+                    cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+                    cacheable["summary"]["esa_model_too_large"] = True
 
     return cacheable
 
