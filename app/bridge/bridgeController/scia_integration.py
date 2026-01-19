@@ -347,7 +347,7 @@ class SciaIntegration:
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
-        def _raise_no_cached_results_error() -> None:
+        def _raise_no_cached_results_error() -> NoReturn:
             raise UserError("Geen gecachte SCIA resultaten gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
 
         try:
@@ -363,7 +363,9 @@ class SciaIntegration:
             _raise_no_cached_results_error()
 
         except Exception as e:
-            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nProbeer in plaats daarvan de XML-bestanden te downloaden.")
+            if isinstance(e, UserError):
+                raise
+            raise UserError(f"Onverwachte fout tijdens ophalen SCIA XML output: {e!s}")
 
     def _validate_generated_files(self, xml_file: BytesIO, def_file: BytesIO) -> None:
         """
