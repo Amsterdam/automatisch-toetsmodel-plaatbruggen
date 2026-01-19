@@ -260,12 +260,15 @@ def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa:
 class AnalysisCache:
     """General cache for analysis results using VIKTOR Storage."""
 
+    # Class-level cache shared across all instances in the same worker process
+    # This ensures that different views in the same request can reuse cached results
+    _request_cache: dict[str, dict[str, Any]] = {}
+
     def __init__(self) -> None:
         """Initialize the analysis cache with VIKTOR Storage."""
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
         self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
-        self._request_cache: dict[str, dict[str, Any]] = {}  # Request-level cache for analysis results
 
     def _write_storage_warning(self, message: str) -> None:
         """Persist a workspace-level warning so the UI can notify the user."""
@@ -374,10 +377,10 @@ class AnalysisCache:
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
             # Check request-level cache first (fastest - in-memory)
-            # Note: _request_cache persists across HTTP requests as a global singleton
-            # This is intentional for performance within the same worker process
-            if cache_key in self._request_cache:
-                return self._request_cache[cache_key]
+            # Note: _request_cache is a class variable, shared across all AnalysisCache instances
+            # within the same worker process for optimal performance
+            if cache_key in AnalysisCache._request_cache:
+                return AnalysisCache._request_cache[cache_key]
 
             # Get entity object for cross-entity storage access
             entity = self._get_entity(entity_id)
@@ -407,15 +410,15 @@ class AnalysisCache:
                 results = pickle.loads(cached_data)
 
                 # Store in request-level cache for subsequent views in same request
-                self._request_cache[cache_key] = results
+                AnalysisCache._request_cache[cache_key] = results
 
                 # Limit request cache size to prevent memory issues
                 # Keep only the most recent 10 entries per entity
-                if len(self._request_cache) > 10:
+                if len(AnalysisCache._request_cache) > 10:
                     # Remove oldest entries (simple FIFO)
-                    keys_to_remove = list(self._request_cache.keys())[:-10]
+                    keys_to_remove = list(AnalysisCache._request_cache.keys())[:-10]
                     for key_to_remove in keys_to_remove:
-                        del self._request_cache[key_to_remove]
+                        del AnalysisCache._request_cache[key_to_remove]
 
                 return results
         except Exception as e:
@@ -511,7 +514,7 @@ class AnalysisCache:
             if size_mb > max_cache_size_mb:
                 # Cache is too large for storage, but store in request-level cache anyway
                 # This helps with multiple views in the same request/session
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache._request_cache[cache_key] = cacheable_results
                 return False
 
             cached_file = File.from_data(encoded_data)
@@ -558,7 +561,7 @@ class AnalysisCache:
                 self._clear_storage_warning()
 
                 # Store in request-level cache as well
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache._request_cache[cache_key] = cacheable_results
 
                 # Notify parent entity of cache status
                 notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
@@ -566,7 +569,7 @@ class AnalysisCache:
 
             except Exception as storage_error:
                 # Storage write failed - store in request-level cache anyway for this session
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache._request_cache[cache_key] = cacheable_results
 
                 if isinstance(storage_error, InternalError):
                     self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
@@ -590,7 +593,7 @@ class AnalysisCache:
             # General error during caching setup
             # Still try to populate request cache if we got this far (cacheable_results should exist)
             with contextlib.suppress(Exception):
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache._request_cache[cache_key] = cacheable_results
             return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
@@ -969,7 +972,7 @@ def get_cached_analysis_results(  # noqa: PLR0913
         # Store in request-level cache for reuse within this request
         input_hash = cache._generate_input_hash(params, analysis_type, template_path)  # noqa: SLF001
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
-        cache._request_cache[cache_key] = cached_results  # noqa: SLF001
+        AnalysisCache._request_cache[cache_key] = cached_results
         return cached_results
 
     # Run analysis if not cached

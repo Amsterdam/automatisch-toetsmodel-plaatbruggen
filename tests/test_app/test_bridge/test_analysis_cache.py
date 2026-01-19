@@ -19,7 +19,7 @@ def _mock_init(self, storage=None) -> None:  # noqa: ANN001
     self.storage = storage or Mock()
     self._hash_cache = {}
     self._entity_cache = {}
-    self._request_cache = {}  # Request-level cache
+    # Note: _request_cache is now a class variable, not an instance variable
 
     # Mock entity object
     mock_entity = Mock()
@@ -34,7 +34,7 @@ def _mock_init_no_override(self, storage=None) -> None:  # noqa: ANN001
     self.storage = storage or Mock()
     self._hash_cache = {}
     self._entity_cache = {}
-    self._request_cache = {}  # Request-level cache
+    # Note: _request_cache is now a class variable, not an instance variable
 
 
 def _create_mock_api_class(mock_api_instance: Mock) -> type:
@@ -61,6 +61,11 @@ class TestAnalysisCache(unittest.TestCase):
         """Set up test fixtures."""
         self.entity_id = 12345
         self.default_params = load_bridge_default_params()
+
+    def tearDown(self) -> None:
+        """Clean up after each test."""
+        # Clear the class-level request cache to prevent test interference
+        AnalysisCache._request_cache.clear()
 
     def test_analysis_type_enum(self) -> None:
         """Test AnalysisType enum values."""

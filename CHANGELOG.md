@@ -1,3 +1,13 @@
+## [`v0.0.22`] - 2026-01-19
+
+### Fixed
+- **Request-Level Cache in Online Environment**: Fixed critical caching issue where SCIA analysis results were not being reused across different views in VIKTOR's online platform
+  - Changed `_request_cache` from instance variable to class-level variable in `AnalysisCache`
+  - Ensures in-memory cache is shared across all `AnalysisCache` instances within the same worker process
+  - Views like "Integratiestroken Enveloppen" now correctly reuse cached SCIA results instead of recalculating
+  - This fix enables proper two-level caching: fast in-memory access + persistent VIKTOR Storage
+  - Updated tests to handle class-level cache and prevent test interference
+
 ## [`v0.0.21`] - 2026-01-12
 
 ### Fixed
