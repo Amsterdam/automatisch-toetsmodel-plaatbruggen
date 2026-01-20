@@ -257,6 +257,11 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     """
     Create service vehicle load cases with dynamic positioning based on bridge geometry.
 
+    Load cases are created based on the service_unintended_vehicle_selection parameter:
+    - "Positieve y-zijde": Only create loads on positive y-side
+    - "Negatieve y-zijde": Only create loads on negative y-side
+    - "Beide kanten van het brugdek": Create loads on both sides (default)
+
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters for calculating positions.
     :returns: Dictionary of created service vehicle load cases.
@@ -271,47 +276,61 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     service_vehicle_total_length = SERVICE_VEHICLE_AXLE_SPACING + SERVICE_VEHICLE_WHEEL_DIMENSION
     positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length)
 
+    # Get side selection from parameters
+    # Access directly by name (defined in parametrization with name="service_unintended_vehicle_selection")
+    side_selection = getattr(params, "service_unintended_vehicle_selection", "Beide kanten van het brugdek")
+
     cases = {}
+    case_counter = 1
 
     # Create load cases for y_plus (top edge)
-    for i, pos in enumerate(positions, 1):
-        case_name = f"BG6{i:03d}"
-        key = f"y_plus_x{pos}"
-        # Call builder directly to avoid passing permanent_type=None (tests expect it omitted)
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, dienstvoertuig - y+ - x = {pos:g} m",
-            group_name="LG6000 - Dienstvoertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
+    if side_selection in ("Positieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions:
+            case_name = f"BG6{case_counter:03d}"
+            key = f"y_plus_x{pos}"
+            # Call builder directly to avoid passing permanent_type=None (tests expect it omitted)
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, dienstvoertuig - y+ - x = {pos:g} m",
+                group_name="LG6000 - Dienstvoertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
     # Create load cases for y_minus (bottom edge), continuing numbering
-    for i, pos in enumerate(positions, len(positions) + 1):
-        case_name = f"BG6{i:03d}"
-        key = f"y_minus_x{pos}"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, dienstvoertuig - y- - x = {pos:g} m",
-            group_name="LG6000 - Dienstvoertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
+    if side_selection in ("Negatieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions:
+            case_name = f"BG6{case_counter:03d}"
+            key = f"y_minus_x{pos}"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, dienstvoertuig - y- - x = {pos:g} m",
+                group_name="LG6000 - Dienstvoertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
     return cases
 
 
-def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, SciaLoadCase]:  # noqa: ANN401
+def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any) -> dict[str, SciaLoadCase]:  # noqa: ANN401, PLR0912, C901
     """
     Create unintended vehicle load cases with dynamic positioning based on bridge geometry.
     Creates loads for both forward and reverse directions on edges (RS 1 and RS 3).
 
     Forward: 80 kN front axle leads, 40 kN rear axle follows
     Reverse: 80 kN front axle leads in opposite direction
+
+    Load cases are created based on the service_unintended_vehicle_selection parameter:
+    - "Positieve y-zijde": Only create loads on positive y-side
+    - "Negatieve y-zijde": Only create loads on negative y-side
+    - "Beide kanten van het brugdek": Create loads on both sides (default)
 
     :param builder: The SCIA model builder instance.
     :param params: Bridge parameters for calculating positions.
@@ -330,125 +349,140 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     positions_amsterdam = tandem_system_sequencer(length, thickness)
     positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam)
 
+    # Get side selection from parameters
+    # Access directly by name (defined in parametrization with name="service_unintended_vehicle_selection")
+    side_selection = getattr(params, "service_unintended_vehicle_selection", "Beide kanten van het brugdek")
+
     cases = {}
     case_counter = 1
 
     # Create load cases for y_plus (top edge) - Forward direction
-    for pos in positions:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_plus_x{pos}_forward"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y+ forward - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    if side_selection in ("Positieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_plus_x{pos}_forward"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y+ forward - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
     # Create load cases for y_plus (top edge) - Reverse direction
-    for pos in positions:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_plus_x{pos}_reverse"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y+ reverse - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    if side_selection in ("Positieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_plus_x{pos}_reverse"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y+ reverse - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
     # Create load cases for y_minus (bottom edge) - Forward direction
-    for pos in positions:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_minus_x{pos}_forward"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y- forward - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    if side_selection in ("Negatieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_minus_x{pos}_forward"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y- forward - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
     # Create load cases for y_minus (bottom edge) - Reverse direction
-    for pos in positions:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_minus_x{pos}_reverse"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y- reverse - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    if side_selection in ("Negatieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_minus_x{pos}_reverse"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y- reverse - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
-    # Create load cases for Amsterdam vehicle on y_plus and y_minus
-    for pos in positions_amsterdam:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_plus_x{pos}_amsterdam"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y+ Amsterdam - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
-    for pos in positions_amsterdam:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_minus_x{pos}_amsterdam"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y- Amsterdam - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    # Create load cases for Amsterdam vehicle on y_plus
+    if side_selection in ("Positieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions_amsterdam:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_plus_x{pos}_amsterdam"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y+ Amsterdam - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
-    # Create load cases for Amsterdam vehicle on y_plus and y_minus - Rotated
-    for pos in positions_amsterdam_rotated:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_plus_x{pos}_amsterdam_rotated"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y+ Amsterdam rotated - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    # Create load cases for Amsterdam vehicle on y_minus
+    if side_selection in ("Negatieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions_amsterdam:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_minus_x{pos}_amsterdam"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y- Amsterdam - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
-    for pos in positions_amsterdam_rotated:
-        case_name = f"BG7{case_counter:03d}"
-        key = f"y_minus_x{pos}_amsterdam_rotated"
-        cases[key] = builder.create_load_case(
-            name=case_name,
-            description=f"Verkeer, onbedoeld voertuig - y- Amsterdam rotated - x = {pos:g} m",
-            group_name="LG7000 - Onbedoeld voertuig",
-            case_type=LoadCaseActionType.VARIABLE,
-            variable_type=VariableLoadType.STATIC,
-            specification=LoadCaseSpecification.STANDARD,
-            duration=LoadCaseDuration.SHORT,
-        )
-        case_counter += 1
+    # Create load cases for Amsterdam vehicle on y_plus - Rotated
+    if side_selection in ("Positieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions_amsterdam_rotated:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_plus_x{pos}_amsterdam_rotated"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y+ Amsterdam rotated - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
+
+    # Create load cases for Amsterdam vehicle on y_minus - Rotated
+    if side_selection in ("Negatieve y-zijde", "Beide kanten van het brugdek"):
+        for pos in positions_amsterdam_rotated:
+            case_name = f"BG7{case_counter:03d}"
+            key = f"y_minus_x{pos}_amsterdam_rotated"
+            cases[key] = builder.create_load_case(
+                name=case_name,
+                description=f"Verkeer, onbedoeld voertuig - y- Amsterdam rotated - x = {pos:g} m",
+                group_name="LG7000 - Onbedoeld voertuig",
+                case_type=LoadCaseActionType.VARIABLE,
+                variable_type=VariableLoadType.STATIC,
+                specification=LoadCaseSpecification.STANDARD,
+                duration=LoadCaseDuration.SHORT,
+            )
+            case_counter += 1
 
     return cases
 

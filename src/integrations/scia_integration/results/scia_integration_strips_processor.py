@@ -32,6 +32,8 @@ from typing import Any
 
 import pandas as pd
 
+from .scia_results_processor import extract_nested_table_data
+
 logger = logging.getLogger(__name__)
 
 # Table names expected in SCIA XML output
@@ -80,40 +82,39 @@ def extract_integration_strip_table(
     """
     # Check if we have xml_parsing data
     if "xml_parsing" not in results:
+        logger.debug("No xml_parsing in results for table '%s'", table_name)
         return pd.DataFrame()
 
     parsed_tables = results.get("xml_parsing", {}).get("parsed_tables", {})
     if not parsed_tables:
+        logger.debug("No parsed_tables in xml_parsing for table '%s'", table_name)
         return pd.DataFrame()
-
-    # The table is directly under its name (e.g., "ULS_x_reg")
 
     table_data = parsed_tables.get(table_name)
-
     if not table_data:
+        logger.debug("Table '%s' not found in parsed_tables", table_name)
         return pd.DataFrame()
 
-    # Extract the actual data from nested structure
-    # The data is under "data" key
-    nested_data = table_data.get("data", {})
+    # Use the shared extraction utility with expected column names for validation
+    expected_columns = list(STRIP_COLUMN_MAPPING.keys())
+    strip_data = extract_nested_table_data(table_data, expected_columns)
 
-    # Check if nested_data has a 'p0' key with the actual table data
-    if isinstance(nested_data, dict) and "p0" in nested_data:
-        actual_data = nested_data["p0"]
+    if not strip_data:
+        logger.warning(
+            "Failed to extract data from table '%s'. Check if SCIA output format has changed.",
+            table_name,
+        )
+        return pd.DataFrame()
 
-        # If p0 contains the actual table dictionary
-        strip_data = actual_data if isinstance(actual_data, dict) else nested_data
-    else:
-        strip_data = nested_data
-
-    if strip_data and isinstance(strip_data, dict):
-        # Convert to DataFrame
-        df = pd.DataFrame(strip_data)
-
-        # Rename columns to internal names
-        return df.rename(columns=STRIP_COLUMN_MAPPING)
-
-    return pd.DataFrame()
+    # Convert to DataFrame and rename columns
+    df = pd.DataFrame(strip_data)
+    logger.debug(
+        "Extracted %d rows from table '%s' with columns: %s",
+        len(df),
+        table_name,
+        list(df.columns),
+    )
+    return df.rename(columns=STRIP_COLUMN_MAPPING)
 
 
 def extract_all_integration_strip_tables(

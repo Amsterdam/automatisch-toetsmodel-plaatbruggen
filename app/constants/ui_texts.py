@@ -108,6 +108,8 @@ Deze pagina toont het SCIA model en de analyseresultaten. De krachten worden uit
 ### Download Opties
 - **Download input files** → XML + DEF + ESA template in ZIP voor handmatige import in SCIA.
 - **Download ESA Model** → ESA inclusief berekeningsresultaten (doorgerekend).
+  - Kleine modellen (< 250 MB): Direct uit cache (instant download bij tweede keer).
+  - Grote modellen (≥ 250 MB): Wordt elke keer opnieuw berekend (10+ minuten).
 - **Download SCIA Output XML** → Output resultaten in XML format (doorgerekend).
 """
 
@@ -207,7 +209,11 @@ Selecteer welke belastingen worden gegenereerd in het SCIA model.
 Dit helpt om de rekentijd te beheren tijdens het testen van specifieke belastingen.
 **Let op:** Trambelastingen kunnen alleen worden ingeschakeld wanneer:
 1. De verkeersbelasting is ingesteld op 'Werkelijke wegindeling' (een van de drie opties).
-2. Er minimaal één tram belastingzone is gedefinieerd op het tabblad 'Belastingzones'."""
+2. Er minimaal één tram belastingzone is gedefinieerd op het tabblad 'Belastingzones'.
+
+De onderstaande radio button bestuurt op welke zijde van het brugdek de belastingen voor het dienstvoertuig en onbedoeld voertuig worden geplaatst.
+Door deze maar aan 1 kant te plaatsen, bijvoorbeeld de maatgevende zijde waar de rijstroken het dichtste bij de rand liggen,
+kan het aantal belastinggevallen worden beperkt."""
 
 # Load case selection note text
 LOAD_CASE_SELECTION_NOTE_TEXT = """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,

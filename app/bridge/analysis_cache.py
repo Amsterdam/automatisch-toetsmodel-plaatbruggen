@@ -13,7 +13,7 @@ import pickle
 from collections.abc import Callable
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, ClassVar
 
 import viktor.api_v1 as api
 from viktor.core import File, Storage, progress_message
@@ -260,12 +260,15 @@ def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa:
 class AnalysisCache:
     """General cache for analysis results using VIKTOR Storage."""
 
+    # Class-level cache shared across all instances in the same worker process
+    # This ensures that different views in the same request can reuse cached results
+    request_cache: ClassVar[dict[str, dict[str, Any]]] = {}
+
     def __init__(self) -> None:
         """Initialize the analysis cache with VIKTOR Storage."""
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
         self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
-        self._request_cache: dict[str, dict[str, Any]] = {}  # Request-level cache for analysis results
 
     def _write_storage_warning(self, message: str) -> None:
         """Persist a workspace-level warning so the UI can notify the user."""
@@ -374,10 +377,10 @@ class AnalysisCache:
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
             # Check request-level cache first (fastest - in-memory)
-            # Note: _request_cache persists across HTTP requests as a global singleton
-            # This is intentional for performance within the same worker process
-            if cache_key in self._request_cache:
-                return self._request_cache[cache_key]
+            # Note: request_cache is a class variable, shared across all AnalysisCache instances
+            # within the same worker process for optimal performance
+            if cache_key in AnalysisCache.request_cache:
+                return AnalysisCache.request_cache[cache_key]
 
             # Get entity object for cross-entity storage access
             entity = self._get_entity(entity_id)
@@ -407,15 +410,15 @@ class AnalysisCache:
                 results = pickle.loads(cached_data)
 
                 # Store in request-level cache for subsequent views in same request
-                self._request_cache[cache_key] = results
+                AnalysisCache.request_cache[cache_key] = results
 
                 # Limit request cache size to prevent memory issues
                 # Keep only the most recent 10 entries per entity
-                if len(self._request_cache) > 10:
+                if len(AnalysisCache.request_cache) > 10:
                     # Remove oldest entries (simple FIFO)
-                    keys_to_remove = list(self._request_cache.keys())[:-10]
+                    keys_to_remove = list(AnalysisCache.request_cache.keys())[:-10]
                     for key_to_remove in keys_to_remove:
-                        del self._request_cache[key_to_remove]
+                        del AnalysisCache.request_cache[key_to_remove]
 
                 return results
         except Exception as e:
@@ -506,13 +509,23 @@ class AnalysisCache:
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             size_mb = len(encoded_data) / (1024 * 1024)
 
-            # Size check: Skip caching if data is too large (> 20 MB)
-            max_cache_size_mb = 20
+            # Size check: Skip caching if data is too large (> 250 MB)
+            max_cache_size_mb = 250
             if size_mb > max_cache_size_mb:
                 # Cache is too large for storage, but store in request-level cache anyway
                 # This helps with multiple views in the same request/session
-                self._request_cache[cache_key] = cacheable_results
+                import logging
+
+                logging.warning(
+                    f"Cache too large for Storage ({size_mb:.2f} MB > {max_cache_size_mb} MB). Storing in request cache only for entity {entity_id}"
+                )
+                AnalysisCache.request_cache[cache_key] = cacheable_results
                 return False
+
+            # Log size for monitoring
+            import logging
+
+            logging.info(f"Caching {analysis_type.value.upper()} results for entity {entity_id}: {size_mb:.2f} MB")
 
             cached_file = File.from_data(encoded_data)
 
@@ -558,7 +571,7 @@ class AnalysisCache:
                 self._clear_storage_warning()
 
                 # Store in request-level cache as well
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache.request_cache[cache_key] = cacheable_results
 
                 # Notify parent entity of cache status
                 notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
@@ -566,7 +579,7 @@ class AnalysisCache:
 
             except Exception as storage_error:
                 # Storage write failed - store in request-level cache anyway for this session
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache.request_cache[cache_key] = cacheable_results
 
                 if isinstance(storage_error, InternalError):
                     self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
@@ -590,7 +603,7 @@ class AnalysisCache:
             # General error during caching setup
             # Still try to populate request cache if we got this far (cacheable_results should exist)
             with contextlib.suppress(Exception):
-                self._request_cache[cache_key] = cacheable_results
+                AnalysisCache.request_cache[cache_key] = cacheable_results
             return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
@@ -707,20 +720,56 @@ def notify_parent_of_cache_status(
         pass
 
 
-def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
+def _process_esa_model_for_cache(esa_model: bytes | None, cacheable: dict[str, Any]) -> None:
     """
-    Extract only cacheable data from SCIA results (exclude large binary files).
+    Process ESA model for caching based on size threshold.
 
-    Excludes:
-    - xml_output (10+ MB raw XML)
-    - esa_model (50+ MB binary ESA file)
-    - Large raw data in xml_parsing
+    Only caches ESA models under 250 MB to prevent storage overflow.
+    Updates the cacheable dict in-place with ESA model and metadata.
+
+    :param esa_model: ESA model bytes or None
+    :type esa_model: bytes | None
+    :param cacheable: Dictionary to update with ESA model and metadata
+    :type cacheable: dict[str, Any]
+    :returns: None (updates cacheable in-place)
+    :rtype: None
+    """
+    if esa_model is None:
+        return
+
+    # Check size in bytes
+    esa_size_bytes = len(esa_model) if isinstance(esa_model, bytes) else 0
+    esa_size_mb = esa_size_bytes / (1024 * 1024)
+
+    # Only cache if under 250 MB threshold
+    if esa_size_mb < 250:
+        cacheable["esa_model"] = esa_model
+        # Update summary to indicate ESA was cached
+        if "summary" in cacheable and isinstance(cacheable["summary"], dict):
+            cacheable["summary"]["esa_model_cached"] = True
+            cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+    # ESA too large - don't cache it
+    elif "summary" in cacheable and isinstance(cacheable["summary"], dict):
+        cacheable["summary"]["esa_model_cached"] = False
+        cacheable["summary"]["esa_model_size_mb"] = round(esa_size_mb, 2)
+        cacheable["summary"]["esa_model_too_large"] = True
+
+
+def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912, C901
+    """
+    Extract cacheable data from SCIA results with smart ESA filtering.
+
+    ESA model caching logic:
+    - If ESA > 250MB: Never cached
+    - If ESA < 250MB but total cache > 250MB: ESA excluded to keep cache under limit
+    - If ESA < 250MB and total cache < 250MB: ESA included
 
     Includes:
-    - Parsed DataFrames (cs_envelope_df, etc.)
+    - xml_output (needed for downloads)
+    - Parsed DataFrames (cs_envelope_df, integration_strips, etc.)
     - Summary dict
     - Analysis status
-    - Other small processed data
+    - Other processed data
 
     :param full_results: Complete SCIA analysis results
     :type full_results: dict[str, Any]
@@ -751,8 +800,47 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         if key in full_results:
             cacheable[key] = full_results[key]
 
-    # Exclude: xml_output, esa_model (too large)
-    # Note: Downloads will need to regenerate these if needed
+    # Include xml_output for downloads (moderate size, but needed)
+    if "xml_output" in full_results:
+        cacheable["xml_output"] = full_results["xml_output"]
+
+    # Smart ESA model caching:
+    # First, check cache size without ESA. If adding ESA would exceed 250MB, exclude it.
+    if "esa_model" in full_results:
+        esa_model = full_results["esa_model"]
+        esa_size_bytes = len(esa_model) if esa_model else 0
+        esa_size_mb = esa_size_bytes / (1024 * 1024)
+
+        # Calculate current cache size without ESA
+        import pickle
+
+        test_data = pickle.dumps(cacheable)
+        current_size_mb = len(test_data) / (1024 * 1024)
+        projected_size_mb = current_size_mb + esa_size_mb
+
+        if "summary" not in cacheable:
+            cacheable["summary"] = {}
+        if not isinstance(cacheable["summary"], dict):
+            cacheable["summary"] = {}
+
+        # Use typed variable to help MyPy
+        summary: dict[str, Any] = cacheable["summary"]  # type: ignore[assignment]
+        summary["esa_model_size_mb"] = round(esa_size_mb, 2)
+
+        # Only cache ESA if: 1) ESA < 250MB AND 2) Total cache would be < 250MB
+        if esa_size_mb >= 250:
+            # ESA too large - never cache it
+            summary["esa_model_cached"] = False
+            summary["esa_model_too_large"] = True
+        elif projected_size_mb > 250:
+            # ESA would push cache over 250MB limit - exclude it
+            summary["esa_model_cached"] = False
+            summary["esa_excluded_due_to_size"] = True
+            summary["projected_cache_size_mb"] = round(projected_size_mb, 2)
+        else:
+            # ESA fits within limits - cache it
+            cacheable["esa_model"] = esa_model
+            summary["esa_model_cached"] = True
 
     return cacheable
 
@@ -930,7 +1018,7 @@ def get_cached_analysis_results(  # noqa: PLR0913
         # Store in request-level cache for reuse within this request
         input_hash = cache._generate_input_hash(params, analysis_type, template_path)  # noqa: SLF001
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
-        cache._request_cache[cache_key] = cached_results  # noqa: SLF001
+        AnalysisCache.request_cache[cache_key] = cached_results
         return cached_results
 
     # Run analysis if not cached
