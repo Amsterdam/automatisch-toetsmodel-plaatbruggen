@@ -165,9 +165,10 @@ def determine_failure_status(unity_check_value: str | None) -> str:
 
     try:
         uc_float = float(unity_check_value)
-        return "Ja" if uc_float >= 1.00 else "Nee"
     except (ValueError, TypeError):
         return "N/A"
+    else:
+        return "Ja" if uc_float >= 1.00 else "Nee"
 
 
 def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]:  # noqa: C901, PLR0912
