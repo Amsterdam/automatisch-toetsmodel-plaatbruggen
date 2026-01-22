@@ -238,7 +238,8 @@ class TestCreateExportReport(unittest.TestCase):
         )
 
         # Act & Assert
-        with pytest.raises(AttributeError):
+        # Now raises IndexError because obtain_plate_thickness is called first
+        with pytest.raises(IndexError):
             create_export_report(params)
 
     def test_create_export_report_missing_info_section(self) -> None:
@@ -247,7 +248,8 @@ class TestCreateExportReport(unittest.TestCase):
         params = Munch({})  # Missing info section
 
         # Act & Assert
-        with pytest.raises(AttributeError):
+        # Now raises IndexError because obtain_plate_thickness is called first
+        with pytest.raises(IndexError):
             create_export_report(params)
 
     @patch("src.report.report_functions.DocxTemplate")

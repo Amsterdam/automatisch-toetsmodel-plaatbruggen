@@ -96,6 +96,81 @@ def obtain_loadzone_properties(params: object) -> dict[str, str]:
     return pavement_materials
 
 
+def format_loadzone_properties(pavement_materials: dict[str, str]) -> str:
+    """
+    Convert pavement materials dictionary into a bullet list string suitable for reports.
+
+    :param pavement_materials: Mapping between material names and formatted thickness strings.
+    :type pavement_materials: dict[str, str]
+    :returns: Bullet list string (one material per line) ready for template rendering, with leading newline.
+    :rtype: str
+    """
+    if not pavement_materials:
+        return ""
+    return "\n" + "\n".join(f"- {material}: {thickness}" for material, thickness in pavement_materials.items())
+
+
+def obtain_selected_load_cases(params: object) -> list[str]:
+    """
+    Obtain the list of selected load cases from the load case selection table.
+
+    Extracts all load cases where the 'include' checkbox is checked in the
+    parametrization's load case selection table.
+
+    :param params: Object containing parameters with load case selection information.
+    :type params: object
+    :returns: List of selected load type names with their ranges.
+    :rtype: list[str]
+    """
+    load_case_table = getattr(params, "load_case_selection_table", None)
+
+    selected_cases: list[str] = []
+    if load_case_table is not None:
+        for row in load_case_table:
+            include = getattr(row, "include", False)
+            load_type = getattr(row, "load_type", None)
+            load_case_range = getattr(row, "load_case_range", None)
+
+            if include and load_type is not None and load_case_range is not None:
+                selected_cases.append(f"{load_type} ({load_case_range})")
+
+    return selected_cases
+
+
+def format_selected_load_cases(selected_cases: list[str]) -> str:
+    """
+    Convert selected load cases list into a bullet list string suitable for reports.
+
+    :param selected_cases: List of selected load case descriptions.
+    :type selected_cases: list[str]
+    :returns: Bullet list string (one load case per line) ready for template rendering, with leading newline.
+    :rtype: str
+    """
+    if not selected_cases:
+        return "Geen belastinggevallen geselecteerd"
+    return "\n" + "\n".join(f"- {case}" for case in selected_cases)
+
+
+def determine_failure_status(unity_check_value: str | None) -> str:
+    """
+    Determine if a unity check value indicates failure.
+
+    :param unity_check_value: Unity check value as string (e.g., "0.85", "1.20", "N/A") or None.
+    :type unity_check_value: str | None
+    :returns: "Ja" if UC >= 1.00 (failure), "Nee" if UC < 1.00 (pass), "N/A" if UC is N/A or None.
+    :rtype: str
+    """
+    if unity_check_value is None or unity_check_value == "N/A":
+        return "N/A"
+
+    try:
+        uc_float = float(unity_check_value)
+    except (ValueError, TypeError):
+        return "N/A"
+    else:
+        return "Ja" if uc_float >= 1.00 else "Nee"
+
+
 def obtain_idea_unity_checks(cached_idea_results: dict[str, Any]) -> dict[str, str]:  # noqa: C901, PLR0912
     """
     Extract unity check values from IDEA analysis results per check category.
@@ -233,6 +308,16 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
     if cached_idea_results is not None:
         unity_checks = obtain_idea_unity_checks(cached_idea_results)
 
+    plate_thickness = obtain_plate_thickness(params)
+    load_zone_properties = obtain_loadzone_properties(params)
+    selected_load_cases = obtain_selected_load_cases(params)
+
+    # Determine failure status for each UGT unity check
+    failure_capacity = determine_failure_status(unity_checks.get("Capaciteit", "N/A"))
+    failure_shearforce = determine_failure_status(unity_checks.get("Schuifkracht", "N/A"))
+    failure_torsion = determine_failure_status(unity_checks.get("Torsie", "N/A"))
+    failure_interaction = determine_failure_status(unity_checks.get("Interactie", "N/A"))
+
     context = {
         "BRIDGE_NAME": params.info.bridge_name,
         "BRIDGE_ID": params.info.bridge_objectnumm,
@@ -243,15 +328,10 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
         "TRAFFICCLASS": return_traffic_class(params),
         "CONCRETE_CLASS": params.concrete_strength_class,
         "REINFORCEMENT_CLASS": params.input.geometrie_wapening.staalsoort,
-        "PLATE_THICKNESS1": obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"],
-        "PLATE_THICKNESS2": round(
-            (
-                obtain_plate_thickness(params)["zone_1_1"]["thickness_start_d_line"]
-                + obtain_plate_thickness(params)["zone_2_1"]["thickness_start_d_line"]
-            ),
-            2,
-        ),
-        "LOAD_ZONES": obtain_loadzone_properties(params),
+        "PLATE_THICKNESS1": f"{plate_thickness['zone_1_1']['thickness_start_d_line']:.3f} m",
+        "PLATE_THICKNESS2": f"{plate_thickness['zone_1_1']['thickness_start_d_line'] + plate_thickness['zone_2_1']['thickness_start_d_line']:.3f} m",
+        "LOAD_ZONES": format_loadzone_properties(load_zone_properties),
+        "LOAD_CASES": format_selected_load_cases(selected_load_cases),
         "UC_CAPACITY": unity_checks.get("Capaciteit", "N/A"),
         "UC_SHEARFORCE": unity_checks.get("Schuifkracht", "N/A"),
         "UC_TORSION": unity_checks.get("Torsie", "N/A"),
@@ -259,6 +339,10 @@ def create_export_report(params: Munch, cached_idea_results: dict[str, Any] | No
         "UC_CRACK_WIDTH": unity_checks.get("Scheurwijdte", "N/A"),
         "UC_DETAILING": unity_checks.get("Detailing", "N/A"),
         "UC_STRESSLIMITATION": unity_checks.get("Spanningslimieten", "N/A"),
+        "FAILURE_CAPACITY": failure_capacity,
+        "FAILURE_SHEARFORCE": failure_shearforce,
+        "FAILURE_TORSION": failure_torsion,
+        "FAILURE_INTERACTION": failure_interaction,
     }
     # Render the template
     doc.render(context)
