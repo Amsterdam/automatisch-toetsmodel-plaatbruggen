@@ -186,9 +186,20 @@ class ControllerUtils:
 
     def _get_scia_exception_message(self, e: Exception) -> str:
         """Get appropriate error message based on exception type."""
-        if "license" in str(e).lower():
+        error_str = str(e).lower()
+
+        if any(term in error_str for term in ["memory", "heap", "oom", "out of memory"]):
+            return (
+                "SCIA analyse gefaald door geheugenprobleem.\n\n"
+                "Het model is te groot of complex. Mogelijke oplossingen:\n"
+                "- Vergroot de maasgrootte (mesh size)\n"
+                "- Verminder het aantal brugsegmenten\n"
+                "- Vereenvoudig de belastingzones\n"
+                "- Download de XML bestanden en analyseer handmatig in SCIA"
+            )
+        if "license" in error_str:
             return "SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft."
-        if "worker" in str(e).lower():
+        if "worker" in error_str:
             return "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
         return f"SCIA analyse fout: {str(e)[:200]}..."
 
