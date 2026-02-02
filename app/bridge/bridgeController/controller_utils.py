@@ -175,7 +175,7 @@ class ControllerUtils:
     def _get_scia_timeout_message(self) -> str:
         """Get standardized SCIA timeout error message."""
         return (
-            "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+            "⏱️ SCIA analyse time-out na 60 minuten.\n\n"
             "Mogelijke oplossingen:\n"
             "• Verminder het aantal brugsegmenten\n"
             "• Vereenvoudig de belastingzones\n"
