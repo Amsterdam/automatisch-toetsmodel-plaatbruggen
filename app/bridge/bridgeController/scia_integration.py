@@ -273,7 +273,7 @@ class SciaIntegration:
                 return self._download_scia_esa_model_direct(params, bridge_id)
 
             # No cached results at all - fallback to direct download
-            progress_message("⚠ Geen cache gevonden - nieuwe berekening wordt gestart...")
+            progress_message("Geen cache gevonden - nieuwe berekening wordt gestart...")
             self._raise_analysis_failed_error()  # type: ignore[attr-defined]
 
         except Exception as e:

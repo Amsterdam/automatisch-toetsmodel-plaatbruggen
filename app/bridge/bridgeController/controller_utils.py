@@ -175,19 +175,17 @@ class ControllerUtils:
     def _get_scia_timeout_message(self) -> str:
         """Get standardized SCIA timeout error message."""
         return (
-            "⏱️ SCIA analyse time-out na 60 minuten.\n\n"
+            "SCIA analyse time-out na 60 minuten.\n\n"
             "Mogelijke oplossingen:\n"
-            "• Verminder het aantal brugsegmenten\n"
-            "• Vereenvoudig de belastingzones\n"
-            "• Download de XML bestanden en analyseer handmatig in SCIA\n"
-            "• Probeer het later opnieuw als de server minder belast is\n\n"
+            "- Verminder het aantal brugsegmenten\n"
+            "- Vereenvoudig de belastingzones\n"
+            "- Download de XML bestanden en analyseer handmatig in SCIA\n"
+            "- Probeer het later opnieuw als de server minder belast is\n\n"
             "Als het probleem aanhoudt, neem contact op met support."
         )
 
     def _get_scia_exception_message(self, e: Exception) -> str:
         """Get appropriate error message based on exception type."""
-        if "timeout" in str(e).lower():
-            return "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
         if "license" in str(e).lower():
             return "SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft."
         if "worker" in str(e).lower():
