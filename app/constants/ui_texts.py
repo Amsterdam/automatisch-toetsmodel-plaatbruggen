@@ -239,7 +239,7 @@ Als de resultaten voldoen aan de slagingscriteria, wordt de optimalisatie gestop
 Door op "Start Optimalisatie" te klikken, wordt de optimalisatie gestart.
 Na voltooiing worden de resultaten van de optimalisatieberekeningen weergegeven.
 Het is mogelijk in de resultaten lijst te klikken op een specifieke rij om alle invoergegevens behorende bij die berekening in te laden.
-Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
+Omdat de berekeningen worden gecached, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
 
 **Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
 """
