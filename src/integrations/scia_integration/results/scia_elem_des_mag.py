@@ -6,7 +6,7 @@ based on the input moment and force components.
 """
 
 
-def mxd_plus(mx: float, my: float, mxy: float) -> float:
+def mxd_plus(mx: float, my: float, mxy: float) -> float:  # noqa: ARG001
     """
     Calculate the positive x-direction design moment (mxd+).
 

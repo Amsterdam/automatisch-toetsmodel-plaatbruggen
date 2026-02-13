@@ -97,16 +97,16 @@ class TestTandemSystemVehicle:
         """Test creation of valid tandem vehicle."""
         tandem = TandemSystemVehicle()
         assert tandem.vehicle_type == "tandem"
-        assert tandem.load_main_lane_kn == 300.0
-        assert tandem.load_second_lane_kn == 200.0
+        assert tandem.load_main_lane_kn == 100.0
+        assert tandem.load_second_lane_kn == 100.0
         assert tandem.load_third_lane_kn == 100.0
         assert tandem.wheel_spacing_longitudinal == 1.2
 
     def test_get_load_for_lane(self) -> None:
         """Test the get_load_for_lane method."""
         tandem = TandemSystemVehicle()
-        assert tandem.get_load_for_lane(1) == 300.0
-        assert tandem.get_load_for_lane(2) == 200.0
+        assert tandem.get_load_for_lane(1) == 100.0
+        assert tandem.get_load_for_lane(2) == 100.0
         assert tandem.get_load_for_lane(3) == 100.0
         assert tandem.get_load_for_lane(4) == 100.0  # Third+ lanes use third lane load
 
@@ -323,7 +323,7 @@ class TestVehicleRegistry:
 
     def test_registry_values(self) -> None:
         """Test that registry vehicles have correct load values."""
-        assert STANDARD_VEHICLES.tandem.load_main_lane_kn == 300.0
+        assert STANDARD_VEHICLES.tandem.load_main_lane_kn == 100.0
         assert STANDARD_VEHICLES.service.force_per_axle_kn == 25.0
         assert STANDARD_VEHICLES.accidental.force_axle_1_kn == 80.0
         assert STANDARD_VEHICLES.amsterdam_accidental.force_single_axle_kn == 240.0

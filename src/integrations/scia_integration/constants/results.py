@@ -18,6 +18,7 @@ CS_TABLE_TYPES: tuple[Literal["ULS"], Literal["SLS freq"]] = (
 )
 
 # SCIA table name patterns for CS tables
+# Note: Section on plane results are in the same tables as regular 2D forces
 CS_BASIS_TABLE_PATTERN = "Interne 2D-krachten basis {table_type}"
 CS_ELEMENTAIRE_TABLE_PATTERN = "Interne 2D-krachten elementair {table_type}"
 

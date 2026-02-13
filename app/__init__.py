@@ -1,6 +1,5 @@
 """viktor."""
 
-import logging
 import warnings
 
 # Suppress a specific DeprecationWarning from geopandas._compat.
@@ -21,22 +20,6 @@ warnings.filterwarnings(
     category=UserWarning,
     module="docxcompose.properties",
 )
-
-
-# Also suppress via logging module (for VIKTOR CLI startup logs)
-class _PkgResourcesFilter(logging.Filter):
-    """Filter to suppress pkg_resources deprecation warnings from docxcompose."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Return False to suppress the log record, True to keep it."""
-        message = record.getMessage() if hasattr(record, "getMessage") else str(record.msg)
-        return "pkg_resources is deprecated" not in message
-
-
-# Apply the filter to root logger and common loggers
-for logger_name in [None, "viktor", "root", ""]:
-    logger = logging.getLogger(logger_name)
-    logger.addFilter(_PkgResourcesFilter())
 
 from viktor import InitialEntity  # type: ignore[attr-defined] # noqa: E402
 

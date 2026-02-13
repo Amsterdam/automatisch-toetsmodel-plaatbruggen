@@ -232,3 +232,13 @@ Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken
 
 **Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
 """
+BATCH_CALCULATION_INTRO_TEXT = """Dit is de berekeningspagina voor de batch berekeningen.
+Hier kan je de berekeningen voor alle bruggen tegelijk uitvoeren. Rechts in de tabel is het statusoverzicht te zien.
+De geschatte tijd geeft een indicatie van de tijd die nodig is om alle bruggen te berekenen, die klaar staan.
+Een brug is klaar voor berekening wanneer alle benodigde invoervelden zijn ingevuld. Deze brug wordt dan geel gekleurd.
+Bruggen die nog informatie missen, worden rood gemarkeerd. In de tweede kolom staan de ontbrekende velden aangegeven, die nog ingevuld moeten worden.
+Wanneer de berekeningen klaar zijn, wordt de tabel aangevuld met beknopte resultaten.
+Je kunt vervolgens per brug de resultaten bekijken in de entiteit van de brug zelf.
+
+Let op: Het kan erg lang duren voordat de berekeningen klaar zijn.
+"""

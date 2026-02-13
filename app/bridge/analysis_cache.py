@@ -6,15 +6,18 @@ recalculating when input parameters haven't changed.
 """
 
 import base64
+import contextlib
 import hashlib
 import json
 import pickle
 from collections.abc import Callable
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
 
+import viktor.api_v1 as api
 from viktor.core import File, Storage, progress_message
-from viktor.errors import UserError
+from viktor.errors import InternalError, UserError
 from viktor.external import idea_rcs
 
 from app.bridge.scia_model_builder import get_scia_analysis_results
@@ -24,6 +27,8 @@ from src.integrations.idea_integration.idea_interface import create_bridge_idea_
 from src.integrations.idea_integration.scia_to_idea_functions import (
     process_scia_cs_results_for_idea,
 )
+
+STORAGE_WARNING_MARKER_KEY = "storage_warning_state"
 
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
@@ -40,24 +45,64 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
-    """Run IDEA analysis and extract results."""
+def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
+    """
+    Run IDEA analysis and extract results.
+
+    :param params: Bridge parameters
+    :param entity_id: Entity ID
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :returns: Dictionary with analysis results
+    """
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
     # First get SCIA results needed for IDEA
-    progress_message("Ophalen SCIA resultaten voor IDEA analyse...")
-    scia_results_dict = get_scia_results_for_idea(params, entity_id)
+    progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA analyse...", percentage=percentage)
+    scia_results_dict = get_scia_results_for_idea(params, entity_id, analysis_context)
 
     # Create IDEA model with the SCIA results
-    progress_message("Genereren IDEA model...")
-    model = create_bridge_idea_model(params, entity_id, scia_results_dict)
-    idea_xml_input_bytes = model.generate_xml_input()
+    progress_message(f"{prefix}Genereren IDEA model...", percentage=percentage)
+    try:
+        model = create_bridge_idea_model(params, entity_id, scia_results_dict)
+    except UserError:
+        # Re-raise UserError as-is (already has helpful message)
+        raise
+    except Exception as e:
+        # Wrap other exceptions with helpful context
+        raise UserError(
+            f"IDEA model generatie gefaald: {e!s}. "
+            "Mogelijk zijn de brugparameters gewijzigd na een eerdere berekening. "
+            "Probeer de cache te wissen en opnieuw te berekenen."
+        ) from e
+
+    # Generate XML input - this may raise ExecutionError from IDEA SDK
+    try:
+        idea_xml_input_bytes = model.generate_xml_input()
+    except Exception as e:
+        # IDEA SDK may raise ExecutionError with "Idea model cannot be generated"
+        error_msg = str(e)
+        if "cannot be generated" in error_msg.lower() or "cannot be generated" in error_msg:
+            raise UserError(
+                "IDEA model kan niet worden gegenereerd. "
+                "Mogelijke oorzaken: geen dwarsdoorsneden gemaakt, geen belastingen toegepast, of ongeldige geometrie. "
+                "Controleer of de wapeningszones overeenkomen met de brugsegmenten en of SCIA resultaten beschikbaar zijn. "
+                "Als de brugparameters zijn gewijzigd, wis de cache en voer een nieuwe berekening uit."
+            ) from e
+        raise UserError(f"IDEA model XML generatie gefaald: {e!s}") from e
 
     # Run IDEA analysis
-    progress_message("Uitvoeren IDEA RCS analyse...")
+    progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
     analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
     analysis.execute(600)
 
     # Get the IDEA RCS model and output XML
-    progress_message("Verwerken IDEA analyse resultaten...")
+    progress_message(f"{prefix}Verwerken IDEA analyse resultaten...", percentage=percentage)
     idea_rcs_model = analysis.get_idea_rcs_file(as_file=False)
     idea_output_xml_bytes = analysis.get_output_file(as_file=False)
 
@@ -66,7 +111,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
 
     results: dict[str, Any] = {}
     try:
-        progress_message("Parsen IDEA output...")
+        progress_message(f"{prefix}Parsen IDEA output...", percentage=percentage)
         parser = idea_rcs.RcsOutputFileParser(BytesIO(output_content))
         section_results = []
         for section in parser.section_results():
@@ -147,7 +192,7 @@ def get_idea_analysis_results(params: Any, entity_id: int) -> dict[str, Any]:  #
     return results
 
 
-def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
     """
     Get SCIA results that are needed for IDEA analysis.
 
@@ -159,10 +204,20 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
     :type params: Any
     :param entity_id: Entity ID for caching
     :type entity_id: int
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :type analysis_context: dict[str, Any] | None
     :returns: Dictionary containing processed SCIA node, CS, and integration strip results for IDEA
     :rtype: dict[str, Any]
     :raises UserError: If bridge segments are missing or analysis fails
     """
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
     # Get entity ID for caching
     if not isinstance(entity_id, int):
         raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
@@ -172,8 +227,8 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
         template_path = SCIA_TEMPLATE_PATH
 
         # Use cached SCIA analysis results instead of calling directly
-        progress_message("Ophalen SCIA resultaten voor IDEA verwerking...")
-        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
+        progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA verwerking...", percentage=percentage)
+        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path), analysis_context)
 
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
@@ -191,7 +246,8 @@ def get_scia_results_for_idea(params: Any, entity_id: int) -> dict[str, Any]:  #
 
     # Always process through process_scia_cs_results_for_idea to ensure proper column naming
     # This function is smart - it will use cached df_cs_envelope if available
-    progress_message("Verwerken SCIA CS resultaten voor IDEA...")
+    # This returns a single DataFrame with filtered ULS and SLS freq envelope data
+    progress_message(f"{prefix}Verwerken SCIA CS resultaten voor IDEA...", percentage=percentage)
     cs_envelope_df = process_scia_cs_results_for_idea(results, bridge_segments)
 
     # Return results dictionary with the envelope DataFrame
@@ -220,6 +276,35 @@ class AnalysisCache:
         """Initialize the analysis cache with VIKTOR Storage."""
         self.storage = Storage()
         self._hash_cache: dict[tuple[int, str, str | None], str] = {}  # Cache for computed hashes
+        self._entity_cache: dict[int, Any] = {}  # Cache for entity objects
+        self._request_cache: dict[str, dict[str, Any]] = {}  # Request-level cache for analysis results
+
+    def _write_storage_warning(self, message: str) -> None:
+        """Persist a workspace-level warning so the UI can notify the user."""
+        try:
+            payload = json.dumps(
+                {
+                    "message": message,
+                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+                }
+            )
+            self.storage.set(
+                STORAGE_WARNING_MARKER_KEY,
+                data=File.from_data(payload),
+                scope="workspace",
+            )
+        except Exception:
+            # If storage is already inaccessible we cannot do much—ignore.
+            pass
+
+    def _clear_storage_warning(self) -> None:
+        """Remove the workspace warning marker once storage succeeds again."""
+        try:
+            self.storage.delete(STORAGE_WARNING_MARKER_KEY, scope="workspace")
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
 
     def _extract_params(self, params: Any, analysis_type: AnalysisType, template_path: str | None = None) -> dict[str, Any]:  # noqa: ANN401
         """
@@ -266,6 +351,26 @@ class AnalysisCache:
         self._hash_cache[cache_key] = computed_hash
         return computed_hash
 
+    def _get_entity(self, entity_id: int) -> Any:  # noqa: ANN401
+        """
+        Get entity object for the given entity ID with memoization.
+
+        This retrieves the entity so it can be passed to Storage methods
+        for cross-entity storage access per VIKTOR SDK documentation.
+
+        :param entity_id: Entity ID
+        :type entity_id: int
+        :returns: Entity object or None if unavailable
+        :rtype: Any
+        """
+        if entity_id not in self._entity_cache:
+            try:
+                entity_obj = api.API().get_entity(entity_id)
+                self._entity_cache[entity_id] = entity_obj
+            except Exception:
+                self._entity_cache[entity_id] = None
+        return self._entity_cache[entity_id]
+
     def get_cached_analysis(
         self,
         params: Any,  # noqa: ANN401
@@ -274,13 +379,25 @@ class AnalysisCache:
         template_path: str | None = None,
     ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
+        cache_key = ""
         try:
             # Generate hash (with memoization - this should be fast on subsequent calls)
             input_hash = self._generate_input_hash(params, analysis_type, template_path)
             cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
-            # Storage retrieval is the potentially slow operation
-            cached_file = self.storage.get(cache_key, scope="entity")
+            # Check request-level cache first (fastest - in-memory)
+            if cache_key in self._request_cache:
+                return self._request_cache[cache_key]
+
+            # Get entity object for cross-entity storage access
+            entity = self._get_entity(entity_id)
+
+            # Storage retrieval from entity scope
+            if entity is not None:
+                cached_file = self.storage.get(cache_key, scope="entity", entity=entity)
+            else:
+                # Fallback: use current entity scope if API unavailable
+                cached_file = self.storage.get(cache_key, scope="entity")
             if cached_file:
                 # Read the base64-encoded data
                 if hasattr(cached_file, "getvalue"):
@@ -297,32 +414,176 @@ class AnalysisCache:
 
                 # Decode from base64 and unpickle
                 cached_data = base64.b64decode(encoded_data)
-                return pickle.loads(cached_data)
-        except Exception:
-            pass
+                results = pickle.loads(cached_data)
+
+                # Store in request-level cache for subsequent views in same request
+                self._request_cache[cache_key] = results
+                return results
+        except Exception as e:
+            if isinstance(e, InternalError):
+                self._write_storage_warning(f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})")
 
         return None
 
-    def cache_analysis_results(
+    def _attempt_storage_cleanup_and_retry(
+        self,
+        _entity_id: int,
+        cache_key: str,
+        cached_file: File,
+    ) -> bool:
+        """
+        Attempt to free up storage space and retry cache save.
+
+        When storage is full (5 GB limit), this method:
+        1. Clears ALL cache files from current entity
+        2. Clears workspace markers
+        3. Retries the cache save once
+        4. Returns success/failure
+
+        :param entity_id: Entity ID for logging
+        :type entity_id: int
+        :param cache_key: Cache key to save
+        :type cache_key: str
+        :param cached_file: File object to save
+        :type cached_file: File
+        :returns: True if retry succeeded, False otherwise
+        :rtype: bool
+        """
+        try:
+            # 1. Clear ALL cache files from current entity's storage
+            try:
+                entity_keys = self.storage.list(scope="entity")
+                for key in entity_keys:
+                    if key.startswith("analysis_cache_"):
+                        with contextlib.suppress(Exception):
+                            self.storage.delete(key, scope="entity")
+            except Exception:
+                pass
+
+            # 2. Clear workspace markers and batch results
+            try:
+                workspace_keys = self.storage.list(scope="workspace")
+                for key in workspace_keys:
+                    if key.startswith(("bridge_", "batch_calculation_", "analysis_cache_")):
+                        with contextlib.suppress(Exception):
+                            self.storage.delete(key, scope="workspace")
+            except Exception:
+                pass
+
+            # 3. Retry the cache save
+            self.storage.set(cache_key, data=cached_file, scope="entity")
+            return True  # noqa: TRY300
+        except Exception:
+            return False
+
+    def cache_analysis_results(  # noqa: C901, PLR0912
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,
         entity_id: int,
         results: dict[str, Any],
         template_path: str | None = None,
-    ) -> None:
-        """Cache analysis results."""
+    ) -> bool:
+        """
+        Cache analysis results.
+
+        :returns: True if caching succeeded, False if it failed
+        :rtype: bool
+        """
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
         try:
-            # Pickle the results and encode as base64 to avoid binary data issues
-            cached_data = pickle.dumps(results)
+            # Filter results to exclude large binary files (ESA, XML output)
+            if analysis_type == AnalysisType.SCIA:
+                cacheable_results = extract_cacheable_scia_results(results)
+            elif analysis_type == AnalysisType.IDEA:
+                cacheable_results = extract_cacheable_idea_results(results)
+            else:
+                cacheable_results = results  # Fallback
+
+            # Pickle the filtered results and encode as base64 to avoid binary data issues
+            cached_data = pickle.dumps(cacheable_results)
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
+            size_mb = len(encoded_data) / (1024 * 1024)
+
+            # Size check: Skip caching if data is too large (> 20 MB)
+            max_cache_size_mb = 20
+            if size_mb > max_cache_size_mb:
+                return False
+
             cached_file = File.from_data(encoded_data)
-            self.storage.set(cache_key, data=cached_file, scope="entity")
+
+            # CRITICAL: Delete old cache files for this entity + analysis type BEFORE saving new one.
+            # In practice the entire Storage() API (list/get/set/delete) starts throwing InternalError once
+            # the workspace quota is saturated. We therefore avoid Storage.list() and rely on the workspace
+            # marker to know exactly which cache key to delete. If even Storage.get(marker_key) fails we
+            # simply log it and continue – the next calculation will have to recalc until someone purges
+            # storage manually (cache button, viktor-cli clear, or platform support).
+            try:
+                import json
+
+                # Read workspace marker to get old hash
+                marker_key = f"bridge_{entity_id}_{analysis_type.value}_cache_status"
+                marker_file = self.storage.get(marker_key, scope="workspace")
+                marker_data = json.loads(marker_file.getvalue())
+                old_hash = marker_data.get("cached_hash")
+
+                if old_hash and old_hash != input_hash:
+                    # Construct old cache key from marker and delete it
+                    old_cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{old_hash}"
+                    try:
+                        self.storage.delete(old_cache_key, scope="entity")
+                    except Exception as delete_error:
+                        if isinstance(delete_error, InternalError):
+                            self._write_storage_warning(f"Opslag verwijderen mislukt voor {old_cache_key}")
+            except FileNotFoundError:
+                pass
+            except Exception as marker_error:
+                if isinstance(marker_error, InternalError):
+                    self._write_storage_warning(f"Opslag lezen van cache marker mislukt ({analysis_type.value})")
+
+            # Get entity object for cross-entity storage access
+            entity = self._get_entity(entity_id)
+
+            # Write to local entity storage
+            try:
+                if entity is not None:
+                    self.storage.set(cache_key, data=cached_file, scope="entity", entity=entity)
+                else:
+                    # Fallback: use current entity scope if API unavailable
+                    self.storage.set(cache_key, data=cached_file, scope="entity")
+                self._clear_storage_warning()
+
+                # Store in request-level cache as well
+                self._request_cache[cache_key] = cacheable_results
+
+                # Notify parent entity of cache status
+                notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
+                return True  # noqa: TRY300
+
+            except Exception as storage_error:
+                if isinstance(storage_error, InternalError):
+                    self._write_storage_warning(f"Opslag schrijven mislukt voor {cache_key}")
+
+                    # Attempt automatic cleanup and retry
+                    cleanup_success = self._attempt_storage_cleanup_and_retry(entity_id, cache_key, cached_file)
+
+                    if cleanup_success:
+                        # Cleanup worked! Notify parent and return success
+                        with contextlib.suppress(Exception):
+                            notify_parent_of_cache_status(entity_id, analysis_type, input_hash)
+
+                        self._clear_storage_warning()
+                        return True
+                    # Cleanup failed - use fail-safe
+                    return False
+                # Not a storage error, just fail gracefully
+                return False
+
         except Exception:
-            pass
+            # General error during caching setup
+            return False
 
     def clear_cache(self, entity_id: int, analysis_type: AnalysisType | None = None) -> None:
         """Clear cache for a specific entity and analysis type."""
@@ -389,30 +650,265 @@ def _get_analysis_cache() -> AnalysisCache:
     return _analysis_cache
 
 
-def get_cached_analysis_results(
+def notify_parent_of_cache_status(
+    entity_id: int,
+    analysis_type: AnalysisType,
+    cache_hash: str,
+) -> None:
+    """
+    Notify parent entity that this bridge has cached results.
+
+    Writes a lightweight marker file to parent's storage so the overview
+    can check cache status without cross-entity storage access.
+
+    :param entity_id: Bridge entity ID
+    :type entity_id: int
+    :param analysis_type: Analysis type (SCIA or IDEA)
+    :type analysis_type: AnalysisType
+    :param cache_hash: Hash of cached parameters
+    :type cache_hash: str
+    :returns: None
+    :rtype: None
+    """
+    try:
+        # Get parent entity
+        current_entity = api.API().get_entity(entity_id)
+        parent_entity = current_entity.parent()
+
+        if parent_entity is None:
+            return
+
+        # Create marker data
+        marker_data = {
+            "entity_id": entity_id,
+            "analysis_type": analysis_type.value,
+            "cache_hash": cache_hash,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+        # Write to parent storage
+        marker_key = f"bridge_{entity_id}_{analysis_type.value}_cache_status"
+        marker_json = json.dumps(marker_data)
+        marker_file = File.from_data(marker_json)
+
+        # Write to workspace storage (accessible by all entities)
+        parent_storage = Storage()
+        parent_storage.set(marker_key, data=marker_file, scope="workspace")
+    except Exception:
+        # Don't fail the analysis if parent notification fails
+        pass
+
+
+def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extract only cacheable data from SCIA results (exclude large binary files).
+
+    Excludes:
+    - xml_output (10+ MB raw XML)
+    - esa_model (50+ MB binary ESA file)
+    - Large raw data in xml_parsing
+
+    Includes:
+    - Parsed DataFrames (cs_envelope_df, etc.)
+    - Summary dict
+    - Analysis status
+    - Other small processed data
+
+    :param full_results: Complete SCIA analysis results
+    :type full_results: dict[str, Any]
+    :returns: Filtered results suitable for caching
+    :rtype: dict[str, Any]
+    """
+    cacheable = {
+        "analysis_status": full_results.get("analysis_status"),
+        "summary": full_results.get("summary"),
+    }
+
+    # Include df_cs_envelope if present (parsed, relatively small)
+    if "df_cs_envelope" in full_results:
+        cacheable["df_cs_envelope"] = full_results["df_cs_envelope"]
+
+    # Include CS dataframes if present (needed for CS ULS/SLS freq views)
+    if "df_cs_uls" in full_results:
+        cacheable["df_cs_uls"] = full_results["df_cs_uls"]
+    if "df_cs_sls_freq" in full_results:
+        cacheable["df_cs_sls_freq"] = full_results["df_cs_sls_freq"]
+
+    # Include other DataFrames/parsed results (small)
+    for key in ["displacements", "internal_forces", "reactions", "stresses"]:
+        if key in full_results:
+            cacheable[key] = full_results[key]
+
+    # Exclude: xml_output, esa_model (too large)
+    # Note: Downloads will need to regenerate these if needed
+
+    return cacheable
+
+
+def extract_cacheable_idea_results(full_results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extract only cacheable data from IDEA results (exclude large binary files).
+
+    Excludes:
+    - idea_xml_input_bytes (can regenerate from model)
+    - output_content (large raw output bytes)
+    - Full model object if it contains large binary data
+
+    Includes:
+    - Parsed section results
+    - Analysis status
+    - Capacity ratios, utilization data
+    - Other small processed data
+
+    :param full_results: Complete IDEA analysis results
+    :type full_results: dict[str, Any]
+    :returns: Filtered results suitable for caching
+    :rtype: dict[str, Any]
+    """
+    cacheable = {
+        "analysis_status": full_results.get("analysis_status"),
+    }
+
+    # Include section_results (parsed, small)
+    if "section_results" in full_results:
+        cacheable["section_results"] = full_results["section_results"]
+
+    # Include error if present
+    if "error" in full_results:
+        cacheable["error"] = full_results["error"]
+
+    # Exclude: idea_xml_input_bytes, output_content, model (too large or regenerable)
+    # Note: XML download will regenerate from params if needed
+
+    return cacheable
+
+
+def has_valid_scia_cache_for_idea(params: Any, entity_id: int) -> bool:  # noqa: ANN401
+    """
+    Check if valid SCIA cache exists that can be used for IDEA analysis.
+
+    This validates the cache by attempting to process it the same way IDEA does,
+    ensuring the cache contains the required CS table data.
+
+    :param params: Bridge parametrization
+    :type params: Any
+    :param entity_id: Bridge entity ID
+    :type entity_id: int
+    :returns: True if SCIA cache exists and can be processed for IDEA, False otherwise
+    :rtype: bool
+    """
+    cache = _get_analysis_cache()
+    template_path = str(SCIA_TEMPLATE_PATH)
+
+    # Check if SCIA cache exists using the same method as get_cached_analysis_results
+    scia_results = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, template_path)
+    if scia_results is None:
+        return False
+
+    # Validate cache by trying to process it the same way IDEA does
+    # This ensures the cache contains the required CS table data
+    try:
+        # Get bridge segments from params
+        bridge_segments = params.bridge_segments_array if hasattr(params, "bridge_segments_array") else None
+        if bridge_segments is None or not isinstance(bridge_segments, list) or len(bridge_segments) == 0:
+            return False
+
+        # Try to process the results the same way IDEA does
+        cs_envelope_df = process_scia_cs_results_for_idea(scia_results, bridge_segments)
+
+        # If processing succeeds and returns non-empty DataFrame, cache is valid
+        return cs_envelope_df is not None and hasattr(cs_envelope_df, "empty") and not cs_envelope_df.empty
+    except Exception:
+        # Processing failed - cache is invalid or incomplete
+        return False
+
+
+def has_valid_idea_cache(params: Any, entity_id: int, expected_hash: str | None = None) -> bool:  # noqa: ANN401
+    """
+    Check if valid IDEA cache exists for the given parameters.
+
+    If expected_hash is provided, compares it with current parameters hash.
+    Only returns True if hashes match AND cache exists (ensures parameters haven't changed).
+    Otherwise, checks if cache exists for current parameters.
+
+    :param params: Bridge parametrization (used to generate hash for comparison)
+    :type params: Any
+    :param entity_id: Bridge entity ID
+    :type entity_id: int
+    :param expected_hash: Optional cache hash from batch results to validate against current params
+    :type expected_hash: str | None
+    :returns: True if IDEA cache exists and parameters match, False otherwise
+    :rtype: bool
+    """
+    cache = _get_analysis_cache()
+
+    # Generate hash for current parameters
+    # Note: Using private method _generate_input_hash for cache consistency
+    current_hash = cache._generate_input_hash(params, AnalysisType.IDEA, None)  # noqa: SLF001
+
+    # If expected_hash is provided, it must match current hash exactly
+    # This ensures that if parameters changed, cache is considered invalid
+    if expected_hash is not None:
+        if current_hash != expected_hash:
+            # Hash mismatch - parameters changed, cache is invalid
+            return False
+        # Hashes match - check if cache exists for this hash
+        cache_key = f"analysis_cache_{entity_id}_{AnalysisType.IDEA.value}_{expected_hash}"
+        try:
+            cached_file = cache.storage.get(cache_key, scope="entity")
+        except Exception:
+            return False
+        else:
+            return cached_file is not None
+
+    # Otherwise, check cache for current parameters
+    idea_results = cache.get_cached_analysis(params, AnalysisType.IDEA, entity_id)
+    return idea_results is not None
+
+
+def get_cached_analysis_results(  # noqa: PLR0913
     params: Any,  # noqa: ANN401
     analysis_type: AnalysisType,
     entity_id: int,
     analysis_function: Callable[..., dict[str, Any]],
     template_path: str | None = None,
+    analysis_context: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Get cached analysis results or run analysis if not cached."""
+    """
+    Get cached analysis results or run analysis if not cached.
+
+    :param params: Bridge parameters
+    :param analysis_type: Type of analysis (SCIA or IDEA)
+    :param entity_id: Entity ID
+    :param analysis_function: Function to run if cache miss
+    :param template_path: Optional template path for SCIA
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :returns: Analysis results dictionary or None
+    """
     cache = _get_analysis_cache()
 
-    # Try to get cached results (hash computation is fast)
-    progress_message(f"Controleren cache voor {analysis_type.value.upper()} analyse...")
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    # Try to get cached results (hash computation is fast with memoization)
+    progress_message(f"{prefix}Controleren op gecachte resultaten...", percentage=percentage)
     cached_results = cache.get_cached_analysis(params, analysis_type, entity_id, template_path)
     if cached_results is not None:
-        progress_message("Gecachte resultaten gevonden - laden...")
+        progress_message(f"{prefix}✓ Cache gevonden - resultaten worden geladen...")
         return cached_results
 
     # Run analysis if not cached
-    progress_message(f"⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
+    progress_message(f"{prefix}⚠ Geen cache gevonden - nieuwe {analysis_type.value.upper()} analyse wordt gestart...")
     # Call the analysis function based on analysis type
     if analysis_type == AnalysisType.SCIA:
-        results = analysis_function(params, template_path)
+        results = analysis_function(params, template_path, analysis_context)
     elif analysis_type == AnalysisType.IDEA:
-        results = analysis_function(params, entity_id)
+        results = analysis_function(params, entity_id, analysis_context)
     else:
         # Fallback: try calling with just params
         raise UserError("Unsupported analysis type for caching.")

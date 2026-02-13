@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from viktor.core import Storage
 from viktor.errors import UserError
 from viktor.parametrization import (
     BooleanField,
@@ -30,6 +31,7 @@ from viktor.parametrization import (
     TextField,
 )
 
+from app.bridge.analysis_cache import STORAGE_WARNING_MARKER_KEY
 from app.constants import (
     BRIDGE_DATA_PATH,
     CALCULATION_LEVEL_OPTIONS,
@@ -137,6 +139,51 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         counts["Tandem systeem belastingen"] = 30  # Estimated
 
     return counts
+
+
+# --- Storage warning helpers -------------------------------------------------
+
+
+def _read_storage_warning_marker() -> dict[str, str] | None:
+    """Read the workspace storage warning marker if it exists."""
+    storage = Storage()
+    try:
+        warning_file = storage.get(STORAGE_WARNING_MARKER_KEY, scope="workspace")
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        return {"message": f"Opslagstatus onbekend (lezen mislukt: {exc})", "timestamp": ""}
+
+    raw_value = warning_file.getvalue()
+    if isinstance(raw_value, bytes):
+        raw_value = raw_value.decode("utf-8")
+
+    try:
+        data = json.loads(raw_value)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    return {"message": str(raw_value), "timestamp": ""}
+
+
+def _storage_warning_visible(params, **kwargs) -> bool:  # noqa: ANN001, ARG001
+    """Visibility callback that returns True when a storage warning marker exists."""
+    return _read_storage_warning_marker() is not None
+
+
+def _storage_warning_message(params, **kwargs) -> str:  # noqa: ANN001, ARG001
+    """Return the warning message (including timestamp) shown to the user."""
+    payload = _read_storage_warning_marker()
+    if not payload:
+        return ""
+
+    message = payload.get("message") or "Opslaglimiet bereikt."
+    timestamp = payload.get("timestamp")
+    if timestamp:
+        return f"{message} (laatst bijgewerkt: {timestamp} UTC)"
+    return message
 
 
 # --- Helper functions for Bridge Data Loading ---
@@ -783,6 +830,17 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     # --- Invoer Page -> Dimensions tab ---
     # ----------------------------------------
 
+    input.dimensions.storage_warning_alert = Text(
+        "⚠️ Opslaglimiet bereikt\nWis de workspace cache met de knop op het statusoverzicht of hergenereer alle entities.",
+        visible=_storage_warning_visible,
+    )
+    input.dimensions.storage_warning_details = OutputField(
+        "Opslagstatus",
+        value=_storage_warning_message,
+        visible=_storage_warning_visible,
+        flex=100,
+    )
+
     input.dimensions.segment_explanation = Text(DIMENSIONS_SEGMENTS_EXPLANATION)
 
     # Global input fields for applying dimensions to all segments
@@ -1243,7 +1301,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "Spreiding van verkeersbelasting",
         default=True,
         name="spreiding",
-        description="Indien aangevinkt, wordt de verticale verkeersbelasting van BG6000 tot en met BG10000, uitgespreid over een breder vlak",
+        description="Indien aangevinkt, wordt de verticale verkeersbelasting van de BG6000 tot en met de BG11000 serie,\
+        uitgespreid over een breder vlak.",
     )
 
     # ----------------------------------

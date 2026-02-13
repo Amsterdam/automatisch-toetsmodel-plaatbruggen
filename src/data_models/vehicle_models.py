@@ -114,9 +114,9 @@ class TandemSystemVehicle(BaseModel):
     wheel_spacing_longitudinal: float = Field(default=1.2, gt=0, le=5, description="Distance between axles in meters")
     wheel_spacing_transverse: float = Field(default=2.0, gt=0, le=5, description="Distance between left/right wheels in meters")
 
-    # Load values (from constants: TANDEM_LOAD_BASE_MAIN, TANDEM_LOAD_BASE_SECOND, TANDEM_LOAD_BASE_THIRD)
-    load_main_lane_kn: float = Field(default=300.0, gt=0, le=500, description="Load for main lane in kN")
-    load_second_lane_kn: float = Field(default=200.0, gt=0, le=500, description="Load for second lane in kN")
+    # Load values (base load scaled per lane factor; stored in kN for documentation)
+    load_main_lane_kn: float = Field(default=100.0, gt=0, le=500, description="Load for main lane in kN")
+    load_second_lane_kn: float = Field(default=100.0, gt=0, le=500, description="Load for second lane in kN")
     load_third_lane_kn: float = Field(default=100.0, gt=0, le=500, description="Load for third lane in kN")
 
     vehicle_type: Literal["tandem"] = Field(default="tandem", description="Vehicle type identifier")

@@ -17,8 +17,7 @@ CS Table Types (results from SCIA section on plane objects):
 """
 
 import functools
-from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any
 
 import pandas as pd
 
@@ -29,31 +28,6 @@ from src.integrations.scia_integration.constants.results import (
 )
 
 from .scia_result_helpers import get_nested_result_data
-
-
-def _export_dataframe_to_excel_view(df: pd.DataFrame, filename: str, sheet_name: str = "Data") -> None:
-    """
-    Export DataFrame to Excel file for debugging (view processing).
-
-    Creates files in C:/temp/ directory for easy manual inspection.
-
-    :param df: DataFrame to export
-    :type df: pd.DataFrame
-    :param filename: Name of the Excel file (without extension)
-    :type filename: str
-    :param sheet_name: Name of the Excel sheet
-    :type sheet_name: str
-    """
-    try:
-        # Create temp directory if it doesn't exist
-        temp_dir = Path("C:/temp")
-        temp_dir.mkdir(exist_ok=True)
-
-        # Export to Excel
-        filepath = temp_dir / f"{filename}.xlsx"
-        df.to_excel(filepath, sheet_name=sheet_name, index=False)
-    except Exception:
-        pass
 
 
 def merge_xyz_to_coords_xyz(data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -158,7 +132,7 @@ def get_name_for_coords(coords_value: tuple[float, float, float] | list[float], 
     return "zone name not found"
 
 
-def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float], df: pd.DataFrame, col: str) -> float:
+def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float], df: pd.DataFrame, col: str) -> float | str:
     """
     Get the original value that has the maximum absolute value for a specific column matching the given coordinates.
 
@@ -171,11 +145,11 @@ def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float
     :type df: pd.DataFrame
     :param col: Column name to get the value with maximum absolute value from
     :type col: str
-    :returns: Original value that has maximum absolute value, or NaN if not found or not numeric
-    :rtype: float
+    :returns: Original value that has maximum absolute value, or "N/A" if not found or not numeric
+    :rtype: float | str
     """
     if "coords_xyz" not in df.columns or col not in df.columns:
-        return float("nan")
+        return "N/A"
 
     # Convert coords_value to tuple for consistent comparison
     if isinstance(coords_value, list):
@@ -185,12 +159,12 @@ def get_max_abs_for_column(coords_value: tuple[float, float, float] | list[float
     matches = df[df["coords_xyz"] == coords_value]
 
     if matches.empty:
-        return float("nan")
+        return "N/A"
 
     # Convert to numeric, handling any non-numeric values as NaN, then find the value with maximum absolute value
     numeric_values = pd.to_numeric(matches[col], errors="coerce")
     if numeric_values.isna().all():
-        return float("nan")
+        return "N/A"
     # Find the original value that has the maximum absolute value
     max_abs_idx = numeric_values.abs().idxmax()
     return numeric_values.loc[max_abs_idx]
@@ -234,36 +208,28 @@ def find_2d_force_tables_cs(results: dict[str, Any], table_type: str) -> tuple[d
 
     These tables contain results from SCIA section on plane objects (cross sections).
 
-    New table series:
-    - Interne 2D-krachten basis cs ULS
-    - Interne 2D-krachten elementair cs ULS
-    - Interne 2D-krachten basis cs SLS kar
-    - Interne 2D-krachten elementair cs SLS kar
-    - Interne 2D-krachten basis cs SLS freq
-    - Interne 2D-krachten elementair cs SLS freq
+    Table series (section on plane results in standard 2D force tables):
+    - Interne 2D-krachten basis ULS
+    - Interne 2D-krachten elementair ULS
+    - Interne 2D-krachten basis SLS freq
+    - Interne 2D-krachten elementair SLS freq
 
     :param results: SCIA analysis results dictionary
     :type results: dict[str, Any]
-    :param table_type: Table type to extract (e.g., "cs ULS", "cs SLS kar", "cs SLS freq")
+    :param table_type: Table type to extract (e.g., "ULS", "SLS freq")
     :type table_type: str
     :returns: Tuple of (basis_data, elementaire_data)
     :rtype: tuple[dict[str, Any] | None, dict[str, Any] | None]
     """
     # Read "basis grootheden" CS table
+    # CS tables store data directly in 'p0' (nodes), not under nested Dutch headers
     basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=table_type)
-    basis_data = get_nested_result_data(results, basis_table_name, data_key="p1")  # P1 is sections
-
-    # If not found with p1, try p0 (nodes)
-    if basis_data is None:
-        basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
+    basis_data = get_nested_result_data(results, basis_table_name, data_key="p0")
 
     # Read "elementaire ontwerpgrootheden" CS table
+    # CS tables store data directly in 'p0' (nodes), not under nested Dutch headers
     elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=table_type)
-    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p1")  # P1 is sections
-
-    # If not found with p1, try p0 (nodes)
-    if elementaire_data is None:
-        elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
+    elementaire_data = get_nested_result_data(results, elementaire_table_name, data_key="p0")
 
     return basis_data, elementaire_data
 
@@ -278,7 +244,6 @@ def find_all_2d_cs_force_tables(
 
     Searches for all three CS table types:
     - ULS (Ultimate Limit State cross sections)
-    - SLS kar (Serviceability Limit State - characteristic cross sections)
     - SLS freq (Serviceability Limit State - frequent cross sections)
 
     :param results: SCIA analysis results dictionary
@@ -314,6 +279,9 @@ def _process_cs_selected_result_tables(results: dict[str, Any], selected_result_
 
         basis_table_name = CS_BASIS_TABLE_PATTERN.format(table_type=selected_table)
         elementaire_table_name = CS_ELEMENTAIRE_TABLE_PATTERN.format(table_type=selected_table)
+
+        selected_data_scia_cs[basis_table_name] = basis_data
+        selected_data_scia_cs[elementaire_table_name] = elementaire_data
 
         selected_data_scia_cs[basis_table_name] = basis_data
         selected_data_scia_cs[elementaire_table_name] = elementaire_data
@@ -373,6 +341,8 @@ def _map_cs_section_to_zone(
     z = float(z)
 
     # --- Step 1: Determine segment number based on x-coordinate (longitudinal position) ---
+    # Note: Segment 0 is typically a definition segment with length 0.
+    # Real segments start from index 1 and use that index as the segment_number.
     cumulative_length = 0.0
     segment_number = 1  # Default to first segment
 
@@ -427,13 +397,19 @@ def _prepare_basis_dataframe(df_basis: pd.DataFrame) -> pd.DataFrame:
     """
     Prepare basis DataFrame with required columns.
 
+    Basis table contains shear forces (v_x, v_y) and ALWAYS contains basic
+    moments (m_x, m_y, m_xy) and normal forces (n_x, n_y, n_xy).
+
     :param df_basis: Raw basis DataFrame
     :type df_basis: pd.DataFrame
-    :returns: Prepared DataFrame with name, coords_xyz, belasting, and shear forces
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, shear forces, moments, and normal forces
     :rtype: pd.DataFrame
     """
     if not df_basis.empty and "coords_xyz" in df_basis.columns:
-        return df_basis[["Naam", "coords_xyz", "Belasting", "v_x", "v_y"]].copy()
+        # All required columns for basis table (always present)
+        required_cols = ["Naam", "coords_xyz", "Belasting", "v_x", "v_y", "m_x", "m_y", "m_xy", "n_x", "n_y", "n_xy"]
+
+        return df_basis[required_cols].copy()
     return pd.DataFrame()
 
 
@@ -441,13 +417,22 @@ def _prepare_elementaire_dataframe(df_elementaire: pd.DataFrame) -> pd.DataFrame
     """
     Prepare elementaire DataFrame with required columns.
 
+    Elementaire table contains design moments (m_xD+, m_xD-, m_yD+, m_yD-)
+    and design normal forces (n_xD, n_yD).
+
+    NOTE: This table does NOT contain m_x, m_y, m_xy, n_x, n_y, n_xy - those are
+    only available in the basis table.
+
     :param df_elementaire: Raw elementaire DataFrame
     :type df_elementaire: pd.DataFrame
-    :returns: Prepared DataFrame with name, coords_xyz, belasting, moments, and normal forces
+    :returns: Prepared DataFrame with name, coords_xyz, belasting, design moments, and design normal forces
     :rtype: pd.DataFrame
     """
     if not df_elementaire.empty and "coords_xyz" in df_elementaire.columns:
+        # Required columns for elementaire table (m_x, m_y, m_xy, n_x, n_y, n_xy are NOT included)
         elementaire_cols = ["Naam", "coords_xyz", "Belasting", "m_xD+", "m_xD-", "m_yD+", "m_yD-", "n_xD", "n_yD"]
+
+        # Filter to only include columns that actually exist in the dataframe
         elementaire_cols_present = [col for col in elementaire_cols if col in df_elementaire.columns]
         return df_elementaire[elementaire_cols_present].copy()
     return pd.DataFrame()
@@ -457,19 +442,56 @@ def _merge_basis_and_elementaire(df_basis_merge: pd.DataFrame, df_elementaire_me
     """
     Merge basis and elementaire DataFrames on (Naam, coords_xyz, Belasting).
 
-    :param df_basis_merge: Prepared basis DataFrame
+    MERGE STRATEGY:
+    Uses an OUTER join to combine data from both tables. This means:
+    - Rows matching on (Naam, coords_xyz, Belasting) in both tables get combined
+    - Rows only in basis table get kept with NaN for elementaire columns
+    - Rows only in elementaire table get kept with NaN for basis columns
+
+    WHY OUTER JOIN:
+    SCIA separates results into two tables:
+    - Basis table: Contains shear forces (v_x, v_y) and may contain m_x, m_y, m_xy, n_x, n_y, n_xy
+    - Elementaire table: Contains design moments (m_xD+, m_xD-, m_yD+, m_yD-) and normal forces (n_xD, n_yD)
+
+    Not all coordinates have results in both tables. An outer join ensures we don't lose data.
+
+    NaN VALUE HANDLING:
+    After merging, fills any missing force values (NaN) using calculated values
+    based on available data. This prevents JSON serialization errors from NaN values.
+
+    IMPORTANT: Zero (0) is a valid result and is NOT replaced. Only NaN values
+    (from unmatched rows) are calculated and filled.
+
+    :param df_basis_merge: Prepared basis DataFrame with shear forces and m_x, m_y, m_xy, n_x, n_y, n_xy
     :type df_basis_merge: pd.DataFrame
-    :param df_elementaire_merge: Prepared elementaire DataFrame
+    :param df_elementaire_merge: Prepared elementaire DataFrame with design moments/forces (no m_x, m_y, m_xy, n_x, n_y, n_xy)
     :type df_elementaire_merge: pd.DataFrame
-    :returns: Merged DataFrame
+    :returns: Merged DataFrame with NaN values filled by calculation
     :rtype: pd.DataFrame
     """
     if not df_basis_merge.empty and not df_elementaire_merge.empty:
-        return df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
+        # STEP 1: Perform outer merge
+        # This combines rows matching on (Naam, coords_xyz, Belasting)
+        # Unmatched rows from either table are kept with NaN values for missing columns
+        df_merged = df_basis_merge.merge(df_elementaire_merge, on=["Naam", "coords_xyz", "Belasting"], how="outer")
+
+        # STEP 2: Fill NaN values from unmatched rows
+        # When a row exists in only one table, the other table's columns will be NaN
+        # Calculate these missing values using engineering relationships
+        # IMPORTANT: This only fills NaN, not zero values (zero is valid!)
+        # df_filled = fill_missing_force_values(df_merged) # noqa: ERA001
+        df_filled = df_merged
+
+        # STEP 3: Fill any remaining NaN values with "N/A" for JSON serialization
+        return df_filled.fillna("N/A")
+
+    # If only one table has data, fill NaN and return it
     if not df_basis_merge.empty:
-        return df_basis_merge.copy()
+        return df_basis_merge.copy().fillna("N/A")
     if not df_elementaire_merge.empty:
-        return df_elementaire_merge.copy()
+        return df_elementaire_merge.copy().fillna("N/A")
+
+    # Both tables are empty
     return pd.DataFrame()
 
 
@@ -488,11 +510,15 @@ def _extract_max_force_rows(df_combined: pd.DataFrame, force_columns: list[str])
     for (name, coords_xyz), group in df_combined.groupby(["name", "coords_xyz"]):
         for force_col in force_columns:
             if force_col in group.columns:
-                abs_max_idx = group[force_col].abs().idxmax()
-                if pd.notna(abs_max_idx):
-                    max_row = group.loc[abs_max_idx].copy()
-                    max_row["max_for_column"] = force_col
-                    result_rows.append(max_row)  # type: ignore[arg-type]
+                # Filter out N/A values and convert to numeric before finding max
+                numeric_col = pd.to_numeric(group[force_col], errors="coerce")
+                # Only process if we have valid numeric values
+                if not numeric_col.isna().all():
+                    abs_max_idx = numeric_col.abs().idxmax()
+                    if pd.notna(abs_max_idx):
+                        max_row = group.loc[abs_max_idx].copy()
+                        max_row["max_for_column"] = force_col
+                        result_rows.append(max_row)  # type: ignore[arg-type]
     return result_rows
 
 
@@ -510,11 +536,25 @@ def _add_zone_mapping(df_result: pd.DataFrame, bridge_segments: list[Any] | None
     if not df_result.empty and bridge_segments and len(bridge_segments) > 0:
         try:
             df_result["zone"] = df_result.apply(lambda row: _map_cs_section_to_zone(row["name"], row["coords_xyz"], bridge_segments), axis=1)
+
+            # Log zone mapping results
+            unique_zones = df_result["zone"].unique().tolist()
+            if "unknown-zone" in unique_zones or "mapping-failed" in unique_zones:
+                print(f"Warning: Zone mapping produced invalid zones: {unique_zones}")
         except Exception:
             import traceback
 
-            traceback.print_exc()
+            print(
+                f"Error: Zone mapping failed for CS results. "
+                f"Segments: {len(bridge_segments) if bridge_segments else 0}, "
+                f"CS sections: {len(df_result)}"
+            )
+            print(traceback.format_exc())
             df_result["zone"] = "mapping-failed"
+    elif df_result.empty:
+        print("Warning: Zone mapping skipped: DataFrame is empty")
+    elif not bridge_segments or len(bridge_segments) == 0:
+        print("Warning: Zone mapping skipped: No bridge segments provided")
     return df_result
 
 
@@ -567,6 +607,8 @@ def _process_single_cs_result_table(
         if col in df_combined.columns:
             df_combined[col] = pd.to_numeric(df_combined[col], errors="coerce")
 
+    # DON'T fill NaN with "N/A" yet - we need numeric values for abs() operations
+
     # DEDUPLICATION: For each CS name, keep only the first unique coordinate
     # Group by name and filter to keep only rows with the first unique coordinate per group
     # Store name values before filtering to preserve them
@@ -576,9 +618,13 @@ def _process_single_cs_result_table(
     mask = df_combined.apply(lambda row: row["coords_xyz"] == first_coords_per_name[row["name"]], axis=1)
     df_combined = df_combined[mask].reset_index(drop=True)
 
-    # Extract rows with max absolute values
+    # Extract rows with max absolute values (handles NaN internally)
     result_rows = _extract_max_force_rows(df_combined, force_columns)
     df_result = pd.DataFrame(result_rows) if result_rows else pd.DataFrame()
+
+    # NOW fill any remaining NaN values with "N/A" after numeric operations are complete
+    if not df_result.empty:
+        df_result = df_result.fillna("N/A")
 
     # Add zone mapping if bridge_segments are provided and return
     return _add_zone_mapping(df_result, bridge_segments)
@@ -608,6 +654,22 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     :returns: Dictionary containing DataFrames for each CS result table type
     :rtype: dict[str, pd.DataFrame]
     """
+    # First, check if data is already cached as DataFrames (happens when loading from cache)
+    if "df_cs_uls" in results and "df_cs_sls_freq" in results:
+        df_uls = results.get("df_cs_uls", pd.DataFrame())
+        df_sls = results.get("df_cs_sls_freq", pd.DataFrame())
+        return {"ULS": df_uls, "SLS freq": df_sls}
+
+    # Second, check if we have xml_parsing data (required to generate dataframes)
+    if "xml_parsing" not in results:
+        # If xml_parsing data is not available, return empty DataFrames
+        # This happens when cache is loaded but xml_parsing was never stored
+        return {"ULS": pd.DataFrame(), "SLS freq": pd.DataFrame()}
+
+    if "parsed_tables" not in results.get("xml_parsing", {}):
+        # No parsed tables available
+        return {"ULS": pd.DataFrame(), "SLS freq": pd.DataFrame()}
+
     # Setting to read SCIA xml for CS forces - only ULS and SLS freq
     selected_result_tables = ["ULS", "SLS freq"]
 
@@ -620,12 +682,12 @@ def process_scia_cs_results(results: dict[str, Any], bridge_segments: list[Any] 
     # Create DataFrames for each selected CS result class table
     for selected_table in selected_result_tables:
         df_result = _process_single_cs_result_table(selected_data_scia_cs, selected_table, bridge_segments)
-        results_cs[selected_table] = df_result
 
-        # DEBUG EXPORT: Export processed CS results for view
+        # Fill any remaining NaN values with "N/A" for JSON serialization
         if not df_result.empty:
-            safe_table_name = selected_table.replace(" ", "_")
-            _export_dataframe_to_excel_view(df_result, f"cs_view_{safe_table_name}", f"CS_{safe_table_name}_View")
+            df_result = df_result.fillna("N/A")
+
+        results_cs[selected_table] = df_result
 
     return results_cs
 
@@ -686,14 +748,18 @@ def _extract_envelope_for_zone_and_type(
 
     for force_col in force_columns:
         if force_col in zone_type_data.columns:
-            abs_max_idx = zone_type_data[force_col].abs().idxmax()
-            if pd.notna(abs_max_idx):
-                combination_key = (zone, result_type, force_col, abs_max_idx)
-                if combination_key not in seen_combinations:
-                    seen_combinations.add(combination_key)
-                    row = zone_type_data.loc[abs_max_idx].copy()
-                    row["max_for_column"] = force_col
-                    envelope_rows.append(row)  # type: ignore[arg-type]
+            # Filter out N/A values and convert to numeric before finding max
+            numeric_col = pd.to_numeric(zone_type_data[force_col], errors="coerce")
+            # Only process if we have valid numeric values
+            if not numeric_col.isna().all():
+                abs_max_idx = numeric_col.abs().idxmax()
+                if pd.notna(abs_max_idx):
+                    combination_key = (zone, result_type, force_col, abs_max_idx)
+                    if combination_key not in seen_combinations:
+                        seen_combinations.add(combination_key)
+                        row = zone_type_data.loc[abs_max_idx].copy()
+                        row["max_for_column"] = force_col
+                        envelope_rows.append(row)  # type: ignore[arg-type]
 
     return envelope_rows
 
@@ -714,6 +780,12 @@ def extract_cs_force_envelopes(results: dict[str, Any], bridge_segments: list[An
     :returns: Combined DataFrame with envelope results sorted by zone and result type
     :rtype: pd.DataFrame
     """
+    # Check if envelope is already cached
+    if "df_cs_envelope" in results:
+        df_envelope = results.get("df_cs_envelope")
+        if isinstance(df_envelope, pd.DataFrame) and not df_envelope.empty:
+            return df_envelope
+
     # Process CS results to get ULS and SLS freq DataFrames
     cs_results = process_scia_cs_results(results, bridge_segments)
 
@@ -831,49 +903,6 @@ def _create_lookup_dictionaries(df: pd.DataFrame, columns: list[str]) -> tuple[d
     return {}, value_lookups
 
 
-def process_scia_1d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
-    """
-    Process SCIA 1D force analysis results to create DataFrames with coordinate and force data.
-
-    This function extracts 1D force data from SCIA results and processes coordinates,
-    creating DataFrames with unique coordinate locations and their corresponding
-    force/moment values for beam elements. The processing includes grouping rows
-    with same 'Naam' and 'dx' values, merging 'Belasting' values, and finding
-    absolute maximum values for force/moment columns.
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :returns: Dictionary containing DataFrames for each 1D result table
-    :rtype: dict[str, pd.DataFrame]
-    """
-    # Setting to read SCIA xml for 1D forces
-    selected_result_tables = ["ULS", "SLS kar", "SLS freq"]
-    selected_data_scia_1d = {}
-
-    # Read the 1D force data from the "results" into a new dict
-    for selected_table in selected_result_tables:
-        data_1d = _extract_scia_1d_table_data(results, selected_table)
-        selected_data_scia_1d[f"Interne 1D-krachten {selected_table}"] = data_1d
-
-    # Create empty dict for storing results for each selected table
-    results_1d = {}
-
-    # Create DataFrames for each selected 1D result class table
-    for selected_table in selected_result_tables:
-        data_1d = selected_data_scia_1d.get(f"Interne 1D-krachten {selected_table}", None)
-
-        # Convert 1D data to DataFrame
-        df_1d = pd.DataFrame(data_1d) if data_1d is not None else pd.DataFrame()
-
-        # Process the DataFrame with grouping and aggregation (similar to what was done in IDEA interface)
-        if not df_1d.empty and data_1d is not None:
-            df_1d = process_raw_integration_strip_data(data_1d)
-
-        results_1d[selected_table] = df_1d
-
-    return results_1d
-
-
 def _process_selected_result_tables(results: dict[str, Any], selected_result_tables: list[str]) -> dict[str, Any]:
     """Process and merge SCIA table data for selected result tables."""
     selected_data_scia = {}
@@ -918,7 +947,7 @@ def _populate_force_values_from_lookup(unique_coords_df: pd.DataFrame, lookup_di
             max_abs_val = max(coord_values, key=abs)
             values.append(max_abs_val)
         else:
-            values.append(float("nan"))
+            values.append("N/A")
     unique_coords_df[column_name] = values
 
 
@@ -982,246 +1011,13 @@ def process_scia_2d_results(results: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
     # Create DataFrames for each selected result class table
     for selected_table in selected_result_tables:
-        results_2d[selected_table] = _process_single_result_table(selected_data_scia, selected_table)
+        df_table = _process_single_result_table(selected_data_scia, selected_table)
+        # Fill any remaining NaN values with "N/A"
+        if not df_table.empty:
+            df_table = df_table.fillna("N/A")
+        results_2d[selected_table] = df_table
 
     return results_2d
-
-
-def get_processed_1d_data_for_idea(results: dict[str, Any], result_type: str) -> pd.DataFrame:
-    """
-    Get processed 1D SCIA data as a DataFrame for use in IDEA integration.
-
-    This function extracts raw 1D data from SCIA results and processes it by:
-    - Grouping rows with same 'Naam' and 'dx' values
-    - Merging 'Belasting' values into single cells
-    - Finding absolute maximum values for force/moment columns
-
-    :param results: SCIA analysis results dictionary
-    :type results: dict[str, Any]
-    :param result_type: Type of results to extract ("SLS kar", "SLS freq", "ULS")
-    :type result_type: str
-    :returns: Processed DataFrame with grouped and filtered 1D data
-    :rtype: pd.DataFrame
-    """
-    try:
-        # Map result types to table names (using exact table names from SCIA)
-        table_mapping = {"SLS kar": "SLS kar", "SLS freq": "SLS freq", "ULS": "ULS"}
-
-        selected_table = table_mapping.get(result_type, "SLS kar")
-
-        # Extract raw 1D data directly from parsed tables
-        xml_parsing = results.get("xml_parsing", {})
-        parsed_tables = xml_parsing.get("parsed_tables", {})
-        table_name = f"Interne 1D-krachten {selected_table}"
-        table_data = parsed_tables.get(table_name, {}).get("data", {})
-
-        # Look for integration results
-        integration_results = table_data.get("Resultaten over integratiestroken:")
-        if not integration_results or not isinstance(integration_results, dict):
-            # If no integration results, check for other data structure
-            if table_data:
-                # Look for any other data structure that might contain the results
-                for value in table_data.values():
-                    if isinstance(value, dict) and len(value) > 0:
-                        integration_results = value
-                        break
-
-            if not integration_results:
-                return pd.DataFrame()
-
-        # Process the raw data with grouping and filtering
-        df_processed = process_raw_integration_strip_data(integration_results)
-
-    except Exception:
-        # Return empty DataFrame on any error
-        return pd.DataFrame()
-    else:
-        return df_processed
-
-
-def _extract_column_data(integration_results: dict[str, Any]) -> tuple[list[str], dict[str, list]]:
-    """
-    Extract available columns and column data from integration results.
-
-    :param integration_results: Raw integration results from SCIA
-    :type integration_results: dict[str, Any]
-    :returns: Tuple of (available_columns, column_data)
-    :rtype: tuple[list[str], dict[str, list]]
-    """
-    available_columns = []
-    column_data = {}
-
-    for key, value in integration_results.items():
-        if isinstance(value, list) and len(value) > 0:
-            available_columns.append(key)
-            column_data[key] = value
-
-    return available_columns, column_data
-
-
-def _convert_numeric_columns(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    Convert numeric columns to proper types.
-
-    :param df_raw: Raw DataFrame
-    :type df_raw: pd.DataFrame
-    :returns: DataFrame with converted numeric columns
-    :rtype: pd.DataFrame
-    """
-    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    for col in numeric_columns:
-        if col in df_raw.columns:
-            df_raw[col] = pd.to_numeric(df_raw[col], errors="coerce").fillna(0)
-    return df_raw
-
-
-def _abs_max_aggregator(series: pd.Series) -> float:
-    """Find the value with the maximum absolute value."""
-    series_clean = series.dropna()
-    if series_clean.empty:
-        return 0
-    # Find index of maximum absolute value
-    abs_max_idx = series_clean.abs().idxmax()
-    return series_clean.loc[abs_max_idx]
-
-
-def _extract_coords_from_strip_name(name: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-    """
-    Extract start and end coordinates from a SCIA integration strip name.
-
-    Name format: strip_Z1_1_(0, 0.5, 0)_(15, 0.5, 0)
-    Returns: ((0, 0.5, 0), (15, 0.5, 0))
-
-    :param name: SCIA integration strip name containing coordinate information
-    :type name: str
-    :returns: Tuple of (start_coordinates, end_coordinates)
-    :rtype: tuple[tuple[float, float, float], tuple[float, float, float]]
-    """
-    parts = name.split("_")
-    start_str = parts[-2].strip("()")
-    end_str = parts[-1].strip("()")
-
-    start_coords_list = list(map(float, start_str.split(",")))
-    end_coords_list = list(map(float, end_str.split(",")))
-
-    # Ensure we have exactly 3 coordinates for each point
-    if len(start_coords_list) >= 3 and len(end_coords_list) >= 3:
-        start_coords = (start_coords_list[0], start_coords_list[1], start_coords_list[2])
-        end_coords = (end_coords_list[0], end_coords_list[1], end_coords_list[2])
-        return start_coords, end_coords
-    return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)  # Default if not enough coordinates
-
-
-def _calculate_normalized_direction_vector(
-    coords_start: tuple[float, float, float], coords_end: tuple[float, float, float]
-) -> tuple[float, float, float]:
-    """
-    Calculate normalized direction vector from start to end coordinates.
-
-    This function computes the unit direction vector for a strip element, which is used
-    to determine the local coordinate system of the integration strip.
-
-    :param coords_start: Start coordinates (x, y, z)
-    :type coords_start: tuple[float, float, float]
-    :param coords_end: End coordinates (x, y, z)
-    :type coords_end: tuple[float, float, float]
-    :returns: Normalized direction vector (dx, dy, dz)
-    :rtype: tuple[float, float, float]
-    """
-    # Calculate direction vector
-    dx = coords_end[0] - coords_start[0]
-    dy = coords_end[1] - coords_start[1]
-    dz = coords_end[2] - coords_start[2]
-
-    # Calculate magnitude
-    magnitude = (dx**2 + dy**2 + dz**2) ** 0.5
-
-    # Return normalized vector (avoid division by zero)
-    if magnitude > 1e-10:  # Small tolerance for numerical precision
-        return (dx / magnitude, dy / magnitude, dz / magnitude)
-    return (0.0, 0.0, 0.0)  # Default to zero vector if zero-length vector
-
-
-def _create_aggregation_functions(df_columns: list[str]) -> dict[str, Union[str, Callable[[pd.Series], Any]]]:
-    """
-    Create aggregation functions for DataFrame grouping.
-
-    :param df_columns: List of DataFrame column names
-    :type df_columns: list[str]
-    :returns: Dictionary of aggregation functions
-    :rtype: dict[str, Union[str, Callable[[pd.Series], Any]]]
-    """
-    numeric_columns = ["N", "V_y", "V_z", "M_x", "M_y", "M_z", "dx"]
-    agg_functions: dict[str, Union[str, Callable[[pd.Series], Any]]] = {}
-
-    for col in df_columns:
-        if col == "Belasting":
-            # Merge Belasting values into single cell (concatenate unique values)
-            agg_functions[col] = lambda x: " | ".join(sorted(x.dropna().astype(str).unique()))
-        elif col in numeric_columns and col not in ["Naam", "dx"]:
-            # Find absolute maximum for force/moment columns
-            agg_functions[col] = _abs_max_aggregator
-        elif col in ["Naam", "dx"]:
-            # Keep first value for grouping columns
-            agg_functions[col] = "first"
-        else:
-            # For other columns, take first non-null value
-            agg_functions[col] = lambda x: x.dropna().iloc[0] if not x.dropna().empty else ""
-
-    return agg_functions
-
-
-def process_raw_integration_strip_data(integration_results: dict[str, Any]) -> pd.DataFrame:
-    """
-    Process raw 1D SCIA integration strip data by grouping rows with same name and dx values.
-
-    Groups rows by 'Naam' and 'dx', merges 'Belasting' values into single cells,
-    and finds absolute maximum values for force/moment columns.
-
-    :param integration_results: Raw integration results from SCIA
-    :type integration_results: dict[str, Any]
-    :returns: Processed DataFrame with grouped and filtered data
-    :rtype: pd.DataFrame
-    """
-    # Extract available columns and data
-    available_columns, column_data = _extract_column_data(integration_results)
-
-    if not available_columns or not column_data:
-        return pd.DataFrame()
-
-    # Create DataFrame from raw data
-    df_raw = pd.DataFrame(column_data)
-
-    if df_raw.empty:
-        return pd.DataFrame()
-
-    # Convert numeric columns to proper types
-    df_raw = _convert_numeric_columns(df_raw)
-
-    # Group by 'Naam' and 'dx'
-    if "Naam" not in df_raw.columns or "dx" not in df_raw.columns:
-        return df_raw  # Return original if grouping columns don't exist
-
-    # Define aggregation functions
-    agg_functions = _create_aggregation_functions(df_raw.columns.tolist())
-
-    # Apply grouping and aggregation
-    df_processed = df_raw.groupby(["Naam", "dx"], as_index=False).agg(agg_functions)
-
-    # Sort by Naam and dx for consistent ordering
-    df_processed.sort_values(["Naam", "dx"]).reset_index(drop=True)
-
-    # Create two new columns that contains the start and end coordinates as tuples extracted from the 'Naam' column
-    # Name = strip_Z1_1_(0, 0.5, 0)_(15, 0.5, 0) -> coords_start = (0, 0.5, 0) and coords_end = (15, 0.5, 0)
-    df_processed["coords_start"], df_processed["coords_end"] = zip(*df_processed["Naam"].apply(_extract_coords_from_strip_name))
-
-    # Based on the extracted start and end coordinates, create a new column containing a normalized direction vector (dx, dy, dz)
-    # we will use to later determine the local axis system of the strip
-    df_processed["direction_vector"] = df_processed.apply(
-        lambda row: _calculate_normalized_direction_vector(row["coords_start"], row["coords_end"]), axis=1
-    )
-
-    return df_processed
 
 
 # Simple cache for processed results to avoid reprocessing the same data

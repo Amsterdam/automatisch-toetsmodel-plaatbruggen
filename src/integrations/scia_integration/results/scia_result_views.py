@@ -68,7 +68,7 @@ def get_available_cs_coordinates(
         return []
 
 
-def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR0912, PLR0915
+def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915
     results: dict[str, Any],
     *,
     result_type: str,
@@ -112,8 +112,8 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
         cache_key = "df_cs_uls" if result_type == "ULS" else "df_cs_sls_freq"
         df_cs_results = results.get(cache_key)
 
-        # If not in cache, process on demand
-        if df_cs_results is None or df_cs_results.empty:
+        # If not in cache or not a valid DataFrame, process on demand
+        if not isinstance(df_cs_results, pd.DataFrame) or df_cs_results.empty:
             cs_results = process_scia_cs_results(results, bridge_segments=bridge_segments)
             df_cs_results = cs_results.get(result_type, pd.DataFrame())
 
@@ -121,13 +121,13 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
             # Return empty plot with message
             fig = go.Figure()
             fig.add_annotation(
-                text=f"Geen {result_type} data beschikbaar",
+                text=f"Geen {result_type} CS data beschikbaar.<br>Verwijder de cache en voer een nieuwe SCIA analyse uit.",
                 xref="paper",
                 yref="paper",
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font={"size": 16},
+                font={"size": 14},
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
             return PlotlyResult(fig.to_json())
@@ -224,7 +224,7 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
             return PlotlyResult(fig.to_json())
 
-        # Convert filtered rows to DataFrame
+        # Build DataFrame from filtered rows
         df_filtered = pd.DataFrame(filtered_rows)
 
         # Filter for max_type: get rows where max_for_column matches max_type
@@ -244,11 +244,6 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
             )
             fig.update_layout(title=f"SCIA CS {result_type} Visualisatie")
             return PlotlyResult(fig.to_json())
-
-        # Sort by the other coordinate (for proper line plotting)
-        # CRITICAL: X-richting = plot along X (length), Y-richting = plot along Y (width)
-        # When X-richting is selected: we want cross-sections perpendicular to X, varying along X
-        # When Y-richting is selected: we want cross-sections perpendicular to Y, varying along Y
 
         if direction == "X-richting":
             # X-richting: plot along X (length), so we vary X coordinate
@@ -495,6 +490,13 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
             hovermode="x unified",
         )
 
+        fig.update_layout(
+            title_text=title_text,
+            height=1200,  # Tall enough for 4 subplots
+            showlegend=True,
+            hovermode="x unified",
+        )
+
         return PlotlyResult(fig.to_json())
 
     except Exception as e:
@@ -503,9 +505,8 @@ def create_scia_cs_plotly_visualization(  # noqa: C901, PLR0913, PLR0911, PLR091
         traceback.print_exc()
         # Return error plot
         fig = go.Figure()
-        error_msg = str(e)[:200]  # Truncate to 200 chars
         fig.add_annotation(
-            text=f"Fout bij maken visualisatie: {error_msg}",
+            text=f"Fout bij verwerken CS data: {e!s}",
             xref="paper",
             yref="paper",
             x=0.5,
@@ -740,6 +741,7 @@ def _get_cs_table_headers(include_zone: bool = False) -> list[str]:
         [
             "Coordinates",
             "Belasting",
+            "Bron",
             "Max For",
             "Vx (kN/m)",
             "Vy (kN/m)",
@@ -812,6 +814,9 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
         # Get belasting (load case name)
         belasting = row.get("belasting", "N/A")
 
+        # Get bron (data source)
+        bron = row.get("Bron", "SCIA")
+
         # Get which column this row represents the max for
         max_for_column = row.get("max_for_column", "N/A")
 
@@ -838,13 +843,14 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
 
         # Build row data - order must match headers exactly
         if has_zone_column:
-            # With zone: Name, Zone, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (13 columns)
+            # With zone: Name, Zone, Coordinates, Belasting, Bron, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (14 columns)
             zone = row.get("zone", "N/A")
             row_data = [
                 str(name),
                 str(zone),
                 coords,
                 str(belasting),
+                str(bron),
                 str(max_for_column),
                 v_x_val,
                 v_y_val,
@@ -856,11 +862,12 @@ def create_scia_cs_table_data(processed_cs_df: pd.DataFrame, result_type: str) -
                 n_yd_val,
             ]
         else:
-            # Without zone: Name, Coordinates, Belasting, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (12 columns)
+            # Without zone: Name, Coordinates, Belasting, Bron, Max For, Vx, Vy, MxD+, MxD-, MyD+, MyD-, NxD, NyD (13 columns)
             row_data = [
                 str(name),
                 coords,
                 str(belasting),
+                str(bron),
                 str(max_for_column),
                 v_x_val,
                 v_y_val,
@@ -968,11 +975,11 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
         # Try to use cached dataframe first
         df_envelope = results.get("df_cs_envelope")
 
-        # If not in cache, process on demand
-        if df_envelope is None or df_envelope.empty:
+        # If not in cache or not a DataFrame, process on demand
+        if df_envelope is None or not isinstance(df_envelope, pd.DataFrame) or df_envelope.empty:
             df_envelope = extract_cs_force_envelopes(results, bridge_segments=bridge_segments)
 
-        if df_envelope.empty:
+        if df_envelope is None or df_envelope.empty:
             return TableResult(
                 [["Geen gegevens", "Geen CS resultaten beschikbaar", "", "", "", "", "", "", "", "", "", "", "", ""]],
                 column_headers=[
@@ -1003,6 +1010,7 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
             "Naam",
             "Coördinaten",
             "Belasting",
+            "Bron",
             "Max For",
             "Vx (kN/m)",
             "Vy (kN/m)",
@@ -1024,6 +1032,7 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
             coords_xyz = row.get("coords_xyz", (0.0, 0.0, 0.0))
             coords = format_coordinates_safe(coords_xyz)
             belasting = row.get("belasting", "N/A")
+            bron = row.get("Bron", "SCIA")
             max_for_column = row.get("max_for_column", "N/A")
 
             # Get force/moment values
@@ -1052,6 +1061,7 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
                 str(name),
                 coords,
                 str(belasting),
+                str(bron),
                 str(max_for_column),
                 v_x_val,
                 v_y_val,
@@ -1073,13 +1083,14 @@ def create_scia_cs_envelope_table(results: dict[str, Any], bridge_segments: list
         traceback.print_exc()
         error_message = f"Fout bij verwerken CS envelopes: {str(e)[:100]}..."
         return TableResult(
-            [["Fout", error_message, "", "", "", "", "", "", "", "", "", "", "", ""]],
+            [["Fout", error_message, "", "", "", "", "", "", "", "", "", "", "", "", ""]],
             column_headers=[
                 "Zone",
                 "Type",
                 "Naam",
                 "Coördinaten",
                 "Belasting",
+                "Bron",
                 "Max For",
                 "Vx (kN/m)",
                 "Vy (kN/m)",

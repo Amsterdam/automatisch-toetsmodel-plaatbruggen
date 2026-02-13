@@ -69,7 +69,8 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         """Initializes the ViktorSciaModelBuilder."""
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
-        self.model: scia.Model = scia.Model()
+        mesh_setup = scia.object.MeshSetup(average_1d=0.2, average_2d=0.2, division_2d_1d=50)
+        self.model: scia.Model = scia.Model(mesh_setup=mesh_setup)
         self.materials: dict[str, scia.Material] = {}
         self.nodes: dict[str, scia.Node] = {}
         self.plates: dict[str, scia.Plane] = {}
@@ -480,7 +481,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
         scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-        scia_analysis.execute(timeout=1800)
+        scia_analysis.execute(timeout=3600)
         return scia_analysis
 
     def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
@@ -1142,7 +1143,7 @@ def run_scia_analysis(params: Any, template_path: Path) -> SciaAnalysis:  # noqa
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
     xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
     scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-    scia_analysis.execute(timeout=1800)
+    scia_analysis.execute(timeout=3600)
     return scia_analysis
 
 
@@ -1237,53 +1238,75 @@ def _extract_content_from_file(file_obj: Any) -> bytes | None:  # noqa: ANN401
     return content
 
 
-def _run_scia_analysis_with_builder(params: Any, template_path: Path) -> tuple[SciaAnalysis, dict[str, object]]:  # noqa: ANN401
+def _run_scia_analysis_with_builder(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> tuple[SciaAnalysis, dict[str, object]]:
     """
     Run SCIA analysis using the builder interface and extract basic results.
 
     :param params: The bridge parameters.
     :param template_path: The path to the ESA template file.
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
     :return: Tuple of (analysis object, basic results dictionary).
     """
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
     # Create builder and generate input files
-    progress_message("Genereren SCIA model...")
+    progress_message(f"{prefix}Genereren SCIA model...", percentage=percentage)
     builder = ViktorSciaModelBuilder()
     define_complete_bridge_model(builder, params)
     xml_file, def_file = builder.generate_xml_input()
     esa_template = File.from_path(template_path)
 
     # Run the analysis using the builder interface
-    progress_message("Uitvoeren SCIA berekening...")
+    progress_message(f"{prefix}Uitvoeren SCIA berekening...", percentage=percentage)
     analysis = builder.run_analysis(xml_file, def_file, esa_template)
 
     # Extract results using the builder interface
-    progress_message("Extraheren resultaten...")
+    progress_message(f"{prefix}Extraheren resultaten...", percentage=percentage)
     results = builder.extract_analysis_results(analysis)
 
     return analysis, results
 
 
-def get_scia_analysis_results(params: Any, template_path: Path) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_analysis_results(params: Any, template_path: Path, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
     """
     Run SCIA analysis and extract results.
 
     :param params: The bridge parameters.
     :param template_path: The path to the ESA template file.
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
     :return: Dictionary containing extracted analysis results.
     """
     if not VIKTOR_AVAILABLE or scia is None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
     # Run analysis and get basic results
-    progress_message("Uitvoeren SCIA analyse...")
-    analysis, results = _run_scia_analysis_with_builder(params, template_path)
+    progress_message(f"{prefix}Uitvoeren SCIA analyse...", percentage=percentage)
+    analysis, results = _run_scia_analysis_with_builder(params, template_path, analysis_context)
 
     # Extract additional data for caching
-    progress_message("Extraheren XML output voor caching...")
+    progress_message(f"{prefix}Extraheren XML output voor caching...", percentage=percentage)
     results["xml_output"] = _extract_xml_output_for_caching(analysis)
 
     # Extract ESA model
-    progress_message("Extraheren ESA model...")
+    progress_message(f"{prefix}Extraheren ESA model...", percentage=percentage)
     esa_model = _extract_esa_model_for_caching(analysis)
     results["esa_model"] = esa_model
 
@@ -1330,14 +1353,11 @@ def _generate_and_cache_cs_dataframes(results: dict[str, Any], bridge_segments: 
 
         # Generate envelope dataframe (used by IDEA and analyse resultaten view)
         df_cs_envelope = extract_cs_force_envelopes(results, bridge_segments)
-    except Exception:
-        # If dataframe generation fails, return empty dataframes
-        # This prevents cache failures but allows the rest of the analysis to succeed
-        return {
-            "df_cs_uls": pd.DataFrame(),
-            "df_cs_sls_freq": pd.DataFrame(),
-            "df_cs_envelope": pd.DataFrame(),
-        }
+    except Exception as e:
+        # Print the error so the actual issue is visible
+        print(f"Error: Failed to generate CS dataframes: {e}")
+        # Re-raise so the actual error is visible instead of silently returning empty data
+        raise
     else:
         return {
             "df_cs_uls": df_cs_uls,
