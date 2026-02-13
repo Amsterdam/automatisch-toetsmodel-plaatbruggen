@@ -3,43 +3,45 @@ Functions for calculating elementary design magnitudes in SCIA.
 
 This module implements the formulas for calculating design magnitudes (mxd+, mxd-, myd+, myd-, nxd, nyd)
 based on the input moment and force components.
+
+Formulas according to ČSN P ENV 1992–1–1 (731201), Appendix 2:
+- Bending moments: par. A2.8
+- Normal forces: par. A2.9
 """
 
 
-def mxd_plus(mx: float, my: float, mxy: float) -> float:  # noqa: ARG001
+def mxd_plus(mx: float, my: float, mxy: float) -> float:
     """
     Calculate the positive x-direction design moment (mxd+).
 
     Bottom layer (tension) design moment in x-direction.
-    Based on EC2 Table G.2: Required capacity mRdx.
+    Based on ČSN P ENV 1992–1–1 (731201), Appendix 2, par. A2.8.
 
     Args:
-        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
-        my: Moment in y-direction (kNm/m) - corresponds to mEdy
-        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
+        mx: Moment in x-direction (kNm/m)
+        my: Moment in y-direction (kNm/m)
+        mxy: Torsional moment (kNm/m)
 
     Returns:
-        mxd+: Design moment for bottom reinforcement in x-direction (kNm/m) - corresponds to mRdx
+        mxd+: Design moment for bottom reinforcement in x-direction (kNm/m)
 
     """
-    # Row 1: mEdx >= -|mEdxy|, mEdy >= -|mEdxy|
-    if mx >= -abs(mxy) and my >= -abs(mxy):
-        return mx + abs(mxy)
-    
-    # Row 2: mEdx <= mEdy, mEdx < -|mEdxy|, mEdx*mEdy >= m²Edxy
-    if mx <= my and mx < -abs(mxy) and mx * my >= mxy**2:
+    # Flowchart for m+:
+    # if my >= mx and my <= |mxy|: return -mx + |mxy|
+    # elif my < mx and mx <= |mxy|: return -mx + |mxy|
+    # else: use alternative formula
+    if my >= mx and my <= abs(mxy):
+        return -mx + abs(mxy)
+    elif my < mx and mx <= abs(mxy):
+        return -mx + abs(mxy)
+    elif my >= mx and my > abs(mxy):
+        # my > |mxy|, so use formula with non-dominant axis
+        return -mx + mxy**2 / abs(my)
+    elif my < mx and mx > abs(mxy):
+        # mx > |mxy|, so use formula with non-dominant axis
         return 0.0
-    
-    # Row 3: mEdx >= mEdy, mEdy < -|mEdxy|, mEdx*mEdy <= m²Edxy
-    if mx >= my and my < -abs(mxy) and mx * my <= mxy**2:
-        return mx + mxy**2 / abs(my)
-    
-    # Row 4: mEdx < 0, mEdy < 0, mEdx*mEdy > m²Edxy
-    if mx < 0 and my < 0 and mx * my > mxy**2:
-        return 0.0
-    
-    # Default fallback
-    return 0.0
+    else:
+        raise ValueError("Unexpected condition in mxd_plus")
 
 
 def mxd_minus(mx: float, my: float, mxy: float) -> float:
@@ -47,35 +49,33 @@ def mxd_minus(mx: float, my: float, mxy: float) -> float:
     Calculate the negative x-direction design moment (mxd-).
 
     Top layer (compression/tension) design moment in x-direction.
-    Based on EC2 Table G.3: Required capacity m'Rdx.
+    Based on ČSN P ENV 1992–1–1 (731201), Appendix 2, par. A2.8.
 
     Args:
-        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
-        my: Moment in y-direction (kNm/m) - corresponds to mEdy
-        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
+        mx: Moment in x-direction (kNm/m)
+        my: Moment in y-direction (kNm/m)
+        mxy: Torsional moment (kNm/m)
 
     Returns:
-        mxd-: Design moment for top reinforcement in x-direction (kNm/m) - corresponds to m'Rdx
+        mxd-: Design moment for top reinforcement in x-direction (kNm/m)
 
     """
-    # Row 1: mEdx <= |mEdxy|, mEdy <= |mEdxy|
-    if mx <= abs(mxy) and my <= abs(mxy):
-        return -mx + abs(mxy)
-    
-    # Row 2: mEdx >= mEdy, mEdx > |mEdxy|, mEdx*mEdy <= m²Edxy
-    if mx >= my and mx > abs(mxy) and mx * my <= mxy**2:
+    # Flowchart for m-:
+    # if my >= mx and mx >= -|mxy|: return mx + |mxy|
+    # elif my < mx and my >= -|mxy|: return mx + |mxy|
+    # else: use alternative formula
+    if my >= mx and mx >= -abs(mxy):
+        return mx + abs(mxy)
+    elif my < mx and my >= -abs(mxy):
+        return mx + abs(mxy)
+    elif my >= mx and mx < -abs(mxy):
+        # mx < -|mxy|, so x is too small (too negative)
         return 0.0
-    
-    # Row 3: mEdx <= mEdy, mEdy > |mEdxy|, mEdx*mEdy <= m²Edxy
-    if mx <= my and my > abs(mxy) and mx * my <= mxy**2:
-        return -mx + mxy**2 / abs(my)
-    
-    # Row 4: mEdx > 0, mEdy > 0, mEdx*mEdy > m²Edxy
-    if mx > 0 and my > 0 and mx * my > mxy**2:
-        return 0.0
-    
-    # Default fallback
-    return 0.0
+    elif my < mx and my < -abs(mxy):
+        # my < -|mxy|, so y is too small (too negative)
+        return mx + mxy**2 / abs(my)
+    else:
+        raise ValueError("Unexpected condition in mxd_minus")
 
 
 def myd_plus(mx: float, my: float, mxy: float) -> float:
@@ -83,35 +83,33 @@ def myd_plus(mx: float, my: float, mxy: float) -> float:
     Calculate the positive y-direction design moment (myd+).
 
     Bottom layer (tension) design moment in y-direction.
-    Based on EC2 Table G.2: Required capacity mRdy.
+    Based on ČSN P ENV 1992–1–1 (731201), Appendix 2, par. A2.8.
 
     Args:
-        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
-        my: Moment in y-direction (kNm/m) - corresponds to mEdy
-        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
+        mx: Moment in x-direction (kNm/m)
+        my: Moment in y-direction (kNm/m)
+        mxy: Torsional moment (kNm/m)
 
     Returns:
-        myd+: Design moment for bottom reinforcement in y-direction (kNm/m) - corresponds to mRdy
+        myd+: Design moment for bottom reinforcement in y-direction (kNm/m)
 
     """
-    # Row 1: mEdx >= -|mEdxy|, mEdy >= -|mEdxy|
-    if mx >= -abs(mxy) and my >= -abs(mxy):
-        return my + abs(mxy)
-    
-    # Row 2: mEdx <= mEdy, mEdx < -|mEdxy|, mEdx*mEdy >= m²Edxy
-    if mx <= my and mx < -abs(mxy) and mx * my >= mxy**2:
-        return my + mxy**2 / abs(mx)
-    
-    # Row 3: mEdx >= mEdy, mEdy < -|mEdxy|, mEdx*mEdy <= m²Edxy
-    if mx >= my and my < -abs(mxy) and mx * my <= mxy**2:
+    # Flowchart for m+:
+    # if my >= mx and my <= |mxy|: return -my + |mxy|
+    # elif my < mx and mx <= |mxy|: return -my + |mxy|
+    # else: use alternative formula
+    if my >= mx and my <= abs(mxy):
+        return -my + abs(mxy)
+    elif my < mx and mx <= abs(mxy):
+        return -my + abs(mxy)
+    elif my >= mx and my > abs(mxy):
+        # my > |mxy|, so use formula with non-dominant axis
         return 0.0
-    
-    # Row 4: mEdx < 0, mEdy < 0, mEdx*mEdy > m²Edxy
-    if mx < 0 and my < 0 and mx * my > mxy**2:
-        return 0.0
-    
-    # Default fallback
-    return 0.0
+    elif my < mx and mx > abs(mxy):
+        # mx > |mxy|, so use formula with non-dominant axis
+        return -my + mxy**2 / abs(mx)
+    else:
+        raise ValueError("Unexpected condition in myd_plus")
 
 
 def myd_minus(mx: float, my: float, mxy: float) -> float:
@@ -119,35 +117,33 @@ def myd_minus(mx: float, my: float, mxy: float) -> float:
     Calculate the negative y-direction design moment (myd-).
 
     Top layer (compression/tension) design moment in y-direction.
-    Based on EC2 Table G.3: Required capacity m'Rdy.
+    Based on ČSN P ENV 1992–1–1 (731201), Appendix 2, par. A2.8.
 
     Args:
-        mx: Moment in x-direction (kNm/m) - corresponds to mEdx
-        my: Moment in y-direction (kNm/m) - corresponds to mEdy
-        mxy: Torsional moment (kNm/m) - corresponds to mEdxy
+        mx: Moment in x-direction (kNm/m)
+        my: Moment in y-direction (kNm/m)
+        mxy: Torsional moment (kNm/m)
 
     Returns:
-        myd-: Design moment for top reinforcement in y-direction (kNm/m) - corresponds to m'Rdy
+        myd-: Design moment for top reinforcement in y-direction (kNm/m)
 
     """
-    # Row 1: mEdx <= |mEdxy|, mEdy <= |mEdxy|
-    if mx <= abs(mxy) and my <= abs(mxy):
-        return -my + abs(mxy)
-    
-    # Row 2: mEdx >= mEdy, mEdx > |mEdxy|, mEdx*mEdy <= m²Edxy
-    if mx >= my and mx > abs(mxy) and mx * my <= mxy**2:
-        return -my + mxy**2 / abs(mx)
-    
-    # Row 3: mEdx <= mEdy, mEdy > |mEdxy|, mEdx*mEdy <= m²Edxy
-    if mx <= my and my > abs(mxy) and mx * my <= mxy**2:
+    # Flowchart for m-:
+    # if my >= mx and mx >= -|mxy|: return my + |mxy|
+    # elif my < mx and my >= -|mxy|: return my + |mxy|
+    # else: use alternative formula
+    if my >= mx and mx >= -abs(mxy):
+        return my + abs(mxy)
+    elif my < mx and my >= -abs(mxy):
+        return my + abs(mxy)
+    elif my >= mx and mx < -abs(mxy):
+        # mx < -|mxy|, so x is too small (too negative)
+        return my + mxy**2 / abs(mx)
+    elif my < mx and my < -abs(mxy):
+        # my < -|mxy|, so y is too small (too negative)
         return 0.0
-    
-    # Row 4: mEdx > 0, mEdy > 0, mEdx*mEdy > m²Edxy
-    if mx > 0 and my > 0 and mx * my > mxy**2:
-        return 0.0
-    
-    # Default fallback
-    return 0.0
+    else:
+        raise ValueError("Unexpected condition in myd_minus")
 
 
 def nxd(nx: float, ny: float, nxy: float) -> float:
@@ -155,12 +151,7 @@ def nxd(nx: float, ny: float, nxy: float) -> float:
     Calculate the x-direction design force (nxd).
 
     Calculate the design force in the x-direction based on the input forces.
-    According to EC2 flowchart for wall design:
-
-    - When ny >= 0: Uses nx + |nxy|
-    - When ny < 0: Uses nx + nxy²/|ny|
-
-    The result is clamped to non-negative values (≥ 0) as this represents tension.
+    Based on ČSN P ENV 1992–1–1 (731201), Appendix 2, par. A2.9.
 
     Args:
         nx: Force in x-direction (kN/m)
@@ -168,14 +159,25 @@ def nxd(nx: float, ny: float, nxy: float) -> float:
         nxy: Shear force (kN/m)
 
     Returns:
-        The x-direction design force (kN/m), clamped to non-negative values.
+        The x-direction design force (kN/m).
 
     """
-    if ny >= 0:
-        # Positive or zero ny: Use linear formula
-        return max(nx + abs(nxy), 0.0)
-    # Negative ny: Use squared formula
-    return max(nx + nxy**2 / abs(ny), 0.0)
+    # Flowchart for normal forces:
+    # if ny >= nx and nx >= -|nxy|: return nx + |nxy|
+    # elif ny < nx and ny >= -|nxy|: return nx + |nxy|
+    # else: use alternative formula
+    if ny >= nx and nx >= -abs(nxy):
+        return nx + abs(nxy)
+    elif ny < nx and ny >= -abs(nxy):
+        return nx + abs(nxy)
+    elif ny >= nx and nx < -abs(nxy):
+        # nx < -|nxy|, so x is too small (too negative)
+        return 0.0
+    elif ny < nx and ny < -abs(nxy):
+        # ny < -|nxy|, so y is too small (too negative)
+        return nx + nxy**2 / abs(ny)
+    else:
+        raise ValueError("Unexpected condition in nxd")
 
 
 def nyd(nx: float, ny: float, nxy: float) -> float:
@@ -183,11 +185,7 @@ def nyd(nx: float, ny: float, nxy: float) -> float:
     Calculate the y-direction design force (nyd).
 
     Calculate the design force in the y-direction based on the input forces.
-    According to EC2 flowchart for wall design:
-
-    - When nx > 0: Uses ny + |nxy| (no clamping)
-    - When nx < 0: Uses ny + nxy²/|nx| (clamped to non-positive)
-    - When nx = 0: Uses ny (clamped to non-positive)
+    Based on ČSN P ENV 1992–1–1 (731201), Appendix 2, par. A2.9.
 
     Args:
         nx: Force in x-direction (kN/m)
@@ -195,15 +193,22 @@ def nyd(nx: float, ny: float, nxy: float) -> float:
         nxy: Shear force (kN/m)
 
     Returns:
-        The y-direction design force (kN/m). No clamping when nx > 0,
-        clamped to non-positive (≤ 0) when nx ≤ 0.
+        The y-direction design force (kN/m).
 
     """
-    if nx > 0:
-        # Positive nx: Use linear formula, no clamping
+    # Flowchart for normal forces:
+    # if ny >= nx and nx >= -|nxy|: return ny + |nxy|
+    # elif ny < nx and ny >= -|nxy|: return ny + |nxy|
+    # else: use alternative formula
+    if ny >= nx and nx >= -abs(nxy):
         return ny + abs(nxy)
-    if nx < 0:
-        # Negative nx: Use squared formula, clamp to non-positive
-        return min(ny + nxy**2 / abs(nx), 0.0)
-    # Zero nx: No shear contribution, clamp to non-positive
-    return min(ny, 0.0)
+    elif ny < nx and ny >= -abs(nxy):
+        return ny + abs(nxy)
+    elif ny >= nx and nx < -abs(nxy):
+        # nx < -|nxy|, so x is too small (too negative)
+        return ny + nxy**2 / abs(nx)
+    elif ny < nx and ny < -abs(nxy):
+        # ny < -|nxy|, so y is too small (too negative)
+        return 0.0
+    else:
+        raise ValueError("Unexpected condition in nyd")
