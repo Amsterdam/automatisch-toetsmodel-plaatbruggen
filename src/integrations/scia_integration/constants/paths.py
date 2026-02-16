@@ -10,4 +10,7 @@ from pathlib import Path
 # Base paths for SCIA integration
 SCIA_PROJECT_PATH = Path(__file__).parent.parent.parent.parent.parent
 SCIA_RESOURCES_PATH = SCIA_PROJECT_PATH / "resources"
-SCIA_TEMPLATE_PATH = SCIA_RESOURCES_PATH / "templates" / "model.esa"
+
+# SCIA templates - currently testing with governing template
+SCIA_TEMPLATE_PATH = SCIA_RESOURCES_PATH / "templates" / "model_governing.esa"
+SCIA_TEMPLATE_FULL_PATH = SCIA_RESOURCES_PATH / "templates" / "model_full.esa"

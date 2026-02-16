@@ -32,7 +32,7 @@ class TestGetSciaTemplatePath:
 
             # Assert
             assert isinstance(result, Path)
-            assert result.name == "model.esa"
+            assert result.name == "model_governing.esa"  # Testing with governing template
 
     def test_get_scia_template_path_file_not_found(self, _mock_download_result: MagicMock) -> None:
         """Test error handling when template file doesn't exist."""
