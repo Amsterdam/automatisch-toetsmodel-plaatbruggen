@@ -59,6 +59,58 @@ STRIP_SPACING = 0.5  # Spacing between strip centers in meters
 SUPPORT_STRIP_FACTOR = 0.9  # Factor for support strip dimensions (0.9 * thickness)
 
 
+class _FilteringBuilderWrapper:
+    """
+    Wrapper for SciaModelBuilder that filters integration strip creation by name.
+
+    This wrapper intercepts create_integration_strip calls and only passes through
+    strips whose custom_name is in the allowed set. All other builder methods are
+    delegated to the wrapped builder.
+
+    Used for Stage 2 analysis to create only governing strips.
+    """
+
+    def __init__(self, wrapped_builder: SciaModelBuilder, allowed_names: set[str]) -> None:
+        """
+        Initialize the filtering wrapper.
+
+        :param wrapped_builder: The actual builder to wrap
+        :param allowed_names: Set of strip names that are allowed to be created
+        """
+        self._wrapped = wrapped_builder
+        self._allowed_names = allowed_names
+        self._created_count = 0
+        self._skipped_count = 0
+
+    def create_integration_strip(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        """
+        Intercept integration strip creation and filter by name.
+
+        Only creates strips whose custom_name is in the allowed set.
+        """
+        custom_name = kwargs.get("custom_name", "")
+
+        if custom_name in self._allowed_names:
+            self._created_count += 1
+            return self._wrapped.create_integration_strip(*args, **kwargs)
+
+        # Strip not in governing set, skip it
+        self._skipped_count += 1
+        return None
+
+    def get_stats(self) -> dict[str, int]:
+        """Get statistics about filtered strip creation."""
+        return {
+            "created": self._created_count,
+            "skipped": self._skipped_count,
+            "total_attempted": self._created_count + self._skipped_count,
+        }
+
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+        """Delegate all other attribute access to the wrapped builder."""
+        return getattr(self._wrapped, name)
+
+
 def _get_support_locations(params: Any) -> list[SupportLocation]:  # noqa: ANN401
     """
     Get all support locations with their X coordinates and types.
@@ -558,6 +610,48 @@ def create_all_integration_strips(builder: SciaModelBuilder, params: Any) -> Non
     :param builder: The SCIA model builder instance
     :param params: Bridge parameters
     """
+    _create_integration_strips_internal(builder, params, filter_strip_names=None)
+
+
+def create_selective_integration_strips(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
+    governing_strip_names: set[str],
+) -> dict[str, int]:
+    """
+    Create ONLY the integration strips specified in governing_strip_names.
+
+    This is used for Stage 2 analysis where we model only the governing strips
+    identified from Stage 1. Uses the same creation logic as create_all_integration_strips
+    but filters by strip name.
+
+    :param builder: The SCIA model builder instance
+    :param params: Bridge parameters
+    :param governing_strip_names: Set of strip names to create (e.g., {'strip_dir-x_reg_Z1-1_w-1.0_nr-1', ...})
+    :return: Statistics dictionary with 'created', 'skipped', and 'total_attempted' counts
+    """
+    return _create_integration_strips_internal(builder, params, filter_strip_names=governing_strip_names)
+
+
+def _create_integration_strips_internal(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
+    filter_strip_names: set[str] | None = None,
+) -> dict[str, int]:
+    """
+    Internal function to create integration strips with optional filtering.
+
+    :param builder: The SCIA model builder instance
+    :param params: Bridge parameters
+    :param filter_strip_names: If provided, only create strips with names in this set
+    :return: Statistics dictionary with 'created', 'skipped', 'total_attempted' counts (empty dict if no filtering)
+    """
+    # Wrap the builder to intercept create_integration_strip calls
+    wrapper = None
+    if filter_strip_names is not None:
+        wrapper = _FilteringBuilderWrapper(builder, filter_strip_names)
+        builder = wrapper
+
     # Get all support locations first
     supports = _get_support_locations(params)
 
@@ -606,6 +700,20 @@ def create_all_integration_strips(builder: SciaModelBuilder, params: Any) -> Non
                 params=params,
                 excluded_ranges=excluded_ranges,
             )
+
+    # Log and return filtering statistics if filtering was applied
+    if wrapper is not None:
+        stats = wrapper.get_stats()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Selective strip creation: {stats['created']} created, "
+            f"{stats['skipped']} skipped out of {stats['total_attempted']} total"
+        )
+        return stats
+    
+    return {}
+
 
 
 def _create_support_strips(  # noqa: PLR0913, PLR0912, C901

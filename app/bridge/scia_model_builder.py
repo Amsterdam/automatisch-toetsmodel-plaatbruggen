@@ -1290,49 +1290,31 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
     """
     Run SCIA analysis and extract results.
 
+    Now uses two-stage optimization by default:
+    - Stage 1: All strips with governing results template
+    - Stage 2: Only governing strips with full results template
+
     :param params: The bridge parameters.
-    :param template_path: The path to the ESA template file.
+    :param template_path: The path to the governing ESA template file (stage 1).
     :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
     :return: Dictionary containing extracted analysis results.
     """
     if not VIKTOR_AVAILABLE or scia is None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
-    # Build progress message prefix from context
-    if analysis_context:
-        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
-        percentage = analysis_context.get("batch_percentage")
-    else:
-        prefix = ""
-        percentage = None
+    # Import paths for both templates
+    from app.constants import SCIA_TEMPLATE_FULL_PATH, SCIA_TEMPLATE_PATH
 
-    # Run analysis and get basic results
-    progress_message(f"{prefix}Uitvoeren SCIA analyse...", percentage=percentage)
-    analysis, results = _run_scia_analysis_with_builder(params, template_path, analysis_context)
+    # Use two-stage analysis
+    # Stage 1 uses governing template (SCIA_TEMPLATE_PATH)
+    # Stage 2 uses full template (SCIA_TEMPLATE_FULL_PATH)
+    return run_two_stage_scia_analysis(
+        params=params,
+        governing_template_path=SCIA_TEMPLATE_PATH,
+        full_template_path=SCIA_TEMPLATE_FULL_PATH,
+        analysis_context=analysis_context,
+    )
 
-    # Extract additional data for caching
-    progress_message(f"{prefix}Extraheren XML output voor caching...", percentage=percentage)
-    results["xml_output"] = _extract_xml_output_for_caching(analysis)
-
-    # Extract ESA model
-    progress_message(f"{prefix}Extraheren ESA model...", percentage=percentage)
-    esa_model = _extract_esa_model_for_caching(analysis)
-    results["esa_model"] = esa_model
-
-    # Process and cache integration strip results
-    progress_message("Verwerken en cachen integratiestroken...")
-    cached_integration_strips = _generate_and_cache_integration_strips(results)
-    results.update(cached_integration_strips)
-
-    # Add summary information
-    results["summary"] = {
-        "analysis_status": results.get("analysis_status", "unknown"),
-        "xml_parsing": results.get("xml_parsing", {}),
-        "has_esa_model": esa_model is not None,
-        "has_integration_strips": bool(cached_integration_strips),
-    }
-
-    return results
 
 
 def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str, Any]:
@@ -1380,3 +1362,186 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     # Note: This is a simplified version for testing - in production you might want
     # to actually run the SCIA analysis here
     return xml_file, def_file, None
+
+
+def run_two_stage_scia_analysis(
+    params: Any,  # noqa: ANN401
+    governing_template_path: Path,
+    full_template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Execute two-stage SCIA analysis optimization.
+
+    Stage 1: Model ALL strips → Export ONLY governing results → Identify critical strips
+    Stage 2: Model ONLY governing strips → Export FULL results → Fast processing
+
+    :param params: Bridge parameters
+    :param governing_template_path: Path to template that exports only governing/envelope results
+    :param full_template_path: Path to template that exports full results
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :return: Combined results dictionary with optimization metrics
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    from src.integrations.scia_integration.model.scia_integration_strips import create_selective_integration_strips
+    from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
+    from src.integrations.scia_integration.results.scia_integration_strips_processor import (
+        extract_governing_strip_names,
+        process_all_integration_strips,
+    )
+
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    # === STAGE 1: Governing Analysis ===
+    progress_message(f"{prefix}Stage 1: Analyseren met alle strips (governing results)...", percentage=percentage)
+
+    # Build model with ALL strips (existing logic)
+    builder_stage1 = ViktorSciaModelBuilder()
+    define_complete_bridge_model(builder_stage1, params)  # Creates all strips
+    total_strips_stage1 = len(builder_stage1.integration_strips)
+
+    # Generate input files and run with governing template
+    xml_file, def_file = builder_stage1.generate_xml_input()
+    esa_template_gov = File.from_path(governing_template_path)
+    analysis_stage1 = builder_stage1.run_analysis(xml_file, def_file, esa_template_gov)
+
+    # Extract governing results (small XML output)
+    progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
+    results_stage1 = builder_stage1.extract_analysis_results(analysis_stage1)
+
+    # Process to identify governing strips
+    progress_message(f"{prefix}Identificeren governing strips...", percentage=percentage)
+    processed_strips_stage1 = process_all_integration_strips(results_stage1)
+    envelope_df = processed_strips_stage1["envelope"]
+    governing_strip_names = extract_governing_strip_names(envelope_df)
+
+    # Log statistics
+    governing_count = len(governing_strip_names)
+    reduction_pct = (1 - governing_count / total_strips_stage1) * 100 if total_strips_stage1 > 0 else 0
+
+    progress_message(
+        f"{prefix}Governing strips: {governing_count}/{total_strips_stage1} ({reduction_pct:.1f}% reductie)",
+        percentage=percentage,
+    )
+
+    # === STAGE 2: Detailed Analysis ===
+    progress_message(f"{prefix}Stage 2: Bouwen model met {governing_count} governing strips...", percentage=percentage)
+
+    # Build model with ONLY governing strips
+    builder_stage2 = ViktorSciaModelBuilder()
+
+    # Import necessary functions from scia_model module
+    from app.bridge.utils import _validate_first_and_last_supports
+    from src.integrations.scia_integration.load_system.scia_load_cases import create_all_load_cases
+    from src.integrations.scia_integration.load_system.scia_load_combinations import create_all_load_combinations
+    from src.integrations.scia_integration.load_system.scia_load_group import create_all_load_groups
+    from src.integrations.scia_integration.model.scia_model import create_bridge_geometry
+    from src.integrations.scia_integration.model.scia_supports import create_all_supports
+    from src.integrations.scia_integration.results.scia_result_classes import create_all_result_classes
+    from src.integrations.scia_integration.scia_loads import create_all_loads
+
+    # Build model structure (same as define_complete_bridge_model but without all strips)
+    # 0. Validate support configuration
+    _validate_first_and_last_supports(params)
+
+    # 1. Build Geometry
+    plate_names = create_bridge_geometry(builder_stage2, params)
+
+    # 2. Extract support types
+    support_types = None
+    if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+        support_types = [segment.is_support for segment in params.bridge_segments_array]
+
+    # 3. Build Line Supports
+    create_all_supports(builder_stage2, plate_names, support_types)
+
+    # 4. Build ONLY governing integration strips (this is the key difference)
+    strip_stats = create_selective_integration_strips(builder_stage2, params, governing_strip_names)
+    
+    # Show updated progress with actual strip counts
+    if strip_stats:
+        progress_message(
+            f"{prefix}Stage 2: {strip_stats['created']} strips aangemaakt ({strip_stats['skipped']} overgeslagen van {strip_stats['total_attempted']} totaal)",
+            percentage=percentage,
+        )
+
+    # 5. Build Load Groups
+    create_all_load_groups(builder_stage2)
+
+    # 6. Build ALL Load Cases
+    all_load_cases = create_all_load_cases(builder_stage2, params)
+
+    # 7. Apply all loads
+    create_all_loads(builder_stage2, params, all_load_cases)
+
+    # 8. Build Load Combinations
+    all_load_combinations = create_all_load_combinations(params, builder_stage2, all_load_cases)
+
+    # 9. Create Result Classes
+    create_all_result_classes(params, builder_stage2, all_load_combinations)
+
+    # Run with full results template
+    progress_message(f"{prefix}Stage 2: Uitvoeren SCIA berekening met {strip_stats.get('created', governing_count)} strips...", percentage=percentage)
+    xml_file2, def_file2 = builder_stage2.generate_xml_input()
+    esa_template_full = File.from_path(full_template_path)
+    analysis_stage2 = builder_stage2.run_analysis(xml_file2, def_file2, esa_template_full)
+
+    # Extract full results (small file because only governing strips)
+    progress_message(f"{prefix}Stage 2: Extraheren complete resultaten...", percentage=percentage)
+    results_stage2 = builder_stage2.extract_analysis_results(analysis_stage2)
+
+    # Extract additional data for caching
+    results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
+
+    # Process stage 2 integration strips
+    cached_integration_strips_stage2 = _generate_and_cache_integration_strips(results_stage2)
+    results_stage2.update(cached_integration_strips_stage2)
+
+    # === COMBINE RESULTS ===
+    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")
+    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")
+
+    combined_results = {
+        # Primary results for downstream processing (stage 2 full results)
+        "integration_strips": results_stage2.get("integration_strips"),
+        "xml_parsing": results_stage2.get("xml_parsing"),
+        "analysis_status": results_stage2.get("analysis_status"),
+        "xml_output": results_stage2.get("xml_output"),
+        "esa_model": results_stage2.get("esa_model"),
+        # Metadata about the two-stage optimization
+        "two_stage_optimization": {
+            "stage1_results": results_stage1,
+            "governing_strip_names": list(governing_strip_names),
+            "optimization_stats": {
+                "total_strips_stage1": total_strips_stage1,
+                "governing_strips_stage2": governing_count,
+                "reduction_percentage": reduction_pct,
+                "stage1_xml_size_bytes": stage1_xml_size,
+                "stage2_xml_size_bytes": stage2_xml_size,
+                "total_xml_size_bytes": stage1_xml_size + stage2_xml_size,
+                "strips_created": strip_stats.get("created", governing_count),
+                "strips_skipped": strip_stats.get("skipped", 0),
+                "strips_total_attempted": strip_stats.get("total_attempted", total_strips_stage1),
+            },
+        },
+        # Summary information
+        "summary": {
+            "analysis_status": results_stage2.get("analysis_status", "unknown"),
+            "xml_parsing": results_stage2.get("xml_parsing", {}),
+            "has_esa_model": results_stage2.get("esa_model") is not None,
+            "has_integration_strips": bool(cached_integration_strips_stage2),
+            "two_stage_optimized": True,
+        },
+    }
+
+    return combined_results
+

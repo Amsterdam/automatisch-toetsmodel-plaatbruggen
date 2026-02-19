@@ -366,6 +366,31 @@ def process_integration_strip_envelopes(  # noqa: C901, PLR0912
     return pd.DataFrame()
 
 
+def extract_governing_strip_names(envelope_df: pd.DataFrame) -> set[str]:
+    """
+    Extract unique governing strip names from envelope DataFrame.
+
+    The envelope DataFrame contains one row per min/max force value.
+    Each row has a 'name' column with the strip name that had that governing value.
+    This function extracts all unique strip names that are governing for any force component.
+
+    :param envelope_df: DataFrame with envelope results (output of process_integration_strip_envelopes)
+    :type envelope_df: pd.DataFrame
+    :returns: Set of unique strip names that are governing
+    :rtype: set[str]
+    """
+    if envelope_df.empty or "name" not in envelope_df.columns:
+        logger.warning("Envelope DataFrame is empty or missing 'name' column")
+        return set()
+
+    # Extract unique strip names from the envelope
+    governing_names = set(envelope_df["name"].dropna().unique())
+
+    logger.info(f"Extracted {len(governing_names)} unique governing strip names from envelope")
+
+    return governing_names
+
+
 def process_all_integration_strips(
     results: dict[str, Any],
 ) -> dict[str, Any]:
