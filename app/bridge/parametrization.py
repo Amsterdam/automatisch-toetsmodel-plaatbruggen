@@ -49,6 +49,8 @@ from app.constants import (
     OPTIMIZATION_EXPLANATION_TEXT,
     PAVEMENT_MATERIAL_OPTIONS,
     REINFORCEMENT_INFO_TEXT,
+    RESULT_OBJECT_INTEGRATION_STRIPS,
+    RESULT_OBJECT_SECTIONS_ON_PLANE,
     SCIA_INFO_TEXT,
     SIGNAGE_OPTIONS,
 )
@@ -1353,8 +1355,23 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     calc_page.calc_selection.load_case_selection_note = Text(LOAD_CASE_SELECTION_NOTE_TEXT)
 
+    calc_page.calc_selection.lb_result_objects = LineBreak()
+
+    calc_page.calc_selection.result_object_type = OptionField(
+        "Type resultaatobjecten",
+        options=[RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE],
+        default=RESULT_OBJECT_INTEGRATION_STRIPS,
+        variant="radio",
+        flex=80,
+        description=(
+            "Kies welk type resultaatobjecten in het SCIA model worden aangemaakt. "
+            "Integratiestroken of secties op vlak kunnen niet tegelijk worden gebruikt; "
+            "selecteer één van de twee opties."
+        ),
+    )
+
     # ----------------------------------
-    # --- Berekening Page -> Berekening selectie tab ---
+    # --- Berekening Page -> Berekening optimalisatie tab ---
     # ----------------------------------
     calc_page.calc_optimization = Tab("Berekening optimalisatie")
 

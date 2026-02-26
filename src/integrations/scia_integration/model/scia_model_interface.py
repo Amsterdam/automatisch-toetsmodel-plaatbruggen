@@ -265,6 +265,34 @@ class SciaModelBuilder(Protocol):
         """
         ...
 
+    def create_section_on_plane(
+        self,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        *,
+        name: str,
+        draw: Any | None = None,
+        direction_of_cut: tuple[float, float, float] | None = None,
+    ) -> SciaSectionOnPlane:
+        """
+        Creates a section on a 2D-member plane in the SCIA model.
+
+        Sections on plane are used to retrieve calculation results (forces, moments)
+        at specific cross-section positions along the bridge deck.
+
+        Each section is defined by two points and spans at most 1.0 m, with a
+        0.5 m step between consecutive sections.
+
+        :param point_1: Start position (x, y, z) in [m]
+        :param point_2: End position (x, y, z) in [m]
+        :param name: Name shown in SCIA (e.g. 'sec_Z1-1_x_nr-1')
+        :param draw: Plane in which the section is drawn (default: Z_DIRECTION)
+        :param direction_of_cut: In-plane cut direction vector (x, y, z) in [m]
+            (default: (0, 0, 1))
+        :return: Created SectionOnPlane object
+        """
+        ...
+
     def get_model(self) -> SciaModel:
         """Returns the final, fully constructed SCIA model object."""
         ...

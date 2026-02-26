@@ -81,6 +81,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.load_combinations: dict[str, scia.LoadCombination] = {}  # Track load combinations
         self.result_classes: dict[str, scia.ResultClass] = {}  # Track result classes
         self.integration_strips: dict[str, scia.IntegrationStrip] = {}  # Map custom_name -> strip object
+        self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}  # Map name -> SectionOnPlane object
 
     def create_material(self, name: str, material_id: int = 0) -> scia.Material:
         """Creates a material and stores it."""
@@ -166,6 +167,44 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.integration_strips[custom_name] = integration_strip
 
         return integration_strip
+
+    def create_section_on_plane(
+        self,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        *,
+        name: str,
+        draw: Any | None = None,
+        direction_of_cut: tuple[float, float, float] | None = None,
+    ) -> scia.SectionOnPlane:
+        """
+        Creates a section on a 2D-member plane and stores it.
+
+        :param point_1: Start position (x, y, z) in [m]
+        :param point_2: End position (x, y, z) in [m]
+        :param name: Name shown in SCIA (e.g. 'sec_Z1-1_x_nr-1')
+        :param draw: Plane in which the section is drawn (default: Z_DIRECTION)
+        :param direction_of_cut: In-plane cut direction vector (default: (0, 0, 1))
+        :return: Created SectionOnPlane object
+        """
+        kwargs: dict[str, Any] = {
+            "point_1": point_1,
+            "point_2": point_2,
+            "name": name,
+        }
+        if draw is not None:
+            kwargs["draw"] = draw
+        if direction_of_cut is not None:
+            kwargs["direction_of_cut"] = direction_of_cut
+
+        section = self.model.create_section_on_plane(**kwargs)
+
+        # Workaround: Set custom name via private _name attribute (same as integration strips)
+        if hasattr(section, "_name"):
+            section._name = name  # noqa: SLF001
+
+        self.sections_on_plane[name] = section
+        return section
 
     def create_load_group(
         self,
@@ -1544,4 +1583,178 @@ def run_two_stage_scia_analysis(
     }
 
     return combined_results
+
+
+# =============================================================================
+# SECTIONS ON PLANE — TOP-LEVEL BUILDER FUNCTIONS
+# =============================================================================
+
+
+def generate_bridge_xml_files_sections_on_plane(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
+    """
+    Generate the XML and DEF input files for a sections-on-plane bridge model.
+
+    Calls :func:`define_bridge_model_sections_on_plane` which creates
+    SectionOnPlane objects instead of integration strips.
+
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :return: A tuple containing the XML and DEF files as BytesIO objects.
+    """
+    builder = ViktorSciaModelBuilder()
+    define_bridge_model_sections_on_plane(builder, params)
+    return builder.generate_xml_input()
+
+
+def setup_bridge_analysis_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+) -> tuple[Any, Any, Any]:
+    """
+    Prepare all inputs for a sections-on-plane SCIA analysis.
+
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :param template_path: Path to the ESA template file
+        (use ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH`` or
+        ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH``).
+    :return: A tuple of (xml_file, def_file, esa_template).
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+    xml_file, def_file = generate_bridge_xml_files_sections_on_plane(params)
+    esa_template = File.from_path(template_path)
+    return xml_file, def_file, esa_template
+
+
+def get_scia_analysis_results_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Run the sections-on-plane SCIA analysis and return results.
+
+    Uses the template passed by the caller so that both the governing and the
+    full analysis are supported:
+
+    - Governing analysis: pass ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH``
+    - Full analysis:      pass ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH``
+
+    :param params: The bridge parameters.
+    :param template_path: Path to the ESA template file.
+    :param analysis_context: Optional context dict with bridge_position,
+        total_bridges, bridge_name, batch_percentage for progress reporting.
+    :return: Dictionary containing extracted analysis results.
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    progress_message(f"{prefix}Genereren SCIA model (secties op vlak)...", percentage=percentage)
+    builder = ViktorSciaModelBuilder()
+    define_bridge_model_sections_on_plane(builder, params)
+    xml_file, def_file = builder.generate_xml_input()
+    esa_template = File.from_path(template_path)
+
+    progress_message(f"{prefix}Uitvoeren SCIA berekening (secties op vlak)...", percentage=percentage)
+    analysis = builder.run_analysis(xml_file, def_file, esa_template)
+
+    progress_message(f"{prefix}Extraheren resultaten (secties op vlak)...", percentage=percentage)
+    results = builder.extract_analysis_results(analysis)
+    results["xml_output"] = _extract_xml_output_for_caching(analysis)
+    results["esa_model"] = _extract_esa_model_for_caching(analysis)
+    return results
+
+
+# =============================================================================
+# SECTIONS ON PLANE — TOP-LEVEL BUILDER FUNCTIONS
+# =============================================================================
+
+
+def generate_bridge_xml_files_sections_on_plane(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
+    """
+    Generate the XML and DEF input files for a sections-on-plane bridge model.
+
+    Calls :func:`define_bridge_model_sections_on_plane` which creates
+    SectionOnPlane objects instead of integration strips.
+
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :return: A tuple containing the XML and DEF files as BytesIO objects.
+    """
+    builder = ViktorSciaModelBuilder()
+    define_bridge_model_sections_on_plane(builder, params)
+    return builder.generate_xml_input()
+
+
+def setup_bridge_analysis_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+) -> tuple[Any, Any, Any]:
+    """
+    Prepare all inputs for a sections-on-plane SCIA analysis.
+
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :param template_path: Path to the ESA template file
+        (use ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH`` or
+        ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH``).
+    :return: A tuple of (xml_file, def_file, esa_template).
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+    xml_file, def_file = generate_bridge_xml_files_sections_on_plane(params)
+    esa_template = File.from_path(template_path)
+    return xml_file, def_file, esa_template
+
+
+def get_scia_analysis_results_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Run the sections-on-plane SCIA analysis and return results.
+
+    Uses the template passed by the caller so that both the governing and the
+    full analysis are supported:
+
+    - Governing analysis: pass ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH``
+    - Full analysis:      pass ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH``
+
+    :param params: The bridge parameters.
+    :param template_path: Path to the ESA template file.
+    :param analysis_context: Optional context dict with bridge_position,
+        total_bridges, bridge_name, batch_percentage for progress reporting.
+    :return: Dictionary containing extracted analysis results.
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    progress_message(f"{prefix}Genereren SCIA model (secties op vlak)...", percentage=percentage)
+    builder = ViktorSciaModelBuilder()
+    define_bridge_model_sections_on_plane(builder, params)
+    xml_file, def_file = builder.generate_xml_input()
+    esa_template = File.from_path(template_path)
+
+    progress_message(f"{prefix}Uitvoeren SCIA berekening (secties op vlak)...", percentage=percentage)
+    analysis = builder.run_analysis(xml_file, def_file, esa_template)
+
+    progress_message(f"{prefix}Extraheren resultaten (secties op vlak)...", percentage=percentage)
+    results = builder.extract_analysis_results(analysis)
+    results["xml_output"] = _extract_xml_output_for_caching(analysis)
+    results["esa_model"] = _extract_esa_model_for_caching(analysis)
+    return results
 

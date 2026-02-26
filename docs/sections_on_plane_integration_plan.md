@@ -3,10 +3,97 @@
 ## Goal
 
 Add `SectionOnPlane` objects to the SCIA model to retrieve calculation results at
-cross-section positions. These run in a **separate template** (`model_governing_sectionsonplane.esa`)
-and are kept fully isolated from the existing integration-strip code.
+cross-section positions. These run in **two dedicated templates** (full and governing,
+mirroring the integration-strip template split) and are kept fully isolated from the
+existing integration-strip code.
+
+All logic lives in a dedicated module
+`src/integrations/scia_integration/model/scia_sections_on_plane.py` — nothing is
+added to `scia_integration_strips.py`.
+
+User-facing toggles in the parametrization control whether integration strips and/or
+sections on plane are included in the model build, so each feature can be switched off
+independently to reduce computation time.
 
 ---
+
+## Templates
+
+Four ESA templates are used — one pair for integration strips, one pair for sections
+on plane:
+
+| Template file | Purpose |
+|---|---|
+| `resources/templates/model_governing_integrationstrips.esa` | Integration strips — governing analysis (reduced load cases) |
+| `resources/templates/model_full_integrationstrips.esa` | Integration strips — full analysis (all load cases) |
+| `resources/templates/model_governing_sectionsonplane.esa` | Sections on plane — governing analysis (reduced load cases) |
+| `resources/templates/model_full_sectionsonplane.esa` | Sections on plane — full analysis (all load cases) |
+
+The integration-strip templates were renamed from `model_governing.esa` /
+`model_full.esa` for clarity. The sections-on-plane templates are created by the
+user. All four are referenced through path constants in `constants/paths.py`.
+
+---
+
+## Result Object Selection (UI)
+
+A single mutually-exclusive `OptionField` (radio buttons) in the **"Berekening selectie"** tab
+(`calc_page.calc_selection`) in `app/bridge/parametrization.py` controls which type of result
+objects is created. Only one type can be active at a time; the field replaces the earlier
+two-toggle `BooleanField` design.
+
+```python
+# In BridgeParametrization — calc_page.calc_selection tab
+
+calc_page.calc_selection.lb_result_objects = LineBreak()
+calc_page.calc_selection.result_object_type = OptionField(
+    "Type resultaatobjecten",
+    options=[RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE],
+    default=RESULT_OBJECT_INTEGRATION_STRIPS,
+    variant="radio",
+    flex=80,
+    description=(
+        "Kies welk type resultaatobjecten in het SCIA model worden aangemaakt. "
+        "Integratiestroken zijn standaard; secties op vlak zijn een alternatief."
+    ),
+)
+```
+
+The constants are defined in `app/constants/technical.py`:
+
+```python
+RESULT_OBJECT_INTEGRATION_STRIPS: str = "Integratiestroken"
+RESULT_OBJECT_SECTIONS_ON_PLANE:   str = "Secties op vlak"
+```
+
+The model orchestration layer reads the field as:
+
+```python
+try:
+    result_type = params.calc_page.calc_selection.result_object_type
+except AttributeError:
+    result_type = None  # graceful fallback for legacy / test params
+
+enable_strips   = (result_type == RESULT_OBJECT_INTEGRATION_STRIPS) if result_type is not None else ENABLE_INTEGRATION_STRIPS
+enable_sections = (result_type == RESULT_OBJECT_SECTIONS_ON_PLANE)  if result_type is not None else ENABLE_SECTIONS_ON_PLANE
+```
+
+A safety guard raises `ValueError` if both flags are somehow `True` simultaneously
+(impossible via the OptionField but catches any programmatic misuse).
+
+## Template Routing
+
+`controller_utils._get_scia_template_path(params)` reads
+`params.calc_page.calc_selection.result_object_type` and returns the correct governing
+template:
+
+| Selection | Template used |
+|---|---|
+| `"Integratiestroken"` (default) | `model_governing_integrationstrips.esa` |
+| `"Secties op vlak"` | `model_governing_sectionsonplane.esa` |
+
+All five call sitesin `scia_integration.py` pass `params` to this method.
+
 
 ## Placement Logic
 
@@ -49,7 +136,7 @@ integration strips (`_calculate_zone_boundaries` → mid-point of `[y_min, y_max
 
 | File | Role |
 |---|---|
-| `src/integrations/scia_integration/model/scia_sections_on_plane.py` | Placement calculations and builder calls — mirrors `scia_integration_strips.py` |
+| `src/integrations/scia_integration/model/scia_sections_on_plane.py` | Placement calculations and builder calls — **completely separate from** `scia_integration_strips.py` |
 | `src/integrations/scia_integration/results/scia_sections_on_plane_processor.py` | Parse raw SCIA output tables for sections on plane |
 | `src/integrations/scia_integration/results/scia_sections_on_plane_views.py` | Helper that formats results into VIKTOR `TableResult` |
 
@@ -58,22 +145,34 @@ integration strips (`_calculate_zone_boundaries` → mid-point of `[y_min, y_max
 | File | Change |
 |---|---|
 | `src/integrations/scia_integration/model/scia_model_interface.py` | Add `create_section_on_plane` to `SciaModelBuilder` Protocol |
-| `app/bridge/scia_model_builder.py` | Implement `create_section_on_plane` in `ViktorSciaModelBuilder`; add `self.sections_on_plane: dict[str, scia.SectionOnPlane]` |
-| `src/integrations/scia_integration/constants/paths.py` | Add `SCIA_TEMPLATE_SECTIONS_ON_PLANE_PATH` |
-| `src/integrations/scia_integration/model/scia_model.py` | Add `define_bridge_model_sections_on_plane(builder, params)` — calls `create_bridge_geometry`, supports, loads, **and** `create_all_sections_on_plane`. Does **not** call `create_all_integration_strips`. |
-| `app/bridge/scia_model_builder.py` (top-level functions) | Add `setup_bridge_analysis_sections_on_plane` and `get_scia_analysis_results_sections_on_plane` that use the new template and model function |
-| `app/bridge/bridgeController/scia_integration.py` | Add new `@TableView` methods for SectionOnPlane results (separate section) |
+| `app/bridge/scia_model_builder.py` | Implement `create_section_on_plane` in `ViktorSciaModelBuilder`; apply `_name` workaround post-creation |
+| `app/constants/paths.py` | Add `SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH` and `SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH` |
+| `app/constants/technical.py` | Add `RESULT_OBJECT_INTEGRATION_STRIPS`, `RESULT_OBJECT_SECTIONS_ON_PLANE`; set `ENABLE_SECTIONS_ON_PLANE = False` |
+| `app/constants/__init__.py` | Export the four new constants |
+| `src/integrations/scia_integration/model/scia_model.py` | Update `define_complete_bridge_model` to read `params.calc_page.calc_selection.result_object_type` (OptionField) and enable exactly one result-object type; add conflict guard |
+| `app/bridge/bridgeController/controller_utils.py` | Update `_get_scia_template_path(self, params)` to route to correct governing template based on OptionField selection |
+| `app/bridge/bridgeController/scia_integration.py` | Pass `params` to all 5 `_get_scia_template_path(params)` call sites |
+| `app/bridge/parametrization.py` | Replace two `BooleanField` toggles with single `OptionField` (`result_object_type`, radio variant, default = `"Integratiestroken"`) |
 
 ---
 
 ## Detailed Step-by-Step
 
-### Step 1 — Path constant
+### Step 1 — Path constants
 
 ```python
 # src/integrations/scia_integration/constants/paths.py
-SCIA_TEMPLATE_SECTIONS_ON_PLANE_PATH = (
+
+# Integration strips templates (renamed for clarity)
+SCIA_TEMPLATE_PATH = SCIA_RESOURCES_PATH / "templates" / "model_governing_integrationstrips.esa"
+SCIA_TEMPLATE_FULL_PATH = SCIA_RESOURCES_PATH / "templates" / "model_full_integrationstrips.esa"
+
+# Sections on plane templates
+SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH = (
     SCIA_RESOURCES_PATH / "templates" / "model_governing_sectionsonplane.esa"
+)
+SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH = (
+    SCIA_RESOURCES_PATH / "templates" / "model_full_sectionsonplane.esa"
 )
 ```
 
@@ -205,7 +304,24 @@ def create_all_sections_on_plane(builder: SciaModelBuilder, params: Any) -> None
 
 ### Step 5 — Model orchestration
 
-Add to `scia_model.py`:
+**5a — Guard integration strips with toggle in `define_complete_bridge_model`:**
+
+```python
+# src/integrations/scia_integration/model/scia_model.py
+
+def define_complete_bridge_model(builder: SciaModelBuilder, params: Any) -> None:
+    ...
+    create_all_supports(builder, plate_names, support_types)
+
+    # 4. Build Integration Strips — guarded by toggle
+    if getattr(params, "enable_integration_strips", True):
+        create_all_integration_strips(builder, params)
+
+    create_all_load_groups(builder)
+    ...
+```
+
+**5b — New dedicated model function for sections on plane:**
 
 ```python
 from .scia_sections_on_plane import create_all_sections_on_plane
@@ -215,18 +331,29 @@ def define_bridge_model_sections_on_plane(
     params: Any,
 ) -> None:
     """
-    Build the complete SCIA model that uses sections-on-plane.
+    Build the complete SCIA model that uses sections-on-plane instead of
+    integration strips.
 
     Uses the same geometry, supports, loads, and combinations as
-    `define_complete_bridge_model`, but replaces integration strips
-    with sections on plane.
+    `define_complete_bridge_model`. Integration strips are never created here.
+    The sections-on-plane creation is guarded by the `enable_sections_on_plane`
+    toggle so the entire model build can be skipped cheaply.
     """
+    _validate_first_and_last_supports(params)
+
     plate_names = create_bridge_geometry(builder, params)
 
-    support_types = ...  # same extraction as define_complete_bridge_model
+    support_types = None
+    try:
+        if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+            support_types = [segment.is_support for segment in params.bridge_segments_array]
+    except AttributeError:
+        pass
     create_all_supports(builder, plate_names, support_types)
 
-    create_all_sections_on_plane(builder, params)   # ← NEW, replaces strips
+    # Sections on plane — guarded by toggle
+    if getattr(params, "enable_sections_on_plane", True):
+        create_all_sections_on_plane(builder, params)   # ← replaces integration strips
 
     create_all_load_groups(builder)
     all_load_cases = create_all_load_cases(builder, params)
@@ -239,29 +366,48 @@ def define_bridge_model_sections_on_plane(
 
 ### Step 6 — Top-level builder functions (app layer)
 
-In `app/bridge/scia_model_builder.py`, add:
+Mirrors the existing integration-strip pattern: two separate entry points, one for
+the **full** template (all load cases) and one for the **governing** template.
 
 ```python
+# app/bridge/scia_model_builder.py
+
 def generate_bridge_xml_files_sections_on_plane(params: Any) -> tuple[BytesIO, BytesIO]:
+    """Generate XML + DEF files for the sections-on-plane model."""
     builder = ViktorSciaModelBuilder()
     define_bridge_model_sections_on_plane(builder, params)
     return builder.generate_xml_input()
+
 
 def setup_bridge_analysis_sections_on_plane(
     params: Any,
     template_path: Path,
 ) -> tuple[Any, Any, Any]:
+    """Prepare all inputs for a sections-on-plane SCIA analysis."""
     xml_file, def_file = generate_bridge_xml_files_sections_on_plane(params)
     esa_template = File.from_path(template_path)
     return xml_file, def_file, esa_template
 
+
 def get_scia_analysis_results_sections_on_plane(
     params: Any,
-    template_path: Path,
+    template_path: Path,          # pass FULL or GOVERNING path from the caller
     analysis_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run analysis with sections-on-plane template and return results."""
-    ...
+    """
+    Run the sections-on-plane analysis and return results.
+
+    Callers choose the template:
+    - Full analysis  → SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH
+    - Governing      → SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
+    """
+    xml_file, def_file, esa_template = setup_bridge_analysis_sections_on_plane(
+        params, template_path
+    )
+    analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+    analysis.execute(timeout=3600)
+    builder = ViktorSciaModelBuilder()          # re-use extraction helper
+    return builder.extract_analysis_results(analysis)
 ```
 
 ---
@@ -287,7 +433,9 @@ src/integrations/scia_integration/results/scia_sections_on_plane_views.py
 
 ### Step 8 — Controller views
 
-Add a new section to `app/bridge/bridgeController/scia_integration.py`:
+Add a clearly delimited new section to `app/bridge/bridgeController/scia_integration.py`.
+Use the **governing** template for the primary views (fast); add a separate view or
+download for full results if needed.
 
 ```python
 # ====================================================
@@ -300,18 +448,30 @@ def get_sections_on_plane_uls(
 ) -> TableResult:
     results = get_scia_analysis_results_sections_on_plane(
         params,
-        SCIA_TEMPLATE_SECTIONS_ON_PLANE_PATH,
+        SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH,
     )
     return create_sections_on_plane_table_view(results, combination_type="ULS")
+
 
 @TableView("Secties op vlak SLS freq", duration_guess=600)
 def get_sections_on_plane_sls_freq(
     self, params: BridgeParametrization, **kwargs
 ) -> TableResult:
-    ...
+    results = get_scia_analysis_results_sections_on_plane(
+        params,
+        SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH,
+    )
+    return create_sections_on_plane_table_view(results, combination_type="SLS_FREQ")
 ```
 
-Register the views in `BridgeController` (and `parametrization.py` if tabs need updating).
+Register view names in the `scia = Page(...)` block in `parametrization.py`
+(inside the `views=[...]` list of the SCIA Page).
+
+### Step 9 — Parametrization toggles
+
+Add `enable_integration_strips` and `enable_sections_on_plane` toggles to
+`app/bridge/parametrization.py` as described in the **Enable / Disable Toggles**
+section above.
 
 ---
 
@@ -319,33 +479,39 @@ Register the views in `BridgeController` (and `parametrization.py` if tabs need 
 
 | Decision | Rationale |
 |---|---|
-| X-direction sections only | Sections on plane return cross-sectional results; placing them in Y would duplicate integration-strip functionality |
-| Separate ESA template | Sections on plane require different result configuration in SCIA; keeps templates independent |
-| No filtering wrapper needed (initially) | The number of sections is smaller than integration strips; add a `_FilteringBuilderWrapper` equivalent only if performance requires it |
+| Separate module `scia_sections_on_plane.py` | No code added to `scia_integration_strips.py`; features are fully independent and can be tested/modified in isolation |
+| Two ESA templates (full + governing) | Mirrors integration-strip template pattern; governs analysis scope without code changes |
+| X-direction sections only | Sections on plane return cross-sectional results; Y-direction would duplicate integration-strip functionality |
+| `enable_integration_strips` + `enable_sections_on_plane` toggles | Users can disable either feature to reduce SCIA computation time; `getattr(..., True)` default keeps backward compatibility |
+| Toggles placed in "Berekening selectie" tab | Consistent with existing `load_case_selection_table` which also controls model content |
 | `direction_of_cut` defaults to SDK default | `(0, 0, 1)` is the SCIA default; expose as parameter only if non-default cuts are required in future |
-| Reuse `_calculate_zone_boundaries` and `_calculate_zone_x_boundaries` | Avoids duplicating zone geometry logic; import them from `scia_integration_strips.py` |
+| Reuse `_calculate_zone_boundaries` and `_calculate_zone_x_boundaries` | Avoids duplicating zone geometry logic; import from `scia_integration_strips.py` |
+| Governing template used for primary TableViews | Consistent with integration-strip view pattern; full-template analysis is available separately |
 
 ---
 
 ## File Creation Order (recommended)
 
-1. `constants/paths.py` — add path constant  
-2. `model/scia_model_interface.py` — extend Protocol  
-3. `app/bridge/scia_model_builder.py` — implement concrete method + tracking dict  
-4. `model/scia_sections_on_plane.py` — new module (core logic)  
-5. `model/scia_model.py` — add `define_bridge_model_sections_on_plane`  
-6. `app/bridge/scia_model_builder.py` — add top-level functions  
-7. `results/scia_sections_on_plane_processor.py` — results parsing  
-8. `results/scia_sections_on_plane_views.py` — table view helpers  
-9. `bridgeController/scia_integration.py` — new TableView methods  
+1. `constants/paths.py` — add two new path constants (full + governing)
+2. `model/scia_model_interface.py` — extend Protocol with `create_section_on_plane`
+3. `app/bridge/scia_model_builder.py` — implement concrete method + `sections_on_plane` dict
+4. `model/scia_sections_on_plane.py` — **new module** (placement logic + builder calls)
+5. `model/scia_model.py` — add `define_bridge_model_sections_on_plane`; add toggle guard in `define_complete_bridge_model`
+6. `app/bridge/scia_model_builder.py` — add top-level functions (full + governing template variants)
+7. `results/scia_sections_on_plane_processor.py` — results parsing
+8. `results/scia_sections_on_plane_views.py` — table view helpers
+9. `bridgeController/scia_integration.py` — new `@TableView` methods (separate section)
+10. `app/bridge/parametrization.py` — add `enable_integration_strips` and `enable_sections_on_plane` toggles + register new view names in SCIA Page
 
 ---
 
 ## Open Questions
 
 - **Table names in XML output**: Confirm the result table identifiers that the new ESA
-  template exposes for section-on-plane results (needed for step 7).
+  templates expose for section-on-plane results (needed for step 7).
 - **`draw` parameter**: Determine whether `Z_DIRECTION` (SDK default) is correct for
   all zones or whether it depends on the zone orientation.
 - **Caching**: Decide whether the sections-on-plane analysis should share the existing
   `analysis_cache.py` mechanism or have its own cache key.
+- **Full-template access**: Decide whether the full-template sections-on-plane analysis
+  needs a dedicated `@TableView` or just a download button (analogous to the integration-strip full analysis).

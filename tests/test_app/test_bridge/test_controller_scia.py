@@ -7,7 +7,7 @@ file downloads, and template handling.
 
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, PropertyMock, mock_open, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]
@@ -21,27 +21,49 @@ from app.bridge.controller import BridgeController
 class TestGetSciaTemplatePath:
     """Test cases for _get_scia_template_path method."""
 
+    def _make_params(self, result_object_type: str) -> MagicMock:
+        """Create mock params with the given result_object_type."""
+        params = MagicMock()
+        params.calc_page.calc_selection.result_object_type = result_object_type
+        return params
+
     def test_get_scia_template_path_success(self, _mock_download_result: MagicMock) -> None:
-        """Test successful template path retrieval when file exists."""
+        """Test successful template path retrieval for integration strips."""
         # Arrange
         controller = BridgeController()
+        params = self._make_params("Integratiestroken")
 
         with patch("pathlib.Path.exists", return_value=True):
             # Act
-            result = controller._get_scia_template_path()
+            result = controller._get_scia_template_path(params)
 
             # Assert
             assert isinstance(result, Path)
-            assert result.name == "model_governing.esa"  # Testing with governing template
+            assert result.name == "model_governing_integrationstrips.esa"
+
+    def test_get_scia_template_path_sections_on_plane(self, _mock_download_result: MagicMock) -> None:
+        """Test successful template path retrieval for sections on plane."""
+        # Arrange
+        controller = BridgeController()
+        params = self._make_params("Secties op vlak")
+
+        with patch("pathlib.Path.exists", return_value=True):
+            # Act
+            result = controller._get_scia_template_path(params)
+
+            # Assert
+            assert isinstance(result, Path)
+            assert result.name == "model_governing_sectionsonplane.esa"
 
     def test_get_scia_template_path_file_not_found(self, _mock_download_result: MagicMock) -> None:
         """Test error handling when template file doesn't exist."""
         # Arrange
         controller = BridgeController()
+        params = self._make_params("Integratiestroken")
 
         # Act & Assert
         with patch("pathlib.Path.exists", return_value=False), pytest.raises(UserError, match="SCIA template file niet gevonden"):
-            controller._get_scia_template_path()
+            controller._get_scia_template_path(params)
 
 
 @patch("app.bridge.bridgeController.scia_integration.DownloadResult")

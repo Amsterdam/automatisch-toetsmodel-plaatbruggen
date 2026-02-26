@@ -186,7 +186,7 @@ class SciaIntegration:
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
-        template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+        template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
         entity_id = kwargs.get("entity_id")
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
@@ -241,7 +241,7 @@ class SciaIntegration:
     def _download_scia_esa_model_cached(self, params: BridgeParametrization, entity_id: int, bridge_id: str) -> DownloadResult:
         """Download SCIA ESA model using cached results, or recalculate if ESA not in cache."""
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
             progress_message("Controleren op gecachte SCIA resultaten...")
             results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
@@ -284,7 +284,7 @@ class SciaIntegration:
     def _download_scia_esa_model_direct(self, params: BridgeParametrization, bridge_id: str) -> DownloadResult:
         """Download SCIA ESA model by creating and running analysis directly."""
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
             xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
 
             analysis.execute(timeout=3600)
@@ -314,7 +314,7 @@ class SciaIntegration:
         :raises UserError: If file generation fails
         """
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
             xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
 
             if not hasattr(xml_file, "getvalue"):
@@ -371,7 +371,7 @@ class SciaIntegration:
             raise UserError("Geen gecachte SCIA resultaten gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
 
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
             results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
             if results is not None and "xml_output" in results and results["xml_output"]:

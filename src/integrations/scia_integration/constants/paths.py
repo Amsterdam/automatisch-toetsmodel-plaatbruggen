@@ -11,6 +11,10 @@ from pathlib import Path
 SCIA_PROJECT_PATH = Path(__file__).parent.parent.parent.parent.parent
 SCIA_RESOURCES_PATH = SCIA_PROJECT_PATH / "resources"
 
-# SCIA templates - currently testing with governing template
-SCIA_TEMPLATE_PATH = SCIA_RESOURCES_PATH / "templates" / "model_governing.esa"
-SCIA_TEMPLATE_FULL_PATH = SCIA_RESOURCES_PATH / "templates" / "model_full.esa"
+# SCIA templates for integration strips analysis
+SCIA_TEMPLATE_PATH = SCIA_RESOURCES_PATH / "templates" / "model_governing_integrationstrips.esa"
+SCIA_TEMPLATE_FULL_PATH = SCIA_RESOURCES_PATH / "templates" / "model_full_integrationstrips.esa"
+
+# SCIA templates for sections-on-plane analysis
+SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH = SCIA_RESOURCES_PATH / "templates" / "model_governing_sectionsonplane.esa"
+SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH = SCIA_RESOURCES_PATH / "templates" / "model_full_sectionsonplane.esa"
