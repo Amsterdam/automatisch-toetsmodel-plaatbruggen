@@ -16,7 +16,12 @@ from viktor.result import SetParamsResult
 from viktor.views import MapPoint, MapResult
 
 from app.constants import SCIA_TEMPLATE_PATH, SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
-from app.constants.technical import RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE
+from app.constants.technical import (
+    ENABLE_INTEGRATION_STRIPS,
+    ENABLE_SECTIONS_ON_PLANE,
+    RESULT_OBJECT_INTEGRATION_STRIPS,
+    RESULT_OBJECT_SECTIONS_ON_PLANE,
+)
 from src.integrations.scia_integration.results.scia_force_envelopes import get_force_envelope_summary
 
 
@@ -76,11 +81,15 @@ class ControllerUtils:
         :rtype: Path
         :raises UserError: If both result types are active, or template file not found
         """
-        # Read the OptionField; fall back gracefully when the field is not yet present.
+        # Read the OptionField; fall back to the module-level feature-toggle constants
+        # when the field is not yet present (e.g. legacy params or tests).
         try:
             result_type = params.calc_page.calc_selection.result_object_type
         except AttributeError:
-            result_type = RESULT_OBJECT_INTEGRATION_STRIPS  # safe default
+            if ENABLE_SECTIONS_ON_PLANE and not ENABLE_INTEGRATION_STRIPS:
+                result_type = RESULT_OBJECT_SECTIONS_ON_PLANE
+            else:
+                result_type = RESULT_OBJECT_INTEGRATION_STRIPS
 
         use_strips = result_type == RESULT_OBJECT_INTEGRATION_STRIPS
         use_sections = result_type == RESULT_OBJECT_SECTIONS_ON_PLANE

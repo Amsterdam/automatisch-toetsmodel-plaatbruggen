@@ -123,5 +123,5 @@ RESULT_OBJECT_SECTIONS_ON_PLANE: str = "Secties op vlak"
 # ---------------------------------------------------------------------------
 # Used when the parametrization OptionField is not yet present (backward compat).
 # ENABLE_SECTIONS_ON_PLANE is False so the safe default is integration strips.
-ENABLE_INTEGRATION_STRIPS: bool = True
-ENABLE_SECTIONS_ON_PLANE: bool = False
+ENABLE_INTEGRATION_STRIPS: bool = False
+ENABLE_SECTIONS_ON_PLANE: bool = True
