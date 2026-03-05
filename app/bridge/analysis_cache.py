@@ -795,6 +795,10 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "integration_strips" in full_results:
         cacheable["integration_strips"] = full_results["integration_strips"]
 
+    # Include sections-on-plane if present (needed for sections-on-plane views)
+    if "sections_on_plane" in full_results:
+        cacheable["sections_on_plane"] = full_results["sections_on_plane"]
+
     # Include other DataFrames/parsed results (small)
     for key in ["displacements", "internal_forces", "reactions", "stresses"]:
         if key in full_results:

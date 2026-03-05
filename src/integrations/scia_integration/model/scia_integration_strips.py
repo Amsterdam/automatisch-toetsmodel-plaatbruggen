@@ -711,7 +711,7 @@ def _create_integration_strips_internal(
             f"{stats['skipped']} skipped out of {stats['total_attempted']} total"
         )
         return stats
-    
+
     return {}
 
 

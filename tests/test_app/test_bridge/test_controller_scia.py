@@ -7,7 +7,7 @@ file downloads, and template handling.
 
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from munch import Munch  # type: ignore[import-untyped]

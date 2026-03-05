@@ -21,10 +21,26 @@ from viktor.views import TableResult, TableView
 from app.bridge.analysis_cache import get_cached_analysis_results
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_analysis_results
+from app.constants import RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE
 from src.common.constants.technical import AnalysisType
+
+# Visibility conditions reused across all view decorators
+def _visible_integration_strips(params: BridgeParametrization, **kwargs) -> bool:  # noqa: ARG001
+    return params.calc_page.calc_selection.result_object_type == RESULT_OBJECT_INTEGRATION_STRIPS
+
+
+def _visible_sections_on_plane(params: BridgeParametrization, **kwargs) -> bool:  # noqa: ARG001
+    return params.calc_page.calc_selection.result_object_type == RESULT_OBJECT_SECTIONS_ON_PLANE
 from src.integrations.scia_integration.results.scia_integration_strips_views import (
     create_integration_strip_envelope_table_view,
     create_integration_strip_table_view,
+)
+from src.integrations.scia_integration.results.scia_sections_on_plane_views import (
+    create_sections_on_plane_envelopes,
+    create_sections_on_plane_slsfreq_reg,
+    create_sections_on_plane_slsfreq_sup,
+    create_sections_on_plane_uls_reg,
+    create_sections_on_plane_uls_sup,
 )
 
 
@@ -43,7 +59,7 @@ class SciaIntegration:
     # Integration Strip Results Table Views
     # ============================================================================================================
 
-    @TableView("Integratiestroken ULS x reg", duration_guess=600)
+    @TableView("Integratiestroken ULS x reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for x-direction regular integration strips.
@@ -57,7 +73,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_x_reg")
 
-    @TableView("Integratiestroken ULS y reg", duration_guess=600)
+    @TableView("Integratiestroken ULS y reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for y-direction regular integration strips.
@@ -71,7 +87,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_y_reg")
 
-    @TableView("Integratiestroken ULS x sup", duration_guess=600)
+    @TableView("Integratiestroken ULS x sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for x-direction support integration strips.
@@ -85,7 +101,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_x_sup")
 
-    @TableView("Integratiestroken ULS y sup", duration_guess=600)
+    @TableView("Integratiestroken ULS y sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for y-direction support integration strips.
@@ -99,7 +115,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_y_sup")
 
-    @TableView("Integratiestroken SLSfreq x reg", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq x reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for x-direction regular integration strips.
@@ -113,7 +129,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_x_reg")
 
-    @TableView("Integratiestroken SLSfreq y reg", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq y reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for y-direction regular integration strips.
@@ -127,7 +143,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_y_reg")
 
-    @TableView("Integratiestroken SLSfreq x sup", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq x sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for x-direction support integration strips.
@@ -141,7 +157,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_x_sup")
 
-    @TableView("Integratiestroken SLSfreq y sup", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq y sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for y-direction support integration strips.
@@ -155,7 +171,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_y_sup")
 
-    @TableView("Integratiestroken Enveloppen", duration_guess=600)
+    @TableView("Integratiestroken Enveloppen", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_envelopes(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display aggregated min/max force envelopes from integration strips.
@@ -171,6 +187,40 @@ class SciaIntegration:
         """
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_envelope_table_view(results)
+
+    # ============================================================================================================
+    # Sections on Plane Results Table Views
+    # ============================================================================================================
+
+    @TableView("Secties op vlak ULS veld", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS veld (x + y richting): basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_uls_reg(results)
+
+    @TableView("Secties op vlak ULS steunpunt", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS steunpunt (x + y richting): basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_uls_sup(results)
+
+    @TableView("Secties op vlak SLS freq veld", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent veld (x + y richting): basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_reg(results)
+
+    @TableView("Secties op vlak SLS freq steunpunt", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent steunpunt (x + y richting): basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_sup(results)
+
+    @TableView("Secties Enveloppen", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_envelopes(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """Maatgevende waarden (abs. max per grootheid) over alle 4 secties-op-vlak tabellen."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_envelopes(results)
 
     def _get_scia_results_with_cache(self, params: BridgeParametrization, **kwargs) -> dict:
         """

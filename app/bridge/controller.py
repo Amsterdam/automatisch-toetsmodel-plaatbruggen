@@ -86,6 +86,12 @@ class BridgeController(
     get_integration_strip_slsfreq_x_sup = SciaIntegration.get_integration_strip_slsfreq_x_sup
     get_integration_strip_slsfreq_y_sup = SciaIntegration.get_integration_strip_slsfreq_y_sup
     get_integration_strip_envelopes = SciaIntegration.get_integration_strip_envelopes
+    # Sections on plane views
+    get_sections_on_plane_uls_reg = SciaIntegration.get_sections_on_plane_uls_reg
+    get_sections_on_plane_uls_sup = SciaIntegration.get_sections_on_plane_uls_sup
+    get_sections_on_plane_slsfreq_reg = SciaIntegration.get_sections_on_plane_slsfreq_reg
+    get_sections_on_plane_slsfreq_sup = SciaIntegration.get_sections_on_plane_slsfreq_sup
+    get_sections_on_plane_envelopes = SciaIntegration.get_sections_on_plane_envelopes
     # Downloads
     download_scia_esa_model = SciaIntegration.download_scia_esa_model
     download_scia_xml_files = SciaIntegration.download_scia_xml_files

@@ -1524,7 +1524,7 @@ def run_two_stage_scia_analysis(
 
     # 4. Build ONLY governing integration strips (this is the key difference)
     strip_stats = create_selective_integration_strips(builder_stage2, params, governing_strip_names)
-    
+
     # Show updated progress with actual strip counts
     if strip_stats:
         progress_message(
@@ -1689,5 +1689,18 @@ def get_scia_analysis_results_sections_on_plane(
     results = builder.extract_analysis_results(analysis)
     results["xml_output"] = _extract_xml_output_for_caching(analysis)
     results["esa_model"] = _extract_esa_model_for_caching(analysis)
+
+    # Pre-process sections-on-plane data so it survives cache serialisation
+    # (xml_parsing is stripped by extract_cacheable_scia_results; the
+    # processed DataFrames are small and cacheable).
+    try:
+        from src.integrations.scia_integration.results.scia_sections_on_plane_processor import (
+            process_all_sections_on_plane,
+        )
+
+        results["sections_on_plane"] = process_all_sections_on_plane(results)
+    except Exception:
+        pass  # graceful degradation — view will show "geen data"
+
     return results
 
