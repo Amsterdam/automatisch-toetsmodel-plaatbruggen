@@ -20,6 +20,7 @@ from src.integrations.scia_integration.model.scia_model_interface import (
 )
 from src.integrations.scia_integration.scia_enums import (
     LineLoadDirection,
+    LineSupportCSys,
     LineSupportFreedom,
     LoadCaseActionType,
     LoadCaseDuration,
@@ -484,6 +485,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         edge_index: int,
         freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
+        c_sys: LineSupportCSys | None = None,
     ) -> scia.LineSupport:
         """
         Creates a line support on a plane edge.
@@ -493,6 +495,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         :param edge_index: Edge index on the plane
         :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz directions
         :param stiffness: Dictionary with stiffness values for x and y directions
+        :param c_sys: Coordinate system (default: GLOBAL)
         :return: Created line support
         """
         if plane_name not in self.plates:
@@ -501,6 +504,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         # Extract SDK enums from bridge enums
         sdk_freedom = {key: value.value for key, value in freedom.items()}
+        sdk_c_sys = c_sys.value if c_sys is not None else None
 
         return self.model.create_line_support_on_plane(
             name=name,
@@ -513,6 +517,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             rz=sdk_freedom["rz"],
             stiffness_x=stiffness.get("stiffness_x"),
             stiffness_y=stiffness.get("stiffness_y"),
+            c_sys=sdk_c_sys,
         )
 
     def get_model(self) -> scia.Model:

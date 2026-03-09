@@ -8,7 +8,7 @@ from src.integrations.scia_integration.constants.geometry import (
     SUPPORT_STIFFNESS_X_DEFAULT,
     SUPPORT_STIFFNESS_Y_DEFAULT,
 )
-from src.integrations.scia_integration.scia_enums import LineSupportFreedom
+from src.integrations.scia_integration.scia_enums import LineSupportCSys, LineSupportFreedom
 
 from .scia_model_interface import SciaLineSupport, SciaModelBuilder
 
@@ -139,6 +139,7 @@ def create_line_supports(builder: SciaModelBuilder, plate_names: list[str], supp
                     edge_index=edge_index,
                     freedom=freedom,
                     stiffness=stiffness,
+                    c_sys=LineSupportCSys.LOCAL,
                 )
             )
 

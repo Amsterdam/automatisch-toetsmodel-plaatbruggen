@@ -17,6 +17,7 @@ from typing import Any, Protocol
 
 from src.integrations.scia_integration.scia_enums import (
     LineLoadDirection,
+    LineSupportCSys,
     LineSupportFreedom,
     LoadCaseActionType,
     LoadCaseDuration,
@@ -227,6 +228,7 @@ class SciaModelBuilder(Protocol):
         edge_index: int,
         freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
+        c_sys: LineSupportCSys | None = None,
     ) -> SciaLineSupport:
         """
         Creates a line support on a plane edge in the SCIA model.
@@ -236,6 +238,7 @@ class SciaModelBuilder(Protocol):
         :param edge_index: Edge index on the plane
         :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz
         :param stiffness: Dictionary with stiffness values
+        :param c_sys: Coordinate system (default: GLOBAL)
         """
         ...
 
