@@ -1403,10 +1403,14 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "get_integration_strip_slsfreq_y_sup",
             # Sections on plane views
             "get_sections_on_plane_envelopes",
-            "get_sections_on_plane_uls_reg",
-            "get_sections_on_plane_uls_sup",
-            "get_sections_on_plane_slsfreq_reg",
-            "get_sections_on_plane_slsfreq_sup",
+            "get_sections_on_plane_uls_x_reg",
+            "get_sections_on_plane_uls_y_reg",
+            "get_sections_on_plane_uls_x_sup",
+            "get_sections_on_plane_uls_y_sup",
+            "get_sections_on_plane_slsfreq_x_reg",
+            "get_sections_on_plane_slsfreq_y_reg",
+            "get_sections_on_plane_slsfreq_x_sup",
+            "get_sections_on_plane_slsfreq_y_sup",
         ],
     )
 

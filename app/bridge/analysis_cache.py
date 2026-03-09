@@ -220,13 +220,24 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
         raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
     try:
-        # Get the ESA template path
-        template_path = SCIA_TEMPLATE_PATH
+        # Derive the template path from result_object_type — must match what get_scia_analysis_results uses
+        # so the cache lookup hits the correct stored entry.
+        from app.constants import SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
+        from app.constants.technical import ENABLE_SECTIONS_ON_PLANE, RESULT_OBJECT_SECTIONS_ON_PLANE
+
+        try:
+            result_type = params.calc_page.calc_selection.result_object_type
+        except AttributeError:
+            result_type = RESULT_OBJECT_SECTIONS_ON_PLANE if ENABLE_SECTIONS_ON_PLANE else None
+
+        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else SCIA_TEMPLATE_PATH
 
         # Use cached SCIA analysis results instead of calling directly
         progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA verwerking...", percentage=percentage)
         results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path), analysis_context)
 
+    except UserError:
+        raise
     except Exception as e:
         raise UserError(f"Onverwachte fout tijdens ophalen SCIA resultaten voor IDEA analyse: {e!s}")
 
@@ -234,13 +245,14 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     if results is None:
         raise UserError("Geen SCIA resultaten beschikbaar voor IDEA analyse")
 
-    # Check if integration strips are available (mandatory for IDEA)
-    if "integration_strips" not in results:
+    # Check if at least one supported result type is available for IDEA
+    if "integration_strips" not in results and "sections_on_plane" not in results:
         raise UserError(
-            "Geen integratiestroken beschikbaar in SCIA resultaten. IDEA analyse vereist integratiestroken. Voer een nieuwe SCIA berekening uit."
+            "Geen SCIA resultaten beschikbaar voor IDEA analyse. "
+            "Voer een nieuwe SCIA berekening uit met integratiestroken of secties op vlak."
         )
 
-    # Return results dictionary (integration strips will be processed by IDEA interface)
+    # Return results dictionary (IDEA interface selects the correct result type)
     return {
         "results": results,
     }

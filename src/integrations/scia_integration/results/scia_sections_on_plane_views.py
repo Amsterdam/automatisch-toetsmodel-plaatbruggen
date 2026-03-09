@@ -4,10 +4,14 @@ VIKTOR View Functions for Sections-on-Plane Results.
 
 Public API
 ----------
-- :func:`create_sections_on_plane_uls_reg`
-- :func:`create_sections_on_plane_uls_sup`
-- :func:`create_sections_on_plane_slsfreq_reg`
-- :func:`create_sections_on_plane_slsfreq_sup`
+- :func:`create_sections_on_plane_uls_x_reg`
+- :func:`create_sections_on_plane_uls_y_reg`
+- :func:`create_sections_on_plane_uls_x_sup`
+- :func:`create_sections_on_plane_uls_y_sup`
+- :func:`create_sections_on_plane_slsfreq_x_reg`
+- :func:`create_sections_on_plane_slsfreq_y_reg`
+- :func:`create_sections_on_plane_slsfreq_x_sup`
+- :func:`create_sections_on_plane_slsfreq_y_sup`
 - :func:`create_sections_on_plane_envelopes`
 """
 
@@ -273,78 +277,96 @@ def _get_combined_df(
     results: dict[str, Any],
     limit_state: str,
     section_type: str,
+    direction: str,
 ) -> pd.DataFrame:
-    """Return the raw merged DataFrame for one limit-state/section-type (x + y), tagged with limit_state."""
+    """Return the raw merged DataFrame for one limit-state/section-type/direction, tagged with limit_state."""
     tables = _get_sections_on_plane(results).get("tables", {})
-    frames: list[pd.DataFrame] = []
-    for direction in ("x", "y"):
-        basic_key = f"{limit_state}_basic_{direction}_{section_type}"
-        elem_key = f"{limit_state}_elementary_{direction}_{section_type}"
-        df = _build_combined_df(
-            tables.get(basic_key, pd.DataFrame()),
-            tables.get(elem_key, pd.DataFrame()),
-        )
-        if not df.empty:
-            frames.append(df)
-    df_all = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-    if not df_all.empty:
-        df_all["limit_state"] = limit_state
-    return df_all
+    basic_key = f"{limit_state}_basic_{direction}_{section_type}"
+    elem_key = f"{limit_state}_elementary_{direction}_{section_type}"
+    df = _build_combined_df(
+        tables.get(basic_key, pd.DataFrame()),
+        tables.get(elem_key, pd.DataFrame()),
+    )
+    if not df.empty:
+        df["limit_state"] = limit_state
+    return df
 
 
 def _create_combined_view(
     results: dict[str, Any],
     limit_state: str,
     section_type: str,
+    direction: str,
 ) -> TableResult:
-    """Build a combined basic + elementary TableResult for both x- and y-directions."""
-    df_all = _get_combined_df(results, limit_state, section_type)
-    return TableResult(_format_combined_data(df_all), column_headers=_COMBINED_HEADERS)
+    """Build a combined basic + elementary TableResult for one direction."""
+    df = _get_combined_df(results, limit_state, section_type, direction)
+    return TableResult(_format_combined_data(df), column_headers=_COMBINED_HEADERS)
 
 
 # ---------------------------------------------------------------------------
-# Public view functions (4 views — one per limit-state/section-type)
+# Public view functions (8 views — one per limit-state/section-type/direction)
 # ---------------------------------------------------------------------------
 
 
-def create_sections_on_plane_uls_reg(results: dict[str, Any]) -> TableResult:
-    """ULS veld (x + y richting): basis + elementaire grootheden."""
-    return _create_combined_view(results, "ULS", "reg")
+def create_sections_on_plane_uls_x_reg(results: dict[str, Any]) -> TableResult:
+    """ULS veld x-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "ULS", "reg", "x")
 
 
-def create_sections_on_plane_uls_sup(results: dict[str, Any]) -> TableResult:
-    """ULS steunpunt (x + y richting): basis + elementaire grootheden."""
-    return _create_combined_view(results, "ULS", "sup")
+def create_sections_on_plane_uls_y_reg(results: dict[str, Any]) -> TableResult:
+    """ULS veld y-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "ULS", "reg", "y")
 
 
-def create_sections_on_plane_slsfreq_reg(results: dict[str, Any]) -> TableResult:
-    """SLS frequent veld (x + y richting): basis + elementaire grootheden."""
-    return _create_combined_view(results, "SLSfreq", "reg")
+def create_sections_on_plane_uls_x_sup(results: dict[str, Any]) -> TableResult:
+    """ULS steunpunt x-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "ULS", "sup", "x")
 
 
-def create_sections_on_plane_slsfreq_sup(results: dict[str, Any]) -> TableResult:
-    """SLS frequent steunpunt (x + y richting): basis + elementaire grootheden."""
-    return _create_combined_view(results, "SLSfreq", "sup")
+def create_sections_on_plane_uls_y_sup(results: dict[str, Any]) -> TableResult:
+    """ULS steunpunt y-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "ULS", "sup", "y")
+
+
+def create_sections_on_plane_slsfreq_x_reg(results: dict[str, Any]) -> TableResult:
+    """SLS frequent veld x-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "SLSfreq", "reg", "x")
+
+
+def create_sections_on_plane_slsfreq_y_reg(results: dict[str, Any]) -> TableResult:
+    """SLS frequent veld y-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "SLSfreq", "reg", "y")
+
+
+def create_sections_on_plane_slsfreq_x_sup(results: dict[str, Any]) -> TableResult:
+    """SLS frequent steunpunt x-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "SLSfreq", "sup", "x")
+
+
+def create_sections_on_plane_slsfreq_y_sup(results: dict[str, Any]) -> TableResult:
+    """SLS frequent steunpunt y-richting: basis + elementaire grootheden."""
+    return _create_combined_view(results, "SLSfreq", "sup", "y")
 
 
 def create_sections_on_plane_envelopes(results: dict[str, Any]) -> TableResult:
-    """Governing absolute-maximum row per force column per table (4 tables × 8 forces)."""
+    """Governing absolute-maximum row per force column per table (8 tables × 8 forces)."""
     envelope_rows: list[pd.Series] = []
 
     for limit_state in ("ULS", "SLSfreq"):
         for section_type in ("reg", "sup"):
-            df = _get_combined_df(results, limit_state, section_type)
-            if df.empty:
-                continue
-            for col, label in _FORCE_COL_LABELS.items():
-                if col not in df.columns:
+            for direction in ("x", "y"):
+                df = _get_combined_df(results, limit_state, section_type, direction)
+                if df.empty:
                     continue
-                numeric = pd.to_numeric(df[col], errors="coerce").abs()
-                idx = numeric.idxmax()
-                if pd.notna(idx):
-                    row = df.loc[idx].copy()
-                    row["governing_col"] = label
-                    envelope_rows.append(row)
+                for col, label in _FORCE_COL_LABELS.items():
+                    if col not in df.columns:
+                        continue
+                    numeric = pd.to_numeric(df[col], errors="coerce").abs()
+                    idx = numeric.idxmax()
+                    if pd.notna(idx):
+                        row = df.loc[idx].copy()
+                        row["governing_col"] = label
+                        envelope_rows.append(row)
 
     if not envelope_rows:
         return TableResult(

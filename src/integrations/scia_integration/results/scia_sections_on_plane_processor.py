@@ -434,6 +434,30 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
 # ---------------------------------------------------------------------------
 
 
+def extract_governing_section_names(envelope_df: pd.DataFrame) -> set[str]:
+    """
+    Extract unique governing section names from the sections-on-plane envelope DataFrame.
+
+    The envelope contains one row per min/max force value; the ``"name"`` column holds
+    the section name that produced that governing value.  This function returns the set
+    of all unique names that are governing for **any** force component, which is used by
+    :func:`~app.bridge.scia_model_builder.run_two_stage_scia_analysis_sections_on_plane`
+    to determine which sections to rebuild for Stage 2.
+
+    :param envelope_df: DataFrame produced by :func:`process_sections_on_plane_envelopes`
+    :type envelope_df: pd.DataFrame
+    :returns: Set of unique section names
+    :rtype: set[str]
+    """
+    if envelope_df.empty or "name" not in envelope_df.columns:
+        logger.warning("Sections-on-plane envelope DataFrame is empty or missing 'name' column")
+        return set()
+
+    governing_names: set[str] = set(envelope_df["name"].dropna().unique())
+    logger.info("Extracted %d unique governing section names from envelope", len(governing_names))
+    return governing_names
+
+
 def process_all_sections_on_plane(
     results: dict[str, Any],
 ) -> dict[str, Any]:

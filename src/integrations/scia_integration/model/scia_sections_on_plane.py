@@ -486,3 +486,92 @@ def create_all_sections_on_plane(builder: SciaModelBuilder, params: Any) -> None
                 params=params,
                 excluded_ranges=excluded_ranges,
             )
+
+
+def create_selective_sections_on_plane(
+    builder: SciaModelBuilder,
+    params: Any,  # noqa: ANN401
+    governing_section_names: set[str],
+) -> dict[str, int]:
+    """
+    Create ONLY the SectionOnPlane objects whose names appear in *governing_section_names*.
+
+    Used for Stage 2 of the two-stage analysis: after Stage 1 identifies which sections
+    are governing (via the envelope), Stage 2 rebuilds the model with only those sections
+    so the full-template run produces a small, fast XML output file.
+
+    The creation logic is identical to :func:`create_all_sections_on_plane`; sections
+    whose generated name is **not** in *governing_section_names* are silently skipped.
+
+    :param builder: The SCIA model builder instance
+    :param params: Bridge parameters
+    :param governing_section_names: Set of section name strings to create
+    :return: Stats dict with keys ``"created"``, ``"skipped"``, ``"total_attempted"``
+    """
+    wrapper = _FilteringSectionBuilderWrapper(builder, governing_section_names)
+
+    supports = _get_support_locations(params)
+    num_segments = len(params.bridge_segments_array)
+
+    for segment_idx in range(1, num_segments):
+        for zone_position in (1, 2, 3):
+            plane_name = f"Z{zone_position}_{segment_idx}"
+            excluded_ranges = _get_excluded_x_ranges(supports, zone_position, segment_idx, params)
+
+            _create_support_sections(
+                builder=wrapper,
+                plane_name=plane_name,
+                zone_position=zone_position,
+                segment_idx=segment_idx,
+                params=params,
+                supports=supports,
+            )
+            _create_sections_x_direction(
+                builder=wrapper,
+                plane_name=plane_name,
+                zone_position=zone_position,
+                segment_idx=segment_idx,
+                params=params,
+                excluded_ranges=excluded_ranges,
+            )
+            _create_sections_y_direction(
+                builder=wrapper,
+                plane_name=plane_name,
+                zone_position=zone_position,
+                segment_idx=segment_idx,
+                params=params,
+                excluded_ranges=excluded_ranges,
+            )
+
+    return {
+        "created": wrapper.created,
+        "skipped": wrapper.skipped,
+        "total_attempted": wrapper.created + wrapper.skipped,
+    }
+
+
+class _FilteringSectionBuilderWrapper:
+    """
+    Thin proxy around a :class:`SciaModelBuilder` that forwards every call
+    **except** :meth:`create_section_on_plane`, which is filtered by name.
+
+    Sections whose ``name`` is not in *allowed_names* are skipped silently.
+    All other builder methods are delegated to the underlying *builder*.
+    """
+
+    def __init__(self, builder: SciaModelBuilder, allowed_names: set[str]) -> None:
+        self._builder = builder
+        self._allowed = allowed_names
+        self.created: int = 0
+        self.skipped: int = 0
+
+    def create_section_on_plane(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        name: str = kwargs.get("name", args[2] if len(args) > 2 else "")
+        if name in self._allowed:
+            self.created += 1
+            return self._builder.create_section_on_plane(*args, **kwargs)
+        self.skipped += 1
+        return None
+
+    def __getattr__(self, item: str) -> Any:  # noqa: ANN401
+        return getattr(self._builder, item)

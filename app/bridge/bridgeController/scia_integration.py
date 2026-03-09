@@ -37,10 +37,14 @@ from src.integrations.scia_integration.results.scia_integration_strips_views imp
 )
 from src.integrations.scia_integration.results.scia_sections_on_plane_views import (
     create_sections_on_plane_envelopes,
-    create_sections_on_plane_slsfreq_reg,
-    create_sections_on_plane_slsfreq_sup,
-    create_sections_on_plane_uls_reg,
-    create_sections_on_plane_uls_sup,
+    create_sections_on_plane_slsfreq_x_reg,
+    create_sections_on_plane_slsfreq_x_sup,
+    create_sections_on_plane_slsfreq_y_reg,
+    create_sections_on_plane_slsfreq_y_sup,
+    create_sections_on_plane_uls_x_reg,
+    create_sections_on_plane_uls_x_sup,
+    create_sections_on_plane_uls_y_reg,
+    create_sections_on_plane_uls_y_sup,
 )
 
 
@@ -192,29 +196,53 @@ class SciaIntegration:
     # Sections on Plane Results Table Views
     # ============================================================================================================
 
-    @TableView("Secties op vlak ULS veld", duration_guess=600, visible=_visible_sections_on_plane)
-    def get_sections_on_plane_uls_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """ULS veld (x + y richting): basis + elementaire ontwerp grootheden."""
+    @TableView("Secties op vlak ULS veld x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS veld x-richting: basis + elementaire ontwerp grootheden."""
         results = self._get_scia_results_with_cache(params, **kwargs)
-        return create_sections_on_plane_uls_reg(results)
+        return create_sections_on_plane_uls_x_reg(results)
 
-    @TableView("Secties op vlak ULS steunpunt", duration_guess=600, visible=_visible_sections_on_plane)
-    def get_sections_on_plane_uls_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """ULS steunpunt (x + y richting): basis + elementaire ontwerp grootheden."""
+    @TableView("Secties op vlak ULS veld y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS veld y-richting: basis + elementaire ontwerp grootheden."""
         results = self._get_scia_results_with_cache(params, **kwargs)
-        return create_sections_on_plane_uls_sup(results)
+        return create_sections_on_plane_uls_y_reg(results)
 
-    @TableView("Secties op vlak SLS freq veld", duration_guess=600, visible=_visible_sections_on_plane)
-    def get_sections_on_plane_slsfreq_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """SLS frequent veld (x + y richting): basis + elementaire ontwerp grootheden."""
+    @TableView("Secties op vlak ULS steunpunt x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS steunpunt x-richting: basis + elementaire ontwerp grootheden."""
         results = self._get_scia_results_with_cache(params, **kwargs)
-        return create_sections_on_plane_slsfreq_reg(results)
+        return create_sections_on_plane_uls_x_sup(results)
 
-    @TableView("Secties op vlak SLS freq steunpunt", duration_guess=600, visible=_visible_sections_on_plane)
-    def get_sections_on_plane_slsfreq_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
-        """SLS frequent steunpunt (x + y richting): basis + elementaire ontwerp grootheden."""
+    @TableView("Secties op vlak ULS steunpunt y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS steunpunt y-richting: basis + elementaire ontwerp grootheden."""
         results = self._get_scia_results_with_cache(params, **kwargs)
-        return create_sections_on_plane_slsfreq_sup(results)
+        return create_sections_on_plane_uls_y_sup(results)
+
+    @TableView("Secties op vlak SLS freq veld x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent veld x-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_x_reg(results)
+
+    @TableView("Secties op vlak SLS freq veld y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent veld y-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_y_reg(results)
+
+    @TableView("Secties op vlak SLS freq steunpunt x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent steunpunt x-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_x_sup(results)
+
+    @TableView("Secties op vlak SLS freq steunpunt y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent steunpunt y-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_y_sup(results)
 
     @TableView("Secties Enveloppen", duration_guess=600, visible=_visible_sections_on_plane)
     def get_sections_on_plane_envelopes(self, params: BridgeParametrization, **kwargs) -> TableResult:
