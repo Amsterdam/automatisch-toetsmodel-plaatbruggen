@@ -126,8 +126,10 @@ def _map_section_forces_to_idea_format(  # noqa: C901
     result_df["Qz"] = 0.0
     result_df["My"] = 0.0
 
-    # X-direction sections → dwars slab: Qz = v_x, My = m_x, N = n_x
     x_mask = result_df["direction"] == "x"
+    y_mask = result_df["direction"] == "y"
+
+    # X-direction sections → dwars slab: Qz = v_x, My = m_x, N = n_x
     if x_mask.any():
         if "v_x" in result_df.columns:
             result_df.loc[x_mask, "Qz"] = result_df.loc[x_mask, "v_x"].fillna(0.0)
@@ -137,7 +139,6 @@ def _map_section_forces_to_idea_format(  # noqa: C901
             result_df.loc[x_mask, "N"] = result_df.loc[x_mask, "n_x"].fillna(0.0)
 
     # Y-direction sections → langs slab: Qz = v_y, My = m_y, N = n_y
-    y_mask = result_df["direction"] == "y"
     if y_mask.any():
         if "v_y" in result_df.columns:
             result_df.loc[y_mask, "Qz"] = result_df.loc[y_mask, "v_y"].fillna(0.0)

@@ -221,19 +221,19 @@ def parse_section_name(section_name: str) -> dict[str, str]:
 
     Section names follow the pattern::
 
-        sec_dir-{dir}_{type}[_{position}]_{zone}[_{coord}]_nr-{nr}[_part-{n}]
+        sec_dir-{dir}_{type}[_{position}]_{zone}[_{coord}]_nr-{nr}[_part-{n}][_l-{length}]
 
     Examples
     --------
-    - ``sec_dir-x_reg_Z1-1_y-10.36_nr-10``          → dir=x, type=reg, zone=Z1-1
-    - ``sec_dir-x_sup-11.3_Z1-1_y-9.86_nr-2_part-1`` → dir=x, type=sup, zone=Z1-1
-    - ``sec_dir-y_reg_Z1-1_x-5.55_nr-10_part-18``    → dir=y, type=reg, zone=Z1-1
-    - ``sec_dir-y_sup-0.0_Z1-1_nr-17``               → dir=y, type=sup, zone=Z1-1
+    - ``sec_dir-x_reg_Z1-1_y-10.36_nr-10_l-1.00``           → dir=x, type=reg, zone=Z1-1, length=1.00
+    - ``sec_dir-x_sup-11.3_Z1-1_y-9.86_nr-2_part-1_l-0.50`` → dir=x, type=sup, zone=Z1-1, length=0.50
+    - ``sec_dir-y_reg_Z1-1_x-5.55_nr-10_part-18_l-1.00``    → dir=y, type=reg, zone=Z1-1, length=1.00
+    - ``sec_dir-y_sup-0.0_Z1-1_nr-17_l-1.00``               → dir=y, type=sup, zone=Z1-1, length=1.00
 
     :param section_name: Raw section name from SCIA output
     :type section_name: str
     :returns: Dictionary with keys ``direction``, ``section_type``, ``zone``,
-              ``number``; values are empty strings when a component cannot be found
+              ``number``, ``length``; values are empty strings when a component cannot be found
     :rtype: dict[str, str]
 
     """
@@ -242,6 +242,7 @@ def parse_section_name(section_name: str) -> dict[str, str]:
         "section_type": "",
         "zone": "",
         "number": "",
+        "length": "",
     }
 
     if not section_name or not isinstance(section_name, str):
@@ -262,6 +263,8 @@ def parse_section_name(section_name: str) -> dict[str, str]:
                 parsed["zone"] = part
             elif part.startswith("nr-"):
                 parsed["number"] = part.replace("nr-", "")
+            elif part.startswith("l-"):
+                parsed["length"] = part.replace("l-", "")
             # Remaining parts (x-, y-, part-) are positional metadata; skip
 
     except Exception as exc:
@@ -279,9 +282,13 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
     Augment a sections-on-plane DataFrame with parsed metadata columns.
 
-    Adds ``direction``, ``section_type``, ``zone``, and ``section_number`` columns
-    derived from the ``name`` column.  Numeric force/moment and coordinate columns
-    are coerced to ``float``.
+    Adds ``direction``, ``section_type``, ``zone``, ``section_number``, and
+    ``section_length`` columns derived from the ``name`` column.  When the
+    section length encoded in the name differs from 1.0 m (tolerance 0.01 m),
+    all force/moment values are divided by the section length to normalise them
+    to per-metre values, and a ``corrected`` flag column is set to ``True``.
+
+    Numeric force/moment and coordinate columns are coerced to ``float``.
 
     :param df: DataFrame with sections-on-plane results (must contain ``"name"`` column)
     :type df: pd.DataFrame
@@ -297,6 +304,7 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df["section_type"] = parsed_series.apply(lambda x: x["section_type"])
     df["zone"] = parsed_series.apply(lambda x: x["zone"])
     df["section_number"] = parsed_series.apply(lambda x: x["number"])
+    df["section_length"] = parsed_series.apply(lambda x: x["length"])
 
     # Coerce numeric columns
     for col in FORCE_MOMENT_COLUMNS:
@@ -310,6 +318,26 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     for coord in ("x", "y", "z"):
         if coord in df.columns:
             df[coord] = pd.to_numeric(df[coord], errors="coerce")
+
+    # --- Section-length correction (analogous to integration-strip width correction) ---
+    # Forces from SCIA sections-on-plane are totals over the section length.
+    # When the section is shorter than 1.0 m, divide by the actual length to
+    # obtain per-metre values.
+    df["corrected"] = False
+    df["section_length_numeric"] = pd.to_numeric(df["section_length"], errors="coerce").fillna(1.0)
+    correction_mask = (df["section_length_numeric"] - 1.0).abs() > 0.01
+    df.loc[correction_mask, "corrected"] = True
+
+    valid_mask = correction_mask & (df["section_length_numeric"] != 0.0)
+    if valid_mask.any():
+        all_force_cols = FORCE_MOMENT_COLUMNS + ELEMENTARY_FORCE_MOMENT_COLUMNS
+        for col in all_force_cols:
+            if col in df.columns:
+                df.loc[valid_mask, col] = (
+                    df.loc[valid_mask, col] / df.loc[valid_mask, "section_length_numeric"]
+                )
+
+    df = df.drop(columns=["section_length_numeric"])
 
     return df
 
@@ -325,98 +353,170 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
     """
     Compute min/max force envelopes from all sections-on-plane tables.
 
+    Basic and elementary quantity tables are processed **separately** so that
+    their distinct column sets are never mixed in the same DataFrame.
+
     For each unique combination of zone, direction, and limit state (ULS / SLSfreq):
 
-    - ``m_x``, ``m_y``, ``m_xy``, ``n_x``, ``n_y``, ``n_xy``: use both *reg*
-      and *sup* sections (both *basic* and *elementary* quantities).
-    - ``v_x``, ``v_y``: use only *reg* sections.
+    **Basic quantities** (from ``*_basic_*`` tables):
+
+    - ``m_x``, ``m_y``, ``m_xy``, ``n_x``, ``n_y``, ``n_xy``: min/max across
+      both *reg* and *sup* sections.
+    - ``v_x``, ``v_y``: min/max from *reg* sections only.
+
+    **Elementary design quantities** (from ``*_elementary_*`` tables):
+
+    - ``m_xD_pos``, ``m_xD_neg``, ``m_yD_pos``, ``m_yD_neg``, ``m_cD_pos``,
+      ``m_cD_neg``, ``n_xD``, ``n_yD``, ``n_cD``: min/max across both *reg* and
+      *sup* sections.
 
     :param tables: Dictionary mapping table keys to DataFrames (output of
                    :func:`extract_all_sections_on_plane_tables` after column augmentation)
     :type tables: dict[str, pd.DataFrame]
     :returns: DataFrame with one row per governing min/max value; columns include
               ``zone``, ``direction``, ``limit_state``, ``filtered_for``,
-              ``name``, ``x``, ``y``, ``load_case``, and all force/moment columns
+              ``section_type``, ``x``, ``y``, ``load_case``, and the applicable
+              force/moment columns for that row's quantity type
     :rtype: pd.DataFrame
     """
     envelope_rows: list[pd.Series] = []
 
-    # Force/moment columns to envelope
-    moment_normal_cols = ["m_x", "m_y", "m_xy", "n_x", "n_y", "n_xy"]
-    shear_cols = ["v_x", "v_y"]
+    # Basic quantity columns
+    basic_moment_normal_cols = ["m_x", "m_y", "m_xy", "n_x", "n_y", "n_xy"]
+    basic_shear_cols = ["v_x", "v_y"]
+    # Elementary design quantity columns
+    elementary_cols = list(ELEMENTARY_FORCE_MOMENT_COLUMNS)
 
     for limit_state in ("ULS", "SLSfreq"):
         for direction in ("x", "y"):
-            # Collect basic + elementary tables for reg and sup
-            reg_frames: list[pd.DataFrame] = []
-            sup_frames: list[pd.DataFrame] = []
+            # --- Basic tables (kept separate from elementary) ---
+            df_basic_reg = tables.get(f"{limit_state}_basic_{direction}_reg", pd.DataFrame())
+            df_basic_sup = tables.get(f"{limit_state}_basic_{direction}_sup", pd.DataFrame())
 
-            for quantity in ("basic", "elementary"):
-                reg_key = f"{limit_state}_{quantity}_{direction}_reg"
-                sup_key = f"{limit_state}_{quantity}_{direction}_sup"
+            # --- Elementary tables (kept separate from basic) ---
+            df_elem_reg = tables.get(f"{limit_state}_elementary_{direction}_reg", pd.DataFrame())
+            df_elem_sup = tables.get(f"{limit_state}_elementary_{direction}_sup", pd.DataFrame())
 
-                if reg_key in tables and not tables[reg_key].empty:
-                    reg_frames.append(tables[reg_key])
-                if sup_key in tables and not tables[sup_key].empty:
-                    sup_frames.append(tables[sup_key])
+            # Combine reg+sup within each quantity type
+            basic_frames = [df for df in (df_basic_reg, df_basic_sup) if not df.empty]
+            elem_frames = [df for df in (df_elem_reg, df_elem_sup) if not df.empty]
+            df_basic_combined = (
+                pd.concat(basic_frames, ignore_index=True) if basic_frames else pd.DataFrame()
+            )
+            df_elem_combined = (
+                pd.concat(elem_frames, ignore_index=True) if elem_frames else pd.DataFrame()
+            )
 
-            df_reg = pd.concat(reg_frames, ignore_index=True) if reg_frames else pd.DataFrame()
-            df_sup = pd.concat(sup_frames, ignore_index=True) if sup_frames else pd.DataFrame()
-
-            if df_reg.empty and df_sup.empty:
+            if df_basic_reg.empty and df_basic_combined.empty and df_elem_combined.empty:
                 continue
 
-            # Combine for moments/normals envelope
-            df_combined = pd.concat([df_reg, df_sup], ignore_index=True)
-
-            # Collect unique zones
+            # Collect unique zones across all data for this direction
             zones: set[str] = set()
-            for df_part in (df_combined, df_reg):
+            for df_part in (df_basic_combined, df_basic_reg, df_elem_combined):
                 if not df_part.empty and "zone" in df_part.columns:
                     zones.update(df_part["zone"].dropna().unique())
 
             for zone in zones:
-                zone_combined = (
-                    df_combined[df_combined["zone"] == zone]
-                    if not df_combined.empty and "zone" in df_combined.columns
+                zone_basic_combined = (
+                    df_basic_combined[df_basic_combined["zone"] == zone]
+                    if not df_basic_combined.empty and "zone" in df_basic_combined.columns
                     else pd.DataFrame()
                 )
-                zone_reg = (
-                    df_reg[df_reg["zone"] == zone]
-                    if not df_reg.empty and "zone" in df_reg.columns
+                zone_basic_reg = (
+                    df_basic_reg[df_basic_reg["zone"] == zone]
+                    if not df_basic_reg.empty and "zone" in df_basic_reg.columns
+                    else pd.DataFrame()
+                )
+                zone_elem_combined = (
+                    df_elem_combined[df_elem_combined["zone"] == zone]
+                    if not df_elem_combined.empty and "zone" in df_elem_combined.columns
                     else pd.DataFrame()
                 )
 
-                # Moments + normals — from combined reg+sup
-                for col in moment_normal_cols:
-                    if zone_combined.empty or col not in zone_combined.columns:
+                # Build (name, load_case) lookup tables for cross-enrichment:
+                # When a governing row comes from the basic table, fill in the
+                # elementary columns from the matching elementary row, and vice versa.
+                basic_lookup: dict[tuple, pd.Series] = {}
+                if not zone_basic_combined.empty and "name" in zone_basic_combined.columns:
+                    for _, _r in zone_basic_combined.iterrows():
+                        basic_lookup[(_r.get("name"), _r.get("load_case"))] = _r
+
+                elem_lookup: dict[tuple, pd.Series] = {}
+                if not zone_elem_combined.empty and "name" in zone_elem_combined.columns:
+                    for _, _r in zone_elem_combined.iterrows():
+                        elem_lookup[(_r.get("name"), _r.get("load_case"))] = _r
+
+                def _enrich_with_elem(row: pd.Series) -> pd.Series:
+                    """Fill in elementary columns on a basic governing row."""
+                    key = (row.get("name"), row.get("load_case"))
+                    match = elem_lookup.get(key)
+                    if match is None:
+                        return row
+                    for c in elementary_cols:
+                        if c in match.index and (c not in row.index or pd.isna(row.get(c))):
+                            row[c] = match[c]
+                    return row
+
+                def _enrich_with_basic(row: pd.Series) -> pd.Series:
+                    """Fill in basic columns on an elementary governing row."""
+                    key = (row.get("name"), row.get("load_case"))
+                    match = basic_lookup.get(key)
+                    if match is None:
+                        return row
+                    for c in basic_moment_normal_cols + basic_shear_cols:
+                        if c in match.index and (c not in row.index or pd.isna(row.get(c))):
+                            row[c] = match[c]
+                    return row
+
+                # Basic moment/normal columns — from combined reg+sup basic
+                for col in basic_moment_normal_cols:
+                    if zone_basic_combined.empty or col not in zone_basic_combined.columns:
                         continue
                     for envelope_type in ("min", "max"):
                         idx = (
-                            zone_combined[col].idxmin()
+                            zone_basic_combined[col].idxmin()
                             if envelope_type == "min"
-                            else zone_combined[col].idxmax()
+                            else zone_basic_combined[col].idxmax()
                         )
                         if pd.notna(idx):
-                            row = zone_combined.loc[idx].copy()
+                            row = zone_basic_combined.loc[idx].copy()
                             row["filtered_for"] = f"{envelope_type}_{col}"
                             row["limit_state"] = limit_state
+                            row = _enrich_with_elem(row)
                             envelope_rows.append(row)
 
-                # Shear forces — from reg only
-                for col in shear_cols:
-                    if zone_reg.empty or col not in zone_reg.columns:
+                # Basic shear forces — from reg only
+                for col in basic_shear_cols:
+                    if zone_basic_reg.empty or col not in zone_basic_reg.columns:
                         continue
                     for envelope_type in ("min", "max"):
                         idx = (
-                            zone_reg[col].idxmin()
+                            zone_basic_reg[col].idxmin()
                             if envelope_type == "min"
-                            else zone_reg[col].idxmax()
+                            else zone_basic_reg[col].idxmax()
                         )
                         if pd.notna(idx):
-                            row = zone_reg.loc[idx].copy()
+                            row = zone_basic_reg.loc[idx].copy()
                             row["filtered_for"] = f"{envelope_type}_{col}"
                             row["limit_state"] = limit_state
+                            row = _enrich_with_elem(row)
+                            envelope_rows.append(row)
+
+                # Elementary design quantity columns — from combined reg+sup elementary
+                for col in elementary_cols:
+                    if zone_elem_combined.empty or col not in zone_elem_combined.columns:
+                        continue
+                    for envelope_type in ("min", "max"):
+                        idx = (
+                            zone_elem_combined[col].idxmin()
+                            if envelope_type == "min"
+                            else zone_elem_combined[col].idxmax()
+                        )
+                        if pd.notna(idx):
+                            row = zone_elem_combined.loc[idx].copy()
+                            row["filtered_for"] = f"{envelope_type}_{col}"
+                            row["limit_state"] = limit_state
+                            row = _enrich_with_basic(row)
                             envelope_rows.append(row)
 
     if not envelope_rows:

@@ -40,6 +40,7 @@ from app.constants import (
     CONCRETEQUALITY_CSV_PATH,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
+    IDEA_INFO_TEXT_2,
     LOAD_CASE_SELECTION_DEFAULT,
     LOAD_CASE_SELECTION_HEADER_TEXT,
     LOAD_CASE_SELECTION_NOTE_TEXT,
@@ -1434,6 +1435,7 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections", "get_view_idea_rcs_results"])
 
     idea.explanation = Text(IDEA_INFO_TEXT)
+    idea.explanation_2 = Text(IDEA_INFO_TEXT_2)
 
     # Add download buttons as page attributes below the explanation
     idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file", longpoll=True)

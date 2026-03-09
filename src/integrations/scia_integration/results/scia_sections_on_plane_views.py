@@ -74,73 +74,77 @@ _COMBINED_HEADERS: list[str] = [
 
 _NUM_COMBINED_COLUMNS: int = len(_COMBINED_HEADERS)
 
-# ---------------------------------------------------------------------------
-# Envelope view columns and headers
-# ---------------------------------------------------------------------------
-
-# Human-readable label for each governing force column
-_FORCE_COL_LABELS: dict[str, str] = {
-    "v_x": "v_x",
-    "v_y": "v_y",
-    "m_xD_pos": "m_xD+",
-    "m_xD_neg": "m_xD-",
-    "m_yD_pos": "m_yD+",
-    "m_yD_neg": "m_yD-",
-    "n_xD": "n_xD",
-    "n_yD": "n_yD",
-}
-
 _ENVELOPE_OUTPUT_COLUMNS: list[str] = [
-    "governing_col",
-    "limit_state",
-    "name",
-    "x",
-    "y",
-    "z",
     "zone",
     "direction",
+    "limit_state",
+    "filtered_for",
     "section_type",
-    "section_number",
+    "x",
+    "y",
     "load_case",
+    # Basic design quantities
+    "m_x",
+    "m_y",
+    "m_xy",
     "v_x",
     "v_y",
+    "n_x",
+    "n_y",
+    "n_xy",
+    # Elementary design quantities
     "m_xD_pos",
     "m_xD_neg",
     "m_yD_pos",
     "m_yD_neg",
+    "m_cD_pos",
+    "m_cD_neg",
     "n_xD",
     "n_yD",
+    "n_cD",
+    "corrected",
 ]
 
 _ENVELOPE_HEADERS: list[str] = [
-    "Maatgevende grootheid",
-    "Grenstoestand",
-    "Naam",
-    "x [m]",
-    "y [m]",
-    "z [m]",
     "Zone",
     "Richting",
-    "Type",
-    "Sectie nr",
+    "Grenstoestand",
+    "Maatgevende grootheid",
+    "type",
+    "x [m]",
+    "y [m]",
     "Belasting",
+    # Basic design quantities
+    "m_x [kN\u00b7m/m]",
+    "m_y [kN\u00b7m/m]",
+    "m_xy [kN\u00b7m/m]",
     "v_x [kN/m]",
     "v_y [kN/m]",
+    "n_x [kN/m]",
+    "n_y [kN/m]",
+    "n_xy [kN/m]",
+    # Elementary design quantities
     "m_xD+ [kN\u00b7m/m]",
     "m_xD- [kN\u00b7m/m]",
     "m_yD+ [kN\u00b7m/m]",
     "m_yD- [kN\u00b7m/m]",
+    "m_cD+ [kN\u00b7m/m]",
+    "m_cD- [kN\u00b7m/m]",
     "n_xD [kN/m]",
     "n_yD [kN/m]",
+    "n_cD [kN/m]",
+    "Gecorrigeerd",
 ]
 
 _NUM_ENVELOPE_COLUMNS: int = len(_ENVELOPE_HEADERS)
 
 # Columns that should be converted N → kN (divide by 1000)
 _FORCE_COLS: frozenset[str] = frozenset(
-    ["v_x", "v_y",
-     "m_xD_pos", "m_xD_neg", "m_yD_pos", "m_yD_neg",
-     "n_xD", "n_yD"]
+    [
+        "m_x", "m_y", "m_xy", "v_x", "v_y", "n_x", "n_y", "n_xy",
+        "m_xD_pos", "m_xD_neg", "m_yD_pos", "m_yD_neg",
+        "m_cD_pos", "m_cD_neg", "n_xD", "n_yD", "n_cD",
+    ]
 )
 
 # Columns formatted as 3-decimal coordinate values
@@ -166,6 +170,8 @@ def _get_sections_on_plane(results: dict[str, Any]) -> dict[str, Any]:
 
 def _format_value(col: str, value: object) -> str:
     """Format a single cell value with appropriate unit conversion."""
+    if col == "corrected":
+        return "Ja" if value else "Nee"
     if pd.isna(value) if not isinstance(value, str) else not value:
         return ""
     if col in _COORD_COLS:
@@ -349,33 +355,31 @@ def create_sections_on_plane_slsfreq_y_sup(results: dict[str, Any]) -> TableResu
 
 
 def create_sections_on_plane_envelopes(results: dict[str, Any]) -> TableResult:
-    """Governing absolute-maximum row per force column per table (8 tables × 8 forces)."""
-    envelope_rows: list[pd.Series] = []
+    """
+    Display the min/max force envelope per zone, direction, and limit state.
 
-    for limit_state in ("ULS", "SLSfreq"):
-        for section_type in ("reg", "sup"):
-            for direction in ("x", "y"):
-                df = _get_combined_df(results, limit_state, section_type, direction)
-                if df.empty:
-                    continue
-                for col, label in _FORCE_COL_LABELS.items():
-                    if col not in df.columns:
-                        continue
-                    numeric = pd.to_numeric(df[col], errors="coerce").abs()
-                    idx = numeric.idxmax()
-                    if pd.notna(idx):
-                        row = df.loc[idx].copy()
-                        row["governing_col"] = label
-                        envelope_rows.append(row)
+    Uses the pre-computed envelope from :func:`process_all_sections_on_plane`.
+    Each row represents the governing min or max value for one force column at a
+    specific zone × direction × limit-state combination.
 
-    if not envelope_rows:
+    Columns: Zone, Richting, Grenstoestand, Maatgevende grootheid, type,
+    x, y, Belasting, basic force columns, elementary force columns.
+    """
+    sections_data = _get_sections_on_plane(results)
+    df_env = sections_data.get("envelope", pd.DataFrame())
+
+    no_data_envelope_row = ["Geen data"] + [""] * (_NUM_ENVELOPE_COLUMNS - 1)
+
+    if df_env.empty:
+        return TableResult([no_data_envelope_row], column_headers=_ENVELOPE_HEADERS)
+
+    available = [col for col in _ENVELOPE_OUTPUT_COLUMNS if col in df_env.columns]
+    if not available:
         return TableResult(
-            [["Geen data"] + [""] * (_NUM_ENVELOPE_COLUMNS - 1)],
+            [["Envelope data extractie mislukt"] + [""] * (_NUM_ENVELOPE_COLUMNS - 1)],
             column_headers=_ENVELOPE_HEADERS,
         )
 
-    df_env = pd.DataFrame(envelope_rows)
-    available = [col for col in _ENVELOPE_OUTPUT_COLUMNS if col in df_env.columns]
     data: list[list[Any]] = []
     for _, row in df_env.iterrows():
         data.append([_format_value(col, row.get(col, "")) for col in available])
