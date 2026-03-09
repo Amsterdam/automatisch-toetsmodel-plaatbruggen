@@ -362,8 +362,8 @@ class SciaIntegration:
     def _download_scia_esa_model_direct(self, params: BridgeParametrization, bridge_id: str) -> DownloadResult:
         """Download SCIA ESA model by creating and running analysis directly."""
         try:
-            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
-            xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
+            full_template_path = self._get_scia_full_template_path(params)  # type: ignore[attr-defined]
+            xml_file, def_file, analysis = create_bridge_scia_model(params, full_template_path)
 
             analysis.execute(timeout=3600)
             esa_file = analysis.get_updated_esa_model()
@@ -392,8 +392,9 @@ class SciaIntegration:
         :raises UserError: If file generation fails
         """
         try:
-            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
-            xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
+            governing_template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
+            full_template_path = self._get_scia_full_template_path(params)  # type: ignore[attr-defined]
+            xml_file, def_file, _ = create_bridge_scia_model(params, governing_template_path)
 
             if not hasattr(xml_file, "getvalue"):
                 self._raise_empty_xml_error()  # type: ignore[attr-defined]
@@ -410,14 +411,14 @@ class SciaIntegration:
 
             bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
-            # Load ESA template to include in ZIP (binary file)
-            esa_content = template_path.read_bytes()
+            # Load full ESA template to include in ZIP for complete manual analysis
+            esa_content = full_template_path.read_bytes()
 
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr(f"SCIA_model_{bridge_id}.xml", xml_content)
                 z.writestr("viktor.xml.def", def_content)
-                # Add ESA template for manual import
+                # Add full ESA template for manual import (exports complete results)
                 z.writestr("model.esa", esa_content)
 
             return DownloadResult(file_content=zip_file_obj, file_name=f"{bridge_id}_Input_Files.zip")

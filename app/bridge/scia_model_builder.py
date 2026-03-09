@@ -1401,7 +1401,7 @@ def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str,
     }
 
 
-def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001
+def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401
     """
     Module-level factory for SCIA input and analysis.
 
@@ -1410,14 +1410,16 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
 
     :param params: Bridge parametrization object
     :type params: Any
-    :param template_path: Path to SCIA template file (unused in this simplified version)
+    :param template_path: Path to SCIA template file
     :type template_path: Path
     :returns: Tuple of (xml_file, def_file, analysis)
     :rtype: tuple[Any, Any, Any]
     """
     xml_file, def_file = generate_bridge_xml_files(params)
-    # Note: This is a simplified version for testing - in production you might want
-    # to actually run the SCIA analysis here
+    if VIKTOR_AVAILABLE and scia is not None:
+        esa_template = File.from_path(template_path)
+        scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+        return xml_file, def_file, scia_analysis
     return xml_file, def_file, None
 
 

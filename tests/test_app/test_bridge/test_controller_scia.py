@@ -105,15 +105,19 @@ class TestDownloadSciaXmlFiles:
         )
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
+    @patch.object(BridgeController, "_get_scia_full_template_path")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_success(
-        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+        self, mock_get_template: MagicMock, mock_get_full_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
     ) -> None:
         """Test successful XML files download."""
         # Arrange
         mock_template_path = MagicMock(spec=Path)
-        mock_template_path.read_bytes.return_value = b"Mock ESA template content"
         mock_get_template.return_value = mock_template_path
+
+        mock_full_template_path = MagicMock(spec=Path)
+        mock_full_template_path.read_bytes.return_value = b"Mock full ESA template content"
+        mock_get_full_template.return_value = mock_full_template_path
 
         # Mock XML and DEF file content
         xml_content = b"<xml>Mock XML content</xml>"
@@ -140,8 +144,9 @@ class TestDownloadSciaXmlFiles:
 
         # Verify the calls
         mock_get_template.assert_called_once()
+        mock_get_full_template.assert_called_once()
         mock_create_model.assert_called_once_with(self.mock_params, mock_template_path)
-        mock_template_path.read_bytes.assert_called_once()
+        mock_full_template_path.read_bytes.assert_called_once()
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")

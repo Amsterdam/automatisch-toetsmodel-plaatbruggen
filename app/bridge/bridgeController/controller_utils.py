@@ -15,7 +15,12 @@ from viktor.errors import UserError
 from viktor.result import SetParamsResult
 from viktor.views import MapPoint, MapResult
 
-from app.constants import SCIA_TEMPLATE_PATH, SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
+from app.constants import (
+    SCIA_TEMPLATE_FULL_PATH,
+    SCIA_TEMPLATE_PATH,
+    SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH,
+    SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH,
+)
 from app.constants.technical import (
     ENABLE_INTEGRATION_STRIPS,
     ENABLE_SECTIONS_ON_PLANE,
@@ -105,6 +110,37 @@ class ControllerUtils:
             template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
         else:
             template_path = SCIA_TEMPLATE_PATH
+
+        if not template_path.exists():
+            raise UserError(f"SCIA template file niet gevonden: {template_path}")
+
+        return template_path
+
+    def _get_scia_full_template_path(self, params: Any) -> Path:
+        """
+        Get the path to the full SCIA template file based on the selected result object type.
+
+        Returns the full template (exports complete results for all strips/sections),
+        used for downloads so users can run a complete manual analysis in SCIA Engineer.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :returns: Path to the full ESA template file
+        :rtype: Path
+        :raises UserError: If template file not found
+        """
+        try:
+            result_type = params.calc_page.calc_selection.result_object_type
+        except AttributeError:
+            if ENABLE_SECTIONS_ON_PLANE and not ENABLE_INTEGRATION_STRIPS:
+                result_type = RESULT_OBJECT_SECTIONS_ON_PLANE
+            else:
+                result_type = RESULT_OBJECT_INTEGRATION_STRIPS
+
+        if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE:
+            template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH
+        else:
+            template_path = SCIA_TEMPLATE_FULL_PATH
 
         if not template_path.exists():
             raise UserError(f"SCIA template file niet gevonden: {template_path}")
