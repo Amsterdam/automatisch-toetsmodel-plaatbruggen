@@ -22,7 +22,7 @@ created at every location where an integration strip exists:
 
 Naming convention
 -----------------
-* X regular:   ``sec_dir-x_reg_{zone}_y-{y:.2f}_nr-{n}``
+* X regular:   ``sec_dir-x_reg_{zone}_y-{y:.2f}_nr-{n}_part-{p}``
 * Y regular:   ``sec_dir-y_reg_{zone}_x-{x:.2f}_nr-{n}_part-{p}``
 * X support:   ``sec_dir-x_sup-{sup_x:.1f}_{zone}_y-{y:.2f}_nr-{n}_part-{p}``
 * Y support:   ``sec_dir-y_sup-{sup_x:.1f}_{zone}_nr-{n}``
@@ -68,14 +68,14 @@ def _calculate_section_starts(span_start: float, span_end: float) -> list[float]
     Algorithm:
     1. Place full 1 m sections every 0.5 m starting from *span_start*.
     2. If the last full section does not reach *span_end* (gap > tolerance),
-       append one fit section anchored at ``span_end − SECTION_STEP`` so that
-       it ends exactly at *span_end*.
+       append one fit section anchored at ``span_end − SECTION_LENGTH`` so that
+       it ends exactly at *span_end* with a full 1 m length.
     3. If no full section fits at all (span shorter than ``SECTION_LENGTH``),
        place a single section starting at *span_start*.  The fit logic is
        **not** applied in this case because there is no preceding section to
-       "attach" the fit to, and computing ``span_end − SECTION_STEP`` would
+       "attach" the fit to, and computing ``span_end − SECTION_LENGTH`` would
        produce a start *before* ``span_start`` whenever the span is smaller
-       than ``SECTION_STEP``.
+       than ``SECTION_LENGTH``.
 
     :param span_start: Start coordinate in [m]
     :param span_end: End coordinate in [m]
@@ -93,7 +93,7 @@ def _calculate_section_starts(span_start: float, span_end: float) -> list[float]
         last_end = starts[-1] + SECTION_LENGTH
         gap = span_end - last_end
         if gap > _FLOAT_TOL:
-            fit_start = span_end - SECTION_STEP
+            fit_start = span_end - SECTION_LENGTH
             if abs(fit_start - starts[-1]) > _FLOAT_TOL:
                 starts.append(fit_start)
 
@@ -234,6 +234,18 @@ def _calculate_x_positions_for_y_sections(
         if not any((x - half_width) < ee and (x + half_width) > es for es, ee in excluded_ranges):
             filtered.append(x)
 
+    # Post-filter gap-fill: positions that overlapped the end-support exclusion were
+    # removed above, which can leave a gap between the last surviving position and the
+    # start of the end exclusion that was invisible before filtering.
+    end_exclusions = [(es, ee) for es, ee in excluded_ranges if ee >= x_end - 0.1]
+    if filtered and end_exclusions:
+        excl_start = min(es for es, ee in end_exclusions)
+        last_filtered = max(filtered)
+        if excl_start - last_filtered > SECTION_STEP + 0.05:
+            gap_pos = excl_start - half_width
+            if gap_pos > last_filtered + 0.05 and gap_pos not in filtered:
+                filtered.append(gap_pos)
+
     return filtered
 
 
@@ -275,18 +287,18 @@ def _create_sections_x_direction(
     y_positions = _calculate_y_positions_for_x_sections(y_bounds["y_min"], y_bounds["y_max"])
     x_segments = _split_range_by_exclusions(x_bounds["x_start"], x_bounds["x_end"], excluded_ranges)
 
-    nr = 1
-    for y_pos in y_positions:
+    for y_nr, y_pos in enumerate(y_positions, start=1):
+        part_nr = 1
         for x_seg_start, x_seg_end in x_segments:
             for start in _calculate_section_starts(x_seg_start, x_seg_end):
                 end = _get_section_end(start, x_seg_end)
-                section_name = f"sec_dir-x_reg_{zone_name}_y-{y_pos:.2f}_nr-{nr}"
+                section_name = f"sec_dir-x_reg_{zone_name}_y-{y_pos:.2f}_nr-{y_nr}_part-{part_nr}"
                 builder.create_section_on_plane(
                     point_1=(start, y_pos, 0.0),
                     point_2=(end, y_pos, 0.0),
                     name=section_name,
                 )
-                nr += 1
+                part_nr += 1
 
 
 # ---------------------------------------------------------------------------
