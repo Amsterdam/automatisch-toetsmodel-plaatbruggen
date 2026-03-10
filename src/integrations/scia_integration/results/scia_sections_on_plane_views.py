@@ -74,6 +74,19 @@ _COMBINED_HEADERS: list[str] = [
 
 _NUM_COMBINED_COLUMNS: int = len(_COMBINED_HEADERS)
 
+# Governing-quantity values that are shown in the envelope table view.
+# Only the 8 design quantities requested by the user are included.
+_ENVELOPE_FILTERED_FOR: frozenset[str] = frozenset([
+    "min_v_x", "max_v_x",
+    "min_v_y", "max_v_y",
+    "min_m_xD_pos", "max_m_xD_pos",
+    "min_m_xD_neg", "max_m_xD_neg",
+    "min_m_yD_pos", "max_m_yD_pos",
+    "min_m_yD_neg", "max_m_yD_neg",
+    "min_n_xD", "max_n_xD",
+    "min_n_yD", "max_n_yD",
+])
+
 _ENVELOPE_OUTPUT_COLUMNS: list[str] = [
     "zone",
     "direction",
@@ -83,26 +96,16 @@ _ENVELOPE_OUTPUT_COLUMNS: list[str] = [
     "x",
     "y",
     "load_case",
-    # Basic design quantities
-    "m_x",
-    "m_y",
-    "m_xy",
+    # Basic shear forces
     "v_x",
     "v_y",
-    "n_x",
-    "n_y",
-    "n_xy",
-    # Elementary design quantities
+    # Elementary design quantities (subset)
     "m_xD_pos",
     "m_xD_neg",
     "m_yD_pos",
     "m_yD_neg",
-    "m_cD_pos",
-    "m_cD_neg",
     "n_xD",
     "n_yD",
-    "n_cD",
-    "corrected",
 ]
 
 _ENVELOPE_HEADERS: list[str] = [
@@ -114,26 +117,16 @@ _ENVELOPE_HEADERS: list[str] = [
     "x [m]",
     "y [m]",
     "Belasting",
-    # Basic design quantities
-    "m_x [kN\u00b7m/m]",
-    "m_y [kN\u00b7m/m]",
-    "m_xy [kN\u00b7m/m]",
+    # Basic shear forces
     "v_x [kN/m]",
     "v_y [kN/m]",
-    "n_x [kN/m]",
-    "n_y [kN/m]",
-    "n_xy [kN/m]",
-    # Elementary design quantities
+    # Elementary design quantities (subset)
     "m_xD+ [kN\u00b7m/m]",
     "m_xD- [kN\u00b7m/m]",
     "m_yD+ [kN\u00b7m/m]",
     "m_yD- [kN\u00b7m/m]",
-    "m_cD+ [kN\u00b7m/m]",
-    "m_cD- [kN\u00b7m/m]",
     "n_xD [kN/m]",
     "n_yD [kN/m]",
-    "n_cD [kN/m]",
-    "Gecorrigeerd",
 ]
 
 _NUM_ENVELOPE_COLUMNS: int = len(_ENVELOPE_HEADERS)
@@ -372,7 +365,12 @@ def create_sections_on_plane_envelopes(results: dict[str, Any]) -> TableResult:
 
     if df_env.empty:
         return TableResult([no_data_envelope_row], column_headers=_ENVELOPE_HEADERS)
+    # Limit rows to the governing quantities of interest
+    if "filtered_for" in df_env.columns:
+        df_env = df_env[df_env["filtered_for"].isin(_ENVELOPE_FILTERED_FOR)]
 
+    if df_env.empty:
+        return TableResult([no_data_envelope_row], column_headers=_ENVELOPE_HEADERS)
     available = [col for col in _ENVELOPE_OUTPUT_COLUMNS if col in df_env.columns]
     if not available:
         return TableResult(
