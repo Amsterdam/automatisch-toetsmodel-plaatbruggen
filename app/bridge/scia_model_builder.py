@@ -1642,7 +1642,7 @@ def run_two_stage_scia_analysis_sections_on_plane(
     from src.integrations.scia_integration.model.scia_model import define_bridge_model_sections_on_plane
     from src.integrations.scia_integration.model.scia_sections_on_plane import create_selective_sections_on_plane
     from src.integrations.scia_integration.results.scia_sections_on_plane_processor import (
-        extract_governing_section_names,
+        extract_governing_section_names_from_results,
         process_all_sections_on_plane,
     )
 
@@ -1668,11 +1668,11 @@ def run_two_stage_scia_analysis_sections_on_plane(
     progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
     results_stage1 = builder_stage1.extract_analysis_results(analysis_stage1)
 
-    # Process Stage 1 results to identify governing sections
+    # Collect governing section names directly from Stage 1 tables.
+    # The governing template already exports only one row per section, so no
+    # envelope computation is needed here.
     progress_message(f"{prefix}Identificeren governing secties op vlak...", percentage=percentage)
-    processed_stage1 = process_all_sections_on_plane(results_stage1)
-    envelope_df = processed_stage1["envelope"]
-    governing_section_names = extract_governing_section_names(envelope_df)
+    governing_section_names = extract_governing_section_names_from_results(results_stage1)
 
     governing_count = len(governing_section_names)
     reduction_pct = (1 - governing_count / total_sections_stage1) * 100 if total_sections_stage1 > 0 else 0

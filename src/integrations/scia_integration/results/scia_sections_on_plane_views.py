@@ -88,6 +88,7 @@ _ENVELOPE_FILTERED_FOR: frozenset[str] = frozenset([
 ])
 
 _ENVELOPE_OUTPUT_COLUMNS: list[str] = [
+    "name",
     "zone",
     "direction",
     "limit_state",
@@ -109,6 +110,7 @@ _ENVELOPE_OUTPUT_COLUMNS: list[str] = [
 ]
 
 _ENVELOPE_HEADERS: list[str] = [
+    "Naam",
     "Zone",
     "Richting",
     "Grenstoestand",

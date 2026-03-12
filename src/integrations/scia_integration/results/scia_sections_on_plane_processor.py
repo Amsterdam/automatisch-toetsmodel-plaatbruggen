@@ -433,9 +433,9 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     else pd.DataFrame()
                 )
 
-                # Build (name, load_case) lookup tables for cross-enrichment:
-                # When a governing row comes from the basic table, fill in the
-                # elementary columns from the matching elementary row, and vice versa.
+                # Build (name, load_case) lookup tables for cross-enrichment.
+                # Both basic and elementary tables contain the same rows (same sections,
+                # same load cases), so an exact (name, load_case) key is sufficient.
                 basic_lookup: dict[tuple, pd.Series] = {}
                 if not zone_basic_combined.empty and "name" in zone_basic_combined.columns:
                     for _, _r in zone_basic_combined.iterrows():
@@ -451,6 +451,12 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     key = (row.get("name"), row.get("load_case"))
                     match = elem_lookup.get(key)
                     if match is None:
+                        same_name_keys = [k for k in elem_lookup if k[0] == key[0]]
+                        logger.warning(
+                            "ENRICH MISS (basic→elem): key=%s  "
+                            "available elem keys for same name: %s",
+                            key, same_name_keys,
+                        )
                         return row
                     for c in elementary_cols:
                         if c in match.index and (c not in row.index or pd.isna(row.get(c))):
@@ -462,6 +468,12 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     key = (row.get("name"), row.get("load_case"))
                     match = basic_lookup.get(key)
                     if match is None:
+                        same_name_keys = [k for k in basic_lookup if k[0] == key[0]]
+                        logger.warning(
+                            "ENRICH MISS (elem→basic): key=%s  "
+                            "available basic keys for same name: %s",
+                            key, same_name_keys,
+                        )
                         return row
                     for c in basic_moment_normal_cols + basic_shear_cols:
                         if c in match.index and (c not in row.index or pd.isna(row.get(c))):
@@ -555,6 +567,29 @@ def extract_governing_section_names(envelope_df: pd.DataFrame) -> set[str]:
 
     governing_names: set[str] = set(envelope_df["name"].dropna().unique())
     logger.info("Extracted %d unique governing section names from envelope", len(governing_names))
+    return governing_names
+
+
+def extract_governing_section_names_from_results(results: dict[str, Any]) -> set[str]:
+    """
+    Extract unique section names directly from Stage 1 raw SCIA tables.
+
+    The governing template already exports only one row per section (the governing
+    load combination selected by SCIA), so no envelope computation is needed.
+    This function collects all unique ``"name"`` values across the 16 raw tables
+    and returns them as the set of governing sections for Stage 2.
+
+    :param results: SCIA analysis results dictionary containing parsed XML data
+    :type results: dict[str, Any]
+    :returns: Set of unique section names found in any of the 16 result tables
+    :rtype: set[str]
+    """
+    tables = extract_all_sections_on_plane_tables(results)
+    governing_names: set[str] = set()
+    for df in tables.values():
+        if not df.empty and "name" in df.columns:
+            governing_names.update(df["name"].dropna().unique())
+    logger.info("Extracted %d unique governing section names from Stage 1 tables", len(governing_names))
     return governing_names
 
 
