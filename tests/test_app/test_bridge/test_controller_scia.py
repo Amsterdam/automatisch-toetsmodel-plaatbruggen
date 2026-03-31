@@ -113,9 +113,12 @@ class TestDownloadSciaXmlFiles:
         """Test successful XML files download."""
         # Arrange
         mock_template_path = MagicMock(spec=Path)
+        mock_template_path.name = "mock_governing_template.esa"
+        mock_template_path.read_bytes.return_value = b"Mock governing ESA template content"
         mock_get_template.return_value = mock_template_path
 
         mock_full_template_path = MagicMock(spec=Path)
+        mock_full_template_path.name = "mock_full_template.esa"
         mock_full_template_path.read_bytes.return_value = b"Mock full ESA template content"
         mock_get_full_template.return_value = mock_full_template_path
 
@@ -191,15 +194,22 @@ class TestDownloadSciaXmlFiles:
             self.controller.download_scia_xml_files(self.mock_params)
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
+    @patch.object(BridgeController, "_get_scia_full_template_path")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_no_bridge_id(
-        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+        self, mock_get_template: MagicMock, mock_get_full_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
     ) -> None:
         """Test download with missing bridge ID - should use default filename."""
         # Arrange
         mock_template_path = MagicMock(spec=Path)
-        mock_template_path.read_bytes.return_value = b"Mock ESA template content"
+        mock_template_path.name = "mock_governing_template.esa"
+        mock_template_path.read_bytes.return_value = b"Mock governing ESA template content"
         mock_get_template.return_value = mock_template_path
+
+        mock_full_template_path = MagicMock(spec=Path)
+        mock_full_template_path.name = "mock_full_template.esa"
+        mock_full_template_path.read_bytes.return_value = b"Mock full ESA template content"
+        mock_get_full_template.return_value = mock_full_template_path
 
         params_no_id = Munch(
             {

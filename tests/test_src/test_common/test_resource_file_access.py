@@ -18,6 +18,7 @@ from app.constants import (
     README_PATH,
     REINFORCEMENT_PATH,
     SCIA_TEMPLATE_PATH,
+    SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH,
     VIKTOR_README_PATH,
 )
 from src.common.materials import (
@@ -134,13 +135,18 @@ class TestResourceFileAccessPatterns(unittest.TestCase):
         import unittest.mock
 
         with unittest.mock.patch.object(Path, "exists", return_value=True):
-            template_path = controller._get_scia_template_path()
+            template_path = controller._get_scia_template_path(None)
 
         # Verify it's absolute
         assert template_path.is_absolute(), f"Controller should return absolute path, got: {template_path}"
 
-        # Verify it matches our constant
-        assert template_path == SCIA_TEMPLATE_PATH, "Controller should use the SCIA_TEMPLATE_PATH constant"
+        # Verify it matches the current default template (sections-on-plane when ENABLE_SECTIONS_ON_PLANE=True)
+        from app.constants.technical import ENABLE_INTEGRATION_STRIPS, ENABLE_SECTIONS_ON_PLANE
+
+        expected = (
+            SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH if ENABLE_SECTIONS_ON_PLANE and not ENABLE_INTEGRATION_STRIPS else SCIA_TEMPLATE_PATH
+        )
+        assert template_path == expected, f"Controller should use the correct default template, got: {template_path}"
 
     def test_resource_directory_structure(self) -> None:
         """Test that the expected resource directory structure exists."""

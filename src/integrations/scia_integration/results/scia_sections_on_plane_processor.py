@@ -277,7 +277,7 @@ def parse_section_name(section_name: str) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:  # noqa: C901
     """
     Augment a sections-on-plane DataFrame with parsed metadata columns.
 
@@ -334,9 +334,7 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             if col in df.columns:
                 df.loc[valid_mask, col] = df.loc[valid_mask, col] / df.loc[valid_mask, "section_length_numeric"]
 
-    df = df.drop(columns=["section_length_numeric"])
-
-    return df
+    return df.drop(columns=["section_length_numeric"])
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +481,7 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                             row = zone_basic_reg.loc[idx].copy()
                             row["filtered_for"] = f"{envelope_type}_{col}"
                             row["limit_state"] = limit_state
-                            row = _enrich_with_elem(row)
+                            row = _enrich_with_elem(row)  # type: ignore[arg-type]
                             envelope_rows.append(row)
 
                 # Elementary design quantity columns — from combined reg+sup elementary
@@ -496,7 +494,7 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                             row = zone_elem_combined.loc[idx].copy()
                             row["filtered_for"] = f"{envelope_type}_{col}"
                             row["limit_state"] = limit_state
-                            row = _enrich_with_basic(row)
+                            row = _enrich_with_basic(row)  # type: ignore[arg-type]
                             envelope_rows.append(row)
 
     if not envelope_rows:

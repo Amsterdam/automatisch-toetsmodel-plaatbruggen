@@ -71,7 +71,7 @@ class ControllerUtils:
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
 
-    def _get_scia_template_path(self, params: Any) -> Path:
+    def _get_scia_template_path(self, params: Any) -> Path:  # noqa: ANN401
         """
         Get the path to the SCIA template file based on the selected result object type.
 
@@ -106,17 +106,14 @@ class ControllerUtils:
                 "Selecteer slechts één type resultaatobjecten in de 'Berekening selectie' tab."
             )
 
-        if use_sections:
-            template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
-        else:
-            template_path = SCIA_TEMPLATE_PATH
+        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH if use_sections else SCIA_TEMPLATE_PATH
 
         if not template_path.exists():
             raise UserError(f"SCIA template file niet gevonden: {template_path}")
 
         return template_path
 
-    def _get_scia_full_template_path(self, params: Any) -> Path:
+    def _get_scia_full_template_path(self, params: Any) -> Path:  # noqa: ANN401
         """
         Get the path to the full SCIA template file based on the selected result object type.
 
@@ -137,10 +134,7 @@ class ControllerUtils:
             else:
                 result_type = RESULT_OBJECT_INTEGRATION_STRIPS
 
-        if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE:
-            template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH
-        else:
-            template_path = SCIA_TEMPLATE_FULL_PATH
+        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else SCIA_TEMPLATE_FULL_PATH
 
         if not template_path.exists():
             raise UserError(f"SCIA template file niet gevonden: {template_path}")

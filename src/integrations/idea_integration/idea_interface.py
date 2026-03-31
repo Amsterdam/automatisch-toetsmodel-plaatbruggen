@@ -654,7 +654,7 @@ def _apply_sections_on_plane_loads_to_slabs(
         "y": "langs",
     }
 
-    for slab_key, slab_data in created_slabs.items():
+    for slab_data in created_slabs.values():
         zones = slab_data.get("zones") or []
         if not zones:
             continue

@@ -157,7 +157,7 @@ def _calculate_y_positions_for_x_sections(y_min: float, y_max: float) -> list[fl
 # ---------------------------------------------------------------------------
 
 
-def _calculate_x_positions_for_y_sections(
+def _calculate_x_positions_for_y_sections(  # noqa: C901, PLR0912
     x_start: float,
     x_end: float,
     y_min: float,
@@ -229,10 +229,7 @@ def _calculate_x_positions_for_y_sections(
         positions.append(min_x)
 
     # Remove positions whose coverage overlaps an exclusion zone
-    filtered: list[float] = []
-    for x in positions:
-        if not any((x - half_width) < ee and (x + half_width) > es for es, ee in excluded_ranges):
-            filtered.append(x)
+    filtered = [x for x in positions if not any((x - half_width) < ee and (x + half_width) > es for es, ee in excluded_ranges)]
 
     # Post-filter gap-fill: positions that overlapped the end-support exclusion were
     # removed above, which can leave a gap between the last surviving position and the
@@ -254,7 +251,7 @@ def _calculate_x_positions_for_y_sections(
 # ---------------------------------------------------------------------------
 
 
-def _create_sections_x_direction(
+def _create_sections_x_direction(  # noqa: PLR0913
     builder: SciaModelBuilder,
     plane_name: str,
     zone_position: int,
@@ -307,7 +304,7 @@ def _create_sections_x_direction(
 # ---------------------------------------------------------------------------
 
 
-def _create_sections_y_direction(
+def _create_sections_y_direction(  # noqa: PLR0913
     builder: SciaModelBuilder,
     plane_name: str,
     zone_position: int,
@@ -361,7 +358,7 @@ def _create_sections_y_direction(
 # ---------------------------------------------------------------------------
 
 
-def _create_support_sections(
+def _create_support_sections(  # noqa: C901, PLR0912, PLR0913
     builder: SciaModelBuilder,
     plane_name: str,
     zone_position: int,

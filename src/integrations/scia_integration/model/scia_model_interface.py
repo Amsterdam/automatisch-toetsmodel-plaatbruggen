@@ -221,7 +221,7 @@ class SciaModelBuilder(Protocol):
         """Creates a result class in the SCIA model."""
         ...
 
-    def create_line_support_on_plane(
+    def create_line_support_on_plane(  # noqa: PLR0913
         self,
         name: str,
         plane_name: str,
@@ -274,7 +274,7 @@ class SciaModelBuilder(Protocol):
         point_2: tuple[float, float, float],
         *,
         name: str,
-        draw: Any | None = None,
+        draw: Any | None = None,  # noqa: ANN401
         direction_of_cut: tuple[float, float, float] | None = None,
     ) -> SciaSectionOnPlane:
         """

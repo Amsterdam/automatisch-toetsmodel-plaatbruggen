@@ -175,7 +175,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         point_2: tuple[float, float, float],
         *,
         name: str,
-        draw: Any | None = None,
+        draw: Any | None = None,  # noqa: ANN401
         direction_of_cut: tuple[float, float, float] | None = None,
     ) -> scia.SectionOnPlane:
         """
@@ -478,7 +478,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.result_classes[name] = result_class
         return result_class
 
-    def create_line_support_on_plane(
+    def create_line_support_on_plane(  # noqa: PLR0913
         self,
         name: str,
         plane_name: str,
@@ -1330,7 +1330,7 @@ def _run_scia_analysis_with_builder(
     return analysis, results
 
 
-def get_scia_analysis_results(params: Any, template_path: Path, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_analysis_results(params: Any, template_path: Path, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, ARG001
     """
     Run SCIA analysis and extract results.
 
@@ -1534,7 +1534,8 @@ def run_two_stage_scia_analysis(
     # Show updated progress with actual strip counts
     if strip_stats:
         progress_message(
-            f"{prefix}Stage 2: {strip_stats['created']} strips aangemaakt ({strip_stats['skipped']} overgeslagen van {strip_stats['total_attempted']} totaal)",
+            f"{prefix}Stage 2: {strip_stats['created']} strips aangemaakt "
+            f"({strip_stats['skipped']} overgeslagen van {strip_stats['total_attempted']} totaal)",
             percentage=percentage,
         )
 
@@ -1572,10 +1573,10 @@ def run_two_stage_scia_analysis(
     results_stage2.update(cached_integration_strips_stage2)
 
     # === COMBINE RESULTS ===
-    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")
-    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")
+    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")  # type: ignore[arg-type]
+    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")  # type: ignore[arg-type]
 
-    combined_results = {
+    return {
         # Primary results for downstream processing (stage 2 full results)
         "integration_strips": results_stage2.get("integration_strips"),
         "xml_parsing": results_stage2.get("xml_parsing"),
@@ -1607,8 +1608,6 @@ def run_two_stage_scia_analysis(
             "two_stage_optimized": True,
         },
     }
-
-    return combined_results
 
 
 # =============================================================================
@@ -1735,8 +1734,8 @@ def run_two_stage_scia_analysis_sections_on_plane(
     with contextlib.suppress(Exception):
         results_stage2["sections_on_plane"] = process_all_sections_on_plane(results_stage2)
 
-    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")
-    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")
+    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")  # type: ignore[arg-type]
+    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")  # type: ignore[arg-type]
 
     return {
         # Primary results for downstream processing (Stage 2 full results)

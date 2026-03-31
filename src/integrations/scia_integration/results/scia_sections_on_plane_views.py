@@ -191,18 +191,15 @@ def _format_value(col: str, value: object) -> str:
     """Format a single cell value with appropriate unit conversion."""
     if col == "corrected":
         return "Ja" if value else "Nee"
-    if pd.isna(value) if not isinstance(value, str) else not value:
+    if pd.isna(value) if not isinstance(value, str) else not value:  # type: ignore[call-overload]
         return ""
-    if col in _COORD_COLS:
-        try:
-            return f"{float(value):.3f}"
-        except (ValueError, TypeError):
-            return str(value)
-    if col in _FORCE_COLS:
-        try:
-            return f"{float(value) / 1000.0:.3f}"
-        except (ValueError, TypeError):
-            return str(value)
+    try:
+        if col in _COORD_COLS:
+            return f"{float(value):.3f}"  # type: ignore[arg-type]
+        if col in _FORCE_COLS:
+            return f"{float(value) / 1000.0:.3f}"  # type: ignore[arg-type]
+    except (ValueError, TypeError):
+        pass
     return str(value)
 
 
