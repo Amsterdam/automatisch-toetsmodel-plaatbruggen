@@ -168,19 +168,19 @@ Wanneer **integratiestroken** worden gebruikt werkt het proces als volgt:
    - **X-richting (dwars):** N→N, V_z→Qz, M_x→My
    - **Y-richting (langs):** N→N, V_z→Qz, M_y→My
    - **Gecorrigeerd:** ja als strip breedte < 1 m (krachten herleid naar per meter).
-4. Per unieke plaat worden altijd **2 extremen** aangemaakt (langs + dwars).
+4. Per unieke plaat worden altijd **2 extremen** aangemaakt (langs + dwars)."""
 
-### Modelopbouw – Secties op vlak aanpak
+IDEA_INFO_TEXT_1B = """### Modelopbouw – Secties op vlak aanpak
 Wanneer **secties op vlak** worden gebruikt werkt het proces als volgt:
 1. 2D schaalkrachten (ULS & SLS freq) worden via sections on plane uit SCIA uitgelezen.
-2. Zowel basis grootheden (m_x, m_y, m_xy, v_x, v_y, n_x, n_y, n_xy) als elementaire
-   ontwerpgrootheden (m_xD+/-, m_yD+/-, n_xD, n_yD, etc.) worden verwerkt.
+2. Uit de basis grootheden worden alleen **v_x** en **v_y** (dwarskrachten) verwerkt. De overige basis grootheden (m_x, m_y, m_xy, n_x, n_y, n_xy) worden niet gebruikt.
+   Uit de elementaire ontwerpgrootheden worden **m_xD+/-, m_yD+/-, n_xD, n_yD** verwerkt.
 3. Per zone worden min/max waarden per grootheid bepaald (envelope).
    - Moment/normaal: enveloppe over veld- én steunpuntsecties.
    - Dwarskrachten v_x/v_y: enveloppe uitsluitend over veldsecties.
 4. Krachten worden naar IDEA-formaat omgezet:
-   - **X-richting (dwars):** n_x→N, v_x→Qz, m_x→My
-   - **Y-richting (langs):** n_y→N, v_y→Qz, m_y→My
+   - **X-richting (dwars):** n_xD→N, v_x→Qz, My=max(|m_xD-|,|m_xD+|) met teken (bv. m_xD-=-100, m_xD+=50 → My=-100). Gevallen met m_yD als maatgevende grootheid worden overgeslagen.
+   - **Y-richting (langs):** n_yD→N, v_y→Qz, My=max(|m_yD-|,|m_yD+|) met teken (bv. m_yD-=-100, m_yD+=50 → My=-100). Gevallen met m_xD als maatgevende grootheid worden overgeslagen.
    - **Gecorrigeerd:** ja als sectielengte < 1 m (krachten herleid naar per meter).
 5. Per unieke plaat worden altijd **2 extremen** aangemaakt (langs + dwars)."""
 

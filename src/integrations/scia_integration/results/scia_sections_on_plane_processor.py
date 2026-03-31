@@ -360,15 +360,16 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
 
     **Basic quantities** (from ``*_basic_*`` tables):
 
-    - ``m_x``, ``m_y``, ``m_xy``, ``n_x``, ``n_y``, ``n_xy``: min/max across
-      both *reg* and *sup* sections.
-    - ``v_x``, ``v_y``: min/max from *reg* sections only.
+    - ``v_x``, ``v_y``: min/max from *reg* sections only (shear forces).
+    - All other basic columns (``m_x``, ``m_y``, ``n_x``, ``n_y``, ``m_xy``,
+      ``n_xy``) are not needed and are not carried into the envelope.
 
     **Elementary design quantities** (from ``*_elementary_*`` tables):
 
-    - ``m_xD_pos``, ``m_xD_neg``, ``m_yD_pos``, ``m_yD_neg``, ``m_cD_pos``,
-      ``m_cD_neg``, ``n_xD``, ``n_yD``, ``n_cD``: min/max across both *reg* and
-      *sup* sections.
+    - ``m_xD_pos``, ``m_xD_neg``, ``m_yD_pos``, ``m_yD_neg``, ``n_xD``,
+      ``n_yD``: min/max across both *reg* and *sup* sections.
+    - ``m_cD_pos``, ``m_cD_neg``, ``n_cD`` are excluded — not used by IDEA or
+      the envelope view.
 
     :param tables: Dictionary mapping table keys to DataFrames (output of
                    :func:`extract_all_sections_on_plane_tables` after column augmentation)
@@ -381,11 +382,12 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
     """
     envelope_rows: list[pd.Series] = []
 
-    # Basic quantity columns
-    basic_moment_normal_cols = ["m_x", "m_y", "m_xy", "n_x", "n_y", "n_xy"]
+    # Only v_x and v_y are needed from the basic tables (shear governing rows + enrichment).
+    # m_x, m_y, n_x, n_y, m_xy, n_xy are not used by IDEA and are not carried into the envelope.
     basic_shear_cols = ["v_x", "v_y"]
     # Elementary design quantity columns
-    elementary_cols = list(ELEMENTARY_FORCE_MOMENT_COLUMNS)
+    # m_cD_pos, m_cD_neg, n_cD are twisting/compression quantities not used by IDEA — excluded
+    elementary_cols = [c for c in ELEMENTARY_FORCE_MOMENT_COLUMNS if c not in ("m_cD_pos", "m_cD_neg", "n_cD")]
 
     for limit_state in ("ULS", "SLSfreq"):
         for direction in ("x", "y"):
@@ -464,7 +466,7 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     return row
 
                 def _enrich_with_basic(row: pd.Series) -> pd.Series:
-                    """Fill in basic columns on an elementary governing row."""
+                    """Fill in basic shear columns (v_x, v_y) on an elementary governing row."""
                     key = (row.get("name"), row.get("load_case"))
                     match = basic_lookup.get(key)
                     if match is None:
@@ -475,29 +477,12 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                             key, same_name_keys,
                         )
                         return row
-                    for c in basic_moment_normal_cols + basic_shear_cols:
+                    for c in basic_shear_cols:
                         if c in match.index and (c not in row.index or pd.isna(row.get(c))):
                             row[c] = match[c]
                     return row
 
-                # Basic moment/normal columns — from combined reg+sup basic
-                for col in basic_moment_normal_cols:
-                    if zone_basic_combined.empty or col not in zone_basic_combined.columns:
-                        continue
-                    for envelope_type in ("min", "max"):
-                        idx = (
-                            zone_basic_combined[col].idxmin()
-                            if envelope_type == "min"
-                            else zone_basic_combined[col].idxmax()
-                        )
-                        if pd.notna(idx):
-                            row = zone_basic_combined.loc[idx].copy()
-                            row["filtered_for"] = f"{envelope_type}_{col}"
-                            row["limit_state"] = limit_state
-                            row = _enrich_with_elem(row)
-                            envelope_rows.append(row)
-
-                # Basic shear forces — from reg only
+                # Basic shear forces — from reg only (the only governing quantities from basic tables)
                 for col in basic_shear_cols:
                     if zone_basic_reg.empty or col not in zone_basic_reg.columns:
                         continue
@@ -538,6 +523,10 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
     sort_cols = [c for c in ("zone", "direction", "limit_state", "filtered_for") if c in df_envelope.columns]
     if sort_cols:
         df_envelope = df_envelope.sort_values(by=sort_cols).reset_index(drop=True)
+    # Drop columns not needed for IDEA checks or the envelope view (may be present from source rows)
+    cols_to_drop = [c for c in ("m_x", "m_y", "n_x", "n_y", "m_xy", "n_xy", "m_cD_pos", "m_cD_neg", "n_cD") if c in df_envelope.columns]
+    if cols_to_drop:
+        df_envelope = df_envelope.drop(columns=cols_to_drop)
     return df_envelope
 
 

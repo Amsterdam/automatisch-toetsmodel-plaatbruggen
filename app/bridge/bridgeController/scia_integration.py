@@ -411,15 +411,18 @@ class SciaIntegration:
 
             bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
-            # Load full ESA template to include in ZIP for complete manual analysis
-            esa_content = full_template_path.read_bytes()
+            # Load both ESA templates to include in ZIP
+            governing_esa_content = governing_template_path.read_bytes()
+            full_esa_content = full_template_path.read_bytes()
 
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr(f"SCIA_model_{bridge_id}.xml", xml_content)
                 z.writestr("viktor.xml.def", def_content)
-                # Add full ESA template for manual import (exports complete results)
-                z.writestr("model.esa", esa_content)
+                # Add governing template (exports only governing/envelope results — used in Stage 1)
+                z.writestr(governing_template_path.name, governing_esa_content)
+                # Add full template (exports complete results for all sections — used in Stage 2)
+                z.writestr(full_template_path.name, full_esa_content)
 
             return DownloadResult(file_content=zip_file_obj, file_name=f"{bridge_id}_Input_Files.zip")
 
