@@ -24,6 +24,7 @@ from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_ana
 from app.constants import RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE
 from src.common.constants.technical import AnalysisType
 
+
 # Visibility conditions reused across all view decorators
 def _visible_integration_strips(params: BridgeParametrization, **kwargs) -> bool:  # noqa: ARG001
     return params.calc_page.calc_selection.result_object_type == RESULT_OBJECT_INTEGRATION_STRIPS
@@ -31,6 +32,8 @@ def _visible_integration_strips(params: BridgeParametrization, **kwargs) -> bool
 
 def _visible_sections_on_plane(params: BridgeParametrization, **kwargs) -> bool:  # noqa: ARG001
     return params.calc_page.calc_selection.result_object_type == RESULT_OBJECT_SECTIONS_ON_PLANE
+
+
 from src.integrations.scia_integration.results.scia_integration_strips_views import (
     create_integration_strip_envelope_table_view,
     create_integration_strip_table_view,

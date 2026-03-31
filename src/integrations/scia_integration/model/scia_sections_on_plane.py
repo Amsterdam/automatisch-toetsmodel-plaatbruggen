@@ -443,9 +443,7 @@ def _create_support_sections(
                 for part_nr, start in enumerate(_calculate_section_starts(x_min, x_max), start=1):
                     end = _get_section_end(start, x_max)
                     length = end - start
-                    section_name = (
-                        f"sec_dir-x_sup-{support_x:.1f}_{zone_name}_y-{y_pos:.2f}_nr-{y_nr}_part-{part_nr}_l-{length:.2f}"
-                    )
+                    section_name = f"sec_dir-x_sup-{support_x:.1f}_{zone_name}_y-{y_pos:.2f}_nr-{y_nr}_part-{part_nr}_l-{length:.2f}"
                     builder.create_section_on_plane(
                         point_1=(start, y_pos, 0.0),
                         point_2=(end, y_pos, 0.0),

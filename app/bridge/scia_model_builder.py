@@ -1373,7 +1373,6 @@ def get_scia_analysis_results(params: Any, template_path: Path, analysis_context
     )
 
 
-
 def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str, Any]:
     """
     Generate and return integration strip dataframes for caching.
@@ -1732,6 +1731,7 @@ def run_two_stage_scia_analysis_sections_on_plane(
 
     # Pre-process sections-on-plane data for caching
     import contextlib
+
     with contextlib.suppress(Exception):
         results_stage2["sections_on_plane"] = process_all_sections_on_plane(results_stage2)
 
@@ -1830,4 +1830,3 @@ def get_scia_analysis_results_sections_on_plane(
         full_template_path=SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH,
         analysis_context=analysis_context,
     )
-

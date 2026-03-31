@@ -705,15 +705,12 @@ def _create_integration_strips_internal(
     if wrapper is not None:
         stats = wrapper.get_stats()
         import logging
+
         logger = logging.getLogger(__name__)
-        logger.info(
-            f"Selective strip creation: {stats['created']} created, "
-            f"{stats['skipped']} skipped out of {stats['total_attempted']} total"
-        )
+        logger.info(f"Selective strip creation: {stats['created']} created, {stats['skipped']} skipped out of {stats['total_attempted']} total")
         return stats
 
     return {}
-
 
 
 def _create_support_strips(  # noqa: PLR0913, PLR0912, C901

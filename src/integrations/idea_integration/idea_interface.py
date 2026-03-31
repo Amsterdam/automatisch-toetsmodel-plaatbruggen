@@ -678,11 +678,7 @@ def _apply_sections_on_plane_loads_to_slabs(
             if slab is None:
                 continue
 
-            df_combo = df_slab[
-                (df_slab["zone"] == zone)
-                & (df_slab["direction"] == section_direction)
-                & (df_slab["filtered_for"] == filtered_for)
-            ]
+            df_combo = df_slab[(df_slab["zone"] == zone) & (df_slab["direction"] == section_direction) & (df_slab["filtered_for"] == filtered_for)]
 
             df_uls = df_combo[df_combo["limit_state"] == "ULS"]
             df_sls = df_combo[df_combo["limit_state"] == "SLSfreq"]
@@ -818,9 +814,7 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
             warnings.warn(f"Integration strips verwerking mislukt: {e}.", stacklevel=2)
 
     # --- Try sections on plane (secties op vlak) if integration strips unavailable ---
-    if not use_integration_strips and (
-        "sections_on_plane" in scia_results_dict or "sections_on_plane" in results_data
-    ):
+    if not use_integration_strips and ("sections_on_plane" in scia_results_dict or "sections_on_plane" in results_data):
         try:
             from src.integrations.scia_integration.results.scia_sections_on_plane_to_idea import (
                 process_sections_on_plane_for_idea,

@@ -137,9 +137,8 @@ def _map_section_forces_to_idea_format(  # noqa: C901
     # Drop rows where the governing quantity belongs to the cross-direction m_D family.
     # X-direction sections use m_xD for My; Y-direction sections use m_yD for My.
     if "filtered_for" in result_df.columns:
-        skip_mask = (
-            ((result_df["direction"] == "x") & result_df["filtered_for"].str.contains("m_yD", na=False))
-            | ((result_df["direction"] == "y") & result_df["filtered_for"].str.contains("m_xD", na=False))
+        skip_mask = ((result_df["direction"] == "x") & result_df["filtered_for"].str.contains("m_yD", na=False)) | (
+            (result_df["direction"] == "y") & result_df["filtered_for"].str.contains("m_xD", na=False)
         )
         result_df = result_df[~skip_mask].copy()
 

@@ -167,8 +167,7 @@ def extract_sections_on_plane_table(
 
     if not section_data:
         logger.warning(
-            "Failed to extract data from table '%s'. "
-            "Check whether the SCIA output format has changed.",
+            "Failed to extract data from table '%s'. Check whether the SCIA output format has changed.",
             table_name,
         )
         return pd.DataFrame()
@@ -333,9 +332,7 @@ def add_parsed_columns_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         all_force_cols = FORCE_MOMENT_COLUMNS + ELEMENTARY_FORCE_MOMENT_COLUMNS
         for col in all_force_cols:
             if col in df.columns:
-                df.loc[valid_mask, col] = (
-                    df.loc[valid_mask, col] / df.loc[valid_mask, "section_length_numeric"]
-                )
+                df.loc[valid_mask, col] = df.loc[valid_mask, col] / df.loc[valid_mask, "section_length_numeric"]
 
     df = df.drop(columns=["section_length_numeric"])
 
@@ -402,12 +399,8 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
             # Combine reg+sup within each quantity type
             basic_frames = [df for df in (df_basic_reg, df_basic_sup) if not df.empty]
             elem_frames = [df for df in (df_elem_reg, df_elem_sup) if not df.empty]
-            df_basic_combined = (
-                pd.concat(basic_frames, ignore_index=True) if basic_frames else pd.DataFrame()
-            )
-            df_elem_combined = (
-                pd.concat(elem_frames, ignore_index=True) if elem_frames else pd.DataFrame()
-            )
+            df_basic_combined = pd.concat(basic_frames, ignore_index=True) if basic_frames else pd.DataFrame()
+            df_elem_combined = pd.concat(elem_frames, ignore_index=True) if elem_frames else pd.DataFrame()
 
             if df_basic_reg.empty and df_basic_combined.empty and df_elem_combined.empty:
                 continue
@@ -425,9 +418,7 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     else pd.DataFrame()
                 )
                 zone_basic_reg = (
-                    df_basic_reg[df_basic_reg["zone"] == zone]
-                    if not df_basic_reg.empty and "zone" in df_basic_reg.columns
-                    else pd.DataFrame()
+                    df_basic_reg[df_basic_reg["zone"] == zone] if not df_basic_reg.empty and "zone" in df_basic_reg.columns else pd.DataFrame()
                 )
                 zone_elem_combined = (
                     df_elem_combined[df_elem_combined["zone"] == zone]
@@ -455,9 +446,9 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     if match is None:
                         same_name_keys = [k for k in elem_lookup if k[0] == key[0]]
                         logger.warning(
-                            "ENRICH MISS (basic→elem): key=%s  "
-                            "available elem keys for same name: %s",
-                            key, same_name_keys,
+                            "ENRICH MISS (basic→elem): key=%s  available elem keys for same name: %s",
+                            key,
+                            same_name_keys,
                         )
                         return row
                     for c in elementary_cols:
@@ -472,9 +463,9 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     if match is None:
                         same_name_keys = [k for k in basic_lookup if k[0] == key[0]]
                         logger.warning(
-                            "ENRICH MISS (elem→basic): key=%s  "
-                            "available basic keys for same name: %s",
-                            key, same_name_keys,
+                            "ENRICH MISS (elem→basic): key=%s  available basic keys for same name: %s",
+                            key,
+                            same_name_keys,
                         )
                         return row
                     for c in basic_shear_cols:
@@ -487,11 +478,7 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     if zone_basic_reg.empty or col not in zone_basic_reg.columns:
                         continue
                     for envelope_type in ("min", "max"):
-                        idx = (
-                            zone_basic_reg[col].idxmin()
-                            if envelope_type == "min"
-                            else zone_basic_reg[col].idxmax()
-                        )
+                        idx = zone_basic_reg[col].idxmin() if envelope_type == "min" else zone_basic_reg[col].idxmax()
                         if pd.notna(idx):
                             row = zone_basic_reg.loc[idx].copy()
                             row["filtered_for"] = f"{envelope_type}_{col}"
@@ -504,11 +491,7 @@ def process_sections_on_plane_envelopes(  # noqa: C901, PLR0912
                     if zone_elem_combined.empty or col not in zone_elem_combined.columns:
                         continue
                     for envelope_type in ("min", "max"):
-                        idx = (
-                            zone_elem_combined[col].idxmin()
-                            if envelope_type == "min"
-                            else zone_elem_combined[col].idxmax()
-                        )
+                        idx = zone_elem_combined[col].idxmin() if envelope_type == "min" else zone_elem_combined[col].idxmax()
                         if pd.notna(idx):
                             row = zone_elem_combined.loc[idx].copy()
                             row["filtered_for"] = f"{envelope_type}_{col}"

@@ -248,8 +248,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     # Check if at least one supported result type is available for IDEA
     if "integration_strips" not in results and "sections_on_plane" not in results:
         raise UserError(
-            "Geen SCIA resultaten beschikbaar voor IDEA analyse. "
-            "Voer een nieuwe SCIA berekening uit met integratiestroken of secties op vlak."
+            "Geen SCIA resultaten beschikbaar voor IDEA analyse. Voer een nieuwe SCIA berekening uit met integratiestroken of secties op vlak."
         )
 
     # Return results dictionary (IDEA interface selects the correct result type)
