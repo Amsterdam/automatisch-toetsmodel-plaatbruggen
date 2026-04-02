@@ -121,8 +121,15 @@ def tandem_systems_theoretical_lanes_bg8000(  # noqa: PLR0913
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
 
+    # Extract support X coordinates for fine spacing zones
+    from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
+
+    support_x_coords = _extract_support_x_coordinates(params)
+
     # Get longitudinal positions (same as existing system)
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
+    tandem_x_positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH, support_x_coords=support_x_coords
+    )
 
     # Get theoretical lane positions (NEW: replaces fixed positions)
     lane_y_positions = generate_theoretical_lane_positions_bg8000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
@@ -246,7 +253,15 @@ def tandem_systems_theoretical_lanes_bg9000(  # noqa: PLR0913
     :rtype: list[dict[str, Any]]
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
+
+    # Extract support X coordinates for fine spacing zones
+    from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
+
+    support_x_coords = _extract_support_x_coordinates(params)
+
+    tandem_x_positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH, support_x_coords=support_x_coords
+    )
     lane_y_positions = generate_theoretical_lane_positions_bg9000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     # Calculate load values using helper function (same base value for all lanes)
@@ -368,7 +383,15 @@ def tandem_systems_theoretical_lanes_bg10000(  # noqa: PLR0913
     :rtype: list[dict[str, Any]]
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
+
+    # Extract support X coordinates for fine spacing zones
+    from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
+
+    support_x_coords = _extract_support_x_coordinates(params)
+
+    tandem_x_positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH, support_x_coords=support_x_coords
+    )
     lane_y_positions = generate_theoretical_lane_positions_bg10000(width_bridgedeck, lane_width, width_firstsegment_zone3, width_firstsegment_zone2)
 
     # If no lanes could be positioned (bridge too narrow), return empty results

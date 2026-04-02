@@ -259,8 +259,15 @@ def tandem_systems_real_lanes_bg8000(
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
 
+    # Extract support X coordinates for fine spacing zones
+    from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
+
+    support_x_coords = _extract_support_x_coordinates(params)
+
     # Get longitudinal positions (same as existing system)
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
+    tandem_x_positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH, support_x_coords=support_x_coords
+    )
 
     # Get real lane positions (NEW: replaces fixed positions)
     if get_number_of_road_zones(params) == 2:
@@ -437,8 +444,15 @@ def tandem_systems_real_lanes_bg9000(
     """
     wheel_size = TANDEM_CONTACT_AREA_SIDE
 
+    # Extract support X coordinates for fine spacing zones
+    from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
+
+    support_x_coords = _extract_support_x_coordinates(params)
+
     # Get longitudinal positions (same as existing system)
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
+    tandem_x_positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH, support_x_coords=support_x_coords
+    )
 
     # Get real lane positions (NEW: replaces fixed positions)
     if get_number_of_road_zones(params) == 2:
@@ -602,7 +616,15 @@ def tandem_systems_real_lanes_bg10000(
     :rtype: list[dict[str, Any]]
     """
     wheel_size = TANDEM_WHEEL_SIZE
-    tandem_x_positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH)
+
+    # Extract support X coordinates for fine spacing zones
+    from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
+
+    support_x_coords = _extract_support_x_coordinates(params)
+
+    tandem_x_positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=TANDEM_VEHICLE_LENGTH, support_x_coords=support_x_coords
+    )
 
     # Get real lane positions (NEW: replaces fixed positions)
     if get_number_of_road_zones(params) == 2:

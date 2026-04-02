@@ -28,6 +28,45 @@ from src.integrations.scia_integration.scia_enums import (
 from .scia_load_generators import extract_bridge_dimensions
 
 
+def _extract_support_x_coordinates(params: Any) -> list[float]:  # noqa: ANN401
+    """
+    Extract X coordinates of all supports from bridge parameters.
+
+    Processes the bridge_segments_array to find all support locations and calculate
+    their X coordinates by accumulating segment lengths.
+
+    :param params: Bridge parameters containing bridge_segments_array
+    :returns: List of X coordinates where supports are located (always includes 0.0 at minimum)
+    :rtype: list[float]
+    """
+    support_x_coords = []
+
+    # Check if bridge_segments_array exists
+    if not hasattr(params, "bridge_segments_array") or not params.bridge_segments_array:
+        # No segments defined, return empty list (will use default supports)
+        return []
+
+    num_rows = len(params.bridge_segments_array)
+
+    # Row 0: Check for support at start (X=0)
+    row_0_support = getattr(params.bridge_segments_array[0], "is_support", "Nee")
+    if row_0_support and row_0_support != "Nee":
+        support_x_coords.append(0.0)
+
+    # Rows 1 to n-1: Accumulate lengths to find support X positions
+    cumulative_x = 0.0
+    for row_idx in range(1, num_rows):
+        row = params.bridge_segments_array[row_idx]
+        segment_length = getattr(row, "l", 0.0)
+        cumulative_x += segment_length
+
+        is_support = getattr(row, "is_support", "Nee")
+        if is_support and is_support != "Nee":
+            support_x_coords.append(cumulative_x)
+
+    return support_x_coords
+
+
 def create_load_case(  # noqa: PLR0913
     builder: SciaModelBuilder,
     group_name: str,
@@ -272,9 +311,12 @@ def create_service_vehicle_load_cases(builder: SciaModelBuilder, params: Any) ->
     length = dims.total_length
     thickness = dims.thickness
 
+    # Extract support X coordinates for fine spacing zones
+    support_x_coords = _extract_support_x_coordinates(params)
+
     # Get X positions using the same sequencer as tandem loads
     service_vehicle_total_length = SERVICE_VEHICLE_AXLE_SPACING + SERVICE_VEHICLE_WHEEL_DIMENSION
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length)
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length, support_x_coords=support_x_coords)
 
     # Get side selection from parameters
     # Access directly by name (defined in parametrization with name="service_unintended_vehicle_selection")
@@ -342,12 +384,17 @@ def create_unintended_vehicle_load_cases(builder: SciaModelBuilder, params: Any)
     length = dims.total_length
     thickness = dims.thickness
 
+    # Extract support X coordinates for fine spacing zones
+    support_x_coords = _extract_support_x_coordinates(params)
+
     # Get X positions using the same sequencer as tandem loads
     accidental_vehicle_total_length = ACCIDENTAL_VEHICLE_AXLE_SPACING + ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_STANDARD
     accidental_vehicle_total_length_amsterdam = ACCIDENTAL_VEHICLE_AXLE_SPACING_AMSTERDAM + ACCIDENTAL_VEHICLE_WHEEL_DIMENSION_AMSTERDAM
-    positions = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length)
-    positions_amsterdam = tandem_system_sequencer(length, thickness)
-    positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam)
+    positions = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length, support_x_coords=support_x_coords)
+    positions_amsterdam = tandem_system_sequencer(length, thickness, support_x_coords=support_x_coords)
+    positions_amsterdam_rotated = tandem_system_sequencer(
+        length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam, support_x_coords=support_x_coords
+    )
 
     # Get side selection from parameters
     # Access directly by name (defined in parametrization with name="service_unintended_vehicle_selection")
@@ -586,7 +633,9 @@ def create_dynamic_tandem_load_cases(
     }
 
 
-def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridgedeck: float, thickness_bridgedeck: float) -> dict[str, SciaLoadCase]:
+def create_tandem_rs_load_cases(
+    builder: SciaModelBuilder, rs: int, length_bridgedeck: float, thickness_bridgedeck: float, support_x_coords: list[float] | None = None
+) -> dict[str, SciaLoadCase]:
     """
     Create tandem system load cases for a given RS (1,2,3).
 
@@ -599,6 +648,8 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     :type length_bridgedeck: float
     :param thickness_bridgedeck: The thickness of the bridge deck in meters.
     :type thickness_bridgedeck: float
+    :param support_x_coords: Optional list of support X coordinates for fine spacing zones
+    :type support_x_coords: list[float] | None
     :returns: Dictionary of tandem load cases for the specified RS.
     :rtype: dict[str, SciaLoadCase]
     :raises ValueError: If rs is not 1, 2, or 3.
@@ -615,7 +666,7 @@ def create_tandem_rs_load_cases(builder: SciaModelBuilder, rs: int, length_bridg
     else:
         raise ValueError("RS must be 1, 2, or 3")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6)
+    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=1.6, support_x_coords=support_x_coords)
     cases = {}
     if rs == 3:
         # BG10000 series: double amount for both configurations
@@ -689,19 +740,22 @@ def create_dynamic_tram_track_tandem_load_cases(
     length = dims.total_length
     thickness = dims.thickness
 
+    # Extract support X coordinates for fine spacing zones
+    support_x_coords = _extract_support_x_coordinates(params)
+
     # Determine the number of tracks based on bridge parameters
     num_tracks = count_tram_tracks_from_params(params)
 
     # Create tandem load cases for each road system (RS)
     for track in range(1, num_tracks + 1):
-        tram_tandem_cases_dict = create_tram_track_tandem_load_cases(builder, track, length, thickness)
+        tram_tandem_cases_dict = create_tram_track_tandem_load_cases(builder, track, length, thickness, support_x_coords=support_x_coords)
         load_cases.update(tram_tandem_cases_dict)
 
     return load_cases
 
 
 def create_tram_track_tandem_load_cases(
-    builder: SciaModelBuilder, track: int, length_bridgedeck: float, thickness_bridgedeck: float
+    builder: SciaModelBuilder, track: int, length_bridgedeck: float, thickness_bridgedeck: float, support_x_coords: list[float] | None = None
 ) -> dict[str, SciaLoadCase]:
     """
     Create tandem system load cases for a given RS (1,2,3).
@@ -715,6 +769,8 @@ def create_tram_track_tandem_load_cases(
     :type length_bridgedeck: float
     :param thickness_bridgedeck: The thickness of the bridge deck in meters.
     :type thickness_bridgedeck: float
+    :param support_x_coords: Optional list of support X coordinates for fine spacing zones
+    :type support_x_coords: list[float] | None
     :returns: Dictionary of tandem load cases for the specified RS.
     :rtype: dict[str, SciaLoadCase]
     :raises ValueError: If rs is not 1, 2, or 3.
@@ -728,7 +784,9 @@ def create_tram_track_tandem_load_cases(
     else:
         raise ValueError("Track must be 1 or 2")
 
-    positions = tandem_system_sequencer(length_bridgedeck, thickness_bridgedeck, length_vehicle=21.824)  # Tram length 15G (CAF Urbos 100)
+    positions = tandem_system_sequencer(
+        length_bridgedeck, thickness_bridgedeck, length_vehicle=21.824, support_x_coords=support_x_coords
+    )  # Tram length 15G (CAF Urbos 100)
     cases = {}
     for i, pos in enumerate(positions, 1):
         case_name = f"{prefix}{i:03d}"
