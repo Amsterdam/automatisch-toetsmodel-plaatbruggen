@@ -1,7 +1,32 @@
-## ['v0.0.24'] - 2026-02-xx
+## [`v0.0.24`] - 2026-04-xx
+
+### Added
+- **Section on Plane Method**: Implemented full support for the "sections on plane" approach as an alternative to integration strips for internal force extraction
+  - Added section on plane geometry creation in SCIA model
+  - Linked section on plane results to IDEA model (v1 coupling)
+  - Fixed section on plane geometry issues and selection logic
+  - Added support strip handling for section on plane results
+  - Added correct ESA templates for sections on plane to downloads and zip exports
+
+### Changed
+- **Two-Step SCIA Calculation**: Implemented two-step calculation workflow for integration strips, improving calculation reliability
+- **Integration Strips vs Sections Parameter**: Added cache parameter to distinguish between integration strips and sections on plane approaches
+- **SCIA–IDEA Force Mapping**: Updated force mapping from SCIA to IDEA model for correct internal force transfer
+- **Governing Templates**: Updated ESA templates to governing configuration
+- **Mesh Size**: Updated mesh size from 0.2 to 0.6 for improved performance
+- **Section Envelopes**: Filtered columns in section envelopes output for cleaner results
+- **Management Summary**: Updated management summary layout and content
 
 ### Fixed
+- **SCIA Re-analysis After IDEA Download**: Fixed issue where SCIA analysis would restart after downloading the IDEA model
+- **SCIA XML Download Button**: Fixed SCIA output XML download button
+- **Section on Plane Geometry**: Fixed geometry issues in section on plane creation
+- **IDEA Linking**: Fixed several IDEA model linking issues and updated GUI texts
+- **Direction Parameter Definitions**: Improved definitions of direction parameters
 - Typo on the "Berekening optimalisatie" page: 'gecahched' to 'gecached'
+
+### Removed
+- **Cross-Section (CS) Code Cleanup**: Removed remaining CS-related code, UI elements and documentation following the switch to integration strips
 
 ## [`v0.0.23`] - 2026-01-19
 
