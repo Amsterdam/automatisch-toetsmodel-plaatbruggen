@@ -91,6 +91,7 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
 
     try:
         # For dynamic load cases, we need to calculate based on bridge geometry
+        from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
         from src.integrations.scia_integration.load_system.scia_load_generators import extract_bridge_dimensions
         from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
         from src.integrations.scia_integration.load_system.theoretical_tandem_generators import (
@@ -102,14 +103,17 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         thickness = dims.thickness
         width = dims.total_width
 
+        # Extract support X coordinates for fine spacing zones
+        support_x_coords = _extract_support_x_coordinates(params)
+
         # Service vehicle load cases: 2 × number of positions (y_plus and y_minus)
-        service_positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25)
+        service_positions = tandem_system_sequencer(length, thickness, length_vehicle=3.25, support_x_coords=support_x_coords)
         counts["Dienstvoertuig belastingen"] = len(service_positions) * 2
 
         # Unintended vehicle load cases: complex calculation
-        unintended_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2)
-        amsterdam_positions = tandem_system_sequencer(length, thickness)
-        amsterdam_rotated_positions = tandem_system_sequencer(length, thickness, length_vehicle=2.0)
+        unintended_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.2, support_x_coords=support_x_coords)
+        amsterdam_positions = tandem_system_sequencer(length, thickness, support_x_coords=support_x_coords)
+        amsterdam_rotated_positions = tandem_system_sequencer(length, thickness, length_vehicle=2.0, support_x_coords=support_x_coords)
 
         # Standard vehicle: 2 edges × 2 directions × positions
         standard_cases = len(unintended_positions) * 2 * 2  # RS1 and RS3, forward and reverse
@@ -124,7 +128,7 @@ def _calculate_load_case_counts(params: Any) -> dict[str, int]:  # noqa: ANN401
         num_lanes = len(generate_theoretical_lane_positions_bg8000(width))
         num_lanes = min(num_lanes, 3)  # Maximum 3 lanes
 
-        tandem_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.6)
+        tandem_positions = tandem_system_sequencer(length, thickness, length_vehicle=1.6, support_x_coords=support_x_coords)
         tandem_cases = 0
 
         for rs in range(1, num_lanes + 1):

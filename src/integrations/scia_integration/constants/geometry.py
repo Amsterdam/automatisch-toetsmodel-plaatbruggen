@@ -28,7 +28,7 @@ VEHICLE_INSET_FROM_BRIDGE_EDGE = 0.5  # Standard inset distance from bridge edge
 TANDEM_VEHICLE_LENGTH = 1.6  # Length of tandem vehicle for sequencing (meters)
 
 # Tandem system spacing and positioning
-TANDEM_SPACING_LONGITUDINAL = 0.5  # Default spacing between tandem systems (meters)
+TANDEM_SPACING_LONGITUDINAL = 1.0  # Default spacing between tandem systems (meters)
 TANDEM_START_Y_OFFSET_FACTOR = 0.9  # Factor for tandem start Y calculation (0.9 * thickness)
 
 # Additional geometry constants
