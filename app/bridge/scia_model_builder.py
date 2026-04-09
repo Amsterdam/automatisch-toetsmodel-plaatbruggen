@@ -9,7 +9,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
+from src.integrations.scia_integration.model.scia_model import define_bridge_model_sections_on_plane, define_complete_bridge_model
 from src.integrations.scia_integration.model.scia_model_interface import (
     SciaAnalysis,
     SciaFile,
@@ -20,6 +20,7 @@ from src.integrations.scia_integration.model.scia_model_interface import (
 )
 from src.integrations.scia_integration.scia_enums import (
     LineLoadDirection,
+    LineSupportCSys,
     LineSupportFreedom,
     LoadCaseActionType,
     LoadCaseDuration,
@@ -81,6 +82,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.load_combinations: dict[str, scia.LoadCombination] = {}  # Track load combinations
         self.result_classes: dict[str, scia.ResultClass] = {}  # Track result classes
         self.integration_strips: dict[str, scia.IntegrationStrip] = {}  # Map custom_name -> strip object
+        self.sections_on_plane: dict[str, scia.SectionOnPlane] = {}  # Map name -> SectionOnPlane object
 
     def create_material(self, name: str, material_id: int = 0) -> scia.Material:
         """Creates a material and stores it."""
@@ -166,6 +168,44 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.integration_strips[custom_name] = integration_strip
 
         return integration_strip
+
+    def create_section_on_plane(
+        self,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        *,
+        name: str,
+        draw: Any | None = None,  # noqa: ANN401
+        direction_of_cut: tuple[float, float, float] | None = None,
+    ) -> scia.SectionOnPlane:
+        """
+        Creates a section on a 2D-member plane and stores it.
+
+        :param point_1: Start position (x, y, z) in [m]
+        :param point_2: End position (x, y, z) in [m]
+        :param name: Name shown in SCIA (e.g. 'sec_Z1-1_x_nr-1')
+        :param draw: Plane in which the section is drawn (default: Z_DIRECTION)
+        :param direction_of_cut: In-plane cut direction vector (default: (0, 0, 1))
+        :return: Created SectionOnPlane object
+        """
+        kwargs: dict[str, Any] = {
+            "point_1": point_1,
+            "point_2": point_2,
+            "name": name,
+        }
+        if draw is not None:
+            kwargs["draw"] = draw
+        if direction_of_cut is not None:
+            kwargs["direction_of_cut"] = direction_of_cut
+
+        section = self.model.create_section_on_plane(**kwargs)
+
+        # Workaround: Set custom name via private _name attribute (same as integration strips)
+        if hasattr(section, "_name"):
+            section._name = name  # noqa: SLF001
+
+        self.sections_on_plane[name] = section
+        return section
 
     def create_load_group(
         self,
@@ -438,13 +478,14 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         self.result_classes[name] = result_class
         return result_class
 
-    def create_line_support_on_plane(
+    def create_line_support_on_plane(  # noqa: PLR0913
         self,
         name: str,
         plane_name: str,
         edge_index: int,
         freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
+        c_sys: LineSupportCSys | None = None,
     ) -> scia.LineSupport:
         """
         Creates a line support on a plane edge.
@@ -454,6 +495,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         :param edge_index: Edge index on the plane
         :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz directions
         :param stiffness: Dictionary with stiffness values for x and y directions
+        :param c_sys: Coordinate system (default: GLOBAL)
         :return: Created line support
         """
         if plane_name not in self.plates:
@@ -462,6 +504,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         # Extract SDK enums from bridge enums
         sdk_freedom = {key: value.value for key, value in freedom.items()}
+        sdk_c_sys = c_sys.value if c_sys is not None else None
 
         return self.model.create_line_support_on_plane(
             name=name,
@@ -474,6 +517,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             rz=sdk_freedom["rz"],
             stiffness_x=stiffness.get("stiffness_x"),
             stiffness_y=stiffness.get("stiffness_y"),
+            c_sys=sdk_c_sys,
         )
 
     def get_model(self) -> scia.Model:
@@ -1286,53 +1330,47 @@ def _run_scia_analysis_with_builder(
     return analysis, results
 
 
-def get_scia_analysis_results(params: Any, template_path: Path, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_analysis_results(params: Any, template_path: Path, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, ARG001
     """
     Run SCIA analysis and extract results.
 
+    Routes to the correct analysis function based on the selected result object type
+    (``params.calc_page.calc_selection.result_object_type``):
+
+    - **Integratiestroken** (default): two-stage optimization using integration strips.
+    - **Secties op vlak**: two-stage optimization using sections on plane.
+
     :param params: The bridge parameters.
-    :param template_path: The path to the ESA template file.
+    :param template_path: The governing ESA template path (used for strips stage 1 or SoP).
     :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
     :return: Dictionary containing extracted analysis results.
     """
     if not VIKTOR_AVAILABLE or scia is None:
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
 
-    # Build progress message prefix from context
-    if analysis_context:
-        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
-        percentage = analysis_context.get("batch_percentage")
-    else:
-        prefix = ""
-        percentage = None
+    from app.constants import SCIA_TEMPLATE_FULL_PATH, SCIA_TEMPLATE_PATH, SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
+    from app.constants.technical import ENABLE_SECTIONS_ON_PLANE, RESULT_OBJECT_SECTIONS_ON_PLANE
 
-    # Run analysis and get basic results
-    progress_message(f"{prefix}Uitvoeren SCIA analyse...", percentage=percentage)
-    analysis, results = _run_scia_analysis_with_builder(params, template_path, analysis_context)
+    # Determine selected result type
+    try:
+        result_type = params.calc_page.calc_selection.result_object_type
+    except AttributeError:
+        result_type = RESULT_OBJECT_SECTIONS_ON_PLANE if ENABLE_SECTIONS_ON_PLANE else None
 
-    # Extract additional data for caching
-    progress_message(f"{prefix}Extraheren XML output voor caching...", percentage=percentage)
-    results["xml_output"] = _extract_xml_output_for_caching(analysis)
+    if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE:
+        return get_scia_analysis_results_sections_on_plane(
+            params=params,
+            template_path=SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH,
+            analysis_context=analysis_context,
+        )
 
-    # Extract ESA model
-    progress_message(f"{prefix}Extraheren ESA model...", percentage=percentage)
-    esa_model = _extract_esa_model_for_caching(analysis)
-    results["esa_model"] = esa_model
-
-    # Process and cache integration strip results
-    progress_message("Verwerken en cachen integratiestroken...")
-    cached_integration_strips = _generate_and_cache_integration_strips(results)
-    results.update(cached_integration_strips)
-
-    # Add summary information
-    results["summary"] = {
-        "analysis_status": results.get("analysis_status", "unknown"),
-        "xml_parsing": results.get("xml_parsing", {}),
-        "has_esa_model": esa_model is not None,
-        "has_integration_strips": bool(cached_integration_strips),
-    }
-
-    return results
+    # Default: two-stage integration-strips analysis
+    return run_two_stage_scia_analysis(
+        params=params,
+        governing_template_path=SCIA_TEMPLATE_PATH,
+        full_template_path=SCIA_TEMPLATE_FULL_PATH,
+        analysis_context=analysis_context,
+    )
 
 
 def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str, Any]:
@@ -1362,7 +1400,7 @@ def _generate_and_cache_integration_strips(results: dict[str, Any]) -> dict[str,
     }
 
 
-def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401, ARG001
+def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any, Any]:  # noqa: ANN401
     """
     Module-level factory for SCIA input and analysis.
 
@@ -1371,12 +1409,423 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
 
     :param params: Bridge parametrization object
     :type params: Any
-    :param template_path: Path to SCIA template file (unused in this simplified version)
+    :param template_path: Path to SCIA template file
     :type template_path: Path
     :returns: Tuple of (xml_file, def_file, analysis)
     :rtype: tuple[Any, Any, Any]
     """
     xml_file, def_file = generate_bridge_xml_files(params)
-    # Note: This is a simplified version for testing - in production you might want
-    # to actually run the SCIA analysis here
+    if VIKTOR_AVAILABLE and scia is not None:
+        esa_template = File.from_path(template_path)
+        scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
+        return xml_file, def_file, scia_analysis
     return xml_file, def_file, None
+
+
+def run_two_stage_scia_analysis(
+    params: Any,  # noqa: ANN401
+    governing_template_path: Path,
+    full_template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Execute two-stage SCIA analysis optimization.
+
+    Stage 1: Model ALL strips → Export ONLY governing results → Identify critical strips
+    Stage 2: Model ONLY governing strips → Export FULL results → Fast processing
+
+    :param params: Bridge parameters
+    :param governing_template_path: Path to template that exports only governing/envelope results
+    :param full_template_path: Path to template that exports full results
+    :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
+    :return: Combined results dictionary with optimization metrics
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    from src.integrations.scia_integration.model.scia_integration_strips import create_selective_integration_strips
+    from src.integrations.scia_integration.model.scia_model import define_complete_bridge_model
+    from src.integrations.scia_integration.results.scia_integration_strips_processor import (
+        extract_governing_strip_names,
+        process_all_integration_strips,
+    )
+
+    # Build progress message prefix from context
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    # Determine selected method label for progress messages
+    try:
+        result_type = params.calc_page.calc_selection.result_object_type
+    except AttributeError:
+        result_type = "Integratiestroken"
+    method_label = result_type  # e.g. "Integratiestroken" or "Secties op vlak"
+
+    # === STAGE 1: Governing Analysis ===
+    progress_message(f"{prefix}Stage 1: Analyseren met {method_label} (governing results)...", percentage=percentage)
+
+    # Build model with ALL strips (existing logic)
+    builder_stage1 = ViktorSciaModelBuilder()
+    define_complete_bridge_model(builder_stage1, params)  # Creates all strips
+    total_strips_stage1 = len(builder_stage1.integration_strips)
+
+    # Generate input files and run with governing template
+    xml_file, def_file = builder_stage1.generate_xml_input()
+    esa_template_gov = File.from_path(governing_template_path)
+    analysis_stage1 = builder_stage1.run_analysis(xml_file, def_file, esa_template_gov)
+
+    # Extract governing results (small XML output)
+    progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
+    results_stage1 = builder_stage1.extract_analysis_results(analysis_stage1)
+
+    # Process to identify governing strips
+    progress_message(f"{prefix}Identificeren governing strips...", percentage=percentage)
+    processed_strips_stage1 = process_all_integration_strips(results_stage1)
+    envelope_df = processed_strips_stage1["envelope"]
+    governing_strip_names = extract_governing_strip_names(envelope_df)
+
+    # Log statistics
+    governing_count = len(governing_strip_names)
+    reduction_pct = (1 - governing_count / total_strips_stage1) * 100 if total_strips_stage1 > 0 else 0
+
+    progress_message(
+        f"{prefix}Governing strips: {governing_count}/{total_strips_stage1} ({reduction_pct:.1f}% reductie)",
+        percentage=percentage,
+    )
+
+    # === STAGE 2: Detailed Analysis ===
+    progress_message(f"{prefix}Stage 2: Bouwen model met {governing_count} governing strips...", percentage=percentage)
+
+    # Build model with ONLY governing strips
+    builder_stage2 = ViktorSciaModelBuilder()
+
+    # Import necessary functions from scia_model module
+    from app.bridge.utils import _validate_first_and_last_supports
+    from src.integrations.scia_integration.load_system.scia_load_cases import create_all_load_cases
+    from src.integrations.scia_integration.load_system.scia_load_combinations import create_all_load_combinations
+    from src.integrations.scia_integration.load_system.scia_load_group import create_all_load_groups
+    from src.integrations.scia_integration.model.scia_model import create_bridge_geometry
+    from src.integrations.scia_integration.model.scia_supports import create_all_supports
+    from src.integrations.scia_integration.results.scia_result_classes import create_all_result_classes
+    from src.integrations.scia_integration.scia_loads import create_all_loads
+
+    # Build model structure (same as define_complete_bridge_model but without all strips)
+    # 0. Validate support configuration
+    _validate_first_and_last_supports(params)
+
+    # 1. Build Geometry
+    plate_names = create_bridge_geometry(builder_stage2, params)
+
+    # 2. Extract support types
+    support_types = None
+    if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+        support_types = [segment.is_support for segment in params.bridge_segments_array]
+
+    # 3. Build Line Supports
+    create_all_supports(builder_stage2, plate_names, support_types)
+
+    # 4. Build ONLY governing integration strips (this is the key difference)
+    strip_stats = create_selective_integration_strips(builder_stage2, params, governing_strip_names)
+
+    # Show updated progress with actual strip counts
+    if strip_stats:
+        progress_message(
+            f"{prefix}Stage 2: {strip_stats['created']} strips aangemaakt "
+            f"({strip_stats['skipped']} overgeslagen van {strip_stats['total_attempted']} totaal)",
+            percentage=percentage,
+        )
+
+    # 5. Build Load Groups
+    create_all_load_groups(builder_stage2)
+
+    # 6. Build ALL Load Cases
+    all_load_cases = create_all_load_cases(builder_stage2, params)
+
+    # 7. Apply all loads
+    create_all_loads(builder_stage2, params, all_load_cases)
+
+    # 8. Build Load Combinations
+    all_load_combinations = create_all_load_combinations(params, builder_stage2, all_load_cases)
+
+    # 9. Create Result Classes
+    create_all_result_classes(params, builder_stage2, all_load_combinations)
+
+    # Run with full results template
+    progress_message(f"{prefix}Stage 2: Uitvoeren SCIA berekening met {strip_stats.get('created', governing_count)} strips...", percentage=percentage)
+    xml_file2, def_file2 = builder_stage2.generate_xml_input()
+    esa_template_full = File.from_path(full_template_path)
+    analysis_stage2 = builder_stage2.run_analysis(xml_file2, def_file2, esa_template_full)
+
+    # Extract full results (small file because only governing strips)
+    progress_message(f"{prefix}Stage 2: Extraheren complete resultaten...", percentage=percentage)
+    results_stage2 = builder_stage2.extract_analysis_results(analysis_stage2)
+
+    # Extract additional data for caching
+    results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
+
+    # Process stage 2 integration strips
+    cached_integration_strips_stage2 = _generate_and_cache_integration_strips(results_stage2)
+    results_stage2.update(cached_integration_strips_stage2)
+
+    # === COMBINE RESULTS ===
+    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")  # type: ignore[arg-type]
+    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")  # type: ignore[arg-type]
+
+    return {
+        # Primary results for downstream processing (stage 2 full results)
+        "integration_strips": results_stage2.get("integration_strips"),
+        "xml_parsing": results_stage2.get("xml_parsing"),
+        "analysis_status": results_stage2.get("analysis_status"),
+        "xml_output": results_stage2.get("xml_output"),
+        "esa_model": results_stage2.get("esa_model"),
+        # Metadata about the two-stage optimization
+        "two_stage_optimization": {
+            "stage1_results": results_stage1,
+            "governing_strip_names": list(governing_strip_names),
+            "optimization_stats": {
+                "total_strips_stage1": total_strips_stage1,
+                "governing_strips_stage2": governing_count,
+                "reduction_percentage": reduction_pct,
+                "stage1_xml_size_bytes": stage1_xml_size,
+                "stage2_xml_size_bytes": stage2_xml_size,
+                "total_xml_size_bytes": stage1_xml_size + stage2_xml_size,
+                "strips_created": strip_stats.get("created", governing_count),
+                "strips_skipped": strip_stats.get("skipped", 0),
+                "strips_total_attempted": strip_stats.get("total_attempted", total_strips_stage1),
+            },
+        },
+        # Summary information
+        "summary": {
+            "analysis_status": results_stage2.get("analysis_status", "unknown"),
+            "xml_parsing": results_stage2.get("xml_parsing", {}),
+            "has_esa_model": results_stage2.get("esa_model") is not None,
+            "has_integration_strips": bool(cached_integration_strips_stage2),
+            "two_stage_optimized": True,
+        },
+    }
+
+
+# =============================================================================
+# SECTIONS ON PLANE — TOP-LEVEL BUILDER FUNCTIONS
+# =============================================================================
+
+
+def run_two_stage_scia_analysis_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    governing_template_path: Path,
+    full_template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Execute two-stage SCIA analysis for sections on plane.
+
+    Stage 1: Build model with ALL sections → governing template → identify governing sections.
+    Stage 2: Build model with ONLY governing sections → full template → complete results.
+
+    :param params: Bridge parameters
+    :param governing_template_path: Path to template that exports only governing/envelope results
+    :param full_template_path: Path to template that exports full results
+    :param analysis_context: Optional context dict with bridge_position, total_bridges,
+        bridge_name, batch_percentage for progress reporting.
+    :return: Combined results dictionary with optimization metrics
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    from src.integrations.scia_integration.model.scia_model import define_bridge_model_sections_on_plane
+    from src.integrations.scia_integration.model.scia_sections_on_plane import create_selective_sections_on_plane
+    from src.integrations.scia_integration.results.scia_sections_on_plane_processor import (
+        extract_governing_section_names_from_results,
+        process_all_sections_on_plane,
+    )
+
+    if analysis_context:
+        prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
+        percentage = analysis_context.get("batch_percentage")
+    else:
+        prefix = ""
+        percentage = None
+
+    # === STAGE 1: Governing Analysis ===
+    progress_message(f"{prefix}Stage 1: Genereren SCIA model (alle secties op vlak)...", percentage=percentage)
+    builder_stage1 = ViktorSciaModelBuilder()
+    define_bridge_model_sections_on_plane(builder_stage1, params)
+    total_sections_stage1 = len(builder_stage1.sections_on_plane)
+
+    xml_file, def_file = builder_stage1.generate_xml_input()
+    esa_template_gov = File.from_path(governing_template_path)
+
+    progress_message(f"{prefix}Stage 1: Uitvoeren SCIA berekening (governing results)...", percentage=percentage)
+    analysis_stage1 = builder_stage1.run_analysis(xml_file, def_file, esa_template_gov)
+
+    progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
+    results_stage1 = builder_stage1.extract_analysis_results(analysis_stage1)
+
+    # Collect governing section names directly from Stage 1 tables.
+    # The governing template already exports only one row per section, so no
+    # envelope computation is needed here.
+    progress_message(f"{prefix}Identificeren governing secties op vlak...", percentage=percentage)
+    governing_section_names = extract_governing_section_names_from_results(results_stage1)
+
+    governing_count = len(governing_section_names)
+    reduction_pct = (1 - governing_count / total_sections_stage1) * 100 if total_sections_stage1 > 0 else 0
+
+    progress_message(
+        f"{prefix}Governing secties: {governing_count}/{total_sections_stage1} ({reduction_pct:.1f}% reductie)",
+        percentage=percentage,
+    )
+
+    # === STAGE 2: Detailed Analysis ===
+    progress_message(f"{prefix}Stage 2: Bouwen model met {governing_count} governing secties op vlak...", percentage=percentage)
+
+    builder_stage2 = ViktorSciaModelBuilder()
+
+    from app.bridge.utils import _validate_first_and_last_supports
+    from src.integrations.scia_integration.load_system.scia_load_cases import create_all_load_cases
+    from src.integrations.scia_integration.load_system.scia_load_combinations import create_all_load_combinations
+    from src.integrations.scia_integration.load_system.scia_load_group import create_all_load_groups
+    from src.integrations.scia_integration.model.scia_model import create_bridge_geometry
+    from src.integrations.scia_integration.model.scia_supports import create_all_supports
+    from src.integrations.scia_integration.results.scia_result_classes import create_all_result_classes
+    from src.integrations.scia_integration.scia_loads import create_all_loads
+
+    _validate_first_and_last_supports(params)
+    plate_names = create_bridge_geometry(builder_stage2, params)
+
+    support_types = None
+    if hasattr(params, "bridge_segments_array") and params.bridge_segments_array:
+        support_types = [segment.is_support for segment in params.bridge_segments_array]
+
+    create_all_supports(builder_stage2, plate_names, support_types)
+
+    # Create ONLY governing sections
+    section_stats = create_selective_sections_on_plane(builder_stage2, params, governing_section_names)
+
+    progress_message(
+        f"{prefix}Stage 2: {section_stats['created']} secties aangemaakt "
+        f"({section_stats['skipped']} overgeslagen van {section_stats['total_attempted']} totaal)",
+        percentage=percentage,
+    )
+
+    create_all_load_groups(builder_stage2)
+    all_load_cases = create_all_load_cases(builder_stage2, params)
+    create_all_loads(builder_stage2, params, all_load_cases)
+    all_load_combinations = create_all_load_combinations(params, builder_stage2, all_load_cases)
+    create_all_result_classes(params, builder_stage2, all_load_combinations)
+
+    progress_message(f"{prefix}Stage 2: Uitvoeren SCIA berekening met {section_stats['created']} secties...", percentage=percentage)
+    xml_file2, def_file2 = builder_stage2.generate_xml_input()
+    esa_template_full = File.from_path(full_template_path)
+    analysis_stage2 = builder_stage2.run_analysis(xml_file2, def_file2, esa_template_full)
+
+    progress_message(f"{prefix}Stage 2: Extraheren complete resultaten...", percentage=percentage)
+    results_stage2 = builder_stage2.extract_analysis_results(analysis_stage2)
+    results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
+
+    # Pre-process sections-on-plane data for caching
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        results_stage2["sections_on_plane"] = process_all_sections_on_plane(results_stage2)
+
+    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")  # type: ignore[arg-type]
+    stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")  # type: ignore[arg-type]
+
+    return {
+        # Primary results for downstream processing (Stage 2 full results)
+        "sections_on_plane": results_stage2.get("sections_on_plane"),
+        "xml_parsing": results_stage2.get("xml_parsing"),
+        "analysis_status": results_stage2.get("analysis_status"),
+        "xml_output": results_stage2.get("xml_output"),
+        "esa_model": results_stage2.get("esa_model"),
+        # Metadata about the two-stage optimization
+        "two_stage_optimization": {
+            "governing_section_names": list(governing_section_names),
+            "optimization_stats": {
+                "total_sections_stage1": total_sections_stage1,
+                "governing_sections_stage2": governing_count,
+                "reduction_percentage": reduction_pct,
+                "stage1_xml_size_bytes": stage1_xml_size,
+                "stage2_xml_size_bytes": stage2_xml_size,
+                "sections_created": section_stats["created"],
+                "sections_skipped": section_stats["skipped"],
+            },
+        },
+        "summary": {
+            "analysis_status": results_stage2.get("analysis_status", "unknown"),
+            "has_esa_model": results_stage2.get("esa_model") is not None,
+            "has_sections_on_plane": bool(results_stage2.get("sections_on_plane")),
+            "two_stage_optimized": True,
+        },
+    }
+
+
+def generate_bridge_xml_files_sections_on_plane(params: Any) -> tuple[BytesIO, BytesIO]:  # noqa: ANN401
+    """
+    Generate the XML and DEF input files for a sections-on-plane bridge model.
+
+    Calls :func:`define_bridge_model_sections_on_plane` which creates
+    SectionOnPlane objects instead of integration strips.
+
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :return: A tuple containing the XML and DEF files as BytesIO objects.
+    """
+    builder = ViktorSciaModelBuilder()
+    define_bridge_model_sections_on_plane(builder, params)
+    return builder.generate_xml_input()
+
+
+def setup_bridge_analysis_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+) -> tuple[Any, Any, Any]:
+    """
+    Prepare all inputs for a sections-on-plane SCIA analysis.
+
+    :param params: The bridge parameters from the VIKTOR parametrization.
+    :param template_path: Path to the ESA template file
+        (use ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH`` or
+        ``SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH``).
+    :return: A tuple of (xml_file, def_file, esa_template).
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+    xml_file, def_file = generate_bridge_xml_files_sections_on_plane(params)
+    esa_template = File.from_path(template_path)
+    return xml_file, def_file, esa_template
+
+
+def get_scia_analysis_results_sections_on_plane(
+    params: Any,  # noqa: ANN401
+    template_path: Path,
+    analysis_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Run the two-stage sections-on-plane SCIA analysis and return results.
+
+    Stage 1: Build model with ALL sections → governing template → identify governing sections.
+    Stage 2: Build model with ONLY governing sections → full template → complete results.
+
+    :param params: The bridge parameters.
+    :param template_path: Path to the **governing** ESA template (Stage 1).
+    :param analysis_context: Optional context dict with bridge_position,
+        total_bridges, bridge_name, batch_percentage for progress reporting.
+    :return: Dictionary containing extracted analysis results.
+    """
+    if not VIKTOR_AVAILABLE or scia is None:
+        raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
+
+    from app.constants import SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH
+
+    return run_two_stage_scia_analysis_sections_on_plane(
+        params=params,
+        governing_template_path=template_path,
+        full_template_path=SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH,
+        analysis_context=analysis_context,
+    )

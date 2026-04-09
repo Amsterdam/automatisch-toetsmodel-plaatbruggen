@@ -15,7 +15,18 @@ from viktor.errors import UserError
 from viktor.result import SetParamsResult
 from viktor.views import MapPoint, MapResult
 
-from app.constants import SCIA_TEMPLATE_PATH
+from app.constants import (
+    SCIA_TEMPLATE_FULL_PATH,
+    SCIA_TEMPLATE_PATH,
+    SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH,
+    SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH,
+)
+from app.constants.technical import (
+    ENABLE_INTEGRATION_STRIPS,
+    ENABLE_SECTIONS_ON_PLANE,
+    RESULT_OBJECT_INTEGRATION_STRIPS,
+    RESULT_OBJECT_SECTIONS_ON_PLANE,
+)
 from src.integrations.scia_integration.results.scia_force_envelopes import get_force_envelope_summary
 
 
@@ -60,15 +71,70 @@ class ControllerUtils:
         except Exception as e:
             return None, None, MapResult([MapPoint(52.37, 4.89, description=f"Fout bij ophalen entity data: {e}")])
 
-    def _get_scia_template_path(self) -> Path:
+    def _get_scia_template_path(self, params: Any) -> Path:  # noqa: ANN401
         """
-        Get the path to the SCIA template file.
+        Get the path to the SCIA template file based on the selected result object type.
 
-        :returns: Path to the model.esa template file
+        Reads ``params.calc_page.calc_selection.result_object_type`` to determine
+        whether to use the integration-strips or sections-on-plane governing template.
+        Raises :class:`~viktor.errors.UserError` when both types would be active
+        simultaneously (safety guard) or when the template file does not exist.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :returns: Path to the governing ESA template file
         :rtype: Path
-        :raises UserError: If template file is not found
+        :raises UserError: If both result types are active, or template file not found
         """
-        template_path = SCIA_TEMPLATE_PATH
+        # Read the OptionField; fall back to the module-level feature-toggle constants
+        # when the field is not yet present (e.g. legacy params or tests).
+        try:
+            result_type = params.calc_page.calc_selection.result_object_type
+        except AttributeError:
+            if ENABLE_SECTIONS_ON_PLANE and not ENABLE_INTEGRATION_STRIPS:
+                result_type = RESULT_OBJECT_SECTIONS_ON_PLANE
+            else:
+                result_type = RESULT_OBJECT_INTEGRATION_STRIPS
+
+        use_strips = result_type == RESULT_OBJECT_INTEGRATION_STRIPS
+        use_sections = result_type == RESULT_OBJECT_SECTIONS_ON_PLANE
+
+        # Safety guard: both active at the same time is not allowed.
+        if use_strips and use_sections:
+            raise UserError(
+                "Conflict: Integratiestroken en Secties op vlak zijn beide actief. "
+                "Selecteer slechts één type resultaatobjecten in de 'Berekening selectie' tab."
+            )
+
+        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH if use_sections else SCIA_TEMPLATE_PATH
+
+        if not template_path.exists():
+            raise UserError(f"SCIA template file niet gevonden: {template_path}")
+
+        return template_path
+
+    def _get_scia_full_template_path(self, params: Any) -> Path:  # noqa: ANN401
+        """
+        Get the path to the full SCIA template file based on the selected result object type.
+
+        Returns the full template (exports complete results for all strips/sections),
+        used for downloads so users can run a complete manual analysis in SCIA Engineer.
+
+        :param params: Bridge parametrization object
+        :type params: BridgeParametrization
+        :returns: Path to the full ESA template file
+        :rtype: Path
+        :raises UserError: If template file not found
+        """
+        try:
+            result_type = params.calc_page.calc_selection.result_object_type
+        except AttributeError:
+            if ENABLE_SECTIONS_ON_PLANE and not ENABLE_INTEGRATION_STRIPS:
+                result_type = RESULT_OBJECT_SECTIONS_ON_PLANE
+            else:
+                result_type = RESULT_OBJECT_INTEGRATION_STRIPS
+
+        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else SCIA_TEMPLATE_FULL_PATH
 
         if not template_path.exists():
             raise UserError(f"SCIA template file niet gevonden: {template_path}")

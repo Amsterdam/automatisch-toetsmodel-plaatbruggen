@@ -40,6 +40,8 @@ from app.constants import (
     CONCRETEQUALITY_CSV_PATH,
     DIMENSIONS_SEGMENTS_EXPLANATION,
     IDEA_INFO_TEXT,
+    IDEA_INFO_TEXT_1B,
+    IDEA_INFO_TEXT_2,
     LOAD_CASE_SELECTION_DEFAULT,
     LOAD_CASE_SELECTION_HEADER_TEXT,
     LOAD_CASE_SELECTION_NOTE_TEXT,
@@ -49,6 +51,8 @@ from app.constants import (
     OPTIMIZATION_EXPLANATION_TEXT,
     PAVEMENT_MATERIAL_OPTIONS,
     REINFORCEMENT_INFO_TEXT,
+    RESULT_OBJECT_INTEGRATION_STRIPS,
+    RESULT_OBJECT_SECTIONS_ON_PLANE,
     SCIA_INFO_TEXT,
     SIGNAGE_OPTIONS,
 )
@@ -1353,8 +1357,23 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
 
     calc_page.calc_selection.load_case_selection_note = Text(LOAD_CASE_SELECTION_NOTE_TEXT)
 
+    calc_page.calc_selection.lb_result_objects = LineBreak()
+
+    calc_page.calc_selection.result_object_type = OptionField(
+        "Type resultaatobjecten",
+        options=[RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE],
+        default=RESULT_OBJECT_INTEGRATION_STRIPS,
+        variant="radio",
+        flex=80,
+        description=(
+            "Kies welk type resultaatobjecten in het SCIA model worden aangemaakt. "
+            "Integratiestroken of secties op vlak kunnen niet tegelijk worden gebruikt; "
+            "selecteer één van de twee opties."
+        ),
+    )
+
     # ----------------------------------
-    # --- Berekening Page -> Berekening selectie tab ---
+    # --- Berekening Page -> Berekening optimalisatie tab ---
     # ----------------------------------
     calc_page.calc_optimization = Tab("Berekening optimalisatie")
 
@@ -1384,6 +1403,16 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "get_integration_strip_slsfreq_y_reg",
             "get_integration_strip_slsfreq_x_sup",
             "get_integration_strip_slsfreq_y_sup",
+            # Sections on plane views
+            "get_sections_on_plane_envelopes",
+            "get_sections_on_plane_uls_x_reg",
+            "get_sections_on_plane_uls_y_reg",
+            "get_sections_on_plane_uls_x_sup",
+            "get_sections_on_plane_uls_y_sup",
+            "get_sections_on_plane_slsfreq_x_reg",
+            "get_sections_on_plane_slsfreq_y_reg",
+            "get_sections_on_plane_slsfreq_x_sup",
+            "get_sections_on_plane_slsfreq_y_sup",
         ],
     )
 
@@ -1407,6 +1436,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
     idea = Page("IDEA StatiCa", views=["get_view_unique_idea_cross_sections", "get_view_idea_rcs_results"])
 
     idea.explanation = Text(IDEA_INFO_TEXT)
+    idea.explanation_1b = Text(IDEA_INFO_TEXT_1B)
+    idea.explanation_2 = Text(IDEA_INFO_TEXT_2)
 
     # Add download buttons as page attributes below the explanation
     idea.download_xml = DownloadButton("Download RCS Model (XML)", method="download_idea_xml_file", longpoll=True)
