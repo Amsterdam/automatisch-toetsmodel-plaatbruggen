@@ -175,22 +175,31 @@ class ControllerUtils:
     def _get_scia_timeout_message(self) -> str:
         """Get standardized SCIA timeout error message."""
         return (
-            "⏱️ SCIA analyse time-out na 10 minuten.\n\n"
+            "SCIA analyse time-out na 60 minuten.\n\n"
             "Mogelijke oplossingen:\n"
-            "• Verminder het aantal brugsegmenten\n"
-            "• Vereenvoudig de belastingzones\n"
-            "• Download de XML bestanden en analyseer handmatig in SCIA\n"
-            "• Probeer het later opnieuw als de server minder belast is\n\n"
+            "- Verminder het aantal brugsegmenten\n"
+            "- Vereenvoudig de belastingzones\n"
+            "- Download de XML bestanden en analyseer handmatig in SCIA\n"
+            "- Probeer het later opnieuw als de server minder belast is\n\n"
             "Als het probleem aanhoudt, neem contact op met support."
         )
 
     def _get_scia_exception_message(self, e: Exception) -> str:
         """Get appropriate error message based on exception type."""
-        if "timeout" in str(e).lower():
-            return "SCIA analyse time-out. Het model duurt te lang om te berekenen. Probeer minder segmenten of eenvoudigere belastingen."
-        if "license" in str(e).lower():
+        error_str = str(e).lower()
+
+        if any(term in error_str for term in ["memory", "heap", "oom", "out of memory"]):
+            return (
+                "SCIA analyse gefaald door geheugenprobleem.\n\n"
+                "Het model is te groot of complex. Mogelijke oplossingen:\n"
+                "- Vergroot de maasgrootte (mesh size)\n"
+                "- Verminder het aantal brugsegmenten\n"
+                "- Vereenvoudig de belastingzones\n"
+                "- Download de XML bestanden en analyseer handmatig in SCIA"
+            )
+        if "license" in error_str:
             return "SCIA licentie probleem. Controleer of SCIA Engineer correct is geïnstalleerd en een geldige licentie heeft."
-        if "worker" in str(e).lower():
+        if "worker" in error_str:
             return "SCIA worker niet beschikbaar. De externe SCIA service is niet actief. Probeer later opnieuw of download de XML bestanden."
         return f"SCIA analyse fout: {str(e)[:200]}..."
 

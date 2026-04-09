@@ -311,7 +311,7 @@ class TestDownloadSciaEsaModel:
         assert result.file == mock_esa_file
 
         # Verify analysis was executed
-        mock_analysis.execute.assert_called_once_with(timeout=300)
+        mock_analysis.execute.assert_called_once_with(timeout=3600)
         mock_analysis.get_updated_esa_model.assert_called_once()
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
@@ -338,9 +338,8 @@ class TestDownloadSciaEsaModel:
             self.controller.download_scia_esa_model(self.mock_params)
 
         error_message = str(exc_info.value)
-        assert "SCIA worker uitvoering gefaald" in error_message
         assert "SCIA worker niet beschikbaar" in error_message
-        assert "XML bestanden te downloaden" in error_message
+        assert "download de XML bestanden" in error_message
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
@@ -430,7 +429,7 @@ class TestDownloadSciaEsaModel:
         self.controller.download_scia_esa_model(self.mock_params)
 
         # Assert
-        mock_analysis.execute.assert_called_once_with(timeout=300)  # 5 minutes
+        mock_analysis.execute.assert_called_once_with(timeout=3600)  # 60 minutes
 
 
 class TestSciaErrorHelperMethods:

@@ -273,7 +273,7 @@ class SciaIntegration:
                 return self._download_scia_esa_model_direct(params, bridge_id)
 
             # No cached results at all - fallback to direct download
-            progress_message("⚠ Geen cache gevonden - nieuwe berekening wordt gestart...")
+            progress_message("Geen cache gevonden - nieuwe berekening wordt gestart...")
             self._raise_analysis_failed_error()  # type: ignore[attr-defined]
 
         except Exception as e:
@@ -287,7 +287,7 @@ class SciaIntegration:
             template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
             xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
 
-            analysis.execute(timeout=300)
+            analysis.execute(timeout=3600)
             esa_file = analysis.get_updated_esa_model()
             if not esa_file:
                 self._raise_empty_esa_error()  # type: ignore[attr-defined]
@@ -295,12 +295,12 @@ class SciaIntegration:
             filename = f"{bridge_id}.esa" if bridge_id.endswith("_model") else f"{bridge_id}_model.esa"
             return DownloadResult(file_content=esa_file, file_name=filename)
 
+        except TimeoutError:
+            raise UserError(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             if isinstance(e, UserError):
                 raise
-            if "SCIA worker" in str(e):
-                raise UserError(f"SCIA worker uitvoering gefaald: {e!s}\n\nSCIA worker niet beschikbaar\n\nXML bestanden te downloaden")
-            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nXML bestanden te downloaden")
+            raise UserError(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
@@ -382,10 +382,12 @@ class SciaIntegration:
 
             _raise_no_cached_results_error()
 
+        except TimeoutError:
+            raise UserError(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             if isinstance(e, UserError):
                 raise
-            raise UserError(f"Onverwachte fout tijdens ophalen SCIA XML output: {e!s}")
+            raise UserError(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
     def _validate_generated_files(self, xml_file: BytesIO, def_file: BytesIO) -> None:
         """
