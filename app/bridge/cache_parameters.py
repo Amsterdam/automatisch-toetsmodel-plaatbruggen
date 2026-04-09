@@ -52,6 +52,12 @@ SHARED_PARAMETERS: list[ParameterGroup] = [
         ],
     },
     {
+        "name": "scia_model_settings",
+        "paths": [
+            "calc_page.calc_selection.result_object_type",
+        ],
+    },
+    {
         "name": "load_combinations",
         "paths": [
             "cc_class",

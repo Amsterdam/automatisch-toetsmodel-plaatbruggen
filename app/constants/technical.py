@@ -109,3 +109,19 @@ CHAT_FIELD_DESCRIPTIONS = {
 # Storage keys for batch calculation
 LAST_BATCH_RUN_KEY = "batch_calculation_last_run"
 STORAGE_STATUS_KEY = "batch_calculation_storage_status"
+
+# ---------------------------------------------------------------------------
+# Result object type options for SCIA calculation
+# ---------------------------------------------------------------------------
+# These string constants match the OptionField options in the parametrization.
+# Only one type can be active at a time.
+RESULT_OBJECT_INTEGRATION_STRIPS: str = "Integratiestroken"
+RESULT_OBJECT_SECTIONS_ON_PLANE: str = "Secties op vlak"
+
+# ---------------------------------------------------------------------------
+# Feature toggle fallbacks for SCIA result objects
+# ---------------------------------------------------------------------------
+# Used when the parametrization OptionField is not yet present (backward compat).
+# ENABLE_SECTIONS_ON_PLANE is False so the safe default is integration strips.
+ENABLE_INTEGRATION_STRIPS: bool = False
+ENABLE_SECTIONS_ON_PLANE: bool = True

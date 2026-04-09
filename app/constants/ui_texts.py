@@ -160,28 +160,34 @@ IDEA_INFO_TEXT = """## IDEA StatiCa RCS Integratie
 
 Deze pagina toont de IDEA RCS snedetoetsingen en IDEA download opties.
 
-### Modelopbouw in 5 stappen
-Het proces werkt als volgt:
-1. Uit het SCIA model worden met "2D sections on members" de snedekrachten (ULS & SLS freq) uitgelezen via integratie strips.
-2. Deze krachten worden automatisch uit de SCIA-resultaten gehaald.
-3. Per zone worden de maximale absolute waarden bepaald (envelope).
-4. De resultaten worden van SCIA omgezet naar het IDEA-formaat:
-   - **X-richting strips (dwars/transversaal):**
-     - N → N (normaalkracht)
-     - V_z → Qz (dwarskracht)
-     - M_x → My (buigend moment)
-   - **Y-richting strips (langs/longitudinaal):**
-     - N → N (normaalkracht)
-     - V_z → Qz (dwarskracht)
-     - M_y → My (buigend moment)
-   - **Gecorrigeerd kolom:** Geeft aan of de waarden gecorrigeerd zijn omdat de integratie strip een breedte < 1 m heeft.
-     De krachten worden automatisch omgerekend naar krachten per meter breedte.
-5. **Belangrijk:** Voor elke unieke plaat (combinatie van plaatdikte en wapeningsconfiguratie)
-    worden altijd **2 extremen** aangemaakt (langs- en dwarsrichting).
-    Dit is nodig om zowel de langs- als de dwarswapening te kunnen toetsen in IDEA.
+### Modelopbouw - Integratiestroken aanpak
+Wanneer **integratiestroken** worden gebruikt werkt het proces als volgt:
+1. Snedekrachten (ULS & SLS freq) worden via integratie strips uit SCIA uitgelezen.
+2. Per zone worden min/max waarden bepaald (envelope).
+3. Krachten worden naar IDEA-formaat omgezet:
+   - **X-richting (dwars):** N→N, V_z→Qz, M_x→My
+   - **Y-richting (langs):** N→N, V_z→Qz, M_y→My
+   - **Gecorrigeerd:** ja als strip breedte < 1 m (krachten herleid naar per meter).
+4. Per unieke plaat worden altijd **2 extremen** aangemaakt (langs + dwars)."""
 
-Voor elke unieke combinatie van plaatdikte en wapening worden alle relevante krachtencombinaties als extremen toegevoegd.
+IDEA_INFO_TEXT_1B = """### Modelopbouw - Secties op vlak aanpak
+Wanneer **secties op vlak** worden gebruikt werkt het proces als volgt:
+1. 2D schaalkrachten (ULS & SLS freq) worden via sections on plane uit SCIA uitgelezen.
+2. Uit de basis grootheden worden alleen **v_x** en **v_y** (dwarskrachten) verwerkt.
+   De overige basis grootheden (m_x, m_y, m_xy, n_x, n_y, n_xy) worden niet gebruikt.
+   Uit de elementaire ontwerpgrootheden worden **m_xD+/-, m_yD+/-, n_xD, n_yD** verwerkt.
+3. Per zone worden min/max waarden per grootheid bepaald (envelope).
+   - Moment/normaal: enveloppe over veld- én steunpuntsecties.
+   - Dwarskrachten v_x/v_y: enveloppe uitsluitend over veldsecties.
+4. Krachten worden naar IDEA-formaat omgezet:
+   - **X-richting (dwars):** n_xD→N, v_x→Qz, My=max(|m_xD-|,|m_xD+|) met teken
+     (bv. m_xD-=-100, m_xD+=50 → My=-100). Gevallen met m_yD als maatgevende grootheid worden overgeslagen.
+   - **Y-richting (langs):** n_yD→N, v_y→Qz, My=max(|m_yD-|,|m_yD+|) met teken
+     (bv. m_yD-=-100, m_yD+=50 → My=-100). Gevallen met m_xD als maatgevende grootheid worden overgeslagen.
+   - **Gecorrigeerd:** ja als sectielengte < 1 m (krachten herleid naar per meter).
+5. Per unieke plaat worden altijd **2 extremen** aangemaakt (langs + dwars)."""
 
+IDEA_INFO_TEXT_2 = """Voor elke unieke combinatie van plaatdikte en wapening worden alle relevante krachtencombinaties als extremen toegevoegd.
 
 ### Tabbladen
 - **Tabblad 1**: Unieke plaatelementen (combinatie van plaatdikte en wapeningsconfiguratie)
@@ -239,7 +245,7 @@ Als de resultaten voldoen aan de slagingscriteria, wordt de optimalisatie gestop
 Door op "Start Optimalisatie" te klikken, wordt de optimalisatie gestart.
 Na voltooiing worden de resultaten van de optimalisatieberekeningen weergegeven.
 Het is mogelijk in de resultaten lijst te klikken op een specifieke rij om alle invoergegevens behorende bij die berekening in te laden.
-Omdat de berekeningen worden gecahched, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
+Omdat de berekeningen worden gecached, kunnen de resultaten snel worden bekeken zonder opnieuw te hoeven rekenen.
 
 **Let op:** Deze optimalisatie kan enige tijd duren, afhankelijk van de complexiteit van het model en berekening selectie.
 """

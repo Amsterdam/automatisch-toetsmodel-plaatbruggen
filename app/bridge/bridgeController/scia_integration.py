@@ -21,11 +21,32 @@ from viktor.views import TableResult, TableView
 from app.bridge.analysis_cache import get_cached_analysis_results
 from app.bridge.parametrization import BridgeParametrization
 from app.bridge.scia_model_builder import create_bridge_scia_model, get_scia_analysis_results
+from app.constants import RESULT_OBJECT_INTEGRATION_STRIPS, RESULT_OBJECT_SECTIONS_ON_PLANE
 from src.common.constants.technical import AnalysisType
 from src.integrations.scia_integration.results.scia_integration_strips_views import (
     create_integration_strip_envelope_table_view,
     create_integration_strip_table_view,
 )
+from src.integrations.scia_integration.results.scia_sections_on_plane_views import (
+    create_sections_on_plane_envelopes,
+    create_sections_on_plane_slsfreq_x_reg,
+    create_sections_on_plane_slsfreq_x_sup,
+    create_sections_on_plane_slsfreq_y_reg,
+    create_sections_on_plane_slsfreq_y_sup,
+    create_sections_on_plane_uls_x_reg,
+    create_sections_on_plane_uls_x_sup,
+    create_sections_on_plane_uls_y_reg,
+    create_sections_on_plane_uls_y_sup,
+)
+
+
+# Visibility conditions reused across all view decorators
+def _visible_integration_strips(params: BridgeParametrization, **kwargs) -> bool:  # noqa: ARG001
+    return params.calc_page.calc_selection.result_object_type == RESULT_OBJECT_INTEGRATION_STRIPS
+
+
+def _visible_sections_on_plane(params: BridgeParametrization, **kwargs) -> bool:  # noqa: ARG001
+    return params.calc_page.calc_selection.result_object_type == RESULT_OBJECT_SECTIONS_ON_PLANE
 
 
 class SciaIntegration:
@@ -43,7 +64,7 @@ class SciaIntegration:
     # Integration Strip Results Table Views
     # ============================================================================================================
 
-    @TableView("Integratiestroken ULS x reg", duration_guess=600)
+    @TableView("Integratiestroken ULS x reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for x-direction regular integration strips.
@@ -57,7 +78,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_x_reg")
 
-    @TableView("Integratiestroken ULS y reg", duration_guess=600)
+    @TableView("Integratiestroken ULS y reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for y-direction regular integration strips.
@@ -71,7 +92,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_y_reg")
 
-    @TableView("Integratiestroken ULS x sup", duration_guess=600)
+    @TableView("Integratiestroken ULS x sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for x-direction support integration strips.
@@ -85,7 +106,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_x_sup")
 
-    @TableView("Integratiestroken ULS y sup", duration_guess=600)
+    @TableView("Integratiestroken ULS y sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_uls_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display ULS results for y-direction support integration strips.
@@ -99,7 +120,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "ULS_y_sup")
 
-    @TableView("Integratiestroken SLSfreq x reg", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq x reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for x-direction regular integration strips.
@@ -113,7 +134,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_x_reg")
 
-    @TableView("Integratiestroken SLSfreq y reg", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq y reg", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for y-direction regular integration strips.
@@ -127,7 +148,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_y_reg")
 
-    @TableView("Integratiestroken SLSfreq x sup", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq x sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for x-direction support integration strips.
@@ -141,7 +162,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_x_sup")
 
-    @TableView("Integratiestroken SLSfreq y sup", duration_guess=600)
+    @TableView("Integratiestroken SLSfreq y sup", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_slsfreq_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display SLS frequent results for y-direction support integration strips.
@@ -155,7 +176,7 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_table_view(results, "SLSfreq_y_sup")
 
-    @TableView("Integratiestroken Enveloppen", duration_guess=600)
+    @TableView("Integratiestroken Enveloppen", duration_guess=600, visible=_visible_integration_strips)
     def get_integration_strip_envelopes(self, params: BridgeParametrization, **kwargs) -> TableResult:
         """
         Display aggregated min/max force envelopes from integration strips.
@@ -172,6 +193,64 @@ class SciaIntegration:
         results = self._get_scia_results_with_cache(params, **kwargs)
         return create_integration_strip_envelope_table_view(results)
 
+    # ============================================================================================================
+    # Sections on Plane Results Table Views
+    # ============================================================================================================
+
+    @TableView("Secties op vlak ULS veld x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS veld x-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_uls_x_reg(results)
+
+    @TableView("Secties op vlak ULS veld y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS veld y-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_uls_y_reg(results)
+
+    @TableView("Secties op vlak ULS steunpunt x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS steunpunt x-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_uls_x_sup(results)
+
+    @TableView("Secties op vlak ULS steunpunt y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_uls_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """ULS steunpunt y-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_uls_y_sup(results)
+
+    @TableView("Secties op vlak SLS freq veld x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_x_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent veld x-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_x_reg(results)
+
+    @TableView("Secties op vlak SLS freq veld y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_y_reg(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent veld y-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_y_reg(results)
+
+    @TableView("Secties op vlak SLS freq steunpunt x", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_x_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent steunpunt x-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_x_sup(results)
+
+    @TableView("Secties op vlak SLS freq steunpunt y", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_slsfreq_y_sup(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """SLS frequent steunpunt y-richting: basis + elementaire ontwerp grootheden."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_slsfreq_y_sup(results)
+
+    @TableView("Secties Enveloppen", duration_guess=600, visible=_visible_sections_on_plane)
+    def get_sections_on_plane_envelopes(self, params: BridgeParametrization, **kwargs) -> TableResult:
+        """Maatgevende waarden (abs. max per grootheid) over alle 4 secties-op-vlak tabellen."""
+        results = self._get_scia_results_with_cache(params, **kwargs)
+        return create_sections_on_plane_envelopes(results)
+
     def _get_scia_results_with_cache(self, params: BridgeParametrization, **kwargs) -> dict:
         """
         Helper method to get SCIA results with caching.
@@ -186,7 +265,7 @@ class SciaIntegration:
         if not params.bridge_segments_array:
             raise UserError("Geen brugsegmenten gedefinieerd. Voeg eerst segmenten toe.")
 
-        template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+        template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
         entity_id = kwargs.get("entity_id")
         if not isinstance(entity_id, int):
             raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
@@ -241,7 +320,7 @@ class SciaIntegration:
     def _download_scia_esa_model_cached(self, params: BridgeParametrization, entity_id: int, bridge_id: str) -> DownloadResult:
         """Download SCIA ESA model using cached results, or recalculate if ESA not in cache."""
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
             progress_message("Controleren op gecachte SCIA resultaten...")
             results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
@@ -273,7 +352,7 @@ class SciaIntegration:
                 return self._download_scia_esa_model_direct(params, bridge_id)
 
             # No cached results at all - fallback to direct download
-            progress_message("⚠ Geen cache gevonden - nieuwe berekening wordt gestart...")
+            progress_message("Geen cache gevonden - nieuwe berekening wordt gestart...")
             self._raise_analysis_failed_error()  # type: ignore[attr-defined]
 
         except Exception as e:
@@ -284,10 +363,10 @@ class SciaIntegration:
     def _download_scia_esa_model_direct(self, params: BridgeParametrization, bridge_id: str) -> DownloadResult:
         """Download SCIA ESA model by creating and running analysis directly."""
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
-            xml_file, def_file, analysis = create_bridge_scia_model(params, template_path)
+            full_template_path = self._get_scia_full_template_path(params)  # type: ignore[attr-defined]
+            xml_file, def_file, analysis = create_bridge_scia_model(params, full_template_path)
 
-            analysis.execute(timeout=300)
+            analysis.execute(timeout=3600)
             esa_file = analysis.get_updated_esa_model()
             if not esa_file:
                 self._raise_empty_esa_error()  # type: ignore[attr-defined]
@@ -295,12 +374,12 @@ class SciaIntegration:
             filename = f"{bridge_id}.esa" if bridge_id.endswith("_model") else f"{bridge_id}_model.esa"
             return DownloadResult(file_content=esa_file, file_name=filename)
 
+        except TimeoutError:
+            raise UserError(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             if isinstance(e, UserError):
                 raise
-            if "SCIA worker" in str(e):
-                raise UserError(f"SCIA worker uitvoering gefaald: {e!s}\n\nSCIA worker niet beschikbaar\n\nXML bestanden te downloaden")
-            raise UserError(f"Onverwachte fout tijdens SCIA analyse: {e!s}\n\nXML bestanden te downloaden")
+            raise UserError(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
     def download_scia_xml_files(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: ARG002
         """
@@ -314,8 +393,9 @@ class SciaIntegration:
         :raises UserError: If file generation fails
         """
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
-            xml_file, def_file, _ = create_bridge_scia_model(params, template_path)
+            governing_template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
+            full_template_path = self._get_scia_full_template_path(params)  # type: ignore[attr-defined]
+            xml_file, def_file, _ = create_bridge_scia_model(params, governing_template_path)
 
             if not hasattr(xml_file, "getvalue"):
                 self._raise_empty_xml_error()  # type: ignore[attr-defined]
@@ -332,15 +412,18 @@ class SciaIntegration:
 
             bridge_id = getattr(params.info, "bridge_objectnumm", None) or "bridge_model"
 
-            # Load ESA template to include in ZIP (binary file)
-            esa_content = template_path.read_bytes()
+            # Load both ESA templates to include in ZIP
+            governing_esa_content = governing_template_path.read_bytes()
+            full_esa_content = full_template_path.read_bytes()
 
             zip_file_obj = File()
             with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr(f"SCIA_model_{bridge_id}.xml", xml_content)
                 z.writestr("viktor.xml.def", def_content)
-                # Add ESA template for manual import
-                z.writestr("model.esa", esa_content)
+                # Add governing template (exports only governing/envelope results — used in Stage 1)
+                z.writestr(governing_template_path.name, governing_esa_content)
+                # Add full template (exports complete results for all sections — used in Stage 2)
+                z.writestr(full_template_path.name, full_esa_content)
 
             return DownloadResult(file_content=zip_file_obj, file_name=f"{bridge_id}_Input_Files.zip")
 
@@ -371,7 +454,7 @@ class SciaIntegration:
             raise UserError("Geen gecachte SCIA resultaten gevonden. Voer eerst een SCIA analyse uit via de resultaten tabel.")
 
         try:
-            template_path = self._get_scia_template_path()  # type: ignore[attr-defined]
+            template_path = self._get_scia_template_path(params)  # type: ignore[attr-defined]
             results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path))
 
             if results is not None and "xml_output" in results and results["xml_output"]:
@@ -382,10 +465,12 @@ class SciaIntegration:
 
             _raise_no_cached_results_error()
 
+        except TimeoutError:
+            raise UserError(self._get_scia_timeout_message())  # type: ignore[attr-defined]
         except Exception as e:
             if isinstance(e, UserError):
                 raise
-            raise UserError(f"Onverwachte fout tijdens ophalen SCIA XML output: {e!s}")
+            raise UserError(self._get_scia_exception_message(e))  # type: ignore[attr-defined]
 
     def _validate_generated_files(self, xml_file: BytesIO, def_file: BytesIO) -> None:
         """
