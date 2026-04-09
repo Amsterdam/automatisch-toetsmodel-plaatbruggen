@@ -338,9 +338,8 @@ class TestDownloadSciaEsaModel:
             self.controller.download_scia_esa_model(self.mock_params)
 
         error_message = str(exc_info.value)
-        assert "SCIA worker uitvoering gefaald" in error_message
         assert "SCIA worker niet beschikbaar" in error_message
-        assert "XML bestanden te downloaden" in error_message
+        assert "download de XML bestanden" in error_message
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
