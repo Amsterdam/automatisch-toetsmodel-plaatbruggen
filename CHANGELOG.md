@@ -2,6 +2,7 @@
 
 ### Fixed
 - Typo on the "Berekening optimalisatie" page: 'gecahched' to 'gecached'
+
 ## [`v0.0.23`] - 2026-01-19
 
 ### Changed
