@@ -4,6 +4,7 @@ Module for constructing SCIA models using a concrete implementation of the SciaM
 This module acts as the bridge between the VIKTOR SDK and the core logic from the src layer.
 """
 
+import logging
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
@@ -57,6 +58,8 @@ else:
         OutputFileParser = None  # type: ignore[misc,assignment]
         UserError = Exception  # type: ignore[misc,assignment]
         VIKTOR_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class ViktorSciaModelBuilder(SciaModelBuilder):
@@ -587,7 +590,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "table_name": table_name,
             }
 
-    def _parse_table_direct(self, xml_output_file: Any, table_name: str) -> dict[str, Any] | None:  # noqa: ANN401
+    def _parse_table_direct(self, xml_output_file: Any, table_name: str) -> dict[str, Any] | None:  # noqa: ANN401, C901, PLR0912
         """
         Parse a table directly from XML when OutputFileParser fails.
 
@@ -640,7 +643,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 if data_elem is not None:
                     break
 
-            if data_elem is None:
+            if data_elem is None or section_key is None:
                 return None
 
             # Extract column headers from <h> inside the data element
@@ -676,11 +679,11 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 for idx, col_name in headers.items():
                     col_data[col_name].append(row_values.get(idx, ""))
 
-            return {section_key: col_data}
-
         except Exception as e:
             logger.debug("Direct XML parsing failed for table '%s': %s", table_name, e)
             return None
+        else:
+            return {section_key: col_data}
 
     def _try_parse_table(self, fresh_xml_content: File, table_name: str) -> dict[str, object]:
         """Try to parse a specific table from the XML content."""
