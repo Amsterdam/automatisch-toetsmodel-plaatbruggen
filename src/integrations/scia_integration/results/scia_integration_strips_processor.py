@@ -48,11 +48,16 @@ INTEGRATION_STRIP_TABLES = {
     "SLSfreq_y_sup": "SLSfreq_y_sup",
 }
 
-# Column mapping from SCIA XML to internal names
+# Column mapping from SCIA XML to internal names (Dutch and English variants)
 STRIP_COLUMN_MAPPING = {
+    # Dutch column names (standard SCIA NL integration)
     "Naam": "name",
-    "dx": "dx",
     "Belasting": "load_case",
+    # English column names (alternative SCIA integration)
+    "Name": "name",
+    "Case": "load_case",
+    # Common to both
+    "dx": "dx",
     "N": "N",
     "V_y": "V_y",
     "V_z": "V_z",
@@ -92,7 +97,21 @@ def extract_integration_strip_table(
 
     table_data = parsed_tables.get(table_name)
     if not table_data:
-        logger.debug("Table '%s' not found in parsed_tables", table_name)
+        logger.warning(
+            "Table '%s' not found in parsed_tables. Available tables: %s",
+            table_name,
+            list(parsed_tables.keys()),
+        )
+        return pd.DataFrame()
+
+    # Detect SCIA-level parse errors (table_data is an error response, not actual data)
+    if isinstance(table_data, dict) and table_data.get("status") in ("error", "not_found"):
+        logger.warning(
+            "SCIA failed to extract table '%s': %s (error: %s)",
+            table_name,
+            table_data.get("message", "unknown"),
+            table_data.get("error", "none"),
+        )
         return pd.DataFrame()
 
     # Use the shared extraction utility with expected column names for validation
@@ -101,8 +120,9 @@ def extract_integration_strip_table(
 
     if not strip_data:
         logger.warning(
-            "Failed to extract data from table '%s'. Check if SCIA output format has changed.",
+            "Failed to extract data from table '%s'. Check if SCIA output format has changed. Table data keys: %s",
             table_name,
+            list(table_data.keys()) if isinstance(table_data, dict) else type(table_data).__name__,
         )
         return pd.DataFrame()
 

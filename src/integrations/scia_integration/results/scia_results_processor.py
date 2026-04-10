@@ -15,8 +15,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Key used by SCIA SDK for integration strip results
+# Keys used by SCIA SDK for integration strip results (Dutch and English)
 INTEGRATION_STRIP_DATA_KEY = "Resultaten over integratiestroken:"
+INTEGRATION_STRIP_DATA_KEY_EN = "Results on integration strips:"
 
 
 def extract_nested_table_data(  # noqa: PLR0911
@@ -44,15 +45,20 @@ def extract_nested_table_data(  # noqa: PLR0911
 
     nested_data = table_data.get("data", {})
     if not isinstance(nested_data, dict):
-        logger.debug("Table data 'data' key is not a dict: %s", type(nested_data))
+        logger.warning(
+            "Table data 'data' key is not a dict (type: %s). Top-level table_data keys: %s",
+            type(nested_data).__name__,
+            list(table_data.keys()),
+        )
         return None
 
-    # Strategy 1: Integration strip key (most common for 1D results)
-    if INTEGRATION_STRIP_DATA_KEY in nested_data:
-        result = nested_data[INTEGRATION_STRIP_DATA_KEY]
-        if isinstance(result, dict):
-            logger.debug("Extracted data using key '%s'", INTEGRATION_STRIP_DATA_KEY)
-            return result
+    # Strategy 1: Integration strip key (Dutch or English)
+    for strip_key in (INTEGRATION_STRIP_DATA_KEY, INTEGRATION_STRIP_DATA_KEY_EN):
+        if strip_key in nested_data:
+            result = nested_data[strip_key]
+            if isinstance(result, dict):
+                logger.debug("Extracted data using key '%s'", strip_key)
+                return result
 
     # Strategy 2: p0 key (used for node-based 2D results)
     if "p0" in nested_data:
@@ -71,7 +77,13 @@ def extract_nested_table_data(  # noqa: PLR0911
         logger.debug("Using nested_data as fallback")
         return nested_data
 
-    logger.debug("No extractable data found in table_data")
+    logger.warning(
+        "No extractable data found. Expected key '%s', '%s' or 'p0' but found keys: %s. Top-level table_data keys: %s",
+        INTEGRATION_STRIP_DATA_KEY,
+        INTEGRATION_STRIP_DATA_KEY_EN,
+        list(nested_data.keys()),
+        list(table_data.keys()),
+    )
     return None
 
 
