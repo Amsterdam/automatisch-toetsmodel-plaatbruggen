@@ -120,8 +120,7 @@ def extract_integration_strip_table(
 
     if not strip_data:
         logger.warning(
-            "Failed to extract data from table '%s'. Check if SCIA output format has changed. "
-            "Table data keys: %s",
+            "Failed to extract data from table '%s'. Check if SCIA output format has changed. Table data keys: %s",
             table_name,
             list(table_data.keys()) if isinstance(table_data, dict) else type(table_data).__name__,
         )

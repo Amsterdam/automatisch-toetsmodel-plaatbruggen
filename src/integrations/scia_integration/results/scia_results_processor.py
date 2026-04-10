@@ -78,8 +78,7 @@ def extract_nested_table_data(  # noqa: PLR0911
         return nested_data
 
     logger.warning(
-        "No extractable data found. Expected key '%s', '%s' or 'p0' but found keys: %s. "
-        "Top-level table_data keys: %s",
+        "No extractable data found. Expected key '%s', '%s' or 'p0' but found keys: %s. Top-level table_data keys: %s",
         INTEGRATION_STRIP_DATA_KEY,
         INTEGRATION_STRIP_DATA_KEY_EN,
         list(nested_data.keys()),
