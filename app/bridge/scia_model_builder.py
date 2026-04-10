@@ -587,6 +587,101 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 "table_name": table_name,
             }
 
+    def _parse_table_direct(self, xml_output_file: Any, table_name: str) -> dict[str, Any] | None:  # noqa: ANN401
+        """
+        Parse a table directly from XML when OutputFileParser fails.
+
+        Handles both old SCIA structure (<p0> as data container) and new structure
+        (<pN h="..."> as data container with English column headers).
+
+        :returns: Dict matching the SDK output format, or None if parsing fails.
+        """
+        xml_content = self._read_xml_content(xml_output_file)
+        if not xml_content:
+            return None
+        try:
+            root = ET.fromstring(xml_content)
+            namespace = self._extract_namespace(root)
+
+            # Find the named table element
+            table_elem = None
+            for table in root.findall(".//table"):
+                if table.get("name") == table_name:
+                    table_elem = table
+                    break
+            if namespace and table_elem is None:
+                for table in root.findall(f".//{namespace}table"):
+                    if table.get("name") == table_name:
+                        table_elem = table
+                        break
+            if table_elem is None:
+                return None
+
+            # Find the data container element and its section key.
+            # New format: <pN h="Results on integration strips:" t=""> inside <obj>
+            # Old format: <p0 t=""> inside <obj>
+            data_elem = None
+            section_key = None
+            for obj in table_elem.iter("obj"):
+                for child in obj:
+                    local_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                    if local_tag.startswith("p"):
+                        h_attr = child.get("h")
+                        if h_attr:
+                            # New format: pN with explicit header attribute
+                            data_elem = child
+                            section_key = h_attr
+                            break
+                        if local_tag == "p0":
+                            # Old format: plain p0 (section key comes from table-level <h>)
+                            data_elem = child
+                            section_key = "p0"
+                            break
+                if data_elem is not None:
+                    break
+
+            if data_elem is None:
+                return None
+
+            # Extract column headers from <h> inside the data element
+            headers: dict[int, str] = {}
+            h_elem = data_elem.find("h")
+            if h_elem is None and namespace:
+                h_elem = data_elem.find(f"{namespace}h")
+            if h_elem is not None:
+                for child in h_elem:
+                    local_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                    if local_tag.startswith("h"):
+                        try:
+                            idx = int(local_tag[1:])
+                            headers[idx] = child.get("t", "")
+                        except ValueError:
+                            pass
+
+            if not headers:
+                return None
+
+            # Collect column data from <row> elements
+            col_data: dict[str, list[str]] = {name: [] for name in headers.values()}
+            for row in data_elem.findall("row"):
+                row_values: dict[int, str] = {}
+                for child in row:
+                    local_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                    if local_tag.startswith("p"):
+                        try:
+                            idx = int(local_tag[1:])
+                            row_values[idx] = child.get("v", "")
+                        except ValueError:
+                            pass
+                for idx, col_name in headers.items():
+                    col_data[col_name].append(row_values.get(idx, ""))
+
+            return {section_key: col_data}
+
+        except Exception as e:
+            logger.debug("Direct XML parsing failed for table '%s': %s", table_name, e)
+            return None
+
     def _try_parse_table(self, fresh_xml_content: File, table_name: str) -> dict[str, object]:
         """Try to parse a specific table from the XML content."""
         # Check if this is a result class table that needs custom parsing
@@ -595,6 +690,19 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         try:
             table_data = OutputFileParser.get_result(fresh_xml_content, table_name)
         except Exception as e:
+            # Fallback: parse the XML directly (handles new SCIA output structure)
+            direct_result = self._parse_table_direct(fresh_xml_content, table_name)
+            if direct_result is not None:
+                logger.debug(
+                    "Table '%s' parsed via direct XML fallback (SDK raised: %s)",
+                    table_name,
+                    e,
+                )
+                return {
+                    "status": "success",
+                    "data": direct_result,
+                    "message": f"Successfully extracted {table_name} via direct XML parsing",
+                }
             return {
                 "status": "not_found",
                 "message": f"Table '{table_name}' not found in XML output",
