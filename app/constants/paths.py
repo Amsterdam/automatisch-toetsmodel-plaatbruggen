@@ -18,7 +18,14 @@ CHANGELOG_PATH = PROJECT_PATH / "CHANGELOG.md"
 # Resource paths
 CSS_PATH = PROJECT_PATH / "resources" / "styles" / "style.css"
 OUTPUT_REPORT_PATH = PROJECT_PATH / "resources" / "templates" / "template_management_summary.docx"
-SCIA_TEMPLATE_PATH = PROJECT_PATH / "resources" / "templates" / "model.esa"
+
+# SCIA templates — integration strips
+SCIA_TEMPLATE_PATH = PROJECT_PATH / "resources" / "templates" / "model_governing_integrationstrips.esa"
+SCIA_TEMPLATE_FULL_PATH = PROJECT_PATH / "resources" / "templates" / "model_full_integrationstrips.esa"
+
+# SCIA templates — sections on plane
+SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH = PROJECT_PATH / "resources" / "templates" / "model_governing_sectionsonplane.esa"
+SCIA_TEMPLATE_SECTIONS_ON_PLANE_FULL_PATH = PROJECT_PATH / "resources" / "templates" / "model_full_sectionsonplane.esa"
 
 # Data file paths
 BRIDGE_DATA_PATH = PROJECT_PATH / "resources" / "data" / "bridges" / "filtered_bridges.json"

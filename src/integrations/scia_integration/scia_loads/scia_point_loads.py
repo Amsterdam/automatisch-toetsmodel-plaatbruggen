@@ -335,10 +335,14 @@ def add_tram_loads(builder: SciaModelBuilder, params: BridgeParametrization, loa
         if tram_tracks is None or not tram_tracks:
             # No tram tracks defined, skip tram loads
             return
+        from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
         from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
+        # Extract support X coordinates for fine spacing zones
+        support_x_coords = _extract_support_x_coordinates(params)
+
         # Get positions where the front of the tram can be placed
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=vehicle_length, support_x_coords=support_x_coords)
 
         # Get load cases dictionary for tram tracks
         tram_load_cases = load_cases.get("tram_track_tandem_cases", {})
@@ -531,9 +535,13 @@ def add_service_vehicle_loads(builder: SciaModelBuilder, params: BridgeParametri
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
+        from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
         from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length)
+        # Extract support X coordinates for fine spacing zones
+        support_x_coords = _extract_support_x_coordinates(params)
+
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=service_vehicle_total_length, support_x_coords=support_x_coords)
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points
@@ -630,12 +638,18 @@ def add_accidental_vehicle_loads(builder: SciaModelBuilder, params: BridgeParame
         dims = extract_bridge_dimensions(params)
         length = dims.total_length
         thickness = dims.thickness
+        from src.integrations.scia_integration.load_system.scia_load_cases import _extract_support_x_coordinates
         from src.integrations.scia_integration.load_system.tandem_sequencer import tandem_system_sequencer
 
+        # Extract support X coordinates for fine spacing zones
+        support_x_coords = _extract_support_x_coordinates(params)
+
         # Obtain different x positions for the accidental vehicles
-        positions = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length)
-        positions_amsterdam = tandem_system_sequencer(length, thickness)
-        positions_amsterdam_rotated = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam)
+        positions = tandem_system_sequencer(length, thickness, length_vehicle=accidental_vehicle_total_length, support_x_coords=support_x_coords)
+        positions_amsterdam = tandem_system_sequencer(length, thickness, support_x_coords=support_x_coords)
+        positions_amsterdam_rotated = tandem_system_sequencer(
+            length, thickness, length_vehicle=accidental_vehicle_total_length_amsterdam, support_x_coords=support_x_coords
+        )
 
         # Get geometry coordinates
         y_top_structural_edge_at_d_points = bridge_geom_data.y_top_structural_edge_at_d_points

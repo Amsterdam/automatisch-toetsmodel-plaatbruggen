@@ -21,27 +21,49 @@ from app.bridge.controller import BridgeController
 class TestGetSciaTemplatePath:
     """Test cases for _get_scia_template_path method."""
 
+    def _make_params(self, result_object_type: str) -> MagicMock:
+        """Create mock params with the given result_object_type."""
+        params = MagicMock()
+        params.calc_page.calc_selection.result_object_type = result_object_type
+        return params
+
     def test_get_scia_template_path_success(self, _mock_download_result: MagicMock) -> None:
-        """Test successful template path retrieval when file exists."""
+        """Test successful template path retrieval for integration strips."""
         # Arrange
         controller = BridgeController()
+        params = self._make_params("Integratiestroken")
 
         with patch("pathlib.Path.exists", return_value=True):
             # Act
-            result = controller._get_scia_template_path()
+            result = controller._get_scia_template_path(params)
 
             # Assert
             assert isinstance(result, Path)
-            assert result.name == "model.esa"
+            assert result.name == "model_governing_integrationstrips.esa"
+
+    def test_get_scia_template_path_sections_on_plane(self, _mock_download_result: MagicMock) -> None:
+        """Test successful template path retrieval for sections on plane."""
+        # Arrange
+        controller = BridgeController()
+        params = self._make_params("Secties op vlak")
+
+        with patch("pathlib.Path.exists", return_value=True):
+            # Act
+            result = controller._get_scia_template_path(params)
+
+            # Assert
+            assert isinstance(result, Path)
+            assert result.name == "model_governing_sectionsonplane.esa"
 
     def test_get_scia_template_path_file_not_found(self, _mock_download_result: MagicMock) -> None:
         """Test error handling when template file doesn't exist."""
         # Arrange
         controller = BridgeController()
+        params = self._make_params("Integratiestroken")
 
         # Act & Assert
         with patch("pathlib.Path.exists", return_value=False), pytest.raises(UserError, match="SCIA template file niet gevonden"):
-            controller._get_scia_template_path()
+            controller._get_scia_template_path(params)
 
 
 @patch("app.bridge.bridgeController.scia_integration.DownloadResult")
@@ -83,15 +105,22 @@ class TestDownloadSciaXmlFiles:
         )
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
+    @patch.object(BridgeController, "_get_scia_full_template_path")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_success(
-        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+        self, mock_get_template: MagicMock, mock_get_full_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
     ) -> None:
         """Test successful XML files download."""
         # Arrange
         mock_template_path = MagicMock(spec=Path)
-        mock_template_path.read_bytes.return_value = b"Mock ESA template content"
+        mock_template_path.name = "mock_governing_template.esa"
+        mock_template_path.read_bytes.return_value = b"Mock governing ESA template content"
         mock_get_template.return_value = mock_template_path
+
+        mock_full_template_path = MagicMock(spec=Path)
+        mock_full_template_path.name = "mock_full_template.esa"
+        mock_full_template_path.read_bytes.return_value = b"Mock full ESA template content"
+        mock_get_full_template.return_value = mock_full_template_path
 
         # Mock XML and DEF file content
         xml_content = b"<xml>Mock XML content</xml>"
@@ -118,8 +147,9 @@ class TestDownloadSciaXmlFiles:
 
         # Verify the calls
         mock_get_template.assert_called_once()
+        mock_get_full_template.assert_called_once()
         mock_create_model.assert_called_once_with(self.mock_params, mock_template_path)
-        mock_template_path.read_bytes.assert_called_once()
+        mock_full_template_path.read_bytes.assert_called_once()
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
@@ -164,15 +194,22 @@ class TestDownloadSciaXmlFiles:
             self.controller.download_scia_xml_files(self.mock_params)
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
+    @patch.object(BridgeController, "_get_scia_full_template_path")
     @patch.object(BridgeController, "_get_scia_template_path")
     def test_download_scia_xml_files_no_bridge_id(
-        self, mock_get_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
+        self, mock_get_template: MagicMock, mock_get_full_template: MagicMock, mock_create_model: MagicMock, mock_download_result: MagicMock
     ) -> None:
         """Test download with missing bridge ID - should use default filename."""
         # Arrange
         mock_template_path = MagicMock(spec=Path)
-        mock_template_path.read_bytes.return_value = b"Mock ESA template content"
+        mock_template_path.name = "mock_governing_template.esa"
+        mock_template_path.read_bytes.return_value = b"Mock governing ESA template content"
         mock_get_template.return_value = mock_template_path
+
+        mock_full_template_path = MagicMock(spec=Path)
+        mock_full_template_path.name = "mock_full_template.esa"
+        mock_full_template_path.read_bytes.return_value = b"Mock full ESA template content"
+        mock_get_full_template.return_value = mock_full_template_path
 
         params_no_id = Munch(
             {
@@ -311,7 +348,7 @@ class TestDownloadSciaEsaModel:
         assert result.file == mock_esa_file
 
         # Verify analysis was executed
-        mock_analysis.execute.assert_called_once_with(timeout=300)
+        mock_analysis.execute.assert_called_once_with(timeout=10800)
         mock_analysis.get_updated_esa_model.assert_called_once()
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
@@ -338,9 +375,8 @@ class TestDownloadSciaEsaModel:
             self.controller.download_scia_esa_model(self.mock_params)
 
         error_message = str(exc_info.value)
-        assert "SCIA worker uitvoering gefaald" in error_message
         assert "SCIA worker niet beschikbaar" in error_message
-        assert "XML bestanden te downloaden" in error_message
+        assert "download de XML bestanden" in error_message
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
     @patch.object(BridgeController, "_get_scia_template_path")
@@ -430,7 +466,7 @@ class TestDownloadSciaEsaModel:
         self.controller.download_scia_esa_model(self.mock_params)
 
         # Assert
-        mock_analysis.execute.assert_called_once_with(timeout=300)  # 5 minutes
+        mock_analysis.execute.assert_called_once_with(timeout=10800)  # 60 minutes
 
 
 class TestSciaErrorHelperMethods:

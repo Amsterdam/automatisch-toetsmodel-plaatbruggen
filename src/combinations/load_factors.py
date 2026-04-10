@@ -76,10 +76,13 @@ def apply_gamma_for_combination(  # noqa: PLR0913 - clear, explicit arguments pr
     if not combo_mask.any():
         return
 
-    df.loc[combo_mask, permanent_mask] = df.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"]
-    df.loc[combo_mask, traffic_mask] = df.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"]
-    df.loc[combo_mask, wind_mask] = df.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"]
-    df.loc[combo_mask, other_mask] = df.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"]
+    # Use df.update() to avoid a shape-mismatch ValueError in pandas 2.x when a
+    # boolean column mask selects only a single column (the RHS would be a (n,1)
+    # DataFrame, but the block manager expects a 1-D array in that case).
+    df.update(df.loc[combo_mask, permanent_mask] * gamma_factors[combination]["gamma_Gjsup"])
+    df.update(df.loc[combo_mask, traffic_mask] * gamma_factors[combination]["gamma_Qverkeer"])
+    df.update(df.loc[combo_mask, wind_mask] * gamma_factors[combination]["gamma_Qwind"])
+    df.update(df.loc[combo_mask, other_mask] * gamma_factors[combination]["gamma_Qoverig"])
 
 
 def get_gamma_factors(cc: str, safety_level: str, building_year: str) -> dict:

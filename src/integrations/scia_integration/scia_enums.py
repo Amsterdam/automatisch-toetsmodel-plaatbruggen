@@ -231,3 +231,20 @@ else:
         FREE = "FREE"
         RIGID = "RIGID"
         FLEXIBLE = "FLEXIBLE"
+
+
+if SDK_AVAILABLE:
+
+    class LineSupportCSys(Enum):
+        """Coordinate system for line supports."""
+
+        GLOBAL = scia.LineSupport.CSys.GLOBAL
+        LOCAL = scia.LineSupport.CSys.LOCAL
+
+else:
+
+    class LineSupportCSys(Enum):  # type: ignore[no-redef]
+        """Coordinate system for line supports."""
+
+        GLOBAL = "GLOBAL"
+        LOCAL = "LOCAL"

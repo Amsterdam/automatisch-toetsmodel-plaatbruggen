@@ -612,7 +612,122 @@ def _apply_integration_strip_loads_to_slabs(  # noqa: C901
     return loads_applied
 
 
-def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":  # noqa: ANN401
+def _apply_sections_on_plane_loads_to_slabs(
+    created_slabs: dict[str, dict],
+    df_sections: pd.DataFrame,
+    builder: Any,  # noqa: ANN401
+) -> int:
+    """
+    Apply load cases from sections-on-plane envelope results to each slab.
+
+    For each unique (zone, direction, filtered_for) combination, creates ONE
+    extreme combining ULS (fundamental) and SLS freq (frequent) data.
+
+    Direction mapping — identical to the integration-strip convention:
+
+    - X-direction sections → *dwars* (transverse) cross-section in IDEA
+    - Y-direction sections → *langs* (longitudinal) cross-section in IDEA
+
+    The ``df_sections`` DataFrame is expected to have already been processed by
+    :func:`~scia_sections_on_plane_to_idea.process_sections_on_plane_for_idea`
+    so that ``N``, ``Qz`` and ``My`` columns are present.
+
+    :param created_slabs: Dictionary of created slabs with zones and slab objects
+    :type created_slabs: dict[str, dict]
+    :param df_sections: DataFrame with sections-on-plane results mapped to
+                        IDEA format (N, Qz, My columns)
+    :type df_sections: pd.DataFrame
+    :param builder: IDEA model builder instance
+    :type builder: Any
+    :returns: Number of extremes created
+    :rtype: int
+    """
+    if df_sections.empty:
+        return 0
+
+    loads_applied = 0
+
+    # X-direction sections (transverse) → dwars slab
+    # Y-direction sections (longitudinal) → langs slab
+    section_to_slab_direction = {
+        "x": "dwars",
+        "y": "langs",
+    }
+
+    for slab_data in created_slabs.values():
+        zones = slab_data.get("zones") or []
+        if not zones:
+            continue
+
+        df_slab = df_sections[df_sections["zone"].isin(zones)]
+        if df_slab.empty:
+            continue
+
+        unique_combinations = df_slab[["zone", "direction", "filtered_for"]].drop_duplicates()
+
+        for _, combo_row in unique_combinations.iterrows():
+            zone = combo_row["zone"]
+            section_direction = combo_row["direction"]
+            filtered_for = combo_row["filtered_for"]
+
+            slab_direction = section_to_slab_direction.get(section_direction)
+            if slab_direction is None:
+                continue
+
+            slab = slab_data.get(f"slab_{slab_direction}")
+            if slab is None:
+                continue
+
+            df_combo = df_slab[(df_slab["zone"] == zone) & (df_slab["direction"] == section_direction) & (df_slab["filtered_for"] == filtered_for)]
+
+            df_uls = df_combo[df_combo["limit_state"] == "ULS"]
+            df_sls = df_combo[df_combo["limit_state"] == "SLSfreq"]
+
+            if df_uls.empty or df_sls.empty:
+                continue
+
+            uls_row = df_uls.iloc[0]
+            sls_row = df_sls.iloc[0]
+
+            qz_uls = float(uls_row.get("Qz", 0.0))
+            my_uls = float(uls_row.get("My", 0.0))
+            n_uls = float(uls_row.get("N", 0.0))
+
+            qz_sls = float(sls_row.get("Qz", 0.0))
+            my_sls = float(sls_row.get("My", 0.0))
+            n_sls = float(sls_row.get("N", 0.0))
+
+            load_case_uls = uls_row.get("load_case", "Unknown")
+            load_case_sls = sls_row.get("load_case", "Unknown")
+
+            description = f"{zone}_{slab_direction}_{filtered_for}_ULS:{load_case_uls}_SLS:{load_case_sls}"
+
+            internal_forces_fund = builder.create_result_of_internal_forces(
+                Qz=qz_uls,
+                My=my_uls,
+                N=n_uls,
+            )
+            fund = builder.create_loading_uls(internal_forces_fund)
+
+            internal_forces_freq = builder.create_result_of_internal_forces(
+                Qz=qz_sls,
+                My=my_sls,
+                N=n_sls,
+            )
+            freq = builder.create_loading_sls(internal_forces_freq)
+
+            builder.create_extreme_on_slab(
+                slab,
+                description=description,
+                frequent=freq,
+                fundamental=fund,
+            )
+            loads_applied += 1
+
+    return loads_applied
+
+
+def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dict[str, pd.DataFrame] | None = None) -> "Model":  # noqa: ANN401, C901, PLR0912
     """
     Create IDEA StatiCa RCS model from bridge parameters.
 
@@ -674,65 +789,76 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
             "Mogelijk zijn de parameters gewijzigd na een eerdere berekening - probeer de cache te wissen en opnieuw te berekenen."
         )
 
-    # Check if we should use integration strips (preferred) or CS results (fallback)
-    use_integration_strips = False
-    df_strips_all = pd.DataFrame()
+    # Determine which SCIA result type is available and prepare the IDEA force DataFrame
+    results_data_raw: Any = scia_results_dict.get("results", {})
+    results_data: dict[str, Any] = results_data_raw if isinstance(results_data_raw, dict) else {}
 
-    # Try to get integration strip results first
-    if "integration_strips" in scia_results_dict or (
-        isinstance(scia_results_dict.get("results"), dict) and "integration_strips" in scia_results_dict.get("results", {})
-    ):
+    use_integration_strips = False
+    use_sections_on_plane = False
+    df_strips_all = pd.DataFrame()
+    df_sections_all = pd.DataFrame()
+
+    # --- Try integration strips (integratiestroken) ---
+    if "integration_strips" in scia_results_dict or "integration_strips" in results_data:
         try:
             from src.integrations.scia_integration.results.scia_integration_strips_to_idea import (
                 process_integration_strips_for_idea,
             )
 
-            # Get the results dict
-            results_data_raw: Any = scia_results_dict.get("results", {})
-            results_data: dict[str, Any] = results_data_raw if isinstance(results_data_raw, dict) else {}
-
-            # Process integration strips for IDEA
             df_strips_all = process_integration_strips_for_idea(results_data)
-
             if not df_strips_all.empty:
                 use_integration_strips = True
         except (ValueError, KeyError) as e:
-            # Integration strips not available or invalid, will fall back to CS results
             import warnings
 
-            warnings.warn(f"Integration strips verwerking mislukt: {e}. Valt terug op CS resultaten.", stacklevel=2)
+            warnings.warn(f"Integration strips verwerking mislukt: {e}.", stacklevel=2)
 
-    # Integration strips are now mandatory (CS fallback removed)
-    if not use_integration_strips or df_strips_all.empty:
+    # --- Try sections on plane (secties op vlak) if integration strips unavailable ---
+    if not use_integration_strips and ("sections_on_plane" in scia_results_dict or "sections_on_plane" in results_data):
+        try:
+            from src.integrations.scia_integration.results.scia_sections_on_plane_to_idea import (
+                process_sections_on_plane_for_idea,
+            )
+
+            df_sections_all = process_sections_on_plane_for_idea(results_data)
+            if not df_sections_all.empty:
+                use_sections_on_plane = True
+        except (ValueError, KeyError) as e:
+            import warnings
+
+            warnings.warn(f"Secties-op-vlak verwerking mislukt: {e}.", stacklevel=2)
+
+    if not use_integration_strips and not use_sections_on_plane:
         from viktor.errors import UserError
 
         raise UserError(
-            "Geen integratiestroken resultaten beschikbaar in SCIA resultaten. "
-            "IDEA model kan niet worden gegenereerd zonder integratiestroken. "
-            "Voer een nieuwe SCIA berekening uit om integratiestroken te genereren."
+            "Geen integratiestroken of secties-op-vlak resultaten beschikbaar in SCIA resultaten. "
+            "IDEA model kan niet worden gegenereerd. "
+            "Voer een nieuwe SCIA berekening uit met integratiestroken of secties op vlak."
         )
 
-    # Apply integration strip loads to slabs using builder
-    loads_applied = _apply_integration_strip_loads_to_slabs(created_slabs, df_strips_all, builder)
+    # Apply loads to slabs
+    if use_integration_strips:
+        loads_applied = _apply_integration_strip_loads_to_slabs(created_slabs, df_strips_all, builder)
+    else:
+        loads_applied = _apply_sections_on_plane_loads_to_slabs(created_slabs, df_sections_all, builder)
 
     # Validate that loads were applied
     if loads_applied == 0:
         from viktor.errors import UserError
 
-        # Get zones from created slabs and SCIA data for error message
-        slab_zones = set()
+        slab_zones: set[str] = set()
         for slab_data in created_slabs.values():
-            zones = slab_data.get("zones", [])
-            slab_zones.update(zones)
+            slab_zones.update(slab_data.get("zones", []))
 
-        strip_zones = set()
-        if "zone" in df_strips_all.columns:
-            strip_zones = set(df_strips_all["zone"].unique())
+        source_name = "integratiestroken" if use_integration_strips else "secties-op-vlak"
+        source_df = df_strips_all if use_integration_strips else df_sections_all
+        source_zones: set[str] = set(source_df["zone"].unique()) if "zone" in source_df.columns else set()
 
         raise UserError(
-            f"Geen belastingen kunnen worden toegepast vanuit integratiestroken. "
+            f"Geen belastingen kunnen worden toegepast vanuit {source_name}. "
             f"Zones in brugsegmenten: {sorted(slab_zones)}, "
-            f"Zones in integratiestroken: {sorted(strip_zones)}. "
+            f"Zones in {source_name}: {sorted(source_zones)}. "
             "De zones komen niet overeen - mogelijk zijn de brugsegmenten gewijzigd na een eerdere SCIA berekening. "
             "Wis de cache en voer een nieuwe SCIA berekening uit."
         )

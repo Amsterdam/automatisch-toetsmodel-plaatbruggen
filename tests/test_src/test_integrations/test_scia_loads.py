@@ -155,11 +155,12 @@ class TestTheoreticalTandemLoads:
 class TestServiceVehicleLoads:
     """Test service vehicle load application."""
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data")
-    def test_add_service_vehicle_loads_success(
-        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
+    def test_add_service_vehicle_loads_success(  # noqa: PLR0913
+        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock, mock_params: Mock
     ) -> None:
         """Test successful service vehicle load addition."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
@@ -176,6 +177,7 @@ class TestServiceVehicleLoads:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
         mock_bridge_geom_data = Mock()
@@ -202,7 +204,7 @@ class TestServiceVehicleLoads:
 
         # Verify workflow
         mock_extract.assert_called_once_with(mock_params)
-        mock_sequencer.assert_called_once_with(50.0, 0.5, length_vehicle=3.25)  # Service vehicle length=3.25m
+        mock_sequencer.assert_called_once_with(50.0, 0.5, length_vehicle=3.25, support_x_coords=[])  # Service vehicle length=3.25m
         mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times by dispersal_function
 
         # Should create loads for 3 positions × 2 edges × 4 wheels = 24 surface loads
@@ -225,11 +227,12 @@ class TestServiceVehicleLoads:
 class TestAccidentalVehicleLoads:
     """Test accidental vehicle load application."""
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer")
     @patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data")
-    def test_add_accidental_vehicle_loads_bidirectional(
-        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock, mock_params: Mock
+    def test_add_accidental_vehicle_loads_bidirectional(  # noqa: PLR0913
+        self, mock_bridge_geom: Mock, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock, mock_params: Mock
     ) -> None:
         """Test accidental vehicle loads with bidirectional placement."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
@@ -246,6 +249,7 @@ class TestAccidentalVehicleLoads:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         # tandem_system_sequencer is called 3 times: standard, amsterdam, amsterdam_rotated
         mock_sequencer.side_effect = [
             [2.5, 25.0],  # Standard accidental vehicle (length_vehicle=3.2)
@@ -290,9 +294,11 @@ class TestAccidentalVehicleLoads:
         # tandem_system_sequencer is now called 3 times (standard, amsterdam, amsterdam_rotated)
         assert mock_sequencer.call_count == 3
         # Verify the calls were made with correct parameters
-        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=3.2)  # Standard accidental vehicle (3.0m axle spacing + 0.2m wheel)
-        mock_sequencer.assert_any_call(50.0, 0.5)  # Amsterdam vehicle (no length_vehicle means default 0.0)
-        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=2.4)  # Amsterdam rotated (2.0m axle spacing + 0.4m wheel)
+        mock_sequencer.assert_any_call(
+            50.0, 0.5, length_vehicle=3.2, support_x_coords=[]
+        )  # Standard accidental vehicle (3.0m axle spacing + 0.2m wheel)
+        mock_sequencer.assert_any_call(50.0, 0.5, support_x_coords=[])  # Amsterdam vehicle (no length_vehicle means default 0.0)
+        mock_sequencer.assert_any_call(50.0, 0.5, length_vehicle=2.4, support_x_coords=[])  # Amsterdam rotated (2.0m axle spacing + 0.4m wheel)
         mock_bridge_geom.assert_called_with(mock_params)  # Called multiple times
 
         # Should create loads for:
@@ -317,6 +323,7 @@ class TestAccidentalVehicleLoads:
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
 
         with (
+            patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates") as mock_extract_supports,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
@@ -334,6 +341,7 @@ class TestAccidentalVehicleLoads:
                 first_segment_thickness=0.5,
                 first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
             )
+            mock_extract_supports.return_value = []  # No intermediate supports
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
                 [10.0],  # Standard vehicle (length_vehicle=3.2)
@@ -384,6 +392,7 @@ class TestAccidentalVehicleLoads:
         from src.integrations.scia_integration.scia_loads import add_accidental_vehicle_loads
 
         with (
+            patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates") as mock_extract_supports,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.extract_bridge_dimensions") as mock_extract,
             patch("src.integrations.scia_integration.load_system.tandem_sequencer.tandem_system_sequencer") as mock_sequencer,
             patch("src.integrations.scia_integration.scia_loads.scia_point_loads.get_bridge_geom_data") as mock_bridge_geom,
@@ -401,6 +410,7 @@ class TestAccidentalVehicleLoads:
                 first_segment_thickness=0.5,
                 first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
             )
+            mock_extract_supports.return_value = []  # No intermediate supports
 
             # Mock returns positions for all three vehicle types
             mock_sequencer.side_effect = [
@@ -444,9 +454,9 @@ class TestAccidentalVehicleLoads:
 
             # Verify that tandem_system_sequencer was called 3 times (standard, amsterdam, amsterdam_rotated)
             assert mock_sequencer.call_count == 3
-            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=3.2)  # Standard vehicle (3.0m axle spacing + 0.2m wheel)
-            mock_sequencer.assert_any_call(10.0, 0.5)  # Amsterdam vehicle (no length_vehicle)
-            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=2.4)  # Amsterdam rotated (2.0m axle spacing + 0.4m wheel)
+            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=3.2, support_x_coords=[])  # Standard vehicle (3.0m axle spacing + 0.2m wheel)
+            mock_sequencer.assert_any_call(10.0, 0.5, support_x_coords=[])  # Amsterdam vehicle (no length_vehicle)
+            mock_sequencer.assert_any_call(10.0, 0.5, length_vehicle=2.4, support_x_coords=[])  # Amsterdam rotated (2.0m axle spacing + 0.4m wheel)
 
 
 class TestAllLoads:

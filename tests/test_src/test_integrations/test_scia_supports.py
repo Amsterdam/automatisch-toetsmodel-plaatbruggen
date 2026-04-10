@@ -9,7 +9,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from src.integrations.scia_integration.model.scia_supports import create_all_supports, create_line_supports
-from src.integrations.scia_integration.scia_enums import LineSupportFreedom
+from src.integrations.scia_integration.scia_enums import LineSupportCSys, LineSupportFreedom
 
 
 @pytest.fixture
@@ -45,6 +45,7 @@ class TestCreateLineSupports:
                     "rz": LineSupportFreedom.RIGID,
                 },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+                c_sys=LineSupportCSys.LOCAL,
             ),
             call(
                 name="SLB_opleg_as_1:2",
@@ -59,6 +60,7 @@ class TestCreateLineSupports:
                     "rz": LineSupportFreedom.RIGID,
                 },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+                c_sys=LineSupportCSys.LOCAL,
             ),
             call(
                 name="SLB_opleg_as_1:3",
@@ -73,6 +75,7 @@ class TestCreateLineSupports:
                     "rz": LineSupportFreedom.RIGID,
                 },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+                c_sys=LineSupportCSys.LOCAL,
             ),
         ]
 
@@ -92,6 +95,7 @@ class TestCreateLineSupports:
                     "rz": LineSupportFreedom.RIGID,
                 },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+                c_sys=LineSupportCSys.LOCAL,
             ),
             call(
                 name="SLB_opleg_as_3:2",
@@ -106,6 +110,7 @@ class TestCreateLineSupports:
                     "rz": LineSupportFreedom.RIGID,
                 },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+                c_sys=LineSupportCSys.LOCAL,
             ),
             call(
                 name="SLB_opleg_as_3:3",
@@ -120,6 +125,7 @@ class TestCreateLineSupports:
                     "rz": LineSupportFreedom.RIGID,
                 },
                 stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+                c_sys=LineSupportCSys.LOCAL,
             ),
         ]
 
@@ -153,6 +159,7 @@ class TestCreateLineSupports:
                 "rz": LineSupportFreedom.RIGID,
             },
             stiffness={"stiffness_x": 1e7, "stiffness_y": 1e6},
+            c_sys=LineSupportCSys.LOCAL,
         )
 
 

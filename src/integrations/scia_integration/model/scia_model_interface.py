@@ -17,6 +17,7 @@ from typing import Any, Protocol
 
 from src.integrations.scia_integration.scia_enums import (
     LineLoadDirection,
+    LineSupportCSys,
     LineSupportFreedom,
     LoadCaseActionType,
     LoadCaseDuration,
@@ -220,13 +221,14 @@ class SciaModelBuilder(Protocol):
         """Creates a result class in the SCIA model."""
         ...
 
-    def create_line_support_on_plane(
+    def create_line_support_on_plane(  # noqa: PLR0913
         self,
         name: str,
         plane_name: str,
         edge_index: int,
         freedom: dict[str, LineSupportFreedom],
         stiffness: dict[str, float],
+        c_sys: LineSupportCSys | None = None,
     ) -> SciaLineSupport:
         """
         Creates a line support on a plane edge in the SCIA model.
@@ -236,6 +238,7 @@ class SciaModelBuilder(Protocol):
         :param edge_index: Edge index on the plane
         :param freedom: Dictionary with freedom enum values for x, y, z, rx, ry, rz
         :param stiffness: Dictionary with stiffness values
+        :param c_sys: Coordinate system (default: GLOBAL)
         """
         ...
 
@@ -262,6 +265,34 @@ class SciaModelBuilder(Protocol):
         :param width: Width of the integration strip in [m]
         :param custom_name: Custom name for the strip (e.g., 'strip_Z1_1_X_1')
         :return: The created IntegrationStrip object with custom name set
+        """
+        ...
+
+    def create_section_on_plane(
+        self,
+        point_1: tuple[float, float, float],
+        point_2: tuple[float, float, float],
+        *,
+        name: str,
+        draw: Any | None = None,  # noqa: ANN401
+        direction_of_cut: tuple[float, float, float] | None = None,
+    ) -> SciaSectionOnPlane:
+        """
+        Creates a section on a 2D-member plane in the SCIA model.
+
+        Sections on plane are used to retrieve calculation results (forces, moments)
+        at specific cross-section positions along the bridge deck.
+
+        Each section is defined by two points and spans at most 1.0 m, with a
+        0.5 m step between consecutive sections.
+
+        :param point_1: Start position (x, y, z) in [m]
+        :param point_2: End position (x, y, z) in [m]
+        :param name: Name shown in SCIA (e.g. 'sec_Z1-1_x_nr-1')
+        :param draw: Plane in which the section is drawn (default: Z_DIRECTION)
+        :param direction_of_cut: In-plane cut direction vector (x, y, z) in [m]
+            (default: (0, 0, 1))
+        :return: Created SectionOnPlane object
         """
         ...
 

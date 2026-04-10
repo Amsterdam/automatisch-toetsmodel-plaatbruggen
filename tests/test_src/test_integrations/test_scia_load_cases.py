@@ -151,9 +151,12 @@ class TestStandardLoadCases:
         create_pedestrian_load_case(mock_builder)
         mock_builder.create_load_case.assert_called_once()
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_service_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+    def test_create_service_vehicle_load_cases(
+        self, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock
+    ) -> None:
         """Test creation of service vehicle load case definitions with dynamic X positions."""
         # Setup mocks - extract_bridge_dimensions returns BridgeDimensions dataclass
         from src.data_models.scia_models import BridgeDimensionsData
@@ -168,6 +171,7 @@ class TestStandardLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         mock_sequencer.return_value = [2.5, 25.0, 47.5]  # 3 X positions
         mock_params = Mock()
         mock_params.service_unintended_vehicle_selection = "Beide kanten van het brugdek"
@@ -204,9 +208,12 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_unintended_vehicle_load_cases(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+    def test_create_unintended_vehicle_load_cases(
+        self, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock
+    ) -> None:
         """Test creation of unintended vehicle load case definitions with dynamic X positions."""
         from src.data_models.scia_models import BridgeDimensionsData
 
@@ -220,6 +227,7 @@ class TestStandardLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,  # Must equal first_segment_thickness
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         # Mock returns positions for all vehicle types (sequencer is now universal)
         # The function calls tandem_system_sequencer 3 times with different length_vehicle values
         mock_sequencer.side_effect = [
@@ -249,9 +257,12 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_service_vehicle_load_cases_positive_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+    def test_create_service_vehicle_load_cases_positive_y_only(
+        self, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock
+    ) -> None:
         """Test service vehicle load cases when only positive y-side is selected."""
         from src.data_models.scia_models import BridgeDimensionsData
 
@@ -265,6 +276,7 @@ class TestStandardLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
         # Mock params with positive y-side selection
@@ -292,9 +304,12 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_service_vehicle_load_cases_negative_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+    def test_create_service_vehicle_load_cases_negative_y_only(
+        self, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock
+    ) -> None:
         """Test service vehicle load cases when only negative y-side is selected."""
         from src.data_models.scia_models import BridgeDimensionsData
 
@@ -308,6 +323,7 @@ class TestStandardLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         mock_sequencer.return_value = [2.5, 25.0, 47.5]
 
         # Mock params with negative y-side selection
@@ -335,9 +351,12 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_unintended_vehicle_load_cases_positive_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+    def test_create_unintended_vehicle_load_cases_positive_y_only(
+        self, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock
+    ) -> None:
         """Test unintended vehicle load cases when only positive y-side is selected."""
         from src.data_models.scia_models import BridgeDimensionsData
 
@@ -351,6 +370,7 @@ class TestStandardLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         mock_sequencer.side_effect = [
             [2.5, 25.0, 47.5],  # Standard vehicle
             [5.0, 45.0],  # Amsterdam
@@ -384,9 +404,12 @@ class TestStandardLoadCases:
             duration=LoadCaseDuration.SHORT,
         )
 
+    @patch("src.integrations.scia_integration.load_system.scia_load_cases._extract_support_x_coordinates")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.extract_bridge_dimensions")
     @patch("src.integrations.scia_integration.load_system.scia_load_cases.tandem_system_sequencer")
-    def test_create_unintended_vehicle_load_cases_negative_y_only(self, mock_sequencer: Mock, mock_extract: Mock, mock_builder: Mock) -> None:
+    def test_create_unintended_vehicle_load_cases_negative_y_only(
+        self, mock_sequencer: Mock, mock_extract: Mock, mock_extract_supports: Mock, mock_builder: Mock
+    ) -> None:
         """Test unintended vehicle load cases when only negative y-side is selected."""
         from src.data_models.scia_models import BridgeDimensionsData
 
@@ -400,6 +423,7 @@ class TestStandardLoadCases:
             first_segment_thickness=0.5,
             first_segment_thickness_2=0.5,
         )
+        mock_extract_supports.return_value = []  # No intermediate supports
         mock_sequencer.side_effect = [
             [2.5, 25.0, 47.5],  # Standard vehicle
             [5.0, 45.0],  # Amsterdam
