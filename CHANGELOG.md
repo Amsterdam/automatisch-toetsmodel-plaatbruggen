@@ -1,3 +1,12 @@
+## [`v0.0.26`] - 2026-04-10
+
+### Fixed
+- **SCIA English Output Support**: Fixed integration strip extraction failing when using a SCIA integration that produces English-language XML output
+  - Added direct XML fallback parser (`_parse_table_direct`) that handles both the old Dutch structure (`<p0 t="">`) and the new English structure (`<p2 h="Results on integration strips:">`)
+  - Added `INTEGRATION_STRIP_DATA_KEY_EN = "Results on integration strips:"` as an alternative to the Dutch key `"Resultaten over integratiestroken:"`
+  - Extended `STRIP_COLUMN_MAPPING` to accept English column names (`Name`, `Case`) alongside Dutch names (`Naam`, `Belasting`)
+  - Improved error logging to report the actual SCIA error message instead of a generic format-change warning
+
 ## [`v0.0.25`] - 2026-04-10
 
 ### Added
