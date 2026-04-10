@@ -1,4 +1,4 @@
-## [`v0.0.24`] - 2026-04-xx
+## [`v0.0.25`] - 2026-04-10
 
 ### Added
 - **Section on Plane Method**: Implemented full support for the "sections on plane" approach as an alternative to integration strips for internal force extraction
@@ -15,7 +15,7 @@
 - **Governing Templates**: Updated ESA templates to governing configuration
 - **Mesh Size**: Updated mesh size from 0.2 to 0.6 for improved performance
 - **Section Envelopes**: Filtered columns in section envelopes output for cleaner results
-- **Management Summary**: Updated management summary layout and content
+
 
 ### Fixed
 - **SCIA Re-analysis After IDEA Download**: Fixed issue where SCIA analysis would restart after downloading the IDEA model
@@ -27,6 +27,11 @@
 
 ### Removed
 - **Cross-Section (CS) Code Cleanup**: Removed remaining CS-related code, UI elements and documentation following the switch to integration strips
+
+## [`v0.0.24`] - 2026-01-22
+
+### Changed
+- **Management Summary**: Updated management summary layout and content
 
 ## [`v0.0.23`] - 2026-01-19
 

@@ -348,7 +348,7 @@ class TestDownloadSciaEsaModel:
         assert result.file == mock_esa_file
 
         # Verify analysis was executed
-        mock_analysis.execute.assert_called_once_with(timeout=3600)
+        mock_analysis.execute.assert_called_once_with(timeout=10800)
         mock_analysis.get_updated_esa_model.assert_called_once()
 
     @patch("app.bridge.bridgeController.scia_integration.create_bridge_scia_model")
@@ -466,7 +466,7 @@ class TestDownloadSciaEsaModel:
         self.controller.download_scia_esa_model(self.mock_params)
 
         # Assert
-        mock_analysis.execute.assert_called_once_with(timeout=3600)  # 60 minutes
+        mock_analysis.execute.assert_called_once_with(timeout=10800)  # 60 minutes
 
 
 class TestSciaErrorHelperMethods:

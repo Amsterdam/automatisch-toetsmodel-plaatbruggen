@@ -366,7 +366,7 @@ class SciaIntegration:
             full_template_path = self._get_scia_full_template_path(params)  # type: ignore[attr-defined]
             xml_file, def_file, analysis = create_bridge_scia_model(params, full_template_path)
 
-            analysis.execute(timeout=3600)
+            analysis.execute(timeout=10800)
             esa_file = analysis.get_updated_esa_model()
             if not esa_file:
                 self._raise_empty_esa_error()  # type: ignore[attr-defined]

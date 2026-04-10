@@ -534,7 +534,7 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if not VIKTOR_AVAILABLE or scia is None:
             raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
         scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-        scia_analysis.execute(timeout=3600)
+        scia_analysis.execute(timeout=10800)
         return scia_analysis
 
     def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
@@ -1196,7 +1196,7 @@ def run_scia_analysis(params: Any, template_path: Path) -> SciaAnalysis:  # noqa
         raise ImportError("VIKTOR SCIA module not available. This function requires VIKTOR SDK.")
     xml_file, def_file, esa_template = setup_bridge_analysis(params, template_path)
     scia_analysis = scia.SciaAnalysis(xml_file, def_file, esa_template)
-    scia_analysis.execute(timeout=3600)
+    scia_analysis.execute(timeout=10800)
     return scia_analysis
 
 
