@@ -608,6 +608,67 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         else:
             return results
 
+    def extract_governing_strip_results(
+        self,
+        analysis: SciaAnalysis,
+        progress_prefix: str = "",
+        progress_percentage: int | None = None,
+    ) -> dict[str, object]:
+        """
+        Lichtgewicht extractie van Stage 1 governing-resultaten.
+
+        Haalt uitsluitend de 8 integratiestroken-tabellen op die nodig zijn
+        voor het bepalen van de governing strips. Slaat internal forces,
+        resultaatklassen en volledige XML-tabel-discovery over — dit beperkt
+        geheugengebruik en parse-tijd voor grote modellen.
+        """
+        from io import BytesIO
+
+        from src.integrations.scia_integration.results.scia_integration_strips_processor import INTEGRATION_STRIP_TABLES
+
+        if not hasattr(analysis, "get_xml_output_file"):
+            raise ValueError("Invalid SCIA analysis object - missing get_xml_output_file method")
+
+        def _report(msg: str) -> None:
+            if progress_message is not None:
+                progress_message(f"{progress_prefix}{msg}", percentage=progress_percentage)
+
+        try:
+            # Stap 1: XML-bestand ophalen (enige netwerkoverdracht)
+            _report("XML resultatenbestand ophalen uit SCIA...")
+            xml_output_file = analysis.get_xml_output_file()
+
+            # Stap 2: XML eenmalig inlezen en grootte rapporteren
+            _report("XML bestand inlezen...")
+            xml_bytes = self._read_xml_content(xml_output_file)
+
+        except Exception as e:
+            raise ValueError(f"Failed to extract governing strip results: {e!s}")
+
+        if not xml_bytes:
+            raise ValueError("XML output bestand is leeg na ophalen uit SCIA.")
+
+        xml_size_kb = len(xml_bytes) / 1024
+        if xml_size_kb >= 1024:
+            _report(f"XML bestand: {xml_size_kb / 1024:.1f} MB — governing strips extraheren (8 tabellen)...")
+        else:
+            _report(f"XML bestand: {xml_size_kb:.0f} KB — governing strips extraheren (8 tabellen)...")
+
+        # Stap 3: Alleen de 8 integratiestroken-tabellen parsen (niet alle tabellen)
+        parsed_tables: dict[str, object] = {}
+        for table_name in INTEGRATION_STRIP_TABLES.values():
+            fresh_xml = BytesIO(xml_bytes)
+            parsed_tables[table_name] = self._try_parse_table(fresh_xml, table_name)
+
+        return {
+            "xml_parsing": {
+                "status": "success",
+                "parsed_tables": parsed_tables,
+                "available_tables": list(INTEGRATION_STRIP_TABLES.values()),
+            },
+            "analysis_status": self.get_analysis_status(analysis),
+        }
+
     def _try_get_table_result(self, xml_output_file: File, table_name: str) -> dict[str, object] | None:
         """Try to get a table result from the XML output file."""
         try:
@@ -1609,7 +1670,7 @@ def run_two_stage_scia_analysis(
     method_label = result_type  # e.g. "Integratiestroken" or "Secties op vlak"
 
     # === STAGE 1: Governing Analysis ===
-    progress_message(f"{prefix}Stage 1: Analyseren met {method_label} (governing results)...", percentage=percentage)
+    progress_message(f"{prefix}Stage 1: Model opbouwen ({method_label})...", percentage=percentage)
 
     # Build model with ALL strips (existing logic)
     builder_stage1 = ViktorSciaModelBuilder()
@@ -1619,11 +1680,16 @@ def run_two_stage_scia_analysis(
     # Generate input files and run with governing template
     xml_file, def_file = builder_stage1.generate_xml_input()
     esa_template_gov = File.from_path(governing_template_path)
+
+    progress_message(
+        f"{prefix}Stage 1: SCIA berekening uitvoeren ({total_strips_stage1} integratiestroken, governing template)...",
+        percentage=percentage,
+    )
     analysis_stage1 = builder_stage1.run_analysis(xml_file, def_file, esa_template_gov)
 
-    # Extract governing results (small XML output)
+    # Extract governing results — gebruik lichtgewicht methode (alleen 8 strip-tabellen)
     progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
-    results_stage1 = builder_stage1.extract_analysis_results(
+    results_stage1 = builder_stage1.extract_governing_strip_results(
         analysis_stage1,
         progress_prefix=f"{prefix}Stage 1: ",
         progress_percentage=percentage,
