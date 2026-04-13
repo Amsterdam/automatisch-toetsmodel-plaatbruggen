@@ -540,7 +540,12 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         scia_analysis.execute(timeout=10800)
         return scia_analysis
 
-    def extract_analysis_results(self, analysis: SciaAnalysis) -> dict[str, object]:
+    def extract_analysis_results(
+        self,
+        analysis: SciaAnalysis,
+        progress_prefix: str = "",
+        progress_percentage: int | None = None,
+    ) -> dict[str, object]:
         """
         Extracts results from a completed SCIA analysis.
 
@@ -553,21 +558,48 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if not hasattr(analysis, "get_xml_output_file"):
             raise ValueError("Invalid SCIA analysis object - missing get_xml_output_file method")
 
+        def _report(msg: str) -> None:
+            if progress_message is not None:
+                progress_message(f"{progress_prefix}{msg}", percentage=progress_percentage)
+
         try:
-            # Get the XML output file ONCE (previously called 6 times)
+            # Step 1: Retrieve XML output file from SCIA (can be large for big models)
+            _report("XML resultatenbestand ophalen uit SCIA...")
             xml_output_file = analysis.get_xml_output_file()
 
-            # Extract only actively used result types
+            # Report XML file size to help diagnose performance on large models
+            try:
+                xml_bytes = self._read_xml_content(xml_output_file)
+                xml_size_kb = len(xml_bytes) / 1024 if xml_bytes else 0
+                if xml_size_kb >= 1024:
+                    _report(f"XML bestand: {xml_size_kb / 1024:.1f} MB - parsen gestart...")
+                else:
+                    _report(f"XML bestand: {xml_size_kb:.0f} KB - parsen gestart...")
+            except Exception:
+                xml_bytes = None
+
+            # Step 2: Extract internal force results
+            _report("Interne krachten extraheren...")
+            internal_forces = self.get_internal_force_results(xml_output_file)
+
+            # Step 3: Get analysis status
+            analysis_status = self.get_analysis_status(analysis)
+
+            # Step 4: Parse full XML result tables (slowest step for large models)
+            _report("XML resultaattabellen parsen...")
+            xml_parsing = self.parse_xml_results(xml_output_file)
+
             results = {
                 "xml_output_file": xml_output_file,
-                "internal_forces": self.get_internal_force_results(xml_output_file),
-                "analysis_status": self.get_analysis_status(analysis),
-                "xml_parsing": self.parse_xml_results(xml_output_file),
+                "internal_forces": internal_forces,
+                "analysis_status": analysis_status,
+                "xml_parsing": xml_parsing,
             }
 
             # Add units mapping for downstream consumers
             from src.integrations.scia_integration.results.scia_unit_conversion import build_units_mapping
 
+            _report("Eenheden mapping opbouwen...")
             units_mapping = build_units_mapping(results)
             results["units"] = units_mapping
 
@@ -1591,7 +1623,11 @@ def run_two_stage_scia_analysis(
 
     # Extract governing results (small XML output)
     progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
-    results_stage1 = builder_stage1.extract_analysis_results(analysis_stage1)
+    results_stage1 = builder_stage1.extract_analysis_results(
+        analysis_stage1,
+        progress_prefix=f"{prefix}Stage 1: ",
+        progress_percentage=percentage,
+    )
 
     # Process to identify governing strips
     progress_message(f"{prefix}Identificeren governing strips...", percentage=percentage)
@@ -1673,7 +1709,11 @@ def run_two_stage_scia_analysis(
 
     # Extract full results (small file because only governing strips)
     progress_message(f"{prefix}Stage 2: Extraheren complete resultaten...", percentage=percentage)
-    results_stage2 = builder_stage2.extract_analysis_results(analysis_stage2)
+    results_stage2 = builder_stage2.extract_analysis_results(
+        analysis_stage2,
+        progress_prefix=f"{prefix}Stage 2: ",
+        progress_percentage=percentage,
+    )
 
     # Extract additional data for caching
     results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
@@ -1775,7 +1815,11 @@ def run_two_stage_scia_analysis_sections_on_plane(
     analysis_stage1 = builder_stage1.run_analysis(xml_file, def_file, esa_template_gov)
 
     progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
-    results_stage1 = builder_stage1.extract_analysis_results(analysis_stage1)
+    results_stage1 = builder_stage1.extract_analysis_results(
+        analysis_stage1,
+        progress_prefix=f"{prefix}Stage 1: ",
+        progress_percentage=percentage,
+    )
 
     # Collect governing section names directly from Stage 1 tables.
     # The governing template already exports only one row per section, so no
@@ -1835,7 +1879,11 @@ def run_two_stage_scia_analysis_sections_on_plane(
     analysis_stage2 = builder_stage2.run_analysis(xml_file2, def_file2, esa_template_full)
 
     progress_message(f"{prefix}Stage 2: Extraheren complete resultaten...", percentage=percentage)
-    results_stage2 = builder_stage2.extract_analysis_results(analysis_stage2)
+    results_stage2 = builder_stage2.extract_analysis_results(
+        analysis_stage2,
+        progress_prefix=f"{prefix}Stage 2: ",
+        progress_percentage=percentage,
+    )
     results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
     results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
 
