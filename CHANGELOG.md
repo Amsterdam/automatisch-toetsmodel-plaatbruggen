@@ -1,3 +1,11 @@
+## [`v0.0.28`] - 2026-04-13
+
+### Changed
+- **Lichtgewicht Stage 1 extractie voor grote modellen**: `extract_governing_strip_results` toegevoegd als gespecialiseerde methode voor Stage 1 governing-analyse
+  - Haalt uitsluitend de 8 integratiestroken-tabellen op die nodig zijn voor governing strip identificatie
+  - Slaat volledige XML-tabel-discovery, internal forces en resultaatklassen parsing over — vermindert geheugendruk en parse-tijd significant voor grote modellen
+  - Stage 1 toont nu het aantal integratiestroken vóór de SCIA-run: `"SCIA berekening uitvoeren (N integratiestroken, governing template)..."` — direct zichtbaar hoe groot het model is
+
 ## [`v0.0.27`] - 2026-04-13
 
 ### Changed
