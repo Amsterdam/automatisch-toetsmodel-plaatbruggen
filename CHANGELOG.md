@@ -1,10 +1,20 @@
+## [`v0.0.29`] - 2026-04-13
+
+### Changed
+- **RAM-optimalisaties in SCIA XML-extractie voor grote modellen**: vermindert piekgeheugengebruik significant in de live omgeving
+  - `extract_governing_strip_results`: bytes éénmalig ingelezen, één `BytesIO`-stream hergebruikt met `seek(0)` per tabel i.p.v. 8 afzonderlijke kopieën
+  - `extract_analysis_results`: size-check en bytes-lees gecombineerd, herbruikbare `BytesIO`-stream voor alle parse-stappen
+  - `parse_xml_results`: `xml_content`-bytes vrijgegeven direct na `ET.fromstring()`, `ET`-tree vrijgegeven na tabel-discovery, één stream hergebruikt per tabel
+  - XML-grootte direct na ontvangst gerapporteerd in progress message (`"XML ontvangen: X MB"`)
+  - `_create_fresh_xml_content` retourneert nu altijd `BytesIO` (ook in het `else`-geval); lost MyPy-fout op én voorkomt `AttributeError` op `.seek()` bij `bytes`-input
+
 ## [`v0.0.28`] - 2026-04-13
 
 ### Changed
 - **Lichtgewicht Stage 1 extractie voor grote modellen**: `extract_governing_strip_results` toegevoegd als gespecialiseerde methode voor Stage 1 governing-analyse
   - Haalt uitsluitend de 8 integratiestroken-tabellen op die nodig zijn voor governing strip identificatie
-  - Slaat volledige XML-tabel-discovery, internal forces en resultaatklassen parsing over — vermindert geheugendruk en parse-tijd significant voor grote modellen
-  - Stage 1 toont nu het aantal integratiestroken vóór de SCIA-run: `"SCIA berekening uitvoeren (N integratiestroken, governing template)..."` — direct zichtbaar hoe groot het model is
+  - Slaat volledige XML-tabel-discovery, internal forces en resultaatklassen parsing over
+  - Stage 1 toont nu het aantal integratiestroken vóór de SCIA-run
 
 ## [`v0.0.27`] - 2026-04-13
 
