@@ -567,27 +567,36 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             _report("XML resultatenbestand ophalen uit SCIA...")
             xml_output_file = analysis.get_xml_output_file()
 
-            # Report XML file size to help diagnose performance on large models
-            try:
-                xml_bytes = self._read_xml_content(xml_output_file)
-                xml_size_kb = len(xml_bytes) / 1024 if xml_bytes else 0
-                if xml_size_kb >= 1024:
-                    _report(f"XML bestand: {xml_size_kb / 1024:.1f} MB - parsen gestart...")
+            # Step 2: Bytes EENMALIG inlezen — size-check hieruit afleiden zodat het
+            # bestand niet twee keer in geheugen staat.
+            xml_bytes = self._read_xml_content(xml_output_file)
+            if xml_bytes:
+                _size_bytes = len(xml_bytes)
+                if _size_bytes >= 1024 * 1024:
+                    _report(f"XML ontvangen: {_size_bytes / (1024 * 1024):.1f} MB — parsen gestart...")
                 else:
-                    _report(f"XML bestand: {xml_size_kb:.0f} KB - parsen gestart...")
-            except Exception:
-                xml_bytes = None
+                    _report(f"XML ontvangen: {_size_bytes / 1024:.0f} KB — parsen gestart...")
+            else:
+                _report("XML ontvangen (grootte onbekend) — parsen gestart...")
 
-            # Step 2: Extract internal force results
+            # Step 3: Bouw een herbruikbare BytesIO van de bytes zodat xml_output_file
+            # niet meer nodig is en de VIKTOR-file referentie vrijgegeven kan worden.
+            xml_stream = BytesIO(xml_bytes) if xml_bytes else xml_output_file
+            del xml_bytes
+
+            # Step 4: Extract internal force results
             _report("Interne krachten extraheren...")
-            internal_forces = self.get_internal_force_results(xml_output_file)
+            xml_stream.seek(0)
+            internal_forces = self.get_internal_force_results(xml_stream)
 
-            # Step 3: Get analysis status
+            # Step 5: Get analysis status
             analysis_status = self.get_analysis_status(analysis)
 
-            # Step 4: Parse full XML result tables (slowest step for large models)
+            # Step 6: Parse full XML result tables (slowest step for large models)
             _report("XML resultaattabellen parsen...")
-            xml_parsing = self.parse_xml_results(xml_output_file)
+            xml_stream.seek(0)
+            xml_parsing = self.parse_xml_results(xml_stream)
+            del xml_stream
 
             results = {
                 "xml_output_file": xml_output_file,
@@ -634,13 +643,16 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
                 progress_message(f"{progress_prefix}{msg}", percentage=progress_percentage)
 
         try:
-            # Stap 1: XML-bestand ophalen (enige netwerkoverdracht)
+            # Stap 1: XML-bestand ophalen (enige netwerkoverdracht naar VIKTOR-worker)
             _report("XML resultatenbestand ophalen uit SCIA...")
             xml_output_file = analysis.get_xml_output_file()
 
-            # Stap 2: XML eenmalig inlezen en grootte rapporteren
-            _report("XML bestand inlezen...")
+            # Stap 2: Bytes EENMALIG inlezen — geen aparte size-check, direct meten
+            # uit de bytes zelf zodat het bestand niet twee keer in geheugen staat.
             xml_bytes = self._read_xml_content(xml_output_file)
+
+            # Geef de VIKTOR-file referentie direct vrij — we hebben alleen bytes nodig
+            del xml_output_file
 
         except Exception as e:
             raise ValueError(f"Failed to extract governing strip results: {e!s}")
@@ -648,17 +660,22 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
         if not xml_bytes:
             raise ValueError("XML output bestand is leeg na ophalen uit SCIA.")
 
-        xml_size_kb = len(xml_bytes) / 1024
-        if xml_size_kb >= 1024:
-            _report(f"XML bestand: {xml_size_kb / 1024:.1f} MB — governing strips extraheren (8 tabellen)...")
+        _size_bytes = len(xml_bytes)
+        if _size_bytes >= 1024 * 1024:
+            _report(f"XML ontvangen: {_size_bytes / (1024 * 1024):.1f} MB — governing strips extraheren (8 tabellen)...")
         else:
-            _report(f"XML bestand: {xml_size_kb:.0f} KB — governing strips extraheren (8 tabellen)...")
+            _report(f"XML ontvangen: {_size_bytes / 1024:.0f} KB — governing strips extraheren (8 tabellen)...")
 
-        # Stap 3: Alleen de 8 integratiestroken-tabellen parsen (niet alle tabellen)
+        # Stap 3: Alleen de 8 integratiestroken-tabellen parsen.
+        # Eén BytesIO hergebruiken (seek naar 0 per tabel) i.p.v. 8 afzonderlijke
+        # kopieën — bespaart N × XML-grootte aan RAM.
         parsed_tables: dict[str, object] = {}
+        xml_stream = BytesIO(xml_bytes)
+        del xml_bytes  # bytes zijn niet meer nodig zodra de stream is aangemaakt
         for table_name in INTEGRATION_STRIP_TABLES.values():
-            fresh_xml = BytesIO(xml_bytes)
-            parsed_tables[table_name] = self._try_parse_table(fresh_xml, table_name)
+            xml_stream.seek(0)
+            parsed_tables[table_name] = self._try_parse_table(xml_stream, table_name)
+        del xml_stream
 
         return {
             "xml_parsing": {
@@ -1108,24 +1125,20 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
 
         return result_tables
 
-    def _create_fresh_xml_content(self, xml_output_file: SciaFile) -> SciaFile:
+    def _create_fresh_xml_content(self, xml_output_file: SciaFile) -> BytesIO:
         """Create a fresh BytesIO object for OutputFileParser."""
-        from io import BytesIO
-
-        fresh_xml_content: SciaFile
-
         if hasattr(xml_output_file, "getvalue"):
-            fresh_xml_content = BytesIO(xml_output_file.getvalue())
-        elif hasattr(xml_output_file, "read"):
+            return BytesIO(xml_output_file.getvalue())
+        if hasattr(xml_output_file, "read"):
             if hasattr(xml_output_file, "seek"):
                 xml_output_file.seek(0)
-            fresh_xml_content = BytesIO(xml_output_file.read())
+            content = xml_output_file.read()
             if hasattr(xml_output_file, "seek"):
-                xml_output_file.seek(0)  # Reset position
-        else:
-            fresh_xml_content = xml_output_file
-
-        return fresh_xml_content
+                xml_output_file.seek(0)
+            return BytesIO(content if isinstance(content, bytes) else content.encode())
+        if isinstance(xml_output_file, bytes):
+            return BytesIO(xml_output_file)
+        return BytesIO()
 
     def _parse_result_class_table(self, xml_content: File, table_name: str) -> dict[str, object]:  # noqa: C901, PLR0912
         """Custom parser for result class tables with obj/p2 structure."""
@@ -1325,11 +1338,19 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             root = ET.fromstring(xml_content)
             namespace = self._extract_namespace(root)
 
+            # Geef de ruwe bytes vrij — de ET-tree is nu de enige representatie die
+            # we nodig hebben. Dit bespaart XML-grootte aan RAM vóór tabel-discovery.
+            del xml_content
+
             # Discover available tables with pre-parsed root (optimization)
             available_tables, table_details = self._discover_available_tables(xml_output_file, root, namespace)
 
             # Get result table names
             result_tables = self._get_result_table_names(available_tables)
+
+            # Geef de ET-tree vrij zodra we de tabellijst hebben — tabel-parsing
+            # werkt via OutputFileParser op de ruwe stream, niet op de tree.
+            del root
 
             # Create fresh XML content for parsing
             fresh_xml_content = self._create_fresh_xml_content(xml_output_file)
@@ -1337,7 +1358,9 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             # Parse all tables
             parsed_results = {}
             for table_name in result_tables:
+                fresh_xml_content.seek(0)
                 parsed_results[table_name] = self._try_parse_table(fresh_xml_content, table_name)
+            del fresh_xml_content
 
             return {
                 "status": "success",
