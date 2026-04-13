@@ -1,3 +1,12 @@
+## [`v0.0.27`] - 2026-04-13
+
+### Changed
+- **Diagnostische progress messages in SCIA resultaten extractie**: Granulaire voortgangsberichten toegevoegd aan `extract_analysis_results` om vast te stellen waar grote modellen vastlopen in de live omgeving
+  - XML-bestand ophalen uit SCIA wordt nu apart gerapporteerd
+  - XML-bestandsgrootte wordt getoond (in KB of MB) zodat direct zichtbaar is of een groot model de oorzaak is
+  - Interne krachten extraheren, XML-tabellen parsen en eenheden mapping zijn elk een aparte stap met eigen melding
+  - Alle vier call-sites (Stage 1 & 2 voor integratiestroken én secties op vlak) geven hun prefix en percentage door zodat de berichten in de juiste brugcontext verschijnen
+
 ## [`v0.0.26`] - 2026-04-10
 
 ### Fixed
