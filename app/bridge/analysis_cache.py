@@ -858,17 +858,17 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
         xml_output = cacheable.get("xml_output")
         if xml_output:
             estimated_bytes += len(xml_output)
-        for key in ("integration_strips", "sections_on_plane"):
-            data = cacheable.get(key)
-            if isinstance(data, dict):
-                for v in data.values():
-                    try:
-                        import pandas as pd
+        try:
+            import pandas as pd
 
+            for key in ("integration_strips", "sections_on_plane"):
+                data = cacheable.get(key)
+                if isinstance(data, dict):
+                    for v in data.values():
                         if isinstance(v, pd.DataFrame):
                             estimated_bytes += int(v.memory_usage(deep=True).sum())
-                    except Exception:
-                        pass
+        except Exception:
+            pass
         # Add a 50% overhead for pickle framing + other small fields
         current_size_mb = (estimated_bytes * 1.5) / (1024 * 1024)
         projected_size_mb = current_size_mb + esa_size_mb

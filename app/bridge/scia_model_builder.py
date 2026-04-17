@@ -1707,7 +1707,7 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     return xml_file, def_file, None
 
 
-def run_two_stage_scia_analysis(
+def run_two_stage_scia_analysis(  # noqa: PLR0915
     params: Any,  # noqa: ANN401
     governing_template_path: Path,
     full_template_path: Path,
@@ -1883,10 +1883,12 @@ def run_two_stage_scia_analysis(
         progress_message(f"{prefix}Stage 2: XML output voor cache: {stage2_xml_size / 1024:.0f} KB", percentage=percentage)
     del xml_output_bytes  # results_stage2["xml_output"] houdt de enige referentie
 
-    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
-    esa_size = len(results_stage2["esa_model"]) if results_stage2["esa_model"] else 0
+    esa_model_bytes = _extract_esa_model_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = esa_model_bytes
+    esa_size = len(esa_model_bytes) if esa_model_bytes else 0
     if esa_size > 0:
         progress_message(f"{prefix}Stage 2: ESA model voor cache: {esa_size / (1024 * 1024):.1f} MB", percentage=percentage)
+    del esa_model_bytes
 
     # Process stage 2 integration strips
     progress_message(f"{prefix}Stage 2: Verwerken integratiestroken resultaten...", percentage=percentage)
@@ -1932,7 +1934,7 @@ def run_two_stage_scia_analysis(
 # =============================================================================
 
 
-def run_two_stage_scia_analysis_sections_on_plane(
+def run_two_stage_scia_analysis_sections_on_plane(  # noqa: PLR0915
     params: Any,  # noqa: ANN401
     governing_template_path: Path,
     full_template_path: Path,
@@ -2071,10 +2073,12 @@ def run_two_stage_scia_analysis_sections_on_plane(
         progress_message(f"{prefix}Stage 2: XML output voor cache: {sop_stage2_xml_size / 1024:.0f} KB", percentage=percentage)
     del xml_output_bytes
 
-    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
-    sop_esa_size = len(results_stage2["esa_model"]) if results_stage2["esa_model"] else 0
+    sop_esa_model_bytes = _extract_esa_model_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = sop_esa_model_bytes
+    sop_esa_size = len(sop_esa_model_bytes) if sop_esa_model_bytes else 0
     if sop_esa_size > 0:
         progress_message(f"{prefix}Stage 2: ESA model voor cache: {sop_esa_size / (1024 * 1024):.1f} MB", percentage=percentage)
+    del sop_esa_model_bytes
 
     # Pre-process sections-on-plane data for caching
     import contextlib
