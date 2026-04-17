@@ -686,6 +686,64 @@ class ViktorSciaModelBuilder(SciaModelBuilder):
             "analysis_status": self.get_analysis_status(analysis),
         }
 
+    def extract_governing_sections_on_plane_results(
+        self,
+        analysis: SciaAnalysis,
+        progress_prefix: str = "",
+        progress_percentage: int | None = None,
+    ) -> dict[str, object]:
+        """
+        Lichtgewicht extractie van Stage 1 governing-resultaten voor secties op vlak.
+
+        Haalt uitsluitend de 16 secties-op-vlak-tabellen op die nodig zijn voor het
+        identificeren van governing secties. Slaat internal forces, resultaatklassen,
+        units mapping en volledige XML-tabel-discovery over — dit beperkt
+        geheugengebruik en parse-tijd sterk voor grote modellen.
+        """
+        from src.integrations.scia_integration.results.scia_sections_on_plane_processor import SECTIONS_ON_PLANE_TABLES
+
+        if not hasattr(analysis, "get_xml_output_file"):
+            raise ValueError("Invalid SCIA analysis object - missing get_xml_output_file method")
+
+        def _report(msg: str) -> None:
+            if progress_message is not None:
+                progress_message(f"{progress_prefix}{msg}", percentage=progress_percentage)
+
+        try:
+            _report("XML resultatenbestand ophalen uit SCIA...")
+            xml_output_file = analysis.get_xml_output_file()
+            xml_bytes = self._read_xml_content(xml_output_file)
+            del xml_output_file
+        except Exception as e:
+            raise ValueError(f"Failed to extract governing sections on plane results: {e!s}")
+
+        if not xml_bytes:
+            raise ValueError("XML output bestand is leeg na ophalen uit SCIA.")
+
+        _size_bytes = len(xml_bytes)
+        if _size_bytes >= 1024 * 1024:
+            _report(f"XML ontvangen: {_size_bytes / (1024 * 1024):.1f} MB — governing secties extraheren (16 tabellen)...")
+        else:
+            _report(f"XML ontvangen: {_size_bytes / 1024:.0f} KB — governing secties extraheren (16 tabellen)...")
+
+        # Eén BytesIO stream hergebruiken per tabel — bespaart 16× XML-grootte aan RAM
+        parsed_tables: dict[str, object] = {}
+        xml_stream = BytesIO(xml_bytes)
+        del xml_bytes
+        for table_name in SECTIONS_ON_PLANE_TABLES.values():
+            xml_stream.seek(0)
+            parsed_tables[table_name] = self._try_parse_table(xml_stream, table_name)
+        del xml_stream
+
+        return {
+            "xml_parsing": {
+                "status": "success",
+                "parsed_tables": parsed_tables,
+                "available_tables": list(SECTIONS_ON_PLANE_TABLES.values()),
+            },
+            "analysis_status": self.get_analysis_status(analysis),
+        }
+
     def _try_get_table_result(self, xml_output_file: File, table_name: str) -> dict[str, object] | None:
         """Try to get a table result from the XML output file."""
         try:
@@ -1649,7 +1707,7 @@ def create_bridge_scia_model(params: Any, template_path: Path) -> tuple[Any, Any
     return xml_file, def_file, None
 
 
-def run_two_stage_scia_analysis(
+def run_two_stage_scia_analysis(  # noqa: PLR0915
     params: Any,  # noqa: ANN401
     governing_template_path: Path,
     full_template_path: Path,
@@ -1718,11 +1776,17 @@ def run_two_stage_scia_analysis(
         progress_percentage=percentage,
     )
 
+    # Stage 1 builder vrijgeven — SCIA model met alle strips niet meer nodig
+    del builder_stage1
+
     # Process to identify governing strips
     progress_message(f"{prefix}Identificeren governing strips...", percentage=percentage)
     processed_strips_stage1 = process_all_integration_strips(results_stage1)
     envelope_df = processed_strips_stage1["envelope"]
     governing_strip_names = extract_governing_strip_names(envelope_df)
+
+    # Stage 1 resultaten vrijgeven — alleen governing_strip_names is nog nodig
+    del results_stage1, processed_strips_stage1, envelope_df
 
     # Log statistics
     governing_count = len(governing_strip_names)
@@ -1804,16 +1868,34 @@ def run_two_stage_scia_analysis(
         progress_percentage=percentage,
     )
 
-    # Extract additional data for caching
-    results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
-    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
+    # Stage 2 builder vrijgeven — SCIA model niet meer nodig na extractie
+    del builder_stage2
+
+    # XML-bytes uit de reeds-ingelezen stream hergebruiken (zit al in xml_output_file in results_stage2).
+    # Haal de bytes op via _extract_xml_output_for_caching; dit leest de VIKTOR-file referentie
+    # die in results_stage2["xml_output_file"] zit.
+    xml_output_bytes = _extract_xml_output_for_caching(analysis_stage2)
+    results_stage2["xml_output"] = xml_output_bytes
+    stage2_xml_size = len(xml_output_bytes) if xml_output_bytes else 0
+    if stage2_xml_size >= 1024 * 1024:
+        progress_message(f"{prefix}Stage 2: XML output voor cache: {stage2_xml_size / (1024 * 1024):.1f} MB", percentage=percentage)
+    else:
+        progress_message(f"{prefix}Stage 2: XML output voor cache: {stage2_xml_size / 1024:.0f} KB", percentage=percentage)
+    del xml_output_bytes  # results_stage2["xml_output"] houdt de enige referentie
+
+    esa_model_bytes = _extract_esa_model_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = esa_model_bytes
+    esa_size = len(esa_model_bytes) if esa_model_bytes else 0
+    if esa_size > 0:
+        progress_message(f"{prefix}Stage 2: ESA model voor cache: {esa_size / (1024 * 1024):.1f} MB", percentage=percentage)
+    del esa_model_bytes
 
     # Process stage 2 integration strips
+    progress_message(f"{prefix}Stage 2: Verwerken integratiestroken resultaten...", percentage=percentage)
     cached_integration_strips_stage2 = _generate_and_cache_integration_strips(results_stage2)
     results_stage2.update(cached_integration_strips_stage2)
 
     # === COMBINE RESULTS ===
-    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")  # type: ignore[arg-type]
     stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")  # type: ignore[arg-type]
 
     return {
@@ -1823,17 +1905,14 @@ def run_two_stage_scia_analysis(
         "analysis_status": results_stage2.get("analysis_status"),
         "xml_output": results_stage2.get("xml_output"),
         "esa_model": results_stage2.get("esa_model"),
-        # Metadata about the two-stage optimization
+        # Metadata about the two-stage optimization (stage1_results niet meer opgeslagen — RAM-besparing)
         "two_stage_optimization": {
-            "stage1_results": results_stage1,
             "governing_strip_names": list(governing_strip_names),
             "optimization_stats": {
                 "total_strips_stage1": total_strips_stage1,
                 "governing_strips_stage2": governing_count,
                 "reduction_percentage": reduction_pct,
-                "stage1_xml_size_bytes": stage1_xml_size,
                 "stage2_xml_size_bytes": stage2_xml_size,
-                "total_xml_size_bytes": stage1_xml_size + stage2_xml_size,
                 "strips_created": strip_stats.get("created", governing_count),
                 "strips_skipped": strip_stats.get("skipped", 0),
                 "strips_total_attempted": strip_stats.get("total_attempted", total_strips_stage1),
@@ -1855,7 +1934,7 @@ def run_two_stage_scia_analysis(
 # =============================================================================
 
 
-def run_two_stage_scia_analysis_sections_on_plane(
+def run_two_stage_scia_analysis_sections_on_plane(  # noqa: PLR0915
     params: Any,  # noqa: ANN401
     governing_template_path: Path,
     full_template_path: Path,
@@ -1903,18 +1982,26 @@ def run_two_stage_scia_analysis_sections_on_plane(
     progress_message(f"{prefix}Stage 1: Uitvoeren SCIA berekening (governing results)...", percentage=percentage)
     analysis_stage1 = builder_stage1.run_analysis(xml_file, def_file, esa_template_gov)
 
-    progress_message(f"{prefix}Stage 1: Extraheren governing resultaten...", percentage=percentage)
-    results_stage1 = builder_stage1.extract_analysis_results(
+    # Gebruik lichtgewicht extractie: alleen de 16 secties-op-vlak-tabellen ophalen,
+    # geen internal forces, geen units mapping, geen volledige tabel-discovery.
+    progress_message(f"{prefix}Stage 1: Extraheren governing secties op vlak...", percentage=percentage)
+    results_stage1 = builder_stage1.extract_governing_sections_on_plane_results(
         analysis_stage1,
         progress_prefix=f"{prefix}Stage 1: ",
         progress_percentage=percentage,
     )
+
+    # Stage 1 builder vrijgeven — SCIA model met alle secties niet meer nodig
+    del builder_stage1
 
     # Collect governing section names directly from Stage 1 tables.
     # The governing template already exports only one row per section, so no
     # envelope computation is needed here.
     progress_message(f"{prefix}Identificeren governing secties op vlak...", percentage=percentage)
     governing_section_names = extract_governing_section_names_from_results(results_stage1)
+
+    # Stage 1 resultaten vrijgeven — alleen governing_section_names is nog nodig
+    del results_stage1
 
     governing_count = len(governing_section_names)
     reduction_pct = (1 - governing_count / total_sections_stage1) * 100 if total_sections_stage1 > 0 else 0
@@ -1973,16 +2060,33 @@ def run_two_stage_scia_analysis_sections_on_plane(
         progress_prefix=f"{prefix}Stage 2: ",
         progress_percentage=percentage,
     )
-    results_stage2["xml_output"] = _extract_xml_output_for_caching(analysis_stage2)
-    results_stage2["esa_model"] = _extract_esa_model_for_caching(analysis_stage2)
+
+    # Stage 2 builder vrijgeven — SCIA model niet meer nodig na extractie
+    del builder_stage2
+
+    xml_output_bytes = _extract_xml_output_for_caching(analysis_stage2)
+    results_stage2["xml_output"] = xml_output_bytes
+    sop_stage2_xml_size = len(xml_output_bytes) if xml_output_bytes else 0
+    if sop_stage2_xml_size >= 1024 * 1024:
+        progress_message(f"{prefix}Stage 2: XML output voor cache: {sop_stage2_xml_size / (1024 * 1024):.1f} MB", percentage=percentage)
+    else:
+        progress_message(f"{prefix}Stage 2: XML output voor cache: {sop_stage2_xml_size / 1024:.0f} KB", percentage=percentage)
+    del xml_output_bytes
+
+    sop_esa_model_bytes = _extract_esa_model_for_caching(analysis_stage2)
+    results_stage2["esa_model"] = sop_esa_model_bytes
+    sop_esa_size = len(sop_esa_model_bytes) if sop_esa_model_bytes else 0
+    if sop_esa_size > 0:
+        progress_message(f"{prefix}Stage 2: ESA model voor cache: {sop_esa_size / (1024 * 1024):.1f} MB", percentage=percentage)
+    del sop_esa_model_bytes
 
     # Pre-process sections-on-plane data for caching
     import contextlib
 
+    progress_message(f"{prefix}Stage 2: Verwerken secties op vlak resultaten...", percentage=percentage)
     with contextlib.suppress(Exception):
         results_stage2["sections_on_plane"] = process_all_sections_on_plane(results_stage2)
 
-    stage1_xml_size = len(results_stage1.get("xml_output", b"") or b"")  # type: ignore[arg-type]
     stage2_xml_size = len(results_stage2.get("xml_output", b"") or b"")  # type: ignore[arg-type]
 
     return {
@@ -1992,14 +2096,13 @@ def run_two_stage_scia_analysis_sections_on_plane(
         "analysis_status": results_stage2.get("analysis_status"),
         "xml_output": results_stage2.get("xml_output"),
         "esa_model": results_stage2.get("esa_model"),
-        # Metadata about the two-stage optimization
+        # Metadata about the two-stage optimization (stage1_results niet meer opgeslagen — RAM-besparing)
         "two_stage_optimization": {
             "governing_section_names": list(governing_section_names),
             "optimization_stats": {
                 "total_sections_stage1": total_sections_stage1,
                 "governing_sections_stage2": governing_count,
                 "reduction_percentage": reduction_pct,
-                "stage1_xml_size_bytes": stage1_xml_size,
                 "stage2_xml_size_bytes": stage2_xml_size,
                 "sections_created": section_stats["created"],
                 "sections_skipped": section_stats["skipped"],
