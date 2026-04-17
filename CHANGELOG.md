@@ -1,3 +1,21 @@
+## [`v0.0.30`] - 2026-04-17
+
+### Changed
+- **RAM-optimalisaties Stage 2 voor grote modellen**: piekgeheugengebruik sterk verminderd in de SCIA twee-staps berekening
+  - **Integratiestroken**: `builder_stage1` (SCIA model met alle strips) vrijgegeven direct na identificatie van governing strips; `results_stage1` en `envelope_df` vrijgegeven voor aanvang Stage 2 — beide SCIA modellen leven niet langer gelijktijdig in RAM
+  - **Secties op vlak**: Stage 1 gebruikt nu de nieuwe lichtgewicht methode `extract_governing_sections_on_plane_results` die uitsluitend de 16 secties-op-vlak-tabellen ophaalt, zonder internal forces, units mapping of volledige tabel-discovery; `builder_stage1` en `results_stage1` worden eveneens direct vrijgegeven
+  - **Beide methoden**: `builder_stage2` wordt vrijgegeven direct na extractie van de Stage 2 resultaten
+  - `stage1_results` niet langer opgeslagen in het teruggegeven resultatendict — elimineert een volledige kopie van Stage 1 data in de cache
+  - ESA-grootte-schatting in `extract_cacheable_scia_results` gebruikt nu componentgrootten (`len(xml_output)` + DataFrame `memory_usage`) in plaats van een redundante `pickle.dumps(cacheable)` dry-run — bespaart tot één keer de totale DataFrame-geheugenvoetafdruk
+  - `cached_data` (pickle bytes) en `encoded_data` (base64 string) vrijgegeven direct na gebruik in `cache_analysis_results` — voorkomt gelijktijdig bestaan van pickle + base64 + `File` object
+  - ESA model bytes opgehaald via lokale variabele (`esa_model_bytes`) en direct vrijgegeven na toewijzing aan resultatendict
+
+- **Bestandsgrootte progress messages**: inzicht in RAM-gebruik tijdens live analyses
+  - Stage 2 XML output grootte gerapporteerd direct na extractie (`"XML output voor cache: X MB"`)
+  - Stage 2 ESA model grootte gerapporteerd direct na extractie
+  - Cache serialisatie stappen gerapporteerd: pickle grootte, base64 grootte en opslaan afzonderlijk zichtbaar in progress messages
+  - Cache samenstelling (XML output + DataFrame grootten) gelogd via `logging.info` in `extract_cacheable_scia_results`
+
 ## [`v0.0.29`] - 2026-04-13
 
 ### Changed
