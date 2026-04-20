@@ -225,6 +225,11 @@ kan het aantal belastinggevallen worden beperkt."""
 LOAD_CASE_SELECTION_NOTE_TEXT = """**Let op:** Het uitschakelen van belastingen kan de rekentijd aanzienlijk verkorten,
 maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoeleinden."""
 
+# ESA model caching info text
+ESA_CACHE_INFO_TEXT = """**ESA model cachen** slaat het volledige SCIA-modelbestand (`.esa`) op na de berekening, zodat het via de knop "Download ESA Model" direct beschikbaar is zonder herberekening.
+
+ **Waarschuwing:** Het `.esa`-bestand wordt in zijn geheel in het werkgeheugen (RAM) geladen tijdens het ophalen van de SCIA-worker. Voor grote brugmodellen kan dit het beschikbare RAM overschrijden, waardoor de worker crasht en de volledige berekening opnieuw moet worden gestart. Schakel dit alleen in als het model aantoonbaar klein genoeg is voor de live omgeving."""
+
 # OPTIMIZATION_EXPLANATION_TEXT
 OPTIMIZATION_EXPLANATION_TEXT = """Op deze pagina kan een optimalisatie berekening worden uitgevoerd.
 Tijdens de optimalisatie worden de volgende berekeningsniveaus doorlopen:

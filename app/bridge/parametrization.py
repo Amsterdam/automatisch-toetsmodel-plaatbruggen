@@ -39,6 +39,7 @@ from app.constants import (
     CALCULATION_SETTINGS_INFO_TEXT_CALCULATION_LEVEL,
     CONCRETEQUALITY_CSV_PATH,
     DIMENSIONS_SEGMENTS_EXPLANATION,
+    ESA_CACHE_INFO_TEXT,
     IDEA_INFO_TEXT,
     IDEA_INFO_TEXT_1B,
     IDEA_INFO_TEXT_2,
@@ -1373,6 +1374,20 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
             "Kies welk type resultaatobjecten in het SCIA model worden aangemaakt. "
             "Integratiestroken of secties op vlak kunnen niet tegelijk worden gebruikt; "
             "selecteer één van de twee opties."
+        ),
+    )
+
+    calc_page.calc_selection.lb_esa_cache = LineBreak()
+
+    calc_page.calc_selection.esa_cache_info = Text(ESA_CACHE_INFO_TEXT)
+
+    calc_page.calc_selection.enable_esa_caching = BooleanField(
+        "ESA model cachen na berekening",
+        default=False,
+        description=(
+            "Sla het volledige SCIA .esa-modelbestand op in de cache na de berekening. "
+            "Schakel dit alleen in als het model klein genoeg is voor de beschikbare RAM in de live omgeving. "
+            "Bij grote modellen kan dit de worker laten crashen."
         ),
     )
 

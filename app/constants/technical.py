@@ -129,17 +129,14 @@ ENABLE_SECTIONS_ON_PLANE: bool = True
 # ---------------------------------------------------------------------------
 # ESA model caching settings
 # ---------------------------------------------------------------------------
-# Downloading the updated ESA model from the SCIA worker after Stage 2 transfers
-# the full binary .esa file in one blocking call.  If RAM usage exceeds the
-# environment limit the worker crashes and restarts, so a thread timeout offers
-# no benefit.  Instead, the downloaded bytes are discarded when the file exceeds
-# MAX_ESA_CACHE_SIZE_MB to avoid cache overflow.
+# Downloading the updated ESA model from the SCIA worker transfers the full
+# binary .esa file into Python heap in one blocking call.  There is no way to
+# check the file size before the transfer completes, so a size guard cannot
+# prevent an out-of-memory crash for large models.
 #
+# Set ENABLE_ESA_MODEL_CACHING to True only in environments where the .esa
+# file is known to be small enough to fit comfortably in available RAM.
 # The "Download ESA Model" button falls back to a direct re-run when the ESA
-# file is absent from cache, so skipping large files here has no impact on
+# file is absent from cache, so disabling caching here has no impact on
 # download functionality.
-ENABLE_ESA_MODEL_CACHING: bool = True
-
-# Maximum allowed ESA file size (in MB) to store in cache.
-# Files exceeding this limit are skipped after download.
-MAX_ESA_CACHE_SIZE_MB: int = 512
+ENABLE_ESA_MODEL_CACHING: bool = False
