@@ -226,9 +226,12 @@ LOAD_CASE_SELECTION_NOTE_TEXT = """**Let op:** Het uitschakelen van belastingen 
 maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoeleinden."""
 
 # ESA model caching info text
-ESA_CACHE_INFO_TEXT = """**ESA model cachen** slaat het volledige SCIA-modelbestand (`.esa`) op na de berekening, zodat het via de knop "Download ESA Model" direct beschikbaar is zonder herberekening.
+ESA_CACHE_INFO_TEXT = """**ESA model cachen** slaat het volledige SCIA `.esa`-bestand op na de berekening,
+zodat het via "Download ESA Model" direct beschikbaar is zonder herberekening.
 
- **Waarschuwing:** Het `.esa`-bestand wordt in zijn geheel in het werkgeheugen (RAM) geladen tijdens het ophalen van de SCIA-worker. Voor grote brugmodellen kan dit het beschikbare RAM overschrijden, waardoor de worker crasht en de volledige berekening opnieuw moet worden gestart. Schakel dit alleen in als het model aantoonbaar klein genoeg is voor de live omgeving."""
+⚠️ **Waarschuwing:** Het `.esa`-bestand wordt volledig in het RAM geladen tijdens het ophalen van de SCIA-worker.
+Bij grote modellen kan dit het beschikbare geheugen overschrijden en de worker laten crashen.
+Schakel dit alleen in als het model aantoonbaar klein genoeg is voor de live omgeving."""
 
 # OPTIMIZATION_EXPLANATION_TEXT
 OPTIMIZATION_EXPLANATION_TEXT = """Op deze pagina kan een optimalisatie berekening worden uitgevoerd.

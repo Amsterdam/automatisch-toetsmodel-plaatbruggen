@@ -1385,8 +1385,8 @@ Op deze pagina vind je de paspoortgegevens van deze brug."""
         "ESA model cachen na berekening",
         default=False,
         description=(
-            "Sla het volledige SCIA .esa-modelbestand op in de cache na de berekening. "
-            "Schakel dit alleen in als het model klein genoeg is voor de beschikbare RAM in de live omgeving. "
+            "Sla het .esa-modelbestand op in de cache. "
+            "Alleen inschakelen als het model klein genoeg is voor het beschikbare RAM. "
             "Bij grote modellen kan dit de worker laten crashen."
         ),
     )
