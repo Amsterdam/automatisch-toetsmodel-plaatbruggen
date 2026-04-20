@@ -229,7 +229,7 @@ maar kan ook leiden tot onvolledige resultaten. Gebruik dit alleen voor testdoel
 ESA_CACHE_INFO_TEXT = """**ESA model cachen** slaat het volledige SCIA `.esa`-bestand op na de berekening,
 zodat het via "Download ESA Model" direct beschikbaar is zonder herberekening.
 
-⚠️ **Waarschuwing:** Het `.esa`-bestand wordt volledig in het RAM geladen tijdens het ophalen van de SCIA-worker.
+**Waarschuwing:** Het `.esa`-bestand wordt volledig in het RAM geladen tijdens het ophalen van de SCIA-worker.
 Bij grote modellen kan dit het beschikbare geheugen overschrijden en de worker laten crashen.
 Schakel dit alleen in als het model aantoonbaar klein genoeg is voor de live omgeving."""
 
