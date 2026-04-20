@@ -125,3 +125,21 @@ RESULT_OBJECT_SECTIONS_ON_PLANE: str = "Secties op vlak"
 # ENABLE_SECTIONS_ON_PLANE is False so the safe default is integration strips.
 ENABLE_INTEGRATION_STRIPS: bool = False
 ENABLE_SECTIONS_ON_PLANE: bool = True
+
+# ---------------------------------------------------------------------------
+# ESA model caching settings
+# ---------------------------------------------------------------------------
+# Downloading the updated ESA model from the SCIA worker after Stage 2 transfers
+# the full binary .esa file in one blocking call.  If RAM usage exceeds the
+# environment limit the worker crashes and restarts, so a thread timeout offers
+# no benefit.  Instead, the downloaded bytes are discarded when the file exceeds
+# MAX_ESA_CACHE_SIZE_MB to avoid cache overflow.
+#
+# The "Download ESA Model" button falls back to a direct re-run when the ESA
+# file is absent from cache, so skipping large files here has no impact on
+# download functionality.
+ENABLE_ESA_MODEL_CACHING: bool = True
+
+# Maximum allowed ESA file size (in MB) to store in cache.
+# Files exceeding this limit are skipped after download.
+MAX_ESA_CACHE_SIZE_MB: int = 512

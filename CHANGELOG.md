@@ -1,3 +1,16 @@
+## [`v0.0.31`] - 2026-04-20
+
+### Fixed
+- **App hing op "Stage 2: XML output voor cache: X KB"**: de blocking call `analysis.get_updated_esa_model()` — die het volledige binaire SCIA-modelbestand (`.esa`) van de SCIA-worker downloadt — kon de applicatie onbeperkt laten hangen bij grote modellen. De ESA-download heeft geen groottegrens in het VIKTOR SDK.
+
+  **Oplossing**: nieuw hulpfunctie `_extract_esa_model_with_size_limit` downloadt het ESA-bestand en controleert daarna de grootte. Overschrijdt het bestand de limiet van `MAX_ESA_CACHE_SIZE_MB` (standaard 512 MB), dan worden de bytes direct weggegooid en wordt `None` teruggegeven. Een thread-timeout is niet toegepast: als het RAM-gebruik de omgevingslimiet overschrijdt crasht de worker sowieso en herstart hij automatisch.
+
+  Twee nieuwe constanten in `app/constants/technical.py`:
+  - `ENABLE_ESA_MODEL_CACHING: bool = True` — aan/uit schakelaar voor ESA caching
+  - `MAX_ESA_CACHE_SIZE_MB: int = 512` — maximale toegestane ESA-bestandsgrootte
+
+  De knop "Download ESA Model" blijft werken via de bestaande fallback die de analyse direct opnieuw uitvoert wanneer het ESA-bestand niet in de cache aanwezig is.
+
 ## [`v0.0.30`] - 2026-04-17
 
 ### Changed
