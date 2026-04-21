@@ -1551,55 +1551,6 @@ def _extract_esa_model_for_caching(analysis: SciaAnalysis) -> bytes | None:
     return None
 
 
-def _extract_esa_model_with_size_limit(
-    analysis: SciaAnalysis,
-    max_size_mb: float,
-    progress_prefix: str = "",
-    percentage: int | None = None,
-) -> bytes | None:
-    """
-    Download ESA model from the SCIA worker and discard it if too large.
-
-    A thread timeout is not used because exceeding the environment RAM limit
-    causes the worker to crash and restart anyway — a timeout would not help.
-    Instead, the downloaded bytes are checked against *max_size_mb* after
-    receipt and discarded when the limit is exceeded.
-
-    Returns ``None`` when the download fails or the file exceeds *max_size_mb*.
-    The "Download ESA Model" button falls back to a direct re-run when the ESA
-    file is absent from cache.
-
-    :param analysis: Completed SCIA analysis object.
-    :param max_size_mb: Maximum allowed ESA size in MB.
-    :param progress_prefix: Prefix prepended to every progress message.
-    :param percentage: Optional percentage value for progress messages.
-    :return: ESA bytes when within the size limit, else ``None``.
-    """
-
-    def _report(msg: str) -> None:
-        if progress_message is not None:
-            progress_message(f"{progress_prefix}{msg}", percentage=percentage)
-
-    _report(f"Stage 2: ESA model ophalen uit SCIA worker (max {max_size_mb:.0f} MB)...")
-
-    esa_bytes = _extract_esa_model_for_caching(analysis)
-    if not esa_bytes:
-        return None
-
-    size_mb = len(esa_bytes) / (1024 * 1024)
-    if size_mb > max_size_mb:
-        logger.warning(
-            "ESA model te groot voor cache: %.1f MB > %.0f MB — overgeslagen",
-            size_mb,
-            max_size_mb,
-        )
-        _report(f"Stage 2: ESA model te groot ({size_mb:.1f} MB > {max_size_mb:.0f} MB) — overgeslagen")
-        return None
-
-    _report(f"Stage 2: ESA model voor cache: {size_mb:.1f} MB")
-    return esa_bytes
-
-
 def _extract_content_from_file(file_obj: Any) -> bytes | None:  # noqa: ANN401
     """
     Extract content from a file object, handling different types.
@@ -1932,15 +1883,21 @@ def run_two_stage_scia_analysis(  # noqa: PLR0915
         progress_message(f"{prefix}Stage 2: XML output voor cache: {stage2_xml_size / 1024:.0f} KB", percentage=percentage)
     del xml_output_bytes  # results_stage2["xml_output"] houdt de enige referentie
 
-    from app.constants.technical import ENABLE_ESA_MODEL_CACHING, MAX_ESA_CACHE_SIZE_MB
+    from app.constants.technical import ENABLE_ESA_MODEL_CACHING
 
-    if ENABLE_ESA_MODEL_CACHING:
-        results_stage2["esa_model"] = _extract_esa_model_with_size_limit(
-            analysis_stage2,
-            max_size_mb=MAX_ESA_CACHE_SIZE_MB,
-            progress_prefix=prefix,
-            percentage=percentage,
-        )
+    # Prefer the per-bridge UI toggle; fall back to the app-level constant.
+    try:
+        enable_esa_caching = bool(params.calc_page.calc_selection.enable_esa_caching)
+    except AttributeError:
+        enable_esa_caching = ENABLE_ESA_MODEL_CACHING
+
+    if enable_esa_caching:
+        esa_model_bytes = _extract_esa_model_for_caching(analysis_stage2)
+        results_stage2["esa_model"] = esa_model_bytes
+        esa_size = len(esa_model_bytes) if esa_model_bytes else 0
+        if esa_size > 0:
+            progress_message(f"{prefix}Stage 2: ESA model voor cache: {esa_size / (1024 * 1024):.1f} MB", percentage=percentage)
+        del esa_model_bytes
     else:
         results_stage2["esa_model"] = None
         progress_message(f"{prefix}Stage 2: ESA model download overgeslagen (ENABLE_ESA_MODEL_CACHING=False)", percentage=percentage)
@@ -2128,15 +2085,21 @@ def run_two_stage_scia_analysis_sections_on_plane(  # noqa: PLR0915
         progress_message(f"{prefix}Stage 2: XML output voor cache: {sop_stage2_xml_size / 1024:.0f} KB", percentage=percentage)
     del xml_output_bytes
 
-    from app.constants.technical import ENABLE_ESA_MODEL_CACHING, MAX_ESA_CACHE_SIZE_MB
+    from app.constants.technical import ENABLE_ESA_MODEL_CACHING
 
-    if ENABLE_ESA_MODEL_CACHING:
-        results_stage2["esa_model"] = _extract_esa_model_with_size_limit(
-            analysis_stage2,
-            max_size_mb=MAX_ESA_CACHE_SIZE_MB,
-            progress_prefix=prefix,
-            percentage=percentage,
-        )
+    # Prefer the per-bridge UI toggle; fall back to the app-level constant.
+    try:
+        enable_esa_caching = bool(params.calc_page.calc_selection.enable_esa_caching)
+    except AttributeError:
+        enable_esa_caching = ENABLE_ESA_MODEL_CACHING
+
+    if enable_esa_caching:
+        sop_esa_model_bytes = _extract_esa_model_for_caching(analysis_stage2)
+        results_stage2["esa_model"] = sop_esa_model_bytes
+        sop_esa_size = len(sop_esa_model_bytes) if sop_esa_model_bytes else 0
+        if sop_esa_size > 0:
+            progress_message(f"{prefix}Stage 2: ESA model voor cache: {sop_esa_size / (1024 * 1024):.1f} MB", percentage=percentage)
+        del sop_esa_model_bytes
     else:
         results_stage2["esa_model"] = None
         progress_message(f"{prefix}Stage 2: ESA model download overgeslagen (ENABLE_ESA_MODEL_CACHING=False)", percentage=percentage)

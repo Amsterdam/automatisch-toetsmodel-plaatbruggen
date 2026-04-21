@@ -1,15 +1,16 @@
+## [`v0.0.32`] - 2026-04-20
+
+### Added
+- **Toggle voor ESA model caching** in Berekening → Berekening selectie: nieuw veld "ESA model cachen na berekening" (`BooleanField`, standaard uitgeschakeld). Hiermee kan het ESA-model per brug worden gecacht zonder een code-wijziging. Het veld toont een duidelijke waarschuwing dat het inschakelen bij grote modellen de worker kan laten crashen door RAM-overloop.
+  - De UI-toggle heeft prioriteit boven de constante `ENABLE_ESA_MODEL_CACHING` in `app/constants/technical.py` (fallback bij ontbrekend veld voor backward compatibility).
+  - Beide Stage 2-paden (integratiestroken en secties op vlak) lezen de toggle uit `params.calc_page.calc_selection.enable_esa_caching`.
+
 ## [`v0.0.31`] - 2026-04-20
 
 ### Fixed
-- **App hing op "Stage 2: XML output voor cache: X KB"**: de blocking call `analysis.get_updated_esa_model()` — die het volledige binaire SCIA-modelbestand (`.esa`) van de SCIA-worker downloadt — kon de applicatie onbeperkt laten hangen bij grote modellen. De ESA-download heeft geen groottegrens in het VIKTOR SDK.
+- **App hing op "Stage 2: ESA model ophalen uit SCIA worker..."**: `get_updated_esa_model()` laadt het volledige binaire `.esa`-bestand in één keer in het Python heap. Er bestaat geen manier om de bestandsgrootte te controleren *vóórdat* de overdracht voltooid is — een grootte-controle achteraf is zinloos omdat de worker al gecrasht is op het moment dat de RAM-limiet wordt overschreden.
 
-  **Oplossing**: nieuw hulpfunctie `_extract_esa_model_with_size_limit` downloadt het ESA-bestand en controleert daarna de grootte. Overschrijdt het bestand de limiet van `MAX_ESA_CACHE_SIZE_MB` (standaard 512 MB), dan worden de bytes direct weggegooid en wordt `None` teruggegeven. Een thread-timeout is niet toegepast: als het RAM-gebruik de omgevingslimiet overschrijdt crasht de worker sowieso en herstart hij automatisch.
-
-  Twee nieuwe constanten in `app/constants/technical.py`:
-  - `ENABLE_ESA_MODEL_CACHING: bool = True` — aan/uit schakelaar voor ESA caching
-  - `MAX_ESA_CACHE_SIZE_MB: int = 512` — maximale toegestane ESA-bestandsgrootte
-
-  De knop "Download ESA Model" blijft werken via de bestaande fallback die de analyse direct opnieuw uitvoert wanneer het ESA-bestand niet in de cache aanwezig is.
+  **Oplossing**: `ENABLE_ESA_MODEL_CACHING` staat nu standaard op `False`. De ESA-download wordt volledig overgeslagen tijdens de Stage 2-berekening. De knop "Download ESA Model" blijft werken via de bestaande fallback die de analyse direct opnieuw uitvoert wanneer het ESA-bestand niet in de cache aanwezig is. `ENABLE_ESA_MODEL_CACHING` kan op `True` worden gezet in omgevingen waar het `.esa`-bestand aantoonbaar klein genoeg is.
 
 ## [`v0.0.30`] - 2026-04-17
 
