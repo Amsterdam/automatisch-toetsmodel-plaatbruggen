@@ -80,7 +80,9 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
 
     # Generate XML input - this may raise ExecutionError from IDEA SDK
     try:
-        idea_xml_input_bytes = model.generate_xml_input()
+        _xml_file = model.generate_xml_input()
+        # Extract raw bytes so the result dict is picklable (Viktor File objects are not)
+        idea_xml_input_bytes = _extract_file_content(_xml_file)
     except Exception as e:
         # IDEA SDK may raise ExecutionError with "Idea model cannot be generated"
         error_msg = str(e)
@@ -93,10 +95,21 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
             ) from e
         raise UserError(f"IDEA model XML generatie gefaald: {e!s}") from e
 
-    # Run IDEA analysis
+    # Run IDEA analysis — pass back through BytesIO so the SDK gets a file-like object
     progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
-    analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
-    analysis.execute(600)
+    analysis = idea_rcs.IdeaRcsAnalysis(BytesIO(idea_xml_input_bytes), return_rcs_file=True)
+    try:
+        analysis.execute(600)
+    except Exception as e:
+        error_msg = str(e)
+        if "cannot be generated" in error_msg.lower():
+            raise UserError(
+                "IDEA model kan niet worden gegenereerd. "
+                "Mogelijke oorzaken: geen dwarsdoorsneden gemaakt, geen belastingen toegepast, of ongeldige geometrie. "
+                "Controleer of de wapeningszones overeenkomen met de brugsegmenten en of SCIA resultaten beschikbaar zijn. "
+                "Als de brugparameters zijn gewijzigd, wis de cache en voer een nieuwe berekening uit."
+            ) from e
+        raise UserError(f"IDEA RCS analyse uitvoering gefaald: {error_msg}") from e
 
     # Get the IDEA RCS model and output XML
     progress_message(f"{prefix}Verwerken IDEA analyse resultaten...", percentage=percentage)
@@ -163,14 +176,14 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
             }
             section_results.append(section_data)
 
+        # Extract bytes from any file-like objects so the dict is picklable
+        rcs_model_bytes = _extract_file_content(idea_rcs_model) if not isinstance(idea_rcs_model, bytes) else idea_rcs_model
         results.update(
             {
                 "section_results": section_results,
                 "analysis_status": "completed",
-                "model": model,
-                "idea_xml_input_bytes": idea_xml_input_bytes,
-                "idea_rcs_model": idea_rcs_model,
-                "idea_xml_output_bytes": idea_output_xml_bytes,
+                "idea_xml_input_bytes": idea_xml_input_bytes,  # already bytes
+                "idea_rcs_model": rcs_model_bytes,
                 "output_content": output_content,
             }
         )
@@ -179,10 +192,7 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
             {
                 "analysis_status": "failed",
                 "error": str(e),
-                "model": model,
-                "idea_xml_input_bytes": idea_xml_input_bytes,
-                "idea_rcs_model": idea_rcs_model,
-                "idea_xml_output_bytes": idea_output_xml_bytes,
+                "idea_xml_input_bytes": idea_xml_input_bytes,  # already bytes
                 "output_content": output_content,
             }
         )
@@ -220,21 +230,42 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
         raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
     try:
-        # Derive the template path from result_object_type — must match what get_scia_analysis_results uses
-        # so the cache lookup hits the correct stored entry.
         from app.constants import SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
         from app.constants.technical import ENABLE_SECTIONS_ON_PLANE, RESULT_OBJECT_SECTIONS_ON_PLANE
 
+        # Build both possible template paths — the SCIA cache key depends on which one was used
+        # when the SCIA analysis was originally run.  In the live environment the params attribute
+        # may resolve differently from local, causing a key mismatch.  We therefore try EVERY
+        # possible template path and take the first cache hit that contains envelope data.
+        all_template_paths: list[str | None] = [
+            str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH),
+            str(SCIA_TEMPLATE_PATH),
+            None,  # legacy: no template path in key
+        ]
+
+        # Prefer the path that matches the current parametrization (fewer cache checks)
         try:
             result_type = params.calc_page.calc_selection.result_object_type
         except AttributeError:
             result_type = RESULT_OBJECT_SECTIONS_ON_PLANE if ENABLE_SECTIONS_ON_PLANE else None
 
-        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else SCIA_TEMPLATE_PATH
+        preferred_path = str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH) if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else str(SCIA_TEMPLATE_PATH)
+        # Re-order so the preferred path is tried first
+        all_template_paths = [preferred_path] + [p for p in all_template_paths if p != preferred_path]
 
-        # Use cached SCIA analysis results instead of calling directly
         progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA verwerking...", percentage=percentage)
-        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path), analysis_context)
+
+        cache = _get_analysis_cache()
+        results: dict[str, Any] | None = None
+        for tpath in all_template_paths:
+            candidate = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, tpath)
+            if candidate is not None and ("integration_strips" in candidate or "sections_on_plane" in candidate):
+                results = candidate
+                break
+
+        # If no cache hit at all, fall back to running the analysis (will use the preferred path)
+        if results is None:
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, preferred_path, analysis_context)
 
     except UserError:
         raise
@@ -257,13 +288,14 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     }
 
 
-def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_model_only(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
     """Create IDEA model only (without running analysis)."""
     progress_message("Genereren IDEA model...")
     model = create_bridge_idea_model(params, entity_id)
+    # Extract raw bytes — Viktor File/BytesIO objects are not picklable
+    xml_bytes = _extract_file_content(model.generate_xml_input())
     return {
-        "model": model,
-        "idea_xml_input_bytes": model.generate_xml_input(),
+        "idea_xml_input_bytes": xml_bytes,
         "analysis_status": "model_created",
     }
 
