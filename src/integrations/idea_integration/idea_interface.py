@@ -452,7 +452,7 @@ def _create_slabs_with_reinforcement(
             opposite_direction = "dwars" if direction == "langs" else "langs"
             cs = builder.create_rect_section(SLAB_WIDTH, slab_thickness)
             slab = builder.create_one_way_slab(
-                model, cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_{direction}_{config}"
+                model, cs, cs_mat, name=f"CS_d{slab_thickness}_{opposite_direction}_{config}", rcs_name=f"rcs_d{slab_thickness}_{direction}_{config}"
             )
             created_slabs[slab_key][f"slab_{opposite_direction}"] = slab
 

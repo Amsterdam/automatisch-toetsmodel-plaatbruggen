@@ -9,6 +9,7 @@ import base64
 import contextlib
 import hashlib
 import json
+import logging
 import pickle
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -27,6 +28,8 @@ from src.integrations.idea_integration.idea_interface import create_bridge_idea_
 
 STORAGE_WARNING_MARKER_KEY = "storage_warning_state"
 
+logger = logging.getLogger(__name__)
+
 
 def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     """Extract content from file object."""
@@ -42,7 +45,138 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
+def _build_idea_execution_diagnostics(  # noqa: C901, PLR0912, PLR0915
+    params: Any,  # noqa: ANN401
+    scia_results_dict: dict[str, Any] | None,
+    idea_xml_input_bytes: Any | None,  # noqa: ANN401
+    error: Exception,
+) -> str:
+    """
+    Build a diagnostic report describing the state at the moment IDEA RCS execution failed.
+
+    Captures bridge identification, geometry, reinforcement, SCIA results presence and
+    XML input size so support can investigate without re-running the analysis.
+    """
+    lines: list[str] = ["=== IDEA RCS Diagnostiek ==="]
+
+    info = getattr(params, "info", None)
+    bridge_id = getattr(info, "bridge_objectnumm", None) if info else None
+    bridge_name = getattr(info, "bridge_name", None) if info else None
+    lines.append(f"Brug: {bridge_id or 'onbekend'} - {bridge_name or 'onbekend'}")
+
+    static_system = getattr(info, "static_system", None) if info else None
+    if static_system:
+        lines.append(f"Statisch systeem: {static_system}")
+
+    segments = getattr(params, "bridge_segments_array", None) or []
+    lines.append(f"Aantal brugsegmenten: {len(segments)}")
+    try:
+        for idx, seg in enumerate(segments):
+            bz1 = getattr(seg, "bz1", None)
+            bz2 = getattr(seg, "bz2", None)
+            bz3 = getattr(seg, "bz3", None)
+            dz = getattr(seg, "dz", None)
+            dz_2 = getattr(seg, "dz_2", None)
+            length = getattr(seg, "l", None)
+            support = getattr(seg, "is_support", None)
+            lines.append(
+                f"  segment[{idx}]: bz1={bz1}, bz2={bz2}, bz3={bz3}, "
+                f"dz={dz}, dz_2={dz_2}, l={length}, support={support}"
+            )
+    except Exception as diag_err:
+        lines.append(f"  (segment uitlezen gefaald: {diag_err!r})")
+
+    rz_array = getattr(params, "reinforcement_zones_array", None) or []
+    lines.append(f"Aantal wapeningszones: {len(rz_array)}")
+
+    lz_array = getattr(params, "load_zones_data_array", None) or []
+    lines.append(f"Aantal belastingzones: {len(lz_array)}")
+
+    if scia_results_dict is None:
+        lines.append("SCIA resultaten: ONTBREKEND (None doorgegeven aan IDEA)")
+    else:
+        try:
+            inner = scia_results_dict.get("results") if isinstance(scia_results_dict, dict) else None
+            if isinstance(inner, dict):
+                keys = sorted(inner.keys())
+                lines.append(f"SCIA resultaten: aanwezig, top-level sleutels: {keys}")
+                for key in ("integration_strips", "sections_on_plane", "node_results", "cs_results"):
+                    if key in inner:
+                        value = inner[key]
+                        size_hint = len(value) if hasattr(value, "__len__") else "?"
+                        lines.append(f"  - {key}: type={type(value).__name__}, len={size_hint}")
+            else:
+                lines.append(f"SCIA resultaten: aanwezig, type={type(scia_results_dict).__name__}")
+        except Exception as diag_err:
+            lines.append(f"SCIA resultaten: uitlezen gefaald: {diag_err!r}")
+
+    if idea_xml_input_bytes is None:
+        lines.append("IDEA XML input: niet gegenereerd")
+    else:
+        try:
+            raw = _extract_file_content(idea_xml_input_bytes)
+        except Exception as diag_err:
+            raw = None
+            lines.append(f"IDEA XML input: uitlezen gefaald: {diag_err!r}")
+        if raw is not None:
+            size = len(raw)
+            lines.append(f"IDEA XML input grootte: {size} bytes")
+
+            # Dump full XML to a tmp file so it can be inspected without re-running.
+            try:
+                import tempfile
+                from pathlib import Path
+                bridge_tag = (bridge_id or "unknown").replace("/", "_").replace("\\", "_")
+                timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+                dump_path = Path(tempfile.gettempdir()) / f"idea_rcs_failed_{bridge_tag}_{timestamp}.xml"
+                dump_path.write_bytes(raw)
+                lines.append(f"IDEA XML input opgeslagen: {dump_path}")
+            except Exception as diag_err:
+                lines.append(f"IDEA XML input opslaan gefaald: {diag_err!r}")
+
+            # Element count summary - quickly spot which sections are missing/empty.
+            try:
+                import re
+                text = raw.decode("utf-8", errors="replace")
+                element_names = (
+                    "MatConcrete",
+                    "MatReinforcementEC2",
+                    "MatReinforcement",
+                    "CrossSection",
+                    "CrossSectionParameter",
+                    "Reinforcement",
+                    "ReinforcementGroup",
+                    "Member1D",
+                    "OneWaySlab",
+                    "LoadGroup",
+                    "LoadCase",
+                    "LoadCaseCombination",
+                    "ResultOnSection",
+                    "InternalForcesOnSection",
+                )
+                counts = {name: len(re.findall(rf"<{name}\b", text)) for name in element_names}
+                non_zero = {k: v for k, v in counts.items() if v > 0}
+                zero = sorted(k for k, v in counts.items() if v == 0)
+                lines.append(f"IDEA XML element counts (>0): {non_zero}")
+                if zero:
+                    lines.append(f"IDEA XML element counts (=0): {zero}")
+            except Exception as diag_err:
+                lines.append(f"IDEA XML element analyse gefaald: {diag_err!r}")
+
+            # Keep a short preview for at-a-glance context.
+            if size > 0:
+                preview = raw[:200]
+                try:
+                    preview_str = preview.decode("utf-8", errors="replace")
+                except Exception:
+                    preview_str = repr(preview)
+                lines.append(f"IDEA XML eerste 200 bytes: {preview_str!r}")
+
+    lines.append(f"Originele IDEA fout: {type(error).__name__}: {error!s}")
+    return "\n".join(lines)
+
+
+def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912, PLR0915
     """
     Run IDEA analysis and extract results.
 
@@ -96,7 +230,32 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     # Run IDEA analysis
     progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
     analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
-    analysis.execute(600)
+    try:
+        analysis.execute(600)
+    except UserError:
+        # Already has a helpful message — re-raise unchanged
+        raise
+    except Exception as e:
+        diagnostics = _build_idea_execution_diagnostics(params, scia_results_dict, idea_xml_input_bytes, e)
+        logger.exception("IDEA RCS analyse gefaald tijdens execute()\n%s", diagnostics)
+        error_msg = str(e).lower()
+        if "cannot be generated" in error_msg:
+            raise UserError(
+                "IDEA RCS analyse kan het model niet verwerken.\n\n"
+                "Mogelijke oorzaken:\n"
+                "- SCIA krachten zijn niet geldig (NaN, oneindig of nul)\n"
+                "- Brug geometrie heeft ongeldige afmetingen (segment dikte/breedte 0)\n"
+                "- Wapeningszones komen niet overeen met de brugsegmenten\n"
+                "- Statisch systeem en opleggingen zijn inconsistent\n\n"
+                "Probeer:\n"
+                "1. Wis de cache en voer een nieuwe SCIA + IDEA berekening uit\n"
+                "2. Controleer of de SCIA analyse succesvol is verlopen\n"
+                "3. Download de IDEA XML en open deze in IDEA StatiCa voor details\n\n"
+                f"{diagnostics}"
+            ) from e
+        raise UserError(
+            f"IDEA RCS analyse uitvoering gefaald: {e!s}\n\n{diagnostics}"
+        ) from e
 
     # Get the IDEA RCS model and output XML
     progress_message(f"{prefix}Verwerken IDEA analyse resultaten...", percentage=percentage)
@@ -257,7 +416,11 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     }
 
 
-def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_model_only(
+    params: Any,  # noqa: ANN401
+    entity_id: int,
+    analysis_context: dict[str, Any] | None = None,  # noqa: ARG001
+) -> dict[str, Any]:
     """Create IDEA model only (without running analysis)."""
     progress_message("Genereren IDEA model...")
     model = create_bridge_idea_model(params, entity_id)
