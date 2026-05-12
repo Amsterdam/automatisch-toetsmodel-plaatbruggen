@@ -12,11 +12,26 @@ Future enhancements needed:
 - Integration with bridge geometry for automatic cross-section selection
 """
 
+import logging
+import math
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 from viktor.external import idea_rcs
+
+_log = logging.getLogger(__name__)
+
+
+def _safe(value: Any, default: float = 0.0) -> float:  # noqa: ANN401
+    """Convert to float, replacing NaN/inf with default."""
+    try:
+        v = float(value)
+        if math.isfinite(v):
+            return v
+    except (TypeError, ValueError):
+        pass
+    return default
 
 from src.common.constants.technical import MM_TO_M
 from src.data_models.idea_models import ReinforcementConfigData
@@ -414,8 +429,20 @@ def _create_slabs_with_reinforcement(
     # Create a empty dict to store already created slabs to avoid duplicates
     created_slabs = {}
 
+    _log.info("[IDEA-DIAG] _create_slabs: %d unique (thickness, config, zones) combos", len(unique_matching_zone_keys))
+    for slab_thickness, config, zones in unique_matching_zone_keys:
+        _log.info("[IDEA-DIAG] combo thickness=%.4f config=%s zones=%s", slab_thickness, config, zones)
+
     # Loop through unique thickness and reinforcement configurations
     for slab_thickness, config, zones in unique_matching_zone_keys:
+        # Guard: skip slabs with invalid (zero/negative/NaN) thickness — IDEA rejects these
+        if not slab_thickness or not math.isfinite(float(slab_thickness)) or float(slab_thickness) <= 0:
+            _log.warning(
+                "[IDEA-DIAG] Skipping slab with invalid thickness=%r for config=%s zones=%s",
+                slab_thickness, config, zones,
+            )
+            continue
+
         # store unique slab key to avoid creating duplicate slabs
         slab_key = f"CS_d{slab_thickness}_{config}"
         if slab_key in created_slabs:
@@ -562,15 +589,14 @@ def _apply_integration_strip_loads_to_slabs(  # noqa: C901
             uls_row = df_uls.iloc[0]
             sls_row = df_sls.iloc[0]
 
-            # Extract forces (already mapped to IDEA format)
-            # Convert numpy types to native Python floats for JSON serialization
-            qz_uls = float(uls_row.get("Qz", 0))
-            my_uls = float(uls_row.get("My", 0))
-            n_uls = float(uls_row.get("N", 0))
+            # Extract forces — use _safe() to replace NaN/inf with 0 (IDEA rejects non-finite values)
+            qz_uls = _safe(uls_row.get("Qz"))
+            my_uls = _safe(uls_row.get("My"))
+            n_uls = _safe(uls_row.get("N"))
 
-            qz_sls = float(sls_row.get("Qz", 0))
-            my_sls = float(sls_row.get("My", 0))
-            n_sls = float(sls_row.get("N", 0))
+            qz_sls = _safe(sls_row.get("Qz"))
+            my_sls = _safe(sls_row.get("My"))
+            n_sls = _safe(sls_row.get("N"))
 
             # Build description
             strip_name = uls_row.get("name", "Unknown")
@@ -609,6 +635,7 @@ def _apply_integration_strip_loads_to_slabs(  # noqa: C901
             )
             loads_applied += 1
 
+    _log.info("[IDEA-DIAG] _apply_integration_strip_loads: %d extremes created", loads_applied)
     return loads_applied
 
 
@@ -689,13 +716,13 @@ def _apply_sections_on_plane_loads_to_slabs(
             uls_row = df_uls.iloc[0]
             sls_row = df_sls.iloc[0]
 
-            qz_uls = float(uls_row.get("Qz", 0.0))
-            my_uls = float(uls_row.get("My", 0.0))
-            n_uls = float(uls_row.get("N", 0.0))
+            qz_uls = _safe(uls_row.get("Qz"))
+            my_uls = _safe(uls_row.get("My"))
+            n_uls = _safe(uls_row.get("N"))
 
-            qz_sls = float(sls_row.get("Qz", 0.0))
-            my_sls = float(sls_row.get("My", 0.0))
-            n_sls = float(sls_row.get("N", 0.0))
+            qz_sls = _safe(sls_row.get("Qz"))
+            my_sls = _safe(sls_row.get("My"))
+            n_sls = _safe(sls_row.get("N"))
 
             load_case_uls = uls_row.get("load_case", "Unknown")
             load_case_sls = sls_row.get("load_case", "Unknown")
@@ -808,6 +835,17 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
             df_strips_all = process_integration_strips_for_idea(results_data)
             if not df_strips_all.empty:
                 use_integration_strips = True
+                # Diagnostics: log column presence and NaN counts for key force columns
+                for col in ("N", "Qz", "My", "V_z", "M_x", "M_y"):
+                    if col in df_strips_all.columns:
+                        nan_count = int(df_strips_all[col].isna().sum())
+                        col_min = df_strips_all[col].min()
+                        col_max = df_strips_all[col].max()
+                        _log.info("[IDEA-DIAG] strips col=%s NaN=%d min=%.4f max=%.4f", col, nan_count, col_min, col_max)
+                    else:
+                        _log.warning("[IDEA-DIAG] strips MISSING column=%s", col)
+                _log.info("[IDEA-DIAG] strips zones=%s", sorted(df_strips_all["zone"].unique().tolist()) if "zone" in df_strips_all.columns else "?")
+                _log.info("[IDEA-DIAG] strips directions=%s", sorted(df_strips_all["direction"].unique().tolist()) if "direction" in df_strips_all.columns else "?")
         except (ValueError, KeyError) as e:
             import warnings
 
