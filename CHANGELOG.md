@@ -1,3 +1,7 @@
+## [`v0.0.33`] - 2026-xx-xx
+### Added
+- **Rebar configuration**: Added rebar with diameter of 28 millimeter.
+
 ## [`v0.0.32`] - 2026-04-20
 
 ### Added
