@@ -1,6 +1,30 @@
-## [`v0.0.33`] - 2026-xx-xx
+## [`v0.0.33`] - 2026-06-04
 ### Added
 - **Rebar configuration**: Added rebar with diameter of 28 millimeter.
+
+### Changed
+- **IDEA run time verhoogd naar 5 minuten**: De maximale uitvoeringstijd voor de IDEA RCS analyse is verhoogd van de vorige limiet naar 5 minuten om time-outs in de live omgeving te voorkomen.
+
+### Fixed
+- **NaN/inf/zero-thickness guards in IDEA model builder**: Bescherming toegevoegd tegen ongeldige geometriewaarden (NaN, inf, nuldikte) in `idea_interface.py` die de IDEA analyse lieten crashen bij bepaalde brugconfiguraties. Uitgebreide diagnostische logging toegevoegd om de oorzaak in de live omgeving te kunnen traceren.
+
+- **Uitgebreide cache diagnostiek voor IDEA/SCIA**: Gedetailleerde diagnostische berichten toegevoegd aan `analysis_cache.py` zodat cache-hits, cache-misses en pickle-fouten zichtbaar zijn in de live omgeving — waardoor de oorzaak van herhaalde SCIA-berekeningen eenvoudiger te achterhalen is.
+
+- **IDEA RCS analyse mislukt in live omgeving**: De IDEA analyse werkte lokaal maar niet in de live omgeving door een combinatie van drie oorzaken:
+
+  1. **SCIA cache-sleutel mismatch**: `get_scia_results_for_idea` bepaalde de template-path uit `result_object_type`, maar als die waarde in de live omgeving anders resolveerde dan bij de SCIA-berekening, ontstond een cache-miss en werd SCIA opnieuw gedraaid — wat mislukt in de IDEA-context. Opgelost door **alle mogelijke template-paths** te proberen (secties op vlak, integratiestroken, `None`) en de eerste cache-hit te nemen die envelop-data bevat.
+
+  2. **IDEA resultaten nooit gecached** (`model` niet pickle-baar): Het resultaten-dict bevatte het Viktor SDK `model`-object en `BytesIO`/`File`-objecten die niet pickle-baar zijn, waardoor `cache_analysis_results` elke keer stil faalde. Opgelost door:
+     - `model.generate_xml_input()` direct naar ruwe `bytes` te extracten via `_extract_file_content()`
+     - `BytesIO(idea_xml_input_bytes)` aan `IdeaRcsAnalysis` door te geven
+     - `model` en `idea_xml_output_bytes` verwijderd uit het gecachte dict
+     - `idea_rcs_model` naar `bytes` genormaliseerd voor opslag
+
+  3. **Secties-op-vlak kolommen missen Engelse variant**: `SECTION_COLUMN_MAPPING` in `scia_sections_on_plane_processor.py` kende alleen de Nederlandse kolomnamen (`Naam`, `Belasting`), niet de Engelse (`Name`, `Case`). Zelfde probleem als de integratiestroken-fix uit v0.0.26. Opgelost door Engelse varianten toe te voegen aan de mapping.
+
+  4. **`extract_nested_table_data` ontgrendelt geen Engelstalige sectie-wrappers**: De functie kende alleen de vaste integratiestroken-sleutels. Toegevoegd: een nieuwe Strategy 4 die een single-key wrapper (elke taal) automatisch uitpakt wanneer de waarde lijstenkolommen bevat — zodat `{"Basic values - Results on sections:": col_data}` correct wordt uitgelezen.
+
+- **IDEA download-functie gebruikte verouderde dict-sleutels**: `download_idea_analysis_results` verwachtte `model` en `idea_xml_output_bytes` die niet meer gecached worden. Bijgewerkt naar de nieuwe sleutels (`idea_rcs_model` bytes, `output_content`).
 
 ## [`v0.0.32`] - 2026-04-20
 

@@ -100,7 +100,7 @@ class IdeaIntegration:
 
         return TableResult(result["data"], column_headers=result["headers"])
 
-    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
+    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: C901
         """
         Download IDEA StatiCa RCS XML input file for cross-section analysis.
 
@@ -142,20 +142,23 @@ class IdeaIntegration:
                 _raise_incomplete_model_error()
 
             assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
-            xml_content = (
-                idea_xml_input_bytes.getvalue()
-                if hasattr(idea_xml_input_bytes, "getvalue")
-                else idea_xml_input_bytes.read()
-                if hasattr(idea_xml_input_bytes, "read")
-                else b""
-            )
+            # idea_xml_input_bytes is stored as raw bytes; handle legacy file-like objects too
+            if isinstance(idea_xml_input_bytes, bytes):
+                xml_content = idea_xml_input_bytes
+            elif hasattr(idea_xml_input_bytes, "getvalue"):
+                xml_content = idea_xml_input_bytes.getvalue()
+            elif hasattr(idea_xml_input_bytes, "read"):
+                xml_content = idea_xml_input_bytes.read()
+            else:
+                xml_content = b""
 
             if not xml_content:
                 self._raise_empty_idea_xml_error()  # type: ignore[attr-defined]
 
             analysis_datetime = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            from io import BytesIO as _BytesIO
 
-            return DownloadResult(idea_xml_input_bytes, f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
+            return DownloadResult(_BytesIO(xml_content), f"IDEA_rcs_model_input{params.info.bridge_objectnumm}_{analysis_datetime}.xml")
 
         except Exception as e:
             raise UserError(f"IDEA RCS model input XML generatie gefaald: {e!s}")
@@ -188,18 +191,19 @@ class IdeaIntegration:
             raise UserError("IDEA analysis failed or no cached results available")
 
         assert cached_results is not None  # type: ignore[unreachable]
-        model = cached_results.get("model")
         idea_xml_input_bytes = cached_results.get("idea_xml_input_bytes")
         idea_rcs_model = cached_results.get("idea_rcs_model")
-        idea_xml_output_bytes = cached_results.get("idea_xml_output_bytes")
         output_content = cached_results.get("output_content")
 
-        if model is None or idea_xml_input_bytes is None or idea_rcs_model is None or idea_xml_output_bytes is None or output_content is None:
+        if idea_xml_input_bytes is None or idea_rcs_model is None or output_content is None:
             raise UserError("Cached IDEA results are incomplete")
 
         assert idea_xml_input_bytes is not None  # type: ignore[unreachable]
+        # All three are stored as raw bytes
         idea_input_xml_content = (
-            idea_xml_input_bytes.getvalue()
+            idea_xml_input_bytes
+            if isinstance(idea_xml_input_bytes, bytes)
+            else idea_xml_input_bytes.getvalue()
             if hasattr(idea_xml_input_bytes, "getvalue")
             else idea_xml_input_bytes.read()
             if hasattr(idea_xml_input_bytes, "read")
@@ -211,26 +215,32 @@ class IdeaIntegration:
 
         analysis_datetime = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
+        # Normalise rcs_model to bytes
+        rcs_model_content = (
+            idea_rcs_model
+            if isinstance(idea_rcs_model, bytes)
+            else idea_rcs_model.getvalue()
+            if hasattr(idea_rcs_model, "getvalue")
+            else idea_rcs_model.read()
+            if hasattr(idea_rcs_model, "read")
+            else b""
+        )
+
+        # output_content is always bytes (extracted during analysis)
+        output_xml_content = output_content if isinstance(output_content, bytes) else b""
+
         zip_file_obj = File()
         with zipfile.ZipFile(zip_file_obj.source, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr(f"IDEA_rcs_model_input_{params.info.bridge_objectnumm}_{analysis_datetime}.xml", idea_input_xml_content)
 
             z.writestr(
                 f"IDEA_rcs_model_{params.info.bridge_objectnumm}_{analysis_datetime}.ideaRcs",
-                idea_rcs_model.getvalue()
-                if hasattr(idea_rcs_model, "getvalue")
-                else idea_rcs_model.read()
-                if hasattr(idea_rcs_model, "read")
-                else b"",
+                rcs_model_content,
             )
 
             z.writestr(
                 f"IDEA_rcs_model_output_{params.info.bridge_objectnumm}_{analysis_datetime}.xml",
-                idea_xml_output_bytes.getvalue()
-                if hasattr(idea_xml_output_bytes, "getvalue")
-                else idea_xml_output_bytes.read()
-                if hasattr(idea_xml_output_bytes, "read")
-                else b"",
+                output_xml_content,
             )
 
         return DownloadResult(zip_file_obj, f"IDEA_rcs_analysis_complete_{params.info.bridge_objectnumm}_{analysis_datetime}.zip")
