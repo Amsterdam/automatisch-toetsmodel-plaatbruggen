@@ -125,3 +125,18 @@ RESULT_OBJECT_SECTIONS_ON_PLANE: str = "Secties op vlak"
 # ENABLE_SECTIONS_ON_PLANE is False so the safe default is integration strips.
 ENABLE_INTEGRATION_STRIPS: bool = False
 ENABLE_SECTIONS_ON_PLANE: bool = True
+
+# ---------------------------------------------------------------------------
+# ESA model caching settings
+# ---------------------------------------------------------------------------
+# Downloading the updated ESA model from the SCIA worker transfers the full
+# binary .esa file into Python heap in one blocking call.  There is no way to
+# check the file size before the transfer completes, so a size guard cannot
+# prevent an out-of-memory crash for large models.
+#
+# Set ENABLE_ESA_MODEL_CACHING to True only in environments where the .esa
+# file is known to be small enough to fit comfortably in available RAM.
+# The "Download ESA Model" button falls back to a direct re-run when the ESA
+# file is absent from cache, so disabling caching here has no impact on
+# download functionality.
+ENABLE_ESA_MODEL_CACHING: bool = False

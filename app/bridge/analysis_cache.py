@@ -649,8 +649,11 @@ class AnalysisCache:
             )
 
             # Pickle the filtered results and encode as base64 to avoid binary data issues
+            progress_message("Cache: resultaten serialiseren (pickle)...")
             try:
                 cached_data = pickle.dumps(cacheable_results)
+                pickle_size_mb = len(cached_data) / (1024 * 1024)
+                progress_message(f"Cache: pickle grootte {pickle_size_mb:.1f} MB — base64 coderen...")
             except Exception as pickle_err:
                 _save_log.error(
                     "[CACHE-DIAG] entity=%s type=%s PICKLE FAILED: %s — keys that failed: %s",
@@ -662,7 +665,9 @@ class AnalysisCache:
                 return False
 
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
+            del cached_data  # pickle bytes niet meer nodig na base64 codering
             size_mb = len(encoded_data) / (1024 * 1024)
+            progress_message(f"Cache: base64 grootte {size_mb:.1f} MB — opslaan...")
 
             # Size check: Skip caching if data is too large (> 250 MB)
             max_cache_size_mb = 250
@@ -683,6 +688,7 @@ class AnalysisCache:
             logging.info(f"Caching {analysis_type.value.upper()} results for entity {entity_id}: {size_mb:.2f} MB")
 
             cached_file = File.from_data(encoded_data)
+            del encoded_data  # string niet meer nodig na File.from_data()
 
             # CRITICAL: Delete old cache files for this entity + analysis type BEFORE saving new one.
             # In practice the entire Storage() API (list/get/set/delete) starts throwing InternalError once
@@ -974,18 +980,51 @@ def extract_cacheable_scia_results(full_results: dict[str, Any]) -> dict[str, An
     if "xml_output" in full_results:
         cacheable["xml_output"] = full_results["xml_output"]
 
+    # Report component sizes for monitoring via logging
+    import logging
+
+    xml_size_mb = len(cacheable.get("xml_output") or b"") / (1024 * 1024)
+    strips_data = cacheable.get("integration_strips") or cacheable.get("sections_on_plane")
+    df_size_mb = 0.0
+    if isinstance(strips_data, dict):
+        try:
+            import pandas as pd
+
+            for v in strips_data.values():
+                if isinstance(v, pd.DataFrame):
+                    df_size_mb += v.memory_usage(deep=True).sum() / (1024 * 1024)
+        except Exception:
+            pass
+    logging.info(f"Cache samenstelling: XML output {xml_size_mb:.1f} MB, DataFrames ~{df_size_mb:.1f} MB")
+
     # Smart ESA model caching:
     # First, check cache size without ESA. If adding ESA would exceed 250MB, exclude it.
+    # Size estimation uses component sizes instead of a full pickle.dumps() to avoid
+    # creating a redundant in-memory copy of all DataFrames just for measuring.
     if "esa_model" in full_results:
         esa_model = full_results["esa_model"]
         esa_size_bytes = len(esa_model) if esa_model else 0
         esa_size_mb = esa_size_bytes / (1024 * 1024)
 
-        # Calculate current cache size without ESA
-        import pickle
+        # Estimate non-ESA cache size from known binary fields + DataFrame memory usage.
+        # This avoids the expensive pickle.dumps(cacheable) dry run.
+        estimated_bytes = 0
+        xml_output = cacheable.get("xml_output")
+        if xml_output:
+            estimated_bytes += len(xml_output)
+        try:
+            import pandas as pd
 
-        test_data = pickle.dumps(cacheable)
-        current_size_mb = len(test_data) / (1024 * 1024)
+            for key in ("integration_strips", "sections_on_plane"):
+                data = cacheable.get(key)
+                if isinstance(data, dict):
+                    for v in data.values():
+                        if isinstance(v, pd.DataFrame):
+                            estimated_bytes += int(v.memory_usage(deep=True).sum())
+        except Exception:
+            pass
+        # Add a 50% overhead for pickle framing + other small fields
+        current_size_mb = (estimated_bytes * 1.5) / (1024 * 1024)
         projected_size_mb = current_size_mb + esa_size_mb
 
         if "summary" not in cacheable:

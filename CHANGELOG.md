@@ -1,4 +1,4 @@
-## [`v0.0.28`] - 2026-06-04
+## [`v0.0.33`] - 2026-06-04
 
 ### Changed
 - **IDEA run time verhoogd naar 5 minuten**: De maximale uitvoeringstijd voor de IDEA RCS analyse is verhoogd van de vorige limiet naar 5 minuten om time-outs in de live omgeving te voorkomen.
@@ -23,6 +23,56 @@
   4. **`extract_nested_table_data` ontgrendelt geen Engelstalige sectie-wrappers**: De functie kende alleen de vaste integratiestroken-sleutels. Toegevoegd: een nieuwe Strategy 4 die een single-key wrapper (elke taal) automatisch uitpakt wanneer de waarde lijstenkolommen bevat — zodat `{"Basic values - Results on sections:": col_data}` correct wordt uitgelezen.
 
 - **IDEA download-functie gebruikte verouderde dict-sleutels**: `download_idea_analysis_results` verwachtte `model` en `idea_xml_output_bytes` die niet meer gecached worden. Bijgewerkt naar de nieuwe sleutels (`idea_rcs_model` bytes, `output_content`).
+
+## [`v0.0.32`] - 2026-04-20
+
+### Added
+- **Toggle voor ESA model caching** in Berekening → Berekening selectie: nieuw veld "ESA model cachen na berekening" (`BooleanField`, standaard uitgeschakeld). Hiermee kan het ESA-model per brug worden gecacht zonder een code-wijziging. Het veld toont een duidelijke waarschuwing dat het inschakelen bij grote modellen de worker kan laten crashen door RAM-overloop.
+  - De UI-toggle heeft prioriteit boven de constante `ENABLE_ESA_MODEL_CACHING` in `app/constants/technical.py` (fallback bij ontbrekend veld voor backward compatibility).
+  - Beide Stage 2-paden (integratiestroken en secties op vlak) lezen de toggle uit `params.calc_page.calc_selection.enable_esa_caching`.
+
+## [`v0.0.31`] - 2026-04-20
+
+### Fixed
+- **App hing op "Stage 2: ESA model ophalen uit SCIA worker..."**: `get_updated_esa_model()` laadt het volledige binaire `.esa`-bestand in één keer in het Python heap. Er bestaat geen manier om de bestandsgrootte te controleren *vóórdat* de overdracht voltooid is — een grootte-controle achteraf is zinloos omdat de worker al gecrasht is op het moment dat de RAM-limiet wordt overschreden.
+
+  **Oplossing**: `ENABLE_ESA_MODEL_CACHING` staat nu standaard op `False`. De ESA-download wordt volledig overgeslagen tijdens de Stage 2-berekening. De knop "Download ESA Model" blijft werken via de bestaande fallback die de analyse direct opnieuw uitvoert wanneer het ESA-bestand niet in de cache aanwezig is. `ENABLE_ESA_MODEL_CACHING` kan op `True` worden gezet in omgevingen waar het `.esa`-bestand aantoonbaar klein genoeg is.
+
+## [`v0.0.30`] - 2026-04-17
+
+### Changed
+- **RAM-optimalisaties Stage 2 voor grote modellen**: piekgeheugengebruik sterk verminderd in de SCIA twee-staps berekening
+  - **Integratiestroken**: `builder_stage1` (SCIA model met alle strips) vrijgegeven direct na identificatie van governing strips; `results_stage1` en `envelope_df` vrijgegeven voor aanvang Stage 2 — beide SCIA modellen leven niet langer gelijktijdig in RAM
+  - **Secties op vlak**: Stage 1 gebruikt nu de nieuwe lichtgewicht methode `extract_governing_sections_on_plane_results` die uitsluitend de 16 secties-op-vlak-tabellen ophaalt, zonder internal forces, units mapping of volledige tabel-discovery; `builder_stage1` en `results_stage1` worden eveneens direct vrijgegeven
+  - **Beide methoden**: `builder_stage2` wordt vrijgegeven direct na extractie van de Stage 2 resultaten
+  - `stage1_results` niet langer opgeslagen in het teruggegeven resultatendict — elimineert een volledige kopie van Stage 1 data in de cache
+  - ESA-grootte-schatting in `extract_cacheable_scia_results` gebruikt nu componentgrootten (`len(xml_output)` + DataFrame `memory_usage`) in plaats van een redundante `pickle.dumps(cacheable)` dry-run — bespaart tot één keer de totale DataFrame-geheugenvoetafdruk
+  - `cached_data` (pickle bytes) en `encoded_data` (base64 string) vrijgegeven direct na gebruik in `cache_analysis_results` — voorkomt gelijktijdig bestaan van pickle + base64 + `File` object
+  - ESA model bytes opgehaald via lokale variabele (`esa_model_bytes`) en direct vrijgegeven na toewijzing aan resultatendict
+
+- **Bestandsgrootte progress messages**: inzicht in RAM-gebruik tijdens live analyses
+  - Stage 2 XML output grootte gerapporteerd direct na extractie (`"XML output voor cache: X MB"`)
+  - Stage 2 ESA model grootte gerapporteerd direct na extractie
+  - Cache serialisatie stappen gerapporteerd: pickle grootte, base64 grootte en opslaan afzonderlijk zichtbaar in progress messages
+  - Cache samenstelling (XML output + DataFrame grootten) gelogd via `logging.info` in `extract_cacheable_scia_results`
+
+## [`v0.0.29`] - 2026-04-13
+
+### Changed
+- **RAM-optimalisaties in SCIA XML-extractie voor grote modellen**: vermindert piekgeheugengebruik significant in de live omgeving
+  - `extract_governing_strip_results`: bytes éénmalig ingelezen, één `BytesIO`-stream hergebruikt met `seek(0)` per tabel i.p.v. 8 afzonderlijke kopieën
+  - `extract_analysis_results`: size-check en bytes-lees gecombineerd, herbruikbare `BytesIO`-stream voor alle parse-stappen
+  - `parse_xml_results`: `xml_content`-bytes vrijgegeven direct na `ET.fromstring()`, `ET`-tree vrijgegeven na tabel-discovery, één stream hergebruikt per tabel
+  - XML-grootte direct na ontvangst gerapporteerd in progress message (`"XML ontvangen: X MB"`)
+  - `_create_fresh_xml_content` retourneert nu altijd `BytesIO` (ook in het `else`-geval); lost MyPy-fout op én voorkomt `AttributeError` op `.seek()` bij `bytes`-input
+
+## [`v0.0.28`] - 2026-04-13
+
+### Changed
+- **Lichtgewicht Stage 1 extractie voor grote modellen**: `extract_governing_strip_results` toegevoegd als gespecialiseerde methode voor Stage 1 governing-analyse
+  - Haalt uitsluitend de 8 integratiestroken-tabellen op die nodig zijn voor governing strip identificatie
+  - Slaat volledige XML-tabel-discovery, internal forces en resultaatklassen parsing over
+  - Stage 1 toont nu het aantal integratiestroken vóór de SCIA-run
 
 ## [`v0.0.27`] - 2026-04-13
 
