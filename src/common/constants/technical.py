@@ -21,7 +21,7 @@ INTEGRATION_STRIP_WIDTH = 1.0  # Width of integration strips in meters
 EDGE_OFFSET = 0.5  # Offset from the edge of the road for strip placement in meters
 
 # Standard reinforcement bar diameters in millimeters
-STANDARD_REBAR_DIAMETERS = {6, 8, 10, 12, 14, 16, 20, 25, 32, 40}
+STANDARD_REBAR_DIAMETERS = {6, 8, 10, 12, 14, 16, 20, 25, 28, 32, 40}
 
 # Temperature load calculation parameters (NEN-EN 1991-1-5)
 TEMP_UNIT_WIDTH = 1.0  # Unit width for analysis (1 m)

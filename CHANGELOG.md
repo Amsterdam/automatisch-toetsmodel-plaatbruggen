@@ -1,4 +1,6 @@
 ## [`v0.0.33`] - 2026-06-04
+### Added
+- **Rebar configuration**: Added rebar with diameter of 28 millimeter.
 
 ### Changed
 - **IDEA run time verhoogd naar 5 minuten**: De maximale uitvoeringstijd voor de IDEA RCS analyse is verhoogd van de vorige limiet naar 5 minuten om time-outs in de live omgeving te voorkomen.
