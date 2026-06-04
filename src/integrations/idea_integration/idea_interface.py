@@ -54,6 +54,7 @@ def _safe(value: Any, default: float = 0.0) -> float:  # noqa: ANN401
         pass
     return default
 
+
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution
 # This is acceptable as analysis execution is separate from model building
