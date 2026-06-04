@@ -1,6 +1,13 @@
-## [`v0.0.28`] - 2026-05-11
+## [`v0.0.28`] - 2026-06-04
+
+### Changed
+- **IDEA run time verhoogd naar 5 minuten**: De maximale uitvoeringstijd voor de IDEA RCS analyse is verhoogd van de vorige limiet naar 5 minuten om time-outs in de live omgeving te voorkomen.
 
 ### Fixed
+- **NaN/inf/zero-thickness guards in IDEA model builder**: Bescherming toegevoegd tegen ongeldige geometriewaarden (NaN, inf, nuldikte) in `idea_interface.py` die de IDEA analyse lieten crashen bij bepaalde brugconfiguraties. Uitgebreide diagnostische logging toegevoegd om de oorzaak in de live omgeving te kunnen traceren.
+
+- **Uitgebreide cache diagnostiek voor IDEA/SCIA**: Gedetailleerde diagnostische berichten toegevoegd aan `analysis_cache.py` zodat cache-hits, cache-misses en pickle-fouten zichtbaar zijn in de live omgeving — waardoor de oorzaak van herhaalde SCIA-berekeningen eenvoudiger te achterhalen is.
+
 - **IDEA RCS analyse mislukt in live omgeving**: De IDEA analyse werkte lokaal maar niet in de live omgeving door een combinatie van drie oorzaken:
 
   1. **SCIA cache-sleutel mismatch**: `get_scia_results_for_idea` bepaalde de template-path uit `result_object_type`, maar als die waarde in de live omgeving anders resolveerde dan bij de SCIA-berekening, ontstond een cache-miss en werd SCIA opnieuw gedraaid — wat mislukt in de IDEA-context. Opgelost door **alle mogelijke template-paths** te proberen (secties op vlak, integratiestroken, `None`) en de eerste cache-hit te nemen die envelop-data bevat.
