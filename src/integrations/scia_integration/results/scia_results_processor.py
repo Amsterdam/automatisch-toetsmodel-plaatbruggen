@@ -20,7 +20,7 @@ INTEGRATION_STRIP_DATA_KEY = "Resultaten over integratiestroken:"
 INTEGRATION_STRIP_DATA_KEY_EN = "Results on integration strips:"
 
 
-def extract_nested_table_data(  # noqa: PLR0911
+def extract_nested_table_data(  # noqa: C901, PLR0911
     table_data: dict[str, Any] | None,
     expected_columns: list[str] | None = None,
 ) -> dict[str, Any] | None:
@@ -72,15 +72,27 @@ def extract_nested_table_data(  # noqa: PLR0911
         logger.debug("Using nested_data directly (contains expected columns)")
         return nested_data
 
-    # Strategy 4: Return nested_data if it has any content (fallback)
+    # Strategy 4: Single-key wrapper — handles any language variant of SCIA section/strip keys
+    # e.g. {"Basic values - Results on sections:": col_data} from English SCIA output
+    # or   {"Basis grootheden - Resultaten op snedes:": col_data} from Dutch SCIA output
+    if len(nested_data) == 1:
+        single_key, single_value = next(iter(nested_data.items()))
+        if isinstance(single_value, dict) and single_value:
+            # Check if it looks like column data (values are lists) or contains expected columns
+            value_looks_like_columns = any(isinstance(v, list) for v in single_value.values())
+            columns_present = expected_columns and any(col in single_value for col in expected_columns)
+            if value_looks_like_columns or columns_present:
+                logger.debug("Extracted data unwrapping single-key wrapper '%s'", single_key)
+                return single_value
+
+    # Strategy 5: Return nested_data if it has any content (catch-all fallback)
     if nested_data:
         logger.debug("Using nested_data as fallback")
         return nested_data
 
     logger.warning(
-        "No extractable data found. Expected key '%s', '%s' or 'p0' but found keys: %s. Top-level table_data keys: %s",
-        INTEGRATION_STRIP_DATA_KEY,
-        INTEGRATION_STRIP_DATA_KEY_EN,
+        "No extractable data found. Tried integration strip keys, 'p0', direct columns, and single-key unwrap. "
+        "Found nested_data keys: %s. Top-level table_data keys: %s",
         list(nested_data.keys()),
         list(table_data.keys()),
     )
