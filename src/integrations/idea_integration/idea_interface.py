@@ -904,7 +904,7 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
     return model
 
 
-def run_idea_analysis(model: "Model", timeout: int = 300) -> "File":
+def run_idea_analysis(model: "Model", timeout: int = 900) -> "File":
     """
     Run IDEA StatiCa analysis on the provided model.
 
