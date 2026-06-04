@@ -89,7 +89,11 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     )
     logger.info(
         "[IDEA-DIAG] entity=%s strips=%s(%d rows) sections=%s(%d rows)",
-        entity_id, has_strips, strips_envelope_len, has_sections, sections_envelope_len,
+        entity_id,
+        has_strips,
+        strips_envelope_len,
+        has_sections,
+        sections_envelope_len,
     )
 
     # Create IDEA model with the SCIA results
@@ -287,7 +291,9 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
         except AttributeError:
             result_type = RESULT_OBJECT_SECTIONS_ON_PLANE if ENABLE_SECTIONS_ON_PLANE else None
 
-        preferred_path = str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH) if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else str(SCIA_TEMPLATE_PATH)
+        preferred_path = (
+            str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH) if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else str(SCIA_TEMPLATE_PATH)
+        )
         # Re-order so the preferred path is tried first
         all_template_paths = [preferred_path] + [p for p in all_template_paths if p != preferred_path]
 
@@ -297,6 +303,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
         )
 
         import logging as _logging
+
         _diag_log = _logging.getLogger(__name__)
         _diag_log.info("[SCIA-DIAG-IDEA] entity=%s result_type=%r preferred_path=%r", entity_id, result_type, preferred_path)
 
@@ -479,6 +486,7 @@ class AnalysisCache:
     ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
         import logging as _log_mod
+
         _cache_log = _log_mod.getLogger(__name__)
 
         cache_key = ""
@@ -523,7 +531,10 @@ class AnalysisCache:
 
                 _cache_log.info(
                     "[CACHE-DIAG] entity=%s type=%s storage HIT key=%s data_keys=%s",
-                    entity_id, analysis_type.value, cache_key, list(results.keys()) if isinstance(results, dict) else type(results).__name__,
+                    entity_id,
+                    analysis_type.value,
+                    cache_key,
+                    list(results.keys()) if isinstance(results, dict) else type(results).__name__,
                 )
 
                 # Store in request-level cache for subsequent views in same request
@@ -538,8 +549,7 @@ class AnalysisCache:
                         del AnalysisCache.request_cache[key_to_remove]
 
                 return results
-            else:
-                _cache_log.info("[CACHE-DIAG] entity=%s type=%s storage MISS key=%s", entity_id, analysis_type.value, cache_key)
+            _cache_log.info("[CACHE-DIAG] entity=%s type=%s storage MISS key=%s", entity_id, analysis_type.value, cache_key)
         except Exception as e:
             _cache_log.warning("[CACHE-DIAG] entity=%s type=%s key=%s error=%s: %s", entity_id, analysis_type.value, cache_key, type(e).__name__, e)
             if isinstance(e, InternalError):
@@ -616,6 +626,7 @@ class AnalysisCache:
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
         import logging as _log_mod
+
         _save_log = _log_mod.getLogger(__name__)
 
         try:
@@ -629,7 +640,9 @@ class AnalysisCache:
 
             _save_log.info(
                 "[CACHE-DIAG] saving entity=%s type=%s cacheable_keys=%s",
-                entity_id, analysis_type.value, list(cacheable_results.keys()) if isinstance(cacheable_results, dict) else "?",
+                entity_id,
+                analysis_type.value,
+                list(cacheable_results.keys()) if isinstance(cacheable_results, dict) else "?",
             )
 
             # Pickle the filtered results and encode as base64 to avoid binary data issues
@@ -638,7 +651,9 @@ class AnalysisCache:
             except Exception as pickle_err:
                 _save_log.error(
                     "[CACHE-DIAG] entity=%s type=%s PICKLE FAILED: %s — keys that failed: %s",
-                    entity_id, analysis_type.value, pickle_err,
+                    entity_id,
+                    analysis_type.value,
+                    pickle_err,
                     [k for k in (cacheable_results or {}) if not _is_picklable(cacheable_results[k])],
                 )
                 return False
@@ -706,7 +721,9 @@ class AnalysisCache:
                     # Fallback: use current entity scope if API unavailable
                     self.storage.set(cache_key, data=cached_file, scope="entity")
                 self._clear_storage_warning()
-                _save_log.info("[CACHE-DIAG] entity=%s type=%s STORAGE WRITE OK key=%s size=%.2fMB", entity_id, analysis_type.value, cache_key, size_mb)
+                _save_log.info(
+                    "[CACHE-DIAG] entity=%s type=%s STORAGE WRITE OK key=%s size=%.2fMB", entity_id, analysis_type.value, cache_key, size_mb
+                )
 
                 # Store in request-level cache as well
                 AnalysisCache.request_cache[cache_key] = cacheable_results
@@ -716,7 +733,14 @@ class AnalysisCache:
                 return True  # noqa: TRY300
 
             except Exception as storage_error:
-                _save_log.error("[CACHE-DIAG] entity=%s type=%s STORAGE WRITE FAILED key=%s error=%s: %s", entity_id, analysis_type.value, cache_key, type(storage_error).__name__, storage_error)
+                _save_log.error(
+                    "[CACHE-DIAG] entity=%s type=%s STORAGE WRITE FAILED key=%s error=%s: %s",
+                    entity_id,
+                    analysis_type.value,
+                    cache_key,
+                    type(storage_error).__name__,
+                    storage_error,
+                )
                 # Storage write failed - store in request-level cache anyway for this session
                 AnalysisCache.request_cache[cache_key] = cacheable_results
 

@@ -33,6 +33,7 @@ def _safe(value: Any, default: float = 0.0) -> float:  # noqa: ANN401
         pass
     return default
 
+
 from src.common.constants.technical import MM_TO_M
 from src.data_models.idea_models import ReinforcementConfigData
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
@@ -439,7 +440,9 @@ def _create_slabs_with_reinforcement(
         if not slab_thickness or not math.isfinite(float(slab_thickness)) or float(slab_thickness) <= 0:
             _log.warning(
                 "[IDEA-DIAG] Skipping slab with invalid thickness=%r for config=%s zones=%s",
-                slab_thickness, config, zones,
+                slab_thickness,
+                config,
+                zones,
             )
             continue
 
@@ -845,7 +848,10 @@ def create_bridge_idea_model(params: Any, entity_id: int, scia_results_dict: dic
                     else:
                         _log.warning("[IDEA-DIAG] strips MISSING column=%s", col)
                 _log.info("[IDEA-DIAG] strips zones=%s", sorted(df_strips_all["zone"].unique().tolist()) if "zone" in df_strips_all.columns else "?")
-                _log.info("[IDEA-DIAG] strips directions=%s", sorted(df_strips_all["direction"].unique().tolist()) if "direction" in df_strips_all.columns else "?")
+                _log.info(
+                    "[IDEA-DIAG] strips directions=%s",
+                    sorted(df_strips_all["direction"].unique().tolist()) if "direction" in df_strips_all.columns else "?",
+                )
         except (ValueError, KeyError) as e:
             import warnings
 
