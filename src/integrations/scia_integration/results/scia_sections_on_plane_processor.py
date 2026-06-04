@@ -78,12 +78,16 @@ SECTIONS_ON_PLANE_TABLES: dict[str, str] = {
 
 # Column mapping: SCIA XML attribute name → internal DataFrame column name
 SECTION_COLUMN_MAPPING: dict[str, str] = {
+    # Dutch column names (standard SCIA NL integration)
     "Naam": "name",
     "Net": "element",
     "x": "x",
     "y": "y",
     "z": "z",
     "Belasting": "load_case",
+    # English column names (alternative SCIA EN integration)
+    "Name": "name",
+    "Case": "load_case",
     "m_x": "m_x",
     "m_y": "m_y",
     "m_xy": "m_xy",

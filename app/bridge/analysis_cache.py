@@ -42,7 +42,17 @@ def _extract_file_content(file_obj: Any) -> bytes:  # noqa: ANN401
     return content.encode("utf-8") if isinstance(content, str) else content
 
 
-def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
+def _is_picklable(obj: Any) -> bool:  # noqa: ANN401
+    """Check whether an object can be pickled without error."""
+    try:
+        pickle.dumps(obj)
+    except Exception:
+        return False
+    else:
+        return True
+
+
+def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912, PLR0915
     """
     Run IDEA analysis and extract results.
 
@@ -51,6 +61,10 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     :param analysis_context: Optional context dict with bridge_position, total_bridges, bridge_name, batch_percentage
     :returns: Dictionary with analysis results
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     # Build progress message prefix from context
     if analysis_context:
         prefix = f"Bridge {analysis_context['bridge_position']}/{analysis_context['total_bridges']}: {analysis_context['bridge_name']}\n"
@@ -62,6 +76,26 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     # First get SCIA results needed for IDEA
     progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA analyse...", percentage=percentage)
     scia_results_dict = get_scia_results_for_idea(params, entity_id, analysis_context)
+
+    # Log what SCIA data is available
+    scia_inner = scia_results_dict.get("results", {})
+    has_strips = "integration_strips" in scia_inner
+    has_sections = "sections_on_plane" in scia_inner
+    strips_envelope_len = len(scia_inner.get("integration_strips", {}).get("envelope", []) if has_strips else [])
+    sections_envelope_len = len(scia_inner.get("sections_on_plane", {}).get("envelope", []) if has_sections else [])
+    progress_message(
+        f"{prefix}[DIAG] SCIA data: integratiestroken={has_strips} ({strips_envelope_len} rijen), "
+        f"secties-op-vlak={has_sections} ({sections_envelope_len} rijen)",
+        percentage=percentage,
+    )
+    logger.info(
+        "[IDEA-DIAG] entity=%s strips=%s(%d rows) sections=%s(%d rows)",
+        entity_id,
+        has_strips,
+        strips_envelope_len,
+        has_sections,
+        sections_envelope_len,
+    )
 
     # Create IDEA model with the SCIA results
     progress_message(f"{prefix}Genereren IDEA model...", percentage=percentage)
@@ -80,10 +114,18 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
 
     # Generate XML input - this may raise ExecutionError from IDEA SDK
     try:
-        idea_xml_input_bytes = model.generate_xml_input()
+        _xml_file = model.generate_xml_input()
+        # Extract raw bytes so the result dict is picklable (Viktor File objects are not)
+        idea_xml_input_bytes = _extract_file_content(_xml_file)
+        progress_message(
+            f"{prefix}[DIAG] XML gegenereerd: {len(idea_xml_input_bytes)} bytes, type={type(_xml_file).__name__}",
+            percentage=percentage,
+        )
+        logger.info("[IDEA-DIAG] entity=%s xml_bytes=%d xml_type=%s", entity_id, len(idea_xml_input_bytes), type(_xml_file).__name__)
     except Exception as e:
         # IDEA SDK may raise ExecutionError with "Idea model cannot be generated"
         error_msg = str(e)
+        logger.exception("[IDEA-DIAG] entity=%s generate_xml_input failed: %s", entity_id, error_msg)
         if "cannot be generated" in error_msg.lower() or "cannot be generated" in error_msg:
             raise UserError(
                 "IDEA model kan niet worden gegenereerd. "
@@ -93,10 +135,24 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
             ) from e
         raise UserError(f"IDEA model XML generatie gefaald: {e!s}") from e
 
-    # Run IDEA analysis
+    # Run IDEA analysis — pass back through BytesIO so the SDK gets a file-like object
     progress_message(f"{prefix}Uitvoeren IDEA RCS analyse...", percentage=percentage)
-    analysis = idea_rcs.IdeaRcsAnalysis(idea_xml_input_bytes, return_rcs_file=True)
-    analysis.execute(600)
+    analysis = idea_rcs.IdeaRcsAnalysis(BytesIO(idea_xml_input_bytes), return_rcs_file=True)
+    try:
+        analysis.execute(600)
+        progress_message(f"{prefix}[DIAG] IDEA analyse uitgevoerd", percentage=percentage)
+        logger.info("[IDEA-DIAG] entity=%s analysis.execute() succeeded", entity_id)
+    except Exception as e:
+        error_msg = str(e)
+        logger.exception("[IDEA-DIAG] entity=%s analysis.execute() failed: %s", entity_id, error_msg)
+        if "cannot be generated" in error_msg.lower():
+            raise UserError(
+                "IDEA model kan niet worden gegenereerd. "
+                "Mogelijke oorzaken: geen dwarsdoorsneden gemaakt, geen belastingen toegepast, of ongeldige geometrie. "
+                "Controleer of de wapeningszones overeenkomen met de brugsegmenten en of SCIA resultaten beschikbaar zijn. "
+                "Als de brugparameters zijn gewijzigd, wis de cache en voer een nieuwe berekening uit."
+            ) from e
+        raise UserError(f"IDEA RCS analyse uitvoering gefaald: {error_msg}") from e
 
     # Get the IDEA RCS model and output XML
     progress_message(f"{prefix}Verwerken IDEA analyse resultaten...", percentage=percentage)
@@ -163,14 +219,14 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
             }
             section_results.append(section_data)
 
+        # Extract bytes from any file-like objects so the dict is picklable
+        rcs_model_bytes = _extract_file_content(idea_rcs_model) if not isinstance(idea_rcs_model, bytes) else idea_rcs_model
         results.update(
             {
                 "section_results": section_results,
                 "analysis_status": "completed",
-                "model": model,
-                "idea_xml_input_bytes": idea_xml_input_bytes,
-                "idea_rcs_model": idea_rcs_model,
-                "idea_xml_output_bytes": idea_output_xml_bytes,
+                "idea_xml_input_bytes": idea_xml_input_bytes,  # already bytes
+                "idea_rcs_model": rcs_model_bytes,
                 "output_content": output_content,
             }
         )
@@ -179,17 +235,14 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
             {
                 "analysis_status": "failed",
                 "error": str(e),
-                "model": model,
-                "idea_xml_input_bytes": idea_xml_input_bytes,
-                "idea_rcs_model": idea_rcs_model,
-                "idea_xml_output_bytes": idea_output_xml_bytes,
+                "idea_xml_input_bytes": idea_xml_input_bytes,  # already bytes
                 "output_content": output_content,
             }
         )
     return results
 
 
-def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901
     """
     Get SCIA results that are needed for IDEA analysis.
 
@@ -220,21 +273,74 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
         raise UserError("Entity ID niet gevonden. Cache functionaliteit niet beschikbaar.")
 
     try:
-        # Derive the template path from result_object_type — must match what get_scia_analysis_results uses
-        # so the cache lookup hits the correct stored entry.
         from app.constants import SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH
         from app.constants.technical import ENABLE_SECTIONS_ON_PLANE, RESULT_OBJECT_SECTIONS_ON_PLANE
 
+        # Build both possible template paths — the SCIA cache key depends on which one was used
+        # when the SCIA analysis was originally run.  In the live environment the params attribute
+        # may resolve differently from local, causing a key mismatch.  We therefore try EVERY
+        # possible template path and take the first cache hit that contains envelope data.
+        all_template_paths: list[str | None] = [
+            str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH),
+            str(SCIA_TEMPLATE_PATH),
+            None,  # legacy: no template path in key
+        ]
+
+        # Prefer the path that matches the current parametrization (fewer cache checks)
         try:
             result_type = params.calc_page.calc_selection.result_object_type
         except AttributeError:
             result_type = RESULT_OBJECT_SECTIONS_ON_PLANE if ENABLE_SECTIONS_ON_PLANE else None
 
-        template_path = SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else SCIA_TEMPLATE_PATH
+        preferred_path = (
+            str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH) if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else str(SCIA_TEMPLATE_PATH)
+        )
+        # Re-order so the preferred path is tried first
+        other_paths: list[str | None] = [p for p in all_template_paths if p != preferred_path]
+        all_template_paths = [preferred_path, *other_paths]
 
-        # Use cached SCIA analysis results instead of calling directly
+        progress_message(
+            f"{prefix}[DIAG] SCIA cache zoeken: result_type={result_type!r}, preferred_path={preferred_path!r}",
+            percentage=percentage,
+        )
+
+        import logging as _logging
+
+        _diag_log = _logging.getLogger(__name__)
+        _diag_log.info("[SCIA-DIAG-IDEA] entity=%s result_type=%r preferred_path=%r", entity_id, result_type, preferred_path)
+
         progress_message(f"{prefix}Ophalen SCIA resultaten voor IDEA verwerking...", percentage=percentage)
-        results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, str(template_path), analysis_context)
+
+        cache = _get_analysis_cache()
+        results: dict[str, Any] | None = None
+        for tpath in all_template_paths:
+            candidate = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, tpath)
+            hit = candidate is not None
+            has_env = candidate is not None and ("integration_strips" in candidate or "sections_on_plane" in candidate)
+            progress_message(
+                f"{prefix}[DIAG] Cache check path={tpath!r}: hit={hit}, heeft_envelop={has_env}",
+                percentage=percentage,
+            )
+            _diag_log.info("[SCIA-DIAG-IDEA] entity=%s path=%r hit=%s has_envelope=%s", entity_id, tpath, hit, has_env)
+            if has_env:
+                assert candidate is not None
+                keys_found = [k for k in ("integration_strips", "sections_on_plane") if k in candidate]
+                progress_message(
+                    f"{prefix}[DIAG] Cache hit gevonden met sleutels: {keys_found}",
+                    percentage=percentage,
+                )
+                _diag_log.info("[SCIA-DIAG-IDEA] entity=%s cache hit keys=%s", entity_id, keys_found)
+                results = candidate
+                break
+
+        # If no cache hit at all, fall back to running the analysis (will use the preferred path)
+        if results is None:
+            progress_message(
+                f"{prefix}[DIAG] Geen cache hit met envelop-data — SCIA analyse opnieuw starten...",
+                percentage=percentage,
+            )
+            _diag_log.warning("[SCIA-DIAG-IDEA] entity=%s no cache hit with envelope data, re-running SCIA", entity_id)
+            results = get_cached_analysis_results(params, AnalysisType.SCIA, entity_id, get_scia_analysis_results, preferred_path, analysis_context)
 
     except UserError:
         raise
@@ -257,13 +363,14 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     }
 
 
-def get_idea_model_only(params: Any, entity_id: int) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_model_only(params: Any, entity_id: int, _analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
     """Create IDEA model only (without running analysis)."""
     progress_message("Genereren IDEA model...")
     model = create_bridge_idea_model(params, entity_id)
+    # Extract raw bytes — Viktor File/BytesIO objects are not picklable
+    xml_bytes = _extract_file_content(model.generate_xml_input())
     return {
-        "model": model,
-        "idea_xml_input_bytes": model.generate_xml_input(),
+        "idea_xml_input_bytes": xml_bytes,
         "analysis_status": "model_created",
     }
 
@@ -381,6 +488,10 @@ class AnalysisCache:
         template_path: str | None = None,
     ) -> dict[str, Any] | None:
         """Get cached analysis results if available."""
+        import logging as _log_mod
+
+        _cache_log = _log_mod.getLogger(__name__)
+
         cache_key = ""
         try:
             # Generate hash (with memoization - this should be fast on subsequent calls)
@@ -391,6 +502,7 @@ class AnalysisCache:
             # Note: request_cache is a class variable, shared across all AnalysisCache instances
             # within the same worker process for optimal performance
             if cache_key in AnalysisCache.request_cache:
+                _cache_log.info("[CACHE-DIAG] entity=%s type=%s request_cache HIT key=%s", entity_id, analysis_type.value, cache_key)
                 return AnalysisCache.request_cache[cache_key]
 
             # Get entity object for cross-entity storage access
@@ -420,6 +532,14 @@ class AnalysisCache:
                 cached_data = base64.b64decode(encoded_data)
                 results = pickle.loads(cached_data)
 
+                _cache_log.info(
+                    "[CACHE-DIAG] entity=%s type=%s storage HIT key=%s data_keys=%s",
+                    entity_id,
+                    analysis_type.value,
+                    cache_key,
+                    list(results.keys()) if isinstance(results, dict) else type(results).__name__,
+                )
+
                 # Store in request-level cache for subsequent views in same request
                 AnalysisCache.request_cache[cache_key] = results
 
@@ -432,7 +552,9 @@ class AnalysisCache:
                         del AnalysisCache.request_cache[key_to_remove]
 
                 return results
+            _cache_log.info("[CACHE-DIAG] entity=%s type=%s storage MISS key=%s", entity_id, analysis_type.value, cache_key)
         except Exception as e:
+            _cache_log.warning("[CACHE-DIAG] entity=%s type=%s key=%s error=%s: %s", entity_id, analysis_type.value, cache_key, type(e).__name__, e)
             if isinstance(e, InternalError):
                 self._write_storage_warning(f"Opslag lezen mislukt voor {cache_key or 'onbekende sleutel'} ({analysis_type.value})")
 
@@ -489,7 +611,7 @@ class AnalysisCache:
         except Exception:
             return False
 
-    def cache_analysis_results(  # noqa: C901, PLR0912
+    def cache_analysis_results(  # noqa: C901, PLR0911, PLR0912
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,
@@ -506,6 +628,10 @@ class AnalysisCache:
         input_hash = self._generate_input_hash(params, analysis_type, template_path)
         cache_key = f"analysis_cache_{entity_id}_{analysis_type.value}_{input_hash}"
 
+        import logging as _log_mod
+
+        _save_log = _log_mod.getLogger(__name__)
+
         try:
             # Filter results to exclude large binary files (ESA, XML output)
             if analysis_type == AnalysisType.SCIA:
@@ -515,12 +641,29 @@ class AnalysisCache:
             else:
                 cacheable_results = results  # Fallback
 
+            _save_log.info(
+                "[CACHE-DIAG] saving entity=%s type=%s cacheable_keys=%s",
+                entity_id,
+                analysis_type.value,
+                list(cacheable_results.keys()) if isinstance(cacheable_results, dict) else "?",
+            )
+
             # Pickle the filtered results and encode as base64 to avoid binary data issues
             progress_message("Cache: resultaten serialiseren (pickle)...")
-            cached_data = pickle.dumps(cacheable_results)
-            pickle_size_mb = len(cached_data) / (1024 * 1024)
+            try:
+                cached_data = pickle.dumps(cacheable_results)
+                pickle_size_mb = len(cached_data) / (1024 * 1024)
+                progress_message(f"Cache: pickle grootte {pickle_size_mb:.1f} MB — base64 coderen...")
+            except Exception as pickle_err:
+                _save_log.error(
+                    "[CACHE-DIAG] entity=%s type=%s PICKLE FAILED: %s — keys that failed: %s",
+                    entity_id,
+                    analysis_type.value,
+                    pickle_err,
+                    [k for k in (cacheable_results or {}) if not _is_picklable(cacheable_results[k])],
+                )
+                return False
 
-            progress_message(f"Cache: pickle grootte {pickle_size_mb:.1f} MB — base64 coderen...")
             encoded_data = base64.b64encode(cached_data).decode("utf-8")
             del cached_data  # pickle bytes niet meer nodig na base64 codering
             size_mb = len(encoded_data) / (1024 * 1024)
@@ -587,6 +730,9 @@ class AnalysisCache:
                     # Fallback: use current entity scope if API unavailable
                     self.storage.set(cache_key, data=cached_file, scope="entity")
                 self._clear_storage_warning()
+                _save_log.info(
+                    "[CACHE-DIAG] entity=%s type=%s STORAGE WRITE OK key=%s size=%.2fMB", entity_id, analysis_type.value, cache_key, size_mb
+                )
 
                 # Store in request-level cache as well
                 AnalysisCache.request_cache[cache_key] = cacheable_results
@@ -596,6 +742,14 @@ class AnalysisCache:
                 return True  # noqa: TRY300
 
             except Exception as storage_error:
+                _save_log.error(
+                    "[CACHE-DIAG] entity=%s type=%s STORAGE WRITE FAILED key=%s error=%s: %s",
+                    entity_id,
+                    analysis_type.value,
+                    cache_key,
+                    type(storage_error).__name__,
+                    storage_error,
+                )
                 # Storage write failed - store in request-level cache anyway for this session
                 AnalysisCache.request_cache[cache_key] = cacheable_results
 
