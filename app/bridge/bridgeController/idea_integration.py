@@ -100,7 +100,7 @@ class IdeaIntegration:
 
         return TableResult(result["data"], column_headers=result["headers"])
 
-    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:
+    def download_idea_xml_file(self, params: BridgeParametrization, **kwargs) -> DownloadResult:  # noqa: C901
         """
         Download IDEA StatiCa RCS XML input file for cross-section analysis.
 

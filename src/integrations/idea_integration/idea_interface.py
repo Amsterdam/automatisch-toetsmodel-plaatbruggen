@@ -20,20 +20,6 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 from viktor.external import idea_rcs
 
-_log = logging.getLogger(__name__)
-
-
-def _safe(value: Any, default: float = 0.0) -> float:  # noqa: ANN401
-    """Convert to float, replacing NaN/inf with default."""
-    try:
-        v = float(value)
-        if math.isfinite(v):
-            return v
-    except (TypeError, ValueError):
-        pass
-    return default
-
-
 from src.common.constants.technical import MM_TO_M
 from src.data_models.idea_models import ReinforcementConfigData
 from src.geometry.bridge_geometry_data import create_node_and_thickness_dict
@@ -54,6 +40,19 @@ from src.integrations.idea_integration.idea_material_mapping import (
     create_concrete_material_for_idea,
     create_reinforcement_material_for_idea,
 )
+
+_log = logging.getLogger(__name__)
+
+
+def _safe(value: Any, default: float = 0.0) -> float:  # noqa: ANN401
+    """Convert to float, replacing NaN/inf with default."""
+    try:
+        v = float(value)
+        if math.isfinite(v):
+            return v
+    except (TypeError, ValueError):
+        pass
+    return default
 
 # SDK import only for TYPE_CHECKING and analysis execution
 # Note: run_idea_analysis() still uses direct SDK for analysis execution

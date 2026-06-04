@@ -46,12 +46,13 @@ def _is_picklable(obj: Any) -> bool:  # noqa: ANN401
     """Check whether an object can be pickled without error."""
     try:
         pickle.dumps(obj)
-        return True
     except Exception:
         return False
+    else:
+        return True
 
 
-def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912
+def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901, PLR0912, PLR0915
     """
     Run IDEA analysis and extract results.
 
@@ -124,7 +125,7 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     except Exception as e:
         # IDEA SDK may raise ExecutionError with "Idea model cannot be generated"
         error_msg = str(e)
-        logger.error("[IDEA-DIAG] entity=%s generate_xml_input failed: %s", entity_id, error_msg)
+        logger.exception("[IDEA-DIAG] entity=%s generate_xml_input failed: %s", entity_id, error_msg)
         if "cannot be generated" in error_msg.lower() or "cannot be generated" in error_msg:
             raise UserError(
                 "IDEA model kan niet worden gegenereerd. "
@@ -143,7 +144,7 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
         logger.info("[IDEA-DIAG] entity=%s analysis.execute() succeeded", entity_id)
     except Exception as e:
         error_msg = str(e)
-        logger.error("[IDEA-DIAG] entity=%s analysis.execute() failed: %s", entity_id, error_msg)
+        logger.exception("[IDEA-DIAG] entity=%s analysis.execute() failed: %s", entity_id, error_msg)
         if "cannot be generated" in error_msg.lower():
             raise UserError(
                 "IDEA model kan niet worden gegenereerd. "
@@ -241,7 +242,7 @@ def get_idea_analysis_results(params: Any, entity_id: int, analysis_context: dic
     return results
 
 
-def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
+def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401, C901
     """
     Get SCIA results that are needed for IDEA analysis.
 
@@ -295,7 +296,8 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
             str(SCIA_TEMPLATE_SECTIONS_ON_PLANE_GOVERNING_PATH) if result_type == RESULT_OBJECT_SECTIONS_ON_PLANE else str(SCIA_TEMPLATE_PATH)
         )
         # Re-order so the preferred path is tried first
-        all_template_paths = [preferred_path] + [p for p in all_template_paths if p != preferred_path]
+        other_paths: list[str | None] = [p for p in all_template_paths if p != preferred_path]
+        all_template_paths = [preferred_path, *other_paths]
 
         progress_message(
             f"{prefix}[DIAG] SCIA cache zoeken: result_type={result_type!r}, preferred_path={preferred_path!r}",
@@ -314,13 +316,14 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
         for tpath in all_template_paths:
             candidate = cache.get_cached_analysis(params, AnalysisType.SCIA, entity_id, tpath)
             hit = candidate is not None
-            has_env = hit and ("integration_strips" in candidate or "sections_on_plane" in candidate)
+            has_env = candidate is not None and ("integration_strips" in candidate or "sections_on_plane" in candidate)
             progress_message(
                 f"{prefix}[DIAG] Cache check path={tpath!r}: hit={hit}, heeft_envelop={has_env}",
                 percentage=percentage,
             )
             _diag_log.info("[SCIA-DIAG-IDEA] entity=%s path=%r hit=%s has_envelope=%s", entity_id, tpath, hit, has_env)
             if has_env:
+                assert candidate is not None
                 keys_found = [k for k in ("integration_strips", "sections_on_plane") if k in candidate]
                 progress_message(
                     f"{prefix}[DIAG] Cache hit gevonden met sleutels: {keys_found}",
@@ -360,7 +363,7 @@ def get_scia_results_for_idea(params: Any, entity_id: int, analysis_context: dic
     }
 
 
-def get_idea_model_only(params: Any, entity_id: int, analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
+def get_idea_model_only(params: Any, entity_id: int, _analysis_context: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: ANN401
     """Create IDEA model only (without running analysis)."""
     progress_message("Genereren IDEA model...")
     model = create_bridge_idea_model(params, entity_id)
@@ -608,7 +611,7 @@ class AnalysisCache:
         except Exception:
             return False
 
-    def cache_analysis_results(  # noqa: C901, PLR0912
+    def cache_analysis_results(  # noqa: C901, PLR0911, PLR0912
         self,
         params: Any,  # noqa: ANN401
         analysis_type: AnalysisType,

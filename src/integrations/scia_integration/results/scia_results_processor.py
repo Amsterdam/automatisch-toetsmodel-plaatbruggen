@@ -20,7 +20,7 @@ INTEGRATION_STRIP_DATA_KEY = "Resultaten over integratiestroken:"
 INTEGRATION_STRIP_DATA_KEY_EN = "Results on integration strips:"
 
 
-def extract_nested_table_data(  # noqa: PLR0911
+def extract_nested_table_data(  # noqa: C901, PLR0911
     table_data: dict[str, Any] | None,
     expected_columns: list[str] | None = None,
 ) -> dict[str, Any] | None:
