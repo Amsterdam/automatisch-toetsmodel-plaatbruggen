@@ -2,7 +2,7 @@
 app_type = "tree"
 
 # Specify the Python version
-python_version = "3.12"
+python_version = "3.14"
 
 # This should match the name of your app on the VIKTOR platform
 registered_name = "automatisch-toetsmodel-plaatbruggen" 

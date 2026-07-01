@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "automatisch-toetsmodel-plaatbruggen"
 description = "A short description of your package"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
@@ -28,7 +28,7 @@ include = ["../automatisch-toetsmodel-plaatbruggen"]
 
 # mypy settings
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 show_error_codes = true
 pretty = true
 exclude = [
