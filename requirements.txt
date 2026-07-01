@@ -1,4 +1,4 @@
-viktor==14.22.0
+viktor==14.29.1
 numpy
 scipy
 pandas
@@ -10,6 +10,6 @@ shapely
 trimesh
 networkx
 docxtpl
-pydantic==2.10.3
+pydantic==2.13.4
 openpyxl
 setuptools<81  # Pin to avoid pkg_resources deprecation warning from docxcompose

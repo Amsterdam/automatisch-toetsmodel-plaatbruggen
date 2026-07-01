@@ -1,3 +1,10 @@
+## [`v0.0.34`] - 2026-07-01
+### Changed
+- **Python-versie geüpgraded van 3.12 naar 3.14** (n.a.v. DWO/ICT security-verplichting; oude versies worden per augustus 2026 verwijderd). VIKTOR ondersteunt Python 3.14 sinds de januari-2026 platformrelease.
+  - `viktor.config.toml`: `python_version` `3.12` → `3.14`.
+  - `pyproject.toml`: `requires-python` en mypy `python_version` naar `3.14`.
+  - `requirements.txt` / `requirements_dev.txt`: `viktor` `14.22.0` → `14.29.1` en `pydantic` `2.10.3` → `2.13.4` (beide oude pins ondersteunen geen 3.14). Overige (numpy/scipy/pandas/geopandas/shapely/trimesh) zijn unpinned en lossen automatisch op naar 3.14-compatibele wheels.
+
 ## [`v0.0.33`] - 2026-06-04
 ### Added
 - **Rebar configuration**: Added rebar with diameter of 28 millimeter.
